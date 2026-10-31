@@ -151,12 +151,10 @@ pub mod settings_keys {
     pub const REQUEST_BUDGET_BACKFILL_TODAY: &str = "__request_budget_backfill_today";
     pub const REQUEST_BUDGET_DAY_OFFSET: &str = "__request_budget_day_offset";
     pub const REQUEST_BUDGET_LADDER_STEP: &str = "__request_budget_ladder_step";
-    /// The backfill's one-time burst: when it armed (an RFC 3339 instant,
-    /// empty for not yet), the requests it has admitted, and whether it is
-    /// over for good (`1`).
-    pub const REQUEST_BUDGET_BURST_ARMED_AT: &str = "__request_budget_burst_armed_at";
-    pub const REQUEST_BUDGET_BURST_DRAWN: &str = "__request_budget_burst_drawn";
-    pub const REQUEST_BUDGET_BURST_SPENT: &str = "__request_budget_burst_spent";
+    /// The budget day that carries the upgrade share (a `YYYY-MM-DD` date,
+    /// empty for none yet). Rows an earlier release wrote for a one-time burst
+    /// are no longer read and are left where they are.
+    pub const REQUEST_BUDGET_UPGRADE_DAY: &str = "__request_budget_upgrade_day";
 }
 
 /// The request budget the settings rows hold, from any connection. `None`
@@ -178,18 +176,15 @@ pub fn request_budget_from(
     let cooldown_until = setting_from(conn, settings_keys::REQUEST_BUDGET_COOLDOWN_UNTIL)?
         .and_then(|raw| chrono::DateTime::parse_from_rfc3339(&raw).ok())
         .map(|at| at.with_timezone(&chrono::Utc));
-    let burst_armed_at = setting_from(conn, settings_keys::REQUEST_BUDGET_BURST_ARMED_AT)?
-        .and_then(|raw| chrono::DateTime::parse_from_rfc3339(&raw).ok())
-        .map(|at| at.with_timezone(&chrono::Utc));
+    let upgrade_day = setting_from(conn, settings_keys::REQUEST_BUDGET_UPGRADE_DAY)?
+        .and_then(|raw| chrono::NaiveDate::parse_from_str(&raw, "%Y-%m-%d").ok());
     Ok(Some(crate::governor::StoredBudget {
         cooldown_until,
         day,
         backfill_today: number(settings_keys::REQUEST_BUDGET_BACKFILL_TODAY)?,
         day_offset_secs: number(settings_keys::REQUEST_BUDGET_DAY_OFFSET)?,
         ladder_step: number(settings_keys::REQUEST_BUDGET_LADDER_STEP)?,
-        burst_armed_at,
-        burst_drawn: number(settings_keys::REQUEST_BUDGET_BURST_DRAWN)?,
-        burst_spent: number(settings_keys::REQUEST_BUDGET_BURST_SPENT)? != 0,
+        upgrade_day,
     }))
 }
 
@@ -225,19 +220,11 @@ pub fn set_request_budget_on(
             stored.ladder_step.to_string(),
         ),
         (
-            settings_keys::REQUEST_BUDGET_BURST_ARMED_AT,
+            settings_keys::REQUEST_BUDGET_UPGRADE_DAY,
             stored
-                .burst_armed_at
-                .map(|at| at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+                .upgrade_day
+                .map(|day| day.format("%Y-%m-%d").to_string())
                 .unwrap_or_default(),
-        ),
-        (
-            settings_keys::REQUEST_BUDGET_BURST_DRAWN,
-            stored.burst_drawn.to_string(),
-        ),
-        (
-            settings_keys::REQUEST_BUDGET_BURST_SPENT,
-            u32::from(stored.burst_spent).to_string(),
         ),
     ]
     .map(|(key, value)| (key.to_string(), value));
@@ -729,11 +716,9 @@ mod tests {
             backfill_today: 412,
             day_offset_secs: 1_234,
             ladder_step: 2,
-            burst_armed_at: Some(at("2026-03-04T10:00:00Z")),
-            burst_drawn: 500,
-            burst_spent: true,
+            upgrade_day: chrono::NaiveDate::from_ymd_opt(2026, 3, 3),
         };
-        assert_eq!(set_request_budget_on(&engine.db, &held).unwrap(), 8);
+        assert_eq!(set_request_budget_on(&engine.db, &held).unwrap(), 6);
         drop(engine);
 
         let reopened = PersistentEngine::new(path.to_str().unwrap()).unwrap();

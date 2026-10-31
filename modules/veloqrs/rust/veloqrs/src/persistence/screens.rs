@@ -228,7 +228,11 @@ pub fn background_jobs_data(
     let stream_days_to_finish = crate::net::stream_backfill::queue_estimate(conn)
         .ok()
         .and_then(|(owed, _)| {
-            crate::governor::days_to_draw(owed, crate::governor::BACKFILL_ALLOWANCE)
+            crate::governor::days_to_draw(
+                owed,
+                crate::governor::BACKFILL_ALLOWANCE,
+                crate::governor::backfill_share_today().unwrap_or_default(),
+            )
         });
     let hold = crate::net::resume::downloads_hold();
     Ok(crate::FfiBackgroundJobsData {
@@ -251,6 +255,7 @@ pub fn background_jobs_data(
                 days_to_finish: crate::governor::days_to_draw(
                     u64::from(total.saturating_sub(done)),
                     crate::governor::BACKFILL_ALLOWANCE,
+                    crate::governor::backfill_share_today().unwrap_or_default(),
                 ),
             },
         ),

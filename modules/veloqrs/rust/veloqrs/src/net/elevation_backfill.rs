@@ -78,7 +78,7 @@
 //! in this process is accepted, and the next launch begins unpaused with no
 //! code to clear it, so a forgotten pause can never strand the migration.
 
-use crate::governor::{BACKFILL_BURST, Lane};
+use crate::governor::{Lane, UPGRADE_DAY_BACKFILL_SHARE};
 use crate::net::intervals::endpoints::{DEFAULT_STREAM_TYPES, TRACK_STREAM_TYPES};
 use crate::net::source::Source;
 use crate::net::transport::{NetError, Transport};
@@ -751,7 +751,7 @@ const CUTOVER_SLICE_SQL: &str = concat!(
 
 /// The tracks the cutover cuts on and their elevation states: the newest ones
 /// inside [`CUTOVER_SLICE_DAYS`] of the newest track, and no more than the
-/// first sitting's burst can fetch. A library smaller than that is its own
+/// upgrade day's share can fetch. A library smaller than that is its own
 /// slice.
 ///
 /// Measured from the newest track and not from the clock, so an athlete who
@@ -760,7 +760,7 @@ const CUTOVER_SLICE_SQL: &str = concat!(
 pub(crate) fn pooled_cutover_slice(conn: &rusqlite::Connection) -> SqlResult<Vec<(String, u8)>> {
     let rows = conn
         .prepare(CUTOVER_SLICE_SQL)?
-        .query_map(params![i64::from(BACKFILL_BURST)], |row| {
+        .query_map(params![i64::from(UPGRADE_DAY_BACKFILL_SHARE)], |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, i64>(1)?,
@@ -1639,6 +1639,7 @@ fn drain_staged(install: u64, session: &LiveSource, queue: &[(String, String)]) 
     let Some(slice) = slice else {
         return (drain_queue(install, session, queue, true), false);
     };
+    crate::persistence::cutover::mark_upgrade_day();
     let slice: std::collections::HashSet<String> = slice.into_iter().map(|(id, _)| id).collect();
     let (head, tail) = split_at_slice(queue, &slice);
     if tail.is_empty() {
@@ -3731,7 +3732,7 @@ mod tests {
 
         fn budgeted() -> Arc<Governor> {
             let one = Allowance {
-                per_fifteen_minutes: 1,
+                per_fifteen_minutes: Some(1),
                 per_day: None,
             };
             Arc::new(

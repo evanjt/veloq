@@ -427,11 +427,13 @@ function RequestBudgetDebug({ isDark, dashboard }: { isDark: boolean; dashboard:
             isDark={isDark}
           />
           <StatRow label="Daily reset" value={instant(budget.nextReset)} isDark={isDark} />
-          <StatRow
-            label="Backfill, 15 min"
-            value={share(budget.backfillLastFifteenMinutes, budget.backfillPerFifteenMinutes)}
-            isDark={isDark}
-          />
+          {budget.backfillPerFifteenMinutes != null && (
+            <StatRow
+              label="Backfill, 15 min"
+              value={share(budget.backfillLastFifteenMinutes, budget.backfillPerFifteenMinutes)}
+              isDark={isDark}
+            />
+          )}
           <StatRow
             label="Backfill, today"
             value={share(budget.backfillToday, budget.backfillPerDay)}

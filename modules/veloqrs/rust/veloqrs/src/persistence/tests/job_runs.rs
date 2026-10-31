@@ -314,7 +314,7 @@ fn a_library_owing_more_than_a_day_reports_the_days_it_takes() {
     let data = read(&engine);
     assert_eq!(
         data.stream_days_to_finish,
-        days_to_draw(u64::from(per_day) + 1, BACKFILL_ALLOWANCE)
+        days_to_draw(u64::from(per_day) + 1, BACKFILL_ALLOWANCE, per_day)
     );
     assert_eq!(data.stream_days_to_finish, Some(2));
 

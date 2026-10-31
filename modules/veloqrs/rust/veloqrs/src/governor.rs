@@ -360,51 +360,60 @@ pub enum AfterRefusal {
     Cooldown { until: DateTime<Utc> },
 }
 
-/// One intent's share: how many requests in any rolling fifteen minutes, and
-/// how many in a budget day.
+/// One intent's share: how many requests in any rolling fifteen minutes, if
+/// the intent has a window, and how many in a budget day.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Allowance {
-    pub per_fifteen_minutes: u32,
+    pub per_fifteen_minutes: Option<u32>,
     pub per_day: Option<u32>,
 }
 
-/// The backfill's steady share for one install: 1,000 in a budget day, drawn
-/// no faster than 100 in any fifteen minutes.
+/// The backfill's share for one install: 800 in a budget day and no window.
 ///
 /// The day figure is the install's agreed share of the application's daily
-/// limit. The window figure is the day's share spread over the budget day: at
-/// 100 a window the day's 650 would take about an hour and a half of
-/// uninterrupted drawing, so the day figure is what stops the backfill and a
-/// single window never spends it all at once. The first pass of an install
-/// also draws [`BACKFILL_BURST`], once, before this applies.
+/// limit. The upstream limit is per day, so the backfill draws it as fast as
+/// the dispatch pace allows and is held only by the day's count, a cooldown
+/// after a refusal and a low budget figure on a response.
 pub const BACKFILL_ALLOWANCE: Allowance = Allowance {
-    per_fifteen_minutes: 100,
-    per_day: Some(1_000),
+    per_fifteen_minutes: None,
+    per_day: Some(800),
 };
 
-/// The one-time burst an install spends on top of its steady share: this many
-/// requests, drawn from the moment its first backfill pass arms it, so the
-/// recent activities rebuild at once. It lasts until spent rather than for a
-/// window, so an athlete who closes the app leaves the rest for the next quiet
-/// moment. It is counted apart from the day's count and from the window, and
-/// it never arms again.
-pub const BACKFILL_BURST: u32 = 500;
+/// The backfill's share for the one budget day on which an upgrade from a
+/// catalogue cut by an earlier release runs its cutover. It replaces the day's
+/// figure for that day alone and never applies again.
+pub const UPGRADE_DAY_BACKFILL_SHARE: u32 = 1_500;
 
 /// The whole days an allowance's daily cap takes to draw `owed` requests, when
 /// that is more than one day. `None` when the queue fits in one day, or when
 /// the allowance has no daily cap to count against.
-pub fn days_to_draw(owed: u64, allowance: Allowance) -> Option<u32> {
+///
+/// `first_day` is the share of the day the count starts on, which is larger
+/// than the allowance's own on the upgrade day.
+pub fn days_to_draw(owed: u64, allowance: Allowance, first_day: u32) -> Option<u32> {
     let per_day = u64::from(allowance.per_day?);
-    if per_day == 0 || owed <= per_day {
+    let first_day = u64::from(first_day.max(allowance.per_day?));
+    if per_day == 0 || owed <= first_day {
         return None;
     }
-    Some(u32::try_from(owed.div_ceil(per_day)).unwrap_or(u32::MAX))
+    let after_first = owed - first_day;
+    Some(u32::try_from(1 + after_first.div_ceil(per_day)).unwrap_or(u32::MAX))
+}
+
+/// The backfill's share of the budget day the process governor is in now: the
+/// upgrade day's figure while it is that day, else the allowance's. `None`
+/// where the backfill has no daily cap.
+pub fn backfill_share_today() -> Option<u32> {
+    match GOVERNOR.budget_snapshot(GOVERNOR.now()) {
+        Some(seen) => seen.backfill.per_day,
+        None => BACKFILL_ALLOWANCE.per_day,
+    }
 }
 
 /// The sync's share: a full pass asks about twenty, so fifty in any fifteen
 /// minutes lets two run back to back and stops a loop.
 pub const SYNC_ALLOWANCE: Allowance = Allowance {
-    per_fifteen_minutes: 50,
+    per_fifteen_minutes: Some(50),
     per_day: None,
 };
 
@@ -456,12 +465,9 @@ pub struct StoredBudget {
     pub day_offset_secs: u32,
     /// Cooldowns since the last success, which is the ladder's rung.
     pub ladder_step: u32,
-    /// When the one-time burst armed, or none while it has not.
-    pub burst_armed_at: Option<DateTime<Utc>>,
-    /// Burst requests admitted.
-    pub burst_drawn: u32,
-    /// Whether the burst is spent. It ends only by being drawn, never by time.
-    pub burst_spent: bool,
+    /// The budget day that carries the upgrade share, or none while no
+    /// cutover has marked one.
+    pub upgrade_day: Option<NaiveDate>,
 }
 
 /// Where the budget's state outlives the process. Read before every
@@ -493,9 +499,9 @@ pub struct FfiRequestBudget {
     pub backfill_today: u32,
     pub backfill_per_day: Option<u32>,
     pub backfill_last_fifteen_minutes: u32,
-    pub backfill_per_fifteen_minutes: u32,
+    pub backfill_per_fifteen_minutes: Option<u32>,
     pub sync_last_fifteen_minutes: u32,
-    pub sync_per_fifteen_minutes: u32,
+    pub sync_per_fifteen_minutes: Option<u32>,
     /// Until when a refusal's cooldown holds, or none.
     pub cooldown_until: Option<f64>,
     /// When this install's daily count next resets.
@@ -585,9 +591,8 @@ pub struct Budget {
     last_probe_at: Option<DateTime<Utc>>,
     /// Until when a low budget figure on a response holds the backfill.
     low_figure_until: Option<DateTime<Utc>>,
-    burst_armed_at: Option<DateTime<Utc>>,
-    burst_drawn: u32,
-    burst_spent: bool,
+    /// The budget day that carries the upgrade share. Set once.
+    upgrade_day: Option<NaiveDate>,
 }
 
 impl Budget {
@@ -612,30 +617,27 @@ impl Budget {
             headerless_in_a_row: 0,
             last_probe_at: None,
             low_figure_until: None,
-            burst_armed_at: None,
-            burst_drawn: 0,
-            burst_spent: false,
+            upgrade_day: None,
         }
     }
 
-    /// Whether the burst is spent, drawn to its figure. It has no window, so an
-    /// armed burst waits for the next quiet moment rather than lapsing. Once
-    /// true it stays true.
-    fn burst_over(&self) -> bool {
-        self.burst_spent || self.burst_drawn >= BACKFILL_BURST
-    }
-
-    /// Whether the burst is drawing: armed and not spent.
-    fn burst_open(&self) -> bool {
-        self.burst_armed_at.is_some() && !self.burst_over()
-    }
-
-    /// Start the one-time burst when a backfill pass starts. It arms once per
-    /// install: a burst already armed, or over, is left as it is.
-    pub fn arm_burst(&mut self, now: DateTime<Utc>) {
+    /// Give the budget day `now` falls in the upgrade share. It marks once
+    /// per install: a day already marked, on any date, is left as it is, so the
+    /// share never applies to a second day.
+    pub fn mark_upgrade_day(&mut self, now: DateTime<Utc>) {
         self.roll(now);
-        if self.burst_armed_at.is_none() && !self.burst_spent {
-            self.burst_armed_at = Some(now);
+        if self.upgrade_day.is_none() {
+            self.upgrade_day = Some(self.budget_day(now));
+        }
+    }
+
+    /// The backfill's day figure on the budget day `now` falls in.
+    fn backfill_day_share(&self, now: DateTime<Utc>) -> Option<u32> {
+        let per_day = self.backfill_allowance.per_day?;
+        if self.upgrade_day == Some(self.budget_day(now)) {
+            Some(per_day.max(UPGRADE_DAY_BACKFILL_SHARE))
+        } else {
+            Some(per_day)
         }
     }
 
@@ -663,7 +665,6 @@ impl Budget {
             self.day = Some(day);
             self.today = DayCounts::default();
         }
-        self.burst_spent = self.burst_over();
         let horizon = now - FIFTEEN_MINUTES;
         for recent in [&mut self.backfill_recent, &mut self.sync_recent] {
             // A clock moved back leaves entries ahead of now. They are kept,
@@ -691,18 +692,14 @@ impl Budget {
     }
 
     /// Until when the backfill's own share holds it at `now`: a low budget
-    /// figure, then, once the burst is over, the day's count or a full
-    /// fifteen-minute window.
+    /// figure, the day's count, or a full fifteen-minute window where the
+    /// allowance has one.
     fn backfill_held_until(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
         let low_figure = self.low_figure_until.filter(|until| *until > now);
-        if self.burst_open() {
-            return low_figure;
-        }
         [
             low_figure,
-            self.backfill_allowance
-                .per_day
-                .filter(|per_day| self.today.backfill >= *per_day)
+            self.backfill_day_share(now)
+                .filter(|share| self.today.backfill >= *share)
                 .map(|_| self.next_reset(now)),
             window_full(&self.backfill_recent, self.backfill_allowance),
         ]
@@ -746,11 +743,6 @@ impl Budget {
             Intent::Backfill => {
                 if let Some(until) = self.backfill_held_until(now) {
                     return Admission::Deferred { until };
-                }
-                if self.burst_open() {
-                    self.burst_drawn = self.burst_drawn.saturating_add(1);
-                    self.burst_spent = self.burst_over();
-                    return Admission::Admitted;
                 }
                 self.backfill_recent.push_back(now);
                 self.today.backfill = self.today.backfill.saturating_add(1);
@@ -853,9 +845,7 @@ impl Budget {
             },
             day_offset_secs: u32::try_from(self.day_offset.num_seconds()).unwrap_or(0),
             ladder_step: self.ladder_step,
-            burst_armed_at: self.burst_armed_at,
-            burst_drawn: self.burst_drawn,
-            burst_spent: self.burst_over(),
+            upgrade_day: self.upgrade_day,
         }
     }
 
@@ -884,12 +874,10 @@ impl Budget {
             self.today.backfill = self.today.backfill.max(stored.backfill_today);
         }
         self.ladder_step = self.ladder_step.max(stored.ladder_step);
-        self.burst_armed_at = match (self.burst_armed_at, stored.burst_armed_at) {
+        self.upgrade_day = match (self.upgrade_day, stored.upgrade_day) {
             (Some(held), Some(kept)) => Some(held.min(kept)),
             (held, kept) => held.or(kept),
         };
-        self.burst_drawn = self.burst_drawn.max(stored.burst_drawn);
-        self.burst_spent |= stored.burst_spent;
         self.roll(now);
     }
 
@@ -901,7 +889,10 @@ impl Budget {
             backfill_last_fifteen_minutes: u32::try_from(self.backfill_recent.len())
                 .unwrap_or(u32::MAX),
             sync_last_fifteen_minutes: u32::try_from(self.sync_recent.len()).unwrap_or(u32::MAX),
-            backfill: self.backfill_allowance,
+            backfill: Allowance {
+                per_day: self.backfill_day_share(now),
+                ..self.backfill_allowance
+            },
             sync: self.sync_allowance,
             cooldown_until: self.cooldown_until(now),
             next_reset: self.next_reset(now),
@@ -911,7 +902,7 @@ impl Budget {
 
 /// When the oldest entry leaves a full window, or `None` while it has room.
 fn window_full(recent: &VecDeque<DateTime<Utc>>, allowance: Allowance) -> Option<DateTime<Utc>> {
-    let cap = allowance.per_fifteen_minutes as usize;
+    let cap = allowance.per_fifteen_minutes? as usize;
     if recent.len() < cap {
         return None;
     }
@@ -1210,10 +1201,11 @@ impl Governor {
             .unwrap_or(Admission::Admitted)
     }
 
-    /// Arm the one-time burst, as every process sees it. A pacing-only
-    /// governor has none.
-    pub fn arm_backfill_burst(&self, now: DateTime<Utc>) {
-        self.with_budget_state(now, |budget| budget.arm_burst(now));
+    /// Mark the budget day `now` falls in as the upgrade day, as every
+    /// process sees it. The cutover is the one caller. A pacing-only governor
+    /// has no day count to mark.
+    pub fn mark_upgrade_day(&self, now: DateTime<Utc>) {
+        self.with_budget_state(now, |budget| budget.mark_upgrade_day(now));
     }
 
     /// Record a 429 and say what the request that drew it does next. `probe`
@@ -1390,55 +1382,199 @@ mod tests {
     #[test]
     fn a_queue_past_one_days_cap_reports_the_whole_days_it_takes() {
         let daily = Allowance {
-            per_fifteen_minutes: 225,
+            per_fifteen_minutes: Some(225),
             per_day: Some(600),
         };
-        assert_eq!(days_to_draw(0, daily), None);
-        assert_eq!(days_to_draw(1, daily), None);
-        assert_eq!(days_to_draw(600, daily), None);
-        assert_eq!(days_to_draw(601, daily), Some(2));
-        assert_eq!(days_to_draw(1_200, daily), Some(2));
-        assert_eq!(days_to_draw(1_201, daily), Some(3));
+        assert_eq!(days_to_draw(0, daily, 600), None);
+        assert_eq!(days_to_draw(1, daily, 600), None);
+        assert_eq!(days_to_draw(600, daily, 600), None);
+        assert_eq!(days_to_draw(601, daily, 600), Some(2));
+        assert_eq!(days_to_draw(1_200, daily, 600), Some(2));
+        assert_eq!(days_to_draw(1_201, daily, 600), Some(3));
 
         let uncapped = Allowance {
-            per_fifteen_minutes: 225,
+            per_fifteen_minutes: Some(225),
             per_day: None,
         };
-        assert_eq!(days_to_draw(10_000, uncapped), None);
+        assert_eq!(days_to_draw(10_000, uncapped, 600), None);
 
         let zero = Allowance {
-            per_fifteen_minutes: 225,
+            per_fifteen_minutes: Some(225),
             per_day: Some(0),
         };
-        assert_eq!(days_to_draw(10, zero), None);
+        assert_eq!(days_to_draw(10, zero, 0), None);
     }
 
-    /// Expected behaviour: the backfill's share is a thousand requests in a
-    /// budget day, and a queue past it reports the whole days it takes.
+    /// Expected behaviour: the backfill's share is 800 requests in a budget
+    /// day with no window, and a queue past it reports the whole days it takes.
     #[test]
-    fn the_backfill_share_is_a_thousand_a_day() {
-        assert_eq!(BACKFILL_ALLOWANCE.per_day, Some(1_000));
-        assert_eq!(days_to_draw(1_000, BACKFILL_ALLOWANCE), None);
-        assert_eq!(days_to_draw(1_001, BACKFILL_ALLOWANCE), Some(2));
-        assert_eq!(days_to_draw(2_600, BACKFILL_ALLOWANCE), Some(3));
+    fn the_backfill_share_is_eight_hundred_a_day_with_no_window() {
+        assert_eq!(BACKFILL_ALLOWANCE.per_day, Some(800));
+        assert_eq!(BACKFILL_ALLOWANCE.per_fifteen_minutes, None);
+        assert_eq!(days_to_draw(800, BACKFILL_ALLOWANCE, 800), None);
+        assert_eq!(days_to_draw(801, BACKFILL_ALLOWANCE, 800), Some(2));
+        assert_eq!(days_to_draw(2_000, BACKFILL_ALLOWANCE, 800), Some(3));
     }
 
-    /// Expected behaviour: a thousand backfill requests are admitted in a
-    /// budget day, windows permitting, and the next waits for the reset.
+    /// Expected behaviour: on the upgrade day the first day counts at 1,500,
+    /// and the days after it at 800.
     #[test]
-    fn a_thousand_backfill_requests_fit_a_budget_day() {
+    fn the_upgrade_day_counts_at_its_own_share_in_the_days_to_draw() {
+        let first = UPGRADE_DAY_BACKFILL_SHARE;
+        assert_eq!(days_to_draw(1_500, BACKFILL_ALLOWANCE, first), None);
+        assert_eq!(days_to_draw(1_501, BACKFILL_ALLOWANCE, first), Some(2));
+        assert_eq!(days_to_draw(2_300, BACKFILL_ALLOWANCE, first), Some(2));
+        assert_eq!(days_to_draw(2_301, BACKFILL_ALLOWANCE, first), Some(3));
+    }
+
+    /// Scenario: a fresh budget, every request at one instant.
+    ///
+    /// Expected behaviour: 800 backfill requests go, the 801st waits for the
+    /// reset, and no fifteen-minute window holds any of them.
+    #[test]
+    fn a_fresh_budget_admits_eight_hundred_backfill_requests_at_one_instant() {
         let mut budget = Budget::new(0);
-        let mut now = at("2026-03-04T00:00:00Z");
-        for _ in 0..10 {
-            admit_n(&mut budget, Intent::Backfill, 100, now);
-            now += chrono::TimeDelta::minutes(16);
-        }
+        let now = at("2026-03-04T10:00:00Z");
+        admit_n(&mut budget, Intent::Backfill, 800, now);
         assert_eq!(
             budget.admit(Intent::Backfill, now),
             Admission::Deferred {
                 until: at("2026-03-05T00:00:00Z")
             }
         );
+        assert_eq!(budget.snapshot(now).today.backfill, 800);
+    }
+
+    /// Scenario: the day an upgrade runs its cutover.
+    ///
+    /// Expected behaviour: 1,500 go at one instant, the 1,501st waits for the
+    /// reset, and the next budget day admits 800.
+    #[test]
+    fn the_upgrade_day_admits_fifteen_hundred_and_the_next_day_eight_hundred() {
+        let mut budget = Budget::new(0);
+        let now = at("2026-03-04T10:00:00Z");
+        budget.mark_upgrade_day(now);
+        admit_n(&mut budget, Intent::Backfill, 1_500, now);
+        assert_eq!(
+            budget.admit(Intent::Backfill, now),
+            Admission::Deferred {
+                until: at("2026-03-05T00:00:00Z")
+            }
+        );
+        assert_eq!(budget.snapshot(now).backfill.per_day, Some(1_500));
+
+        let next = at("2026-03-05T10:00:00Z");
+        admit_n(&mut budget, Intent::Backfill, 800, next);
+        assert!(matches!(
+            budget.admit(Intent::Backfill, next),
+            Admission::Deferred { .. }
+        ));
+        assert_eq!(budget.snapshot(next).backfill.per_day, Some(800));
+    }
+
+    /// Expected behaviour: only the first mark counts, so the share applies to
+    /// one day and a later cutover start never gives another.
+    #[test]
+    fn the_upgrade_share_applies_to_one_day_only() {
+        let mut budget = Budget::new(0);
+        let first = at("2026-03-04T10:00:00Z");
+        budget.mark_upgrade_day(first);
+        let later = at("2026-03-06T10:00:00Z");
+        budget.mark_upgrade_day(later);
+        admit_n(&mut budget, Intent::Backfill, 800, later);
+        assert!(matches!(
+            budget.admit(Intent::Backfill, later),
+            Admission::Deferred { .. }
+        ));
+    }
+
+    /// Expected behaviour: the upgrade day is stored with the budget, so a
+    /// relaunch the same day keeps the share, another process sees it, and a
+    /// relaunch cannot mark a second day.
+    #[test]
+    fn the_upgrade_day_survives_a_stored_round_trip() {
+        let store = Arc::new(MemoryStore::default());
+        let start = at("2026-03-04T10:00:00Z");
+        let gov = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
+            Budget::new(0),
+            Some(store.clone()),
+            no_jitter,
+        );
+        gov.mark_upgrade_day(start);
+        for _ in 0..1_000 {
+            assert_eq!(gov.admit(Intent::Backfill, start), Admission::Admitted);
+        }
+        let kept = store.get().expect("the budget was written");
+        assert_eq!(kept.upgrade_day, Some(start.date_naive()));
+
+        let later = start + chrono::TimeDelta::hours(1);
+        let relaunched = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
+            Budget::new(0),
+            Some(store.clone()),
+            no_jitter,
+        );
+        for _ in 0..500 {
+            assert_eq!(
+                relaunched.admit(Intent::Backfill, later),
+                Admission::Admitted
+            );
+        }
+        assert!(matches!(
+            relaunched.admit(Intent::Backfill, later),
+            Admission::Deferred { .. }
+        ));
+
+        let next = at("2026-03-06T10:00:00Z");
+        relaunched.mark_upgrade_day(next);
+        assert_eq!(
+            store.get().and_then(|s| s.upgrade_day),
+            Some(start.date_naive()),
+            "a second mark leaves the first day"
+        );
+    }
+
+    /// Expected behaviour: a refusal inside a big run still sets the cooldown
+    /// and holds the next backfill request.
+    #[test]
+    fn a_refusal_inside_a_backfill_run_holds_the_next_request() {
+        let mut budget = Budget::new(0);
+        let now = at("2026-03-04T10:00:00Z");
+        admit_n(&mut budget, Intent::Backfill, 300, now);
+        let (rate, via) = via_app(60);
+        let after = budget.refused(&rate, via, b"", false, now, 0.0);
+        let AfterRefusal::Cooldown { until } = after else {
+            panic!("a refusal from the application sets the cooldown: {after:?}");
+        };
+        assert_eq!(
+            budget.admit(Intent::Backfill, now),
+            Admission::Deferred { until }
+        );
+    }
+
+    /// Expected behaviour: a low budget figure on a response holds the
+    /// backfill with no window to hold it otherwise.
+    #[test]
+    fn a_low_figure_holds_the_backfill() {
+        let mut budget = Budget::new(0);
+        let now = at("2026-03-04T10:00:00Z");
+        budget.succeeded(
+            &RateBudget {
+                limit: Some(RateWindows {
+                    fifteen_minutes: 100,
+                    daily: 1_000,
+                }),
+                remaining: Some(RateWindows {
+                    fifteen_minutes: 10,
+                    daily: 900,
+                }),
+                retry_after_secs: None,
+            },
+            now,
+        );
+        assert!(matches!(
+            budget.admit(Intent::Backfill, now),
+            Admission::Deferred { .. }
+        ));
     }
 
     #[test]
@@ -1760,313 +1896,12 @@ mod tests {
         }
     }
 
-    #[test]
-    fn budget_defers_backfill_past_its_15_minute_allowance() {
-        let mut budget = Budget::new(0);
-        let window = BACKFILL_ALLOWANCE.per_fifteen_minutes;
-        let first = at("2026-03-04T10:00:00Z");
-        assert_eq!(budget.admit(Intent::Backfill, first), Admission::Admitted);
-        admit_n(
-            &mut budget,
-            Intent::Backfill,
-            window - 1,
-            at("2026-03-04T10:05:00Z"),
-        );
-        assert_eq!(
-            budget.admit(Intent::Backfill, at("2026-03-04T10:06:00Z")),
-            Admission::Deferred {
-                until: at("2026-03-04T10:15:00Z")
-            },
-            "the one past the window waits for the oldest to leave it"
-        );
-        // A deferral counts nothing, so the window is unchanged by asking.
-        assert_eq!(
-            budget.snapshot(at("2026-03-04T10:06:00Z")).today.backfill,
-            window
-        );
-        assert_eq!(
-            budget.admit(Intent::Backfill, at("2026-03-04T10:15:00Z")),
-            Admission::Admitted
-        );
-        assert_eq!(
-            budget.admit(Intent::Backfill, at("2026-03-04T10:15:01Z")),
-            Admission::Deferred {
-                until: at("2026-03-04T10:20:00Z")
-            }
-        );
-        // The backfill's share is its own: the sync and the user still go.
-        assert_eq!(
-            budget.admit(Intent::Sync, at("2026-03-04T10:15:01Z")),
-            Admission::Admitted
-        );
-        assert_eq!(
-            budget.admit(Intent::User, at("2026-03-04T10:15:01Z")),
-            Admission::Admitted
-        );
-    }
-
-    /// Scenario: a fresh install's first backfill pass over a library of about
-    /// four hundred activities, one streams request a track, sent at the
-    /// dispatch pace after the pass armed the burst.
-    ///
-    /// Expected behaviour: the burst admits all of it, then the steady share
-    /// of 1,000 a day follows on top, held to its window.
-    #[test]
-    fn the_burst_admits_five_hundred_on_top_of_the_days_share() {
-        let mut budget = Budget::new(0);
-        let start = at("2026-03-04T10:00:00Z");
-        let pace = chrono::TimeDelta::milliseconds(1_000 / i64::from(MAX_DISPATCH_PER_SEC));
-        budget.arm_burst(start);
-        for i in 0..BACKFILL_BURST {
-            assert_eq!(
-                budget.admit(Intent::Backfill, start + pace * i as i32),
-                Admission::Admitted,
-                "burst request {i}"
-            );
-        }
-        let seen = budget.snapshot(start + pace * BACKFILL_BURST as i32);
-        assert_eq!(seen.today.backfill, 0, "the burst is counted apart");
-        assert_eq!(seen.backfill_last_fifteen_minutes, 0);
-
-        // The burst is drawn, so the steady share applies from the next one:
-        // a window of it now, then the window holds the rest.
-        let after = start + chrono::TimeDelta::minutes(1);
-        let window = BACKFILL_ALLOWANCE.per_fifteen_minutes;
-        admit_n(&mut budget, Intent::Backfill, window, after);
-        assert!(matches!(
-            budget.admit(Intent::Backfill, after),
-            Admission::Deferred { .. }
-        ));
-        assert_eq!(budget.snapshot(after).today.backfill, window);
-    }
-
-    /// Expected behaviour: with the burst armed and drawn, the whole first day
-    /// is the burst plus the day's 1,000, and nothing more.
-    #[test]
-    fn the_first_day_holds_the_burst_plus_the_daily_share() {
-        let mut budget = Budget::new(0);
-        let start = at("2026-03-04T08:00:00Z");
-        budget.arm_burst(start);
-        admit_n(&mut budget, Intent::Backfill, BACKFILL_BURST, start);
-        let per_day = BACKFILL_ALLOWANCE.per_day.expect("a daily allowance");
-        let window = BACKFILL_ALLOWANCE.per_fifteen_minutes;
-        let mut admitted = 0;
-        let mut now = start + chrono::TimeDelta::minutes(16);
-        while admitted < per_day {
-            let n = window.min(per_day - admitted);
-            admit_n(&mut budget, Intent::Backfill, n, now);
-            admitted += n;
-            now += chrono::TimeDelta::minutes(16);
-        }
-        assert_eq!(
-            budget.admit(Intent::Backfill, now),
-            Admission::Deferred {
-                until: at("2026-03-05T00:00:00Z")
-            },
-            "the day's share is spent"
-        );
-    }
-
-    /// Scenario: the app closes with the burst a tenth drawn and opens an hour
-    /// later.
-    ///
-    /// Expected behaviour: the burst still draws the rest, and the steady share
-    /// applies only once it is spent.
-    #[test]
-    fn an_undrawn_burst_waits_for_the_next_quiet_moment() {
-        let mut budget = Budget::new(0);
-        let start = at("2026-03-04T10:00:00Z");
-        budget.arm_burst(start);
-        admit_n(&mut budget, Intent::Backfill, 50, start);
-        let later = start + chrono::TimeDelta::hours(1);
-        admit_n(&mut budget, Intent::Backfill, BACKFILL_BURST - 50, later);
-        assert_eq!(
-            budget.snapshot(later).today.backfill,
-            0,
-            "the burst is counted apart"
-        );
-        let window = BACKFILL_ALLOWANCE.per_fifteen_minutes;
-        admit_n(&mut budget, Intent::Backfill, window, later);
-        assert!(matches!(
-            budget.admit(Intent::Backfill, later),
-            Admission::Deferred { .. }
-        ));
-    }
-
-    /// Scenario: the burst's last request is drawn on the budget day after the
-    /// pass armed it.
-    ///
-    /// Expected behaviour: that request is still a burst request, so the day's
-    /// share is untouched and the window applies from the request after it.
-    #[test]
-    fn the_burst_draws_its_last_request_on_a_later_day() {
-        let mut budget = Budget::new(0);
-        let start = at("2026-03-04T23:50:00Z");
-        budget.arm_burst(start);
-        admit_n(&mut budget, Intent::Backfill, BACKFILL_BURST - 1, start);
-        let next_day = at("2026-03-05T09:00:00Z");
-        assert_eq!(
-            budget.admit(Intent::Backfill, next_day),
-            Admission::Admitted
-        );
-        assert_eq!(
-            budget.snapshot(next_day).today.backfill,
-            0,
-            "the burst's last request is counted apart"
-        );
-        let window = BACKFILL_ALLOWANCE.per_fifteen_minutes;
-        admit_n(&mut budget, Intent::Backfill, window, next_day);
-        assert!(matches!(
-            budget.admit(Intent::Backfill, next_day),
-            Admission::Deferred { .. }
-        ));
-    }
-
-    /// Expected behaviour: nothing is drawn from the burst before a pass arms
-    /// it, and a pass that starts after it is spent arms nothing.
-    #[test]
-    fn a_spent_burst_never_arms_again() {
-        let mut budget = Budget::new(0);
-        let window = BACKFILL_ALLOWANCE.per_fifteen_minutes;
-        let start = at("2026-03-04T10:00:00Z");
-        admit_n(&mut budget, Intent::Backfill, window, start);
-        assert!(
-            matches!(
-                budget.admit(Intent::Backfill, start),
-                Admission::Deferred { .. }
-            ),
-            "an unarmed budget draws only the steady share"
-        );
-
-        let mut budget = Budget::new(0);
-        budget.arm_burst(start);
-        admit_n(&mut budget, Intent::Backfill, BACKFILL_BURST, start);
-        let later = start + chrono::TimeDelta::hours(2);
-        budget.arm_burst(later);
-        admit_n(&mut budget, Intent::Backfill, window, later);
-        assert!(
-            matches!(
-                budget.admit(Intent::Backfill, later),
-                Admission::Deferred { .. }
-            ),
-            "a second pass draws only the trickle"
-        );
-    }
-
-    /// Expected behaviour: the burst's state survives a relaunch and is shared
-    /// with another process, and a restored budget does not re-arm it.
-    #[test]
-    fn the_burst_state_survives_a_stored_round_trip() {
-        let store = Arc::new(MemoryStore::default());
-        let start = at("2026-03-04T10:00:00Z");
-        let gov = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
-            Budget::new(0),
-            Some(store.clone()),
-            no_jitter,
-        );
-        gov.arm_backfill_burst(start);
-        for _ in 0..BACKFILL_BURST {
-            assert_eq!(gov.admit(Intent::Backfill, start), Admission::Admitted);
-        }
-        let kept = store.get().expect("the budget was written");
-        assert_eq!(kept.burst_armed_at, Some(start));
-        assert_eq!(kept.burst_drawn, BACKFILL_BURST);
-        assert!(kept.burst_spent);
-
-        // A relaunch: a fresh budget adopts the stored state.
-        let later = start + chrono::TimeDelta::hours(1);
-        let relaunched = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
-            Budget::new(0),
-            Some(store.clone()),
-            no_jitter,
-        );
-        relaunched.arm_backfill_burst(later);
-        let window = BACKFILL_ALLOWANCE.per_fifteen_minutes;
-        for _ in 0..window {
-            assert_eq!(
-                relaunched.admit(Intent::Backfill, later),
-                Admission::Admitted
-            );
-        }
-        assert!(matches!(
-            relaunched.admit(Intent::Backfill, later),
-            Admission::Deferred { .. }
-        ));
-        assert!(store.get().is_some_and(|s| s.burst_spent));
-    }
-
-    /// Scenario: an upgrade draws two hundred of the burst, the app closes, and
-    /// it opens two hours later.
-    ///
-    /// Expected behaviour: the other three hundred are still available, and the
-    /// burst is stored as spent only once it is drawn.
-    #[test]
-    fn a_half_drawn_burst_survives_a_stored_round_trip() {
-        let store = Arc::new(MemoryStore::default());
-        let start = at("2026-03-04T10:00:00Z");
-        let gov = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
-            Budget::new(0),
-            Some(store.clone()),
-            no_jitter,
-        );
-        gov.arm_backfill_burst(start);
-        for _ in 0..200 {
-            assert_eq!(gov.admit(Intent::Backfill, start), Admission::Admitted);
-        }
-        let kept = store.get().expect("the budget was written");
-        assert_eq!(kept.burst_drawn, 200);
-        assert!(!kept.burst_spent);
-
-        let later = start + chrono::TimeDelta::hours(2);
-        let relaunched = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
-            Budget::new(0),
-            Some(store.clone()),
-            no_jitter,
-        );
-        relaunched.arm_backfill_burst(later);
-        for i in 0..BACKFILL_BURST - 200 {
-            assert_eq!(
-                relaunched.admit(Intent::Backfill, later),
-                Admission::Admitted,
-                "burst request {i} after the relaunch"
-            );
-        }
-        assert!(store.get().is_some_and(|s| s.burst_spent));
-    }
-
-    /// Expected behaviour: a low budget figure on a response holds the burst
-    /// like it holds the steady share.
-    #[test]
-    fn a_low_figure_holds_the_burst() {
-        let mut budget = Budget::new(0);
-        let now = at("2026-03-04T10:00:00Z");
-        budget.arm_burst(now);
-        budget.succeeded(
-            &RateBudget {
-                limit: Some(RateWindows {
-                    fifteen_minutes: 100,
-                    daily: 1_000,
-                }),
-                remaining: Some(RateWindows {
-                    fifteen_minutes: 10,
-                    daily: 900,
-                }),
-                retry_after_secs: None,
-            },
-            now,
-        );
-        assert!(matches!(
-            budget.admit(Intent::Backfill, now),
-            Admission::Deferred { .. }
-        ));
-    }
-
     /// Expected behaviour: asking when a request would be deferred answers
     /// what `admit` would, and counts and sends nothing.
     #[test]
     fn a_deferral_read_counts_nothing() {
         let one = Allowance {
-            per_fifteen_minutes: 1,
+            per_fifteen_minutes: Some(1),
             per_day: None,
         };
         let mut budget = Budget::with_allowances(one, one, 0);
@@ -2093,7 +1928,7 @@ mod tests {
         admit_n(
             &mut budget,
             Intent::Sync,
-            SYNC_ALLOWANCE.per_fifteen_minutes,
+            SYNC_ALLOWANCE.per_fifteen_minutes.expect("a sync window"),
             now,
         );
         assert_eq!(
@@ -2105,7 +1940,10 @@ mod tests {
         admit_n(&mut budget, Intent::User, 5_000, now);
         let seen = budget.snapshot(now);
         assert_eq!(seen.today.user, 5_000, "every user request is counted");
-        assert_eq!(seen.today.sync, SYNC_ALLOWANCE.per_fifteen_minutes);
+        assert_eq!(
+            seen.today.sync,
+            SYNC_ALLOWANCE.per_fifteen_minutes.expect("a sync window")
+        );
         assert_eq!(seen.today.backfill, 0);
     }
 
@@ -2131,7 +1969,7 @@ mod tests {
     fn an_uncapped_backfill_has_no_daily_limit() {
         let mut budget = Budget::with_allowances(
             Allowance {
-                per_fifteen_minutes: 100,
+                per_fifteen_minutes: Some(100),
                 per_day: None,
             },
             SYNC_ALLOWANCE,
@@ -2144,10 +1982,8 @@ mod tests {
     #[test]
     fn budget_resets_daily_count_at_utc_midnight_with_jitter() {
         let mut budget = Budget::new(10 * 60);
-        // Spaced so they never fill the fifteen-minute window, so the day's
-        // allowance is the only thing that can stop them.
         let per_day = BACKFILL_ALLOWANCE.per_day.expect("a daily allowance");
-        let spacing = 900 / i64::from(BACKFILL_ALLOWANCE.per_fifteen_minutes) + 1;
+        let spacing = 1;
         let start = at("2026-03-04T20:50:00Z");
         for i in 0..i64::from(per_day) {
             let now = start + chrono::TimeDelta::seconds(spacing * i);
@@ -2366,9 +2202,7 @@ mod tests {
             backfill_today: 0,
             day_offset_secs: 0,
             ladder_step: 0,
-            burst_armed_at: None,
-            burst_drawn: 0,
-            burst_spent: false,
+            upgrade_day: None,
         };
         let mut budget = Budget::new(0);
         budget.adopt(&stored, now);
@@ -2408,9 +2242,7 @@ mod tests {
             backfill_today: BACKFILL_ALLOWANCE.per_day.expect("a daily allowance"),
             day_offset_secs: 0,
             ladder_step: 0,
-            burst_armed_at: None,
-            burst_drawn: 0,
-            burst_spent: false,
+            upgrade_day: None,
         };
         let mut budget = Budget::new(0);
         budget.adopt(&stored, now);

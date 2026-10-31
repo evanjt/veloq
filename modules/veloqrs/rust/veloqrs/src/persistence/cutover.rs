@@ -451,6 +451,16 @@ pub enum CutoverOutcome {
     SwitchedOff,
 }
 
+/// Give the budget day a catalogue cut by an earlier release starts its
+/// cutover on the upgrade share. The one place the day is marked: the staged
+/// elevation pass and the run's start both call it, and the budget keeps only
+/// the first day it was given, so a relaunch or a later start never gives
+/// another.
+pub(crate) fn mark_upgrade_day() {
+    let governor = &crate::governor::GOVERNOR;
+    governor.mark_upgrade_day(governor.now());
+}
+
 /// Start a cutover on a detached thread.
 ///
 /// Returns the reason for a refusal or `Started` when the run owns its slot.
@@ -484,6 +494,9 @@ pub fn start_cutover() -> FfiStartOutcome {
     }
     if !claim_run_slot() {
         return FfiStartOutcome::Busy;
+    }
+    if cutover_owed {
+        mark_upgrade_day();
     }
     // Which library this cutover belongs to, read here rather than on the
     // worker: a restore mid-run would otherwise get a catalogue cut from the

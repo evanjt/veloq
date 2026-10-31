@@ -7484,7 +7484,7 @@ mod tests {
                 .json_body(json!({"id": "i1", "name": "x", "sportSettings": []}));
         });
         let one = crate::governor::Allowance {
-            per_fifteen_minutes: 1,
+            per_fifteen_minutes: Some(1),
             per_day: None,
         };
         let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)).with_budget(

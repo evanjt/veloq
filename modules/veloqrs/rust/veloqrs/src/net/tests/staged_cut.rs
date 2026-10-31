@@ -3,11 +3,11 @@
 //! the whole library has.
 //!
 //! Expected behaviour: the slice is the newest tracks inside ninety days of
-//! the newest one, no more than the first sitting's burst, and the library is
+//! the newest one, no more than the upgrade day's share, and the library is
 //! ready for the cut when none of them is still unknown.
 
 use super::*;
-use crate::governor::BACKFILL_BURST;
+use crate::governor::UPGRADE_DAY_BACKFILL_SHARE;
 use crate::persistence::{
     ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, ELEVATION_STATE_UNKNOWN,
 };
@@ -131,28 +131,29 @@ fn the_window_is_measured_from_the_newest_track_and_not_from_the_clock() {
 }
 
 #[test]
-fn a_slice_never_holds_more_than_the_first_sitting_can_fetch() {
-    let tracks: Vec<Track> = (0..700)
+fn a_slice_never_holds_more_than_the_upgrade_day_can_fetch() {
+    let share = i64::from(UPGRADE_DAY_BACKFILL_SHARE);
+    let tracks: Vec<Track> = (0..share + 200)
         .map(|i| {
-            let state = if i < BACKFILL_BURST as i64 {
+            let state = if i < share {
                 ELEVATION_STATE_FETCHED
             } else {
                 ELEVATION_STATE_UNKNOWN
             };
-            track(&format!("r{i:03}"), i / 10, state)
+            track(&format!("r{i:03}"), i / 20, state)
         })
         .collect();
     let (_dir, engine) = library(&tracks);
 
     assert!(
         ready(&engine),
-        "the 500 newest are decided, the 200 are not asked"
+        "the 1,500 newest are decided, the 200 are not asked"
     );
 
-    decide(&engine, "r499", ELEVATION_STATE_UNKNOWN);
+    decide(&engine, "r1499", ELEVATION_STATE_UNKNOWN);
     assert!(
         !ready(&engine),
-        "the 500th newest is the last one in the slice"
+        "the 1,500th newest is the last one in the slice"
     );
 }
 
@@ -225,4 +226,35 @@ fn a_library_with_nothing_owed_is_ready_to_cut_signed_out() {
 
     crate::objects::clear_test_credentials();
     assert!(cutover_ready(&engine.db).expect("reads"));
+}
+
+/// Scenario: an upgraded library owes elevation for 1,200 tracks, all inside
+/// the newest ninety days, and the cutover marks the budget day.
+///
+/// Expected behaviour: the whole slice is asked for before the first cut, and
+/// the upgrade day's share admits a request for each track at one instant with
+/// room left.
+#[test]
+fn an_upgrade_day_draws_the_whole_first_cut_slice_without_a_deferral() {
+    use crate::governor::{Admission, Budget, Intent};
+
+    let tracks: Vec<Track> = (0..1_200)
+        .map(|i| track(&format!("r{i:04}"), i / 20, ELEVATION_STATE_UNKNOWN))
+        .collect();
+    let (_dir, engine) = library(&tracks);
+    let slice = pooled_cutover_slice(&engine.db).expect("slice reads");
+    assert_eq!(slice.len(), 1_200, "every owed track is in the first cut");
+
+    let now = chrono::DateTime::parse_from_rfc3339("2026-10-20T12:00:00Z")
+        .expect("fixed time")
+        .with_timezone(&chrono::Utc);
+    let mut budget = Budget::new(0);
+    budget.mark_upgrade_day(now);
+    for (n, _) in slice.iter().enumerate() {
+        assert_eq!(
+            budget.admit(Intent::Backfill, now),
+            Admission::Admitted,
+            "slice request {n}"
+        );
+    }
 }

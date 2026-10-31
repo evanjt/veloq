@@ -1139,8 +1139,6 @@ pub fn start_stream_backfill() -> FfiStartOutcome {
     // a restore installing another database mid-pass would otherwise take
     // streams fetched against the old library's activity ids.
     let install = engine_install();
-    let governor = &crate::governor::GOVERNOR;
-    governor.arm_backfill_burst(governor.now());
     crate::threads::spawn_named("veloq-streams", move || {
         run_in_slot(slot, install, &session);
     });
@@ -2510,7 +2508,7 @@ mod tests {
                 then.status(200).body("[]");
             });
             let one = Allowance {
-                per_fifteen_minutes: 1,
+                per_fifteen_minutes: Some(1),
                 per_day: None,
             };
             let governor = Arc::new(

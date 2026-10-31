@@ -8533,9 +8533,9 @@ export type FfiRequestBudget = {
   backfillToday: number;
   backfillPerDay?: number;
   backfillLastFifteenMinutes: number;
-  backfillPerFifteenMinutes: number;
+  backfillPerFifteenMinutes?: number;
   syncLastFifteenMinutes: number;
-  syncPerFifteenMinutes: number;
+  syncPerFifteenMinutes?: number;
   /**
    * Until when a refusal's cooldown holds, or none.
    */
@@ -8573,9 +8573,9 @@ const FfiConverterTypeFfiRequestBudget = (() => {
         backfillToday: FfiConverterUInt32.readFromCursor(c),
         backfillPerDay: FfiConverterOptionalUInt32.readFromCursor(c),
         backfillLastFifteenMinutes: FfiConverterUInt32.readFromCursor(c),
-        backfillPerFifteenMinutes: FfiConverterUInt32.readFromCursor(c),
+        backfillPerFifteenMinutes: FfiConverterOptionalUInt32.readFromCursor(c),
         syncLastFifteenMinutes: FfiConverterUInt32.readFromCursor(c),
-        syncPerFifteenMinutes: FfiConverterUInt32.readFromCursor(c),
+        syncPerFifteenMinutes: FfiConverterOptionalUInt32.readFromCursor(c),
         cooldownUntil: FfiConverterOptionalFloat64.readFromCursor(c),
         nextReset: FfiConverterFloat64.readFromCursor(c),
       };
@@ -8586,9 +8586,15 @@ const FfiConverterTypeFfiRequestBudget = (() => {
       FfiConverterUInt32.writeIntoCursor(value.backfillToday, c);
       FfiConverterOptionalUInt32.writeIntoCursor(value.backfillPerDay, c);
       FfiConverterUInt32.writeIntoCursor(value.backfillLastFifteenMinutes, c);
-      FfiConverterUInt32.writeIntoCursor(value.backfillPerFifteenMinutes, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(
+        value.backfillPerFifteenMinutes,
+        c,
+      );
       FfiConverterUInt32.writeIntoCursor(value.syncLastFifteenMinutes, c);
-      FfiConverterUInt32.writeIntoCursor(value.syncPerFifteenMinutes, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(
+        value.syncPerFifteenMinutes,
+        c,
+      );
       FfiConverterOptionalFloat64.writeIntoCursor(value.cooldownUntil, c);
       FfiConverterFloat64.writeIntoCursor(value.nextReset, c);
     }
@@ -8599,9 +8605,11 @@ const FfiConverterTypeFfiRequestBudget = (() => {
         FfiConverterUInt32.allocationSize(value.backfillToday) +
         FfiConverterOptionalUInt32.allocationSize(value.backfillPerDay) +
         FfiConverterUInt32.allocationSize(value.backfillLastFifteenMinutes) +
-        FfiConverterUInt32.allocationSize(value.backfillPerFifteenMinutes) +
+        FfiConverterOptionalUInt32.allocationSize(
+          value.backfillPerFifteenMinutes,
+        ) +
         FfiConverterUInt32.allocationSize(value.syncLastFifteenMinutes) +
-        FfiConverterUInt32.allocationSize(value.syncPerFifteenMinutes) +
+        FfiConverterOptionalUInt32.allocationSize(value.syncPerFifteenMinutes) +
         FfiConverterOptionalFloat64.allocationSize(value.cooldownUntil) +
         FfiConverterFloat64.allocationSize(value.nextReset)
       );
