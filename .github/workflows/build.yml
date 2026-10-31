@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'ci/**']
     # A release tag builds the store artifacts that release.yml publishes.
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
@@ -136,97 +136,37 @@ jobs:
         run: npx expo export --platform android --output-dir "$RUNNER_TEMP/bundle"
 
   # ============================================
-  # E2E Smoke, quick post-build sanity check
+  # E2E Gate, on the production builds above
   # ============================================
-  e2e-smoke:
-    name: E2E Smoke
-    needs: build-android
-    if: github.event_name != 'pull_request'
-    # Every push to main is smoke tested to the end. A smoke cancelled for a
-    # newer push read as red in Build Required on a sha that was not broken.
-    # Hosted Ubuntu with KVM, as in e2e-gate.yml. Hosted macOS has no HVF for the
-    # emulator, and a self-hosted runner shares adb with whatever else is attached.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Download APK
-        uses: actions/download-artifact@v8
-        with:
-          name: ${{ needs.build-android.outputs.apk-artifact }}
-          path: /tmp/apk
-
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Install Maestro
-        uses: ./.github/actions/install-maestro
-
-      - name: Run smoke test on emulator
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
-        env:
-          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
-        with:
-          api-level: 35
-          arch: x86_64
-          target: google_apis
-          profile: pixel_6
-          ram-size: 6144
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
-          disable-animations: true
-          # Each line runs as its own `sh -c`, so every line must stand alone.
-          script: |
-            # A launcher ANR dialog over the app fails the flow as a missing screen
-            adb shell settings put global hide_error_dialogs 1
-            adb shell am force-stop com.google.android.apps.nexuslauncher
-            adb logcat -c
-            adb install "$(find /tmp/apk -name '*.apk' | head -1)"
-            adb shell pm list packages | grep veloq
-            "$HOME/.maestro/bin/maestro" test .maestro/smoke-build.yaml --no-ansi --format junit --output smoke-report.xml; code=$?; adb logcat -d -v time > smoke-logcat.txt; exit $code
-
-      - name: Fail on a freeze of our own app
-        if: always()
-        run: '! grep -F "ANR in com.veloq" smoke-logcat.txt'
-
-      - name: Upload screenshots
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: e2e-smoke-screenshots
-          # The flow's own captures land in screenshots/ under the workspace.
-          path: |
-            screenshots/
-            ~/.maestro/tests/*/screenshots/
-          retention-days: 7
-          include-hidden-files: true
-
-      - name: Upload test report
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: e2e-smoke-report
-          path: |
-            smoke-report.xml
-            smoke-logcat.txt
-          retention-days: 7
+  # A push to main or to a ci/** branch builds each platform once, and the gate
+  # drives those apps,
+  # the ones that ship: the tier0 and tier1 flows on an Android emulator, the
+  # map flows when a push touches a map surface, and the map flows on an iOS
+  # simulator when it touches a map surface or a native module. Nothing else
+  # starts a native build on a push. A release tag, a dispatch and a pull
+  # request run no gate: the tag's sha passed it on main, and release.yml reads
+  # that run first.
+  # A build that failed is judged by Build Required. The gate still runs on a
+  # finished Android build when the iOS one failed, with no simulator app.
+  e2e-gate:
+    name: E2E Gate
+    needs: [build-android, build-ios]
+    if: ${{ !cancelled() && github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/ci/')) && needs.build-android.result == 'success' }}
+    permissions:
+      contents: read
+      checks: write
+    uses: ./.github/workflows/e2e-gate.yml
+    with:
+      android-artifact: ${{ needs.build-android.outputs.apk-artifact }}
+      ios-artifact: ${{ needs.build-ios.result == 'success' && needs.build-ios.outputs.simulator-artifact || '' }}
 
   # The one job branch protection requires from this workflow.
   # scripts/ci-required.mjs judges it: both builds are required when the change
-  # reaches native code and the bundle check when it does not, and E2E Smoke
-  # is skipped on a pull request, where it never runs.
+  # reaches native code and the bundle check when it does not, and the E2E Gate
+  # on a push to main or a ci/** branch, where alone it runs.
   build-required:
     name: Build Required
-    needs: [changes, build-android, build-ios, bundle-check, e2e-smoke]
+    needs: [changes, build-android, build-ios, bundle-check, e2e-gate]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -241,6 +181,7 @@ jobs:
       - name: Check results
         env:
           EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
@@ -249,5 +190,5 @@ jobs:
           ANDROID: ${{ needs.build-android.result }}
           IOS: ${{ needs.build-ios.result }}
           BUNDLE: ${{ needs.bundle-check.result }}
-          SMOKE: ${{ needs.e2e-smoke.result }}
+          GATE: ${{ needs.e2e-gate.result }}
         run: node scripts/ci-required.mjs build-check

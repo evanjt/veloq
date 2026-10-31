@@ -7,7 +7,7 @@
 # → FileSystem. Breaking any of those hides silently until a user tries to
 # export. The verification script is run after this flow completes.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier3
   - pack-activity

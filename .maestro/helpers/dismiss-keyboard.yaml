@@ -6,7 +6,7 @@
 # Not for a multi-line field, where return is a new line. Return goes first:
 # it leaves no Done behind, and a tap on Done leaves no keyboard for return.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - runFlow:
     when:

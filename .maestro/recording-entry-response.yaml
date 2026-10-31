@@ -3,7 +3,7 @@
 # on an arrival that raises the notification prompt. The prompt belongs to the
 # arrival, so it never lands over the recording.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-recording

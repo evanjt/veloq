@@ -27,14 +27,24 @@
 //   entitlements  an iOS simulator app is built with ad-hoc signing on, and the
 //              step that packages it refuses an app whose binary has no
 //              __entitlements section, so the App Group is present under test
-//   bench      test.yml type-checks the benches with `cargo check --benches`,
-//              and nothing links them by `cargo bench` or `--benches` on
-//              `cargo test` or `cargo build`
+//   bench      test.yml type-checks the benches, through `cargo check --benches`
+//              or clippy with `--all-targets`, and nothing links them by
+//              `cargo bench`, `--benches` or `--all-targets` on `cargo test`,
+//              `cargo build` or `cargo nextest`
 //   builds     each platform's native build lives in one reusable workflow,
 //              build-android.yml or build-ios.yml, which only a workflow_call
 //              starts, so a pull request, main, a tag and E2E build one way;
 //              the code scan alone may generate the Android project, to compile
 //              under CodeQL's tracer, and packages nothing
+//   pushes     a push to main builds each platform once, as the production
+//              identity: the workflows it starts, and the local workflows they
+//              call, call each native build definition at most once, with
+//              variant production, and the E2E gate tests that build; no
+//              other job of theirs generates or compiles the native app
+//              except on a schedule or a dispatch
+//   nightly    no two scheduled jobs call the same native build definition, so
+//              a platform is built once a night and the nightly E2E sweep
+//              tests the build that ships
 //   calls      a call into a local reusable workflow names one that exists,
 //              passes only the inputs it declares and every one it requires
 //   rust       a compiled Rust library is saved to the cache directly after the
@@ -44,7 +54,10 @@
 //   keys       in a job that builds natively, every hashFiles() is taken before
 //              the job writes into the checkout, so a compiled library, a
 //              generated project or node_modules never keys a cache
-//   profile    workflows build the shipped Rust profile, including E2E builds
+//   profile    workflows build the shipped Rust profile. A build definition
+//              alone may build release-dev, chosen from its own `release` input
+//              beside VELOQRS_NON_SHIPPING, so a build reachable with release
+//              true compiles release, and only build.yml passes release true
 //   identity   every artifact a build definition uploads is preceded by
 //              `build-record.js identity --variant`, and one such check runs
 //              on a cache hit too, so a restored or mixed-identity artifact is
@@ -63,7 +76,9 @@
 //              that has not changed
 //   deploys    a workflow only a tag starts never skips a store deploy: no step sets
 //              `skip=true` for a missing credential and no job runs only when an
-//              earlier job found its artefact, so a green run means an upload
+//              earlier job found its artefact, so a green run means an upload.
+//              Neither gate runs for a tag, so one job reads the Test and E2E
+//              Gate runs on main for github.sha, and every other job waits on it
 //   pods       CocoaPods comes from the fastlane bundle, which pins one exact
 //              version and locks that version: no step runs `gem install
 //              cocoapods`, every `pod` runs as `bundle exec pod` against that
@@ -81,9 +96,10 @@
 //   runtimes   no step pins an action at a version whose runtime is Node 20,
 //              which the runner has deprecated and forces onto Node 24, a sha
 //              pin judged by the tag in its trailing comment
-//   shards     a `--shard=I/N` takes I from a matrix key whose values are 1 to N,
-//              each once, since a count past the list or a fixed index leaves
-//              part of the suite unrun and every shard that did run reads green
+//   shards     a `--shard=I/N` or `--partition hash:I/N` takes I from a matrix
+//              key whose values are 1 to N, each once, since a count past the
+//              list or a fixed index leaves part of the suite unrun and every
+//              shard that did run reads green
 //   splice     no `run:` body and no action's `script:` input expands
 //              `inputs.*`, `github.event.*` or `github.head_ref` in place,
 //              since the runner pastes the value into the shell text before
@@ -101,6 +117,8 @@ const root = rootFlag === -1 ? process.cwd() : process.argv[rootFlag + 1];
 
 const ON_MAIN = "github.ref == 'refs/heads/main'";
 const OFF_MAIN = "github.ref != 'refs/heads/main'";
+const PRODUCTION = "inputs.variant == 'production'";
+const OFF_PRODUCTION = "inputs.variant != 'production'";
 
 /** Scheduled workflows allowed to re-run an unchanged sha, and why. */
 const SCHEDULE_ALLOWED = {
@@ -129,6 +147,9 @@ const BUILD_DEFINITIONS = [
   '.github/workflows/build-android.yml',
   '.github/workflows/build-ios.yml',
 ];
+
+/** The one workflow that may call a build definition with release true. */
+const RELEASE_CALLER = '.github/workflows/build.yml';
 
 /** The commands that generate or compile the native app, and how to name each. */
 const NATIVE_BUILDS = [
@@ -208,13 +229,57 @@ const fail = (file, where, message) =>
 const action = (step) => (typeof step.uses === 'string' ? step.uses.split('@')[0] : '');
 const text = (value) => (value === undefined || value === null ? '' : String(value));
 
+// The one shape that builds anything but the shipped profile: a build definition
+// takes it from its own `release` and `shipping-rust` inputs, so a job reachable
+// with release true compiles release, and the marker that lets the builder
+// honour another profile is set only when both inputs are false.
+const PROFILE_BY_RELEASE =
+  "${{ (inputs.release || inputs.shipping-rust) && 'release' || 'release-dev' }}";
+const NON_SHIPPING_BY_RELEASE = "${{ (inputs.release || inputs.shipping-rust) && '' || '1' }}";
+const squash = (value) => text(value).replace(/\s+/g, ' ').trim();
+
+function definesReleaseInput(file) {
+  const inputs = triggersOf(workflows.get(file) ?? {}).workflow_call?.inputs ?? {};
+  return BUILD_DEFINITIONS.includes(file) && 'release' in inputs && 'shipping-rust' in inputs;
+}
+
 function checkRustProfile(file, where, env, run = '') {
-  if (
-    env &&
-    Object.hasOwn(env, 'VELOQRS_RUST_PROFILE') &&
-    text(env.VELOQRS_RUST_PROFILE) !== 'release'
-  ) {
-    fail(file, where, 'VELOQRS_RUST_PROFILE must be release in workflows.');
+  if (env && Object.hasOwn(env, 'VELOQRS_RUST_PROFILE')) {
+    const profile = squash(env.VELOQRS_RUST_PROFILE);
+    if (profile === PROFILE_BY_RELEASE) {
+      if (!definesReleaseInput(file)) {
+        fail(
+          file,
+          where,
+          'a profile chosen by inputs.release belongs to a build definition with release and shipping-rust inputs.'
+        );
+      }
+      if (squash(env.VELOQRS_NON_SHIPPING) !== NON_SHIPPING_BY_RELEASE) {
+        fail(
+          file,
+          where,
+          `VELOQRS_NON_SHIPPING must be ${NON_SHIPPING_BY_RELEASE} beside a profile chosen by inputs.release.`
+        );
+      }
+    } else if (profile !== 'release') {
+      fail(file, where, 'VELOQRS_RUST_PROFILE must be release in workflows.');
+    }
+  }
+  if (env && Object.hasOwn(env, 'VELOQRS_NON_SHIPPING')) {
+    if (squash(env.VELOQRS_NON_SHIPPING) !== NON_SHIPPING_BY_RELEASE) {
+      fail(
+        file,
+        where,
+        'VELOQRS_NON_SHIPPING may only be set when inputs.release and inputs.shipping-rust are false.'
+      );
+    }
+  }
+  if (/\bVELOQRS_NON_SHIPPING\s*=/.test(text(run))) {
+    fail(
+      file,
+      where,
+      'VELOQRS_NON_SHIPPING may only be set when inputs.release and inputs.shipping-rust are false.'
+    );
   }
   for (const match of text(run).matchAll(
     /\bVELOQRS_RUST_PROFILE\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s;]+))/g
@@ -256,8 +321,28 @@ function writesOnlyOnMain(expression) {
 
 /** A read-only gate: true everywhere but main, so no && beside the ref check. */
 function readOnlyOffMain(expression) {
+  // Read-only on every ref, main included, is the stronger form of the same gate.
+  if (text(expression).trim() === 'true') return true;
   const e = outerLevel(expression, OFF_MAIN);
   return e.includes(OFF_MAIN) && !e.includes('&&');
+}
+
+/** A write gate that holds for the production variant alone, so no || beside the variant check. */
+function writesOnlyForProduction(expression) {
+  const e = outerLevel(expression, PRODUCTION);
+  return e.includes(PRODUCTION) && !e.includes('||');
+}
+
+/**
+ * A read-only gate true everywhere but production on main: the two checks are
+ * the alternatives, in either order, and nothing else is joined to them.
+ */
+function readOnlyExceptProductionMain(expression) {
+  const e = text(expression)
+    .replace(/\$\{\{|\}\}/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return e === `${OFF_MAIN} || ${OFF_PRODUCTION}` || e === `${OFF_PRODUCTION} || ${OFF_MAIN}`;
 }
 
 /**
@@ -276,6 +361,19 @@ function cargoCommands(run) {
 const benchesFlag = (rest) => /(^|\s)--benches(\s|$)/.test(rest);
 const allTargetsFlag = (rest) => /(^|\s)--all-targets(\s|$)/.test(rest);
 const LINKING_SUBCOMMANDS = ['test', 'build', 'nextest'];
+
+/**
+ * Whether a run type-checks every bench: `cargo check --benches`, or clippy
+ * over all targets, which checks them without linking them.
+ */
+function checksBenchesIn(commands) {
+  return commands.some(
+    ({ subcommand, rest }) =>
+      (subcommand === 'check' && benchesFlag(rest)) ||
+      (subcommand === 'clippy' && allTargetsFlag(rest))
+  );
+}
+
 // The conditions a step that re-reports a measured sha runs on: a cache hit, a
 // restore-keys match (where cache-hit is false), or an outcome read from the
 // run history.
@@ -469,6 +567,19 @@ function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
       'ccache-action with append-timestamp: false saves its key once and can never replace it, so the store stays the first one saved. Drop it and keep the prefix restore-keys.'
     );
   }
+  if (uses === 'hendrikmuhs/ccache-action') {
+    const dashed = text(w['restore-keys'])
+      .split('\n')
+      .map((key) => key.trim())
+      .filter((key) => key.endsWith('-'));
+    if (dashed.length > 0) {
+      fail(
+        file,
+        where,
+        `ccache-action adds "-" to each restore key, so a key already ending in "-" becomes "--" and matches no saved store. Drop the trailing "-" from ${dashed.join(', ')}.`
+      );
+    }
+  }
   if (launchesCcache(step.env) && text(step.env.CCACHE_COMPILERCHECK) !== 'content') {
     fail(
       file,
@@ -486,6 +597,27 @@ function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
       where,
       `setup-gradle writes its cache off main. Set cache-read-only: \${{ ${OFF_MAIN} }}.`
     );
+  }
+  if (
+    isDefinition &&
+    uses === 'gradle/actions/setup-gradle' &&
+    text(w['cache-disabled']) !== 'true' &&
+    !readOnlyExceptProductionMain(w['cache-read-only'])
+  ) {
+    fail(
+      file,
+      where,
+      `a build definition runs once per variant, and only the production build on main writes it. Set cache-read-only: \${{ ${OFF_MAIN} || ${OFF_PRODUCTION} }}.`
+    );
+  }
+  if (isDefinition && uses === 'actions/cache/save' && /\bCocoaPods\b/.test(text(w.path))) {
+    if (!writesOnlyForProduction(step.if)) {
+      fail(
+        file,
+        where,
+        `a build definition runs once per variant, and only the production build saves it. Add ${PRODUCTION} to its if:, with no || beside it.`
+      );
+    }
   }
   if (
     (uses === 'gradle/actions/setup-gradle' || uses === 'gradle/gradle-build-action') &&
@@ -550,7 +682,7 @@ function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
     fail(
       file,
       where,
-      'cargo bench links every bench under the release profile. Type-check them with cargo check --benches.'
+      'cargo bench links every bench under the release profile. Type-check them with cargo check --benches or clippy --all-targets.'
     );
   }
   const commands = cargoCommands(step.run);
@@ -562,7 +694,7 @@ function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
     fail(
       file,
       where,
-      'cargo test, build or nextest with --benches links every bench. Type-check them with cargo check --benches.'
+      'cargo test, build or nextest with --benches links every bench. Type-check them with cargo check --benches or clippy --all-targets.'
     );
   }
   if (
@@ -573,12 +705,10 @@ function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
     fail(
       file,
       where,
-      'cargo test, build or nextest with --all-targets links every bench. Type-check them with cargo check --benches.'
+      'cargo test, build or nextest with --all-targets links every bench. Type-check them with cargo check --benches or clippy --all-targets.'
     );
   }
-  const checksBenches = commands.some(
-    ({ subcommand, rest }) => subcommand === 'check' && benchesFlag(rest)
-  );
+  const checksBenches = checksBenchesIn(commands);
   if (
     text(step['continue-on-error']) !== '' &&
     text(step['continue-on-error']) !== 'false' &&
@@ -783,12 +913,17 @@ function checkArtifactIdentity(file, id, steps) {
 const SMOKE_ANR_CHECK = /grep\b[^\n]*ANR in com\.veloq/;
 
 /**
- * The smoke job hides system error dialogs so a launcher freeze cannot cover
- * the app, which would also hide a freeze of our own. A step that runs whatever
- * the flow did must fail the job when the captured logcat holds one.
+ * A job that drives an emulator with system error dialogs hidden, so a launcher
+ * freeze cannot cover the app, hides a freeze of our own too. A step that runs
+ * whatever the flows did must fail the job when the captured logcat holds one.
+ * The E2E gate's jobs and the smoke job a build may carry are held to it.
  */
 function checkSmokeAnr(file, id, steps) {
-  if (file !== '.github/workflows/build.yml' || id !== 'e2e-smoke') return;
+  const smoke = file === '.github/workflows/build.yml' && id === 'e2e-smoke';
+  const gate =
+    file === '.github/workflows/e2e-gate.yml' &&
+    steps.some((step) => HIDES_DIALOGS.test(text(step.with?.script)));
+  if (!smoke && !gate) return;
   const ok = steps.some(
     (step) => SMOKE_ANR_CHECK.test(text(step.run)) && /always\(\)/.test(text(step.if))
   );
@@ -861,14 +996,12 @@ function checkBenchesChecked(file, workflow) {
   const runs = Object.values(workflow.jobs ?? {}).flatMap((job) =>
     (job.steps ?? []).map((step) => step.run)
   );
-  const checked = runs.some((run) =>
-    cargoCommands(run).some(({ subcommand, rest }) => subcommand === 'check' && benchesFlag(rest))
-  );
+  const checked = runs.some((run) => checksBenchesIn(cargoCommands(run)));
   if (!checked) {
     fail(
       file,
       'jobs',
-      'no step runs cargo check --benches, so a bench rots behind any signature change and nothing says so.'
+      'no step runs cargo check --benches or clippy --all-targets, so a bench rots behind any signature change and nothing says so.'
     );
   }
 }
@@ -977,6 +1110,18 @@ function checkCall(file, id, job, workflows) {
   }
   const inputs = (call ?? {}).inputs ?? {};
   const given = Object.keys(job.with ?? {});
+  if (
+    BUILD_DEFINITIONS.includes(target) &&
+    file !== RELEASE_CALLER &&
+    given.includes('release') &&
+    !/^\s*(false)?\s*$/.test(text(job.with.release))
+  ) {
+    fail(
+      file,
+      `job ${id}`,
+      `passes release to ${target}, and only ${RELEASE_CALLER} builds the shipped store artifacts.`
+    );
+  }
   for (const name of given.filter((n) => !(n in inputs))) {
     fail(file, `job ${id}`, `passes ${name}, which ${target} does not declare.`);
   }
@@ -993,6 +1138,89 @@ function checkCall(file, id, job, workflows) {
   }
 }
 
+/**
+ * A platform builds once a night: no scheduled job calls the same native build
+ * definition as another scheduled job, in its own workflow or in any other.
+ */
+function checkNightlyBuilds(workflows) {
+  const sites = new Map();
+  for (const [file, workflow] of workflows) {
+    if (!('schedule' in triggersOf(workflow))) continue;
+    for (const [id, job] of Object.entries(workflow.jobs ?? {})) {
+      const target = text(job.uses).replace(/^\.\//, '').split('@')[0];
+      if (!BUILD_DEFINITIONS.includes(target)) continue;
+      sites.set(target, [...(sites.get(target) ?? []), { file, id }]);
+    }
+  }
+  for (const [target, calls] of sites) {
+    const [first, ...again] = calls;
+    for (const { file, id } of again) {
+      fail(
+        file,
+        `job ${id}`,
+        `builds ${target} as well as ${first.file} (job ${first.id}), and a scheduled build runs once a night per platform.`
+      );
+    }
+  }
+}
+
+/**
+ * A push to main builds each platform once, and as the identity that ships.
+ * The workflows a push starts, and every local workflow they call, together
+ * call each native build definition at most once, with `variant: production`:
+ * the tests that follow run on that build rather than on a second one. No job
+ * of theirs generates or compiles the native app itself, unless it runs on the
+ * schedule or a dispatch alone, as the code scan's Kotlin compile does.
+ */
+function checkPushBuilds(workflows) {
+  const sites = new Map();
+  const seen = new Set();
+  const visit = (file) => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    for (const [id, job] of Object.entries(workflows.get(file)?.jobs ?? {})) {
+      const target = text(job.uses).replace(/^\.\//, '').split('@')[0];
+      if (BUILD_DEFINITIONS.includes(target)) {
+        if (text(job.with?.variant).trim() !== 'production') {
+          fail(
+            file,
+            `job ${id}`,
+            `calls ${target} with variant ${squash(job.with?.variant)}, and a push to main builds the production identity: the E2E gate runs on that build, not on a Dev one.`
+          );
+        }
+        sites.set(target, [...(sites.get(target) ?? []), { file, id }]);
+      } else if (workflows.has(target)) {
+        visit(target);
+      } else if (
+        (job.steps ?? []).some((step) => nativeBuilds(step.run).length > 0) &&
+        !(
+          /github\.event_name\s*==\s*'(schedule|workflow_dispatch)'/.test(text(job.if)) &&
+          !/'push'/.test(text(job.if))
+        )
+      ) {
+        fail(
+          file,
+          `job ${id}`,
+          "generates or compiles the native app on a push to main, and a push to main builds each platform once. Run it on the schedule: if: github.event_name == 'schedule'."
+        );
+      }
+    }
+  };
+  for (const [file, workflow] of workflows) {
+    if (runsOnMainPush(triggersOf(workflow))) visit(file);
+  }
+  for (const [target, calls] of sites) {
+    const [first, ...again] = calls;
+    for (const { file, id } of again) {
+      fail(
+        file,
+        `job ${id}`,
+        `builds ${target} as well as ${first.file} (job ${first.id}), and a push to main builds each platform once.`
+      );
+    }
+  }
+}
+
 function triggersOf(workflow) {
   // js-yaml reads a bare `on:` key as the boolean true.
   const on = workflow.on ?? workflow[true];
@@ -1005,7 +1233,9 @@ function runsOnMainPush(triggers) {
   if (!('push' in triggers)) return false;
   const push = triggers.push ?? {};
   if (!push.branches && !push.tags) return true;
-  return (push.branches ?? []).some((b) => b === 'main' || b === '**' || b === '*');
+  return (push.branches ?? []).some(
+    (b) => b === 'main' || b === '**' || b === '*' || b.startsWith('ci/')
+  );
 }
 
 function checkCancel(file, where, concurrency) {
@@ -1191,6 +1421,50 @@ function checkTagDeploys(file, id, job) {
   });
 }
 
+/** The step a tag release runs to read the gate runs on main for the tagged sha. */
+const MAIN_GATES_CHECK = /check-main-gates\.mjs\s+"?\$\{\{\s*github\.sha\s*\}\}"?/;
+
+/** Every job a job waits on through `needs`, followed transitively. */
+function reachableNeeds(jobs, id, seen = new Set()) {
+  for (const need of [(jobs[id] ?? {}).needs ?? []].flat()) {
+    if (!seen.has(need)) {
+      seen.add(need);
+      reachableNeeds(jobs, need, seen);
+    }
+  }
+  return seen;
+}
+
+/**
+ * Neither Test nor E2E Gate runs for a tag, so a tag release publishes a sha
+ * that failed on main unless it reads those runs for the tagged sha first.
+ * That read is one job, and every other job of the release waits on it.
+ */
+function checkMainGates(file, jobs) {
+  const gates = Object.entries(jobs)
+    .filter(([, job]) => (job.steps ?? []).some((step) => MAIN_GATES_CHECK.test(text(step.run))))
+    .map(([id]) => id);
+  if (gates.length === 0) {
+    fail(
+      file,
+      '',
+      'publishes a tag with no step that reads the Test and E2E Gate runs on main for github.sha, so a sha that failed on main is released. Run scripts/check-main-gates.mjs on github.sha first.'
+    );
+    return;
+  }
+  for (const id of Object.keys(jobs)) {
+    if (gates.includes(id)) continue;
+    const waits = reachableNeeds(jobs, id);
+    if (!gates.some((gate) => waits.has(gate))) {
+      fail(
+        file,
+        `job ${id}`,
+        'does not wait on the job that reads the Test and E2E Gate runs on main, so it can publish a sha that failed there.'
+      );
+    }
+  }
+}
+
 const FLOATING_RUNNER = /-latest$/;
 
 /** The runner labels a job names, with each `matrix.KEY` expanded to its values. */
@@ -1224,35 +1498,41 @@ function checkRunner(file, id, job) {
   }
 }
 
-const SHARD_FLAG = /--shard[=\s]+(\$\{\{[^}]*\}\}|[^\s/]+)\/(\d+)\b/g;
+/** The flags that split a suite into numbered parts, each with its own pattern. */
+const SPLIT_FLAGS = [
+  ['--shard', /--shard[=\s]+(\$\{\{[^}]*\}\}|[^\s/]+)\/(\d+)\b/g],
+  ['--partition', /--partition[=\s]+(?:hash|count):(\$\{\{[^}]*\}\}|[^\s/]+)\/(\d+)\b/g],
+];
 
-/** Every `--shard` in a job takes its index from a matrix key that lists each shard once. */
+/** Every split flag in a job takes its index from a matrix key that lists each part once. */
 function checkShards(file, id, job) {
   const matrix = job.strategy?.matrix ?? {};
   for (const [index, step] of (job.steps ?? []).entries()) {
     const where = `job ${id} step ${step.name ?? index + 1}`;
-    for (const [, part, count] of text(step.run).matchAll(SHARD_FLAG)) {
-      const key = part.match(/^\$\{\{\s*matrix\.([\w-]+)\s*\}\}$/)?.[1];
-      if (!key) {
-        fail(
-          file,
-          where,
-          `--shard=${part}/${count} runs one shard alone. Take the index from a matrix key.`
-        );
-        continue;
-      }
-      const values = [matrix[key] ?? []]
-        .flat()
-        .map(Number)
-        .sort((a, b) => a - b);
-      const total = Number(count);
-      const whole = values.length === total && values.every((value, i) => value === i + 1);
-      if (!whole) {
-        fail(
-          file,
-          where,
-          `--shard counts ${total} shards and matrix.${key} lists [${values.join(', ')}], so a shard goes unrun or runs twice. List 1 to ${total} once each.`
-        );
+    for (const [flag, pattern] of SPLIT_FLAGS) {
+      for (const [, part, count] of text(step.run).matchAll(pattern)) {
+        const key = part.match(/^\$\{\{\s*matrix\.([\w-]+)\s*\}\}$/)?.[1];
+        if (!key) {
+          fail(
+            file,
+            where,
+            `${flag} takes the index ${part} of ${count}, a literal, so it runs one part alone. Take the index from a matrix key.`
+          );
+          continue;
+        }
+        const values = [matrix[key] ?? []]
+          .flat()
+          .map(Number)
+          .sort((a, b) => a - b);
+        const total = Number(count);
+        const whole = values.length === total && values.every((value, i) => value === i + 1);
+        if (!whole) {
+          fail(
+            file,
+            where,
+            `${flag} counts ${total} parts and matrix.${key} lists [${values.join(', ')}], so a part goes unrun or runs twice. List 1 to ${total} once each.`
+          );
+        }
       }
     }
   }
@@ -1354,11 +1634,14 @@ for (const [file, { doc, isAction }] of parsed) {
     checkPinned(file, `job ${id}`, job.uses);
     if (startsOnTagOnly(triggers)) checkTagDeploys(file, id, job);
   }
+  if (startsOnTagOnly(triggers)) checkMainGates(file, doc.jobs ?? {});
   checkSchedule(file, doc, triggers);
   checkAggregators(file, doc);
   checkBenchesChecked(file, doc);
   checkAdvisoriesScanned(file, doc, workflows);
 }
+checkNightlyBuilds(workflows);
+checkPushBuilds(workflows);
 
 if (podsRun) {
   const bundle = indexedSources(root, [POD_GEMFILE, `${POD_GEMFILE}.lock`]);

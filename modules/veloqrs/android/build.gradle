@@ -31,8 +31,11 @@ def isNewArchitectureEnabled() {
 // selection has its own output directory, outside Gradle's build directory so
 // a CI cache restore is not taken for a stale output and deleted.
 def rustAbis = reactNativeArchitectures().collect { it.trim() }.findAll { it }.unique().sort()
-def releaseRustBuild = System.getenv("APP_VARIANT") == "production" ||
-  gradle.startParameter.taskNames.any { it =~ /(?i)(assemble|bundle).*release/ }
+// A build marked VELOQRS_NON_SHIPPING=1 cannot ship, and takes the selected
+// profile whatever its variant or task.
+def nonShippingRustBuild = System.getenv("VELOQRS_NON_SHIPPING") == "1"
+def releaseRustBuild = !nonShippingRustBuild && (System.getenv("APP_VARIANT") == "production" ||
+  gradle.startParameter.taskNames.any { it =~ /(?i)(assemble|bundle).*release/ })
 def rustProfile = (releaseRustBuild ? "release" :
   (rootProject.findProperty("veloqrsRustProfile") ?: System.getenv("VELOQRS_RUST_PROFILE") ?: "release")).toString()
 def rustFeatures = (rootProject.findProperty("veloqrsCargoFeatures") ?: System.getenv("VELOQRS_CARGO_FEATURES") ?: "")

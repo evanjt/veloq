@@ -6,7 +6,7 @@
 # Companion script: scripts/verify-backup-export.sh pulls the file from the
 # emulator and asserts it's a valid SQLite DB with the expected tables.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier3
   - pack-settings

@@ -3,7 +3,7 @@
 #        conditional on global section presence, absent in fresh demo mode)
 # US-R2: toggling layers is reflected in map state
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-map

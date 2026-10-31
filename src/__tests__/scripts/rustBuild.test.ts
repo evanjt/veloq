@@ -64,9 +64,17 @@ fs.appendFileSync(fakeLog, 'cargo ' + args.join(' ') + '\\n');
 if (flags.FAKE_LOG_ENV) {
   fs.appendFileSync(fakeLog, 'env CC=' + process.env.CC + ' SDKROOT=' + process.env.SDKROOT + ' LTO=' + process.env.CARGO_PROFILE_RELEASE_LTO + '\\n');
 }
+const lifecycle = (event) => {
+  if (flags.FAKE_LOG_LIFECYCLE) {
+    fs.appendFileSync(fakeLog, event + ' ' + args.filter((a, i) => args[i - 1] === '-t').join(',') +
+      ' target=' + process.env.CARGO_TARGET_DIR + ' jobs=' + process.env.CARGO_BUILD_JOBS + '\\n');
+  }
+};
+lifecycle('start');
 if (flags.FAKE_CARGO_DELAY_MS) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(flags.FAKE_CARGO_DELAY_MS));
 }
+lifecycle('end');
 if (flags.FAKE_CARGO_FAIL) process.exit(101);
 if (flags.FAKE_CARGO_SIGNAL) process.kill(process.pid, 'SIGKILL');
 if (flags.FAKE_EDIT) fs.appendFileSync(flags.FAKE_EDIT, '\\n// edited while compiling\\n');
@@ -281,17 +289,45 @@ describe('the Android build', () => {
     expect(calls('cargo')).toHaveLength(1);
   });
 
+  it('compiles each ABI in its own Cargo process, together, with its own target directory', () => {
+    const out = build(['android', '--abi', 'x86_64', '--abi', 'arm64-v8a'], {
+      FAKE_LOG_LIFECYCLE: '1',
+      FAKE_CARGO_DELAY_MS: '600',
+      CARGO_BUILD_JOBS: '8',
+    });
+
+    const events = calls().filter((line) => /^(start|end) /.test(line));
+    expect(events.map((line) => line.split(' ')[0])).toEqual(['start', 'start', 'end', 'end']);
+    const targets = events.slice(0, 2).map((line) => /target=(\S+)/.exec(line)![1]);
+    expect(new Set(targets).size).toBe(2);
+    expect(targets.every((dir) => dir !== 'undefined')).toBe(true);
+    expect(events.slice(0, 2).map((line) => /jobs=(\S+)/.exec(line)![1])).toEqual(['4', '4']);
+    expect(out).toBe(androidOut('release-arm64-v8a_x86_64'));
+    expect(library('release-arm64-v8a_x86_64', 'arm64-v8a')).toContain('uniffi_veloqrs_');
+    expect(library('release-arm64-v8a_x86_64', 'x86_64')).toContain('uniffi_veloqrs_');
+  });
+
+  it('publishes neither ABI when one of the concurrent compiles fails', () => {
+    expect(() =>
+      build(['android', '--abi', 'x86_64', '--abi', 'arm64-v8a'], { FAKE_CARGO_FAIL: '1' })
+    ).toThrow(/cargo ndk -t \S+ .* exited with status 101/);
+    expect(readdirSync(join(moduleDir, 'build/rust/android'))).toEqual([]);
+  });
+
   it('gives each ABI set, profile and feature set its own output, and switching back compiles nothing', () => {
     build(ARM);
     build(['android', '--abi', 'x86_64', '--abi', 'arm64-v8a']);
     build([...ARM, '--profile', 'debug']);
     build([...ARM, '--features', 'lock-trace']);
-    expect(calls('cargo')).toEqual([
+    const compiles = calls('cargo');
+    expect(compiles).toHaveLength(5);
+    expect(compiles[0]).toContain('-t arm64-v8a --platform');
+    expect(compiles.slice(1, 3).sort()).toEqual([
       expect.stringContaining('-t arm64-v8a --platform'),
-      expect.stringContaining('-t arm64-v8a -t x86_64 --platform'),
-      expect.not.stringContaining('--release'),
-      expect.stringContaining('--features lock-trace'),
+      expect.stringContaining('-t x86_64 --platform'),
     ]);
+    expect(compiles[3]).not.toContain('--release');
+    expect(compiles[4]).toContain('--features lock-trace');
 
     expect(readdirSync(join(moduleDir, 'build/rust/android')).sort()).toEqual([
       'debug-arm64-v8a',
@@ -346,6 +382,30 @@ describe('the Android build', () => {
     ).toThrow(/production and release builds require release/);
     build(ARM, { APP_VARIANT: 'production', VELOQRS_RUST_PROFILE: 'release-dev' });
     expect(existsSync(androidOut('release-arm64-v8a'))).toBe(true);
+  });
+
+  it('compiles a production build with the selected profile only when it is marked non-shipping', () => {
+    build(ARM, {
+      APP_VARIANT: 'production',
+      VELOQRS_RUST_PROFILE: 'release-dev',
+      VELOQRS_NON_SHIPPING: '1',
+    });
+    expect(calls('cargo')).toEqual([
+      expect.stringContaining('rustc --profile release-dev -p veloqrs --lib --crate-type cdylib'),
+    ]);
+    expect(existsSync(androidOut('release-dev-arm64-v8a'))).toBe(true);
+    expect(existsSync(androidOut('release-arm64-v8a'))).toBe(false);
+  });
+
+  it('keeps production on release for any marker value but 1', () => {
+    for (const marker of ['', '0', 'false', 'true']) {
+      expect(() =>
+        build([...ARM, '--profile', 'release-dev'], {
+          APP_VARIANT: 'production',
+          VELOQRS_NON_SHIPPING: marker,
+        })
+      ).toThrow(/production and release builds require release/);
+    }
   });
 
   it('compiles again when a published library is deleted or altered', () => {
@@ -482,6 +542,20 @@ describe('the iOS build', () => {
 
     expect(calls('cargo')).toEqual([expect.stringContaining('rustc --release --target')]);
     expect(archive('release-iphoneos-arm64')).toContain('uniffi_veloqrs_');
+  });
+
+  it('keeps an Xcode Release configuration on release unless marked non-shipping', () => {
+    const linked = join(root, 'Build/Products/Release-iphoneos/Veloqrs');
+    build(phase(linked), {
+      ...DEVICE_PHASE,
+      CONFIGURATION: 'Release',
+      VELOQRS_RUST_PROFILE: 'release-dev',
+      VELOQRS_NON_SHIPPING: '1',
+    });
+    expect(calls('cargo')).toEqual([
+      expect.stringContaining('rustc --profile release-dev --target'),
+    ]);
+    expect(archive('release-dev-iphoneos-arm64')).toContain('uniffi_veloqrs_');
   });
 
   it('builds each SDK into its own output, then reuses both with no compile', () => {

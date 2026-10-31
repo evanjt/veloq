@@ -1,0 +1,33 @@
+name: Prune caches
+
+# The Actions cache holds 10 GB, and GitHub evicts by least recent use, so a
+# superseded generation of one cache can push out the current generation of
+# another. After each workflow that saves caches on main, delete every entry
+# but the newest per cache.
+on:
+  workflow_run:
+    workflows: [Build, Test, CodeQL]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Delete superseded cache entries
+        run: node scripts/prune-caches.mjs --repo "$GITHUB_REPOSITORY" --delete
+        env:
+          GH_TOKEN: ${{ github.token }}

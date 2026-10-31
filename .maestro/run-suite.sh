@@ -19,6 +19,11 @@ fi
 
 MAESTRO="${MAESTRO_BIN:-$HOME/.maestro/bin/maestro}"
 
+# Every flow names its app as ${APP_ID}. The gate sets it to the id that ships,
+# and a run with none drives the development build.
+. "$(dirname "$0")/../scripts/lib/maestro-app-id.sh"
+app_id=$(veloq_maestro_app_id "$(dirname "$0")/../scripts") || exit 1
+
 # Which device every invocation runs on. Maestro picks one itself when it is
 # not told, and shards the suite across everything attached: an unpinned local
 # run can put flows on a phone that is not the target, logged as
@@ -43,7 +48,34 @@ report="$1"
 debug="$2"
 shift 2
 
-if "$MAESTRO" ${device[@]+"${device[@]}"} test .maestro/ "$@" --debug-output "$debug" --format junit --output "$report" --no-ansi; then
+# MAESTRO_SHARD=<index>/<count> runs one share of the tagged flows, which
+# shard-flows.mjs deals by file name so each flow lands in exactly one share.
+# Maestro takes the files in place of the directory, and the selection has
+# already applied the tags, so the tag flags are not passed on.
+targets=(.maestro/)
+tag_args=("$@")
+if [ -n "${MAESTRO_SHARD:-}" ]; then
+  include=""
+  exclude=""
+  tag_args=()
+  for arg in "$@"; do
+    case "$arg" in
+      --include-tags=*) include="${arg#--include-tags=}" ;;
+      --exclude-tags=*) exclude="${arg#--exclude-tags=}" ;;
+      *) tag_args+=("$arg") ;;
+    esac
+  done
+  targets=()
+  while IFS= read -r flow; do
+    [ -n "$flow" ] && targets+=("$flow")
+  done < <(node "$(dirname "$0")/shard-flows.mjs" "$MAESTRO_SHARD" "$include" "$exclude" "$(dirname "$0")")
+  if [ ${#targets[@]} -eq 0 ]; then
+    echo "Shard $MAESTRO_SHARD selects no flow."
+    exit 0
+  fi
+fi
+
+if "$MAESTRO" ${device[@]+"${device[@]}"} test -e "APP_ID=$app_id" ${targets[@]+"${targets[@]}"} ${tag_args[@]+"${tag_args[@]}"} --debug-output "$debug" --format junit --output "$report" --no-ansi; then
   exit 0
 fi
 
@@ -166,7 +198,7 @@ while read -r flow verdict; do
   rm -f "retry-reports/$flow.xml"
   # In the background so a terminating signal reaches the trap while the flow
   # runs, rather than once it ends.
-  "$MAESTRO" ${device[@]+"${device[@]}"} test "$file" --debug-output "$debug" \
+  "$MAESTRO" ${device[@]+"${device[@]}"} test -e "APP_ID=$app_id" "$file" --debug-output "$debug" \
     --format junit --output "retry-reports/$flow.xml" --no-ansi < /dev/null &
   retry_pid=$!
   wait "$retry_pid" || status=1

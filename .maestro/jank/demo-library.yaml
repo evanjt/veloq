@@ -1,5 +1,5 @@
 # Passes only on the feed of the demo library.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - assertVisible:
     id: "home-screen"

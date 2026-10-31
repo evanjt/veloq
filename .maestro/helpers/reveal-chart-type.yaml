@@ -5,7 +5,7 @@
 # toward the row's end first, then back toward its start for a chip passed on
 # the way. A stream the activity did not record has no chip, and the row is
 # left where it ends up.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - repeat:
     while:

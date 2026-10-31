@@ -7,7 +7,7 @@
 # card in a sheet has no stack header, and otherwise the native stack header's
 # back button, which UIKit identifies as `BackButton`.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - runFlow:
     when:

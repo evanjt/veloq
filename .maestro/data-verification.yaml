@@ -1,7 +1,7 @@
 # Data Verification Tests
 # Verifies that key data components display correctly with demo data
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-data

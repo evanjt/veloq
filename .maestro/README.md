@@ -67,7 +67,9 @@ scripts/with-maestro.sh test .maestro/ --include-tags=tier0,tier1
 
 ## Shared Helpers
 
-Sub-flows in `.maestro/helpers/` provide reusable setup and navigation. They have no `appId` header so they cannot be run standalone.
+Sub-flows in `.maestro/helpers/` provide reusable setup and navigation. They are run from a flow, which supplies the `APP_ID` their header reads.
+
+Every flow names its app as `appId: ${APP_ID}`. `scripts/with-maestro.sh` and `.maestro/run-suite.sh` pass `-e APP_ID=...` and default it to the development build, `com.veloq.app.dev`. To drive another build, set `APP_ID` (`APP_ID=com.veloq.app`) or pass `-e APP_ID=...` yourself; `node scripts/check-maestro-flows.mjs` refuses a flow that spells an id itself.
 
 | Helper | Purpose |
 |--------|---------|
@@ -78,6 +80,7 @@ Sub-flows in `.maestro/helpers/` provide reusable setup and navigation. They hav
 | `helpers/navigate-to-routes.yaml` | Deep link to routes screen |
 | `helpers/navigate-to-settings.yaml` | Deep link to settings screen |
 | `helpers/open-detection-preview.yaml` | Settings to routes and sections to the detection preview |
+| `helpers/unlock-developer-links.yaml` | Five taps on the settings version line, so a link to a developer screen opens in the build that ships as it does in the development build; held in memory for the session |
 | `helpers/reveal.yaml` | Scroll `LIST` until a tap on the centre of `ELEMENT` lands on it, clear of the tab bar and the record button; `DIRECTION: UP` scrolls back towards the top |
 
 Usage in a flow:
@@ -172,7 +175,7 @@ Usage in a flow:
 # Flow Name
 # Description of what this test verifies
 
-appId: com.veloq.app
+appId: ${APP_ID}
 tags:
   - tier2
 ---
@@ -252,8 +255,10 @@ locked and every later step then fails on a missing `control-pause`.
 
 ## CI Integration
 
-E2E tests run in `.github/workflows/e2e-gate.yml` (after every push to main)
-and `.github/workflows/e2e.yml` (daily at 03:00 UTC, and by dispatch):
+E2E tests run in `.github/workflows/e2e-gate.yml` (after every push to main,
+called by `build.yml` on the production apps that push built, with
+`APP_ID=com.veloq.app`) and `.github/workflows/e2e.yml` (daily at 03:00 UTC, and
+by dispatch, on the development build):
 
 - **Every push to main**: tier0 + tier1 on Android, excluding `flaky`, each
   failed flow retried once. The quarantined `flaky` flows run in the same job
@@ -263,8 +268,8 @@ and `.github/workflows/e2e.yml` (daily at 03:00 UTC, and by dispatch):
   screens, the engine's tile store and the Android tile interceptor. They are
   slow and GPU-sensitive, so unrelated pushes do not pay for them.
 - **Pushes touching a map surface, `package-lock.json` or `modules/**`**: the
-  `pack-map` flows run on an iOS simulator too, from the Dev simulator app the
-  shared iOS build makes. A dependency bump that breaks the iOS map changes
+  `pack-map` flows run on an iOS simulator too, from the production simulator app
+  the push's iOS build makes. A dependency bump that breaks the iOS map changes
   nothing else.
 - **Daily, or dispatched with a tier list**: tier0 to tier3 on both platforms.
   Android runs as one job. iOS runs as shards by pack, narrowed by tier where

@@ -1,7 +1,7 @@
 # Sensor Settings Test
 # Tests: open sensor settings from recording settings, verify paired list and scan UI
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-recording

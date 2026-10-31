@@ -1,7 +1,7 @@
 # Detection preview, discarded: a moved slider runs a sandboxed detect, the
 # diff strip reports what would change, and Discard leaves the saved config as
 # it was. Nothing re-analyses the library on this path.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-routes

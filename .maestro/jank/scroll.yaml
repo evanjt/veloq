@@ -1,7 +1,7 @@
 # Down and back, so the feed ends where it started and the next run is the
 # same gesture. The return swipe stops short of the status bar: one that
 # starts at the top edge pulls the notification shade instead.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - repeat:
     times: 12

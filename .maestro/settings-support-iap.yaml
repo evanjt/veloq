@@ -17,7 +17,7 @@
 # tip prices or, off iOS, the GitHub Sponsors fallback is acceptable; iOS
 # with no store tips offers no tip control at all.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   # In the blocking gate core. It guards a shipped App Store rejection, so it
   # has to be able to fail the gate. The gate retries a failed flow on its own
@@ -38,6 +38,8 @@ onFlowComplete:
         visible:
           id: "demo-mode-banner"
       commands:
+        - runFlow:
+            file: helpers/unlock-developer-links.yaml
         - runFlow:
             file: helpers/open-link.yaml
             env:
@@ -143,9 +145,11 @@ onFlowComplete:
 
 # ---- Open the developer dashboard ----
 
-# A development build opens the dashboard by its link, with no five-tap unlock
-# and no tap on a footer control that ends the settings page. Debug mode stays
-# as it was found, so there is nothing of it to put back afterwards.
+# The dashboard opens by its link once the developer screens are unlocked for
+# the session, which needs no tap on the footer switch that ends the settings
+# page. The unlock is in memory only, so there is no setting to put back.
+- runFlow:
+    file: helpers/unlock-developer-links.yaml
 - runFlow:
     file: helpers/open-link.yaml
     env:

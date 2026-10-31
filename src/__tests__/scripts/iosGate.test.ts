@@ -461,6 +461,7 @@ function fixture(): Fixture {
     'with-simulator-lock.sh',
     'compute-source-hash.js',
     'lib/build-stamp.js',
+    'lib/maestro-app-id.sh',
   ]) {
     fs.copyFileSync(path.join(REPO, 'scripts', file), path.join(local, 'scripts', file));
     fs.chmodSync(path.join(local, 'scripts', file), 0o755);
@@ -579,7 +580,9 @@ describe('scripts/ios-gate.sh', () => {
     expect(calls).toMatch(/run-ios dev standalone/);
     expect(calls).toMatch(/install-ios Release --identity dev/);
     expect(calls).toMatch(
-      new RegExp(`maestro --device ${UDID} test .*--include-tags=tier0,pack-map,pack-nav`)
+      new RegExp(
+        `maestro --device ${UDID} test -e APP_ID=com.veloq.app.dev .*--include-tags=tier0,pack-map,pack-nav`
+      )
     );
     // The lock is taken for the run and given back after it.
     expect(fs.readdirSync(path.join(f.home, '.veloq-locks'))).toEqual([]);

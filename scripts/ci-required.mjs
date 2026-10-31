@@ -192,7 +192,7 @@ export const BUILD_RESULT_VARIABLES = {
   'build-android': 'ANDROID',
   'build-ios': 'IOS',
   'bundle-check': 'BUNDLE',
-  'e2e-smoke': 'SMOKE',
+  'e2e-gate': 'GATE',
 };
 
 /** Each Build job's displayed name, which its runs are listed under. */
@@ -200,7 +200,7 @@ export const BUILD_JOB_NAMES = {
   'build-android': 'Build Android',
   'build-ios': 'Build iOS',
   'bundle-check': 'Bundle Check',
-  'e2e-smoke': 'E2E Smoke',
+  'e2e-gate': 'E2E Gate',
 };
 
 const NATIVE_BUILDS = ['build-android', 'build-ios'];
@@ -217,23 +217,26 @@ export function buildsNative({ event, author, updateType, areas }) {
  *
  * @param {object} outcome
  * @param {string} outcome.event the event that started the workflow
+ * @param {string} [outcome.ref] the ref it ran on
  * @param {string} outcome.changes the planning job's result
  * @param {boolean} [outcome.native] whether the plan built natively, unset counting as true
  * @param {Record<string, string>} outcome.results each job's result
  * @returns {{job: string, result: string, message: string}[]}
  */
-export function buildFailures({ event, changes, native, results }) {
+export function buildFailures({ event, ref, changes, native, results }) {
   const failures = [];
   if (changes !== 'success') {
     failures.push(failure('changes', changes, `the change detection ended ${changes || 'unset'}`));
   }
   const builds = native !== false;
-  // The smoke test runs after a push to main only.
+  // The E2E gate tests the production build after a push to main or to a ci/
+  // branch, never a release tag, a dispatch or a pull request.
   const required = {
     'build-android': builds,
     'build-ios': builds,
     'bundle-check': !builds,
-    'e2e-smoke': event !== 'pull_request',
+    'e2e-gate':
+      event === 'push' && (ref === 'refs/heads/main' || ref?.startsWith('refs/heads/ci/') === true),
   };
   for (const job of Object.keys(BUILD_RESULT_VARIABLES)) {
     const result = results[job];
@@ -333,6 +336,7 @@ function main([command]) {
       workflow: 'build.yml',
       failures: buildFailures({
         event: env.EVENT,
+        ref: env.REF,
         changes: env.CHANGES,
         native: env.NATIVE !== 'false',
         results,

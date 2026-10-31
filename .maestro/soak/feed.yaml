@@ -1,5 +1,5 @@
 # Soak: the feed's route previews, scrolled down and back CYCLES times.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - soak
 ---

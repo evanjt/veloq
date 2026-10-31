@@ -2,7 +2,7 @@
 # Tests the review screen: verify fields, enter activity name, save, and see
 # the saved ride on the feed
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-recording

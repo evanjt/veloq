@@ -86,7 +86,8 @@ xcrun simctl ui "$udid" appearance light
 # first so it does not write into the container while it is cleared. The App
 # Group container holds routes.db on iOS and is left alone, since the release
 # build shares it; the flow switches debug mode off itself before its first shot.
-bundle_id=$(sed -n -E 's/^appId:[[:space:]]*([^[:space:]]+).*/\1/p' .maestro/store-capture.yaml | head -n 1)
+. "$here/lib/maestro-app-id.sh"
+bundle_id=$(veloq_maestro_app_id "$here")
 pass() {
   xcrun simctl terminate "$udid" "$bundle_id" >/dev/null 2>&1 || true
   data=$(xcrun simctl get_app_container "$udid" "$bundle_id" data)

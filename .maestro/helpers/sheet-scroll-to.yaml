@@ -12,7 +12,7 @@
 # down scrolls the card until its top and then lowers the sheet, so the swipes
 # stop as soon as TARGET is on screen.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - runFlow:
     when:

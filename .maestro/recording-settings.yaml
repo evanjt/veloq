@@ -1,7 +1,7 @@
 # Recording Settings Screen Test
 # Tests auto-pause toggle, threshold adjustment, and data field visibility
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-recording

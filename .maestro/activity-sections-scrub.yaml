@@ -7,7 +7,7 @@
 # the press before we can assert visible highlight state, so visual
 # validation is left to the screenshots.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-activity

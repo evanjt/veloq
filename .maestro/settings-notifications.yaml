@@ -1,7 +1,7 @@
 # Settings Notifications Test
 # Tests: notification toggle disabled in demo mode, OAuth gate display
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-settings

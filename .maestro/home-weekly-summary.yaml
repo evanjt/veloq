@@ -2,7 +2,7 @@
 # Tests the summary card's sparkline tap, then the weekly summary stats and
 # time range toggles on the fitness screen
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-home

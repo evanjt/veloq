@@ -1,6 +1,6 @@
 # Open the Map tab's layers menu, which holds the layer toggles and fit-all.
 # A tap on an open menu's control closes it, so this taps only when it is shut.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - extendedWaitUntil:
     visible:

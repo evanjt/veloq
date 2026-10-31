@@ -1,10 +1,10 @@
 # Maestro E2E Test Configuration
 # Shared settings for all test flows
 
-# App identifier (used in all flows)
-# Android: com.veloq.app
-# iOS: com.veloq.app (bundle identifier)
-appId: com.veloq.app.dev
+# The app a flow drives is not named here. Each flow header reads
+# `appId: ${APP_ID}`, and the runners pass `-e APP_ID=...`: the E2E gate drives
+# the build that ships (com.veloq.app), and scripts/with-maestro.sh and
+# .maestro/run-suite.sh default to the development build (com.veloq.app.dev).
 
 # Execution order: continue running remaining flows after a failure
 executionOrder:

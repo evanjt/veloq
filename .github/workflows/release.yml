@@ -11,10 +11,28 @@ permissions:
 
 jobs:
   # ============================================
+  # Check the tag's sha passed on main
+  # ============================================
+  # Test and E2E Gate run on a push to main, never on a tag, so a tag on a sha
+  # that failed there would publish unless this read comes first.
+  main-gates:
+    name: Check Main Gates
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout (for the gate check)
+        uses: actions/checkout@v7
+
+      - name: Test and E2E Gate on main for the tagged sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/check-main-gates.mjs "${{ github.sha }}"
+
+  # ============================================
   # Find and wait for the tag's build
   # ============================================
   find-and-wait:
     name: Find Tag Build
+    needs: main-gates
     runs-on: ubuntu-24.04
     outputs:
       run_id: ${{ steps.find.outputs.run_id }}

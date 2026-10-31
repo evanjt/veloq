@@ -4,7 +4,7 @@
 # Verifies the `?tab=sections` / `?tab=routes` search-param routing on the
 # activity detail screen.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier1
   - pack-home

@@ -16,6 +16,11 @@ on:
         required: false
         type: boolean
         default: false
+      shipping-rust:
+        description: "Compile the shipped Rust profile in a build that does not ship, to catch what only that profile shows"
+        required: false
+        type: boolean
+        default: false
       abis:
         description: "Architectures of a non-release APK"
         required: false
@@ -86,6 +91,11 @@ jobs:
       # Expo configuration is read again by Gradle and the bundler, so the
       # identity holds for every step rather than for prebuild alone.
       APP_VARIANT: ${{ inputs.variant }}
+      # A build that cannot ship compiles the faster release-dev profile. The marker
+      # lets the Rust builder honour it for the production identity, and is set
+      # only when neither input asks for the shipped profile.
+      VELOQRS_RUST_PROFILE: "${{ (inputs.release || inputs.shipping-rust) && 'release' || 'release-dev' }}"
+      VELOQRS_NON_SHIPPING: "${{ (inputs.release || inputs.shipping-rust) && '' || '1' }}"
       JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
       GRADLE_OPTS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
     outputs:
@@ -173,7 +183,7 @@ jobs:
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/producer-commit
             ${{ inputs.widget-captures && 'modules/veloqrs/android/build/outputs/apk/androidTest/debug/veloqrs-debug-androidTest.apk' || '' }}
-          key: android-app-v6-${{ inputs.variant }}-${{ inputs.release && 'with-aab' || 'apk-only' }}${{ inputs.widget-captures && '-captures' || '' }}-${{ steps.targets.outputs.selection }}-${{ steps.native.outputs.toolchain }}-${{ steps.version.outputs.source_hash }}
+          key: android-app-v7-${{ env.VELOQRS_RUST_PROFILE }}-${{ inputs.variant }}-${{ inputs.release && 'with-aab' || 'apk-only' }}${{ inputs.widget-captures && '-captures' || '' }}-${{ steps.targets.outputs.selection }}-${{ steps.native.outputs.toolchain }}-${{ steps.version.outputs.source_hash }}
 
       - name: Skip build (cache hit)
         if: steps.apk-cache.outputs.cache-hit == 'true'
@@ -198,9 +208,10 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
         with:
-          # Pull requests read main's Gradle home and write none, so they cannot
+          # The production build on main is the one writer of the Gradle home. The
+          # dev build and every pull request read it and write none, so they cannot
           # evict it from the 10 GB budget.
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: ${{ github.ref != 'refs/heads/main' || inputs.variant != 'production' }}
           cache-cleanup: on-success
           gradle-home-cache-includes: |
             caches
@@ -235,7 +246,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: modules/veloqrs/build/rust/android
-          key: rust-android-v6-${{ steps.rust-inputs.outputs.hash }}-${{ steps.native.outputs.rust_toolchain }}-${{ steps.targets.outputs.selection }}
+          key: rust-android-v7-${{ env.VELOQRS_RUST_PROFILE }}-${{ steps.rust-inputs.outputs.hash }}-${{ steps.native.outputs.rust_toolchain }}-${{ steps.targets.outputs.selection }}
 
       - name: Setup Rust for Android
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
@@ -361,11 +372,11 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
         with:
-          key: android-ndk-v4-${{ inputs.variant }}-${{ runner.os }}-${{ steps.native.outputs.ndk }}
+          key: android-ndk-v4-${{ runner.os }}-${{ steps.native.outputs.ndk }}
           restore-keys: |
-            android-ndk-v4-${{ inputs.variant }}-${{ runner.os }}-${{ steps.native.outputs.ndk }}-
-            android-ndk-v4-${{ inputs.variant }}-${{ runner.os }}-
-            android-ndk-v4-
+            android-ndk-v4-${{ runner.os }}-${{ steps.native.outputs.ndk }}
+            android-ndk-v4-${{ runner.os }}
+            android-ndk-v4
           max-size: 1G
           save: ${{ github.ref == 'refs/heads/main' }}
 

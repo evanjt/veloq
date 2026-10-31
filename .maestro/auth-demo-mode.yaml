@@ -1,7 +1,7 @@
 # Demo Mode Authentication Tests
 # Tests the login screen and demo mode entry flow
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier1
   - pack-auth

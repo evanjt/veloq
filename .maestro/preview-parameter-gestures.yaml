@@ -3,7 +3,7 @@
 # once a result adds the diff and action rows and the card has to scroll to
 # reach the lower rows. Each drag ends at the far end of its track, and the
 # second pass drags the other way, so every caption moves both times.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-routes-long

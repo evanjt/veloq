@@ -2,7 +2,7 @@
 # walks the first-run dialogs and ends on the feed. Demo mode does not survive
 # a relaunch, so every round enters again. The caller starts the app; maestro's
 # own launch reports "Unable to launch app" against a freshly installed build.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - extendedWaitUntil:
     visible:

@@ -3,7 +3,7 @@
 # Covers the core user journey in a single flow:
 # Auth > Home feed > Activity detail > Charts > Fitness > Training > Map > Routes > Settings
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier1
   - pack-nav

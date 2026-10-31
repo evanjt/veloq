@@ -33,7 +33,9 @@
 // C++ bridge into the pod and builds nothing, for `pod install`.
 //
 // Profile and features default to VELOQRS_RUST_PROFILE and
-// VELOQRS_CARGO_FEATURES, so local builds need no edit to Cargo.toml.
+// VELOQRS_CARGO_FEATURES, so local builds need no edit to Cargo.toml. A
+// production or Release build ignores the profile and compiles release, unless
+// VELOQRS_NON_SHIPPING=1 marks it as a build that cannot ship.
 
 const { createHash } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
@@ -378,6 +380,82 @@ function run(command, args, options) {
   return result;
 }
 
+/** The total jobs Cargo may use here: the environment, else the nearest `jobs` setting, else every CPU. */
+function cargoJobs(env, rustDir) {
+  const fromEnv = Number(env.CARGO_BUILD_JOBS);
+  if (Number.isInteger(fromEnv) && fromEnv > 0) return fromEnv;
+  for (let dir = path.resolve(rustDir); ; dir = path.dirname(dir)) {
+    for (const name of ['config.toml', 'config']) {
+      const file = path.join(dir, '.cargo', name);
+      if (!fs.existsSync(file)) continue;
+      const match = /^\s*jobs\s*=\s*(\d+)\s*$/m.exec(fs.readFileSync(file, 'utf8'));
+      if (match && Number(match[1]) > 0) return Number(match[1]);
+    }
+    if (path.dirname(dir) === dir) break;
+  }
+  return os.availableParallelism();
+}
+
+/**
+ * One ABI's environment when several build at once: its own target directory,
+ * so the build-directory lock does not serialise them, and an equal share of
+ * the jobs, so the processes together stay within the total one would use.
+ */
+function abiEnvironment(abi, count, env, context) {
+  const base = env.CARGO_TARGET_DIR || path.join(context.rustDir, 'target');
+  return {
+    ...env,
+    CARGO_TARGET_DIR: path.join(base, `android-${abi}`),
+    CARGO_BUILD_JOBS: String(Math.max(1, Math.floor(cargoJobs(env, context.rustDir) / count))),
+  };
+}
+
+// Runs in a child node process: `spawnSync` cannot overlap commands and the
+// builder is synchronous, so this starts them all and exits nonzero with the
+// first failure's description once every one has finished.
+const CONCURRENT_RUNNER = `
+const { spawn } = require('node:child_process');
+const jobs = JSON.parse(process.argv[1]);
+const cwd = process.argv[2];
+const failures = [];
+let pending = jobs.length;
+jobs.forEach((job, index) => {
+  const child = spawn(job.command, job.args, { cwd, env: job.env, stdio: 'inherit' });
+  const finish = (message) => {
+    if (message) failures[index] = message;
+    if (--pending === 0) {
+      const failed = failures.filter(Boolean);
+      if (failed.length) require('node:fs').writeSync(3, failed.join('\\n'));
+      process.exit(failed.length ? 1 : 0);
+    }
+  };
+  child.on('error', (error) => finish(job.command + ' could not start: ' + error.message));
+  child.on('exit', (status, signal) => {
+    const how = signal ? 'signal ' + signal : 'status ' + status;
+    finish(status === 0 ? '' : job.command + ' ' + job.args.join(' ') + ' exited with ' + how);
+  });
+});
+`;
+
+/** Runs the commands together and waits for all, naming the failed ones. */
+function runConcurrently(commands, options) {
+  if (commands.length === 1) {
+    const [only] = commands;
+    run(only.command, only.args, { cwd: options.cwd, env: only.env });
+    return;
+  }
+  const result = spawnSync(
+    process.execPath,
+    ['-e', CONCURRENT_RUNNER, JSON.stringify(commands), options.cwd],
+    { stdio: ['ignore', 'inherit', 'inherit', 'pipe'] }
+  );
+  if (result.error) throw new BuildError(`could not start the concurrent builds: ${result.error.message}`);
+  if (result.status !== 0) {
+    const failures = result.output?.[3]?.toString().split('\n').filter(Boolean) ?? [];
+    throw new BuildError(failures.join('; ') || `the concurrent builds exited with status ${result.status}`);
+  }
+}
+
 /**
  * The compiler that built an output, recorded in its manifest and kept out of
  * the fingerprint: the toolchain pin already decides it, and a restored cache
@@ -485,11 +563,12 @@ function buildAndroidSelection(selection, out, options, context) {
     const env = { ...context.env };
     if (options.ndk) env.ANDROID_NDK_HOME = options.ndk;
     const jniLibs = path.join(staging, 'jniLibs');
-    run(
-      'cargo',
-      [
+    const compiles = abis.map((abi) => ({
+      command: 'cargo',
+      args: [
         'ndk',
-        ...abis.flatMap((abi) => ['-t', abi]),
+        '-t',
+        abi,
         '--platform',
         String(options.api),
         '-o',
@@ -500,8 +579,9 @@ function buildAndroidSelection(selection, out, options, context) {
         'cdylib',
         ...featureArgs(options.features),
       ],
-      { cwd: context.rustDir, env }
-    );
+      env: abis.length > 1 ? abiEnvironment(abi, abis.length, env, context) : env,
+    }));
+    runConcurrently(compiles, { cwd: context.rustDir });
     const built = fs.existsSync(jniLibs) ? fs.readdirSync(jniLibs).sort() : [];
     const extra = built.filter((abi) => !abis.includes(abi));
     if (extra.length) throw new BuildError(`Cargo wrote unrequested ABIs: ${extra.join(', ')}`);
@@ -709,7 +789,12 @@ function slicesFromXcode(env) {
 
 function parseArgs(argv, env) {
   const [platform, ...rest] = argv;
-  const releaseBuild = env.APP_VARIANT === 'production' || env.CONFIGURATION === 'Release';
+  // A production or Release build ships, and compiles the release profile. A
+  // build that cannot ship says so with VELOQRS_NON_SHIPPING=1, and only then
+  // does the selected profile apply to it.
+  const nonShipping = env.VELOQRS_NON_SHIPPING === '1';
+  const releaseBuild =
+    !nonShipping && (env.APP_VARIANT === 'production' || env.CONFIGURATION === 'Release');
   const options = {
     platform,
     abis: [],

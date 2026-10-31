@@ -1,6 +1,6 @@
 # A row detached by Android clipping must still open its swipe action after
 # scrolling back into view. The second row must close the first action.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-routes

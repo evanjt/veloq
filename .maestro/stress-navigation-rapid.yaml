@@ -6,7 +6,7 @@
 # an app in front opens its own scheme without one, and a conditional check that
 # finds nothing waits out Maestro's whole lookup timeout on every hop.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier3
   - pack-stress

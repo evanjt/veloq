@@ -18,6 +18,9 @@ const inputs = [
   'modules/engine/Cargo.lock',
   'scripts/build.sh',
   '.github/workflows/build.yml',
+  '.github/workflows/build-android.yml',
+  '.github/workflows/e2e-gate.yml',
+  'modules/veloqrs/scripts/build-rust.js',
   'src/__tests__/unit.test.ts',
 ];
 
@@ -60,6 +63,43 @@ it.each(['android', 'ios'])(
     expect(computeSourceHash(root, other)).toBe(otherInitial);
   }
 );
+
+it.each([
+  '.github/workflows/test.yml',
+  '.github/workflows/codeql.yml',
+  'scripts/lint-workflows.mjs',
+  'scripts/lint-android-bundle.mjs',
+  'scripts/run-guards.mjs',
+  'scripts/rgba-baseline.json',
+  'scripts/engine-orphan-allowlist.json',
+  'scripts/feature-lazy-requires.json',
+])('ignores %s, which no native build reads', (file) => {
+  fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+  fs.writeFileSync(path.join(root, file), 'original');
+  runGit(['add', file], root);
+  for (const profile of ['android', 'ios']) {
+    const initial = computeSourceHash(root, profile);
+    fs.writeFileSync(path.join(root, file), 'changed');
+    expect(computeSourceHash(root, profile)).toBe(initial);
+    fs.writeFileSync(path.join(root, file), 'original');
+  }
+});
+
+it.each([
+  '.github/workflows/build-ios.yml',
+  '.github/workflows/e2e.yml',
+  '.github/actions/compute-version-info/action.yml',
+  'scripts/build-record.js',
+  'scripts/lib/app-identity.js',
+  'scripts/new-generator.mjs',
+])('invalidates for %s, which is hashed by default', (file) => {
+  fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+  fs.writeFileSync(path.join(root, file), 'original');
+  runGit(['add', file], root);
+  const initial = computeSourceHash(root, 'android');
+  fs.writeFileSync(path.join(root, file), 'changed');
+  expect(computeSourceHash(root, 'android')).not.toBe(initial);
+});
 
 it('invalidates iOS apps, and not Android ones, when the push extension changes', () => {
   expect(isBuildInput('push/ios/Extension/NotificationService.swift', 'ios')).toBe(true);

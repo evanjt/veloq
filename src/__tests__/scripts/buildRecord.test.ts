@@ -78,6 +78,24 @@ describe('the build record', () => {
     expect(options.expect.profile).toBe('release');
   });
 
+  it('expects the selected profile of a release APK only when the build is marked non-shipping', () => {
+    const marked = parse(['verify', 'release'], {
+      VELOQRS_RUST_PROFILE: 'release-dev',
+      VELOQRS_NON_SHIPPING: '1',
+    });
+    expect(marked.expect.profile).toBe('release-dev');
+    const lane = parse(['verify', 'release'], { VELOQRS_RUST_PROFILE: 'release-dev' });
+    expect(lane.expect.profile).toBe('release');
+  });
+
+  it('refuses a release-dev APK in a lane that sets no marker', () => {
+    record.writeRecord(root, build(root, { profile: 'release-dev' }), { variant: 'release' });
+
+    expect(verify(root, parse(['verify', 'release'], {}).expect).problems.join('\n')).toMatch(
+      /the Rust profile is release-dev/
+    );
+  });
+
   it('verifies a build off a dirty tree while the tree is unchanged', () => {
     write(root, 'src/app.ts', 'export const greeting = "edited";\n');
     record.writeRecord(root, build(root), { variant: 'debug' });

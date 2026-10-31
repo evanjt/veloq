@@ -2,7 +2,7 @@
 # on a card can read as a hold on a loaded emulator, and the next tap then only
 # dismisses the menu. The menu does not take Back, which leaves the app, so the
 # tap lands on its backdrop in the blank middle of the header instead.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - runFlow:
     when:

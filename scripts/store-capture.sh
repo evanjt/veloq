@@ -111,7 +111,8 @@ adb shell cmd uimode night no >/dev/null
 
 # Each pass starts with the app's data cleared, so a setting a run left on, debug
 # mode included, cannot reach the next run's shots.
-bundle_id=$(sed -n -E 's/^appId:[[:space:]]*([^[:space:]]+).*/\1/p' .maestro/store-capture.yaml | head -n 1)
+. "$here/lib/maestro-app-id.sh"
+bundle_id=$(veloq_maestro_app_id "$here")
 pass() {
   adb shell pm clear "$bundle_id" >/dev/null
   player=

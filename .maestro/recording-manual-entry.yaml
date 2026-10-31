@@ -1,7 +1,7 @@
 # Recording Manual Entry Test
 # Tests the manual entry flow: select WeightTraining via All Activities, verify form, discard
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-recording

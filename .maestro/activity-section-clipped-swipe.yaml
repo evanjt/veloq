@@ -1,6 +1,6 @@
 # A clipped encounter card must still reveal and perform its Hide action when
 # it returns to view.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-activity

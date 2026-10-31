@@ -49,7 +49,11 @@ const NOT_GATES: Record<string, string> = {
   'check-toolchain.mjs': 'the android and ios build scripts, before each starts',
   'lint-android-bundle.mjs': 'check:android-bundle, before a device build is trusted',
   'lint-native-record-shapes.mjs': 'check:native-records, after every android:debug build',
+  'check-app-crashes.mjs':
+    'the emulator and simulator jobs of build.yml, e2e-gate.yml and e2e.yml, after their flows',
   'check-rust-coverage.mjs': 'the Rust Coverage workflow',
+  'check-main-gates.mjs':
+    'the Release workflow, as its first job, with the tagged sha as its argument',
   'lint-empty-test-binaries.js':
     'the CI Rust job, since it reads `cargo nextest list` and that needs the test build',
   'check-rust-fmt.ts': 'the pre-commit rustfmt gate, over the staged Rust',

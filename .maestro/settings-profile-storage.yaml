@@ -1,7 +1,7 @@
 # Settings Profile and Storage Test
 # Tests: profile section on hub, storage stats on cache page
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-settings

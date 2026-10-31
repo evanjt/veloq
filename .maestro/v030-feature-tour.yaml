@@ -6,7 +6,7 @@
 # This flow is the ground-truth "does the app even render the new surfaces"
 # check; narrower flows verify specific user stories.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-nav

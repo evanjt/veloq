@@ -1,7 +1,7 @@
 # Activity Map Interactions Test
 # Tests: activity map rendering, chart scrub gesture, 3D toggle (optional)
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-map

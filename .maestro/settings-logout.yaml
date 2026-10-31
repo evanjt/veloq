@@ -1,7 +1,7 @@
 # Settings Logout Test
 # Tests logout flow returns to login screen
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-settings

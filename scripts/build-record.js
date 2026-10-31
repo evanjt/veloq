@@ -111,11 +111,15 @@ function parse(argv, env) {
 
 /**
  * The Rust profile a build of `variant` and `applicationId` compiles. A release
- * build and production both build Rust release, as the Rust build decides. A
+ * build and production both build Rust release, as the Rust build decides,
+ * unless VELOQRS_NON_SHIPPING=1 marks the build as one that cannot ship, and
+ * then the selected profile applies. The release lanes set no marker, so they
+ * expect release and refuse an artifact the record says is release-dev. A
  * debug build is made by `npm run android` or `npm run android:debug`, which
  * compile release-dev unless the caller selected a profile.
  */
 function rustProfile(variant, applicationId, env) {
+  if (env.VELOQRS_NON_SHIPPING === '1') return env.VELOQRS_RUST_PROFILE || 'release';
   if (applicationId === IDENTITIES.production.appId || variant.toLowerCase() === 'release') {
     return 'release';
   }

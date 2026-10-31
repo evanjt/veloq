@@ -1,4 +1,4 @@
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 name: Debug regenerate notification
 tags:
   - tier4

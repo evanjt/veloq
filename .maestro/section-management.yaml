@@ -1,7 +1,7 @@
 # Section Management Test
 # Tests: section trim UI, expand mode toggle
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-routes

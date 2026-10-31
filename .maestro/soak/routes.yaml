@@ -1,5 +1,5 @@
 # Soak: the routes list and a route's map, opened and left CYCLES times.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - soak
 ---

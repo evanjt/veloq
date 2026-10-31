@@ -1,7 +1,7 @@
 # Detection preview, kept: Keep writes the previewed config and starts a
 # re-analysis of the whole library. The screen returns only once the engine has
 # started that run, and refuses with a notice when it does not.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-routes-long

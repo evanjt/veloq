@@ -1,7 +1,7 @@
 # Settings Theme Toggle Tests
 # Tests theme switching in display settings
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-settings

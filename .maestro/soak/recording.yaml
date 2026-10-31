@@ -1,5 +1,5 @@
 # Soak: a ride started, its live map shown, then stopped and discarded, CYCLES times.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - soak
 ---

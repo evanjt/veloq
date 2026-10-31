@@ -2,7 +2,7 @@
 # capture names are the screens in .maestro/goldens/masks.json. Each capture
 # waits for the screen's content and for animations to end, since a capture
 # taken mid-transition differs from its golden for no reason in the build.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - runFlow:
     file: open-link.yaml

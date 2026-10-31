@@ -5,7 +5,7 @@
 # insights ternary (or a throw inside the card map) leaves the panel blank
 # while every screenshot-only check still passes.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-routes

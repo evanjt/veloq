@@ -2,17 +2,21 @@
 // Prints what an earlier run of this workflow measured the sha at: `success`,
 // `failure`, or nothing when no run did. Reads the run history through `gh`.
 //
-// Usage: node scripts/earlier-outcome.mjs <repo> <workflow file> <sha> <current run id>
+// Usage: node scripts/earlier-outcome.mjs <repo> <workflow file> <sha> <current run id> [measuring step name]
 
 import { execFileSync } from 'node:child_process';
 
 import { createRequire } from 'node:module';
 
-const { earlierOutcome } = createRequire(import.meta.url)('./lib/earlier-outcome.js');
+const { earlierOutcome, MEASURING_STEP } = createRequire(import.meta.url)(
+  './lib/earlier-outcome.js'
+);
 
-const [repo, workflow, sha, currentRunId] = process.argv.slice(2);
+const [repo, workflow, sha, currentRunId, stepName = MEASURING_STEP] = process.argv.slice(2);
 if (!repo || !workflow || !sha || !currentRunId) {
-  console.error('usage: earlier-outcome.mjs <repo> <workflow file> <sha> <current run id>');
+  console.error(
+    'usage: earlier-outcome.mjs <repo> <workflow file> <sha> <current run id> [measuring step name]'
+  );
   process.exit(2);
 }
 
@@ -33,4 +37,4 @@ const withJobs = runs
     ),
   }));
 
-process.stdout.write(earlierOutcome(withJobs, currentRunId) ?? '');
+process.stdout.write(earlierOutcome(withJobs, currentRunId, stepName) ?? '');

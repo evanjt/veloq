@@ -2,7 +2,7 @@
 # open, so a shot taken after one shows the menu over the map. A tap on the
 # layers control closes an open menu, and a tap lost while the map draws leaves
 # it open, so the tap is made again until the menu has gone.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - runFlow:
     when:

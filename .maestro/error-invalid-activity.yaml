@@ -1,7 +1,7 @@
 # Invalid Activity Deep Link Error Handling
 # Verifies app handles nonexistent activity IDs gracefully without crashing
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-activity

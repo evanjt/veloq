@@ -1,7 +1,7 @@
 # Pull-to-Refresh Test
 # Tests pull-to-refresh gesture on the home and fitness screens
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-nav

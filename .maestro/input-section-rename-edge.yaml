@@ -1,7 +1,7 @@
 # Section Rename Edge Cases
 # Tests section rename with very long names and special characters
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-routes

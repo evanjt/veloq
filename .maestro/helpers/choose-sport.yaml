@@ -1,6 +1,6 @@
 # Choose SPORT on the record entry screen: its chip when the chip row shows
 # it, otherwise from the full list behind More, which then shows it as a chip.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - extendedWaitUntil:
     visible:

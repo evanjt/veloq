@@ -1,7 +1,7 @@
 # Settings Summary Card Configuration Test
 # Tests: hero metric selection, sparkline toggle
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-settings

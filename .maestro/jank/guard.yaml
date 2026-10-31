@@ -2,7 +2,7 @@
 # follows measures a login screen or a notification shade. Which library it
 # shows is read once per entry, by `demo-library.yaml` and
 # `signed-in-library.yaml`.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - assertVisible:
     id: "home-screen"

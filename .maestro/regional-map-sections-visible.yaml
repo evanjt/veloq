@@ -11,7 +11,7 @@
 # silently passes when sections are missing, which is exactly the bug.
 # This flow makes the assertion HARD so the failure surfaces.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-map

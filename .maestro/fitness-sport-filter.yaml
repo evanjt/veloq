@@ -1,7 +1,7 @@
 # Fitness Sport Filter Test
 # Tests: switching between cycling, running, swimming sport modes
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-fitness

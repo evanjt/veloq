@@ -4,7 +4,7 @@
 # the slide track while it holds (`src/app/recording/[type].tsx`), so nothing
 # is tappable until this runs.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 # Anchor on the handle by test ID so the swipe starts on the track whatever
 # the screen height or bottom inset. From an element, Maestro carries a RIGHT

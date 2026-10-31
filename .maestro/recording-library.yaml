@@ -1,7 +1,7 @@
 # Recordings Library Test
 # Tests: open the recordings library from the record screen, verify list/empty state
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-recording

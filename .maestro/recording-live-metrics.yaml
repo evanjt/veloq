@@ -1,7 +1,7 @@
 # Recording Live Metrics Test
 # Tests: data field grid visibility, GPS indicator during recording
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-recording-long

@@ -1,7 +1,7 @@
 # Scroll one row of the preview parameter card into view, drag its slider and
 # check the caption moved. KEY names the parameter, NEXT the row below it or
 # `presets` for the last row, DIRECTION the way to drag.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - runFlow:
     file: scroll-preview-param-row.yaml

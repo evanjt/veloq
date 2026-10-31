@@ -1,7 +1,7 @@
 # Training Wellness Dashboard Test
 # Tests wellness indicators on the fitness screen
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-training

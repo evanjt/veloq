@@ -16,7 +16,7 @@
 # It clears the app's data first, so the library on the device is replaced by
 # the one the key belongs to. Delete the screenshots it leaves afterwards.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - real-account
 ---

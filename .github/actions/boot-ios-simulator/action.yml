@@ -1,5 +1,5 @@
-name: Boot iOS simulator with the Dev app
-description: Download the Dev simulator app, boot an iPhone simulator and install the app on it
+name: Boot iOS simulator with the app
+description: Download the simulator app of either identity, boot an iPhone simulator and install the app on it
 
 inputs:
   artifact:
@@ -63,4 +63,7 @@ runs:
     - name: Install app
       shell: bash
       run: |
-        xcrun simctl install "${{ steps.simulator.outputs.udid }}" ios/build/Build/Products/Release-iphonesimulator/VeloqDev.app
+        # The artifact holds one app, named for the identity it was built as.
+        APP=$(find ios/build/Build/Products/Release-iphonesimulator -maxdepth 1 -name '*.app' | head -1)
+        [ -n "$APP" ] || { echo "::error::The simulator artifact holds no app"; exit 1; }
+        xcrun simctl install "${{ steps.simulator.outputs.udid }}" "$APP"

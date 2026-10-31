@@ -43,4 +43,5 @@ for field in "--time 12:00" "--dataNetwork wifi" "--wifiMode active" "--wifiBars
 done
 
 rm -rf screenshots/compare
-maestro --device "$udid" test .maestro/screen-compare.yaml
+. "$here/lib/maestro-app-id.sh"
+maestro --device "$udid" test -e "APP_ID=$(veloq_maestro_app_id "$here")" .maestro/screen-compare.yaml

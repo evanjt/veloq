@@ -1,7 +1,7 @@
 # Fitness Data Validation
 # Verifies fitness metrics show real numbers, not NaN/blank, across time ranges
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-data

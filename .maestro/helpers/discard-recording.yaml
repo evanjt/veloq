@@ -3,7 +3,7 @@
 # runs when the flow reaches it: one death mid-ride hides `record-fab` from
 # every later flow and draws the return pill over the feed.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 # The return pill is the only handle on someone else's session: the live route
 # is `/recording/<type>` and this flow does not know the type.

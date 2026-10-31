@@ -1,7 +1,7 @@
 # Insights Tab Display Test
 # Verifies insights panel loads, card tapping shows detail sheet with methodology
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-routes

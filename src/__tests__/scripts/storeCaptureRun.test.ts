@@ -19,8 +19,9 @@ import { STORE_AVD } from '../../../scripts/store-device';
 const projectRoot = path.join(__dirname, '../../..');
 const capture = path.join(projectRoot, 'scripts/store-capture.sh');
 const captureIos = path.join(projectRoot, 'scripts/store-capture-ios.sh');
-const flow = fs.readFileSync(path.join(projectRoot, '.maestro/store-capture.yaml'), 'utf8');
-const APP = /^appId:\s*(\S+)/m.exec(flow)![1];
+const APP = (
+  require('../../../scripts/lib/app-identity.js') as { IDENTITIES: { dev: { appId: string } } }
+).IDENTITIES.dev.appId;
 const UDID = '00000000-AAAA-BBBB-CCCC-444444444444';
 
 function stub(file: string, body: string): void {

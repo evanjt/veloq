@@ -27,13 +27,16 @@ permissions:
 
 jobs:
   # ============================================
-  # Build the Dev variant through the shared definitions
+  # Build the Dev variant through the shared definitions, with the shipped
+  # Rust profile, so the sweep tests the engine as it ships. This is the one
+  # nightly build per platform: the Dev identity is what the flows drive.
   # ============================================
   build-android-dev:
     name: Build Android Dev
     uses: ./.github/workflows/build-android.yml
     with:
       variant: dev
+      shipping-rust: true
       abis: arm64-v8a,x86_64
       allow-stub: true
       widget-captures: true
@@ -44,6 +47,7 @@ jobs:
     uses: ./.github/workflows/build-ios.yml
     with:
       variant: dev
+      shipping-rust: true
       retention-days: 7
 
   # ============================================
@@ -235,6 +239,10 @@ jobs:
             /tmp/logcat-filtered.txt
             /tmp/device-state.txt
           retention-days: 7
+
+      - name: Fail on a crash of our own app
+        if: always()
+        run: node scripts/check-app-crashes.mjs --logcat /tmp/logcat.txt --package com.veloq.app
 
       - name: Fail if tests failed
         if: always() && env.MAESTRO_FAILED == 'true'
@@ -524,6 +532,10 @@ jobs:
             /tmp/ios-sim-log.txt
             /tmp/VeloqDev*
           retention-days: 7
+
+      - name: Fail on a crash of our own app
+        if: always()
+        run: node scripts/check-app-crashes.mjs --ios-reports "$HOME/Library/Logs/DiagnosticReports" --process VeloqDev
 
       - name: Fail if tests failed
         if: always() && env.MAESTRO_FAILED == 'true'

@@ -16,6 +16,11 @@ on:
         required: false
         type: boolean
         default: false
+      shipping-rust:
+        description: "Compile the shipped Rust profile in a build that does not ship, to catch what only that profile shows"
+        required: false
+        type: boolean
+        default: false
       check-signing:
         description: "Check the App Store profiles against the generated project"
         required: false
@@ -78,6 +83,11 @@ jobs:
       # Expo configuration is read again by the Xcode bundling phase and by
       # fastlane, so the identity holds for every step rather than for prebuild.
       APP_VARIANT: ${{ inputs.variant }}
+      # A build that cannot ship compiles the faster release-dev profile. The marker
+      # lets the Rust builder honour it for the production identity, and is set
+      # only when neither input asks for the shipped profile.
+      VELOQRS_RUST_PROFILE: "${{ (inputs.release || inputs.shipping-rust) && 'release' || 'release-dev' }}"
+      VELOQRS_NON_SHIPPING: "${{ (inputs.release || inputs.shipping-rust) && '' || '1' }}"
       # The scheme is the app name scripts/lib/app-identity.js gives the identity, without spaces.
       SCHEME: ${{ inputs.variant == 'production' && 'Veloq' || 'VeloqDev' }}
     outputs:
@@ -122,7 +132,7 @@ jobs:
           path: |
             artifacts/simulator-app.zip
             artifacts/producer-commit
-          key: ios-sim-app-v4-${{ inputs.variant }}-${{ steps.native.outputs.toolchain }}-${{ steps.version.outputs.source_hash }}
+          key: ios-sim-app-v5-${{ env.VELOQRS_RUST_PROFILE }}-${{ inputs.variant }}-${{ steps.native.outputs.toolchain }}-${{ steps.version.outputs.source_hash }}
 
       - name: Skip build (cache hit)
         if: steps.app-cache.outputs.cache-hit == 'true'
@@ -196,7 +206,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: modules/veloqrs/build/rust/ios
-          key: rust-ios-v5-${{ steps.rust-inputs.outputs.hash }}-${{ steps.native.outputs.toolchain }}-${{ steps.targets.outputs.selection }}
+          key: rust-ios-v6-${{ env.VELOQRS_RUST_PROFILE }}-${{ steps.rust-inputs.outputs.hash }}-${{ steps.native.outputs.toolchain }}-${{ steps.targets.outputs.selection }}
 
       - name: Setup Rust for iOS
         if: steps.app-cache.outputs.cache-hit != 'true' && steps.rust-ios-cache.outputs.cache-hit != 'true'
@@ -255,8 +265,11 @@ jobs:
           BUNDLE_GEMFILE: ${{ github.workspace }}/config/fastlane/Gemfile
         run: bundle exec pod install
 
+      # The key holds the variant because the Podfile's target takes the app name,
+      # which differs by variant, so the pods differ. Only the production build
+      # saves it, so the dev build's key is never written and its pods are installed fresh.
       - name: Save CocoaPods
-        if: github.ref == 'refs/heads/main' && steps.app-cache.outputs.cache-hit != 'true' && steps.pods-cache.outputs.cache-hit != 'true'
+        if: github.ref == 'refs/heads/main' && inputs.variant == 'production' && steps.app-cache.outputs.cache-hit != 'true' && steps.pods-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: |
@@ -354,7 +367,7 @@ jobs:
           path: |
             artifacts/simulator-app.zip
             artifacts/producer-commit
-          key: ios-sim-app-v4-${{ inputs.variant }}-${{ steps.native.outputs.toolchain }}-${{ steps.version.outputs.source_hash }}
+          key: ios-sim-app-v5-${{ env.VELOQRS_RUST_PROFILE }}-${{ inputs.variant }}-${{ steps.native.outputs.toolchain }}-${{ steps.version.outputs.source_hash }}
 
       - name: Read producing commit
         id: producer

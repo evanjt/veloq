@@ -1,7 +1,7 @@
 # Smoke Test
 # Basic sanity check that the app launches and shows either login or home screen
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier0
   - pack-nav

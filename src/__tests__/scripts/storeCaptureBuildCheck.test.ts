@@ -13,15 +13,16 @@ import path from 'path';
 
 const projectRoot = path.join(__dirname, '../../..');
 const check = path.join(projectRoot, 'scripts/store-capture-build-check.sh');
-const flow = fs.readFileSync(path.join(projectRoot, '.maestro/store-capture.yaml'), 'utf8');
-const APP = /^appId:\s*(\S+)/m.exec(flow)![1];
+const APP = (
+  require('../../../scripts/lib/app-identity.js') as { IDENTITIES: { dev: { appId: string } } }
+).IDENTITIES.dev.appId;
 
 const UDID = '00000000-AAAA-BBBB-CCCC-333333333333';
 
-function dumpsys(flags: string): string {
+function dumpsys(flags: string, app = APP): string {
   return [
     'Packages:',
-    `  Package [${APP}] (5d1c2e7):`,
+    `  Package [${app}] (5d1c2e7):`,
     `    versionName=0.4.0`,
     `    flags=[ ${flags} ]`,
     `    pkgFlags=[ ${flags} ]`,
@@ -30,14 +31,15 @@ function dumpsys(flags: string): string {
 }
 
 /** Stub `adb` and `xcrun` on PATH, answering from the files given. */
-function stubTools(options: { dumpsys?: string; container?: string | null }) {
+function stubTools(options: { dumpsys?: string; container?: string | null; app?: string }) {
+  const app = options.app ?? APP;
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'store-capture-check-'));
   const bin = path.join(root, 'bin');
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(root, 'dumpsys.txt'), options.dumpsys ?? '');
   fs.writeFileSync(
     path.join(bin, 'adb'),
-    `#!/bin/sh\n[ "$*" = "shell dumpsys package ${APP}" ] || exit 9\ncat '${root}/dumpsys.txt'\n`,
+    `#!/bin/sh\n[ "$*" = "shell dumpsys package ${app}" ] || exit 9\ncat '${root}/dumpsys.txt'\n`,
     { mode: 0o755 }
   );
   const container = options.container;
@@ -71,8 +73,16 @@ function simulatorApp(root: string, bundled: boolean): string {
 }
 
 describe('the store capture build check', () => {
-  it('reads the app the capture flow launches', () => {
-    expect(APP).toMatch(/^com\.veloq\.app/);
+  it('checks the development build unless APP_ID names another', () => {
+    const dev = stubTools({ dumpsys: dumpsys('HAS_CODE') });
+    expect(run(['android'], { ...dev.env, APP_ID: '' }).status).toBe(0);
+
+    const production = stubTools({
+      dumpsys: dumpsys('HAS_CODE', 'com.veloq.app'),
+      app: 'com.veloq.app',
+    });
+    expect(run(['android'], { ...production.env, APP_ID: 'com.veloq.app' }).status).toBe(0);
+    expect(run(['android'], { ...production.env, APP_ID: '' }).status).toBe(9);
   });
 
   it('refuses a debuggable Android package', () => {

@@ -1,7 +1,7 @@
 # Activity Detail Scroll Test
 # Scrolls through the full activity detail screen with screenshots
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-activity

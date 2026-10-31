@@ -2,7 +2,9 @@ name: Test
 
 on:
   push:
-    branches: [main]
+    # A ci/ branch runs the workflow before main does. Its caches are read-only:
+    # every cache write is gated on main.
+    branches: [main, 'ci/**']
   pull_request:
     branches: [main]
 
@@ -144,18 +146,26 @@ jobs:
           key: jest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-shard${{ matrix.shard }}-${{ github.sha }}
 
   rust:
-    name: Rust Tests
+    name: Rust Tests (partition ${{ matrix.partition }}/3)
     needs: changes
     if: fromJSON(needs.changes.outputs.run).rust
     runs-on: ubuntu-24.04
-    # Whole job: compile, nextest, doctests and bench check. Measured on a
-    # GitHub runner on 2026-10-25 with 5501 tests: 6m34s to compile, 13m06s
-    # in nextest (all passing), so 20m02s had elapsed when the old 20 minute
-    # cap cancelled the job, before the doctests and the bench check (1m38s on
-    # a cold cache) ran. The cap leaves about seven minutes over that run's
-    # estimated total. Remeasure when the workload grows; a run past the cap
-    # needs its logs read to tell a slow job from a stuck one.
+    # One leg per nextest partition, so the job's wall time follows its
+    # slowest leg and each leg runs a third of the tests. Every leg compiles
+    # the whole test tree, since nextest builds every binary before it splits
+    # them. The cap was measured on the single-job run of 2026-10-25 with 5501
+    # tests: 6m34s to compile, 13m06s in nextest (all passing), then the
+    # doctests and the bench check (1m38s on a cold cache), so 20m02s had
+    # elapsed when the old 20 minute cap cancelled it. The cap applies to each
+    # leg and has not been measured on a partitioned run, so remeasure it from
+    # the first one. A run past the cap needs its logs read to tell a slow leg
+    # from a stuck one.
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # The count in `--partition` below is the length of this list.
+        partition: [1, 2, 3]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -168,13 +178,15 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@fb523f40495206854c36b250850817ae0f83e3d1 # 1.99.0
 
+      # Every leg restores the one cache. Only leg 1 saves it on main, so the
+      # three legs do not write the same key in a race.
       - name: Cache Rust
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: modules/veloqrs/rust
           key: test
           # Pull requests read main's cache and write none, so they cannot evict it.
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          save-if: ${{ github.ref == 'refs/heads/main' && matrix.partition == 1 }}
           cache-on-failure: true
 
       - name: Install nextest
@@ -184,40 +196,37 @@ jobs:
 
       # veloqrs only. tracematch runs its own suite, the GeoLife corpus and
       # the synthetic lane in its own CI on the pinned sha, so repeating them
-      # here doubled the job for no coverage. One invocation with the
-      # synthetic feature on: a second run without it relinked every test
-      # binary and re-ran the non-synthetic targets a second time.
+      # here doubled the job for no coverage. Each leg runs one partition of
+      # one invocation with the synthetic feature on. A second run without the
+      # feature relinked every test binary and re-ran the non-synthetic
+      # targets a second time.
       # nextest runs every binary's tests through one scheduler with a
       # per-test timeout (`.config/nextest.toml`), where `cargo test` runs the
-      # binaries one after another and waits on a hang forever. It does not
-      # run doctests, so the `--doc` pass follows and reuses the build.
+      # binaries one after another and waits on a hang forever.
       # A target whose `required-features` the run does not enable compiles to an
       # empty binary: it prints `running 0 tests` and `ok`, so an exit code
-      # cannot see it and the resume suite was red for days behind that. `list`
-      # builds the same binaries the run reuses, so this costs the check alone.
+      # cannot see it and the resume suite was red for days behind that. Only
+      # leg 1 runs this check. `list` builds the same binaries the run reuses,
+      # so the other legs compile nothing extra for it.
       - name: Check no test target is empty
+        if: matrix.partition == 1
         run: node scripts/lint-empty-test-binaries.js -p veloqrs --features synthetic
 
       - name: Run Rust tests
         working-directory: modules/veloqrs/rust
-        run: |
-          cargo nextest run -p veloqrs --features synthetic --profile ci
-          cargo test -p veloqrs --features synthetic --doc
+        run: cargo nextest run -p veloqrs --features synthetic --profile ci --partition hash:${{ matrix.partition }}/3
 
-      # Benches are a build target nothing else compiles: `cargo test` and the
-      # merge gates skip them, so a bench rots silently behind any signature
-      # change. Type-checked, not linked: `cargo bench --no-run` links under the
-      # release profile's LTO and ran this job past its cap, and every bench
-      # break so far was a compile error, which `check` sees.
-      - name: Check Rust benches
+      # Doctests are not partitioned by nextest, so only leg 1 runs them.
+      - name: Run doctests
+        if: matrix.partition == 1
         working-directory: modules/veloqrs/rust
-        run: cargo check -p veloqrs --features synthetic --benches
+        run: cargo test -p veloqrs --features synthetic --doc
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: rust-test-report
+          name: rust-test-report-${{ matrix.partition }}
           path: modules/veloqrs/rust/target/nextest/ci/junit.xml
           retention-days: 7
 
@@ -254,6 +263,8 @@ jobs:
         run: cargo fmt -p veloqrs --check
 
       # Every target and feature, so a test, bench or example is linted too.
+      # This is also the bench type-check: clippy over all targets compiles
+      # every bench without linking it, which `cargo check --benches` did.
       - name: Clippy
         working-directory: modules/veloqrs/rust
         run: cargo clippy -p veloqrs --all-targets --all-features -- -D warnings

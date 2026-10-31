@@ -1,7 +1,7 @@
 # Fitness Curves and Zones Test
 # Tests: power/pace curves, zone distribution, season bests, FTP trend, decoupling
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-fitness

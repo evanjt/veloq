@@ -30,6 +30,27 @@ const excludedDirectories = new Set(['.husky', '.maestro', 'docs', 'oauth-proxy'
 // Directories split by platform, whose other platform's half a profile skips.
 const platformDirectories = ['widget', 'push'];
 
+// Workflows that build a native app, or call a workflow that does and so set
+// its inputs. Any other workflow runs tests, gates or publishing, and nothing
+// it holds reaches a cached app. `scripts/ci-areas.mjs` classifies pull
+// requests and names only the build workflows, not the two callers here,
+// because a pull request's own checks are a different question from what a
+// cached app was built from.
+const nativeWorkflows = new Set([
+  'build.yml',
+  'build-android.yml',
+  'build-ios.yml',
+  'e2e-gate.yml',
+  'e2e.yml',
+]);
+
+// Scripts that only read the tree and refuse a change, and the ratchet data
+// they read. An edit to one changes whether a build is refused, never what it
+// packages. Anything else under `scripts/` stays hashed, so a new script is
+// hashed until it is named here.
+const gateScript = /^scripts\/(lint-[^/]*|run-guards\.mjs)$/;
+const gateData = /^scripts\/([^/]+-(baseline|allowlist)|feature-lazy-requires)\.json$/;
+
 /**
  * `process.env` without the pointers git exports to everything a hook runs.
  * They beat `cwd`, so without this the hash would be of whatever tree the hook
@@ -58,6 +79,9 @@ function isBuildInput(file, profile) {
   if (file.includes('/') && !buildDirectories.has(file.split('/')[0])) return false;
   if (/\.md$/i.test(file) || file.startsWith('src/__tests__/')) return false;
   if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(file)) return false;
+  if (gateScript.test(file) || gateData.test(file)) return false;
+  const workflow = /^\.github\/workflows\/([^/]+)$/.exec(file);
+  if (workflow && !nativeWorkflows.has(workflow[1])) return false;
   if (profile !== 'all') {
     const other = profile === 'ios' ? 'android' : 'ios';
     if (platformDirectories.some((dir) => file.startsWith(`${dir}/${other}/`))) return false;

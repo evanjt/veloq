@@ -1,7 +1,7 @@
 # Activity Chart Type Selector Test
 # Tests toggling through all available chart types on activity detail
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-activity

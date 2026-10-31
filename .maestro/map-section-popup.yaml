@@ -3,7 +3,7 @@
 # detector assigns those and moves them with its config and the order activities
 # arrive.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-map

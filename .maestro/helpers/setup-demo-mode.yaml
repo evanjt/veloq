@@ -1,7 +1,7 @@
 # Launch app, enter demo mode if needed, wait for home screen
 # Works on emulators, simulators, and physical devices
 # Handles: login, system alerts, Activity Notifications, WhatsNewModal
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 # A flow that needs the notification prompt still to answer passes
 # NOTIFICATIONS_PERMISSION: unset. Every other flow launches with all granted.

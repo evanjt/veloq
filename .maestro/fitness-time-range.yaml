@@ -1,7 +1,7 @@
 # Fitness Time Range Test
 # Tests switching time ranges on fitness screen
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-fitness

@@ -2,7 +2,7 @@
 # Tests the power curve display on fitness screen
 # (Power curves migrated from stats to fitness tab)
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-fitness

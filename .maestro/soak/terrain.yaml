@@ -1,5 +1,5 @@
 # Soak: the 3D terrain map. Open ACTIVITY, switch to 3D and back, CYCLES times.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - soak
 ---

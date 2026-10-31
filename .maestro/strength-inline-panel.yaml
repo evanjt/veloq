@@ -5,7 +5,7 @@
 # panel next to the diagram (not below the fold), and the methodology
 # disclaimer is present.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-activity

@@ -16,7 +16,7 @@
 # place it was just seen before the next assertion reads it. Every swipe runs
 # down the centre line of the screen, inside the list, above the tab bar and
 # left of the record button.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - assertTrue: ${typeof LIST === 'string' && LIST.length > 0}
 - evalScript: ${output.revealUp = typeof DIRECTION !== 'undefined' && DIRECTION === 'UP'}

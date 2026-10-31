@@ -1,5 +1,5 @@
 # Soak: the activity detail map. Open ACTIVITY, pan and zoom, go back, CYCLES times.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - soak
 ---

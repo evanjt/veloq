@@ -1,7 +1,7 @@
 # Comprehensive Map Integration Test
 # Tests map features: activities, routes, sections, filters, and toggles
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-map

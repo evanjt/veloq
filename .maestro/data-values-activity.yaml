@@ -1,7 +1,7 @@
 # Activity Detail Data Validation
 # Verifies activity detail shows valid data and chart types don't crash
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-data

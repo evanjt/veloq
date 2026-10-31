@@ -87,8 +87,10 @@ jobs:
         uses: Swatinem/rust-cache@${PIN} # v2
         with:
           save-if: \${{ github.ref == 'refs/heads/main' }}
-      - name: Check Rust benches
-        run: cargo check -p veloqrs --benches
+      - name: Run Rust tests
+        run: cargo nextest run -p veloqrs --profile ci
+      - name: Clippy
+        run: cargo clippy -p veloqrs --all-targets --all-features -- -D warnings
   rust-advisories:
     uses: ./.github/workflows/rust-advisories.yml
   ci-required:
@@ -311,8 +313,8 @@ describe('native Rust profile', () => {
       TEST_YML.replace('concurrency:', 'env:\n  VELOQRS_RUST_PROFILE: release-dev\nconcurrency:'),
       TEST_YML.replace('  rust:\n', '  rust:\n    env:\n      VELOQRS_RUST_PROFILE: release-dev\n'),
       TEST_YML.replace(
-        '      - name: Check Rust benches\n',
-        '      - name: Check Rust benches\n        env:\n          VELOQRS_RUST_PROFILE: release-dev\n'
+        '      - name: Clippy\n',
+        '      - name: Clippy\n        env:\n          VELOQRS_RUST_PROFILE: release-dev\n'
       ),
     ]) {
       const output = refused({ ...CLEAN, '.github/workflows/test.yml': edited });
@@ -329,6 +331,83 @@ describe('native Rust profile', () => {
       ),
     });
     expect(output).toContain('veloqrsRustProfile must be release');
+  });
+});
+
+describe('native Rust profile chosen by the release input', () => {
+  const GATED_PROFILE =
+    "${{ (inputs.release || inputs.shipping-rust) && 'release' || 'release-dev' }}";
+  const GATED_MARKER = "${{ (inputs.release || inputs.shipping-rust) && '' || '1' }}";
+  const definition = (
+    env: string,
+    inputs = '      release:\n        type: boolean\n      shipping-rust:\n        type: boolean\n'
+  ) => `name: Build Android
+on:
+  workflow_call:
+    inputs:
+      variant:
+        required: true
+        type: string
+${inputs}jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      APP_VARIANT: \${{ inputs.variant }}
+${env}    steps:
+      - uses: actions/checkout@v7
+`;
+  const caller = (release: string) => `name: E2E
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    uses: ./.github/workflows/build-android.yml
+    with:
+      variant: dev
+      release: ${release}
+`;
+  const files = (def: string, call?: string) => ({
+    ...CLEAN,
+    '.github/workflows/build-android.yml': def,
+    ...(call ? { '.github/workflows/e2e.yml': call } : {}),
+  });
+  const gated = `      VELOQRS_RUST_PROFILE: "${GATED_PROFILE}"\n      VELOQRS_NON_SHIPPING: "${GATED_MARKER}"\n`;
+
+  it('passes a definition that builds release-dev only when neither input asks for the shipped profile', () => {
+    const { status } = runGuard(fixture(files(definition(gated))));
+    expect(status).toBe(0);
+  });
+
+  it('refuses release-dev set as a literal, which a release build would also reach', () => {
+    const output = refused(
+      files(
+        definition('      VELOQRS_RUST_PROFILE: release-dev\n      VELOQRS_NON_SHIPPING: "1"\n')
+      )
+    );
+    expect(output).toContain('VELOQRS_RUST_PROFILE must be release');
+  });
+
+  it('refuses a profile chosen by the release input beside no marker, or a marker set outright', () => {
+    expect(
+      refused(files(definition(`      VELOQRS_RUST_PROFILE: "${GATED_PROFILE}"\n`)))
+    ).toContain('VELOQRS_NON_SHIPPING must be');
+    expect(
+      refused(
+        files(definition('      VELOQRS_RUST_PROFILE: release\n      VELOQRS_NON_SHIPPING: "1"\n'))
+      )
+    ).toContain('VELOQRS_NON_SHIPPING may only be set');
+  });
+
+  it('refuses the gated profile in a definition that declares no release input', () => {
+    const output = refused(files(definition(gated, '')));
+    expect(output).toContain('belongs to a build definition with release and shipping-rust inputs');
+  });
+
+  it('refuses a call that passes release true from a workflow other than build.yml', () => {
+    expect(refused(files(definition(gated), caller('true')))).toContain(
+      'only .github/workflows/build.yml builds the shipped store artifacts'
+    );
+    expect(runGuard(fixture(files(definition(gated), caller('false')))).status).toBe(0);
   });
 });
 
@@ -386,6 +465,30 @@ runs:
     expect(output).toContain('setup-gradle writes its cache off main');
   });
 
+  it('accepts setup-gradle that never writes its cache', () => {
+    const { status } = runGuard(
+      fixture(
+        withEdit(
+          '.github/workflows/build.yml',
+          "cache-read-only: ${{ github.ref != 'refs/heads/main' }}",
+          'cache-read-only: true'
+        )
+      )
+    );
+    expect(status).toBe(0);
+  });
+
+  it('refuses setup-gradle with the cache read-only switched off outright', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/build.yml',
+        "cache-read-only: ${{ github.ref != 'refs/heads/main' }}",
+        'cache-read-only: false'
+      )
+    );
+    expect(output).toContain('setup-gradle writes its cache off main');
+  });
+
   it('refuses setup-gradle without cache-cleanup', () => {
     const output = refused(
       withEdit('.github/workflows/build.yml', '          cache-cleanup: on-success\n', '')
@@ -416,6 +519,34 @@ runs:
     );
     expect(output).toContain('(job build-android step Setup ccache)');
     expect(output).toContain('append-timestamp: false');
+  });
+
+  it('refuses a ccache restore key ending in a dash, which the action doubles', () => {
+    for (const restoreKeys of ['ndk-', 'ndk\n            ndk-']) {
+      const output = refused(
+        withEdit(
+          '.github/workflows/build.yml',
+          '          key: ndk\n',
+          `          key: ndk\n          restore-keys: |\n            ${restoreKeys}\n`
+        )
+      );
+      expect(output).toContain('(job build-android step Setup ccache)');
+      expect(output).toContain('adds "-" to each restore key');
+    }
+  });
+
+  it('accepts ccache restore keys with no trailing dash', () => {
+    const { status, output } = runGuard(
+      fixture(
+        withEdit(
+          '.github/workflows/build.yml',
+          '          key: ndk\n',
+          '          key: ndk\n          restore-keys: |\n            ndk\n'
+        )
+      )
+    );
+    expect(output).toContain('Workflow guard: caches write from main only');
+    expect(status).toBe(0);
   });
 
   it('refuses a ccache launch that checks the compiler by mtime', () => {
@@ -615,6 +746,134 @@ jobs:
     });
     expect(output).toContain('.github/workflows/release.yml (job deploy step Setup Ruby)');
     expect(output).toContain('bundler-cache');
+  });
+});
+
+/**
+ * Scenario: the Android and iOS build definitions run once per variant, and
+ * the Actions cache holds 10 GB. When both variants write the Gradle home and
+ * the CocoaPods store on main, each store has two writers and the cache
+ * evicts the rest by age.
+ *
+ * Expected behaviour: only the production build on main writes the Gradle home
+ * and the CocoaPods store. The dev build reads them and saves nothing.
+ */
+describe('one variant writes a shared cache store', () => {
+  const ANDROID_DEFINITION = `name: Build Android
+on:
+  workflow_call:
+    inputs:
+      variant:
+        required: true
+        type: string
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      APP_VARIANT: \${{ inputs.variant }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@${PIN} # v6
+        with:
+          cache-read-only: \${{ github.ref != 'refs/heads/main' || inputs.variant != 'production' }}
+          cache-cleanup: on-success
+      - name: Build APK
+        run: cd android && ./gradlew assembleRelease --build-cache --no-daemon
+`;
+
+  const iosDefinition = (saveIf: string) => `name: Build iOS
+on:
+  workflow_call:
+    inputs:
+      variant:
+        required: true
+        type: string
+jobs:
+  build:
+    runs-on: macos-26
+    env:
+      APP_VARIANT: \${{ inputs.variant }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Restore CocoaPods
+        id: pods-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+          key: cocoapods-v3-\${{ inputs.variant }}-\${{ runner.os }}-\${{ hashFiles('package-lock.json') }}
+      - name: Save CocoaPods
+        if: ${saveIf}
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ios/Pods
+            ~/Library/Caches/CocoaPods
+          key: \${{ steps.pods-cache.outputs.cache-primary-key }}
+`;
+
+  const POD_SAVE_ON_PRODUCTION =
+    "${{ github.ref == 'refs/heads/main' && inputs.variant == 'production' && steps.pods-cache.outputs.cache-hit != 'true' }}";
+
+  const withGradle = (readOnly: string) => ({
+    ...CLEAN,
+    '.github/workflows/build-android.yml': ANDROID_DEFINITION.replace(
+      "cache-read-only: ${{ github.ref != 'refs/heads/main' || inputs.variant != 'production' }}",
+      `cache-read-only: \${{ ${readOnly} }}`
+    ),
+  });
+
+  it('passes a Gradle home read everywhere but production on main', () => {
+    const { status } = runGuard(
+      fixture(withGradle("github.ref != 'refs/heads/main' || inputs.variant != 'production'"))
+    );
+    expect(status).toBe(0);
+  });
+
+  it('refuses a Gradle home the dev build writes on main', () => {
+    const output = refused(withGradle("github.ref != 'refs/heads/main'"));
+    expect(output).toContain('.github/workflows/build-android.yml (job build step Setup Gradle)');
+    expect(output).toContain('only the production build on main writes it');
+  });
+
+  it('refuses a Gradle home whose read-only gate is narrowed with &&', () => {
+    const output = refused(
+      withGradle("github.ref != 'refs/heads/main' && inputs.variant != 'production'")
+    );
+    expect(output).toContain('(job build step Setup Gradle)');
+  });
+
+  it('passes a CocoaPods store saved only by the production build on main', () => {
+    const { status } = runGuard(
+      fixture({
+        ...CLEAN,
+        '.github/workflows/build-ios.yml': iosDefinition(POD_SAVE_ON_PRODUCTION),
+      })
+    );
+    expect(status).toBe(0);
+  });
+
+  it('refuses a CocoaPods store the dev build saves on main', () => {
+    const output = refused({
+      ...CLEAN,
+      '.github/workflows/build-ios.yml': iosDefinition(
+        "${{ github.ref == 'refs/heads/main' && steps.pods-cache.outputs.cache-hit != 'true' }}"
+      ),
+    });
+    expect(output).toContain('.github/workflows/build-ios.yml (job build step Save CocoaPods)');
+    expect(output).toContain('only the production build saves it');
+  });
+
+  it('refuses a CocoaPods save the variant check widens with a disjunction', () => {
+    const output = refused({
+      ...CLEAN,
+      '.github/workflows/build-ios.yml': iosDefinition(
+        "${{ github.ref == 'refs/heads/main' && (inputs.variant == 'production' || steps.pods-cache.outputs.cache-hit != 'true') }}"
+      ),
+    });
+    expect(output).toContain('(job build step Save CocoaPods)');
   });
 });
 
@@ -961,6 +1220,66 @@ describe('test shards', () => {
   });
 });
 
+describe('test partitions', () => {
+  const RUST_RUNNER = '  rust:\n    runs-on: ubuntu-24.04\n';
+  const NEXTEST_RUN = '        run: cargo nextest run -p veloqrs --profile ci\n';
+
+  function partitioned(partitions: string, run: string): Record<string, string> {
+    const runner = withEdit(
+      '.github/workflows/test.yml',
+      RUST_RUNNER,
+      `  rust:\n    strategy:\n      matrix:\n        partition: ${partitions}\n    runs-on: ubuntu-24.04\n`
+    );
+    const before = runner['.github/workflows/test.yml'];
+    return { ...runner, '.github/workflows/test.yml': before.replace(NEXTEST_RUN, run) };
+  }
+
+  it('refuses a fixed partition index, which runs one part of the suite', () => {
+    const output = refused(
+      partitioned(
+        '[1, 2, 3]',
+        '        run: cargo nextest run -p veloqrs --profile ci --partition hash:1/3\n'
+      )
+    );
+    expect(output).toContain('.github/workflows/test.yml (job rust');
+    expect(output).toContain('--partition');
+  });
+
+  it('refuses a partition count past the matrix, which leaves the last part unrun', () => {
+    const output = refused(
+      partitioned(
+        '[1, 2]',
+        '        run: cargo nextest run -p veloqrs --profile ci --partition hash:${{ matrix.partition }}/3\n'
+      )
+    );
+    expect(output).toContain('.github/workflows/test.yml (job rust');
+    expect(output).toContain('--partition counts 3');
+  });
+
+  it('refuses a partition matrix that skips an index', () => {
+    const output = refused(
+      partitioned(
+        '[1, 3]',
+        '        run: cargo nextest run -p veloqrs --profile ci --partition hash:${{ matrix.partition }}/3\n'
+      )
+    );
+    expect(output).toContain('.github/workflows/test.yml (job rust');
+  });
+
+  it('accepts a partition count that matches the matrix', () => {
+    const { status, output } = runGuard(
+      fixture(
+        partitioned(
+          '[1, 2, 3]',
+          '        run: cargo nextest run -p veloqrs --profile ci --partition hash:${{ matrix.partition }}/3\n'
+        )
+      )
+    );
+    expect(output).not.toContain('--partition');
+    expect(status).toBe(0);
+  });
+});
+
 describe('caller text spliced into a shell', () => {
   const JEST_RUN = '      - run: npm test\n';
 
@@ -1052,6 +1371,49 @@ describe('the smoke job and a frozen app', () => {
       )
     );
     expect(output).toContain('.github/workflows/build.yml (job e2e-smoke)');
+  });
+});
+
+describe('a gate emulator job and a frozen app', () => {
+  const GATE = (extra: string) => `name: E2E Gate
+on:
+  workflow_call:
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Run flows on emulator
+        uses: example-org/emulator-runner@${PIN}
+        with:
+          script: |
+            adb shell settings put global hide_error_dialogs 1
+            adb shell am force-stop com.google.android.apps.nexuslauncher
+            maestro test .maestro/
+${extra}`;
+  const CHECK = `      - name: Fail on a freeze of our own app
+        if: \${{ always() }}
+        run: '! grep -F "ANR in com.veloq" /tmp/logcat.txt'
+`;
+
+  it('refuses a gate job that hides dialogs and never fails on an ANR in our app', () => {
+    const output = refused({ ...CLEAN, '.github/workflows/e2e-gate.yml': GATE('') });
+    expect(output).toContain('.github/workflows/e2e-gate.yml (job gate)');
+    expect(output).toContain('ANR in com');
+  });
+
+  it('refuses an ANR check that only runs when the flows passed', () => {
+    const output = refused({
+      ...CLEAN,
+      '.github/workflows/e2e-gate.yml': GATE(CHECK.replace('        if: ${{ always() }}\n', '')),
+    });
+    expect(output).toContain('.github/workflows/e2e-gate.yml (job gate)');
+  });
+
+  it('accepts a gate job with the check', () => {
+    const { status } = runGuard(
+      fixture({ ...CLEAN, '.github/workflows/e2e-gate.yml': GATE(CHECK) })
+    );
+    expect(status).toBe(0);
   });
 });
 
@@ -1248,11 +1610,11 @@ it('refuses cargo bench outside a bench workflow', () => {
   const output = refused(
     withEdit(
       '.github/workflows/test.yml',
-      'cargo check -p veloqrs --benches',
+      'cargo clippy -p veloqrs --all-targets --all-features -- -D warnings',
       'cargo bench -p veloqrs --no-run'
     )
   );
-  expect(output).toContain('(job rust step Check Rust benches)');
+  expect(output).toContain('(job rust step Clippy)');
   expect(output).toContain('cargo bench links every bench');
 });
 
@@ -1260,12 +1622,24 @@ it('refuses test.yml losing its bench type-check', () => {
   const output = refused(
     withEdit(
       '.github/workflows/test.yml',
-      '      - name: Check Rust benches\n        run: cargo check -p veloqrs --benches\n',
+      '      - name: Clippy\n        run: cargo clippy -p veloqrs --all-targets --all-features -- -D warnings\n',
       ''
     )
   );
   expect(output).toContain('.github/workflows/test.yml (jobs)');
-  expect(output).toContain('cargo check --benches');
+  expect(output).toContain('clippy --all-targets');
+});
+
+it('refuses clippy without --all-targets as the bench type-check', () => {
+  const output = refused(
+    withEdit(
+      '.github/workflows/test.yml',
+      'cargo clippy -p veloqrs --all-targets --all-features',
+      'cargo clippy -p veloqrs --all-features'
+    )
+  );
+  expect(output).toContain('.github/workflows/test.yml (jobs)');
+  expect(output).toContain('clippy --all-targets');
 });
 
 describe('Rust advisory scan', () => {
@@ -1310,8 +1684,8 @@ describe('Rust advisory scan', () => {
   it('accepts the scan as a step of test.yml itself beside a scheduled copy', () => {
     const files = withEdit(
       '.github/workflows/test.yml',
-      '        run: cargo check -p veloqrs --benches\n',
-      '        run: cargo check -p veloqrs --benches\n      - run: cargo audit -D warnings\n'
+      '        run: cargo clippy -p veloqrs --all-targets --all-features -- -D warnings\n',
+      '        run: cargo clippy -p veloqrs --all-targets --all-features -- -D warnings\n      - run: cargo audit -D warnings\n'
     );
     const { status, output } = runGuard(fixture(files));
     expect(output).toContain('Workflow guard: caches write from main only');
@@ -1323,21 +1697,25 @@ it('refuses benches built by cargo test', () => {
   const output = refused(
     withEdit(
       '.github/workflows/test.yml',
-      'cargo check -p veloqrs --benches',
+      'cargo clippy -p veloqrs --all-targets --all-features -- -D warnings',
       'cargo test -p veloqrs --benches --release'
     )
   );
-  expect(output).toContain('(job rust step Check Rust benches)');
+  expect(output).toContain('(job rust step Clippy)');
   expect(output).toContain('with --benches links every bench');
 });
 
 describe('benches linked through another route', () => {
   const benchStep = (run: string) =>
-    withEdit('.github/workflows/test.yml', 'cargo check -p veloqrs --benches', run);
+    withEdit(
+      '.github/workflows/test.yml',
+      'cargo clippy -p veloqrs --all-targets --all-features -- -D warnings',
+      run
+    );
 
   it('refuses cargo test --all-targets', () => {
     const output = refused(benchStep('cargo test -p veloqrs --all-targets --release --no-run'));
-    expect(output).toContain('(job rust step Check Rust benches)');
+    expect(output).toContain('(job rust step Clippy)');
     expect(output).toContain('--all-targets');
   });
 
@@ -1350,7 +1728,7 @@ describe('benches linked through another route', () => {
     const output = refused(
       benchStep('cargo nextest run -p veloqrs --benches --cargo-profile release')
     );
-    expect(output).toContain('(job rust step Check Rust benches)');
+    expect(output).toContain('(job rust step Clippy)');
     expect(output).toContain('--benches');
   });
 
@@ -1358,11 +1736,11 @@ describe('benches linked through another route', () => {
     const output = refused(
       withEdit(
         '.github/workflows/test.yml',
-        '        run: cargo check -p veloqrs --benches',
+        '        run: cargo clippy -p veloqrs --all-targets --all-features -- -D warnings',
         '        run: |\n          cargo test -p veloqrs \\\n            --benches --release'
       )
     );
-    expect(output).toContain('(job rust step Check Rust benches)');
+    expect(output).toContain('(job rust step Clippy)');
     expect(output).toContain('with --benches links every bench');
   });
 });
@@ -1372,11 +1750,11 @@ describe('a gate made non-fatal', () => {
     const output = refused(
       withEdit(
         '.github/workflows/test.yml',
-        '        run: cargo check -p veloqrs --benches',
-        '        continue-on-error: true\n        run: cargo check -p veloqrs --benches'
+        '        run: cargo clippy -p veloqrs --all-targets --all-features -- -D warnings',
+        '        continue-on-error: true\n        run: cargo clippy -p veloqrs --all-targets --all-features -- -D warnings'
       )
     );
-    expect(output).toContain('(job rust step Check Rust benches)');
+    expect(output).toContain('(job rust step Clippy)');
     expect(output).toContain('continue-on-error');
   });
 
@@ -1912,7 +2290,17 @@ on:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
 jobs:
+  main-gates:
+    name: Check Main Gates
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Test and E2E Gate on main for the tagged sha
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: node scripts/check-main-gates.mjs "\${{ github.sha }}"
   release:
+    needs: main-gates
     runs-on: ubuntu-24.04
     outputs:
       aab_path: \${{ steps.prepare.outputs.aab_path }}
@@ -1944,6 +2332,41 @@ jobs:
   const withRelease = (release: string) => ({
     ...CLEAN,
     '.github/workflows/release.yml': release,
+  });
+
+  it('refuses a tag release that never checks the Test and E2E Gate runs on main', () => {
+    const output = refused(
+      withRelease(
+        RELEASE.replace(/  main-gates:\n[\s\S]*?(?=  release:\n)/, '').replace(
+          '  release:\n    needs: main-gates\n',
+          '  release:\n'
+        )
+      )
+    );
+    expect(output).toContain('.github/workflows/release.yml');
+    expect(output).toContain('Test and E2E Gate');
+  });
+
+  it('refuses a gate step that checks a ref other than the tagged sha', () => {
+    const output = refused(
+      withRelease(
+        RELEASE.replace(
+          'check-main-gates.mjs "${{ github.sha }}"',
+          'check-main-gates.mjs "${{ github.ref_name }}"'
+        )
+      )
+    );
+    expect(output).toContain('Test and E2E Gate');
+  });
+
+  it('refuses a publishing job that does not wait on the gate', () => {
+    const output = refused(
+      withRelease(
+        RELEASE.replace('  deploy-play-store:\n    needs: release\n', '  deploy-play-store:\n')
+      )
+    );
+    expect(output).toContain('.github/workflows/release.yml (job deploy-play-store)');
+    expect(output).toContain('Test and E2E Gate');
   });
 
   it('passes a deploy that fails when its credential is missing', () => {
@@ -2406,5 +2829,289 @@ ${steps}`,
     );
     expect(output).toContain('config/fastlane/Gemfile.lock');
     expect(output).toContain('1.17.0');
+  });
+});
+
+describe('one build a night per platform', () => {
+  const DEFINITION = (name: string) => `name: ${name}
+on:
+  workflow_call:
+    inputs:
+      variant:
+        required: true
+        type: string
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo build
+`;
+
+  const SCHEDULED = (cron: string, jobs: string) => `name: Nightly
+on:
+  schedule:
+    - cron: "${cron}"
+jobs:
+${jobs}`;
+
+  const BUILD_ANDROID_JOB = (id: string) => `  ${id}:
+    uses: ./.github/workflows/build-android.yml
+    with:
+      variant: dev
+`;
+
+  const BUILD_IOS_JOB = (id: string) => `  ${id}:
+    uses: ./.github/workflows/build-ios.yml
+    with:
+      variant: dev
+`;
+
+  const files = (nightly: Record<string, string>): Record<string, string> => ({
+    ...CLEAN,
+    '.github/workflows/build-android.yml': DEFINITION('Build Android'),
+    '.github/workflows/build-ios.yml': DEFINITION('Build iOS'),
+    ...nightly,
+  });
+
+  it('passes a scheduled workflow that builds each platform once', () => {
+    const { status } = runGuard(
+      fixture(
+        files({
+          '.github/workflows/e2e.yml': SCHEDULED(
+            '0 3 * * *',
+            BUILD_ANDROID_JOB('build-android') + BUILD_IOS_JOB('build-ios')
+          ),
+        })
+      )
+    );
+    expect(status).toBe(0);
+  });
+
+  it('refuses a scheduled workflow that builds one platform in two jobs', () => {
+    const output = refused(
+      files({
+        '.github/workflows/e2e.yml': SCHEDULED(
+          '0 3 * * *',
+          BUILD_ANDROID_JOB('build-android-dev') + BUILD_ANDROID_JOB('build-android-shipped')
+        ),
+      })
+    );
+    expect(output).toContain('.github/workflows/e2e.yml (job build-android-shipped)');
+    expect(output).toContain('build-android.yml');
+    expect(output).toContain('a scheduled build runs once a night per platform');
+  });
+
+  it('refuses two scheduled workflows that each build the same platform', () => {
+    const output = refused(
+      files({
+        '.github/workflows/e2e.yml': SCHEDULED('0 3 * * *', BUILD_ANDROID_JOB('build-android')),
+        '.github/workflows/shipped-profile.yml': `name: Shipped Profile
+on:
+  schedule:
+    - cron: "0 2 * * *"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  lookup:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: earlier
+        run: echo "outcome=$(node scripts/earlier-outcome.mjs "$REPO" shipped-profile.yml "$SHA" "$RUN")" >> "$GITHUB_OUTPUT"
+      - if: steps.earlier.outputs.outcome != ''
+        run: exit 1
+${BUILD_ANDROID_JOB('build-android')}`,
+      })
+    );
+    expect(output).toContain('build-android.yml');
+    expect(output).toContain('a scheduled build runs once a night per platform');
+  });
+
+  it('accepts a platform built by a workflow that is not scheduled alongside a nightly one', () => {
+    const { status } = runGuard(
+      fixture(
+        files({
+          '.github/workflows/e2e.yml': SCHEDULED('0 3 * * *', BUILD_ANDROID_JOB('build-android')),
+          '.github/workflows/release.yml': `name: Release
+on:
+  workflow_dispatch:
+jobs:
+${BUILD_ANDROID_JOB('build-android')}`,
+        })
+      )
+    );
+    expect(status).toBe(0);
+  });
+});
+
+describe('one build a push per platform, of the shipped identity', () => {
+  const DEFINITION = (name: string) => `name: ${name}
+on:
+  workflow_call:
+    inputs:
+      variant:
+        required: true
+        type: string
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo build
+`;
+
+  const CALL = (id: string, variant: string, definition = 'build-android') => `  ${id}:
+    uses: ./.github/workflows/${definition}.yml
+    with:
+      variant: ${variant}
+`;
+
+  const PUSH_ON_MAIN = `on:
+  push:
+    branches: [main]
+`;
+
+  const files = (extra: Record<string, string>): Record<string, string> => ({
+    ...CLEAN,
+    '.github/workflows/build-android.yml': DEFINITION('Build Android'),
+    '.github/workflows/build-ios.yml': DEFINITION('Build iOS'),
+    ...extra,
+  });
+
+  const workflow = (name: string, trigger: string, jobs: string) =>
+    `name: ${name}\n${trigger}jobs:\n${jobs}`;
+
+  it('passes a push to main that builds each platform once as production', () => {
+    const { status } = runGuard(
+      fixture(
+        files({
+          '.github/workflows/main-build.yml': workflow(
+            'Build',
+            PUSH_ON_MAIN,
+            CALL('build-android', 'production') + CALL('build-ios', 'production', 'build-ios')
+          ),
+        })
+      )
+    );
+    expect(status).toBe(0);
+  });
+
+  it('refuses a push to main that calls a build definition with the dev variant', () => {
+    const output = refused(
+      files({
+        '.github/workflows/main-build.yml': workflow(
+          'Build',
+          PUSH_ON_MAIN,
+          CALL('build-android', 'production') + CALL('build-android-dev', 'dev')
+        ),
+      })
+    );
+    expect(output).toContain('.github/workflows/main-build.yml (job build-android-dev)');
+    expect(output).toContain('a push to main builds the production identity');
+  });
+
+  it('refuses a variant a push to main takes from an expression, which could name dev', () => {
+    const output = refused(
+      files({
+        '.github/workflows/main-build.yml': workflow(
+          'Build',
+          PUSH_ON_MAIN,
+          CALL('build-android', '${{ inputs.variant }}')
+        ),
+      })
+    );
+    expect(output).toContain('a push to main builds the production identity');
+  });
+
+  it('refuses a second workflow started by the same push that builds the platform again', () => {
+    const output = refused(
+      files({
+        '.github/workflows/main-build.yml': workflow(
+          'Build',
+          PUSH_ON_MAIN,
+          CALL('build-android', 'production')
+        ),
+        '.github/workflows/main-gate.yml': workflow(
+          'E2E Gate',
+          PUSH_ON_MAIN,
+          CALL('build-android-again', 'production')
+        ),
+      })
+    );
+    expect(output).toContain('.github/workflows/main-gate.yml (job build-android-again)');
+    expect(output).toContain('a push to main builds each platform once');
+  });
+
+  it('refuses a workflow the push calls that builds the platform again', () => {
+    const output = refused(
+      files({
+        '.github/workflows/main-build.yml': workflow(
+          'Build',
+          PUSH_ON_MAIN,
+          CALL('build-android', 'production') +
+            '  gate:\n    uses: ./.github/workflows/main-gate.yml\n'
+        ),
+        '.github/workflows/main-gate.yml': workflow(
+          'E2E Gate',
+          'on:\n  workflow_call:\n',
+          CALL('build-android-again', 'production')
+        ),
+      })
+    );
+    expect(output).toContain('.github/workflows/main-gate.yml (job build-android-again)');
+    expect(output).toContain('a push to main builds each platform once');
+  });
+
+  const SCAN = (condition: string) => `name: CodeQL
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "30 4 * * 1"
+jobs:
+  scan:
+${condition}    runs-on: ubuntu-24.04
+    steps:
+      - run: CI=1 npx expo prebuild --platform android --no-install
+`;
+
+  it('refuses a job a push to main starts that generates the native project', () => {
+    const output = refused(files({ '.github/workflows/codeql.yml': SCAN('') }));
+    expect(output).toContain('.github/workflows/codeql.yml (job scan)');
+    expect(output).toContain('a push to main builds each platform once');
+  });
+
+  it('refuses a native project generated on a condition that still admits a push', () => {
+    const output = refused(
+      files({
+        '.github/workflows/codeql.yml': SCAN("    if: github.ref == 'refs/heads/main'\n"),
+      })
+    );
+    expect(output).toContain('.github/workflows/codeql.yml (job scan)');
+  });
+
+  it('passes a native project generated on the weekly schedule alone', () => {
+    const { status } = runGuard(
+      fixture(
+        files({
+          '.github/workflows/codeql.yml': SCAN("    if: github.event_name == 'schedule'\n"),
+        })
+      )
+    );
+    expect(status).toBe(0);
+  });
+
+  it('leaves a pull request, a tag and a dispatch free to build any identity', () => {
+    const { status } = runGuard(
+      fixture(
+        files({
+          '.github/workflows/e2e-dispatch.yml': workflow(
+            'E2E dispatch',
+            'on:\n  workflow_dispatch:\n  pull_request:\n    branches: [main]\n',
+            CALL('build-android', 'dev')
+          ),
+        })
+      )
+    );
+    expect(status).toBe(0);
   });
 });

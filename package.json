@@ -34,6 +34,7 @@
     "build:info": "cat modules/veloqrs/build/rust/*/*/manifest.json 2>/dev/null || echo 'No Rust build found'",
     "web": "npx expo start --web",
     "test": "jest --config config/jest.config.js --selectProjects app",
+    "preflight": "node scripts/preflight.mjs",
     "test:tooling": "jest --config config/jest.config.js --selectProjects tooling",
     "test:changed": "jest --config config/jest.config.js --onlyChanged",
     "test:watch": "jest --config config/jest.config.js --watch",

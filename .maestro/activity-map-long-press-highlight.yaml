@@ -8,7 +8,7 @@
 # pixel-level check of the casing colour is out of scope; this flow
 # captures the screenshot as the evidence artifact.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-map

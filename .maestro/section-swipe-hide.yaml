@@ -7,7 +7,7 @@
 # ActivitySectionsSection.tsx; the remove action calls handleDisable
 # which flips sections.disabled = 1 in the Rust engine.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-routes

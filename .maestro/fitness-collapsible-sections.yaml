@@ -1,7 +1,7 @@
 # Fitness Collapsible Sections Test
 # Tests expanding and collapsing sections on fitness screen
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-fitness

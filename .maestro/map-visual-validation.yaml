@@ -7,7 +7,7 @@
 #
 # Screenshots are taken at each state for side-by-side platform comparison.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier3
   - pack-map

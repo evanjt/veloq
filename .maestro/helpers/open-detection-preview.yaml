@@ -1,6 +1,6 @@
 # Open the detection preview the way an athlete does: settings, the routes and
 # sections row, then the preview row. Waits for the current catalogue to load.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - runFlow:
     file: navigate-to-settings.yaml

@@ -1,7 +1,7 @@
 # Weekly Summary Data Validation
 # Verifies weekly summary shows real values, not NaN/blank
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-data

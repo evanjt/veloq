@@ -1,7 +1,7 @@
 # Recording Manual Entry Submit Test
 # Tests: fill manual entry form and submit to review screen
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-recording-long

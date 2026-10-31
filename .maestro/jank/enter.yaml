@@ -2,7 +2,7 @@
 # against this install while `adb shell am start` works, so the caller starts
 # the app and this only walks the dialogs. A login screen is walked into demo
 # mode, and a handset already signed in stays on its own library.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - extendedWaitUntil:
     visible:

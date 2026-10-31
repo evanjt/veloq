@@ -30,7 +30,7 @@
 # force-offline deep-link, swap the soft check for `assertVisible`.
 # -----------------------------------------------------------------------------
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-nav

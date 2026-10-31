@@ -6,7 +6,7 @@
 # If the dev tiles don't load, the overlay shape is still drawable
 # because LineLayer renders directly from GeoJSON coords.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-map

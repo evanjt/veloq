@@ -1,7 +1,7 @@
 # Soak: the section popup on the map and its detail, opened and closed CYCLES times.
 # Each cycle opens two sections, since the map opens a linked section once and a repeat of
 # the id it last opened does nothing.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - soak
 ---

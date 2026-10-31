@@ -7,7 +7,7 @@
 # has the most traversals; narrowing to 1M reduces the count meaningfully.
 # We open it by list index for stability across demo data changes.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-routes

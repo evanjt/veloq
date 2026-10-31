@@ -5,7 +5,7 @@
  * collect steps searched only Maestro's own directories.
  *
  * Expected behaviour: each sweep's collect step gathers the captures the flows
- * took on purpose, and the smoke test uploads them.
+ * took on purpose.
  */
 import { spawnSync } from 'child_process';
 import * as fs from 'fs';
@@ -49,16 +49,5 @@ describe('the weekly sweep', () => {
     const collected = fs.readdirSync(path.join(workspace, 'screenshots-flat'));
     expect(collected.some((f) => f.startsWith('smoke-home-'))).toBe(true);
     expect(collected.some((f) => f.startsWith('screenshot-failed-'))).toBe(true);
-  });
-});
-
-describe('the post-build smoke test', () => {
-  it('uploads the screenshots directory the smoke flow writes to', () => {
-    const uploads = Object.values(load('build.yml').jobs)
-      .flatMap(({ steps }) => steps ?? [])
-      .filter((s) => s.with?.name === 'e2e-smoke-screenshots')
-      .flatMap((s) => (s.with?.path ?? '').split('\n').map((p) => p.trim()));
-
-    expect(uploads).toContain('screenshots/');
   });
 });

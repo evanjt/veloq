@@ -1,0 +1,20 @@
+# Unlock the developer screens for this app session, so a link to one opens in
+# the build that ships as it does in the development build. Five quick taps on
+# the settings version line, as an athlete would. The unlock is held in memory
+# only, so it ends with the app's process and leaves no setting to put back.
+appId: ${APP_ID}
+---
+- runFlow:
+    file: open-link.yaml
+    env:
+      LINK: "veloq:///settings"
+      TARGET: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-version-text"
+    direction: DOWN
+- scroll
+- tapOn:
+    id: "settings-version-text"
+    repeat: 5
+    delay: 100

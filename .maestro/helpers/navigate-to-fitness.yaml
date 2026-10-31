@@ -1,6 +1,6 @@
 # Navigate to fitness tab via deep link, on its fitness page whichever page
 # a flow left it on
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - runFlow:
     file: open-link.yaml

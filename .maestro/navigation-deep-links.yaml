@@ -1,7 +1,7 @@
 # Deep Link Navigation Regression
 # Tests all deep links work and don't crash the app
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-nav

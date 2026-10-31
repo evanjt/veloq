@@ -52,7 +52,8 @@ function run(
   serial?: string,
   args: string[] = ['test', 'flow.yaml'],
   say = '',
-  exitCode = 0
+  exitCode = 0,
+  extraEnv: Record<string, string> = {}
 ) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'with-maestro-'));
   fakeBins(dir, attached, say, exitCode);
@@ -74,9 +75,11 @@ function run(
     'VELOQ_DEVICE_LOCK',
     'VELOQ_DEVICE_LOCK_PATH',
     'VELOQ_DEVICE_LOCK_AMBIGUOUS',
+    'APP_ID',
   ]) {
     delete env[name];
   }
+  Object.assign(env, extraEnv);
   if (serial) env.ANDROID_SERIAL = serial;
 
   let status = 0;
@@ -108,15 +111,33 @@ describe('the Maestro wrapper and the handset it reaches', () => {
 
     expect(result.status).toBe(0);
     expect(result.calls).toHaveLength(1);
-    expect(result.calls[0]).toBe(`--device ${LOCKED} test flow.yaml`);
+    expect(result.calls[0]).toBe(`--device ${LOCKED} test -e APP_ID=com.veloq.app.dev flow.yaml`);
     expect(result.calls[0]).not.toContain(OTHER);
+  });
+
+  it('names the development build to the flows when the caller names no app id', () => {
+    const result = run([LOCKED], LOCKED);
+
+    expect(result.calls[0]).toBe(`--device ${LOCKED} test -e APP_ID=com.veloq.app.dev flow.yaml`);
+  });
+
+  it('leaves an app id the caller passed as it was', () => {
+    const result = run([LOCKED], LOCKED, ['test', '-e', 'APP_ID=com.veloq.app', 'flow.yaml']);
+
+    expect(result.calls[0]).toBe(`--device ${LOCKED} test -e APP_ID=com.veloq.app flow.yaml`);
+  });
+
+  it('names the app id the environment holds to the flows', () => {
+    const result = run([LOCKED], LOCKED, ['test', 'flow.yaml'], '', 0, { APP_ID: 'com.veloq.app' });
+
+    expect(result.calls[0]).toBe(`--device ${LOCKED} test -e APP_ID=com.veloq.app flow.yaml`);
   });
 
   it('pins the only handset attached when none is named', () => {
     const result = run([LOCKED]);
 
     expect(result.status).toBe(0);
-    expect(result.calls[0]).toBe(`--device ${LOCKED} test flow.yaml`);
+    expect(result.calls[0]).toBe(`--device ${LOCKED} test -e APP_ID=com.veloq.app.dev flow.yaml`);
   });
 
   it('refuses rather than let Maestro choose between two', () => {
@@ -163,7 +184,7 @@ describe('the Maestro wrapper and the handset it reaches', () => {
     const result = run([OTHER, LOCKED], LOCKED, ['--device', LOCKED, 'test', 'flow.yaml']);
 
     expect(result.status).toBe(0);
-    expect(result.calls[0]).toBe(`--device ${LOCKED} test flow.yaml`);
+    expect(result.calls[0]).toBe(`--device ${LOCKED} test -e APP_ID=com.veloq.app.dev flow.yaml`);
   });
 
   it('keeps a matching device in the joined and udid forms', () => {
@@ -175,7 +196,7 @@ describe('the Maestro wrapper and the handset it reaches', () => {
       expect(result.status).toBe(0);
       expect(result.calls).toHaveLength(1);
     }
-    expect(joined.calls[0]).toBe(`--device=${LOCKED} test flow.yaml`);
+    expect(joined.calls[0]).toBe(`--device=${LOCKED} test -e APP_ID=com.veloq.app.dev flow.yaml`);
   });
 });
 
@@ -420,6 +441,6 @@ describe('the Maestro wrapper on a shell without Maestro on its path', () => {
 
     expect(stderr).not.toMatch(/not found/);
     expect(status).toBe(0);
-    expect(calls.trim()).toBe(`--device ${LOCKED} test flow.yaml`);
+    expect(calls.trim()).toBe(`--device ${LOCKED} test -e APP_ID=com.veloq.app.dev flow.yaml`);
   });
 });

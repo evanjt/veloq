@@ -1,7 +1,7 @@
 # Map Style Switching Test
 # Tests: cycling through light, dark, and satellite map styles
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-map

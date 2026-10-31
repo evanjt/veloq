@@ -8,7 +8,7 @@
 # it does not, the indicator pipeline is broken. Then for demo-test-0 (our
 # anchor activity), dive in and count trophies.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier1
   - pack-home

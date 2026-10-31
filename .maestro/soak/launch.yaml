@@ -1,6 +1,6 @@
 # Open the app on the home screen. A session left signed in is kept as found,
 # and a signed-out app enters demo mode, which does not survive a relaunch.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - launchApp:
     stopApp: false

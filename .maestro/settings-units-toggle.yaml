@@ -1,7 +1,7 @@
 # Settings Units Toggle Test
 # Tests: switching between metric and imperial units
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-settings

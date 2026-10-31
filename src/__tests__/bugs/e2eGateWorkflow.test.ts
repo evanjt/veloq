@@ -139,7 +139,7 @@ describe('flake evidence', () => {
 
   it('uploads a report for the gate and for each map suite', () => {
     expect(reports.map((r) => r.name).sort()).toEqual([
-      'e2e-gate-report',
+      'e2e-gate-${{ matrix.shard }}-report',
       'e2e-ios-map-report',
       'e2e-map-report',
     ]);
@@ -239,8 +239,9 @@ describe('the map suite path filter', () => {
  * iOS sweep never finished, so nothing ran a map flow on iOS at all.
  *
  * Expected behaviour: a push that changes a map surface, the lockfile or a
- * native module runs the pack-map flows on an iOS simulator too, from the Dev
- * simulator app the shared iOS build makes, through `run-suite.sh`.
+ * native module runs the pack-map flows on an iOS simulator too, from the
+ * production simulator app the push's one iOS build makes, through
+ * `run-suite.sh`.
  */
 describe('the iOS map suite', () => {
   const filterStep = (gate.jobs.changes.steps ?? []).find(
@@ -274,30 +275,20 @@ describe('the iOS map suite', () => {
     );
   });
 
-  it('installs the Dev simulator app the shared iOS build makes', () => {
-    const builds = needsOf(gate.jobs[iosJobName!]).filter(
-      (name) => gate.jobs[name].uses === './.github/workflows/build-ios.yml'
-    );
-    expect(builds).toHaveLength(1);
-    expect(gate.jobs[builds[0]].with?.variant).toBe('dev');
-    expect(JSON.stringify(gate.jobs[iosJobName!].steps)).toContain(
-      `needs.${builds[0]}.outputs.simulator-artifact`
-    );
+  it('installs the simulator app the caller built, and builds nothing itself', () => {
+    expect(JSON.stringify(gate.jobs[iosJobName!].steps)).toContain('inputs.ios-artifact');
+    expect(Object.values(gate.jobs).filter((job) => job.uses)).toEqual([]);
   });
 
   const filterName = Object.keys(filters).find((name) =>
     String(gate.jobs[iosJobName ?? '']?.if ?? '').includes(`outputs.${name}`)
   );
 
-  it('runs on its own filter, which the iOS build is gated on too', () => {
+  it('runs on its own filter', () => {
     expect(filterName).toBeDefined();
     expect(gate.jobs.changes as { outputs?: Record<string, string> }).toHaveProperty(
       `outputs.${filterName}`
     );
-    const build = needsOf(gate.jobs[iosJobName!]).find(
-      (name) => gate.jobs[name].uses === './.github/workflows/build-ios.yml'
-    );
-    expect(String(gate.jobs[build!].if)).toContain(`outputs.${filterName}`);
   });
 
   it.each([
@@ -314,5 +305,38 @@ describe('the iOS map suite', () => {
   it('leaves it off for a change no map or native module draws from', () => {
     const isIosMapChange = picomatch(filters[filterName!] ?? [], { dot: true });
     expect(isIosMapChange('src/features/settings/components/NotificationSection.tsx')).toBe(false);
+  });
+});
+
+/**
+ * Scenario: the gate drove a Dev build of its own, so a push built each
+ * platform twice and the flows never ran on the app that ships.
+ *
+ * Expected behaviour: the workflow is called from the push's Build run with
+ * that run's production artifacts, builds nothing, and drives the production
+ * application id through APP_ID.
+ */
+describe('the production build under test', () => {
+  const workflow = gate as unknown as { on: Record<string, unknown>; env?: Record<string, string> };
+
+  it('is started only by the Build workflow, with the artifacts it built', () => {
+    expect(Object.keys(workflow.on)).toEqual(['workflow_call']);
+    expect(JSON.stringify(workflow.on)).toContain('android-artifact');
+    expect(JSON.stringify(gate.jobs.gate.steps)).toContain('inputs.android-artifact');
+    expect(JSON.stringify(gate.jobs['map-gate'].steps)).toContain('inputs.android-artifact');
+  });
+
+  it('drives the production application id', () => {
+    expect(workflow.env?.APP_ID).toBe('com.veloq.app');
+  });
+
+  it('passes the application id to the flaky lane, which Maestro runs directly', () => {
+    expect(scriptsOf(gate.jobs.gate).join('\n')).toMatch(/maestro" test -e "APP_ID=\$APP_ID"/);
+  });
+
+  it('checks the iOS simulator for a crash of the production process', () => {
+    const script = scriptsOf(gate.jobs['ios-map-gate']).join('\n');
+    expect(script).toMatch(/--process Veloq(\s|$)/);
+    expect(script).not.toContain('VeloqDev');
   });
 });

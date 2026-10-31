@@ -3,7 +3,7 @@
 # record. demo-test-7 is the newest and fastest ride on its route, so its
 # sections carry the mark.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier1
   - pack-routes

@@ -4,7 +4,7 @@
 # a desk has usually auto-paused itself already, so pausing is conditional: the
 # bar shows Pause or Resume, never both.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - runFlow:
     when:

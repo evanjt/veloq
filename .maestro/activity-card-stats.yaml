@@ -1,7 +1,7 @@
 # Activity Card Stats Tests
 # Tests that activity cards display and navigate to detail
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-activity

@@ -4,7 +4,7 @@
 # again on each pass until TARGET, the id the link's screen carries, is on
 # screen. A simulator that never raises the sheet costs the passes it skips.
 # Env: LINK, TARGET.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - openLink: ${LINK}
 - runFlow:

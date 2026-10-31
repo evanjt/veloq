@@ -1,5 +1,5 @@
 # Soak: the regional map tab, panned and zoomed, then left, CYCLES times.
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - soak
 ---

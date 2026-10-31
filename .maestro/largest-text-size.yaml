@@ -32,7 +32,7 @@
 # detent, and any text that did not grow at all, which is a suppressed scale
 # rather than a dense surface unless the bar names it.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier4
 ---

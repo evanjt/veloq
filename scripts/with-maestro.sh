@@ -121,6 +121,32 @@ if [ -n "${VELOQ_MAESTRO_LOCK_HELD:-}" ] && [ -w "$VELOQ_MAESTRO_LOCK_PATH" ]; t
     "$(date '+%Y-%m-%dT%H:%M:%S')" >"$VELOQ_MAESTRO_LOCK_PATH"
 fi
 
+# Every flow names its app as ${APP_ID}, so the run passes one unless the
+# caller already did: the development build by default, which is the app a
+# handset on this desk carries.
+. "$(dirname "$0")/lib/maestro-app-id.sh"
+has_app_id=""
+for arg in "$@"; do
+  case "$arg" in
+  APP_ID=*) has_app_id=1 ;;
+  esac
+done
+if [ -z "$has_app_id" ]; then
+  app_id=$(veloq_maestro_app_id "$(dirname "$0")") || exit 1
+  count=$#
+  injected=""
+  while [ "$count" -gt 0 ]; do
+    arg=$1
+    shift
+    count=$((count - 1))
+    set -- "$@" "$arg"
+    if [ -z "$injected" ] && [ "$arg" = test ]; then
+      set -- "$@" -e "APP_ID=$app_id"
+      injected=1
+    fi
+  done
+fi
+
 if [ -z "$named" ] && [ -n "$expected" ]; then
   # `--device` is a global flag, so it goes ahead of the subcommand.
   set -- --device "$expected" "$@"

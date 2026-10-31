@@ -6,7 +6,7 @@
 # fresh library such as demo mode's. Its counts, progress and failure rows are
 # covered in Jest.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier1
   - pack-routes

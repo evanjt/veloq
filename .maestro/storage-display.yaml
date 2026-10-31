@@ -2,7 +2,7 @@
 # US-X1: Settings shows WAL/SHM-inclusive disk usage; GB unit when large.
 # The storage-stats panel lives on the cache-settings sub-screen.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier3
   - pack-settings

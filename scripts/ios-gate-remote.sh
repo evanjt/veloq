@@ -130,10 +130,14 @@ prune() {
 }
 
 flows() {
+  # The flows name their app as ${APP_ID}: the development build, which is the
+  # simulator app this gate installs, from the checkout the flows run in.
+  . scripts/lib/maestro-app-id.sh
+  app_id=$(veloq_maestro_app_id scripts)
   set +e
-  MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 maestro --device "$udid" test .maestro/ \
+  MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 maestro --device "$udid" test -e "APP_ID=$app_id" .maestro/ \
     --include-tags=tier0,pack-map,pack-nav --format junit --output "$out/flows.xml" --no-ansi
-  MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 maestro --device "$udid" test \
+  MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 maestro --device "$udid" test -e "APP_ID=$app_id" \
     .maestro/recording-start-stop.yaml --format junit --output "$out/recording.xml" --no-ansi
   set -e
   [ -s "$out/flows.xml" ] && [ -s "$out/recording.xml" ]

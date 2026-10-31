@@ -5,7 +5,7 @@
 # of the screen, which is on the map, so it pans the map and the form never
 # moves. These swipes start and end inside the form.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 ---
 - repeat:
     while:

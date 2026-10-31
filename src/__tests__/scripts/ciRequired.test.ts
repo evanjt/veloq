@@ -188,13 +188,13 @@ const BUILT = {
   'build-android': 'success',
   'build-ios': 'success',
   'bundle-check': 'skipped',
-  'e2e-smoke': 'skipped',
+  'e2e-gate': 'skipped',
 };
 const BUNDLED = {
   'build-android': 'skipped',
   'build-ios': 'skipped',
   'bundle-check': 'success',
-  'e2e-smoke': 'skipped',
+  'e2e-gate': 'skipped',
 };
 
 function buildFailures(input: Record<string, unknown>): string[] {
@@ -254,16 +254,40 @@ describe('buildRequired', () => {
     expect(out).toEqual([expect.stringContaining('change detection ended failure')]);
   });
 
-  it('requires both builds and the smoke test on main', () => {
-    const results = { ...BUILT, 'e2e-smoke': 'success' };
-    expect(buildFailures({ event: 'push', native: true, results })).toEqual([]);
-    expect(
-      buildFailures({
-        event: 'push',
-        native: true,
-        results: { ...results, 'e2e-smoke': 'skipped' },
-      })
-    ).toHaveLength(1);
+  it('requires both builds and the E2E gate on a push to main', () => {
+    const results = { ...BUILT, 'e2e-gate': 'success' };
+    const main = { event: 'push', ref: 'refs/heads/main', native: true };
+    expect(buildFailures({ ...main, results })).toEqual([]);
+    expect(buildFailures({ ...main, results: { ...results, 'e2e-gate': 'skipped' } })).toEqual([
+      expect.stringContaining('e2e-gate was skipped'),
+    ]);
+    expect(buildFailures({ ...main, results: { ...results, 'e2e-gate': 'failure' } })).toEqual([
+      expect.stringContaining('e2e-gate ended failure'),
+    ]);
+  });
+
+  it('requires the E2E gate on a push to a ci branch', () => {
+    const ci = { event: 'push', ref: 'refs/heads/ci/iterate-maestro', native: true };
+    const results = { ...BUILT, 'e2e-gate': 'success' };
+    expect(buildFailures({ ...ci, results })).toEqual([]);
+    expect(buildFailures({ ...ci, results: { ...results, 'e2e-gate': 'skipped' } })).toEqual([
+      expect.stringContaining('e2e-gate was skipped'),
+    ]);
+  });
+
+  it('leaves the E2E gate out of a push to any other branch', () => {
+    const other = { event: 'push', ref: 'refs/heads/feature/ci/x', native: true };
+    expect(buildFailures({ ...other, results: BUILT })).toEqual([]);
+  });
+
+  it('leaves the E2E gate out of a release tag, a dispatch and a pull request, where it never runs', () => {
+    for (const run of [
+      { event: 'push', ref: 'refs/tags/1.2.3' },
+      { event: 'workflow_dispatch', ref: 'refs/heads/main' },
+      { event: 'pull_request', ref: 'refs/pull/7/merge' },
+    ]) {
+      expect(buildFailures({ ...run, native: true, results: BUILT })).toEqual([]);
+    }
   });
 });
 
@@ -344,7 +368,7 @@ describe('build-check', () => {
     delete inherited.GITHUB_OUTPUT;
     return spawnSync('node', [SCRIPT, 'build-check'], {
       encoding: 'utf8',
-      env: { ...inherited, EVENT: 'pull_request', CHANGES: 'success', SMOKE: 'skipped', ...env },
+      env: { ...inherited, EVENT: 'pull_request', CHANGES: 'success', GATE: 'skipped', ...env },
     });
   }
 

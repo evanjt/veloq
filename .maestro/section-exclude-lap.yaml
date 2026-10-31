@@ -3,7 +3,7 @@
 # section's lap screen, one lap can be excluded, the section screen then says
 # it is partly excluded, and undoing the exclusion clears that again.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-routes-long

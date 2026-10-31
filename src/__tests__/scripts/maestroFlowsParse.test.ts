@@ -17,9 +17,9 @@ import { join, resolve } from 'node:path';
 
 const script = resolve(__dirname, '../../../scripts/check-maestro-flows.mjs');
 
-const GOOD = ['appId: com.example.app', '---', '- launchApp', ''].join('\n');
+const GOOD = ['appId: ${APP_ID}', '---', '- launchApp', ''].join('\n');
 const BAD = [
-  'appId: com.example.app',
+  'appId: ${APP_ID}',
   '---',
   "- evalScript: ${output.target = a.trim() == '4' ? '5' : '4'}",
   '',
@@ -60,11 +60,9 @@ describe('the Maestro flow guard', () => {
   });
 
   it('names a flow that uses a command Maestro does not have, nested or not', () => {
-    const top = ['appId: com.example.app', '---', '- launchApp', '- openNotifications', ''].join(
-      '\n'
-    );
+    const top = ['appId: ${APP_ID}', '---', '- launchApp', '- openNotifications', ''].join('\n');
     const nested = [
-      'appId: com.example.app',
+      'appId: ${APP_ID}',
       '---',
       '- repeat:',
       '    times: 2',
@@ -81,7 +79,7 @@ describe('the Maestro flow guard', () => {
 
   it('names an Android-only command in a flow the iOS gate selects, unless an Android condition wraps it', () => {
     const flow = (tag: string, body: string[]) =>
-      ['appId: com.example.app', 'tags:', `  - ${tag}`, '---', ...body, ''].join('\n');
+      ['appId: ${APP_ID}', 'tags:', `  - ${tag}`, '---', ...body, ''].join('\n');
     const bare = flow('tier0', ['- toggleAirplaneMode']);
     const guarded = flow('pack-nav', [
       '- runFlow:',

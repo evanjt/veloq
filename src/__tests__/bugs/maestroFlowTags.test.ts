@@ -7,9 +7,6 @@
  * Expected behaviour: every flow carries exactly one tier tag; tier0-3 flows
  * carry exactly one known pack tag; tier4/5 flows carry none; and every
  * demo-prefixed deep link resolves to a real fixture activity ID.
- * Exception: by-file flows (smoke-build.yaml) are run by build.yml by file, not
- * by tag, and carry `prod-smoke` (no tier/pack) so no dev gate selects their
- * production appId.
  *
  * Also guards where captures land. `takeScreenshot` resolves its path against
  * the working directory, so a bare name drops a PNG beside `package.json`.
@@ -38,10 +35,6 @@ const KNOWN_PACKS = new Set([
   'pack-routes-long',
   'pack-recording-long',
 ]);
-
-// Run by build.yml by file (not by tag); tagged prod-smoke so no tier gate or
-// pack pipeline ever launches its production appId against a dev build.
-const BY_FILE_FLOWS = new Set(['smoke-build.yaml']);
 
 // Flows that sign in to a real library: no suite may pick them up, so they carry no tier tag.
 const REAL_LIBRARY_FLOWS = new Set(['first-sync-section-growth.yaml']);
@@ -95,11 +88,6 @@ describe('maestro flow tags', () => {
 
   it.each(flowFiles)('%s has exactly one tier tag', (file) => {
     const content = readFlow(file);
-    if (BY_FILE_FLOWS.has(file)) {
-      expect(tierTags(content)).toHaveLength(0);
-      expect(content).toContain('prod-smoke');
-      return;
-    }
     if (REAL_LIBRARY_FLOWS.has(file)) {
       expect(tierTags(content)).toHaveLength(0);
       return;
@@ -109,7 +97,7 @@ describe('maestro flow tags', () => {
 
   it.each(flowFiles)('%s pack tagging matches its tier', (file) => {
     const content = readFlow(file);
-    if (BY_FILE_FLOWS.has(file) || REAL_LIBRARY_FLOWS.has(file)) {
+    if (REAL_LIBRARY_FLOWS.has(file)) {
       expect(packTags(content)).toHaveLength(0);
       return;
     }

@@ -35,7 +35,7 @@
 # would upgrade this flow from "logout-as-proxy" to "real session expiry".
 # -----------------------------------------------------------------------------
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-auth

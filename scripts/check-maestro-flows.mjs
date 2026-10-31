@@ -6,11 +6,15 @@
 // The E2E gate only runs after a push to main, which is a week away from the
 // commit that broke it when pushes are that far apart.
 
+import { createRequire } from 'node:module';
 import { join, relative, resolve } from 'node:path';
 
 import { loadAll } from 'js-yaml';
 
 import { treeView } from './lib/indexedSources.mjs';
+import { resolveAppId } from './lib/maestro-app-id.mjs';
+
+const { IDENTITIES } = createRequire(import.meta.url)('./lib/app-identity.js');
 
 // Commands of the pinned Maestro CLI. Extend it when the pin moves.
 const COMMANDS = new Set([
@@ -95,6 +99,16 @@ export function selectedByIosGate(docs) {
   return Array.isArray(tags) && tags.some((tag) => IOS_GATE_TAGS.has(tag));
 }
 
+/**
+ * A flow takes its application id from APP_ID, so one flow drives the build
+ * that ships in the E2E gate and the development build on a workstation. A
+ * header that resolves to the same id under both identities spells it itself.
+ */
+export function fixedAppId(text) {
+  const under = Object.values(IDENTITIES).map(({ appId }) => resolveAppId(text, { APP_ID: appId }));
+  return under[0] !== null && under.every((id) => id === under[0]) ? under[0] : null;
+}
+
 export function unknownCommands(docs) {
   const found = [];
   const walk = (list) => {
@@ -130,6 +144,12 @@ for (const file of flows) {
     const docs = loadAll(tree.text(file));
     for (const name of unknownCommands(docs)) {
       failures.push(`${relative(root, file)}: Maestro has no command ${name}`);
+    }
+    const fixed = fixedAppId(tree.text(file));
+    if (fixed !== null) {
+      failures.push(
+        `${relative(root, file)}: appId is ${fixed}, and a flow takes it from \${APP_ID}`
+      );
     }
     if (selectedByIosGate(docs)) {
       for (const name of androidOnlyCommands(docs)) {

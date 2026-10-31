@@ -6,7 +6,7 @@
 # is one of those: the routes list sorts by distance once a fix has arrived and
 # by activity count before, so the fix is pinned ahead of every screen.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier5
   - screen-compare

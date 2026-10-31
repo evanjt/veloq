@@ -5,7 +5,7 @@
 # Fix from previous attempt: don't re-launch the app after toggling the theme
 # (that loses the setting). Use deep links and internal navigation instead.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier3
   - pack-settings

@@ -494,7 +494,9 @@ describe('the Maestro wrapper', () => {
     });
 
     expect(run.status).toBe(0);
-    expect(fs.readFileSync(ran, 'utf8')).toContain('test .maestro/ --include-tags=tier0');
+    expect(fs.readFileSync(ran, 'utf8')).toContain(
+      'test -e APP_ID=com.veloq.app.dev .maestro/ --include-tags=tier0'
+    );
   });
 
   it('takes the device lock, so a flow does not reset another run', () => {

@@ -4,7 +4,7 @@
 # US-S4: Sections tab badge count equals card count
 # Verifies the encounters refactor end-to-end on a real device/emulator.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier1
   - pack-routes

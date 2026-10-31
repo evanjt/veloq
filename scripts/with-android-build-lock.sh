@@ -25,9 +25,25 @@ set -eu
 # reads the launcher from the environment when it configures, so handing it
 # ccache here reaches every library with no Gradle change, as CI does. A
 # launcher the caller chose is kept, and a machine without ccache gets none.
+#
+# ccache hashes the absolute path of each source it compiles, so a worktree
+# never hits an object the main checkout built. A base of the checkout root
+# makes those paths relative, and the hash switch leaves the build directory
+# out of the key. The root comes from this script's own location, through the
+# shell alone, so it is right from any working directory and on a PATH with
+# nothing but the wrapper's tools.
 if command -v ccache >/dev/null 2>&1; then
   export CMAKE_C_COMPILER_LAUNCHER="${CMAKE_C_COMPILER_LAUNCHER:-ccache}"
   export CMAKE_CXX_COMPILER_LAUNCHER="${CMAKE_CXX_COMPILER_LAUNCHER:-ccache}"
+  case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+  esac
+  checkout_root=$(cd "$script_dir/.." 2>/dev/null && pwd -P) || checkout_root=
+  if [ -n "$checkout_root" ]; then
+    export CCACHE_BASEDIR="${CCACHE_BASEDIR:-$checkout_root}"
+    export CCACHE_NOHASHDIR="${CCACHE_NOHASHDIR:-1}"
+  fi
 fi
 
 # Already inside a lock this script took, so take nothing: a flock is held per

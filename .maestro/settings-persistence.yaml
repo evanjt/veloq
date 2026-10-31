@@ -1,7 +1,7 @@
 # Settings Persistence Test
 # Verifies theme setting persists across navigation
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-settings

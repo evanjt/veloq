@@ -19,6 +19,7 @@ import path from 'path';
 
 const projectRoot = path.join(__dirname, '../../..');
 const script = path.join(projectRoot, 'scripts/with-android-build-lock.sh');
+const checkoutRoot = fs.realpathSync(projectRoot);
 
 const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')) as {
   scripts: Record<string, string>;
@@ -121,13 +122,29 @@ describe('the Android build takes a lock of its own', () => {
   });
 
   describe('hands CMake the compiler cache when one is installed', () => {
-    /** A PATH that holds the shell's own tools and, when asked, a stand-in `ccache`. */
+    /** What the wrapper runs, and nothing else from the system path. */
+    const WRAPPER_TOOLS = ['sh', 'flock', 'id', 'true'];
+
+    /**
+     * A PATH that holds the wrapper's tools and, when asked, a stand-in `ccache`.
+     * `/usr/bin` is never on it: a machine with the real ccache there would find
+     * it in the case that says none is installed.
+     */
     function pathWith(ccache: boolean): string {
       const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-ccache-bin-'));
+      for (const tool of WRAPPER_TOOLS) {
+        const found = spawnSync('sh', ['-c', `command -v ${tool}`], {
+          encoding: 'utf8',
+        }).stdout.trim();
+        if (!found) {
+          throw new Error(`${tool} is not on this machine's PATH`);
+        }
+        fs.symlinkSync(found, path.join(bin, tool));
+      }
       if (ccache) {
         fs.writeFileSync(path.join(bin, 'ccache'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
       }
-      return `${bin}:/usr/bin:/bin`;
+      return bin;
     }
 
     function launchers(env: NodeJS.ProcessEnv): string {
@@ -140,9 +157,22 @@ describe('the Android build takes a lock of its own', () => {
       return run.stdout.trim();
     }
 
+    /** The cache base and the hash switch, `unset` where the wrapper set neither. */
+    function cacheBase(env: NodeJS.ProcessEnv, cwd?: string): string {
+      const run = spawnSync(
+        script,
+        ['sh', '-c', 'echo "${CCACHE_BASEDIR-unset}|${CCACHE_NOHASHDIR-unset}"'],
+        { encoding: 'utf8', env, cwd }
+      );
+      expect(run.status).toBe(0);
+      return run.stdout.trim();
+    }
+
     function clean(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
       delete env.CMAKE_C_COMPILER_LAUNCHER;
       delete env.CMAKE_CXX_COMPILER_LAUNCHER;
+      delete env.CCACHE_BASEDIR;
+      delete env.CCACHE_NOHASHDIR;
       return env;
     }
 
@@ -161,6 +191,27 @@ describe('the Android build takes a lock of its own', () => {
       env.CMAKE_C_COMPILER_LAUNCHER = 'sccache';
       env.CMAKE_CXX_COMPILER_LAUNCHER = 'sccache';
       expect(launchers(env)).toBe('sccache|sccache');
+    });
+
+    it('bases the cache on the checkout root, so a worktree hits the main checkout objects', () => {
+      const env = clean({ ...privateLock(), PATH: pathWith(true) });
+      expect(cacheBase(env)).toBe(`${checkoutRoot}|1`);
+    });
+
+    it('finds the root from the script, not from the directory the build starts in', () => {
+      const env = clean({ ...privateLock(), PATH: pathWith(true) });
+      expect(cacheBase(env, os.tmpdir())).toBe(`${checkoutRoot}|1`);
+    });
+
+    it('keeps a cache base the caller already chose', () => {
+      const env = clean({ ...privateLock(), PATH: pathWith(true) });
+      env.CCACHE_BASEDIR = '/elsewhere';
+      expect(cacheBase(env)).toBe('/elsewhere|1');
+    });
+
+    it('sets no cache base when ccache is not installed', () => {
+      const env = clean({ ...privateLock(), PATH: pathWith(false) });
+      expect(cacheBase(env)).toBe('unset|unset');
     });
   });
 

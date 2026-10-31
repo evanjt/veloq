@@ -102,7 +102,7 @@ class DryRun {
 
   constructor(
     private readonly session: Session,
-    private readonly dir: string
+    private dir: string
   ) {}
 
   private holds(condition: Record<string, unknown>): boolean {
@@ -176,7 +176,17 @@ class DryRun {
           commands?: Command[];
         };
         if (nested.when && !this.holds(nested.when)) return;
-        if (nested.file) this.run(parse(path.join(this.dir, nested.file)).body);
+        if (nested.file) {
+          // A nested flow names its own files relative to where it sits.
+          const file = path.join(this.dir, nested.file);
+          const outer = this.dir;
+          this.dir = path.dirname(file);
+          try {
+            this.run(parse(file).body);
+          } finally {
+            this.dir = outer;
+          }
+        }
         if (nested.commands) this.run(nested.commands);
         return;
       }
@@ -284,14 +294,14 @@ describe('a demo session', () => {
     expect(taps).toContain('debug-support-preset-0d');
   });
 
-  it('settings-support-iap opens the dashboard by link and leaves debug mode as it found it', () => {
+  it('settings-support-iap opens the dashboard by link, unlocking developer links for the session only', () => {
     const file = path.join(FLOWS, 'settings-support-iap.yaml');
     const { header, body } = parse(file);
     const taps = everyTap([...body, ...((header.onFlowComplete as Command[] | undefined) ?? [])]);
 
     expect(taps).toContain('debug-support-preset-31d');
     expect(taps).toContain('debug-support-preset-0d');
-    expect(taps).not.toContain('settings-version-text');
+    // The unlock is the shared helper's, held in memory; the flow never flips the switch that persists.
     expect(taps).not.toContain('settings-debug-switch');
   });
 

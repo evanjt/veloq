@@ -1,7 +1,7 @@
 # Settings Scroll Test
 # Scrolls through the settings hub with screenshots
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-settings

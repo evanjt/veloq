@@ -1,7 +1,7 @@
 # Regional map activity popup. The markers are drawn into the map canvas, so
 # no step can tap one. The map tab takes the activity to open as a parameter.
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-map

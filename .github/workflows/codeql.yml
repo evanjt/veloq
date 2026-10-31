@@ -6,9 +6,12 @@ name: CodeQL
 # Kotlin is extracted only from a compile CodeQL traces, so java-kotlin builds:
 # scripts/codeql-android-compile.sh compiles every library untraced first and
 # then reruns only our own projects' compile tasks under the tracer. Nothing is
-# packaged and no Rust is built. What no analysis can scan is excluded in
-# .github/codeql/codeql-config.yml. The weekly run scans an unchanged sha again
-# with the query packs as they stand that week.
+# packaged and no Rust is built. That compile is a native build of its own, so
+# it runs on the weekly schedule and by dispatch only, never on a push to main
+# or a pull request, which already build the app, and its Gradle cache is read
+# only. What no analysis can scan is excluded in .github/codeql/codeql-config.yml.
+# The weekly run scans an unchanged sha again with the query packs as they stand
+# that week.
 on:
   push:
     branches: [main]
@@ -39,19 +42,35 @@ jobs:
       matrix:
         include:
           - language: actions
-            build-mode: none
           - language: c-cpp
-            build-mode: none
-          - language: java-kotlin
-            build-mode: manual
           - language: javascript-typescript
-            build-mode: none
           - language: python
-            build-mode: none
           - language: ruby
-            build-mode: none
           - language: rust
-            build-mode: none
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          category: /language:${{ matrix.language }}
+
+  scan-java-kotlin:
+    name: Scan java-kotlin
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
     env:
       # The identity Expo configuration resolves to, read again by Gradle.
       APP_VARIANT: production
@@ -62,32 +81,28 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install dependencies
-        if: matrix.build-mode == 'manual'
         uses: ./.github/actions/npm-ci
 
       - name: Write google-services.json
-        if: matrix.build-mode == 'manual'
         uses: ./.github/actions/write-google-services-stub
         with:
           package-name: com.veloq.app
           allow-stub: true
 
       - name: Setup Java
-        if: matrix.build-mode == 'manual'
         uses: actions/setup-java@v6
         with:
           distribution: "temurin"
           java-version: "17"
 
       - name: Setup Android SDK
-        if: matrix.build-mode == 'manual'
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
 
+      # Reads the Gradle home the production build on main wrote and writes none.
       - name: Setup Gradle
-        if: matrix.build-mode == 'manual'
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: true
           cache-cleanup: on-success
           gradle-home-cache-includes: |
             caches
@@ -96,11 +111,9 @@ jobs:
 
       # Generates android/ for the compile below, and nothing is packaged from it.
       - name: Generate Android native project
-        if: matrix.build-mode == 'manual'
         run: CI=1 npx expo prebuild --platform android --no-install
 
       - name: Install Gradle init script
-        if: matrix.build-mode == 'manual'
         run: |
           mkdir -p ~/.gradle
           cp .github/ci-init.gradle ~/.gradle/init.gradle
@@ -108,21 +121,19 @@ jobs:
       # Before the tracer starts, so every autolinked library is compiled and up
       # to date, and none of it is extracted.
       - name: Compile every library untraced
-        if: matrix.build-mode == 'manual'
         run: scripts/codeql-android-compile.sh prepare
 
       - name: Initialise CodeQL
         uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          languages: java-kotlin
+          build-mode: manual
           config-file: ./.github/codeql/codeql-config.yml
 
       - name: Compile our Kotlin and Java traced
-        if: matrix.build-mode == 'manual'
         run: scripts/codeql-android-compile.sh trace
 
       - name: Analyse
         uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
-          category: /language:${{ matrix.language }}
+          category: /language:java-kotlin

@@ -1,7 +1,7 @@
 # Fitness Wellness Trends Test
 # Tests: HRV, resting HR, and sleep data visibility on the fitness screen
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-fitness

@@ -1,7 +1,7 @@
 # Settings Cache Test
 # Tests cache clear button exists and is interactive
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-settings

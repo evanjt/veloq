@@ -6,7 +6,7 @@
 #
 # A dev build draws its LogBox toasts over the bottom of the screen, and a
 # capture taken on one carries them into the listing shots. The app checked is
-# the one .maestro/store-capture.yaml launches. On Android a debuggable package
+# the one the capture flow launches, which is APP_ID or the development build. On Android a debuggable package
 # is refused; on iOS an app with no embedded main.jsbundle, which is a build
 # that loads its JavaScript from Metro. Run from the capture scripts it reads
 # under the lock they hold; run alone it takes the device or simulator lock.
@@ -19,12 +19,8 @@ usage() {
 }
 
 here=$(cd "$(dirname "$0")" && pwd)
-flow="$here/../.maestro/store-capture.yaml"
-app=$(sed -n -E 's/^appId:[[:space:]]*([^[:space:]]+).*/\1/p' "$flow" | head -n 1)
-if [ -z "$app" ]; then
-  echo "store capture: no appId in $flow" >&2
-  exit 1
-fi
+. "$here/lib/maestro-app-id.sh"
+app=$(veloq_maestro_app_id "$here")
 
 [ "$#" -ge 1 ] || usage
 case "$1" in

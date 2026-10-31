@@ -1,7 +1,7 @@
 # Home Screen Search Test
 # Tests search input, filtering, and clearing on the home feed
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-home

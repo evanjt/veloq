@@ -1,7 +1,7 @@
 # About Screen Links Test
 # Tests that all links and sections on the about screen are visible
 
-appId: com.veloq.app.dev
+appId: ${APP_ID}
 tags:
   - tier2
   - pack-settings

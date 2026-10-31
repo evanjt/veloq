@@ -147,3 +147,24 @@ describe('release changelog', () => {
     expect(result.status).not.toBe(0);
   });
 });
+
+describe('Build on a ci branch', () => {
+  const build = yaml.load(
+    readFileSync(join(ROOT, '.github/workflows/build.yml'), 'utf8')
+  ) as unknown as {
+    on?: { push: { branches: string[] } };
+    true?: { push: { branches: string[] } };
+    jobs: Record<string, { if?: string }>;
+  };
+
+  it('starts on a push to a ci branch as well as main', () => {
+    const triggers = build.on ?? build.true;
+    expect(triggers?.push.branches).toEqual(expect.arrayContaining(['main', 'ci/**']));
+  });
+
+  it('runs the E2E gate on main and on a ci branch, and nowhere else', () => {
+    const condition = build.jobs['e2e-gate'].if ?? '';
+    expect(condition).toContain("github.ref == 'refs/heads/main'");
+    expect(condition).toContain("startsWith(github.ref, 'refs/heads/ci/')");
+  });
+});
