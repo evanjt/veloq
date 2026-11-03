@@ -1,16 +1,16 @@
-Veloq shows your intervals.icu training on your phone and looks for the routes and sections you repeat. The analysis runs on your device.
+Own your fitness data. Veloq finds the routes and sections you repeat and generates your insights right on your phone.
 
 <b>Record</b>
-Record rides, runs and other sports with GPS, Bluetooth sensors or a planned workout.
+Record with GPS or indoors, with Bluetooth sensors, today's planned workout or a nearby route's line.
 
 <b>Insights</b>
 Short reads on your training, each opening to its numbers and how they were worked out.
 
 <b>Maps</b>
-Interactive maps with 3D terrain, route heatmaps, and light, dark and satellite styles.
+Interactive maps with 3D terrain, route heatmaps, and light, dark and satellite styles, all offline.
 
 <b>Routes and sections</b>
-Compare every attempt on the routes and sections you repeat, then pin, trim or rename them.
+Sections consider elevation, skip ski lifts and grow with your history. Compare every attempt and undo any change.
 
 <b>Charts</b>
 Heart rate, power, pace, elevation and cadence on one timeline with the map.
@@ -22,13 +22,13 @@ Fitness, fatigue and form with the zones drawn in, plus HRV, resting heart rate 
 Your strength sets on a body diagram, by muscle group and exercise.
 
 <b>Widgets</b>
-Home-screen widgets for fitness and form, your last activity and your insights.
+Home screen widgets for your summary, latest activity, insights and strength.
 
 <b>Notifications</b>
 A notification naming the route and any personal bests when a new activity arrives. Off until you turn it on.
 
 <b>Backups</b>
-Back up your settings and section decisions to a file, a folder, a cloud drive or a WebDAV server.
+Automatic backups of your settings and section edits to a folder, Google Drive or a WebDAV server.
 
 <b>Privacy</b>
 Your training data stays on your device, with no analytics and no tracking. Optional push notifications store your athlete ID and a device token on our server for 30 days. Open source under Apache 2.0.

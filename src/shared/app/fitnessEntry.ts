@@ -50,7 +50,7 @@ export interface FitnessEntry {
 }
 
 /** A collapsible section of the fitness tab. */
-export type FitnessSection = 'performance' | 'trends';
+export type FitnessSection = 'trends';
 
 /**
  * Where a chart sits on the fitness tab: the page that draws it, the section
@@ -68,8 +68,8 @@ export const FITNESS_CHART_PLACEMENT: Record<
   fitness: { place: 'fitness', section: null, sport: null },
   form: { place: 'fitness', section: null, sport: null },
   ftp: { place: 'trends', section: 'trends', sport: 'Cycling' },
-  pace: { place: 'performance', section: 'performance', sport: 'Running' },
-  css: { place: 'performance', section: 'performance', sport: 'Swimming' },
+  pace: { place: 'performance', section: null, sport: 'Running' },
+  css: { place: 'performance', section: null, sport: 'Swimming' },
   hrv: { place: 'fitness', section: null, sport: null },
   rhr: { place: 'fitness', section: null, sport: null },
   weight: { place: 'fitness', section: null, sport: null },

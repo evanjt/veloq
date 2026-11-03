@@ -1,38 +1,38 @@
-Veloq viser din træning fra intervals.icu på din telefon og leder efter de ruter og sektioner, du gentager. Analysen kører på din enhed.
+Dine træningsdata er dine egne. Veloq finder de ruter og sektioner, du gentager, og laver dine indsigter direkte på din telefon.
 
 Optagelse
-Optag cykelture, løb og andre sportsgrene med GPS, Bluetooth-sensorer eller en planlagt træning.
+Optag med GPS eller indendørs, med Bluetooth-sensorer, dagens planlagte træning eller linjen på en rute i nærheden.
 
 Indsigt
-Korte aflæsninger af din træning, som hver åbner til sine tal og hvordan de er regnet ud.
+Korte læsninger af din træning. Hver åbner til sine tal og viser, hvordan de er beregnet.
 
 Kort
-Interaktive kort med 3D-terræn, varmekort over ruter samt lyse, mørke og satellitstile.
+Interaktive kort med 3D-terræn, varmekort over ruter og lyse, mørke og satellitstile, alt sammen offline.
 
 Ruter og sektioner
-Sammenlign hvert forsøg på de ruter og sektioner, du gentager, og fastgør, trim eller omdøb dem.
+Sektioner tager højde for højdeforskelle, springer skilifter over og vokser med din historik. Sammenlign hvert forsøg og fortryd enhver ændring.
 
 Grafer
 Puls, effekt, tempo, højde og kadence på én tidslinje sammen med kortet.
 
 Kondition
-Kondition, træthed og form med zonerne tegnet ind, plus HRV, hvilepuls og søvn.
+Kondition, træthed og form med zonerne tegnet ind, samt HRV, hvilepuls og søvn.
 
 Styrke
 Dine styrkesæt på et kropsdiagram, efter muskelgruppe og øvelse.
 
 Widgets
-Widgets til startskærmen med kondition og form, din seneste aktivitet og dine indsigter.
+Widgets til hjemmeskærmen med oversigt, seneste aktivitet, indsigter og styrke.
 
 Notifikationer
 En notifikation med rutens navn og eventuelle personlige rekorder, når en ny aktivitet kommer ind. Slået fra, til du slår den til.
 
 Sikkerhedskopier
-Sikkerhedskopier dine indstillinger og sektionsvalg til en fil, en mappe, et cloudlager eller en WebDAV-server.
+Automatiske sikkerhedskopier af dine indstillinger og sektionsredigeringer til iCloud Drev, en mappe eller en WebDAV-server.
 
 Privatliv
 Dine træningsdata bliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer dit intervals.icu-atlet-id og et enhedstoken på vores server, som slettes automatisk efter 30 dage. Open source under Apache 2.0.
 
-Understøtter cykling, løb, svømning og over 20 aktivitetstyper. Prøv den indbyggede demotilstand for at udforske uden en konto.
+Understøtter cykling, løb, svømning og over 20 aktivitetstyper. Prøv den indbyggede demotilstand for at udforske uden konto.
 
-Kræver en intervals.icu-konto for livedata. Kræver iOS 16.4 eller nyere. Ikke tilknyttet intervals.icu.
+Kræver en intervals.icu-konto for live data. Kræver iOS 16.4 eller nyere. Ikke tilknyttet intervals.icu.

@@ -22,6 +22,43 @@ pub fn latest_version() -> u32 {
     PersistentEngine::migration_scripts().len() as u32
 }
 
+/// A released build and the database its install leaves behind.
+pub struct Release {
+    pub name: &'static str,
+    /// The `PRAGMA user_version` every install of it reports.
+    pub user_version: u32,
+    /// The last migration it applied, which pins `user_version` to a file.
+    pub last_migration: &'static str,
+    /// A `.dump` of the library its engine wrote, for the upgrade every row
+    /// must survive. Absent for 0.3.x, whose captured dump has its own tests
+    /// because the chain since rewrites its rows on purpose.
+    pub library: Option<&'static str>,
+}
+
+/// Every release whose installs are in the field, oldest first. Cutting a
+/// release adds its row here and its library fixture, written by
+/// `examples/released_library.rs` from the release tag, so the next change
+/// is gated on upgrading what that release wrote.
+pub const RELEASES: &[Release] = &[
+    Release {
+        name: "0.3.0 to 0.3.8",
+        user_version: 12,
+        last_migration: "012_v030.sql",
+        library: None,
+    },
+    Release {
+        name: "0.4.0",
+        user_version: 79,
+        last_migration: "m20261030_225057_drop_rank_record_flag.sql",
+        library: Some(include_str!("../fixtures/v79_library.sql")),
+    },
+];
+
+/// The newest release in the field, the one the next build upgrades from.
+pub fn latest_release() -> &'static Release {
+    RELEASES.last().expect("at least one release")
+}
+
 /// Open a connection for writing a fixture, with no fsync on commit.
 ///
 /// A seed is rebuilt on every run, so surviving a power cut buys it nothing,
@@ -296,7 +333,7 @@ fn root_pages(conn: &Connection) -> std::collections::BTreeMap<String, i64> {
 
 /// Every row of `table` over `columns`, each value in a form that sorts and
 /// compares exactly, the rows sorted so two snapshots compare as multisets.
-fn rows_of(conn: &Connection, table: &str, columns: &[String]) -> Vec<Vec<String>> {
+pub fn rows_of(conn: &Connection, table: &str, columns: &[String]) -> Vec<Vec<String>> {
     if columns.is_empty() {
         let count = row_count(conn, table).unwrap_or(0);
         return vec![Vec::new(); count as usize];

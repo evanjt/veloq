@@ -60,6 +60,7 @@ jest.mock('@/features/settings', () => ({
   useGarminConnectorState: () => null,
   useExperimental: () => false,
   useAutoBackupEnabled: () => true,
+  ActivityHistoryRow: () => null,
   SettingsNavRow: jest.requireActual('@/features/settings/components/SettingsNavRow')
     .SettingsNavRow,
   RecordingPermissionSection: jest.requireActual(

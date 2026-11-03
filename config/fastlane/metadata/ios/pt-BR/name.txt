@@ -1,1 +1,1 @@
-Veloq: Análise de treino
+Veloq: Training Analysis

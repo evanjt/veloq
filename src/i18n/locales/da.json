@@ -492,7 +492,6 @@
   },
   "bestEffortsScreen": {
     "title": "Bedste indsatser",
-    "viewAll": "Alle bedste indsatser",
     "windowSubtitle_one": "Bedste fra den seneste {{count}} dag.",
     "windowSubtitle_other": "Bedste fra de seneste {{count}} dage.",
     "allTimeSubtitle": "Personlige rekorder på tværs af din lokalt gemte historik.",
@@ -504,9 +503,12 @@
     "climbingOwed": "Klatrebedste beregnes stadig.",
     "checkpoint": {
       "halfMarathon": "Halvmaraton",
+      "marathon": "Maraton",
+      "mile": "Engelsk mil",
       "metres": "{{value}} m",
       "kilometres": "{{value}} km"
-    }
+    },
+    "curveSource": "Effekt- og tempobedste kommer fra intervals.icu."
   },
   "cache": {
     "allActivitiesSynced": "Alle aktiviteter synkroniseret",
@@ -1599,7 +1601,6 @@
     "settingsAutoPauseThreshold": "Hastighedsgrænse",
     "settingsAutoPauseWalkingAndOther": "Gang og andre sportsgrene",
     "settingsDataFields": "Datafelter",
-    "settingsUnits": "Enheder",
     "slideToUnlock": "Skub for at låse op",
     "lockControls": "Lås kontroller",
     "unlockControls": "Lås kontroller op",
@@ -2082,13 +2083,14 @@
     "signOut": "Log ud",
     "leaveDemo": "Forlad demo",
     "display": "Visning",
-    "largeHistoryConfirm": "Hent alligevel",
-    "largeHistoryMessage_one": "Så langt tilbage henter op til omkring {{count}} aktivitet. Det tager et stykke tid, og appen er ikke garanteret at forblive hurtig med så meget gemt.",
-    "largeHistoryMessage_other": "Så langt tilbage henter op til omkring {{count}} aktiviteter. Det tager et stykke tid, og appen er ikke garanteret at forblive hurtig med så meget gemt.",
-    "largeHistoryTitle": "Det er en stor download",
     "largeHistoryDaysTitle_one": "Det tager mindst {{count}} dag",
     "largeHistoryDaysTitle_other": "Det tager mindst {{count}} dage",
-    "largeHistoryDaysMessage": "intervals.icu begrænser, hvor mange aktiviteter appen kan hente pr. dag, og alle installationer deler den grænse. Resten hentes de følgende dage. Appen er ikke garanteret hurtig med så mange data.",
+    "activityHistory": "Aktivitetshistorik",
+    "activityHistoryIntro": "intervals.icu begrænser, hvor mange aktiviteter appen kan hente pr. dag, og grænsen deles af alle installationer. En længere historik tager længere tid at hente, og et længere vindue hæver ikke grænsen.",
+    "activityHistorySummary": "De seneste {{span}}, aktiviteter: {{activities}}",
+    "historyCost": "Aktiviteter at hente: op til ca. {{activities}}",
+    "historyUnlocks": "En længere historik giver længere tendenser, mere sektionshistorik og bedre ruitegruppering.",
+    "historyConfirm": "Hent dette interval",
     "localDataRange": "Lokalt datointerval",
     "localDataRangeEnd": "Slut på lokalt datointerval",
     "heroMetric": "Hovedmetrik",
@@ -2208,7 +2210,6 @@
     "groupKeeps": "Bibliotek og backup",
     "routesAndSections": "Ruter & Sektioner",
     "storage": "Lagring",
-    "sinceDateSubtitle": "Siden {{date}}",
     "elevationBackfillRunning": "Tilføjer højde til aktivitetsspor",
     "elevationBackfillProgress": "{{completed}} af {{total}} aktiviteter",
     "elevationBackfillComplete": "Alle aktivitetsspor har højde",
@@ -2283,7 +2284,7 @@
     "previewStatusGone": "Fjernet",
     "previewCurrentLayer": "Nuværende",
     "previewRetiredLayer": "Udgåede",
-    "previewProposedLayer": "Foreslået",
+    "previewAreaLayer": "Område",
     "previewKeep": "Behold",
     "previewDiscard": "Kassér",
     "previewKeepTitle": "Anvend disse indstillinger?",
@@ -2338,7 +2339,6 @@
     "debugModeDescription": "Vis interne diagnosticeringsdata på detaljesider",
     "developerDashboardDescription": "Motorstatistik, FFI-ydeevne, hukommelse",
     "experimentalFeatures": "Eksperimentelle funktioner",
-    "experimentalFeaturesDescription": "Vis funktioner, der stadig er under udvikling, hver med sin egen kontakt",
     "experimentalDashboardDescription": "Slå hver eksperimentel funktion til eller fra og åbn den"
   },
   "stats": {
@@ -2777,6 +2777,7 @@
     "forget": "Glem",
     "connect": "Forbind",
     "disconnect": "Afbryd",
+    "reconnect": "Opret forbindelse igen",
     "recordFrom": "Optag {{kind}} fra {{name}}",
     "chooseSourceHint": "Når to sensorer leverer samme måling, optages den fremhævede. Tryk på den anden for at skifte.",
     "bleUnavailable": "Bluetooth er ikke tilgængelig",
@@ -2784,7 +2785,8 @@
     "kinds": {
       "heartRate": "Puls",
       "power": "Effekt",
-      "cadence": "Kadence"
+      "cadence": "Kadence",
+      "runningCadence": "Løbekadence"
     },
     "status": {
       "connecting": "Forbinder…",
@@ -2792,6 +2794,12 @@
       "noData": "Forbundet, ingen data",
       "reconnecting": "Genopretter forbindelse…",
       "disconnected": "Ikke forbundet"
+    },
+    "silent": {
+      "heartRate": "Forbundet, sender ikke puls. Slå pulsudsendelse til på enheden.",
+      "power": "Forbundet, sender ikke effekt. Slå effektudsendelse til på enheden.",
+      "cadence": "Forbundet, sender ikke kadence. Slå kadenceudsendelse til på enheden.",
+      "runningCadence": "Forbundet, sender ikke løbekadence. Slå løbekadenceudsendelse til på enheden."
     },
     "purpose": "Bluetooth bruges til at finde og forbinde puls-, watt- og kadencesensorer.",
     "noneFound": "Ingen sensorer fundet",
@@ -2885,6 +2893,7 @@
     "retiredInto": "Ind i {{name}}",
     "pairUnnamed": "Unavngiven strækning",
     "pairNone": "Ingen anden strækning ligger på samme stykke",
+    "pairsPending": "Finder stadig ud af, hvilke strækninger ligger på samme stykke",
     "pairRetiredLedger": "Udgået ind i {{name}}",
     "pairRetiredSupersedes": "Havde skjult {{name}}",
     "pairCurrentLedger": "Overtog efter {{name}}",
@@ -2973,7 +2982,14 @@
     "heldByBudget": "Anmodningsgrænsen er nået, venter til {{time}}",
     "pacedOnCaps_one": "Mindst {{count}} dag til færdig, efter intervals.icu's daglige grænse",
     "pacedOnCaps_other": "Mindst {{count}} dage til færdig, efter intervals.icu's daglige grænse",
-    "lastFinished": "Seneste kørsel {{time}}",
+    "headerRunning_one": "{{count}} baggrundsjob kører",
+    "headerRunning_other": "{{count}} baggrundsjob kører",
+    "headerStopped_one": "{{count}} baggrundsjob stoppede tidligt",
+    "headerStopped_other": "{{count}} baggrundsjob stoppede tidligt",
+    "headerWaiting": "Baggrundsjob venter til {{time}}",
+    "headerWaitingNoTime": "Baggrundsjob venter",
+    "headerIdle": "Alle baggrundsjob er færdige",
+    "pastRuns": "Tidligere kørsler",
     "lastRunNoChange": "Ingen ændringer",
     "lastRunStopped": "Stoppet",
     "lastRunActivities_one": "{{count}} aktivitet",
@@ -3236,6 +3252,10 @@
     "garminUpdate": {
       "title": "Opdater aktiviteter fra Garmin",
       "blurb": "Erstatter intervals.icu's kopi af en aktivitet med Garmins egen fil, når den indeholder mere. Kræver en Garmin-nøgle. Ikke færdig."
+    },
+    "climbingBests": {
+      "title": "Bedste stigninger",
+      "blurb": "Veloq beregner dem på din telefon ud fra intervals.icu's højdedata. intervals.icu leverer ikke selv bedste stigninger. For hvert tidsvindue, fra 15 sekunder til 20 minutter, finder Veloq din hurtigste stigningshastighed i meter i timen (VAM) og omregner den til W/kg, den effekt der skal til for kun at løfte din kropsvægt. Kun aktiviteter med korrigeret højde fra intervals.icu tæller med."
     }
   }
 }

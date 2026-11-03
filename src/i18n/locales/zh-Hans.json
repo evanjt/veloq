@@ -492,7 +492,6 @@
   },
   "bestEffortsScreen": {
     "title": "最佳表现",
-    "viewAll": "全部最佳表现",
     "windowSubtitle_one": "过去 {{count}} 天的最佳成绩。",
     "windowSubtitle_other": "过去 {{count}} 天的最佳成绩。",
     "allTimeSubtitle": "缓存历史记录中的个人最佳成绩。",
@@ -504,9 +503,12 @@
     "climbingOwed": "爬升最佳成绩仍在计算中。",
     "checkpoint": {
       "halfMarathon": "半程马拉松",
+      "marathon": "全程马拉松",
+      "mile": "英里",
       "metres": "{{value}} 米",
       "kilometres": "{{value}} 公里"
-    }
+    },
+    "curveSource": "功率和配速最佳成绩来自 intervals.icu。"
   },
   "cache": {
     "allActivitiesSynced": "所有活动已同步",
@@ -1599,7 +1601,6 @@
     "settingsAutoPauseThreshold": "速度阈值",
     "settingsAutoPauseWalkingAndOther": "步行及其他运动",
     "settingsDataFields": "数据字段",
-    "settingsUnits": "单位",
     "slideToUnlock": "滑动解锁",
     "lockControls": "锁定控件",
     "unlockControls": "解锁控件",
@@ -2082,13 +2083,14 @@
     "signOut": "退出登录",
     "leaveDemo": "退出演示",
     "display": "显示",
-    "largeHistoryConfirm": "仍然下载",
-    "largeHistoryMessage_one": "回溯到这么早会下载最多约 {{count}} 项活动。这需要一些时间，且数据量这么大时应用不保证保持流畅。",
-    "largeHistoryMessage_other": "回溯到这么早会下载最多约 {{count}} 项活动。这需要一些时间，且数据量这么大时应用不保证保持流畅。",
-    "largeHistoryTitle": "下载量较大",
     "largeHistoryDaysTitle_one": "这至少需要 {{count}} 天",
     "largeHistoryDaysTitle_other": "这至少需要 {{count}} 天",
-    "largeHistoryDaysMessage": "intervals.icu 限制应用每天可下载的活动数量，所有安装共用这一上限。其余部分会在之后几天下载。数据量这么大时，应用的流畅度无法保证。",
+    "activityHistory": "活动历史",
+    "activityHistoryIntro": "intervals.icu 限制应用每天可下载的活动数量，且所有安装共用该上限。历史越长，下载越慢，扩大时间范围也不会提高上限。",
+    "activityHistorySummary": "最近 {{span}}，活动数：{{activities}}",
+    "historyCost": "待下载的活动：最多约 {{activities}} 个",
+    "historyUnlocks": "更长的历史可带来更长的趋势、更多的路段历史和更好的路线分组。",
+    "historyConfirm": "下载此范围",
     "localDataRange": "本地数据范围",
     "localDataRangeEnd": "本地数据范围结束",
     "heroMetric": "主要指标",
@@ -2208,7 +2210,6 @@
     "groupKeeps": "资料库与备份",
     "routesAndSections": "路线与区间",
     "storage": "存储",
-    "sinceDateSubtitle": "自 {{date}} 起",
     "elevationBackfillRunning": "正在为活动轨迹添加海拔",
     "elevationBackfillProgress": "{{total}} 项活动中的 {{completed}} 项",
     "elevationBackfillComplete": "所有活动轨迹均已包含海拔",
@@ -2283,7 +2284,7 @@
     "previewStatusGone": "已移除",
     "previewCurrentLayer": "当前",
     "previewRetiredLayer": "已退出",
-    "previewProposedLayer": "建议",
+    "previewAreaLayer": "区域",
     "previewKeep": "保留",
     "previewDiscard": "放弃",
     "previewKeepTitle": "应用这些设置？",
@@ -2338,7 +2339,6 @@
     "debugModeDescription": "在详情页显示内部诊断信息",
     "developerDashboardDescription": "引擎统计、FFI 性能、内存",
     "experimentalFeatures": "实验性功能",
-    "experimentalFeaturesDescription": "显示仍在开发中的功能，每项都有各自的开关",
     "experimentalDashboardDescription": "逐项开启或关闭实验性功能并打开它"
   },
   "stats": {
@@ -2777,6 +2777,7 @@
     "forget": "忽略",
     "connect": "连接",
     "disconnect": "断开",
+    "reconnect": "重新连接",
     "recordFrom": "从{{name}}记录{{kind}}",
     "chooseSourceHint": "当两个传感器提供同一指标时，记录高亮显示的那个。点按另一个即可切换。",
     "bleUnavailable": "蓝牙不可用",
@@ -2784,7 +2785,8 @@
     "kinds": {
       "heartRate": "心率",
       "power": "功率",
-      "cadence": "踏频"
+      "cadence": "踏频",
+      "runningCadence": "跑步步频"
     },
     "status": {
       "connecting": "连接中…",
@@ -2792,6 +2794,12 @@
       "noData": "已连接，无数据",
       "reconnecting": "正在重新连接…",
       "disconnected": "未连接"
+    },
+    "silent": {
+      "heartRate": "已连接，未发送心率。请在设备上开启心率广播。",
+      "power": "已连接，未发送功率。请在设备上开启功率广播。",
+      "cadence": "已连接，未发送踏频。请在设备上开启踏频广播。",
+      "runningCadence": "已连接，未发送跑步步频。请在设备上开启跑步步频广播。"
     },
     "purpose": "蓝牙用于查找并连接心率、功率和踏频传感器。",
     "noneFound": "未找到传感器",
@@ -2885,6 +2893,7 @@
     "retiredInto": "并入{{name}}",
     "pairUnnamed": "未命名路段",
     "pairNone": "没有其他路段与此路线重合",
+    "pairsPending": "仍在计算哪些路段与此路线重合",
     "pairRetiredLedger": "已并入{{name}}",
     "pairRetiredSupersedes": "曾隐藏{{name}}",
     "pairCurrentLedger": "接替了{{name}}",
@@ -2973,7 +2982,14 @@
     "heldByBudget": "已达请求上限，等待至 {{time}}",
     "pacedOnCaps_one": "按 intervals.icu 的每日上限，至少 {{count}} 天完成",
     "pacedOnCaps_other": "按 intervals.icu 的每日上限，至少 {{count}} 天完成",
-    "lastFinished": "上次运行 {{time}}",
+    "headerRunning_one": "{{count}} 个后台任务正在运行",
+    "headerRunning_other": "{{count}} 个后台任务正在运行",
+    "headerStopped_one": "{{count}} 个后台任务提前停止",
+    "headerStopped_other": "{{count}} 个后台任务提前停止",
+    "headerWaiting": "后台任务等待至 {{time}}",
+    "headerWaitingNoTime": "后台任务等待中",
+    "headerIdle": "所有后台任务已完成",
+    "pastRuns": "过往运行",
     "lastRunNoChange": "无变化",
     "lastRunStopped": "已停止",
     "lastRunActivities_one": "{{count}} 项活动",
@@ -3236,6 +3252,10 @@
     "garminUpdate": {
       "title": "从 Garmin 更新活动",
       "blurb": "当 Garmin 自己的文件包含更多内容时，用它替换 intervals.icu 的副本。需要 Garmin 密钥。尚未完成。"
+    },
+    "climbingBests": {
+      "title": "爬坡最佳成绩",
+      "blurb": "Veloq 在你的手机上根据 intervals.icu 的海拔数据计算。intervals.icu 本身不提供爬坡最佳成绩。对于从 15 秒到 20 分钟的每个时间窗口，Veloq 找出你最快的爬升速度（米/小时，VAM），并换算成 W/kg，即仅抬升你自身体重所需的功率。只有带有 intervals.icu 校正海拔的活动才会计入。"
     }
   }
 }

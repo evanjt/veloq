@@ -1,5 +1,8 @@
+/** A recorded value a sensor can supply. */
+export type SensorMetric = 'heartRate' | 'power' | 'cadence';
+
 /** Sensor capability advertised via its GATT service. */
-export type SensorKind = 'heartRate' | 'power' | 'cadence';
+export type SensorKind = SensorMetric | 'runningCadence';
 
 /** A sensor the user has paired; persisted so it auto-connects on recording start. */
 export interface KnownSensor {
@@ -7,7 +10,7 @@ export interface KnownSensor {
   name: string;
   kinds: SensorKind[];
   /** The metrics the athlete chose this sensor to supply over any other paired sensor. */
-  preferredFor?: SensorKind[];
+  preferredFor?: SensorMetric[];
 }
 
 /** A device found during a scan, before pairing. */

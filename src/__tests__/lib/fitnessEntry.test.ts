@@ -10,6 +10,7 @@
 import {
   FITNESS_CHARTS,
   FITNESS_CHART_PLACEMENT,
+  fitnessChartAnchor,
   fitnessEntryFromParams,
   fitnessPlaceOf,
   fitnessTarget,
@@ -83,6 +84,13 @@ describe('fitnessPlaceOf', () => {
     for (const chart of FITNESS_CHARTS) {
       expect(FITNESS_CHART_PLACEMENT[chart].place).toBe(PLACE_OF_CHART[chart]);
       expect(fitnessPlaceOf({ chart })).toBe(PLACE_OF_CHART[chart]);
+    }
+  });
+
+  it('reveals the pace and swim curves with no section to open', () => {
+    for (const chart of ['pace', 'css'] as const) {
+      expect(FITNESS_CHART_PLACEMENT[chart].section).toBeNull();
+      expect(fitnessChartAnchor(chart)).toBe('chart');
     }
   });
 

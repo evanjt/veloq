@@ -19,6 +19,7 @@ export {
   PreviewMapView,
   PreviewParamPanel,
   PreviewRunCost,
+  PreviewSheet,
   PreviewSectionPopover,
   RetiredPairCard,
   type RetiredLayerProps,
@@ -124,6 +125,7 @@ export {
 export { useSectionTrim } from './hooks/useSectionTrim';
 export { buildFinalRouteGroup, buildRouteGroupBase } from './lib/buildRouteGroup';
 export { getPhaseDisplayKey } from './lib/detectionProgress';
+export { routesBannerOf } from './lib/routesBanner';
 export { CUTOVER_FAILURE_KEYS } from './lib/cutoverPhaseKeys';
 export {
   DETECTION_PARAM_RANGES,

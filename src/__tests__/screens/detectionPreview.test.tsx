@@ -1,8 +1,8 @@
 import { StartOutcome } from 'veloqrs';
 import React from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { PreviewCentrePicker } from '@/features/routes/components/preview/PreviewCentrePicker';
 import { PreviewParamPanel } from '@/features/routes/components/preview/PreviewParamPanel';
@@ -183,6 +183,8 @@ jest.mock('@/features/routes/components', () => {
     PreviewRunCost: slot('PreviewRunCost'),
     PreviewMapView: slot('PreviewMapView'),
     PreviewParamPanel: slot('PreviewParamPanel'),
+    PreviewSheet: jest.requireActual('@/features/routes/components/preview/PreviewSheet')
+      .PreviewSheet,
     PreviewSectionPopover: slot('PreviewSectionPopover'),
     RetiredPairCard: slot('RetiredPairCard'),
   };
@@ -1024,6 +1026,7 @@ describe('preview screen layout', () => {
 
   it('scrolls the slider card and nothing else, so the map cannot leave the screen', async () => {
     const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
 
     expect(onlyVerticalScrollView(tree)).toEqual(['preview-param-panel']);
   });
@@ -1036,6 +1039,7 @@ describe('preview screen layout', () => {
 
   it('holds the map and all five sliders in the tree at once', async () => {
     const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
 
     expect(tree.getByTestId('preview-map')).toBeTruthy();
     const panel = tree.getByTestId('preview-param-panel');
@@ -1069,9 +1073,30 @@ describe('preview screen layout', () => {
     expect(tree.queryByTestId('preview-run-button')).toBeNull();
   });
 
+  it('seats the sliders, the diff and the decision inside the sheet over the map', async () => {
+    mockResult.value = RESULT_WITH_COUNTS;
+    const tree = await render(<DetectionPreviewScreen />);
+    const sheet = tree.getByTestId('preview-control-panel');
+    await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
+
+    expect(within(sheet).getByTestId('preview-param-panel')).toBeTruthy();
+    expect(within(sheet).getByTestId('preview-keep-button')).toBeTruthy();
+    expect(within(sheet).getByTestId('preview-discard-button')).toBeTruthy();
+    expect(within(tree.getByTestId('preview-map')).queryByTestId('preview-keep-button')).toBeNull();
+  });
+
+  it('keeps Keep and Discard in view while the sheet is collapsed', async () => {
+    mockResult.value = RESULT_WITH_COUNTS;
+    const tree = await render(<DetectionPreviewScreen />);
+
+    expect(tree.getByTestId('preview-keep-button')).toBeTruthy();
+    expect(tree.queryByTestId('preview-param-panel')).toBeNull();
+  });
+
   it('adds the diff strip and the decision row without displacing the map or the sliders', async () => {
     mockResult.value = RESULT_WITH_COUNTS;
     const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
 
     expect(tree.getByTestId('preview-keep-button')).toBeTruthy();
     expect(tree.getByTestId('preview-discard-button')).toBeTruthy();
@@ -1436,6 +1461,7 @@ describe('detection preview sensitivity controls', () => {
   it('offers no Keep until a run has produced a result', async () => {
     mockResult = null;
     const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
     expect(tree.queryByTestId('preview-keep-button')).toBeNull();
     expect(tree.getByTestId('preview-param-panel')).toBeTruthy();
   });
@@ -1489,6 +1515,7 @@ describe('detection preview sensitivity controls', () => {
 
     it('asks for a run when a preset is chosen', async () => {
       const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
       await fireEvent.press(tree.getByTestId('preset-strict'));
       expect(mockRequest).toHaveBeenCalledTimes(1);
     });
@@ -1906,6 +1933,27 @@ describe('the retired layer on the detection preview', () => {
     await fireEvent.press(tree.getByTestId('retired-pair-new-1'));
 
     expect(tree.getByTestId('retired-pair-old-1')).toBeTruthy();
+  });
+
+  it('gives the map the screen and seats the comparison card below it, not over it', async () => {
+    mockEnv.params = { layer: 'retired' };
+    const tree = await render(<DetectionPreviewScreen />);
+    await act(async () => layerOf().onSelect('old-1'));
+
+    const map = tree.getByTestId('preview-map');
+    const style = StyleSheet.flatten(map.props.style);
+    expect(style.height).toBeUndefined();
+    expect(style.flex).toBe(1);
+    expect(within(map).queryByTestId('retired-pair-card')).toBeNull();
+    expect(tree.getByTestId('retired-pair-card')).toBeTruthy();
+  });
+
+  it('fills the screen with the settings preview map, behind the sheet, when opened without the layer', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
+
+    const style = StyleSheet.flatten(tree.getByTestId('preview-map').props.style);
+    expect(style).toMatchObject({ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 });
+    expect(tree.getByTestId('preview-control-panel')).toBeTruthy();
   });
 
   it('says so when a tapped retired line shares its ground with nothing', async () => {

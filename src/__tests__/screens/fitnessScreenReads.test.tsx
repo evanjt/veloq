@@ -20,6 +20,7 @@ import { i18n, initialiseI18n } from '@/i18n';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/useSyncStatus', () => ({ useSyncState: () => null }));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('@/shared/debug/tabSwitchTiming', () => ({ useTabFirstFrame: jest.fn() }));
 jest.mock('@/shared/debug/renderTimer', () => ({

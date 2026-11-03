@@ -26,7 +26,13 @@ import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationT
 // Straight from the module, not the app barrel: the barrel reaches the
 // in-app purchase binding, which a screen that only needs the theme should not.
 import { useTheme } from '@/shared/app/useTheme';
-import { Button, ErrorState, ScreenSafeAreaView, useBottomClearance, Spinner } from '@/shared/ui';
+import {
+  ButtonRow,
+  ErrorState,
+  ScreenSafeAreaView,
+  useBottomClearance,
+  Spinner,
+} from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead } from '@/shared/native/engineError';
@@ -291,21 +297,21 @@ function RouteGroupingPreviewScreenContent() {
         <GroupingParamPanel params={params} onChange={onChange} />
 
         {changed && !routesFailed ? (
-          <View style={styles.actionRow}>
-            <Button
-              label={t('settings.previewDiscard')}
-              variant="secondary"
-              onPress={handleDiscard}
-              testID="grouping-discard-button"
-              style={styles.action}
-            />
-            <Button
-              label={t('settings.previewKeep')}
-              onPress={handleKeep}
-              testID="grouping-keep-button"
-              style={styles.action}
-            />
-          </View>
+          <ButtonRow
+            actions={[
+              {
+                label: t('settings.previewDiscard'),
+                variant: 'secondary',
+                onPress: handleDiscard,
+                testID: 'grouping-discard-button',
+              },
+              {
+                label: t('settings.previewKeep'),
+                onPress: handleKeep,
+                testID: 'grouping-keep-button',
+              },
+            ]}
+          />
         ) : null}
       </View>
     </ScreenSafeAreaView>
@@ -320,8 +326,6 @@ const styles = StyleSheet.create({
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   statusText: { ...typography.bodyMedium },
   note: { ...typography.caption },
-  actionRow: { flexDirection: 'row', gap: spacing.sm },
-  action: { flex: 1 },
 });
 
 export default withScreenBoundary(RouteGroupingPreviewScreenContent, 'RouteGroupingPreview');

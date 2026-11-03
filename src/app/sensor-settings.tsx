@@ -23,6 +23,8 @@ import {
   connectPairedSensor,
   releasePairingConnections,
   disconnectSensor,
+  reconnectSensor,
+  canReconnect,
   isBleAvailable,
   refreshBleAccess,
   turnOnBluetooth,
@@ -38,6 +40,7 @@ import type {
   KnownSensor,
   SensorAvailability,
   SensorKind,
+  SensorMetric,
   SignalLevel,
 } from '@/features/sensors';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -48,6 +51,7 @@ const KIND_ICONS: Record<SensorKind, React.ComponentProps<typeof MaterialCommuni
     heartRate: 'heart-pulse',
     power: 'lightning-bolt',
     cadence: 'rotate-right',
+    runningCadence: 'run',
   };
 
 const SIGNAL_ICONS: Record<
@@ -61,7 +65,7 @@ const SIGNAL_ICONS: Record<
 
 const RECORDING_KIND = { heartRate: 'heartrate', power: 'power', cadence: 'cadence' } as const;
 
-const FORMAT_SAMPLE: Record<SensorKind, (value: number) => string> = {
+const FORMAT_SAMPLE: Record<SensorMetric, (value: number) => string> = {
   heartRate: formatHeartRate,
   power: formatPower,
   cadence: formatCadence,
@@ -209,7 +213,7 @@ function SensorSettingsScreenContent() {
     disconnectSensor(sensor.id);
   }, []);
 
-  const handleChooseSource = useCallback((sensor: KnownSensor, kind: SensorKind) => {
+  const handleChooseSource = useCallback((sensor: KnownSensor, kind: SensorMetric) => {
     if (sensor.preferredFor?.includes(kind)) return;
     useSensorStore.getState().setPreferredSource(sensor.id, kind);
   }, []);
@@ -218,7 +222,7 @@ function SensorSettingsScreenContent() {
   const pairedMetrics = new Map(
     knownSensors.map((sensor) => [sensor.id, metricsSuppliedBy(sensor, suppliedKinds[sensor.id])])
   );
-  const sourceOf = (kind: SensorKind) =>
+  const sourceOf = (kind: SensorMetric) =>
     displayedSensorSource(kind, knownSensors, activeSources[kind]);
   const sharedMetric = (['heartRate', 'power', 'cadence'] as const).some(
     (kind) => [...pairedMetrics.values()].filter((kinds) => kinds.includes(kind)).length > 1
@@ -357,6 +361,15 @@ function SensorSettingsScreenContent() {
                             : ''}
                         </Text>
                       </View>
+                      {canReconnect(connection?.status) ? (
+                        <Button
+                          testID={`sensor-reconnect-${sensor.id}`}
+                          onPress={() => void reconnectSensor(sensor.id)}
+                          label={t('sensors.reconnect', 'Reconnect')}
+                          variant="ghost"
+                          size="sm"
+                        />
+                      ) : null}
                       <Button
                         testID={`sensor-forget-${sensor.id}`}
                         onPress={() => handleForget(sensor)}

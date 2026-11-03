@@ -1651,6 +1651,8 @@ pub struct FfiRoutesStatusData {
     pub elevation_remaining: Option<u32>,
     pub elevation_paused: bool,
     pub cutover: CutoverProgress,
+    /// The retired map's ground pairs are being worked out in the background.
+    pub retired_pairs_running: bool,
 }
 
 /// Read every routes background-job figure at once. Safe to poll at any time.
@@ -1708,6 +1710,7 @@ pub fn get_routes_status_data() -> FfiRoutesStatusData {
         elevation_remaining,
         elevation_paused: is_elevation_backfill_paused(),
         cutover: get_cutover_progress(),
+        retired_pairs_running: crate::persistence::sections::retired_map::levelling(),
     }
 }
 

@@ -506,7 +506,6 @@
   },
   "bestEffortsScreen": {
     "title": "Najlepsze wysilki",
-    "viewAll": "Wszystkie najlepsze wysiłki",
     "windowSubtitle_one": "Najlepsze wyniki z ostatniego {{count}} dnia.",
     "windowSubtitle_few": "Najlepsze wyniki z ostatnich {{count}} dni.",
     "windowSubtitle_many": "Najlepsze wyniki z ostatnich {{count}} dni.",
@@ -520,9 +519,12 @@
     "climbingOwed": "Rekordy podjazdów są jeszcze obliczane.",
     "checkpoint": {
       "halfMarathon": "Półmaraton",
+      "marathon": "Maraton",
+      "mile": "Mila",
       "metres": "{{value}} m",
       "kilometres": "{{value}} km"
-    }
+    },
+    "curveSource": "Najlepsze wyniki mocy i tempa pochodzą z intervals.icu."
   },
   "cache": {
     "allActivitiesSynced": "Wszystkie aktywności zsynchronizowane",
@@ -1707,7 +1709,6 @@
     "settingsAutoPauseThreshold": "Próg prędkości",
     "settingsAutoPauseWalkingAndOther": "Chodzenie i inne sporty",
     "settingsDataFields": "Pola danych",
-    "settingsUnits": "Jednostki",
     "slideToUnlock": "Przesuń, aby odblokować",
     "lockControls": "Zablokuj sterowanie",
     "unlockControls": "Odblokuj sterowanie",
@@ -2250,17 +2251,16 @@
     "signOut": "Wyloguj się",
     "leaveDemo": "Opuść demo",
     "display": "Wyświetlanie",
-    "largeHistoryConfirm": "Pobierz mimo to",
-    "largeHistoryMessage_one": "Sięgnięcie tak daleko pobierze do około {{count}} aktywności. Zajmie to chwilę, a aplikacja nie jest gwarantowana, że pozostanie szybka przy takiej ilości danych.",
-    "largeHistoryMessage_few": "Sięgnięcie tak daleko pobierze do około {{count}} aktywności. Zajmie to chwilę, a aplikacja nie jest gwarantowana, że pozostanie szybka przy takiej ilości danych.",
-    "largeHistoryMessage_many": "Sięgnięcie tak daleko pobierze do około {{count}} aktywności. Zajmie to chwilę, a aplikacja nie jest gwarantowana, że pozostanie szybka przy takiej ilości danych.",
-    "largeHistoryMessage_other": "Sięgnięcie tak daleko pobierze do około {{count}} aktywności. Zajmie to chwilę, a aplikacja nie jest gwarantowana, że pozostanie szybka przy takiej ilości danych.",
-    "largeHistoryTitle": "To duże pobieranie",
     "largeHistoryDaysTitle_one": "To potrwa co najmniej {{count}} dzień",
     "largeHistoryDaysTitle_few": "To potrwa co najmniej {{count}} dni",
     "largeHistoryDaysTitle_many": "To potrwa co najmniej {{count}} dni",
     "largeHistoryDaysTitle_other": "To potrwa co najmniej {{count}} dni",
-    "largeHistoryDaysMessage": "intervals.icu ogranicza, ile aktywności aplikacja może pobrać dziennie, a wszystkie instalacje dzielą ten limit. Reszta pobierze się w kolejnych dniach. Aplikacja nie jest gwarantowana jako szybka przy tak dużej ilości danych.",
+    "activityHistory": "Historia aktywności",
+    "activityHistoryIntro": "intervals.icu ogranicza liczbę aktywności, które aplikacja może pobrać w ciągu dnia, a limit jest wspólny dla wszystkich instalacji. Dłuższa historia pobiera się dłużej, a szerszy zakres nie podnosi limitu.",
+    "activityHistorySummary": "Ostatnie {{span}}, aktywności: {{activities}}",
+    "historyCost": "Aktywności do pobrania: do około {{activities}}",
+    "historyUnlocks": "Dłuższa historia daje dłuższe trendy, więcej historii odcinków i lepsze grupowanie tras.",
+    "historyConfirm": "Pobierz ten zakres",
     "localDataRange": "Lokalny zakres danych",
     "localDataRangeEnd": "Koniec lokalnego zakresu danych",
     "heroMetric": "Główna Metryka",
@@ -2388,7 +2388,6 @@
     "groupKeeps": "Biblioteka i kopia",
     "routesAndSections": "Trasy i odcinki",
     "storage": "Pamięć",
-    "sinceDateSubtitle": "Od {{date}}",
     "elevationBackfillRunning": "Dodawanie wysokości do śladów aktywności",
     "elevationBackfillProgress": "{{completed}} z {{total}} aktywności",
     "elevationBackfillComplete": "Wszystkie ślady aktywności mają wysokość",
@@ -2487,7 +2486,7 @@
     "previewStatusGone": "Usunięta",
     "previewCurrentLayer": "Obecne",
     "previewRetiredLayer": "Wycofane",
-    "previewProposedLayer": "Proponowane",
+    "previewAreaLayer": "Obszar",
     "previewKeep": "Zachowaj",
     "previewDiscard": "Odrzuć",
     "previewKeepTitle": "Zastosować te ustawienia?",
@@ -2550,7 +2549,6 @@
     "debugModeDescription": "Pokazuj wewnętrzną diagnostykę na stronach szczegółów",
     "developerDashboardDescription": "Statystyki silnika, wydajność FFI, pamięć",
     "experimentalFeatures": "Funkcje eksperymentalne",
-    "experimentalFeaturesDescription": "Pokazuje funkcje, które są jeszcze w trakcie tworzenia, każda z własnym przełącznikiem",
     "experimentalDashboardDescription": "Włącz lub wyłącz każdą funkcję eksperymentalną i otwórz ją"
   },
   "stats": {
@@ -3043,6 +3041,7 @@
     "forget": "Zapomnij",
     "connect": "Połącz",
     "disconnect": "Rozłącz",
+    "reconnect": "Połącz ponownie",
     "recordFrom": "Zapisuj {{kind}} z {{name}}",
     "chooseSourceHint": "Gdy dwa czujniki podają tę samą wartość, zapisywana jest ta z wyróżnionego. Stuknij drugi, aby przełączyć.",
     "bleUnavailable": "Bluetooth jest niedostępny",
@@ -3050,7 +3049,8 @@
     "kinds": {
       "heartRate": "Tętno",
       "power": "Moc",
-      "cadence": "Kadencja"
+      "cadence": "Kadencja",
+      "runningCadence": "Kadencja biegu"
     },
     "status": {
       "connecting": "Łączenie…",
@@ -3058,6 +3058,12 @@
       "noData": "Połączono, brak danych",
       "reconnecting": "Ponowne łączenie…",
       "disconnected": "Nie połączono"
+    },
+    "silent": {
+      "heartRate": "Połączono, brak wysyłania tętna. Włącz nadawanie tętna na urządzeniu.",
+      "power": "Połączono, brak wysyłania mocy. Włącz nadawanie mocy na urządzeniu.",
+      "cadence": "Połączono, brak wysyłania kadencji. Włącz nadawanie kadencji na urządzeniu.",
+      "runningCadence": "Połączono, brak wysyłania kadencji biegu. Włącz nadawanie kadencji biegu na urządzeniu."
     },
     "purpose": "Bluetooth służy do wyszukiwania i łączenia czujników tętna, mocy i kadencji.",
     "noneFound": "Nie znaleziono czujników",
@@ -3155,6 +3161,7 @@
     "retiredInto": "Do {{name}}",
     "pairUnnamed": "Odcinek bez nazwy",
     "pairNone": "Żaden inny odcinek nie dzieli tej trasy",
+    "pairsPending": "Wciąż ustalamy, które odcinki dzielą tę trasę",
     "pairRetiredLedger": "Wycofany do {{name}}",
     "pairRetiredSupersedes": "Ukrywał {{name}}",
     "pairCurrentLedger": "Przejął po {{name}}",
@@ -3253,7 +3260,18 @@
     "pacedOnCaps_few": "Co najmniej {{count}} dni do końca, według dziennego limitu intervals.icu",
     "pacedOnCaps_many": "Co najmniej {{count}} dni do końca, według dziennego limitu intervals.icu",
     "pacedOnCaps_other": "Co najmniej {{count}} dni do końca, według dziennego limitu intervals.icu",
-    "lastFinished": "Ostatnie uruchomienie {{time}}",
+    "headerRunning_one": "{{count}} zadanie w tle w toku",
+    "headerRunning_few": "{{count}} zadania w tle w toku",
+    "headerRunning_many": "{{count}} zadań w tle w toku",
+    "headerRunning_other": "{{count}} zadania w tle w toku",
+    "headerStopped_one": "{{count}} zadanie w tle zatrzymane przedwcześnie",
+    "headerStopped_few": "{{count}} zadania w tle zatrzymane przedwcześnie",
+    "headerStopped_many": "{{count}} zadań w tle zatrzymanych przedwcześnie",
+    "headerStopped_other": "{{count}} zadania w tle zatrzymane przedwcześnie",
+    "headerWaiting": "Zadania w tle czekają do {{time}}",
+    "headerWaitingNoTime": "Zadania w tle czekają",
+    "headerIdle": "Wszystkie zadania w tle zakończone",
+    "pastRuns": "Poprzednie uruchomienia",
     "lastRunNoChange": "Bez zmian",
     "lastRunStopped": "Zatrzymane",
     "lastRunActivities_one": "{{count}} aktywność",
@@ -3534,6 +3552,10 @@
     "garminUpdate": {
       "title": "Aktualizuj aktywności z Garmin",
       "blurb": "Zastępuje kopię z intervals.icu własnym plikiem Garmin, gdy ten zawiera więcej. Wymaga klucza Garmin. Niedokończone."
+    },
+    "climbingBests": {
+      "title": "Najlepsze wyniki na podjazdach",
+      "blurb": "Veloq oblicza je na Twoim telefonie na podstawie danych o wysokości z intervals.icu. intervals.icu samo nie udostępnia najlepszych wyników na podjazdach. Dla każdego okna, od 15 sekund do 20 minut, Veloq znajduje Twoje najszybsze tempo wznoszenia w metrach na godzinę (VAM) i przelicza je na W/kg, czyli moc potrzebną do uniesienia samej masy ciała. Liczą się tylko aktywności z poprawioną wysokością z intervals.icu."
     }
   }
 }

@@ -211,7 +211,8 @@
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
-    "activity.garminSwap.compare.start": "German word or phrase with the same spelling."
+    "activity.garminSwap.compare.start": "German word or phrase with the same spelling.",
+    "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language."
   },
   "de-DE": {
     "backup.entryAppVersion": "German word or phrase with the same spelling.",
@@ -337,7 +338,8 @@
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
-    "activity.garminSwap.compare.start": "German word or phrase with the same spelling."
+    "activity.garminSwap.compare.start": "German word or phrase with the same spelling.",
+    "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -734,7 +736,9 @@
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
-    "sections.sportFilter": "French word or phrase with the same spelling."
+    "sections.sportFilter": "French word or phrase with the same spelling.",
+    "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language.",
+    "bestEffortsScreen.checkpoint.mile": "The unit is written Mile in French."
   },
   "it": {
     "activity.stats.maxLabel": "Abbreviation of the Italian label with the same spelling.",
@@ -1036,7 +1040,8 @@
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "activity.garminSwap.compare.records": "Dutch word or phrase with the same spelling.",
     "activity.garminSwap.compare.start": "Dutch word or phrase with the same spelling.",
-    "sections.sportFilter": "Dutch word or phrase with the same spelling."
+    "sections.sportFilter": "Dutch word or phrase with the same spelling.",
+    "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language."
   },
   "pl": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",

@@ -66,8 +66,6 @@ const upgrade = jest.fn();
 beforeEach(() => {
   jest.resetAllMocks();
   useDebugStore.setState({
-    experimentalEnabled: true,
-    experimentalUnlocked: true,
     experimentalFeatures: { garminUpdate: true },
   });
   writeMissing.mockReturnValue(false);
@@ -77,7 +75,6 @@ beforeEach(() => {
 
 describe('ActivityGarminSwap', () => {
   it.each([
-    ['the experimental switch is off', { experimentalEnabled: false }],
     ['the Garmin entry is off', { experimentalFeatures: { garminUpdate: false } }],
     ['the Garmin entry was never chosen', { experimentalFeatures: {} }],
   ])('renders nothing and asks the engine nothing when %s', async (_name, change) => {

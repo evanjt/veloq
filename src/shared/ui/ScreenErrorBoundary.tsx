@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { Icon } from './Icon';
 import { Button } from './Button';
+import { ButtonRow } from './ButtonRow';
 import { StatusLine } from './StatusLine';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
@@ -99,16 +100,22 @@ function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
         </Text>
       ) : null}
       <View style={styles.buttons}>
-        {offersBack ? (
-          <Button
-            label={t('common.back')}
-            variant="secondary"
-            size="sm"
-            onPress={() => goBack()}
-            style={styles.button}
-          />
-        ) : null}
-        <Button label={t('common.retry')} size="sm" onPress={onRetry} style={styles.button} />
+        <ButtonRow
+          testID="error-actions"
+          actions={[
+            ...(offersBack
+              ? [
+                  {
+                    label: t('common.back'),
+                    variant: 'secondary' as const,
+                    size: 'sm' as const,
+                    onPress: () => goBack(),
+                  },
+                ]
+              : []),
+            { label: t('common.retry'), size: 'sm' as const, onPress: onRetry },
+          ]}
+        />
       </View>
       <Button
         ref={crashLogAnchor}
@@ -146,12 +153,8 @@ const styles = StyleSheet.create({
     maxWidth: 300,
   },
   buttons: {
-    flexDirection: 'row',
-    gap: spacing.md,
+    alignSelf: 'stretch',
     marginTop: spacing.xl,
-  },
-  button: {
-    minWidth: 100,
   },
   shareButton: {
     marginTop: spacing.md,

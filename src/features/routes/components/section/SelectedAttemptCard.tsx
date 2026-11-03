@@ -24,7 +24,8 @@ import { scatterStanding, scatterStandingText } from '@/features/routes/lib/scat
 import { iconSize, type Palette, spacing, themedStyles, typography } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import type { FfiRecordStep } from 'veloqrs';
-import { Button, Card } from '@/shared/ui';
+import { Card } from '@/shared/ui';
+import { ButtonRow, type ButtonRowProps } from '@/shared/ui/ButtonRow';
 import { Badge } from '@/shared/ui/Badge';
 import { Icon } from '@/shared/ui/Icon';
 import { NameText } from '@/shared/ui/NameText';
@@ -102,6 +103,45 @@ export function SelectedAttemptCard({
     .filter((part): part is string => !!part)
     .join(', ');
 
+  const actions: ButtonRowProps['actions'][number][] = [];
+  if (!isThisActivity) {
+    actions.push({
+      variant: 'secondary',
+      size: 'sm',
+      label: t('sections.attemptOpen'),
+      accessibilityLabel: `${t('sections.attemptOpen')}, ${attempt.activityName}`,
+      onPress: () => openDetail({ kind: 'activity', id: activityId }),
+      testID: 'selected-attempt-open',
+    });
+  }
+  if (onSetAsReference && attempt.isExcluded !== true) {
+    actions.push({
+      variant: 'secondary',
+      size: 'sm',
+      label: isReference ? t('sections.legendReference') : t('sections.setAsReference'),
+      disabled: isReference,
+      onPress: () => onSetAsReference(activityId),
+      testID: 'selected-attempt-reference',
+    });
+  }
+  if (attempt.isExcluded === true && onIncludeActivity) {
+    actions.push({
+      variant: 'secondary',
+      size: 'sm',
+      label: t('sections.attemptInclude'),
+      onPress: () => onIncludeActivity(activityId),
+      testID: 'selected-attempt-include',
+    });
+  } else if (attempt.isExcluded !== true && onExcludeActivity) {
+    actions.push({
+      variant: 'secondary',
+      size: 'sm',
+      label: t('sections.attemptExclude'),
+      onPress: () => onExcludeActivity(activityId),
+      testID: 'selected-attempt-exclude',
+    });
+  }
+
   return (
     <Card variant="flat" padding="sm" testID="selected-attempt-card">
       <View style={styles.facts} accessible accessibilityLabel={summary}>
@@ -138,45 +178,11 @@ export function SelectedAttemptCard({
           ) : null}
         </View>
       </View>
-      <View style={styles.actions}>
-        {!isThisActivity ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            label={t('sections.attemptOpen')}
-            accessibilityLabel={`${t('sections.attemptOpen')}, ${attempt.activityName}`}
-            onPress={() => openDetail({ kind: 'activity', id: activityId })}
-            testID="selected-attempt-open"
-          />
-        ) : null}
-        {onSetAsReference && attempt.isExcluded !== true ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            label={isReference ? t('sections.legendReference') : t('sections.setAsReference')}
-            disabled={isReference}
-            onPress={() => onSetAsReference(activityId)}
-            testID="selected-attempt-reference"
-          />
-        ) : null}
-        {attempt.isExcluded === true && onIncludeActivity ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            label={t('sections.attemptInclude')}
-            onPress={() => onIncludeActivity(activityId)}
-            testID="selected-attempt-include"
-          />
-        ) : attempt.isExcluded !== true && onExcludeActivity ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            label={t('sections.attemptExclude')}
-            onPress={() => onExcludeActivity(activityId)}
-            testID="selected-attempt-exclude"
-          />
-        ) : null}
-      </View>
+      {actions.length > 0 ? (
+        <View style={styles.actions}>
+          <ButtonRow actions={actions} />
+        </View>
+      ) : null}
     </Card>
   );
 }
@@ -220,9 +226,6 @@ const makeStyles = (palette: Palette) =>
       color: palette.achievementText,
     },
     actions: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.xs,
       marginTop: spacing.sm,
     },
   });

@@ -17,10 +17,12 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
-/// Migrations 1..=RELEASED_THROUGH are on user devices today. Every 0.3.0
-/// through 0.3.8 build shipped `PRAGMA user_version = 12`, so a live upgrade
-/// starts from exactly this prefix having already run.
-const RELEASED_THROUGH: usize = 12;
+/// Migrations 1..=released_through() are on user devices today: the newest
+/// release in `RELEASES` applied them all, so a live upgrade starts from
+/// exactly this prefix having already run.
+fn released_through() -> usize {
+    super::migration_support::latest_release().user_version as usize
+}
 
 const GOLDEN_REL: &str = "tests/fixtures/migration_checksums.txt";
 
@@ -114,12 +116,14 @@ fn write_golden(entries: &[(String, String)]) {
 }
 
 fn released_note(index: usize, name: &str) -> String {
-    if index < RELEASED_THROUGH {
+    let released = super::migration_support::latest_release();
+    if index < released_through() {
         format!(
-            "{name} is migration {} of the 1..={RELEASED_THROUGH} prefix that every released \
-             0.3.x build already applied. Devices in the field ran the old bytes and will \
-             never run the new ones.",
-            index + 1
+            "{name} is migration {} of the 1..={} prefix that {} already applied. Devices \
+             in the field ran the old bytes and will never run the new ones.",
+            index + 1,
+            released.user_version,
+            released.name
         )
     } else {
         format!(
@@ -251,22 +255,27 @@ fn golden_covers_every_compiled_migration() {
     }
 }
 
-/// Guards the constant the failure text leans on. If the released prefix ever
-/// moves, this test tells you to move it deliberately.
+/// Pins each release's `user_version` to the file it last applied. If the
+/// ordering ever moves, the released prefix the failure text leans on points at
+/// the wrong file, and this says so.
 #[test]
-fn released_prefix_matches_the_shipped_user_version() {
+fn every_release_ends_on_the_migration_it_shipped() {
     let _serial_state = super::serial_state();
     let names: Vec<String> = current_checksums().into_iter().map(|(n, _)| n).collect();
-    assert!(
-        names.len() >= RELEASED_THROUGH,
-        "RELEASED_THROUGH={RELEASED_THROUGH} exceeds the {} migrations on disk",
-        names.len()
-    );
-    assert_eq!(
-        names[RELEASED_THROUGH - 1],
-        "012_v030.sql",
-        "0.3.0 through 0.3.8 all shipped user_version = 12, and 012_v030.sql was the \
-         last migration in that build. If the ordering changed, RELEASED_THROUGH is \
-         now pointing at the wrong file."
-    );
+    for release in super::migration_support::RELEASES {
+        let at = release.user_version as usize;
+        assert!(
+            names.len() >= at,
+            "{} shipped user_version {at}, past the {} migrations on disk",
+            release.name,
+            names.len()
+        );
+        assert_eq!(
+            names[at - 1],
+            release.last_migration,
+            "{} shipped user_version {at} with {} as its last migration",
+            release.name,
+            release.last_migration
+        );
+    }
 }

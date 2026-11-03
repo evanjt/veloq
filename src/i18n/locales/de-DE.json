@@ -492,7 +492,6 @@
   },
   "bestEffortsScreen": {
     "title": "Beste Leistungen",
-    "viewAll": "Alle besten Leistungen",
     "windowSubtitle_one": "Bestwerte vom letzten {{count}} Tag.",
     "windowSubtitle_other": "Bestwerte aus den letzten {{count}} Tagen.",
     "allTimeSubtitle": "Persönliche Bestleistungen aus deinem gesamten zwischengespeicherten Verlauf.",
@@ -504,9 +503,12 @@
     "climbingOwed": "Die Kletter-Bestwerte werden noch berechnet.",
     "checkpoint": {
       "halfMarathon": "Halbmarathon",
+      "marathon": "Marathon",
+      "mile": "Meile",
       "metres": "{{value}} m",
       "kilometres": "{{value}} km"
-    }
+    },
+    "curveSource": "Leistungs- und Pace-Bestwerte stammen von intervals.icu."
   },
   "cache": {
     "allActivitiesSynced": "Alle Aktivitäten synchronisiert",
@@ -1599,7 +1601,6 @@
     "settingsAutoPauseThreshold": "Geschwindigkeitsschwelle",
     "settingsAutoPauseWalkingAndOther": "Gehen und andere Sportarten",
     "settingsDataFields": "Datenfelder",
-    "settingsUnits": "Einheiten",
     "slideToUnlock": "Zum Entsperren schieben",
     "lockControls": "Steuerung sperren",
     "unlockControls": "Steuerung entsperren",
@@ -2082,13 +2083,14 @@
     "signOut": "Abmelden",
     "leaveDemo": "Demo verlassen",
     "display": "Anzeige",
-    "largeHistoryConfirm": "Trotzdem laden",
-    "largeHistoryMessage_one": "So weit zurück lädt bis zu etwa {{count}} Aktivität. Das dauert eine Weile, und die App bleibt mit so vielen Daten nicht garantiert schnell.",
-    "largeHistoryMessage_other": "So weit zurück lädt bis zu etwa {{count}} Aktivitäten. Das dauert eine Weile, und die App bleibt mit so vielen Daten nicht garantiert schnell.",
-    "largeHistoryTitle": "Das ist ein großer Download",
     "largeHistoryDaysTitle_one": "Das dauert mindestens {{count}} Tag",
     "largeHistoryDaysTitle_other": "Das dauert mindestens {{count}} Tage",
-    "largeHistoryDaysMessage": "intervals.icu begrenzt, wie viele Aktivitäten die App pro Tag laden kann, und alle Installationen teilen sich dieses Limit. Der Rest kommt in den folgenden Tagen. Die App bleibt mit so vielen Daten nicht garantiert schnell.",
+    "activityHistory": "Aktivitätsverlauf",
+    "activityHistoryIntro": "intervals.icu begrenzt, wie viele Aktivitäten die App pro Tag laden kann, und alle Installationen teilen sich dieses Limit. Ein längerer Verlauf braucht länger, und ein größeres Zeitfenster erhöht das Limit nicht.",
+    "activityHistorySummary": "Letzte {{span}}, Aktivitäten: {{activities}}",
+    "historyCost": "Zu ladende Aktivitäten: bis zu etwa {{activities}}",
+    "historyUnlocks": "Ein längerer Verlauf liefert längere Trends, mehr Abschnittsverlauf und eine bessere Routengruppierung.",
+    "historyConfirm": "Diesen Zeitraum laden",
     "localDataRange": "Lokaler Datumsbereich",
     "localDataRangeEnd": "Ende des lokalen Datumsbereichs",
     "heroMetric": "Hauptmetrik",
@@ -2208,7 +2210,6 @@
     "groupKeeps": "Bibliothek & Backup",
     "routesAndSections": "Routen & Abschnitte",
     "storage": "Speicher",
-    "sinceDateSubtitle": "Seit {{date}}",
     "elevationBackfillRunning": "Höhendaten werden zu Aktivitätsspuren hinzugefügt",
     "elevationBackfillProgress": "{{completed}} von {{total}} Aktivitäten",
     "elevationBackfillComplete": "Alle Aktivitätsspuren haben Höhendaten",
@@ -2283,7 +2284,7 @@
     "previewStatusGone": "Entfernt",
     "previewCurrentLayer": "Aktuell",
     "previewRetiredLayer": "Ausgeschieden",
-    "previewProposedLayer": "Vorgeschlagen",
+    "previewAreaLayer": "Gebiet",
     "previewKeep": "Behalten",
     "previewDiscard": "Verwerfen",
     "previewKeepTitle": "Diese Einstellungen anwenden?",
@@ -2338,7 +2339,6 @@
     "debugModeDescription": "Interne Diagnosedaten auf Detailseiten anzeigen",
     "developerDashboardDescription": "Engine-Statistik, FFI-Leistung, Speicher",
     "experimentalFeatures": "Experimentelle Funktionen",
-    "experimentalFeaturesDescription": "Funktionen zeigen, die noch in Arbeit sind, jede mit eigenem Schalter",
     "experimentalDashboardDescription": "Jede experimentelle Funktion ein- oder ausschalten und öffnen"
   },
   "stats": {
@@ -2777,6 +2777,7 @@
     "forget": "Entfernen",
     "connect": "Verbinden",
     "disconnect": "Trennen",
+    "reconnect": "Neu verbinden",
     "recordFrom": "{{kind}} von {{name}} aufzeichnen",
     "chooseSourceHint": "Liefern zwei Sensoren denselben Messwert, wird der hervorgehobene aufgezeichnet. Tippe auf den anderen, um zu wechseln.",
     "bleUnavailable": "Bluetooth ist nicht verfügbar",
@@ -2784,7 +2785,8 @@
     "kinds": {
       "heartRate": "Herzfrequenz",
       "power": "Leistung",
-      "cadence": "Trittfrequenz"
+      "cadence": "Trittfrequenz",
+      "runningCadence": "Lauffrequenz"
     },
     "status": {
       "connecting": "Verbinden…",
@@ -2792,6 +2794,12 @@
       "noData": "Verbunden, keine Daten",
       "reconnecting": "Verbindung wird wiederhergestellt…",
       "disconnected": "Nicht verbunden"
+    },
+    "silent": {
+      "heartRate": "Verbunden, sendet keinen Puls. Schalte die Pulsübertragung am Gerät ein.",
+      "power": "Verbunden, sendet keine Leistung. Schalte die Leistungsübertragung am Gerät ein.",
+      "cadence": "Verbunden, sendet keine Trittfrequenz. Schalte die Trittfrequenzübertragung am Gerät ein.",
+      "runningCadence": "Verbunden, sendet keine Lauffrequenz. Schalte die Lauffrequenzübertragung am Gerät ein."
     },
     "purpose": "Bluetooth wird verwendet, um Herzfrequenz-, Leistungs- und Trittfrequenzsensoren zu finden und zu verbinden.",
     "noneFound": "Keine Sensoren gefunden",
@@ -2885,6 +2893,7 @@
     "retiredInto": "In {{name}}",
     "pairUnnamed": "Abschnitt ohne Namen",
     "pairNone": "Kein anderer Abschnitt teilt diese Strecke",
+    "pairsPending": "Es wird noch ermittelt, welche Abschnitte diese Strecke teilen",
     "pairRetiredLedger": "In {{name}} ausgeschieden",
     "pairRetiredSupersedes": "Hatte {{name}} ausgeblendet",
     "pairCurrentLedger": "Hat {{name}} abgelöst",
@@ -2973,7 +2982,14 @@
     "heldByBudget": "Anfragelimit erreicht, Wartezeit bis {{time}}",
     "pacedOnCaps_one": "Mindestens {{count}} Tag bis zum Abschluss, nach dem Tageslimit von intervals.icu",
     "pacedOnCaps_other": "Mindestens {{count}} Tage bis zum Abschluss, nach dem Tageslimit von intervals.icu",
-    "lastFinished": "Letzter Lauf {{time}}",
+    "headerRunning_one": "{{count}} Hintergrundaufgabe läuft",
+    "headerRunning_other": "{{count}} Hintergrundaufgaben laufen",
+    "headerStopped_one": "{{count}} Hintergrundaufgabe vorzeitig gestoppt",
+    "headerStopped_other": "{{count}} Hintergrundaufgaben vorzeitig gestoppt",
+    "headerWaiting": "Hintergrundaufgaben warten bis {{time}}",
+    "headerWaitingNoTime": "Hintergrundaufgaben warten",
+    "headerIdle": "Alle Hintergrundaufgaben erledigt",
+    "pastRuns": "Frühere Läufe",
     "lastRunNoChange": "Keine Änderungen",
     "lastRunStopped": "Gestoppt",
     "lastRunActivities_one": "{{count}} Aktivität",
@@ -3236,6 +3252,10 @@
     "garminUpdate": {
       "title": "Aktivitäten von Garmin aktualisieren",
       "blurb": "Ersetzt die Kopie von intervals.icu durch Garmins eigene Datei, wenn diese mehr enthält. Braucht einen Garmin-Schlüssel. Nicht fertig."
+    },
+    "climbingBests": {
+      "title": "Kletter-Bestwerte",
+      "blurb": "Veloq berechnet diese Werte auf deinem Handy aus den Höhendaten von intervals.icu. intervals.icu liefert selbst keine Kletter-Bestwerte. Für jedes Zeitfenster von 15 Sekunden bis 20 Minuten ermittelt Veloq deine schnellste Steigrate in Metern pro Stunde (VAM) und rechnet sie in W/kg um, die Leistung, die nötig ist, um allein dein Körpergewicht anzuheben. Es zählen nur Aktivitäten mit korrigierter Höhe von intervals.icu."
     }
   }
 }

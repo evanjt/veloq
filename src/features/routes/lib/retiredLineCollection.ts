@@ -52,6 +52,10 @@ export interface RetiredSelectionPair {
   overlap: number | null;
   /** The paired current row is hidden behind another section. */
   hidden: boolean;
+  /** Its length in metres; null when the engine holds none. */
+  distanceMeters: number | null;
+  /** Its passes; null when the engine holds none. */
+  visitCount: number | null;
 }
 
 export interface RetiredSelection {
@@ -60,7 +64,13 @@ export interface RetiredSelection {
   name: string | null;
   /** The ledger version a retired section can be restored from; null when the engine named none. */
   restorableVersion?: number | null;
+  /** Its length in metres; null when the engine holds none. */
+  distanceMeters?: number | null;
+  /** Its passes; null when the engine holds none. */
+  visitCount?: number | null;
   pairs: RetiredSelectionPair[];
+  /** The engine is still working out which lines share ground, so ground pairs may be missing. */
+  pairsPending?: boolean;
 }
 
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -181,20 +191,22 @@ export function describeRetiredSelection(
   data: RetiredMapData,
   id: string
 ): RetiredSelection | null {
-  const retiredNames = new Map(data.retired.map((r) => [r.section.sectionId, r.section.name]));
+  const retiredRows = new Map(data.retired.map((r) => [r.section.sectionId, r.section]));
+  const retiredNames = new Map([...retiredRows].map(([key, section]) => [key, section.name]));
   const restorable = data.retired.find((r) => r.section.sectionId === id)?.section
     .restorableVersion;
   const currentRows = new Map(data.current.map((c) => [c.id, c]));
 
   const pairs: RetiredSelectionPair[] = [];
   const tappedRetired = retiredNames.has(id);
+  const own = tappedRetired ? retiredRows.get(id) : currentRows.get(id);
   const tappedCurrent = currentRows.has(id);
   if (!tappedRetired && !tappedCurrent) return null;
 
   for (const pair of data.pairs) {
     const link = linkKind(pair.link);
     const overlap = link === 'ground' ? (pair.overlap ?? null) : null;
-    if (tappedRetired && pair.retiredId === id) {
+    if ((tappedRetired || tappedCurrent) && pair.retiredId === id) {
       const row = currentRows.get(pair.currentId);
       pairs.push({
         id: pair.currentId,
@@ -203,15 +215,21 @@ export function describeRetiredSelection(
         link,
         overlap,
         hidden: row?.hidden ?? false,
+        distanceMeters: row?.distanceMeters ?? null,
+        visitCount: row?.visitCount ?? null,
       });
     } else if (tappedCurrent && pair.currentId === id) {
+      // A restored section is live, so the other side may be a catalogue row.
+      const retiredSide = retiredRows.get(pair.retiredId) ?? currentRows.get(pair.retiredId);
       pairs.push({
         id: pair.retiredId,
-        name: retiredNames.get(pair.retiredId) ?? null,
+        name: retiredSide?.name ?? null,
         kind: 'retired',
         link,
         overlap,
         hidden: false,
+        distanceMeters: retiredSide?.distanceMeters ?? null,
+        visitCount: retiredSide?.visitCount ?? null,
       });
     }
   }
@@ -221,7 +239,10 @@ export function describeRetiredSelection(
     kind: tappedRetired ? 'retired' : 'current',
     name: (tappedRetired ? retiredNames.get(id) : currentRows.get(id)?.name) ?? null,
     restorableVersion: restorable != null ? Number(restorable) : null,
+    distanceMeters: own?.distanceMeters ?? null,
+    visitCount: own?.visitCount ?? null,
     pairs,
+    pairsPending: data.pairsPending,
   };
 }
 

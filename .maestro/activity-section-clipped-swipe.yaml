@@ -57,16 +57,29 @@ tags:
           duration: 500
       - waitForAnimationToEnd
 # The loop stops when a sliver of the first card shows, and its centre is then
-# under the tabs, so one short drag brings the card clear before it is swiped.
-- swipe:
-    start: 50%, 75%
-    end: 50%, 81%
-    duration: 500
+# under the tabs. Short drags bring the card's top below the top of the list
+# before it is swiped, since a swipe from a centre under the tabs lands on the
+# tab strip. Maestro compares top edges for `below`.
+- repeat:
+    while:
+      notVisible:
+        id: "section-inline-plot-0"
+        below:
+          id: "activity-sections-list"
+    times: 8
+    commands:
+      - swipe:
+          start: 50%, 75%
+          end: 50%, 81%
+          duration: 500
+      - waitForAnimationToEnd
 # A flick keeps scrolling after the finger lifts, so the cards are only where
 # they will be swiped once the list has stopped.
 - waitForAnimationToEnd
 - assertVisible:
     id: "section-inline-plot-0"
+    below:
+      id: "activity-sections-list"
 - assertVisible:
     id: "section-inline-plot-1"
 # Swipe each card from its own centre, since a fixed height lands on the tab

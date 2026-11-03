@@ -11,7 +11,7 @@
 import React from 'react';
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 
-import RecordingSettingsScreen from '@/app/recording-settings';
+import RecordingUploadScreen from '@/app/recording-upload';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
@@ -50,7 +50,7 @@ beforeEach(() => {
 
 describe('recording settings write permission', () => {
   it('puts Grant Access in the Upload card when an OAuth token has no write scope', async () => {
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingUploadScreen />);
     const card = view.getByTestId('settings-upload-card');
     expect(within(card).getByTestId('settings-auto-upload')).toBeTruthy();
     expect(within(card).getByTestId('settings-grant-access')).toBeTruthy();
@@ -65,19 +65,19 @@ describe('recording settings write permission', () => {
 
   it('offers it when the write scope was explicitly refused', async () => {
     useUploadPermissionStore.setState({ hasWritePermission: false });
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingUploadScreen />);
     expect(view.getByTestId('settings-grant-access')).toBeTruthy();
   });
 
   it('offers it with Auto-upload off too, since a manual upload needs the same scope', async () => {
     useRecordingPreferences.setState({ autoUploadEnabled: false });
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingUploadScreen />);
     expect(view.getByTestId('settings-grant-access')).toBeTruthy();
   });
 
   it('waits for permission hydration before offering it', async () => {
     useUploadPermissionStore.getState().reset();
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingUploadScreen />);
     expect(view.queryByTestId('settings-grant-access')).toBeNull();
 
     await act(() => useUploadPermissionStore.getState().setFromOAuthScope(''));
@@ -86,14 +86,14 @@ describe('recording settings write permission', () => {
 
   it('says nothing once the write scope is confirmed', async () => {
     useUploadPermissionStore.setState({ hasWritePermission: true });
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingUploadScreen />);
     expect(view.queryByTestId('settings-grant-access')).toBeNull();
     expect(view.queryByText(/Write permission not granted/)).toBeNull();
   });
 
   it.each(['apiKey', 'demo'] as const)('says nothing for a %s sign-in', async (authMethod) => {
     useAuthStore.setState({ authMethod });
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingUploadScreen />);
     expect(view.queryByTestId('settings-grant-access')).toBeNull();
   });
 });

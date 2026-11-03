@@ -11,9 +11,19 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 
-import RecordingSettingsScreen from '@/app/recording-settings';
+import RecordingGpsScreen from '@/app/recording-gps-settings';
+import RecordingAutoPauseScreen from '@/app/recording-auto-pause';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { KM_TO_MI, M_TO_FT } from '@/shared/format/format';
+
+function RecordingSettingsScreen() {
+  return (
+    <>
+      <RecordingGpsScreen />
+      <RecordingAutoPauseScreen />
+    </>
+  );
+}
 
 let mockIsMetric = true;
 

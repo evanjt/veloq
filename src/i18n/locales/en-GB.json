@@ -492,7 +492,6 @@
   },
   "bestEffortsScreen": {
     "title": "Best efforts",
-    "viewAll": "All best efforts",
     "windowSubtitle_one": "Bests from the last {{count}} day.",
     "windowSubtitle_other": "Bests from the last {{count}} days.",
     "allTimeSubtitle": "Personal records across your cached history.",
@@ -504,9 +503,12 @@
     "climbingOwed": "Climbing bests are still being computed.",
     "checkpoint": {
       "halfMarathon": "Half marathon",
+      "marathon": "Marathon",
+      "mile": "Mile",
       "metres": "{{value}} m",
       "kilometres": "{{value}}K"
-    }
+    },
+    "curveSource": "Power and pace bests come from intervals.icu."
   },
   "cache": {
     "allActivitiesSynced": "All activities synced",
@@ -1599,7 +1601,6 @@
     "settingsAutoPauseThreshold": "Speed threshold",
     "settingsAutoPauseWalkingAndOther": "Walking and other sports",
     "settingsDataFields": "Data fields",
-    "settingsUnits": "Units",
     "slideToUnlock": "Slide to unlock",
     "lockControls": "Lock controls",
     "unlockControls": "Unlock controls",
@@ -1751,7 +1752,7 @@
     "customCount_other": "{{count}} custom sections",
     "dataRangeHint": "Based on {{duration}} of activity data",
     "duplicateNameMessage": "Please choose a different name. Each route must have a unique name.",
-    "expandInSettings": "Expand in Settings",
+    "expandInSettings": "Expand range",
     "gpsTrackNotDownloaded": "GPS data not downloaded yet. Try again once it has downloaded.",
     "invalidSectionRange": "Invalid selection range. Please try selecting a different portion.",
     "match": "match",
@@ -2082,13 +2083,14 @@
     "signOut": "Sign out",
     "leaveDemo": "Leave demo",
     "display": "Display",
-    "largeHistoryConfirm": "Download anyway",
-    "largeHistoryMessage_one": "Reaching back this far downloads up to about {{count}} activity. It will take a while, and the app is not guaranteed to stay quick with that much stored.",
-    "largeHistoryMessage_other": "Reaching back this far downloads up to about {{count}} activities. It will take a while, and the app is not guaranteed to stay quick with that much stored.",
-    "largeHistoryTitle": "That's a large download",
     "largeHistoryDaysTitle_one": "This takes at least {{count}} day",
     "largeHistoryDaysTitle_other": "This takes at least {{count}} days",
-    "largeHistoryDaysMessage": "intervals.icu limits how many activities the app can download in a day, and every install shares that limit. The rest comes down over the following days. The app is not guaranteed to stay quick with that much stored.",
+    "activityHistory": "Activity history",
+    "activityHistoryIntro": "intervals.icu limits how many activities the app can download in a day, and every install shares that limit. A longer history takes longer to arrive, and a longer window does not raise the limit.",
+    "activityHistorySummary": "Last {{span}}, activities: {{activities}}",
+    "historyCost": "Activities to download: up to about {{activities}}",
+    "historyUnlocks": "A longer history gives longer trends, more section history and better route grouping.",
+    "historyConfirm": "Download this range",
     "localDataRange": "Local data range",
     "localDataRangeEnd": "End of local data range",
     "heroMetric": "Hero metric",
@@ -2208,7 +2210,6 @@
     "groupKeeps": "Library & backup",
     "routesAndSections": "Routes & sections",
     "storage": "Storage",
-    "sinceDateSubtitle": "Since {{date}}",
     "elevationBackfillRunning": "Adding elevation to activity tracks",
     "elevationBackfillProgress": "{{completed}} of {{total}} activities",
     "elevationBackfillComplete": "All activity tracks have elevation",
@@ -2283,7 +2284,7 @@
     "previewStatusGone": "Removed",
     "previewCurrentLayer": "Current",
     "previewRetiredLayer": "Retired",
-    "previewProposedLayer": "Proposed",
+    "previewAreaLayer": "Area",
     "previewKeep": "Keep",
     "previewDiscard": "Discard",
     "previewKeepTitle": "Apply these settings?",
@@ -2338,7 +2339,6 @@
     "debugModeDescription": "Show internal diagnostics in detail pages",
     "developerDashboardDescription": "Engine stats, FFI performance, memory",
     "experimentalFeatures": "Experimental features",
-    "experimentalFeaturesDescription": "Show features still being built, each with its own switch",
     "experimentalDashboardDescription": "Turn each experimental feature on or off and open it"
   },
   "stats": {
@@ -2777,6 +2777,7 @@
     "forget": "Forget",
     "connect": "Connect",
     "disconnect": "Disconnect",
+    "reconnect": "Reconnect",
     "recordFrom": "Record {{kind}} from {{name}}",
     "chooseSourceHint": "When two sensors supply a metric, it is recorded from the filled one. Tap the other to switch.",
     "bleUnavailable": "Bluetooth is not available",
@@ -2784,7 +2785,8 @@
     "kinds": {
       "heartRate": "Heart rate",
       "power": "Power",
-      "cadence": "Cadence"
+      "cadence": "Cadence",
+      "runningCadence": "Running cadence"
     },
     "status": {
       "connecting": "Connecting…",
@@ -2792,6 +2794,12 @@
       "noData": "Connected, no data",
       "reconnecting": "Reconnecting…",
       "disconnected": "Not connected"
+    },
+    "silent": {
+      "heartRate": "Linked, not sending heart rate. Turn on heart rate broadcast on the device.",
+      "power": "Linked, not sending power. Turn on power broadcast on the device.",
+      "cadence": "Linked, not sending cadence. Turn on cadence broadcast on the device.",
+      "runningCadence": "Linked, not sending running cadence. Turn on running cadence broadcast on the device."
     },
     "purpose": "Bluetooth is used to find and connect heart rate, power and cadence sensors.",
     "noneFound": "No sensors found",
@@ -2881,6 +2889,7 @@
     "retiredInto": "Into {{name}}",
     "pairUnnamed": "Unnamed section",
     "pairNone": "No other section shares this ground",
+    "pairsPending": "Still working out which sections share this ground",
     "pairRetiredLedger": "Retired into {{name}}",
     "pairRetiredSupersedes": "Had hidden {{name}}",
     "pairCurrentLedger": "Took over from {{name}}",
@@ -2973,7 +2982,14 @@
     "heldByBudget": "Request limit reached, waiting until {{time}}",
     "pacedOnCaps_one": "At least {{count}} day to finish, on intervals.icu's daily limit",
     "pacedOnCaps_other": "At least {{count}} days to finish, on intervals.icu's daily limit",
-    "lastFinished": "Last run {{time}}",
+    "headerRunning_one": "{{count}} background job running",
+    "headerRunning_other": "{{count}} background jobs running",
+    "headerStopped_one": "{{count}} background job stopped early",
+    "headerStopped_other": "{{count}} background jobs stopped early",
+    "headerWaiting": "Background jobs waiting until {{time}}",
+    "headerWaitingNoTime": "Background jobs waiting",
+    "headerIdle": "All background jobs done",
+    "pastRuns": "Past runs",
     "lastRunNoChange": "No change",
     "lastRunStopped": "Stopped",
     "lastRunActivities_one": "{{count}} activity",
@@ -3236,6 +3252,10 @@
     "garminUpdate": {
       "title": "Update activities from Garmin",
       "blurb": "Replaces intervals.icu's copy of an activity with Garmin's own file when that holds more. Needs a Garmin key. Not finished."
+    },
+    "climbingBests": {
+      "title": "Climbing bests",
+      "blurb": "Calculated by Veloq on your phone from intervals.icu's elevation data. intervals.icu does not provide climbing bests itself. For each window, from 15 seconds to 20 minutes, Veloq finds your fastest climb rate in metres per hour (VAM) and converts it to W/kg, the power needed to lift your body weight alone. Only activities with intervals.icu's corrected elevation count."
     }
   }
 }

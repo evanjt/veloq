@@ -4,7 +4,8 @@
  *
  * Expected behaviour: a pull asks the engine to sync, and the spinner follows
  * the track work the engine reports, including a pass it started by itself
- * after the sync settled.
+ * after the sync settled. A regroup the engine reports held behind the section
+ * rebuild is a still note above the old routes, not routes being computed.
  */
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
@@ -52,14 +53,19 @@ jest.mock('@/shared/native/useSyncStatus', () => ({
   useTrackStage: () => mockTrackStage,
 }));
 jest.mock('@/features/routes/components/SectionsList', () => ({ SectionsList: () => null }));
+const mockSummaryProps: Record<string, unknown>[] = [];
 jest.mock('@/features/routes/components/DateRangeSummary', () => ({
-  DateRangeSummary: () => null,
+  DateRangeSummary: (props: Record<string, unknown>) => {
+    mockSummaryProps.push(props);
+    return null;
+  },
 }));
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
   useSectionCommands: () => ({ removeSection: jest.fn() }),
 }));
+let mockRoutesData: Record<string, unknown> = { groups: [], activityCount: 0 };
 jest.mock('@/features/routes/hooks/useRoutesScreenData', () => ({
-  useRoutesScreenData: () => ({ data: { groups: [], activityCount: 0 } }),
+  useRoutesScreenData: () => ({ data: mockRoutesData }),
 }));
 jest.mock('@/features/strength', () => ({
   useStrengthTabState: () => 'hidden',
@@ -111,4 +117,37 @@ it('spins the list while the engine reports a GPS pass, and only then', async ()
   await render(<InsightsScreen />);
   expect(screen.getByText('Refresh routes')).toBeTruthy();
   expect(screen.queryByText('Refreshing routes')).toBeNull();
+});
+
+it('names a regroup held behind the section rebuild as a still note, not as computing', async () => {
+  const { FfiDetectionHold_Tags } = require('../__shared__/veloqrsStub');
+  mockTrackStage = null;
+  mockRoutesData = {
+    groups: [{ groupId: 'old-route' }],
+    groupCount: 14,
+    activityCount: 120,
+    groupsDirty: true,
+    groupsHold: { tag: FfiDetectionHold_Tags.Cutover },
+  };
+  mockSummaryProps.length = 0;
+  await render(<InsightsScreen />);
+
+  const shown = mockSummaryProps.at(-1);
+  expect(shown).toMatchObject({
+    activityCount: 120,
+    heldMessage: 'sections.detectionPaused',
+    syncMessage: null,
+  });
+});
+
+it('says routes are computing while a regroup is owed and nothing holds it', async () => {
+  mockTrackStage = null;
+  mockRoutesData = { groups: [], activityCount: 120, groupsDirty: true };
+  mockSummaryProps.length = 0;
+  await render(<InsightsScreen />);
+
+  expect(mockSummaryProps.at(-1)).toMatchObject({
+    heldMessage: null,
+    syncMessage: 'routesScreen.computingRoutes',
+  });
 });

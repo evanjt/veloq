@@ -14,10 +14,10 @@ import { render, screen, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { SectionDetailMap } from '@/features/routes/components/SectionDetailMap';
-import { SeasonBestsSection } from '@/features/fitness/components/SeasonBestsSection';
 import { WeeklySummary } from '@/features/stats/components/WeeklySummary';
 import { StrengthTab } from '@/features/insights/components/StrengthTab';
 import BestEffortsScreen from '@/app/best-efforts';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import type { FrequentSection } from '@/types';
 import { WithScreenRead } from '../__shared__/withScreenRead';
 
@@ -93,16 +93,6 @@ describe('the section map before it mounts', () => {
   });
 });
 
-describe('season bests while the read is pending', () => {
-  it('draws placeholder rows above the link to every best', async () => {
-    await render(<SeasonBestsSection efforts={[]} sport="Cycling" period="3m" isLoading={true} />);
-
-    expect(screen.getByTestId('best-effort-rows-skeleton')).toBeTruthy();
-    expect(screen.getByTestId('season-bests-view-all')).toBeTruthy();
-    expectNoSpinner();
-  });
-});
-
 describe('the weekly summary while its totals load', () => {
   it('draws the four-cell stats grid as placeholders', async () => {
     await render(
@@ -130,6 +120,7 @@ describe('the strength tab on its first read', () => {
 
 describe('the Best Efforts screen on its first read', () => {
   it('draws placeholder rows in every sport card and the climbing cards', async () => {
+    useDebugStore.setState({ experimentalFeatures: { climbingBests: true } });
     await render(<BestEffortsScreen />);
 
     for (const sport of ['Cycling', 'Running', 'Swimming']) {

@@ -72,7 +72,7 @@ export function restoreRecordingBackup(
     totals: streamTotals(backup.streams),
     laps: backup.laps,
     status,
-    latestSensor: { heartrate: null, power: null, cadence: null },
+    latestSensor: { heartrate: null, power: null, cadence: null, speed: null },
     rawSpeed: null,
     _lastRawFix: null,
   });

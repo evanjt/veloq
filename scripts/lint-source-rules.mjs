@@ -640,6 +640,11 @@ const DYNAMIC_PREFIXES = [
 // Closed sets, built at runtime from a value the sweep cannot see but whose
 // members are enumerable from the source.
 const DYNAMIC_KEYS = [
+  // `sensors.silent.${kind}` in SessionSensorList.tsx, over the sensor kinds.
+  'sensors.silent.heartRate',
+  'sensors.silent.power',
+  'sensors.silent.cadence',
+  'sensors.silent.runningCadence',
   // `sectionHistory.headline_${direction}_${part}` in sectionChangeCopy.ts, longer or shorter at start, end or both.
   'sectionHistory.headline_longer_start',
   'sectionHistory.headline_longer_end',

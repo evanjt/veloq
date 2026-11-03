@@ -24,13 +24,12 @@ describe('ActivityHeldBackNotice', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useDebugStore.setState({
-      experimentalEnabled: true,
       experimentalFeatures: { garminUpdate: true },
     });
   });
 
   it("names no Garmin and offers no connector while Garmin's experimental switch is off", () => {
-    useDebugStore.setState({ experimentalEnabled: false });
+    useDebugStore.setState({ experimentalFeatures: {} });
     render(
       <ActivityHeldBackNotice
         activityId="h1"

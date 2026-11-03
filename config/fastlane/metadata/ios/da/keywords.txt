@@ -1,1 +1,1 @@
-watt,tempo,kadence,puls,zoner,ftp,hrv,gpx,stigning,rute,omgang,svømning,triatlon,styrke
+cykling,løb,ruter,sektioner,heatmap,indsigt,offline,privatliv,højde,triatlon,mtb,gravel,hrv,watt

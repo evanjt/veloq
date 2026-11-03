@@ -37,26 +37,14 @@ jest.mock('@/features/stats', () => ({
   curveFreshness: () => null,
 }));
 
-jest.mock('@/features/fitness/components', () => ({ SeasonBestsSection: () => null }));
-
 function renderCyclingSection(currentFTP: number | null) {
   render(
     <PerformanceCurveSection
       sportMode="Cycling"
       days={90}
-      timeRange="3m"
       currentFTP={currentFTP}
       thresholdPace={undefined}
       swimThresholdPace={undefined}
-      performanceExpanded={false}
-      onPerformanceToggle={() => {}}
-      bestsExpanded={false}
-      onBestsToggle={() => {}}
-      bestsEfforts={[]}
-      bestsClimbing={[]}
-      bestsClimbingStatus={'ready' as never}
-      loadingBests={false}
-      bestsHeader={null}
     />
   );
 }

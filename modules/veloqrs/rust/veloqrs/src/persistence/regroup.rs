@@ -416,6 +416,12 @@ pub(crate) fn claim_regroup() -> Option<RegroupClaim> {
     Some(RegroupClaim(()))
 }
 
+/// Whether a regroup holds the slot now, on the worker or inside a detection
+/// run, which is what a screen reads to say routes are being computed.
+pub(crate) fn regroup_in_flight() -> bool {
+    *REGROUP_SLOT.0.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 impl Drop for RegroupClaim {
     fn drop(&mut self) {
         *REGROUP_SLOT.0.lock().unwrap_or_else(|e| e.into_inner()) = false;

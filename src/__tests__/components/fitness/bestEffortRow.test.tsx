@@ -17,7 +17,6 @@ import type { ReactTestInstance } from 'react-test-renderer';
 import BestEffortsScreen from '@/app/best-efforts';
 import { BestEffortRow } from '@/features/fitness/components/BestEffortRow';
 import { ClimbingBestRows } from '@/features/fitness/components/ClimbingBestRows';
-import { SeasonBestsSection } from '@/features/fitness/components/SeasonBestsSection';
 import type { ClimbBest } from '@/features/stats';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -120,29 +119,12 @@ describe('BestEffortRow', () => {
   });
 });
 
-describe('the three surfaces that draw a best', () => {
+describe('the surfaces that draw a best', () => {
   it('draw Best Efforts rows with no fixed column', async () => {
     await render(<BestEffortsScreen />);
 
     expectNoFixedWidth(screen.getByTestId('best-efforts-row-Swimming-3800'));
     expectNoFixedWidth(screen.getByTestId('best-efforts-row-Swimming-400'));
-  });
-
-  it('draw Season Bests rows with no fixed column', async () => {
-    await render(
-      <SeasonBestsSection
-        efforts={
-          [
-            { label: '3.8km', checkpoint: 3800, activityId: 'long-swim', value: 0.7, time: 5565 },
-          ] as never
-        }
-        sport="Swimming"
-        period="6m"
-        isLoading={false}
-      />
-    );
-
-    expectNoFixedWidth(screen.getByTestId('season-bests-row-3800'));
   });
 
   it('draw climbing rows with no fixed column', async () => {

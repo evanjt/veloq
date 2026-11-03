@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import { ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
-import { BackgroundJobsActivityBar, DataCacheSection } from '@/features/settings';
+import { DataCacheSection } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 function CacheSettingsScreenContent() {
@@ -17,7 +17,6 @@ function CacheSettingsScreenContent() {
       <ScreenScrollView
         contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: spacing.xl }}
       >
-        <BackgroundJobsActivityBar />
         <DataCacheSection />
       </ScreenScrollView>
     </ScreenSafeAreaView>

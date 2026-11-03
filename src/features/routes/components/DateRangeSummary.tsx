@@ -11,9 +11,11 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { formatDateOrDash } from '@/shared/format/format';
-import { colors, darkColors, duration, spacing, stroke, typography } from '@/theme';
+import { colors, darkColors, duration, iconSize, spacing, stroke, typography } from '@/theme';
 import { Button, Spinner } from '@/shared/ui';
-import { navigateTo } from '@/shared/app/navigation';
+import { Icon } from '@/shared/ui/Icon';
+import { openHistoryRange } from '@/shared/app/historyRange';
+import { useLargeText } from '@/shared/ui/useLargeText';
 
 interface DateRangeSummaryProps {
   activityCount: number;
@@ -21,7 +23,10 @@ interface DateRangeSummaryProps {
   newestDate: string | null;
   isDark?: boolean;
   isLoading?: boolean;
+  /** Work moving now, shown beside an indicator. */
   syncMessage?: string | null;
+  /** Work owed and held, shown still, so it does not read as running. */
+  heldMessage?: string | null;
 }
 
 export function DateRangeSummary({
@@ -31,11 +36,13 @@ export function DateRangeSummary({
   isDark = false,
   isLoading = false,
   syncMessage,
+  heldMessage,
 }: DateRangeSummaryProps) {
   const { t } = useTranslation();
+  const stacked = useLargeText();
 
   const handleExpandPress = () => {
-    navigateTo('/sync-settings');
+    openHistoryRange();
   };
 
   return (
@@ -51,11 +58,24 @@ export function DateRangeSummary({
           <Spinner label={syncMessage} style={styles.syncIcon} />
           <Text style={[styles.syncText, isDark && styles.textSecondary]}>{syncMessage}</Text>
         </Animated.View>
+      ) : heldMessage ? (
+        <View testID="routes-held-banner" style={styles.syncBanner}>
+          <Icon
+            name="pause-circle-outline"
+            size={iconSize.xs}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            style={styles.syncIcon}
+          />
+          <Text style={[styles.syncText, isDark && styles.textSecondary]}>{heldMessage}</Text>
+        </View>
       ) : null}
 
       {/* Summary row */}
-      <View style={styles.summaryRow}>
-        <View style={styles.dateInfo}>
+      <View
+        testID="routes-date-range-summary"
+        style={[styles.summaryRow, stacked && styles.summaryRowStacked]}
+      >
+        <View style={[styles.dateInfo, stacked && styles.dateInfoStacked]}>
           <View style={styles.countRow}>
             {isLoading ? (
               <Spinner label={t('mapScreen.loadingActivities')} style={styles.syncIcon} />
@@ -116,8 +136,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  summaryRowStacked: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
   dateInfo: {
     flex: 1,
+  },
+  dateInfoStacked: {
+    // Takes its own height, not the leftover space of the column.
+    flex: 0,
+    alignSelf: 'stretch',
   },
   countRow: {
     flexDirection: 'row',

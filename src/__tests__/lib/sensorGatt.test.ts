@@ -10,6 +10,7 @@ import {
   parseCyclingPower,
   parseCsc,
   parseBatteryLevel,
+  parseRsc,
   base64ToBytes,
 } from '@/features/sensors/lib/gatt';
 import { createCrankCadenceCalculator } from '@/features/sensors/lib/cadence';
@@ -157,5 +158,40 @@ describe('createCrankCadenceCalculator', () => {
     calc.update({ cumulativeRevs: 0, eventTime1024: 0 }, 1000);
     // 100 revs in 1s = 6000 rpm - noise
     expect(calc.update({ cumulativeRevs: 100, eventTime1024: 1024 }, 2000)).toBeNull();
+  });
+});
+
+describe('parseRsc', () => {
+  it('reads speed in 1/256 m/s and cadence in steps per minute', () => {
+    // flags 0, speed 0x0300 = 3 m/s, cadence 170
+    expect(parseRsc(new Uint8Array([0x00, 0x00, 0x03, 170]))).toEqual({
+      speed: 3,
+      cadence: 170,
+      strideLengthCm: null,
+      totalDistanceM: null,
+      running: false,
+    });
+  });
+
+  it('reads stride length and total distance when flagged', () => {
+    // flags 0x07: stride, distance, running. stride 105 cm, distance 12345 dm
+    const frame = new Uint8Array([0x07, 0x80, 0x02, 160, 105, 0, 0x39, 0x30, 0, 0]);
+    expect(parseRsc(frame)).toEqual({
+      speed: 2.5,
+      cadence: 160,
+      strideLengthCm: 105,
+      totalDistanceM: 1234.5,
+      running: true,
+    });
+  });
+
+  it('returns null for a frame too short to carry speed and cadence', () => {
+    expect(parseRsc(new Uint8Array([0x00]))).toBeNull();
+    expect(parseRsc(new Uint8Array([0x00, 0x00, 0x03]))).toBeNull();
+  });
+
+  it('returns null when flagged stride or distance is truncated', () => {
+    expect(parseRsc(new Uint8Array([0x01, 0x00, 0x03, 170, 105]))).toBeNull();
+    expect(parseRsc(new Uint8Array([0x02, 0x00, 0x03, 170, 1, 2, 3]))).toBeNull();
   });
 });

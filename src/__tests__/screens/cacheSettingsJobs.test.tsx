@@ -25,12 +25,8 @@ jest.mock('@/features/settings/components', () => ({
   DataCacheSection: mockCacheSection,
 }));
 
-it('shows the activity bar above the controls that start stream backfill', async () => {
+it('shows no jobs bar, since the jobs have their own screen', async () => {
   const tree = await render(<CacheSettingsScreen />);
-  const ids = tree.root
-    .findAll((node) => typeof node.props.testID === 'string')
-    .map((node) => node.props.testID as string);
-
-  expect(ids.indexOf('background-jobs-activity')).toBeGreaterThanOrEqual(0);
-  expect(ids.indexOf('background-jobs-activity')).toBeLessThan(ids.indexOf('data-cache-section'));
+  expect(tree.queryByTestId('background-jobs-activity')).toBeNull();
+  expect(tree.getByTestId('data-cache-section')).toBeTruthy();
 });

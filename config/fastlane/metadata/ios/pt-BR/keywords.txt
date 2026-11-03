@@ -1,1 +1,1 @@
-potência,ritmo,cadência,frequência cardíaca,zonas,ftp,hrv,gpx,subida,natação,triatlo,força
+bike,corrida,rotas,trechos,mapa de calor,insights,offline,privacidade,subida,triatlo,mtb,gravel,hrv

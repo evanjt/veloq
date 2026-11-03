@@ -7,7 +7,6 @@
   "src/app/sheets/param-editor.tsx",
   "src/features/activity/components/ActivityCard.tsx",
   "src/features/activity/components/IntervalsTable.tsx",
-  "src/features/activity/components/SectionInlinePlot.tsx",
   "src/features/activity/components/ZoneTimeCard.tsx",
   "src/features/activity/components/stats/StatDetailSheet.tsx",
   "src/features/maps/components/MapNameSearch.tsx",

@@ -12,6 +12,8 @@ import {
   CYCLING_POWER_MEASUREMENT,
   CSC_SERVICE,
   CSC_MEASUREMENT,
+  RSC_SERVICE,
+  RSC_MEASUREMENT,
   BATTERY_SERVICE,
   BATTERY_LEVEL,
   parseHeartRate,
@@ -20,8 +22,9 @@ import {
   parseBatteryLevel,
   base64ToBytes,
 } from './gatt';
+import { applyRscFrame } from './runningPod';
 import { createCrankCadenceCalculator } from './cadence';
-import { sensorConnectionHealth, silentLinkTeardownMs } from './connectionHealth';
+import { sensorConnectionHealth } from './connectionHealth';
 import { recordSensorLink, type SensorLinkEvent } from './sensorLinkTrace';
 import { stopSimulatedSensors } from './simulatedSensors';
 import type { KnownSensor, SensorAvailability, SensorKind } from '../types';
@@ -29,7 +32,7 @@ import type { BleManager, Device, Subscription } from 'react-native-ble-plx';
 
 const log = debug.create('Sensors');
 
-const SCANNED_SERVICES = [HEART_RATE_SERVICE, CYCLING_POWER_SERVICE, CSC_SERVICE];
+const SCANNED_SERVICES = [HEART_RATE_SERVICE, CYCLING_POWER_SERVICE, CSC_SERVICE, RSC_SERVICE];
 const RECONNECT_BASE_MS = 2000;
 const RECONNECT_MAX_MS = 30_000;
 /** How often a live connection is re-checked against the no-data watchdog. */
@@ -276,12 +279,13 @@ export async function turnOnBluetooth(): Promise<void> {
   );
 }
 
-function kindsFromServiceUUIDs(serviceUUIDs: string[] | null): SensorKind[] {
+export function kindsFromServiceUUIDs(serviceUUIDs: string[] | null): SensorKind[] {
   const kinds: SensorKind[] = [];
   const lower = (serviceUUIDs ?? []).map((u) => u.toLowerCase());
   if (lower.includes(HEART_RATE_SERVICE)) kinds.push('heartRate');
   if (lower.includes(CYCLING_POWER_SERVICE)) kinds.push('power');
   if (lower.includes(CSC_SERVICE)) kinds.push('cadence');
+  if (lower.includes(RSC_SERVICE)) kinds.push('runningCadence');
   return kinds;
 }
 
@@ -401,15 +405,6 @@ function traceLink(
 const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 /**
- * How many times in a row each sensor's link was torn down for carrying
- * nothing. It outlives the `ActiveConnection` a teardown deletes, so the next
- * silence is given longer and the reconnect after it waits longer. A sample
- * resets it, and so does a deliberate disconnect, which is also how a
- * session ends.
- */
-const silentCycles = new Map<string, number>();
-
-/**
  * Bumped by every teardown, so a connect still in flight can see that the
  * sensor it is connecting was disconnected while it awaited. Without it the
  * landing connect recreated the entry after the ride ended, and the next
@@ -458,15 +453,20 @@ function sessionOwnsConnections(): boolean {
  * the GATT handshake.
  */
 function publishHealth(sensor: KnownSensor, active: ActiveConnection): void {
+  const now = Date.now();
   const status = sensorConnectionHealth({
     attempt: active.attempt,
     subscribedAt: active.subscribedAt,
     lastSampleAt: active.lastSampleAt,
-    silentCycles: silentCycles.get(sensor.id) ?? 0,
-    now: Date.now(),
+    now,
   });
   const existing = useSensorStore.getState().connections[sensor.id];
   if (existing?.status === status) return;
+  if (status === 'noData') {
+    const since = active.lastSampleAt ?? active.subscribedAt ?? now;
+    log.warn(`Sensor sent nothing for ${now - since} ms: ${sensor.name}`);
+    traceLink(sensor, 'watchdogFired', { ms: now - since });
+  }
   useSensorStore.getState().setConnection(sensor.id, {
     ...existing,
     status,
@@ -482,7 +482,6 @@ function publishHealth(sensor: KnownSensor, active: ActiveConnection): void {
 function noteSample(sensor: KnownSensor, active: ActiveConnection, link: MonitorLink): void {
   const now = Date.now();
   active.lastSampleAt = now;
-  silentCycles.delete(sensor.id);
   link.samples++;
   if (link.samples === 1) {
     traceLink(sensor, 'firstSample', {
@@ -595,6 +594,17 @@ async function subscribeToSensor(active: ActiveConnection, sensor: KnownSensor):
     );
   }
 
+  if (kinds.includes('runningCadence')) {
+    monitorCharacteristic(
+      active,
+      sensor,
+      RSC_SERVICE,
+      RSC_MEASUREMENT,
+      'running speed and cadence',
+      (value) => applyRscFrame(sensor.id, base64ToBytes(value))
+    );
+  }
+
   // Battery is optional - read once, ignore absence
   try {
     const battery = await device.readCharacteristicForService(BATTERY_SERVICE, BATTERY_LEVEL);
@@ -614,10 +624,9 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
   const existing = activeConnections.get(sensor.id);
   if (existing && !existing.cancelled) return;
 
-  // A link reconnected after carrying nothing keeps saying so until a sample lands.
   const pending = attempt === 0 ? 'connecting' : 'reconnecting';
   useSensorStore.getState().setConnection(sensor.id, {
-    status: (silentCycles.get(sensor.id) ?? 0) > 0 ? 'noData' : pending,
+    status: pending,
     name: sensor.name,
     kinds: sensor.kinds,
   });
@@ -665,8 +674,7 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
       traceLink(sensor, 'disconnected');
       cleanupConnection(sensor.id, { keepStoreEntry: true });
       const conn = useSensorStore.getState().connections[sensor.id];
-      // A drop that follows silent cycles keeps the backoff they built up.
-      if (conn) scheduleReconnect(sensor, Math.max(1, silentCycles.get(sensor.id) ?? 0));
+      if (conn) scheduleReconnect(sensor, 1);
     });
 
     await subscribeToSensor(active, sensor);
@@ -687,37 +695,30 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
 }
 
 /**
- * A link that has carried nothing for the watchdog interval is reported as
- * such at once, and torn down for a reconnect once it has been silent for
- * `silentLinkTeardownMs` of the silent cycles before it, so each further
- * silence is left subscribed longer and reconnected later.
- *
- * The teardown drops Veloq's client and removes its monitors, writing the
- * CCCD off. When another client holds the same LE link the link itself stays
- * up, so the reconnect is a fresh CCCD write on that link rather than a new
- * connection.
+ * Publishes the link's health and reads its signal. A link that has carried
+ * nothing reads as no data and stays subscribed: tearing it down writes the
+ * CCCD off and on over a link another client may share, and a peripheral that
+ * starts notifying late is heard by the subscription already in place. The
+ * athlete's way to a fresh subscription is `reconnectSensor`.
  */
 function watchdogTick(sensor: KnownSensor): void {
   const active = activeConnections.get(sensor.id);
   if (!active || active.cancelled) return;
   publishHealth(sensor, active);
   readSignal(sensor.id, active);
-  if (useSensorStore.getState().connections[sensor.id]?.status !== 'noData') return;
+}
 
-  const cycles = silentCycles.get(sensor.id) ?? 0;
-  const since = active.lastSampleAt ?? active.subscribedAt;
-  const silentFor = since === null ? 0 : Date.now() - since;
-  const teardownMs = silentLinkTeardownMs(cycles);
-  if (silentFor < teardownMs) return;
-
-  log.warn(`Sensor sent nothing for ${teardownMs} ms, reconnecting: ${sensor.name}`);
-  traceLink(sensor, 'watchdogFired', { ms: silentFor });
-  cleanupConnection(sensor.id, { keepStoreEntry: true });
-  void bleManager?.cancelDeviceConnection(sensor.id).catch(() => {
+/** End a paired sensor's link and connect it again at once, for a link that reads no data. */
+export async function reconnectSensor(id: string): Promise<void> {
+  const sensor = useSensorStore.getState().knownSensors.find((s) => s.id === id);
+  if (!sensor) return;
+  cleanupConnection(id, { keepStoreEntry: true });
+  try {
+    await bleManager?.cancelDeviceConnection(id);
+  } catch {
     // Already gone, which is the outcome wanted.
-  });
-  silentCycles.set(sensor.id, cycles + 1);
-  scheduleReconnect(sensor, cycles + 1);
+  }
+  await connectAndSubscribe(sensor, 0);
 }
 
 /**
@@ -756,11 +757,7 @@ function scheduleReconnect(sensor: KnownSensor, attempt = 1): void {
     pairingConnections.delete(sensor.id);
     return;
   }
-  // A silent link keeps saying so while the reconnect runs: "no data" is what
-  // the athlete can act on, "reconnecting" is only how it is being fixed.
-  if (conn.status !== 'noData') {
-    useSensorStore.getState().setConnectionStatus(sensor.id, 'reconnecting');
-  }
+  useSensorStore.getState().setConnectionStatus(sensor.id, 'reconnecting');
   if (radioBlocksConnect()) {
     parkSensor(sensor);
     return;
@@ -829,7 +826,6 @@ function cleanupConnection(id: string, options?: { keepStoreEntry?: boolean }): 
     traceLink(active.sensor, 'teardown');
   }
   if (!options?.keepStoreEntry) {
-    silentCycles.delete(id);
     useSensorStore.getState().setConnection(id, null);
     useSensorStore.getState().dropSources(id);
   }

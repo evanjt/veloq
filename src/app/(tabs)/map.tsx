@@ -85,7 +85,7 @@ import {
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { StagedPage } from '@/shared/ui/StagedPage';
 import { formatMonthYear } from '@/shared/format/format';
-import { navigateTo } from '@/shared/app/navigation';
+import { openHistoryRange } from '@/shared/app/historyRange';
 
 // Stable date references - creating new Date() in the component body triggers
 // useEngineMapActivities useMemo on every render, causing cascading re-renders
@@ -534,7 +534,7 @@ function MapScreenContent() {
           reason={emptyReason}
           allTime={period === DEFAULT_MAP_PERIOD}
           onShowAllTime={() => setPeriod(DEFAULT_MAP_PERIOD)}
-          onExpandRange={() => navigateTo('/sync-settings')}
+          onExpandRange={() => openHistoryRange()}
           onClearFilters={clearFilters}
         />
       ) : null}
@@ -684,7 +684,7 @@ function MapScreenContent() {
             <TextLink
               label={t('mapScreen.expandRange', 'Expand range')}
               size="caption"
-              onPress={() => navigateTo('/sync-settings')}
+              onPress={() => openHistoryRange()}
             />
           </View>
         </View>

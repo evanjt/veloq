@@ -10,7 +10,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Button } from '@/shared/ui';
+import { ButtonRow } from '@/shared/ui/ButtonRow';
 import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
 import { useTheme } from '@/shared/app';
@@ -105,25 +105,27 @@ export function RestoreOfferCard() {
             {t('backup.restoreOfferLater')}
           </Text>
         )}
-        <View style={styles.actions}>
-          <Button
-            testID="restore-offer-dismiss"
-            label={t('backup.restorePromptDismiss')}
-            variant="ghost"
-            size="sm"
-            onPress={answerRestorePrompt}
-            disabled={busy}
-          />
-          <Button
-            testID="restore-offer-restore"
-            label={t('common.restore')}
-            variant="primary"
-            size="sm"
-            onPress={handleRestore}
-            loading={busy}
-            disabled={busy}
-          />
-        </View>
+        <ButtonRow
+          actions={[
+            {
+              testID: 'restore-offer-dismiss',
+              label: t('backup.restorePromptDismiss'),
+              variant: 'ghost',
+              size: 'sm',
+              onPress: answerRestorePrompt,
+              disabled: busy,
+            },
+            {
+              testID: 'restore-offer-restore',
+              label: t('common.restore'),
+              variant: 'primary',
+              size: 'sm',
+              onPress: handleRestore,
+              loading: busy,
+              disabled: busy,
+            },
+          ]}
+        />
       </Card>
     </View>
   );
@@ -152,10 +154,5 @@ const styles = StyleSheet.create({
   },
   descriptionDark: {
     color: darkColors.textSecondary,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
   },
 });

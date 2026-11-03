@@ -4,6 +4,7 @@ import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
+import { navigateTo } from '@/shared/app/navigation';
 import { Button, NameText, Row, SignalStatus, type SignalLevel } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { formatCadence, formatHeartRate, formatPower } from '@/shared/format/format';
@@ -21,10 +22,10 @@ import {
 } from '../lib/sensorRows';
 import {
   connectSensorForSession,
-  disconnectSensor,
   dropSensorForSession,
+  reconnectSensor,
 } from '../lib/sensorManager';
-import type { SensorKind } from '../types';
+import type { SensorMetric } from '../types';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -42,7 +43,7 @@ const SIGNAL_ICONS: Record<SignalBars, IconName> = {
   3: 'signal-cellular-3',
 };
 
-const FORMAT_SAMPLE: Record<SensorKind, (value: number) => string> = {
+const FORMAT_SAMPLE: Record<SensorMetric, (value: number) => string> = {
   heartRate: formatHeartRate,
   power: formatPower,
   cadence: formatCadence,
@@ -50,8 +51,9 @@ const FORMAT_SAMPLE: Record<SensorKind, (value: number) => string> = {
 
 /**
  * The paired sensors before a ride: one row each with its kind, link state,
- * live value, battery and signal, and a way to disconnect it for this session
- * or forget the pairing. Draws nothing when no sensor is paired.
+ * live value, battery and signal, and a way to disconnect it for this session,
+ * with a link to sensor setup, where a pairing is forgotten. With none paired
+ * it is a single button to add one.
  */
 export function SessionSensorList() {
   const { t } = useTranslation();
@@ -67,7 +69,18 @@ export function SessionSensorList() {
       sessionSensorRows({ knownSensors, connections, activeSources, suppliedKinds, latestSensor }),
     [knownSensors, connections, activeSources, suppliedKinds, latestSensor]
   );
-  if (rows.length === 0) return null;
+  if (rows.length === 0) {
+    return (
+      <Button
+        testID="entry-sensor-add"
+        label={t('sensors.addSensor')}
+        variant="secondary"
+        size="sm"
+        icon="bluetooth"
+        onPress={() => navigateTo('/sensor-settings')}
+      />
+    );
+  }
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -83,8 +96,15 @@ export function SessionSensorList() {
         const name = labels.get(row.id) ?? row.sensor.name;
         const { level, icon } = STATE_SIGNAL[row.state];
         const status = [
-          row.sensor.kinds.map((kind) => t(`sensors.kinds.${kind}`)).join(', '),
-          row.state === 'off' ? t('sensors.status.disconnected') : t(`sensors.status.${row.state}`),
+          row.state === 'noData'
+            ? null
+            : row.sensor.kinds.map((kind) => t(`sensors.kinds.${kind}`)).join(', '),
+          row.state === 'off' ? t('sensors.status.disconnected') : null,
+          row.state === 'noData'
+            ? row.sensor.kinds.map((kind) => t(`sensors.silent.${kind}`)).join(' ')
+            : row.state === 'off'
+              ? null
+              : t(`sensors.status.${row.state}`),
           ...row.live.map(({ kind, value }) => FORMAT_SAMPLE[kind](value)),
           row.batteryPercent != null ? `${row.batteryPercent}%` : null,
         ]
@@ -97,6 +117,15 @@ export function SessionSensorList() {
             inset="none"
             accessory={
               <View style={styles.actions}>
+                {row.canReconnect ? (
+                  <Button
+                    testID={`entry-sensor-reconnect-${row.id}`}
+                    label={t('sensors.reconnect')}
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => void reconnectSensor(row.id)}
+                  />
+                ) : null}
                 {row.state === 'off' ? (
                   <Button
                     testID={`entry-sensor-connect-${row.id}`}
@@ -114,16 +143,6 @@ export function SessionSensorList() {
                     onPress={() => void dropSensorForSession(row.id)}
                   />
                 )}
-                <Button
-                  testID={`entry-sensor-forget-${row.id}`}
-                  label={t('sensors.forget')}
-                  variant="destructive"
-                  size="sm"
-                  onPress={() => {
-                    useSensorStore.getState().removeKnownSensor(row.id);
-                    void disconnectSensor(row.id);
-                  }}
-                />
               </View>
             }
           >
@@ -150,6 +169,13 @@ export function SessionSensorList() {
           </Row>
         );
       })}
+      <Button
+        testID="entry-sensors-manage"
+        label={t('sensors.title')}
+        variant="ghost"
+        size="sm"
+        onPress={() => navigateTo('/sensor-settings')}
+      />
     </View>
   );
 }

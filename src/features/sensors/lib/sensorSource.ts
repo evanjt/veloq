@@ -1,4 +1,4 @@
-import type { KnownSensor, SensorKind } from '../types';
+import type { KnownSensor, SensorMetric } from '../types';
 
 /**
  * `dedicated` is a value the sensor measures for that metric itself, `derived`
@@ -39,7 +39,7 @@ export function sensorSourceKey(source: Pick<SensorSource, 'sensorId' | 'origin'
  * driver, ranks after every paired one.
  */
 export function chooseSensorSource(
-  kind: SensorKind,
+  kind: SensorMetric,
   sources: readonly SensorSource[],
   { knownSensors, now, staleMs }: SensorSourceContext
 ): SensorSource | null {
@@ -71,16 +71,16 @@ export function chooseSensorSource(
  * what each sensor advertises and what the athlete chose.
  */
 export function displayedSensorSource(
-  kind: SensorKind,
+  kind: SensorMetric,
   knownSensors: KnownSensor[],
   activeSourceId: string | undefined
 ): string | null {
   if (activeSourceId !== undefined) return activeSourceId;
   const candidates = knownSensors
-    .filter((sensor) => sensor.kinds.includes(kind) || sensor.preferredFor?.includes(kind))
+    .filter((sensor) => advertises(sensor, kind) || sensor.preferredFor?.includes(kind))
     .map((sensor) => ({
       sensorId: sensor.id,
-      origin: sensor.kinds.includes(kind) ? ('dedicated' as const) : ('derived' as const),
+      origin: advertises(sensor, kind) ? ('dedicated' as const) : ('derived' as const),
       lastSampleAt: 0,
     }));
   return (
@@ -88,7 +88,15 @@ export function displayedSensorSource(
   );
 }
 
-const ALL_KINDS: SensorKind[] = ['heartRate', 'power', 'cadence'];
+const ALL_KINDS: SensorMetric[] = ['heartRate', 'power', 'cadence'];
+
+/** A foot pod measures cadence itself, so it advertises the metric a crank sensor does. */
+function advertises(sensor: KnownSensor, metric: SensorMetric): boolean {
+  return (
+    sensor.kinds.includes(metric) ||
+    (metric === 'cadence' && sensor.kinds.includes('runningCadence'))
+  );
+}
 
 /**
  * The metrics a paired sensor supplies: what it advertises, what it has been
@@ -96,8 +104,8 @@ const ALL_KINDS: SensorKind[] = ['heartRate', 'power', 'cadence'];
  */
 export function metricsSuppliedBy(
   sensor: KnownSensor,
-  supplied: readonly SensorKind[] | undefined
-): SensorKind[] {
+  supplied: readonly SensorMetric[] | undefined
+): SensorMetric[] {
   const kinds = new Set([...sensor.kinds, ...(supplied ?? []), ...(sensor.preferredFor ?? [])]);
-  return ALL_KINDS.filter((kind) => kinds.has(kind));
+  return ALL_KINDS.filter((kind) => kinds.has(kind) || advertises(sensor, kind));
 }

@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
 
 import SettingsScreen from '@/app/(tabs)/settings';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -28,6 +28,7 @@ jest.mock('@/shared/app/navigation', () => ({
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useSegments: () => ['settings'],
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
 }));
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -70,6 +71,22 @@ jest.mock('@/features/settings', () => ({
   useGarminConnectorState: () => mockGarminState,
   useExperimental: () => mockGarminExperimental,
   useAutoBackupEnabled: () => true,
+  BackgroundJobsHeaderItem: jest.requireActual(
+    '@/features/settings/components/BackgroundJobsHeaderItem'
+  ).BackgroundJobsHeaderItem,
+  ActivityHistoryRow: () =>
+    jest
+      .requireActual('react')
+      .createElement(
+        jest.requireActual('@/features/settings/components/SettingsNavRow').SettingsNavRow,
+        {
+          icon: 'history',
+          title: 'settings.activityHistory',
+          subtitle: 'Last 90 days',
+          onPress: () => {},
+          testID: 'settings-nav-sync',
+        }
+      ),
   SettingsNavRow: jest.requireActual('@/features/settings/components/SettingsNavRow')
     .SettingsNavRow,
   RecordingPermissionSection: jest.requireActual(
@@ -143,6 +160,15 @@ describe('Settings hub grouping', () => {
     expect(texts.map((n) => n.props.children)).not.toContain('settings.authOAuth, garmin.title');
   });
 
+  it('puts the background jobs entry in the title bar, not in the list', async () => {
+    const screen = await render(<SettingsScreen />);
+    const header = within(screen.getByTestId('native-header-right'));
+    expect(header.getByTestId('background-jobs-header-item')).toBeTruthy();
+    expect(
+      within(screen.getByTestId('settings-scrollview')).queryByTestId('background-jobs-header-item')
+    ).toBeNull();
+  });
+
   it('groups the rows by what the athlete is doing', async () => {
     const screen = await render(<SettingsScreen />);
 
@@ -165,7 +191,10 @@ describe('Settings hub grouping', () => {
 
   it('titles every row as the header of the screen it opens', async () => {
     const screen = await render(<SettingsScreen />);
-    const rows = inRenderOrder(screen.toJSON()).filter((id) => id.startsWith('settings-nav-'));
+    // The activity history row opens a sheet, which has no screen header to match.
+    const rows = inRenderOrder(screen.toJSON()).filter(
+      (id) => id.startsWith('settings-nav-') && id !== 'settings-nav-sync'
+    );
 
     const mismatched = rows.flatMap((id) => {
       mockNavigateTo.mockClear();

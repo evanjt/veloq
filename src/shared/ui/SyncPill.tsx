@@ -2,6 +2,9 @@
  * The one place a running sync reports its step, as a status pill in the
  * floating stack, so it shows on every route.
  *
+ * A routine check stays quiet. The pill shows once a sync has run past the
+ * grace period or a step reports how many items it is fetching.
+ *
  * It is the status pill like any other, on the raised surface, and its one
  * blue is the ring's turning arc in the on colour over the track. The ring
  * turns slowly, the label wraps while the counts stay whole, and each step
@@ -21,7 +24,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { SyncState } from 'veloqrs';
+import { SyncState, type SyncStatus } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { useReduceMotion } from './reduceMotion';
@@ -29,6 +32,7 @@ import { FloatingPill } from './FloatingPill';
 import { formatSyncProgressParts } from '@/shared/format/syncProgress';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
 import { useSyncPillYielded } from './syncPillYield';
+import { SYNC_PILL_GRACE_MS, syncPillVisible } from './syncPillVisible';
 import { colors, darkColors, duration, easing, iconSize, stroke } from '@/theme';
 
 /** The least time one step's line stays on screen before the next replaces it. */
@@ -101,12 +105,33 @@ function SyncMark() {
   );
 }
 
+/**
+ * Whether the running sync has earned its pill. One timer starts with the sync
+ * and wakes the pill at the end of the grace period, so a sync that ends sooner
+ * never raises it.
+ */
+function useSyncPillShown(status: SyncStatus | null): boolean {
+  const syncing = status?.state === SyncState.Syncing;
+  const [graced, setGraced] = useState(false);
+
+  useEffect(() => {
+    if (!syncing) return undefined;
+    const timer = setTimeout(() => setGraced(true), SYNC_PILL_GRACE_MS);
+    return () => {
+      clearTimeout(timer);
+      setGraced(false);
+    };
+  }, [syncing]);
+
+  return syncPillVisible(status, graced ? SYNC_PILL_GRACE_MS : 0);
+}
+
 export function SyncPill() {
   const { t } = useTranslation();
   const status = useSyncStatus();
 
-  const syncing = status?.state === SyncState.Syncing;
-  const line = useHeldLine(syncing ? formatSyncProgressParts(status, t) : null);
+  const shown = useSyncPillShown(status);
+  const line = useHeldLine(shown ? formatSyncProgressParts(status, t) : null);
   const yielded = useSyncPillYielded();
 
   if (!line || yielded) return null;

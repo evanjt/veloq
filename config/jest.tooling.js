@@ -87,6 +87,7 @@ const toolingSuites = [
   'src/__tests__/bugs/stagedTreeGuard.test.ts',
   'src/__tests__/bugs/submodulePointerGuard.test.ts',
   'src/__tests__/bugs/suiteDeviceDeath.test.ts',
+  'src/__tests__/bugs/suiteRealAccountAndBinary.test.ts',
   'src/__tests__/bugs/tracematchLockfileGuard.test.ts',
   'src/__tests__/bugs/unifiedConfigGenerated.test.ts',
   'src/__tests__/bugs/windowDimensionsLintExitCode.test.ts',

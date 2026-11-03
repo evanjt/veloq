@@ -40,7 +40,6 @@ describe('the account screen', () => {
     mockNavigateTo.mockClear();
     useAuthStore.setState({ isDemoMode: false });
     useDebugStore.setState({
-      experimentalEnabled: true,
       experimentalFeatures: { garminUpdate: true },
     });
   });

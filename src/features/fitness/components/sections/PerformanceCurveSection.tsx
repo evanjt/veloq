@@ -1,20 +1,19 @@
 import React from 'react';
-import { usePowerCurve, usePaceCurve } from '@/features/stats';
 import { curveHeaderValue } from '@/features/fitness/lib/curveHeaderValue';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { Card, CollapsibleSection } from '@/shared/ui';
+import { Card } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import {
+  usePowerCurve,
+  usePaceCurve,
   PowerCurveChart,
   PaceCurveChart,
   SwimPaceCurveChart,
   CurveFreshnessLine,
   curveFreshness,
-  type BestEffort,
-  type ClimbBest,
-  type ClimbStatus,
 } from '@/features/stats';
 import { useTheme } from '@/shared/app';
 import { type PrimarySport } from '@/features/fitness/stores';
@@ -26,44 +25,22 @@ import {
   swimPaceUnitLabel,
 } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
-import { spacing, themePalette, typography } from '@/theme';
-import { SeasonBestsSection } from '..';
-import type { TimeRange } from '@/shared/app/timeRange';
+import { iconSize, spacing, themePalette, typography } from '@/theme';
 
 interface PerformanceCurveSectionProps {
   sportMode: PrimarySport;
-  timeRange: TimeRange;
   days: number;
   currentFTP: number | null | undefined;
   thresholdPace: number | undefined;
   swimThresholdPace: number | undefined;
-  performanceExpanded: boolean;
-  onPerformanceToggle: (expanded: boolean) => void;
-  bestsExpanded: boolean;
-  onBestsToggle: (expanded: boolean) => void;
-  bestsEfforts: BestEffort[];
-  bestsClimbing: ClimbBest[];
-  bestsClimbingStatus: ClimbStatus;
-  loadingBests: boolean;
-  bestsHeader: string | null;
 }
 
 export const PerformanceCurveSection = React.memo(function PerformanceCurveSection({
   sportMode,
-  timeRange,
   days,
   currentFTP,
   thresholdPace,
   swimThresholdPace,
-  performanceExpanded,
-  onPerformanceToggle,
-  bestsExpanded,
-  onBestsToggle,
-  bestsEfforts,
-  bestsClimbing,
-  bestsClimbingStatus,
-  loadingBests,
-  bestsHeader,
 }: PerformanceCurveSectionProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -95,8 +72,7 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
     isError: swimCurve.isError,
   });
 
-  // The curve on screen is a stored body, so both sections date the same fetch:
-  // the season bests are read off the very curve the chart above draws.
+  // The curve on screen is a stored body, so the line dates its fetch.
   const sportCurve =
     sportMode === 'Cycling' ? powerCurve : sportMode === 'Running' ? runCurve : swimCurve;
   const freshness = curveFreshness({
@@ -104,83 +80,44 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
     isLoading: sportCurve.isLoading,
   });
 
-  return (
-    <>
-      {/* Performance Section - Power/Pace Curve */}
-      <View style={styles.frame}>
-        <Card variant="flat" padding="none">
-          <CollapsibleSection
-            testID="fitness-section-performance"
-            title={
-              sportMode === 'Cycling'
-                ? t('statsScreen.powerCurve')
-                : sportMode === 'Swimming'
-                  ? t('statsScreen.swimPaceCurve')
-                  : t('statsScreen.paceCurve')
-            }
-            icon={sportMode === 'Cycling' ? 'lightning-bolt' : 'speedometer'}
-            expanded={performanceExpanded}
-            onToggle={onPerformanceToggle}
-            estimatedHeight={sportMode === 'Cycling' ? 270 : 240}
-            headerRight={
-              sportMode === 'Cycling' && headerFtp ? (
-                <Text style={[styles.headerValue, { color: valueInk }]}>
-                  {t('statsScreen.ftpLabel', { value: formatPower(headerFtp) })}
-                </Text>
-              ) : sportMode === 'Running' && headerRunPace ? (
-                <Text style={[styles.headerValue, { color: valueInk }]}>
-                  {formatPaceCompact(headerRunPace, isMetric)}
-                  {paceUnitLabel(isMetric)}
-                </Text>
-              ) : sportMode === 'Swimming' && headerSwimPace ? (
-                <Text style={[styles.headerValue, { color: valueInk }]}>
-                  {formatSwimPace(headerSwimPace, isMetric)}
-                  {swimPaceUnitLabel(isMetric)}
-                </Text>
-              ) : null
-            }
-          >
-            <View style={styles.collapsibleContent}>
-              <CurveFreshnessLine freshness={freshness} />
-              {sportMode === 'Cycling' && <PowerCurveChart days={days} ftp={currentFTP} />}
-              {sportMode === 'Running' && <PaceCurveChart days={days} />}
-              {sportMode === 'Swimming' && <SwimPaceCurveChart days={days} />}
-            </View>
-          </CollapsibleSection>
-        </Card>
-      </View>
+  const title =
+    sportMode === 'Cycling'
+      ? t('statsScreen.powerCurve')
+      : sportMode === 'Swimming'
+        ? t('statsScreen.swimPaceCurve')
+        : t('statsScreen.paceCurve');
+  const headerValue =
+    sportMode === 'Cycling' && headerFtp
+      ? t('statsScreen.ftpLabel', { value: formatPower(headerFtp) })
+      : sportMode === 'Running' && headerRunPace
+        ? `${formatPaceCompact(headerRunPace, isMetric)}${paceUnitLabel(isMetric)}`
+        : sportMode === 'Swimming' && headerSwimPace
+          ? `${formatSwimPace(headerSwimPace, isMetric)}${swimPaceUnitLabel(isMetric)}`
+          : null;
 
-      {/* Best efforts over the chosen range */}
-      <View style={styles.frame}>
-        <Card variant="flat" padding="none">
-          <CollapsibleSection
-            testID="fitness-section-bests"
-            title={t('bestEffortsScreen.title')}
-            icon="trophy-outline"
-            expanded={bestsExpanded}
-            onToggle={onBestsToggle}
-            estimatedHeight={200}
-            headerRight={
-              bestsHeader ? (
-                <Text style={[styles.headerValue, { color: valueInk }]}>{bestsHeader}</Text>
-              ) : null
-            }
-          >
-            <View style={styles.collapsibleContent}>
-              <CurveFreshnessLine freshness={freshness} />
-              <SeasonBestsSection
-                efforts={bestsEfforts}
-                climbing={bestsClimbing}
-                climbingStatus={bestsClimbingStatus}
-                sport={sportMode}
-                period={timeRange}
-                isLoading={loadingBests}
-              />
-            </View>
-          </CollapsibleSection>
-        </Card>
-      </View>
-    </>
+  return (
+    <View style={styles.frame} testID="fitness-performance-curve">
+      <Card variant="flat">
+        <View style={styles.header}>
+          <Icon
+            name={sportMode === 'Cycling' ? 'lightning-bolt' : 'speedometer'}
+            size={iconSize.md}
+            color={valueInk}
+            style={styles.headerIcon}
+          />
+          <Text accessibilityRole="header" style={[styles.title, { color: valueInk }]}>
+            {title}
+          </Text>
+          {headerValue ? (
+            <Text style={[styles.headerValue, { color: valueInk }]}>{headerValue}</Text>
+          ) : null}
+        </View>
+        <CurveFreshnessLine freshness={freshness} />
+        {sportMode === 'Cycling' && <PowerCurveChart days={days} ftp={currentFTP} />}
+        {sportMode === 'Running' && <PaceCurveChart days={days} />}
+        {sportMode === 'Swimming' && <SwimPaceCurveChart days={days} />}
+      </Card>
+    </View>
   );
 });
 
@@ -188,12 +125,20 @@ const styles = StyleSheet.create({
   frame: {
     marginBottom: spacing.sm,
   },
-  collapsibleContent: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  headerIcon: {
+    marginRight: spacing.sm,
+  },
+  title: {
+    ...typography.bodyBold,
+    flex: 1,
   },
   headerValue: {
     ...typography.bodyBold,
-    marginRight: spacing.sm,
+    marginLeft: spacing.sm,
   },
 });

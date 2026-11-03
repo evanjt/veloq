@@ -54,18 +54,21 @@ let mockHealth = {
 jest.mock('@/shared/native/useSyncHealth', () => ({ useSyncHealth: () => mockHealth }));
 
 let mockSyncing = false;
+let mockQuietStep = false;
 const engine = {
   getSyncStatus: jest.fn(() =>
-    mockSyncing
-      ? {
-          state: SyncState.Syncing,
-          completed: 2,
-          total: 11,
-          step: SyncStep.RemainingActivities,
-          stepItemsDone: 1234,
-          stepItemsTotal: 5678,
-        }
-      : { state: SyncState.Idle }
+    mockSyncing && mockQuietStep
+      ? { state: SyncState.Syncing, completed: 3, total: 11, step: SyncStep.Census }
+      : mockSyncing
+        ? {
+            state: SyncState.Syncing,
+            completed: 2,
+            total: 11,
+            step: SyncStep.RemainingActivities,
+            stepItemsDone: 1234,
+            stepItemsTotal: 5678,
+          }
+        : { state: SyncState.Idle }
   ),
   subscribe: jest.fn(() => () => {}),
 };
@@ -87,6 +90,7 @@ beforeEach(() => {
   mockIsDark = false;
   mockOffline = false;
   mockSyncing = false;
+  mockQuietStep = false;
   mockHealth = { lastError: null, lastErrorReason: null, lastSuccessAt: null, retryAtMs: null };
   useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
 });
@@ -129,6 +133,16 @@ describe('the status pill stack', () => {
 
     expect(top('floating-pill-offline')).toBe(TOP_INSET + spacing.xs);
     expect(top('floating-pill-sync')).toBe(TOP_INSET + spacing.xs + PILL_HEIGHT + spacing.xs);
+  });
+
+  it('keeps the offline pill while a quick sync stays quiet', async () => {
+    mockOffline = true;
+    mockSyncing = true;
+    mockQuietStep = true;
+    await render(<FloatingPillStack />);
+
+    expect(screen.getByTestId('offline-pill')).toBeTruthy();
+    expect(screen.queryByTestId('sync-progress-pill')).toBeNull();
   });
 
   it('closes the gap when the pill above goes', async () => {

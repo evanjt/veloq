@@ -13,7 +13,10 @@ import { RetiredPairCard } from '@/features/routes/components/preview/RetiredPai
 import type { RetiredSelection } from '@/features/routes/lib/retiredLineCollection';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides({}));
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
+}));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const RETIRED: RetiredSelection = {
@@ -22,7 +25,16 @@ const RETIRED: RetiredSelection = {
   name: 'Old Lake Loop',
   restorableVersion: 3,
   pairs: [
-    { id: 'new', name: 'Lake Loop', kind: 'current', link: 'ground', overlap: 0.8, hidden: false },
+    {
+      id: 'new',
+      name: 'Lake Loop',
+      kind: 'current',
+      link: 'ground',
+      overlap: 0.8,
+      hidden: false,
+      distanceMeters: null,
+      visitCount: null,
+    },
   ],
 };
 
@@ -77,6 +89,8 @@ describe('the retired pair card actions', () => {
               name: 'Old Lake Loop',
               kind: 'retired',
               link: 'ledger',
+              distanceMeters: null,
+              visitCount: null,
               overlap: null,
               hidden: false,
             },

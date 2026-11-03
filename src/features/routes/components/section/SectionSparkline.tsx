@@ -1,8 +1,9 @@
 /**
  * One direction's recent attempts on a section, inline in its row: speed per
  * attempt placed by date, this activity marked by the reticle, and the range
- * printed beside it. The row is one pressable element, so it speaks the
- * summary in its own label and the plot offers no Show data of its own.
+ * printed beside it unless the row is too narrow for it. The row is one
+ * pressable element, so it speaks the summary in its own label and the plot
+ * offers no Show data of its own.
  */
 
 import React from 'react';
@@ -19,6 +20,8 @@ interface SectionSparklineProps {
   highlightIndex?: number | undefined;
   /** What the plot speaks, the same sentence the row speaks. */
   summary: string;
+  /** Whether the range prints beside the plot; a row too narrow for it drops it. */
+  showRange?: boolean | undefined;
   testID?: string | undefined;
 }
 
@@ -30,6 +33,7 @@ export const SectionSparkline = React.memo(function SectionSparkline({
   height,
   highlightIndex,
   summary,
+  showRange = true,
   testID,
 }: SectionSparklineProps) {
   if (points.length < 2 || width <= 0 || height <= 0) return null;
@@ -43,7 +47,7 @@ export const SectionSparkline = React.memo(function SectionSparkline({
       height={height}
       highlightIndex={highlightIndex}
       summary={summary}
-      showRange
+      showRange={showRange}
     />
   );
 });

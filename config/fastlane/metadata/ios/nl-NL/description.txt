@@ -1,38 +1,38 @@
-Veloq toont je intervals.icu-training op je telefoon en zoekt naar de routes en secties die je herhaalt. De analyse draait op je toestel.
+Je trainingsdata is van jou. Veloq zoekt de routes en secties die je herhaalt en maakt je inzichten direct op je telefoon.
 
 Opnemen
-Neem fietstochten, hardloopsessies en andere sporten op met GPS, Bluetooth-sensoren of een geplande training.
+Neem op met gps of binnen, met Bluetooth-sensoren, je geplande training van vandaag of de lijn van een route in de buurt.
 
 Inzichten
-Korte uitlezingen van je training, elk met zijn cijfers en hoe die zijn berekend.
+Korte uitlezingen van je training. Elk opent met de cijfers en hoe die zijn berekend.
 
 Kaarten
-Interactieve kaarten met 3D-terrein, heatmaps van routes en lichte, donkere en satellietstijlen.
+Interactieve kaarten met 3D-terrein, routeheatmaps en lichte, donkere en satellietstijlen, allemaal offline.
 
 Routes en secties
-Vergelijk elke poging op de routes en secties die je herhaalt, en zet ze vast, kort ze in of hernoem ze.
+Secties houden rekening met hoogte, slaan skiliften over en groeien mee met je geschiedenis. Vergelijk elke poging en maak elke wijziging ongedaan.
 
 Grafieken
-Hartslag, vermogen, tempo, hoogte en cadans op één tijdlijn met de kaart.
+Hartslag, vermogen, tempo, hoogte en cadans op één tijdlijn naast de kaart.
 
 Fitheid
-Fitheid, vermoeidheid en vorm met de zones erin getekend, plus HRV, rusthartslag en slaap.
+Fitheid, vermoeidheid en vorm met de zones erin, plus HRV, rusthartslag en slaap.
 
 Kracht
 Je krachtsets op een lichaamsdiagram, per spiergroep en oefening.
 
 Widgets
-Widgets voor het beginscherm met fitheid en vorm, je laatste activiteit en je inzichten.
+Widgets voor het beginscherm met je overzicht, je laatste activiteit, inzichten en kracht.
 
 Meldingen
 Een melding met de naam van de route en eventuele persoonlijke records zodra er een nieuwe activiteit binnenkomt. Uit totdat je haar aanzet.
 
 Back-ups
-Bewaar je instellingen en sectiekeuzes in een bestand, een map, een clouddrive of op een WebDAV-server.
+Automatische back-ups van je instellingen en sectiewijzigingen naar iCloud Drive, een map of een WebDAV-server.
 
 Privacy
 Je trainingsgegevens blijven op je toestel. Geen analytics, geen tracking. Optionele pushmeldingen bewaren je intervals.icu-atleet-ID en een apparaattoken op onze server, die na 30 dagen automatisch worden verwijderd. Open source onder Apache 2.0.
 
-Ondersteunt fietsen, hardlopen, zwemmen en meer dan 20 activiteitstypen. Probeer de ingebouwde demomodus om te verkennen zonder account.
+Ondersteunt fietsen, hardlopen, zwemmen en meer dan 20 activiteitstypen. Probeer de ingebouwde demomodus om de app zonder account te verkennen.
 
 Vereist een intervals.icu-account voor live gegevens. Vereist iOS 16.4 of later. Niet gelieerd aan intervals.icu.

@@ -976,6 +976,16 @@ impl super::PersistentEngine {
         (*pooled::retired_map_data(self.cold_connection())).clone()
     }
 
+    /// Bring the stored ground pairs level with the catalogue, the work the
+    /// background worker does, and say how many passes wrote.
+    #[doc(hidden)]
+    pub fn level_retired_pairs(&self) -> rusqlite::Result<usize> {
+        crate::persistence::sections::retired_map::level_at(
+            crate::persistence::engine_install(),
+            &self.db_path,
+        )
+    }
+
     /// The section detail reads that need lap times, so the caller runs this
     /// once the missing time streams have been fetched.
     ///
@@ -1198,22 +1208,28 @@ impl super::PersistentEngine {
 const BEST_EFFORT_SPORTS: [&str; 3] = ["Ride", "Run", "Swim"];
 
 /// The power checkpoints, in seconds.
-const POWER_CHECKPOINTS_S: [f64; 5] = [5.0, 60.0, 300.0, 1200.0, 3600.0];
+const POWER_CHECKPOINTS_S: [f64; 11] = [
+    5.0, 15.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1200.0, 1800.0, 3600.0, 7200.0,
+];
 
 /// The run checkpoints, in metres, with what each measures.
-const RUN_CHECKPOINTS: [(f64, crate::FfiBestEffortKind); 5] = [
+const RUN_CHECKPOINTS: [(f64, crate::FfiBestEffortKind); 8] = [
     (400.0, crate::FfiBestEffortKind::Distance),
+    (800.0, crate::FfiBestEffortKind::Distance),
     (1000.0, crate::FfiBestEffortKind::Distance),
+    (1609.34, crate::FfiBestEffortKind::Mile),
     (5000.0, crate::FfiBestEffortKind::Distance),
     (10000.0, crate::FfiBestEffortKind::Distance),
     (21097.5, crate::FfiBestEffortKind::HalfMarathon),
+    (42195.0, crate::FfiBestEffortKind::Marathon),
 ];
 
 /// The swim checkpoints, in metres.
-const SWIM_CHECKPOINTS: [(f64, crate::FfiBestEffortKind); 4] = [
+const SWIM_CHECKPOINTS: [(f64, crate::FfiBestEffortKind); 5] = [
     (100.0, crate::FfiBestEffortKind::Distance),
     (200.0, crate::FfiBestEffortKind::Distance),
     (400.0, crate::FfiBestEffortKind::Distance),
+    (800.0, crate::FfiBestEffortKind::Distance),
     (1500.0, crate::FfiBestEffortKind::Distance),
 ];
 
@@ -1259,6 +1275,7 @@ fn power_bests(
         .map(|&secs| {
             let index = curve.and_then(|c| nearest_within(&c.secs, secs, DURATION_TOLERANCE_S));
             let value = index.and_then(|i| positive(curve?.watts.get(i).copied()));
+            let wkg = index.and_then(|i| positive(curve?.watts_per_kg.as_ref()?.get(i).copied()));
             crate::FfiBestEffort {
                 kind: crate::FfiBestEffortKind::Duration,
                 checkpoint: secs,
@@ -1267,6 +1284,10 @@ fn power_bests(
                 activity_id: value
                     .and(index)
                     .and_then(|i| curve?.activity_ids.as_ref()?.get(i).cloned()),
+                watts_per_kg: wkg,
+                wkg_activity_id: wkg
+                    .and(index)
+                    .and_then(|i| curve?.wkg_activity_ids.as_ref()?.get(i).cloned()),
                 activity: None,
             }
         })
@@ -1296,6 +1317,8 @@ fn pace_bests(
                 activity_id: value
                     .and(index)
                     .and_then(|i| curve?.activity_ids.as_ref()?.get(i).cloned()),
+                watts_per_kg: None,
+                wkg_activity_id: None,
                 activity: None,
             }
         })

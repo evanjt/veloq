@@ -184,6 +184,9 @@ pub struct RetiredSection {
     pub name: Option<String>,
     /// Its length when it left, else its newest stored line's.
     pub distance_meters: Option<f64>,
+    /// How many passes it had when it left: its retirement event's count,
+    /// else the newest archived state's. `None` when neither recorded one.
+    pub visit_count: Option<u32>,
     /// The version a restore rolls it back to: the newest `archived` state
     /// that names a sport, which is what recreating the row needs. `None`
     /// when no such state exists, and for a state a record restore still
@@ -1865,6 +1868,40 @@ pub(crate) mod pooled {
         if let Some(distance) = distance.filter(|d| *d > 0.0) {
             details.insert("distance_meters".into(), serde_json::json!(distance));
         }
+        let visits: Option<u32> = conn
+            .query_row(
+                "SELECT visit_count FROM sections WHERE id = ?",
+                [section_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .ok()
+            .flatten();
+        if let Some(visits) = visits {
+            details.insert("visit_count".into(), serde_json::json!(visits));
+        }
+    }
+
+    /// The pass count the newest archived state of a section recorded.
+    pub(crate) fn archived_visit_count(conn: &Connection, section_id: &str) -> Option<u32> {
+        let mut stmt = conn
+            .prepare(
+                "SELECT details FROM section_history
+                 WHERE section_id = ? AND kind = ? ORDER BY id DESC",
+            )
+            .ok()?;
+        let rows = stmt
+            .query_map(params![section_id, super::KIND_ARCHIVED], |row| {
+                row.get::<_, Option<String>>(0)
+            })
+            .ok()?;
+        rows.flatten().flatten().find_map(|details| {
+            serde_json::from_str::<serde_json::Value>(&details)
+                .ok()?
+                .get("visit_count")?
+                .as_u64()
+                .and_then(|v| u32::try_from(v).ok())
+        })
     }
 
     /// The name of a retired section whose departure recorded none: the
@@ -1962,6 +1999,11 @@ pub(crate) mod pooled {
                     .get("distance_meters")
                     .and_then(|v| v.as_f64())
                     .or_else(|| retired_distance(conn, &section_id, &versions));
+                let visit_count = d
+                    .get("visit_count")
+                    .and_then(|v| v.as_u64())
+                    .and_then(|v| u32::try_from(v).ok())
+                    .or_else(|| archived_visit_count(conn, &section_id));
                 let restorable_version = restorable_version_of(conn, &section_id);
                 RetiredSection {
                     section_id,
@@ -1971,6 +2013,7 @@ pub(crate) mod pooled {
                     versions,
                     name,
                     distance_meters,
+                    visit_count,
                     restorable_version,
                 }
             })

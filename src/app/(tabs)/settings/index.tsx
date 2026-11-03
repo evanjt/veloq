@@ -18,6 +18,7 @@ import { useAthlete } from '@/shared/app/useAthlete';
 import type { Athlete } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { SCHEME_LABEL_KEY, sourceFor, type AuthMethod } from '@/shared/app/source';
+import { Stack } from 'expo-router';
 import { useRouteSettings } from '@/features/routes';
 import { useRecordingPreferences } from '@/features/recording';
 import { useSensorStore } from '@/features/sensors';
@@ -26,6 +27,8 @@ import {
   useAutoBackupEnabled,
   useNotificationPreferences,
   SettingsNavRow,
+  BackgroundJobsHeaderItem,
+  ActivityHistoryRow,
   RecordingPermissionSection,
   FooterSection,
   SupportSection,
@@ -36,13 +39,13 @@ import {
   useExperimental,
   type GarminConnectorState,
 } from '@/features/settings';
-import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
 import { useThemePreferenceStore } from '@/shared/app/ThemeProvider';
 import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { navigateTo } from '@/shared/app/navigation';
+import { useOpenHistoryRangeFromLink } from '@/shared/app/historyRange';
 import { SCREEN_HEADERS, headerTitleOf } from '@/shared/app/screenHeaders';
-import { formatFileSize, formatMonthYear, getIntlLocale } from '@/shared/format/format';
+import { formatFileSize, getIntlLocale } from '@/shared/format/format';
 import { getAppStorageSize } from '@/shared/storage/gpsStorage';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -165,6 +168,7 @@ function SettingsScreenContent() {
   });
 
   useTabFirstFrame('/settings');
+  useOpenHistoryRangeFromLink();
   const scrollRef = useRef<ScrollViewInstance>(null);
   useScrollToTopOnReselect('/settings', scrollRef);
 
@@ -207,17 +211,6 @@ function SettingsScreenContent() {
 
   // Subtitle: Summary Card
   const summaryCardEnabled = useDashboardPreferences((s) => s.summaryCard.enabled);
-
-  // Subtitle: Local Data Range
-  const oldest = useSyncDateRange((s) => s.oldest);
-  const syncSubtitle = useMemo(() => {
-    if (!oldest) return '';
-    const label = formatMonthYear(oldest);
-    return t('settings.sinceDateSubtitle', {
-      defaultValue: `Since ${label}`,
-      date: label,
-    });
-  }, [oldest, t]);
 
   // Subtitle: Routes & sections
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
@@ -266,6 +259,7 @@ function SettingsScreenContent() {
       testID="settings-screen"
       style={[styles.container, isDark && styles.containerDark]}
     >
+      <Stack.Screen options={{ headerRight: () => <BackgroundJobsHeaderItem /> }} />
       <ScreenScrollView
         ref={scrollRef}
         testID="settings-scrollview"
@@ -316,12 +310,7 @@ function SettingsScreenContent() {
         </ListSectionHeader>
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <RowGroup>
-            <SpokeRow
-              route="sync-settings"
-              icon="sync"
-              subtitle={syncSubtitle}
-              testID="settings-nav-sync"
-            />
+            <ActivityHistoryRow />
             <SpokeRow
               route="recording-settings"
               icon="record-circle-outline"

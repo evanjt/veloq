@@ -21,6 +21,9 @@ mod migration_catalogue_archive;
 #[path = "../migration_checksums.rs"]
 mod migration_checksums;
 
+#[path = "../migration_from_released_library.rs"]
+mod migration_from_released_library;
+
 #[path = "../migration_from_released_v12.rs"]
 mod migration_from_released_v12;
 

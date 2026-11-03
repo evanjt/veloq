@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
@@ -28,7 +27,15 @@ import {
 } from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';
 import { Card } from '@/shared/ui/Card';
-import { Button, DisclosureChevron, TextSeparator, useLargeText, PressTarget } from '@/shared/ui';
+import {
+  Button,
+  ButtonRow,
+  DisclosureChevron,
+  TextSeparator,
+  useLargeText,
+  PressTarget,
+  type ButtonProps,
+} from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 
 /**
@@ -128,6 +135,21 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
     );
   }
 
+  const actions: ButtonProps[] = [
+    { icon: 'star', label: t('support.review'), onPress: handleReview, variant: 'secondary' },
+    {
+      icon: 'lightbulb-outline',
+      label: t('support.idea'),
+      onPress: handleIdea,
+      variant: 'secondary',
+    },
+    {
+      icon: 'forum-outline',
+      label: t('support.forum'),
+      onPress: handleForum,
+      variant: 'secondary',
+    },
+  ];
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
@@ -144,26 +166,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
           {t('support.feedbackDescription')}
         </Text>
 
-        <View style={styles.actionRow}>
-          <ActionButton
-            icon="star"
-            label={t('support.review')}
-            onPress={handleReview}
-            isDark={isDark}
-          />
-          <ActionButton
-            icon="lightbulb-outline"
-            label={t('support.idea')}
-            onPress={handleIdea}
-            isDark={isDark}
-          />
-          <ActionButton
-            icon="forum-outline"
-            label={t('support.forum')}
-            onPress={handleForum}
-            isDark={isDark}
-          />
-        </View>
+        <ButtonRow testID="support-card-actions" actions={actions} />
 
         {offersTip ? (
           <>
@@ -232,27 +235,6 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
   );
 }
 
-function ActionButton({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: string;
-  label: string;
-  onPress: () => void;
-  isDark: boolean;
-}) {
-  return (
-    <Button
-      label={label}
-      variant="secondary"
-      onPress={onPress}
-      style={styles.actionButton}
-      icon={icon as keyof typeof MaterialCommunityIcons.glyphMap}
-    />
-  );
-}
-
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
@@ -273,13 +255,6 @@ const styles = StyleSheet.create({
   },
   descriptionDark: {
     color: darkColors.textSecondary,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
   },
   tipToggle: {
     flexDirection: 'row',

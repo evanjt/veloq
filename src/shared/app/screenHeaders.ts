@@ -60,6 +60,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'sheets/merge-confirm': null,
   'sheets/section-chooser': null,
   'sheets/explainer': null,
+  'sheets/history-range': null,
 
   'activity/[id]': { overMap: true },
   'exercise/[category]': { titleKey: 'strength.history', largeTitle: true },
@@ -71,6 +72,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
 
   about: { titleKey: 'about.title', largeTitle: true },
   account: { titleKey: 'settings.account', largeTitle: true },
+  'background-jobs': { titleKey: 'backgroundJobs.title', largeTitle: true },
   'backup-settings': { titleKey: 'backup.title', largeTitle: true },
   'best-efforts': { titleKey: 'bestEffortsScreen.title' },
   'cache-settings': { titleKey: 'settings.storage', largeTitle: true },
@@ -86,7 +88,11 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'named-corridors': { titleKey: 'namedCorridors.title', largeTitle: true },
   'notification-settings': { titleKey: 'notifications.settings.title', largeTitle: true },
   record: { titleKey: 'recording.startActivity' },
+  'recording-auto-pause': { titleKey: 'recording.settingsAutoPause', largeTitle: true },
+  'recording-data-fields': { titleKey: 'recording.settingsDataFields', largeTitle: true },
+  'recording-gps-settings': { titleKey: 'recording.settingsGps', largeTitle: true },
   'recording-settings': { titleKey: 'recording.settings', largeTitle: true },
+  'recording-upload': { titleKey: 'recording.settingsUpload', largeTitle: true },
   'route-grouping-preview': { titleKey: 'settings.previewRouteGrouping' },
   'recording/review': { titleKey: 'recording.reviewActivity', largeTitle: true },
   'recordings/[id]': { titleKey: 'recording.library.title', dynamic: true },
@@ -94,7 +100,6 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'section-retired': { titleKey: 'sectionHistory.retiredTitle', largeTitle: true },
   'sensor-settings': { titleKey: 'sensors.title', largeTitle: true },
   'summary-card-settings': { titleKey: 'settings.summaryCard', largeTitle: true },
-  'sync-settings': { titleKey: 'settings.localDataRange', largeTitle: true },
 };
 
 /**
@@ -171,6 +176,7 @@ export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
   'sheets/merge-confirm': [0.6, 1],
   'sheets/section-chooser': 'fitToContents',
   'sheets/explainer': 'fitToContents',
+  'sheets/history-range': 'fitToContents',
 };
 
 /**

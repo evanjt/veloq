@@ -2,7 +2,8 @@
  * Scenario: the routes tab banner and summary row while a sync is running.
  *
  * Expected behaviour: a progress message and the loading summary each sit
- * beside a moving indicator, and the still sync glyph is gone.
+ * beside a moving indicator, and the still sync glyph is gone. A wait that is
+ * held rather than running is a still note beside the activity count.
  */
 
 import React from 'react';
@@ -34,6 +35,16 @@ describe('DateRangeSummary waits', () => {
   it('shows an indicator beside the loading text', async () => {
     const { UNSAFE_getAllByType } = await render(<DateRangeSummary {...base} isLoading />);
     expect(UNSAFE_getAllByType(ActivityIndicator)).toHaveLength(1);
+  });
+
+  it('shows a held note still, with no indicator, while the old figures stay', async () => {
+    const { UNSAFE_queryAllByType, queryByText, getByTestId } = await render(
+      <DateRangeSummary {...base} heldMessage="Detection paused while your sections migrate" />
+    );
+    expect(queryByText('Detection paused while your sections migrate')).toBeTruthy();
+    expect(getByTestId('routes-held-banner')).toBeTruthy();
+    expect(UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+    expect(queryByText('sections.activitiesCount:{"count":3}')).toBeTruthy();
   });
 
   it('shows no indicator when nothing is outstanding', async () => {

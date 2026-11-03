@@ -1,1 +1,1 @@
-leistung,watt,puls,herzfrequenz,zonen,ftp,hrv,gpx,anstieg,route,runde,schwimmen,triathlon,kraft
+rad,laufen,routen,abschnitte,heatmap,einblicke,offline,datenschutz,höhe,triathlon,mtb,gravel,hrv

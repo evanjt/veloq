@@ -210,6 +210,15 @@ jobs:
         run: |
           grep -E "(FATAL|veloqrs|ReactNative|AndroidRuntime|Process:|Signal|crash|panic)" /tmp/logcat.txt > /tmp/logcat-filtered.txt 2>/dev/null || true
 
+      - name: Report labels broken mid-word
+        if: always()
+        run: |
+          grep -h "\[MidWordBreak\]" /tmp/logcat.txt | sed 's/^.*\[MidWordBreak\]/[MidWordBreak]/' | sort -u > /tmp/mid-word-breaks.txt || true
+          if [ -s /tmp/mid-word-breaks.txt ]; then
+            echo "::warning::A button label broke inside a word. See the job summary."
+            { echo '### Labels broken mid-word'; echo '```'; cat /tmp/mid-word-breaks.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Collect screenshots
         if: always()
         run: |
@@ -237,6 +246,7 @@ jobs:
           path: |
             /tmp/logcat.txt
             /tmp/logcat-filtered.txt
+            /tmp/mid-word-breaks.txt
             /tmp/device-state.txt
           retention-days: 7
 

@@ -1,8 +1,8 @@
-import React, { memo, useCallback, useMemo, useRef } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
-  Text as RNText,
+  useWindowDimensions,
   type LayoutChangeEvent,
   type ViewInstance,
 } from 'react-native';
@@ -48,6 +48,20 @@ import type { SectionEncounter } from 'veloqrs';
 import type { SectionEncounterGroup } from '@/features/activity/lib/groupSectionEncounters';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 import { NameText } from '@/shared/ui/NameText';
+import { FitText } from '@/shared/ui/FitText';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
+import { labelWords } from '@/shared/ui/buttonRowLayout';
+import {
+  DIRECTION_BADGE_WIDTH,
+  DIRECTION_LABEL_WIDTH,
+  DIRECTION_ROW_GAP,
+  MARKER_SLOT_WIDTH,
+  PACE_TYPE,
+  SECTION_PLOT_HEIGHT,
+  SECTION_PLOT_WIDTH,
+  sectionMetaStacks,
+  sectionRowShowsRange,
+} from '@/features/activity/lib/sectionInlineRowLayout';
 
 interface SectionInlinePlotProps {
   group: SectionEncounterGroup;
@@ -270,6 +284,22 @@ export const SectionInlinePlot = memo(
       [onRowHeight, index]
     );
 
+    // Every direction row is as wide as the first, so one measurement decides
+    // for the card whether the range labels still fit beside the pace.
+    const [rowWidth, setRowWidth] = useState<number | undefined>(undefined);
+    const handleRowLayout = useCallback((e: LayoutChangeEvent) => {
+      setRowWidth(e.nativeEvent.layout.width);
+    }, []);
+    const { fontScale } = useWindowDimensions();
+    const showRange = sectionRowShowsRange(rowWidth, fontScale);
+
+    // The drawn width of a leading badge and of each word on a direction's line, keyed by what
+    // it measures. The words are drawn at the text size the line uses, so they decide the wrap.
+    const [measures, setMeasures] = useState<Readonly<Record<string, number>>>({});
+    const measure = useCallback((key: string, width: number) => {
+      setMeasures((prev) => (prev[key] === width ? prev : { ...prev, [key]: width }));
+    }, []);
+
     // Only row 0's ref is forwarded to the parent - it's the anchor point the
     // scrub hit-test measures at gesture start. Other rows don't need refs.
     const ownRef = useRef<ViewInstance | null>(null);
@@ -338,9 +368,41 @@ export const SectionInlinePlot = memo(
               // bare testID and only the extra directions carry a suffix.
               const suffix = dirIndex === 0 ? `${index}` : `${index}-${dirIndex}`;
               const sparklineData = sparklines[dirIndex];
+              const metaLine =
+                formatDistance(encounter.distanceMeters, isMetric) +
+                (encounter.historyTimes.length > 0
+                  ? ` · ${t('sections.traversalsCount', { count: encounter.visitCount })}`
+                  : '');
+              const metaWords = labelWords(metaLine);
+              const widestWord = Math.max(
+                0,
+                ...metaWords.map((_, j) => measures[`word:${dirIndex}:${j}`] ?? 0)
+              );
+              const hasLead = isPartialDirection || showDirection;
+              const metaStacked = sectionMetaStacks({
+                rowWidth,
+                showRange,
+                leadWidth: hasLead ? (measures[`lead:${dirIndex}`] ?? 0) : 0,
+                widestWord,
+              });
+              const meta = (
+                <Text
+                  testID={`section-inline-meta-${suffix}`}
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[
+                    styles.meta,
+                    isDark && styles.textSecondary,
+                    metaStacked && styles.metaOwnLine,
+                  ]}
+                >
+                  {metaLine}
+                </Text>
+              );
               return (
                 <View
                   key={`${encounter.direction}-${dirIndex}`}
+                  testID={`section-inline-row-${suffix}`}
+                  onLayout={dirIndex === 0 ? handleRowLayout : undefined}
                   style={[
                     styles.directionRow,
                     dirIndex > 0 && styles.directionRowDivided,
@@ -351,6 +413,7 @@ export const SectionInlinePlot = memo(
                     <Text
                       testID={`section-inline-partial-${suffix}`}
                       accessibilityLabel={t('sections.partial')}
+                      onLayout={(e) => measure(`lead:${dirIndex}`, e.nativeEvent.layout.width)}
                       style={[styles.partialBadge, isDark && styles.textSecondary]}
                     >
                       {t('sections.partial')}
@@ -359,77 +422,91 @@ export const SectionInlinePlot = memo(
                     showDirection && (
                       <Text
                         accessibilityLabel={t(isReverse ? 'sections.reverse' : 'sections.forward')}
+                        onLayout={(e) => measure(`lead:${dirIndex}`, e.nativeEvent.layout.width)}
                         style={[styles.directionBadge, isDark && styles.textSecondary]}
                       >
                         {isReverse ? '↩' : '→'}
                       </Text>
                     )
                   )}
-                  <View style={styles.directionInfo}>
-                    <View style={styles.metaRow}>
-                      <RNText style={[styles.meta, isDark && styles.textSecondary]}>
-                        {formatDistance(encounter.distanceMeters, isMetric)}
-                        {encounter.historyTimes.length > 0 &&
-                          ` · ${t('sections.traversalsCount', { count: encounter.visitCount })}`}
-                        {encounter.lapTime > 0 && (
-                          <>
-                            <RNText style={[styles.meta, isDark && styles.textSecondary]}>
-                              {' '}
-                              ·{' '}
-                            </RNText>
-                            <RNText style={[styles.timeValue, isDark && styles.textLight]}>
-                              {formatLap(encounter.lapPace, encounter.lapTime, sportType, isMetric)}
-                            </RNText>
-                          </>
+                  <View testID={`section-inline-text-${suffix}`} style={styles.textColumn}>
+                    {encounter.lapTime > 0 && (
+                      <FitText
+                        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                        style={[styles.pace, isDark && styles.textLight]}
+                      >
+                        {formatLap(encounter.lapPace, encounter.lapTime, sportType, isMetric)}
+                      </FitText>
+                    )}
+                    {!metaStacked && meta}
+                  </View>
+                  <View testID={`section-inline-markers-${suffix}`} style={styles.markerSlot}>
+                    {!encounter.isComplete && !isPartialDirection && (
+                      <Text
+                        testID={`section-inline-partial-${suffix}`}
+                        accessibilityLabel={t('sections.partial')}
+                        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                        style={[styles.partialMeta, isDark && styles.textSecondary]}
+                      >
+                        {t('sections.partial')}
+                      </Text>
+                    )}
+                    {encounter.isComplete && encounter.isPr ? (
+                      <View
+                        testID={`section-inline-trophy-${suffix}`}
+                        accessible
+                        accessibilityRole="image"
+                        accessibilityLabel={t('a11y.personalRecord')}
+                      >
+                        <Icon name="trophy" size={iconSize.xs} color={brand.gold} />
+                      </View>
+                    ) : null}
+                    {encounter.isComplete && (encounter.rank === 2 || encounter.rank === 3) ? (
+                      <RankRing
+                        testID={`section-inline-place-${suffix}`}
+                        rank={encounter.rank}
+                        isDark={isDark}
+                        accessibilityLabel={t(
+                          encounter.rank === 2 ? 'sections.placeSecond' : 'sections.placeThird'
                         )}
-                      </RNText>
-                      {!encounter.isComplete && !isPartialDirection && (
-                        <Text
-                          testID={`section-inline-partial-${suffix}`}
-                          accessibilityLabel={t('sections.partial')}
-                          style={[styles.partialMeta, isDark && styles.textSecondary]}
-                        >
-                          {t('sections.partial')}
-                        </Text>
-                      )}
-                      {encounter.isComplete && encounter.isPr ? (
-                        <View
-                          testID={`section-inline-trophy-${suffix}`}
-                          accessible
-                          accessibilityRole="image"
-                          accessibilityLabel={t('a11y.personalRecord')}
-                          style={{ marginLeft: spacing.xxs }}
-                        >
-                          <Icon name="trophy" size={iconSize.xs} color={brand.gold} />
-                        </View>
-                      ) : null}
-                      {encounter.isComplete && (encounter.rank === 2 || encounter.rank === 3) ? (
-                        <View style={{ marginLeft: spacing.xxs }}>
-                          <RankRing
-                            testID={`section-inline-place-${suffix}`}
-                            rank={encounter.rank}
-                            isDark={isDark}
-                            accessibilityLabel={t(
-                              encounter.rank === 2 ? 'sections.placeSecond' : 'sections.placeThird'
-                            )}
-                          />
-                        </View>
-                      ) : null}
-                    </View>
+                      />
+                    ) : null}
                   </View>
                   {encounter.historyTimes.length > 0 && sparklineData ? (
-                    <View testID={`section-inline-sparkline-${suffix}`}>
+                    <View testID={`section-inline-sparkline-${suffix}`} style={styles.plotColumn}>
                       <SectionSparkline
                         points={sparklineData.points}
                         name={sparklineData.name}
                         format={sparklineData.format}
                         summary={sparklineData.summary}
                         highlightIndex={sparklineData.highlightIndex}
-                        width={SPARKLINE_WIDTH}
-                        height={SPARKLINE_HEIGHT}
+                        width={SECTION_PLOT_WIDTH}
+                        height={SECTION_PLOT_HEIGHT}
+                        showRange={showRange}
                       />
                     </View>
                   ) : null}
+                  {metaStacked ? meta : null}
+                  <View
+                    style={styles.measureProbe}
+                    pointerEvents="none"
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                  >
+                    {metaWords.map((word, j) => (
+                      <Text
+                        key={j}
+                        testID={`section-inline-measure-${suffix}-${j}`}
+                        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                        style={styles.meta}
+                        onLayout={(e) =>
+                          measure(`word:${dirIndex}:${j}`, e.nativeEvent.layout.width)
+                        }
+                      >
+                        {word}
+                      </Text>
+                    ))}
+                  </View>
                 </View>
               );
             })}
@@ -469,11 +546,6 @@ export const SectionInlinePlot = memo(
     )
 );
 
-/** The inline sparkline's plot, with its range printed beside it on two caption lines. */
-const SPARKLINE_WIDTH = 80;
-const SPARKLINE_HEIGHT = 2 * typography.caption.lineHeight;
-
-const DIRECTION_LABEL_WIDTH = 26;
 /** The index number's disc, as wide as the column the direction rows indent past. */
 const NUMBER_DISC = DIRECTION_LABEL_WIDTH;
 
@@ -519,9 +591,14 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.textPrimary,
   },
+  // The wrap exists for the distance and traversals line, which drops to a line of its own when
+  // the text column cannot hold its widest word. The text column's basis is zero, so the pace,
+  // the markers and the plot still share one line.
   directionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
+    gap: DIRECTION_ROW_GAP,
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.sm,
     paddingLeft: DIRECTION_LABEL_WIDTH + spacing.md,
@@ -535,40 +612,59 @@ const styles = StyleSheet.create({
     borderTopColor: darkColors.border,
   },
   directionBadge: {
-    width: 16,
+    width: DIRECTION_BADGE_WIDTH,
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginRight: spacing.xs,
   },
   partialBadge: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginRight: spacing.xs,
   },
   partialMeta: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
-    marginLeft: spacing.xxs,
   },
-  directionInfo: {
+  // The text column is the one piece that narrows: minWidth 0 lets it shrink
+  // below its text, so the pace shrinks to fit and the meta line wraps rather
+  // than pushing the markers onto the plot.
+  textColumn: {
     flex: 1,
+    minWidth: 0,
   },
-  metaRow: {
+  markerSlot: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexShrink: 0,
+    minWidth: MARKER_SLOT_WIDTH,
+    gap: spacing.xxs,
+  },
+  plotColumn: {
+    flexShrink: 0,
   },
   textLight: {
     color: darkColors.textPrimary,
   },
+  pace: {
+    ...PACE_TYPE,
+    color: colors.textPrimary,
+  },
   meta: {
-    fontSize: typography.label.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
+  },
+  metaOwnLine: {
+    flexBasis: '100%',
+  },
+  // Out of the flow and invisible, each word on a line of its own so it reports its drawn width.
+  measureProbe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    opacity: 0,
+    alignItems: 'flex-start',
   },
   textSecondary: {
     color: darkColors.textSecondary,
-  },
-  timeValue: {
-    ...typography.badge,
-    color: colors.textPrimary,
   },
 });

@@ -4,7 +4,7 @@ import {
   timeRangeToDays,
   type TimeRange,
 } from '@/features/wellness';
-import { usePaceCurve, useSeasonBests } from '@/features/stats';
+import { usePaceCurve } from '@/features/stats';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { type PrimarySport } from '@/features/fitness/stores';
 import { useZoneDistribution } from './useZoneDistribution';
@@ -79,14 +79,6 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
     enabled: sportMode === 'Swimming',
   });
 
-  const {
-    efforts: bestsEfforts,
-    climbing: bestsClimbing,
-    climbingStatus: bestsClimbingStatus,
-    isLoading: loadingBests,
-    headerSummary: bestsHeader,
-  } = useSeasonBests({ sport: sportMode, days });
-
   return {
     wellness,
     wellnessCoverage,
@@ -108,11 +100,6 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
     runLthr: runningLthr,
     runPaceCurve,
     swimPaceCurve,
-    bestsEfforts,
-    bestsClimbing,
-    bestsClimbingStatus,
-    loadingBests,
-    bestsHeader,
     // The value intervals.icu stored on the ride, which is what its activity
     // screen prints, so the card and that screen cannot disagree.
     decouplingSource: decouplingBySpan.get(days) ?? null,

@@ -108,6 +108,13 @@ describe('the capture flow', () => {
     expect(FLOW.slice(closed, shot)).toMatch(/assertNotVisible:\s*\n\s+id: "map-layers-menu"/);
   });
 
+  it('closes the ride popup and asserts it gone before the map shot', () => {
+    const shot = at('store-capture/02-map');
+    const closeTap = FLOW.lastIndexOf('activity-popup-close', shot);
+    expect(closeTap).toBeGreaterThan(at('regional-map-ready'));
+    expect(FLOW.slice(closeTap, shot)).toMatch(/assertNotVisible:\s*\n\s+id: "activity-popup"/);
+  });
+
   it('frames the map on the Valais ride rather than the library default', () => {
     expect(FLOW.slice(0, at('store-capture/02-map'))).toContain('veloq://map?activity=demo-test-0');
   });

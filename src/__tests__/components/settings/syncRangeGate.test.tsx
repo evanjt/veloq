@@ -1,17 +1,17 @@
 /**
  * Scenario: the history slider can reach the athlete's first-ever activity, so
- * one drag to the left edge can start an unbounded download.
+ * one drag to the left edge could start an unbounded download.
  *
- * Expected behaviour: past the large-history threshold the panel asks before it
- * expands, and a refused prompt leaves the synced range exactly where it was.
+ * Expected behaviour: a drag only proposes a range and states what it costs;
+ * nothing downloads until the confirm button is pressed, and a drag back to the
+ * synced edge withdraws the proposal.
  */
 
 import React from 'react';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 import { SyncRangePanel } from '@/features/settings/components/SyncRangePanel';
-import { SCREEN_HEADERS } from '@/shared/app/screenHeaders';
 
 // The maps barrel reaches the engine binding, which registers a TurboModule at
 // import time, so the graph this renders cannot load without the stub.
@@ -20,6 +20,17 @@ const mockSyncDateRange = jest.fn();
 let mockSliderRangeChange: ((start: Date, end: Date) => void) | null = null;
 let mockResetKeys: (number | undefined)[] = [];
 let mockYearCounts: { year: number; count: number }[] = [];
+let mockDayShare: number | undefined;
+
+jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
+  useTranslation: () => ({
+    t: (key: string, options?: { count?: number; activities?: number }) => {
+      const n = options?.count ?? options?.activities;
+      return n === undefined ? key : `${key}:${n}`;
+    },
+  }),
+}));
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
@@ -51,6 +62,10 @@ jest.mock('@/shared/app/useOldestActivityDate', () => ({
   useOldestActivityDate: () => ({ data: new Date('2015-01-01T00:00:00') }),
 }));
 
+jest.mock('@/features/settings/hooks/useBackfillDayShare', () => ({
+  useBackfillDayShare: () => mockDayShare,
+}));
+
 jest.mock('@/features/settings/hooks/useActivityYearCounts', () => ({
   useActivityYearCounts: () => ({ data: mockYearCounts }),
 }));
@@ -77,165 +92,121 @@ jest.mock('@/features/maps/lib/heatmapTiles', () => ({
   HEATMAP_TILES_DIR: '/tmp/heatmap',
 }));
 
-async function dragTo(year: number) {
-  await render(<SyncRangePanel />);
-  mockSliderRangeChange?.(new Date(`${year}-01-01T00:00:00`), new Date());
+const BIG = [
+  { year: 2015, count: 700 },
+  { year: 2025, count: 40 },
+  { year: 2026, count: 60 },
+];
+const SMALL = [
+  { year: 2025, count: 40 },
+  { year: 2026, count: 60 },
+];
+
+async function propose(start: string) {
+  const view = await render(<SyncRangePanel />);
+  await act(() => {
+    mockSliderRangeChange?.(new Date(`${start}T00:00:00`), new Date());
+  });
+  return view;
 }
 
-describe('the history slider gate', () => {
+describe('the history sheet slider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSliderRangeChange = null;
     mockResetKeys = [];
     mockYearCounts = [];
+    mockDayShare = undefined;
   });
 
-  describe('putting the handle back', () => {
-    const distinctKeys = () => new Set(mockResetKeys).size;
+  it('starts nothing while the slider moves, and states the cost', async () => {
+    mockYearCounts = SMALL;
+    const view = await propose('2025-01-01');
 
-    async function dragInAct(start: string) {
-      await act(() => {
-        mockSliderRangeChange?.(new Date(`${start}T00:00:00`), new Date());
-      });
-    }
-
-    it('after Cancel on the large-history prompt', async () => {
-      jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
-        buttons?.[0]?.onPress?.();
-      });
-      mockYearCounts = [
-        { year: 2015, count: 700 },
-        { year: 2025, count: 40 },
-        { year: 2026, count: 60 },
-      ];
-      await render(<SyncRangePanel />);
-      const before = distinctKeys();
-      await dragInAct('2015-01-01');
-
-      expect(distinctKeys()).toBe(before + 1);
-    });
-
-    it('after the expansion latch refuses the drag', async () => {
-      jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-      mockSyncDateRange.mockReturnValue('locked');
-      mockYearCounts = [
-        { year: 2025, count: 40 },
-        { year: 2026, count: 60 },
-      ];
-      await render(<SyncRangePanel />);
-      const before = distinctKeys();
-      await dragInAct('2025-01-01');
-
-      expect(distinctKeys()).toBe(before + 1);
-    });
-
-    it('after a drag that does not widen the range', async () => {
-      await render(<SyncRangePanel />);
-      const before = distinctKeys();
-      await dragInAct('2026-08-01');
-
-      expect(distinctKeys()).toBe(before + 1);
-    });
-
-    it('not when the prompt is confirmed', async () => {
-      jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
-        buttons?.[buttons.length - 1]?.onPress?.();
-      });
-      mockSyncDateRange.mockReturnValue('expanded');
-      mockYearCounts = [
-        { year: 2015, count: 700 },
-        { year: 2025, count: 40 },
-        { year: 2026, count: 60 },
-      ];
-      await render(<SyncRangePanel />);
-      const before = distinctKeys();
-      await dragInAct('2015-01-01');
-
-      expect(distinctKeys()).toBe(before);
-    });
-
-    it('not when a small widening goes through', async () => {
-      mockSyncDateRange.mockReturnValue('expanded');
-      mockYearCounts = [
-        { year: 2025, count: 40 },
-        { year: 2026, count: 60 },
-      ];
-      await render(<SyncRangePanel />);
-      const before = distinctKeys();
-      await dragInAct('2025-01-01');
-
-      expect(distinctKeys()).toBe(before);
-    });
+    expect(mockSyncDateRange).not.toHaveBeenCalled();
+    expect(view.getByTestId('history-range-cost')).toBeTruthy();
   });
 
-  it('expands straight away when the widening is small', async () => {
-    mockYearCounts = [
-      { year: 2025, count: 40 },
-      { year: 2026, count: 60 },
-    ];
-    await dragTo(2025);
+  it('shows no cost line or confirm before the slider moves', async () => {
+    const view = await render(<SyncRangePanel />);
 
-    expect(mockSyncDateRange).toHaveBeenCalledTimes(1);
+    expect(view.queryByTestId('history-range-cost')).toBeNull();
+    expect(view.queryByTestId('history-range-confirm')).toBeNull();
   });
 
-  it('asks before expanding when the widening is large', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    mockYearCounts = [
-      { year: 2015, count: 700 },
-      { year: 2025, count: 40 },
-      { year: 2026, count: 60 },
-    ];
-    await dragTo(2015);
+  it('changes the cost line with the proposed range', async () => {
+    mockYearCounts = BIG;
+    const view = await propose('2025-01-01');
+    const small = view.getByTestId('history-range-cost').props.children;
+    await act(() => {
+      mockSliderRangeChange?.(new Date('2015-01-01T00:00:00'), new Date());
+    });
 
-    expect(alert).toHaveBeenCalled();
+    expect(view.getByTestId('history-range-cost').props.children).not.toEqual(small);
+  });
+
+  it('names the days at the daily limit when the range outruns one day', async () => {
+    mockYearCounts = BIG;
+    mockDayShare = 400;
+    const view = await propose('2015-01-01');
+
+    expect(view.getByTestId('history-range-days').props.children).toBe(
+      'settings.largeHistoryDaysTitle:2'
+    );
     expect(mockSyncDateRange).not.toHaveBeenCalled();
   });
 
-  it('expands once the prompt is confirmed', async () => {
-    jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
-      buttons?.[buttons.length - 1]?.onPress?.();
-    });
-    mockYearCounts = [
-      { year: 2015, count: 700 },
-      { year: 2025, count: 40 },
-      { year: 2026, count: 60 },
-    ];
-    await dragTo(2015);
+  it('names no days when the range fits inside one day or the engine reports no share', async () => {
+    mockYearCounts = SMALL;
+    mockDayShare = 400;
+    const view = await propose('2025-01-01');
+
+    expect(view.queryByTestId('history-range-days')).toBeNull();
+  });
+
+  it('starts the download once on confirm, and never opens an alert for a large range', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockSyncDateRange.mockReturnValue('expanded');
+    mockYearCounts = BIG;
+    const view = await propose('2015-01-01');
+
+    await fireEvent.press(view.getByTestId('history-range-confirm'));
 
     expect(mockSyncDateRange).toHaveBeenCalledTimes(1);
-  });
-
-  it('leaves the range alone when the prompt is cancelled', async () => {
-    jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
-      buttons?.[0]?.onPress?.();
-    });
-    mockYearCounts = [
-      { year: 2015, count: 700 },
-      { year: 2025, count: 40 },
-      { year: 2026, count: 60 },
-    ];
-    await dragTo(2015);
-
-    expect(mockSyncDateRange).not.toHaveBeenCalled();
-  });
-
-  it('does not block the user behind a count it does not have', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    mockYearCounts = [];
-    await dragTo(2015);
-
+    expect(mockSyncDateRange.mock.calls[0][0]).toBe('2015-01-01');
     expect(alert).not.toHaveBeenCalled();
+    expect(view.queryByTestId('history-range-confirm')).toBeNull();
+  });
+
+  it('expands without a count it does not have', async () => {
+    mockSyncDateRange.mockReturnValue('expanded');
+    mockYearCounts = [];
+    const view = await propose('2015-01-01');
+
+    await fireEvent.press(view.getByTestId('history-range-confirm'));
+
     expect(mockSyncDateRange).toHaveBeenCalledTimes(1);
   });
 
-  it('says why when the expansion latch refuses the drag', async () => {
+  it('withdraws the proposal when the handle is dragged back to the synced edge', async () => {
+    mockYearCounts = SMALL;
+    const view = await propose('2025-01-01');
+    await act(() => {
+      mockSliderRangeChange?.(new Date('2026-08-01T00:00:00'), new Date());
+    });
+
+    expect(view.queryByTestId('history-range-confirm')).toBeNull();
+    expect(mockSyncDateRange).not.toHaveBeenCalled();
+  });
+
+  it('says why and puts the handle back when the expansion latch refuses the confirm', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockSyncDateRange.mockReturnValue('locked');
-    mockYearCounts = [
-      { year: 2025, count: 40 },
-      { year: 2026, count: 60 },
-    ];
-    await dragTo(2025);
+    mockYearCounts = SMALL;
+    const view = await propose('2025-01-01');
+    const before = new Set(mockResetKeys).size;
+
+    await fireEvent.press(view.getByTestId('history-range-confirm'));
 
     expect(alert).toHaveBeenCalledWith(
       'settings.rangeLockedTitle',
@@ -243,34 +214,18 @@ describe('the history slider gate', () => {
       undefined,
       expect.objectContaining({ cancelable: true })
     );
+    expect(new Set(mockResetKeys).size).toBe(before + 1);
+    expect(view.queryByTestId('history-range-confirm')).toBeNull();
   });
 
-  it('stays quiet when the expansion goes through', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    mockSyncDateRange.mockReturnValue('expanded');
-    mockYearCounts = [
-      { year: 2025, count: 40 },
-      { year: 2026, count: 60 },
-    ];
-    await dragTo(2025);
-
-    expect(alert).not.toHaveBeenCalled();
-  });
-
-  it('ignores a drag that does not widen the range', async () => {
-    mockYearCounts = [{ year: 2015, count: 700 }];
-    await render(<SyncRangePanel />);
-    mockSliderRangeChange?.(new Date('2026-08-01T00:00:00'), new Date());
-
-    expect(mockSyncDateRange).not.toHaveBeenCalled();
-  });
-});
-
-describe('the panel under its screen title', () => {
-  it('opens on the slider rather than a header repeating the title', async () => {
+  it('puts the handle back after a drag that does not widen the range', async () => {
     const view = await render(<SyncRangePanel />);
+    const before = new Set(mockResetKeys).size;
+    await act(() => {
+      mockSliderRangeChange?.(new Date('2026-08-01T00:00:00'), new Date());
+    });
 
-    const headers = view.queryAllByRole('header').map((node) => node.props.children);
-    expect(headers).not.toContain(SCREEN_HEADERS['sync-settings']?.titleKey);
+    expect(new Set(mockResetKeys).size).toBe(before + 1);
+    expect(view.queryByTestId('history-range-confirm')).toBeNull();
   });
 });

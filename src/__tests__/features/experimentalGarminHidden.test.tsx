@@ -95,8 +95,6 @@ const ALL = { includeHiddenElements: true };
 
 function setGarmin(on: boolean) {
   useDebugStore.setState({
-    experimentalEnabled: on,
-    experimentalUnlocked: on,
     experimentalFeatures: { garminUpdate: on },
   });
 }
@@ -140,13 +138,9 @@ describe('the Garmin slide', () => {
   });
 
   it('is no setup slide the tour offer can owe while the switch is off', () => {
-    const off = { experimentalEnabled: false, experimentalFeatures: {} };
-    const unchosen = { experimentalEnabled: true, experimentalFeatures: {} };
-    const on = { experimentalEnabled: true, experimentalFeatures: { garminUpdate: true } };
+    const off = { experimentalFeatures: {} };
+    const on = { experimentalFeatures: { garminUpdate: true } };
     expect(getTutorialSetupSlides((slide) => surfaceShown(off, slide))).not.toContain('garmin');
-    expect(getTutorialSetupSlides((slide) => surfaceShown(unchosen, slide))).not.toContain(
-      'garmin'
-    );
     expect(getTutorialSetupSlides((slide) => surfaceShown(on, slide))).toContain('garmin');
   });
 
@@ -165,7 +159,6 @@ describe('the Garmin slide', () => {
 
   it('is absent while the master switch is on and the Garmin entry is off', async () => {
     useDebugStore.setState({
-      experimentalEnabled: true,
       experimentalFeatures: { garminUpdate: false },
     });
     await openTour('tutorial', null);
@@ -176,8 +169,6 @@ describe('the Garmin slide', () => {
 describe('the master switch alone', () => {
   beforeEach(() => {
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: {},
     });
   });

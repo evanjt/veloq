@@ -150,8 +150,6 @@ function FitnessScreenContent() {
 
   // Collapsible section state - all collapsed by default to reduce initial render load
   const sections = useCollapsibleSections({
-    performance: false,
-    bests: false,
     zones: false,
     trends: false,
     efficiency: false,
@@ -246,11 +244,6 @@ function FitnessScreenContent() {
     runLthr,
     runPaceCurve,
     swimPaceCurve,
-    bestsEfforts,
-    bestsClimbing,
-    bestsClimbingStatus,
-    loadingBests,
-    bestsHeader,
     decouplingSource,
     training,
     isLoading,
@@ -494,7 +487,7 @@ function FitnessScreenContent() {
     </StagedPage>
   );
 
-  // Performance curves and season bests.
+  // The performance curve.
   const performancePage = page(
     'performance',
     true,
@@ -503,23 +496,13 @@ function FitnessScreenContent() {
       {(stage) => (
         <>
           {stage >= SECTION_STAGE ? (
-            <View onLayout={(event) => reveals.performance.onAnchorLayout('performance', event)}>
+            <View onLayout={(event) => reveals.performance.onAnchorLayout('chart', event)}>
               <PerformanceCurveSection
                 sportMode={sportMode}
-                timeRange={timeRange}
                 days={days}
                 currentFTP={currentFTP}
                 thresholdPace={thresholdPace}
                 swimThresholdPace={swimThresholdPace}
-                performanceExpanded={sections.expanded('performance')}
-                onPerformanceToggle={sections.onToggle('performance')}
-                bestsExpanded={sections.expanded('bests')}
-                onBestsToggle={sections.onToggle('bests')}
-                bestsEfforts={bestsEfforts}
-                bestsClimbing={bestsClimbing}
-                bestsClimbingStatus={bestsClimbingStatus}
-                loadingBests={loadingBests}
-                bestsHeader={bestsHeader}
               />
             </View>
           ) : null}

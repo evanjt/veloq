@@ -62,11 +62,14 @@ onFlowComplete:
 
 - takeScreenshot: "screenshots/recording-settings-loaded"
 
-# The auto-pause card starts under the tab bar, where a tap lands on a tab.
-- swipe:
-    start: 50%, 75%
-    end: 50%, 45%
-    duration: 800
+# Auto-pause is its own page under the settings index.
+- tapOn:
+    id: "settings-auto-pause-link"
+
+- extendedWaitUntil:
+    visible:
+      id: "recording-auto-pause-screen"
+    timeout: 10000
 
 - assertVisible:
     id: "settings-auto-pause"
@@ -91,8 +94,17 @@ onFlowComplete:
 
 - takeScreenshot: "screenshots/recording-settings-threshold-adjusted"
 
-# Scroll down to see data fields
-- scroll
+# Back to the index, then open the data fields page
+- runFlow:
+    file: helpers/go-back.yaml
+
+- tapOn:
+    id: "settings-data-fields-link"
+
+- extendedWaitUntil:
+    visible:
+      id: "recording-data-fields-screen"
+    timeout: 10000
 
 - takeScreenshot: "screenshots/recording-settings-data-fields"
 

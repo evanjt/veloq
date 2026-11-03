@@ -101,7 +101,7 @@ beforeEach(() => {
     isLoaded: true,
   });
   useRecordingStore.setState({
-    latestSensor: { heartrate: null, power: null, cadence: null },
+    latestSensor: { heartrate: null, power: null, cadence: null, speed: null },
   });
 });
 
@@ -159,6 +159,7 @@ it('shows the value a connected source is sending and its age', () => {
       heartrate: { value: 142.4, at: Date.now() - 3000 },
       power: { value: 250, at: Date.now() },
       cadence: null,
+      speed: null,
     },
   });
   render(<SensorSettingsScreen />);
@@ -181,7 +182,12 @@ it('shows no value for a connected sensor that is not the source of its metric',
     activeSources: { heartRate: 'second' },
   });
   useRecordingStore.setState({
-    latestSensor: { heartrate: { value: 120, at: Date.now() }, power: null, cadence: null },
+    latestSensor: {
+      heartrate: { value: 120, at: Date.now() },
+      power: null,
+      cadence: null,
+      speed: null,
+    },
   });
   render(<SensorSettingsScreen />);
 

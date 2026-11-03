@@ -494,7 +494,6 @@
   },
   "bestEffortsScreen": {
     "title": "Melhores esforços",
-    "viewAll": "Todos os melhores esforços",
     "windowSubtitle_one": "Melhores marcas do último {{count}} dia.",
     "windowSubtitle_many": "Melhores marcas dos últimos {{count}} dias.",
     "windowSubtitle_other": "Melhores marcas dos últimos {{count}} dias.",
@@ -507,9 +506,12 @@
     "climbingOwed": "Os melhores de subida ainda estão sendo calculados.",
     "checkpoint": {
       "halfMarathon": "Meia maratona",
+      "marathon": "Maratona",
+      "mile": "Milha",
       "metres": "{{value}} m",
       "kilometres": "{{value}} km"
-    }
+    },
+    "curveSource": "Os melhores de potência e ritmo vêm do intervals.icu."
   },
   "cache": {
     "allActivitiesSynced": "Todas as atividades sincronizadas",
@@ -1632,7 +1634,6 @@
     "settingsAutoPauseThreshold": "Limite de velocidade",
     "settingsAutoPauseWalkingAndOther": "Caminhada e outros esportes",
     "settingsDataFields": "Campos de dados",
-    "settingsUnits": "Unidades",
     "slideToUnlock": "Deslize para desbloquear",
     "lockControls": "Bloquear controles",
     "unlockControls": "Desbloquear controles",
@@ -2112,15 +2113,15 @@
     "signOut": "Sair",
     "leaveDemo": "Sair da demo",
     "display": "Tela",
-    "largeHistoryConfirm": "Baixar mesmo assim",
-    "largeHistoryMessage_one": "Voltar tanto assim baixa até cerca de {{count}} atividade. Vai demorar, e não é garantido que o app continue rápido com tantos dados.",
-    "largeHistoryMessage_many": "Voltar tanto assim baixa até cerca de {{count}} de atividades. Vai demorar, e não é garantido que o app continue rápido com tantos dados.",
-    "largeHistoryMessage_other": "Voltar tanto assim baixa até cerca de {{count}} atividades. Vai demorar, e não é garantido que o app continue rápido com tantos dados.",
-    "largeHistoryTitle": "É um download grande",
     "largeHistoryDaysTitle_one": "Isso leva pelo menos {{count}} dia",
     "largeHistoryDaysTitle_many": "Isso leva pelo menos {{count}} de dias",
     "largeHistoryDaysTitle_other": "Isso leva pelo menos {{count}} dias",
-    "largeHistoryDaysMessage": "O intervals.icu limita quantas atividades o app pode baixar por dia, e todas as instalações dividem esse limite. O resto chega nos dias seguintes. Não é garantido que o app continue rápido com tantos dados.",
+    "activityHistory": "Histórico de atividades",
+    "activityHistoryIntro": "O intervals.icu limita quantas atividades o app pode baixar por dia, e todas as instalações compartilham esse limite. Um histórico mais longo demora mais para chegar, e uma janela maior não aumenta o limite.",
+    "activityHistorySummary": "Últimos {{span}}, atividades: {{activities}}",
+    "historyCost": "Atividades a baixar: até cerca de {{activities}}",
+    "historyUnlocks": "Um histórico mais longo dá tendências mais longas, mais histórico de seções e melhor agrupamento de rotas.",
+    "historyConfirm": "Baixar este intervalo",
     "localDataRange": "Intervalo de dados local",
     "localDataRangeEnd": "Fim do intervalo de dados local",
     "heroMetric": "Métrica Principal",
@@ -2242,7 +2243,6 @@
     "groupKeeps": "Biblioteca e backup",
     "routesAndSections": "Rotas e seções",
     "storage": "Armazenamento",
-    "sinceDateSubtitle": "Desde {{date}}",
     "elevationBackfillRunning": "Adicionando altitude aos trajetos das atividades",
     "elevationBackfillProgress": "{{completed}} de {{total}} atividades",
     "elevationBackfillComplete": "Todos os trajetos das atividades têm altitude",
@@ -2325,7 +2325,7 @@
     "previewStatusGone": "Removido",
     "previewCurrentLayer": "Atual",
     "previewRetiredLayer": "Retirados",
-    "previewProposedLayer": "Proposto",
+    "previewAreaLayer": "Área",
     "previewKeep": "Manter",
     "previewDiscard": "Descartar",
     "previewKeepTitle": "Aplicar estas configurações?",
@@ -2384,7 +2384,6 @@
     "debugModeDescription": "Mostrar diagnósticos internos nas páginas de detalhes",
     "developerDashboardDescription": "Estatísticas do motor, desempenho FFI, memória",
     "experimentalFeatures": "Recursos experimentais",
-    "experimentalFeaturesDescription": "Mostra recursos ainda em desenvolvimento, cada um com seu próprio interruptor",
     "experimentalDashboardDescription": "Ative ou desative cada recurso experimental e abra-o"
   },
   "stats": {
@@ -2835,6 +2834,7 @@
     "forget": "Esquecer",
     "connect": "Conectar",
     "disconnect": "Desconectar",
+    "reconnect": "Reconectar",
     "recordFrom": "Gravar {{kind}} de {{name}}",
     "chooseSourceHint": "Quando dois sensores fornecem a mesma métrica, é gravada a do destacado. Toque no outro para trocar.",
     "bleUnavailable": "Bluetooth indisponível",
@@ -2842,7 +2842,8 @@
     "kinds": {
       "heartRate": "Frequência cardíaca",
       "power": "Potência",
-      "cadence": "Cadência"
+      "cadence": "Cadência",
+      "runningCadence": "Cadência de corrida"
     },
     "status": {
       "connecting": "Conectando…",
@@ -2850,6 +2851,12 @@
       "noData": "Conectado, sem dados",
       "reconnecting": "Reconectando…",
       "disconnected": "Não conectado"
+    },
+    "silent": {
+      "heartRate": "Conectado, não envia frequência cardíaca. Ative a transmissão da frequência cardíaca no dispositivo.",
+      "power": "Conectado, não envia potência. Ative a transmissão da potência no dispositivo.",
+      "cadence": "Conectado, não envia cadência. Ative a transmissão da cadência no dispositivo.",
+      "runningCadence": "Conectado, não envia cadência de corrida. Ative a transmissão da cadência de corrida no dispositivo."
     },
     "purpose": "O Bluetooth é usado para encontrar e conectar sensores de frequência cardíaca, potência e cadência.",
     "noneFound": "Nenhum sensor encontrado",
@@ -2945,6 +2952,7 @@
     "retiredInto": "Em {{name}}",
     "pairUnnamed": "Trecho sem nome",
     "pairNone": "Nenhum outro trecho compartilha este percurso",
+    "pairsPending": "Ainda calculando quais trechos compartilham este percurso",
     "pairRetiredLedger": "Retirado em {{name}}",
     "pairRetiredSupersedes": "Tinha ocultado {{name}}",
     "pairCurrentLedger": "Substituiu {{name}}",
@@ -3036,7 +3044,16 @@
     "heldByBudget": "Limite de requisições atingido, aguardando até {{time}}",
     "pacedOnCaps_one": "Pelo menos {{count}} dia para concluir, pelo limite diário do intervals.icu",
     "pacedOnCaps_other": "Pelo menos {{count}} dias para concluir, pelo limite diário do intervals.icu",
-    "lastFinished": "Última execução {{time}}",
+    "headerRunning_one": "{{count}} tarefa em segundo plano em andamento",
+    "headerRunning_many": "{{count}} tarefas em segundo plano em andamento",
+    "headerRunning_other": "{{count}} tarefas em segundo plano em andamento",
+    "headerStopped_one": "{{count}} tarefa em segundo plano parou antes do fim",
+    "headerStopped_many": "{{count}} tarefas em segundo plano pararam antes do fim",
+    "headerStopped_other": "{{count}} tarefas em segundo plano pararam antes do fim",
+    "headerWaiting": "Tarefas em segundo plano aguardando até {{time}}",
+    "headerWaitingNoTime": "Tarefas em segundo plano aguardando",
+    "headerIdle": "Todas as tarefas em segundo plano concluídas",
+    "pastRuns": "Execuções anteriores",
     "lastRunNoChange": "Sem alterações",
     "lastRunStopped": "Interrompida",
     "lastRunActivities_one": "{{count}} atividade",
@@ -3308,6 +3325,10 @@
     "garminUpdate": {
       "title": "Atualizar atividades a partir da Garmin",
       "blurb": "Substitui a cópia do intervals.icu pelo arquivo próprio da Garmin quando ele tem mais. Exige uma chave Garmin. Incompleto."
+    },
+    "climbingBests": {
+      "title": "Melhores subidas",
+      "blurb": "O Veloq calcula no seu celular a partir dos dados de altitude do intervals.icu. O intervals.icu não fornece melhores subidas por conta própria. Para cada janela, de 15 segundos a 20 minutos, o Veloq encontra sua maior taxa de subida em metros por hora (VAM) e a converte em W/kg, a potência necessária para levantar apenas o peso do seu corpo. Só contam atividades com altitude corrigida do intervals.icu."
     }
   }
 }

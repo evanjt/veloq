@@ -22,6 +22,7 @@ import {
   useRoutesScreenData,
   DEFAULT_SECTION_HIDE_FLAGS,
   groupSortFor,
+  routesBannerOf,
   sectionCountsOf,
   sectionFiltersFor,
   sectionSortFor,
@@ -53,6 +54,7 @@ function RouteTabEngineState({
   newestSyncedDate,
   routesDataReady,
   syncMessage,
+  heldMessage,
 }: {
   isDark: boolean;
   showDateRangeSummary: boolean;
@@ -61,6 +63,7 @@ function RouteTabEngineState({
   newestSyncedDate: string | null;
   routesDataReady: boolean;
   syncMessage: string | null;
+  heldMessage: string | null;
 }) {
   return (
     <>
@@ -72,6 +75,7 @@ function RouteTabEngineState({
           isDark={isDark}
           isLoading={!routesDataReady}
           syncMessage={syncMessage}
+          heldMessage={heldMessage}
         />
       ) : null}
     </>
@@ -160,6 +164,7 @@ function InsightsScreenContent() {
   const routesLoadError = routesStatus === 'error' ? routesReadError : null;
   const routeGroupCount = routesData?.groupCount ?? 0;
   const groupsDirty = routesData?.groupsDirty ?? false;
+  const groupsHold = routesData?.groupsHold;
 
   const {
     total: totalSections,
@@ -332,6 +337,17 @@ function InsightsScreenContent() {
     return null;
   }, [trackStage, isFetchingExtended, t]);
 
+  // A regroup held behind the section rebuild is named still: the routes on
+  // screen are the old catalogue's, and nothing is computing new ones yet.
+  const routesBanner = useMemo(
+    () =>
+      routesBannerOf(
+        { progress: timelineSyncProgress?.message ?? null, groupsDirty, groupsHold },
+        t
+      ),
+    [timelineSyncProgress?.message, groupsDirty, groupsHold, t]
+  );
+
   const renderSharedRouteState = useCallback(
     () => (
       <RouteTabEngineState
@@ -341,21 +357,18 @@ function InsightsScreenContent() {
         oldestSyncedDate={oldestSyncedDate}
         newestSyncedDate={newestSyncedDate}
         routesDataReady={!!routesData}
-        syncMessage={
-          timelineSyncProgress?.message || (groupsDirty ? t('routesScreen.computingRoutes') : null)
-        }
+        syncMessage={routesBanner?.busy ? routesBanner.text : null}
+        heldMessage={routesBanner && !routesBanner.busy ? routesBanner.text : null}
       />
     ),
     [
       activityCount,
-      groupsDirty,
+      routesBanner,
       isDark,
       isRouteMatchingEnabled,
       newestSyncedDate,
       oldestSyncedDate,
       routesData,
-      t,
-      timelineSyncProgress?.message,
     ]
   );
 

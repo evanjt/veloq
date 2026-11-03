@@ -70,7 +70,9 @@ tags:
     timeout: 3000
 - takeScreenshot: "screenshots/largest-text-03-activity"
 
-# The stats grid sits below the fold, past the charts.
+# The stats grid sits below the fold, past the charts. The sheet's header stays
+# put and only the tab content under the strip scrolls, which at the largest
+# display size is the bottom tenth of the screen, so the swipe starts there.
 - repeat:
     while:
       notVisible:
@@ -78,7 +80,7 @@ tags:
     times: 12
     commands:
       - swipe:
-          start: 50%, 85%
+          start: 50%, 92%
           end: 50%, 25%
           duration: 500
 - extendedWaitUntil:
@@ -91,7 +93,9 @@ tags:
 
 # The sections tab of the same activity: the rows the bar's tap-target line is
 # about, and the one surface whose density is deliberate. The activity route
-# reads only its id, so the tab is reached by its strip.
+# reads only its id, so the tab is reached by its strip. At the largest size
+# the strip sits below the sheet's first detent and, where the labels no longer
+# fit, scrolls sideways with the sections tab past its right edge.
 - runFlow:
     file: helpers/open-link.yaml
     env:
@@ -99,8 +103,34 @@ tags:
       TARGET: "activity-detail-screen"
 - extendedWaitUntil:
     visible:
-      id: "tab-sections"
+      id: "activity-detail-screen"
     timeout: 20000
+- repeat:
+    while:
+      notVisible:
+        id: "tab-indicator"
+    times: 6
+    commands:
+      - swipe:
+          start: 50%, 85%
+          end: 50%, 45%
+          duration: 500
+- extendedWaitUntil:
+    visible:
+      id: "tab-indicator"
+    timeout: 5000
+- runFlow:
+    when:
+      visible:
+        id: "tab-strip-scroll"
+    commands:
+      - swipe:
+          from:
+            id: "tab-strip-scroll"
+          direction: LEFT
+          duration: 400
+- waitForAnimationToEnd:
+    timeout: 2000
 - tapOn:
     id: "tab-sections"
 - extendedWaitUntil:

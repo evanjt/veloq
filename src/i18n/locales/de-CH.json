@@ -491,7 +491,6 @@
   },
   "bestEffortsScreen": {
     "title": "Bescht Leischtige",
-    "viewAll": "Alli beschte Leischtige",
     "windowSubtitle_one": "Bestwärt vom letschte {{count}} Tag.",
     "windowSubtitle_other": "Bestwärt vo de letschte {{count}} Täg.",
     "allTimeSubtitle": "Persönlichi Rekord us dinere ganze gspicherete Gschicht.",
@@ -503,9 +502,12 @@
     "climbingOwed": "Die Kletter-Bestwerte werden noch berechnet.",
     "checkpoint": {
       "halfMarathon": "Halbmarathon",
+      "marathon": "Marathon",
+      "mile": "Meile",
       "metres": "{{value}} m",
       "kilometres": "{{value}} km"
-    }
+    },
+    "curveSource": "Leistungs- und Pace-Bestwerte stammen von intervals.icu."
   },
   "cache": {
     "allActivitiesSynced": "Alli Aktivitäte synchronisiert",
@@ -1562,7 +1564,6 @@
     "settingsAutoPauseThreshold": "Gschwindigkeitsgränze",
     "settingsAutoPauseWalkingAndOther": "Gehen und andere Sportarten",
     "settingsDataFields": "Datefelder",
-    "settingsUnits": "Einheite",
     "slideToUnlock": "Zum Entsperre schiebe",
     "lockControls": "Steuerig sperre",
     "unlockControls": "Steuerig entsperre",
@@ -2002,13 +2003,14 @@
     "signOut": "Usmälde",
     "leaveDemo": "Demo verlah",
     "display": "Anzeige",
-    "largeHistoryConfirm": "Trotzdem lade",
-    "largeHistoryMessage_one": "So wit zrugg ladet bis zu öppe {{count}} Aktivität. Das duuret es Wiili, und d'App bliibt mit so vill Date nöd garantiert schnäll.",
-    "largeHistoryMessage_other": "So wit zrugg ladet bis zu öppe {{count}} Aktivitäte. Das duuret es Wiili, und d'App bliibt mit so vill Date nöd garantiert schnäll.",
-    "largeHistoryTitle": "Das isch en grosse Download",
     "largeHistoryDaysTitle_one": "Das duuret mindestens {{count}} Tag",
     "largeHistoryDaysTitle_other": "Das duuret mindestens {{count}} Tage",
-    "largeHistoryDaysMessage": "intervals.icu begrenzt, wie viel Aktivitäte d'App pro Tag cha lade, und alli Installatione teile sich die Limite. De Rest chunnt i de nächschte Tage. D'App bliibt mit so vill Date nöd garantiert schnäll.",
+    "activityHistory": "Aktivitätsverlauf",
+    "activityHistoryIntro": "intervals.icu begrenzt, wie viele Aktivitäten die App pro Tag laden kann, und alle Installationen teilen sich dieses Limit. Ein längerer Verlauf braucht länger, und ein grösseres Zeitfenster erhöht das Limit nicht.",
+    "activityHistorySummary": "Letzte {{span}}, Aktivitäten: {{activities}}",
+    "historyCost": "Zu ladende Aktivitäten: bis zu etwa {{activities}}",
+    "historyUnlocks": "Ein längerer Verlauf liefert längere Trends, mehr Abschnittsverlauf und eine bessere Routengruppierung.",
+    "historyConfirm": "Diesen Zeitraum laden",
     "localDataRange": "Lokale Datumsberiich",
     "localDataRangeEnd": "Ändi vom lokale Datumsberiich",
     "heroMetric": "Hauptmetrik",
@@ -2128,7 +2130,6 @@
     "groupKeeps": "Bibliothek & Backup",
     "routesAndSections": "Route & Abschnitt",
     "storage": "Speicher",
-    "sinceDateSubtitle": "Sit {{date}}",
     "elevationBackfillRunning": "Höhendaten werden zu Aktivitätsspuren hinzugefügt",
     "elevationBackfillProgress": "{{completed}} von {{total}} Aktivitäten",
     "elevationBackfillComplete": "Alle Aktivitätsspuren haben Höhendaten",
@@ -2203,7 +2204,7 @@
     "previewStatusGone": "Entfernt",
     "previewCurrentLayer": "Aktuell",
     "previewRetiredLayer": "Ausgeschieden",
-    "previewProposedLayer": "Vorgschlage",
+    "previewAreaLayer": "Gebiet",
     "previewKeep": "Bhalte",
     "previewDiscard": "Verwerfe",
     "previewKeepTitle": "Die Iistellige aawände?",
@@ -2642,6 +2643,7 @@
     "forget": "Entfernen",
     "connect": "Verbinden",
     "disconnect": "Trennen",
+    "reconnect": "Neu verbinden",
     "recordFrom": "{{kind}} von {{name}} aufzeichnen",
     "chooseSourceHint": "Liefern zwei Sensoren denselben Messwert, wird der hervorgehobene aufgezeichnet. Tippe auf den anderen, um zu wechseln.",
     "bleUnavailable": "Bluetooth ist nicht verfügbar",
@@ -2649,7 +2651,8 @@
     "kinds": {
       "heartRate": "Herzfrequenz",
       "power": "Leistung",
-      "cadence": "Trittfrequenz"
+      "cadence": "Trittfrequenz",
+      "runningCadence": "Lauffrequenz"
     },
     "status": {
       "connecting": "Verbinden…",
@@ -2657,6 +2660,12 @@
       "noData": "Verbunden, keine Daten",
       "reconnecting": "Verbindung wird wiederhergestellt…",
       "disconnected": "Nicht verbunden"
+    },
+    "silent": {
+      "heartRate": "Verbunden, sendet keinen Puls. Schalte die Pulsübertragung am Gerät ein.",
+      "power": "Verbunden, sendet keine Leistung. Schalte die Leistungsübertragung am Gerät ein.",
+      "cadence": "Verbunden, sendet keine Trittfrequenz. Schalte die Trittfrequenzübertragung am Gerät ein.",
+      "runningCadence": "Verbunden, sendet keine Lauffrequenz. Schalte die Lauffrequenzübertragung am Gerät ein."
     },
     "purpose": "Bluetooth wird verwendet, um Herzfrequenz-, Leistungs- und Trittfrequenzsensoren zu finden und zu verbinden.",
     "noneFound": "Keine Sensoren gefunden",
@@ -2750,6 +2759,7 @@
     "retiredInto": "In {{name}}",
     "pairUnnamed": "Abschnitt ohne Namen",
     "pairNone": "Kein anderer Abschnitt teilt diese Strecke",
+    "pairsPending": "Es wird noch ermittelt, welche Abschnitte diese Strecke teilen",
     "pairRetiredLedger": "In {{name}} ausgeschieden",
     "pairRetiredSupersedes": "Hatte {{name}} ausgeblendet",
     "pairCurrentLedger": "Hat {{name}} abgelöst",
@@ -2838,7 +2848,14 @@
     "heldByBudget": "Anfragelimit erreicht, Wartezeit bis {{time}}",
     "pacedOnCaps_one": "Mindestens {{count}} Tag bis zum Abschluss, nach der Tageslimite vo intervals.icu",
     "pacedOnCaps_other": "Mindestens {{count}} Tage bis zum Abschluss, nach der Tageslimite vo intervals.icu",
-    "lastFinished": "Letschte Lauf {{time}}",
+    "headerRunning_one": "{{count}} Hintergrundufgab louft",
+    "headerRunning_other": "{{count}} Hintergrundufgabe loufe",
+    "headerStopped_one": "{{count}} Hintergrundufgab isch früeh gstoppt worde",
+    "headerStopped_other": "{{count}} Hintergrundufgabe sind früeh gstoppt worde",
+    "headerWaiting": "Hintergrundufgabe warte bis {{time}}",
+    "headerWaitingNoTime": "Hintergrundufgabe warte",
+    "headerIdle": "Alli Hintergrundufgabe sind fertig",
+    "pastRuns": "Früecheri Läuf",
     "lastRunNoChange": "Kei Änderige",
     "lastRunStopped": "Gstoppt",
     "lastRunActivities_one": "{{count}} Aktivität",

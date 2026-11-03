@@ -1,38 +1,38 @@
-Veloq muestra tu entrenamiento de intervals.icu en el teléfono y busca las rutas y secciones que repites. El análisis se hace en tu dispositivo.
+Tus datos de entrenamiento son tuyos. Veloq encuentra las rutas y secciones que repites y genera tus análisis directamente en tu celular.
 
 <b>Grabación</b>
-Graba salidas en bici, carreras y otros deportes con GPS, sensores Bluetooth o un entrenamiento planificado.
+Graba con GPS o en interiores, con sensores Bluetooth, el entrenamiento planificado de hoy o la línea de una ruta cercana.
 
-<b>Perspectivas</b>
-Lecturas breves de tu entrenamiento, cada una con sus cifras y cómo se calcularon.
+<b>Análisis</b>
+Lecturas breves sobre tu entrenamiento. Cada una muestra sus cifras y cómo se calcularon.
 
 <b>Mapas</b>
-Mapas interactivos con relieve 3D, mapas de calor de rutas y estilos claro, oscuro y satélite.
+Mapas interactivos con terreno 3D, mapas de calor de rutas y estilos claro, oscuro y satelital, todos sin conexión.
 
 <b>Rutas y secciones</b>
-Compara cada intento en las rutas y secciones que repites, y fíjalas, recórtalas o renómbralas.
+Las secciones toman en cuenta el desnivel, omiten las telesillas y crecen con tu historial. Compara cada intento y deshaz cualquier cambio.
 
-<b>Gráficos</b>
-Frecuencia cardíaca, potencia, ritmo, altitud y cadencia en una sola línea de tiempo con el mapa.
+<b>Gráficas</b>
+Frecuencia cardíaca, potencia, ritmo, altitud y cadencia en una sola línea de tiempo junto al mapa.
 
-<b>Forma física</b>
-Forma física, fatiga y forma con las zonas dibujadas, además de VFC, frecuencia cardíaca en reposo y sueño.
+<b>Condición física</b>
+Condición física, fatiga y forma, con las zonas marcadas, además de VFC, frecuencia cardíaca en reposo y sueño.
 
 <b>Fuerza</b>
 Tus series de fuerza en un diagrama del cuerpo, por grupo muscular y ejercicio.
 
 <b>Widgets</b>
-Widgets de la pantalla de inicio con forma física y forma, tu última actividad y tus perspectivas.
+Widgets para la pantalla de inicio con tu resumen, tu última actividad, tus análisis y tu fuerza.
 
 <b>Notificaciones</b>
 Una notificación con el nombre de la ruta y los récords personales cuando llega una actividad nueva. Desactivada hasta que la actives.
 
-<b>Copias de seguridad</b>
-Copia tus ajustes y decisiones de secciones en un archivo, una carpeta, un disco en la nube o un servidor WebDAV.
+<b>Respaldos</b>
+Respaldo automático de tus ajustes y de tus cambios en secciones, en una carpeta, en Google Drive o en un servidor WebDAV.
 
 <b>Privacidad</b>
 Tus datos de entrenamiento se quedan en tu dispositivo. Sin analíticas, sin rastreo. Las notificaciones push opcionales guardan tu ID de atleta de intervals.icu y un token del dispositivo en nuestro servidor, que se borran automáticamente a los 30 días. Código abierto bajo Apache 2.0.
 
 Compatible con ciclismo, carrera, natación y más de 20 tipos de actividad. Prueba el modo demo integrado para explorar sin cuenta.
 
-Requiere una cuenta de intervals.icu para datos en directo. Requiere Android 7.0 o posterior. No afiliado a intervals.icu.
+Requiere una cuenta de intervals.icu para los datos en vivo. Requiere Android 7.0 o posterior. Veloq no está afiliado a intervals.icu.

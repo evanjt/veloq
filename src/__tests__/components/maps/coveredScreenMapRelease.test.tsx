@@ -186,10 +186,8 @@ const SCREENS: { name: string; pageId: string; element: () => React.ReactElement
         centre={null}
         selectedId={null}
         showCurrent
-        showProposed
         showRemoved
         onToggleCurrent={jest.fn()}
-        onToggleProposed={jest.fn()}
         onToggleRemoved={jest.fn()}
         onSelect={jest.fn()}
       />

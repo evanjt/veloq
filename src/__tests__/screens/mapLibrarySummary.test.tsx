@@ -43,6 +43,10 @@ jest.mock('expo-router', () => ({
   useIsFocused: () => true,
   useSegments: () => ['(tabs)', 'map'],
 }));
+const mockOpenHistoryRange = jest.fn();
+jest.mock('@/shared/app/historyRange', () => ({
+  openHistoryRange: () => mockOpenHistoryRange(),
+}));
 jest.mock('@/shared/app/navigation', () => ({
   navigateTo: (path: string) => mockNavigateTo(path),
 }));
@@ -323,7 +327,7 @@ describe('map library summary', () => {
     expect(view.getByTestId('map-period-select')).toBeTruthy();
   });
 
-  it('sets the count on a caption foot line, last in the sheet, with Expand range as a text link to the sync range', async () => {
+  it('sets the count on a caption foot line, last in the sheet, with Expand range as a text link that opens the history sheet', async () => {
     const view = await renderStaged(mapScreen());
     const sheet = view.getByTestId('map-filter-sheet-body');
     const detail = within(sheet).getByTestId('map-sheet-detail');
@@ -337,7 +341,8 @@ describe('map library summary', () => {
     const linkText = within(link).getByText('mapScreen.expandRange');
     expect(StyleSheet.flatten(linkText.props.style).fontSize).toBe(typography.caption.fontSize);
     await fireEvent.press(link);
-    expect(mockNavigateTo).toHaveBeenCalledWith('/sync-settings');
+    expect(mockOpenHistoryRange).toHaveBeenCalledTimes(1);
+    expect(mockNavigateTo).not.toHaveBeenCalled();
 
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     const raisedDetail = view.getByTestId('map-sheet-detail');

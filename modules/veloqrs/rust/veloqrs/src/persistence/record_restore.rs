@@ -1654,6 +1654,7 @@ pub(crate) fn pending_retired_sections(conn: &Connection) -> Vec<sections::Retir
                 versions: vec![crate::WholeNumber(state.version)],
                 name: None,
                 distance_meters: None,
+                visit_count: None,
                 restorable_version: None,
             }),
         }
@@ -1663,6 +1664,7 @@ pub(crate) fn pending_retired_sections(conn: &Connection) -> Vec<sections::Retir
         r.name = sections::history::pooled::retired_name(conn, &r.section_id);
         r.distance_meters =
             sections::history::pooled::retired_distance(conn, &r.section_id, &r.versions);
+        r.visit_count = sections::history::pooled::archived_visit_count(conn, &r.section_id);
     }
     retired
 }

@@ -24,6 +24,10 @@ jest.mock('@/features/routes/components/DataRangeFooter', () => ({
   DataRangeFooter: () => null,
 }));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
+jest.mock('@/shared/app/historyRange', () => ({ openHistoryRange: jest.fn() }));
+const { openHistoryRange } = jest.requireMock('@/shared/app/historyRange') as {
+  openHistoryRange: jest.Mock;
+};
 
 const { navigateTo } = jest.requireMock('@/shared/app/navigation') as { navigateTo: jest.Mock };
 
@@ -63,6 +67,7 @@ describe('RoutesList empty reason', () => {
   beforeEach(async () => {
     await changeLanguage('en-GB');
     navigateTo.mockClear();
+    openHistoryRange.mockClear();
   });
 
   it('says a library of indoor sessions has no GPS, and offers a wider range', async () => {
@@ -74,7 +79,8 @@ describe('RoutesList empty reason', () => {
     ).toBeTruthy();
     expect(screen.queryByText('No routes yet')).toBeNull();
     await fireEvent.press(screen.getByText('Expand range'));
-    expect(navigateTo).toHaveBeenCalledWith('/sync-settings');
+    expect(openHistoryRange).toHaveBeenCalledTimes(1);
+    expect(navigateTo).not.toHaveBeenCalled();
   });
 
   it('counts the activities a detect has still to see', async () => {

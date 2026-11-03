@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { elevation } from 'veloqrs';
 import { Button, Card, CollapsibleSection, RowGroup, Spinner } from '@/shared/ui';
+import { summariseBackgroundJobs } from '../lib/backgroundJobsSummary';
 import { Icon } from '@/shared/ui/Icon';
 import { getPhaseDisplayKey } from '@/features/routes';
 import { formatClockOrDate } from '@/shared/format/format';
@@ -202,6 +203,23 @@ function canRetry(job: BackgroundJob): boolean {
   );
 }
 
+type JobTone = 'running' | 'finished' | 'waiting' | 'failed';
+
+/** The tone a job's state is drawn in: running, finished, waiting, or stopped early. */
+function toneOf(job: BackgroundJob): JobTone {
+  if (job.state === 'running') return 'running';
+  if (summariseBackgroundJobs([job]).kind === 'failed') return 'failed';
+  if (job.state === 'waiting' || job.held !== null) return 'waiting';
+  return 'finished';
+}
+
+const TONE_LABEL_KEYS = {
+  running: 'backgroundJobs.stateRunning',
+  finished: 'backgroundJobs.stateComplete',
+  waiting: 'backgroundJobs.stateWaiting',
+  failed: 'backgroundJobs.stateFailed',
+} as const satisfies Record<JobTone, string>;
+
 function JobRow({ job }: { job: BackgroundJob }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -210,13 +228,25 @@ function JobRow({ job }: { job: BackgroundJob }) {
 
   const textPrimary = isDark ? colors.textOnFill : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const danger = isDark ? darkColors.errorText : colors.errorText;
+  const palette = isDark ? darkColors : colors;
+  const danger = palette.errorText;
+  const tone = toneOf(job);
+  const toneInk = {
+    running: palette.actionLink,
+    finished: palette.successText,
+    waiting: palette.warningText,
+    failed: palette.errorText,
+  }[tone];
 
   return (
     <View style={styles.row} testID={`background-job-${job.id}`}>
       <Icon name={ICONS[job.id]} size={iconSize.md} color={textSecondary} />
       <View style={styles.rowText}>
         <Text style={[styles.title, { color: textPrimary }]}>{t(TITLE_KEYS[job.id])}</Text>
+        <View style={styles.status} testID={`background-job-${job.id}-status`}>
+          <View style={[styles.dot, { backgroundColor: toneInk }]} />
+          <Text style={[styles.detail, { color: toneInk }]}>{t(TONE_LABEL_KEYS[tone])}</Text>
+        </View>
         <Text
           style={[styles.detail, { color: job.state === 'failed' ? danger : textSecondary }]}
           testID={`background-job-${job.id}-detail`}
@@ -256,46 +286,62 @@ function JobRow({ job }: { job: BackgroundJob }) {
   );
 }
 
-export function BackgroundJobsActivityBar() {
-  const { t } = useTranslation();
-  const jobs = useBackgroundJobs();
-  const [expanded, setExpanded] = useState(false);
+/** Whether a job is working or owes work, which keeps it open on the jobs screen. */
+function owes(job: BackgroundJob): boolean {
   // A held download is owed work even when its count cannot be read.
-  const owes = (job: BackgroundJob) =>
+  return (
     job.state === 'running' ||
     job.state === 'waiting' ||
     job.stagedHistory !== null ||
-    (job.remaining ?? 0) > 0;
+    (job.remaining ?? 0) > 0
+  );
+}
+
+/**
+ * The jobs screen's body: jobs working or owing work are listed open, and
+ * the jobs that only have a past run sit folded underneath.
+ */
+export function BackgroundJobsActivityBar() {
+  const { t } = useTranslation();
+  const jobs = useBackgroundJobs();
+  const [pastOpen, setPastOpen] = useState(false);
   const active = jobs.filter(owes);
-  const listed = jobs.filter((job) => owes(job) || job.lastRun !== null);
-
-  if (listed.length === 0) return null;
-
-  // At rest the bar names when the newest run finished; while a job runs or
-  // owes work it counts them.
-  const newest = Math.max(0, ...jobs.map((job) => job.lastRun?.finishedAt ?? 0));
-  const summary =
-    active.length > 0
-      ? String(active.length)
-      : t('backgroundJobs.lastFinished', { time: formatClockOrDate(newest) });
+  const past = jobs.filter((job) => !owes(job) && job.lastRun !== null);
 
   return (
     <View testID="background-jobs-activity" style={styles.frame}>
-      <Card variant="flat" padding="none">
-        <CollapsibleSection
-          testID="background-jobs-activity-toggle"
-          title={t('backgroundJobs.title')}
-          value={summary}
-          expanded={expanded}
-          onToggle={setExpanded}
-        >
-          <RowGroup inset="edge">
-            {listed.map((job) => (
-              <JobRow key={job.id} job={job} />
-            ))}
-          </RowGroup>
-        </CollapsibleSection>
-      </Card>
+      {active.length > 0 ? (
+        <View style={styles.card}>
+          <Card variant="flat" padding="none">
+            <RowGroup inset="edge">
+              {active.map((job) => (
+                <JobRow key={job.id} job={job} />
+              ))}
+            </RowGroup>
+          </Card>
+        </View>
+      ) : (
+        <Text style={styles.empty} testID="background-jobs-empty">
+          {t('backgroundJobs.headerIdle')}
+        </Text>
+      )}
+      {past.length > 0 ? (
+        <Card variant="flat" padding="none">
+          <CollapsibleSection
+            testID="background-jobs-activity-toggle"
+            title={t('backgroundJobs.pastRuns')}
+            value={String(past.length)}
+            expanded={pastOpen}
+            onToggle={setPastOpen}
+          >
+            <RowGroup inset="edge">
+              {past.map((job) => (
+                <JobRow key={job.id} job={job} />
+              ))}
+            </RowGroup>
+          </CollapsibleSection>
+        </Card>
+      ) : null}
     </View>
   );
 }
@@ -312,6 +358,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     minHeight: layout.minTapTarget,
+  },
+  card: {
+    marginBottom: spacing.sm,
+  },
+  empty: {
+    ...typography.body,
+    padding: spacing.md,
+  },
+  status: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  dot: {
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: layout.borderRadiusFull,
   },
   rowText: {
     flex: 1,

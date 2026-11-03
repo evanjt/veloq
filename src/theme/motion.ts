@@ -15,6 +15,7 @@ export const duration = {
   message: 600,
   pulse: 800,
   hold: 1500,
+  grace: 3000,
   loop: 2400,
 } as const;
 

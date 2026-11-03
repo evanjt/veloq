@@ -18,7 +18,6 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
 import { ClimbingBestRows } from '@/features/fitness/components/ClimbingBestRows';
-import { SeasonBestsSection } from '@/features/fitness/components/SeasonBestsSection';
 import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
 import ExerciseDetailScreen from '@/features/strength/components/ExerciseDetailScreen';
 import type { ClimbBest } from '@/features/stats';
@@ -76,41 +75,6 @@ function expectNoArrow() {
     expect(button.props.accessibilityLabel ?? '').not.toMatch(/→/);
   }
 }
-
-describe('Season Bests', () => {
-  it('states the date of a best and opens its activity from the whole row', async () => {
-    await render(
-      <SeasonBestsSection
-        efforts={
-          [
-            {
-              label: '1km',
-              checkpoint: 1000,
-              activityId: 'kite-day',
-              activity: { name: 'Kite session', date: '14 Feb 2026' },
-              value: 300,
-              time: 180,
-            },
-          ] as never
-        }
-        sport="Cycling"
-        period="6m"
-        isLoading={false}
-      />
-    );
-
-    expect(screen.getByText('14 Feb 2026')).toBeTruthy();
-    const row = screen.getByTestId('season-bests-row-1000');
-    expect(row.props.accessibilityRole).toBe('button');
-    expect(row.props.accessibilityLabel).toMatch(/Kite session/);
-    expect(row.props.accessibilityLabel).toMatch(/14 Feb 2026/);
-    expectTapTargetRow(row);
-    expectNoArrow();
-
-    await fireEvent.press(row);
-    expect(pushed()).toEqual(['/activity/kite-day']);
-  });
-});
 
 describe('climbing bests', () => {
   it('states the date and opens the activity from the whole row', async () => {

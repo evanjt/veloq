@@ -18,7 +18,6 @@ export {
   getTimeAtDistance,
   usePowerCurve,
   getIndexAtDuration,
-  useSeasonBests,
   BEST_EFFORTS_SPORT,
   bestEffortsOf,
   climbBestsOf,
@@ -29,7 +28,6 @@ export {
   type ClimbBest,
   type BestEffortsCurve,
   type BestEffortsSport,
-  type UseSeasonBestsResult,
 } from './hooks';
 
 export {

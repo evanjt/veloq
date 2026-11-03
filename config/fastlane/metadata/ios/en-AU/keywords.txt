@@ -1,1 +1,1 @@
-cycling,watts,speed,elevation,gradient,recovery,sleep,wellness,effort,split,commute,mtb,gravel
+cycling,running,routes,sections,heatmap,insights,offline,privacy,elevation,triathlon,mtb,gravel,hrv

@@ -72,7 +72,9 @@ export { useGpxExport, useImportDatabaseBackup } from './hooks/exportIndex';
 export { WhatsNewModal, TourReturnPill } from './components/whatsNew';
 export {
   ActivitySyncRow,
+  ActivityHistoryRow,
   BackgroundJobsActivityBar,
+  BackgroundJobsHeaderItem,
   BackupSection,
   CutoverStatus,
   DataAttribution,

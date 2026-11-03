@@ -473,8 +473,6 @@ describe('the section page and the route page over one demo route', () => {
   // The efficiency and wellness cards are experimental, drawn only with the developer switch on.
   beforeEach(() =>
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: {
         efficiencyTrends: true,
         sectionCorrelations: true,
@@ -482,9 +480,7 @@ describe('the section page and the route page over one demo route', () => {
       },
     })
   );
-  afterEach(() =>
-    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false })
-  );
+  afterEach(() => useDebugStore.setState({ experimentalFeatures: {} }));
 
   it('dates the first and last attempt the same on both pages', async () => {
     expect(attempts.length).toBeGreaterThan(2);

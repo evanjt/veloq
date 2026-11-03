@@ -131,6 +131,15 @@ const CASES: Record<string, Case> = {
     clean: 'export const a = 1;\n',
     violation: 'LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);\n',
   },
+  'lint-button-row-siblings': {
+    guard: 'lint-button-row-siblings.mjs',
+    tree: {},
+    target: 'src/a.tsx',
+    clean: 'export const a = 1;\n',
+    violation:
+      'const a = <Button label="x" style={styles.cell} />;\nconst styles = { cell: { flex: 1 } };\n',
+    baseline: true,
+  },
   'lint-empty-state-styles': {
     guard: 'lint-empty-state-styles.mjs',
     tree: {},

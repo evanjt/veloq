@@ -8,15 +8,29 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/shared/app';
+import { useMetricSystem, useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { Badge, Button, Card, IconButton } from '@/shared/ui';
+import { ButtonRow } from '@/shared/ui/ButtonRow';
 import { Icon } from '@/shared/ui/Icon';
-import { formatPercent } from '@/shared/format';
+import { formatDistance, formatPercent } from '@/shared/format';
 import type {
   RetiredSelection,
   RetiredSelectionPair,
 } from '@/features/routes/lib/retiredLineCollection';
+
+/** A section's length and passes on one line; a figure the engine does not hold is left out. */
+function statsLine(
+  distanceMeters: number | null | undefined,
+  visitCount: number | null | undefined,
+  isMetric: boolean
+): string | null {
+  const parts = [
+    distanceMeters != null ? formatDistance(distanceMeters, isMetric) : null,
+    visitCount != null ? `${visitCount}×` : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length ? parts.join(' · ') : null;
+}
 
 /** The sentence for a ledger or supersession tie, by which side was tapped. */
 const LINK_KEYS = {
@@ -55,6 +69,7 @@ export function RetiredPairCard({
 }: RetiredPairCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   const unnamed = t('sectionHistory.pairUnnamed');
@@ -67,6 +82,7 @@ export function RetiredPairCard({
 
   const ownName = selection.name ?? unnamed;
   const version = selection.restorableVersion ?? null;
+  const ownStats = statsLine(selection.distanceMeters, selection.visitCount, isMetric);
 
   return (
     <Card
@@ -95,6 +111,11 @@ export function RetiredPairCard({
           isDark={isDark}
         />
       </View>
+      {ownStats ? (
+        <Text style={[styles.meta, { color: textSecondary }]} testID="retired-pair-own-stats">
+          {ownStats}
+        </Text>
+      ) : null}
       {selection.kind === 'retired' && version !== null && onRestore ? (
         <Button
           variant="secondary"
@@ -116,10 +137,17 @@ export function RetiredPairCard({
           testID="retired-remove"
         />
       ) : null}
-      {selection.pairs.length === 0 ? (
-        <Text style={[styles.line, { color: textSecondary }]} testID="retired-pair-none">
-          {t('sectionHistory.pairNone')}
+      {selection.pairsPending ? (
+        <Text style={[styles.line, { color: textSecondary }]} testID="retired-pairs-pending">
+          {t('sectionHistory.pairsPending')}
         </Text>
+      ) : null}
+      {selection.pairs.length === 0 ? (
+        selection.pairsPending ? null : (
+          <Text style={[styles.line, { color: textSecondary }]} testID="retired-pair-none">
+            {t('sectionHistory.pairNone')}
+          </Text>
+        )
       ) : (
         selection.pairs.map((pair) => (
           <View key={pair.id}>
@@ -129,6 +157,14 @@ export function RetiredPairCard({
               label={describe(pair)}
               testID={`retired-pair-${pair.id}`}
             />
+            {statsLine(pair.distanceMeters, pair.visitCount, isMetric) ? (
+              <Text
+                style={[styles.meta, { color: textSecondary }]}
+                testID={`retired-pair-stats-${pair.id}`}
+              >
+                {statsLine(pair.distanceMeters, pair.visitCount, isMetric)}
+              </Text>
+            ) : null}
             {pair.overlap !== null ? (
               <Text style={[styles.meta, { color: textSecondary }]}>
                 {t('sectionHistory.pairOverlap', {
@@ -142,46 +178,50 @@ export function RetiredPairCard({
               </Text>
             ) : null}
             {onPrefer || (onRemove && pair.kind === 'current') ? (
-              <View style={styles.actionRow}>
-                {onPrefer ? (
-                  <>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onPress={() => onPrefer(selection.id, pair.id)}
-                      label={t('sectionHistory.pairPreferThis')}
-                      accessibilityLabel={t('sectionHistory.pairPreferLabel', {
-                        kept: ownName,
-                        other: pair.name ?? unnamed,
-                      })}
-                      testID={`retired-pair-prefer-this-${pair.id}`}
-                    />
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onPress={() => onPrefer(pair.id, selection.id)}
-                      label={t('sectionHistory.pairPreferOther')}
-                      accessibilityLabel={t('sectionHistory.pairPreferLabel', {
-                        kept: pair.name ?? unnamed,
-                        other: ownName,
-                      })}
-                      testID={`retired-pair-prefer-${pair.kind}-${pair.id}`}
-                    />
-                  </>
-                ) : null}
-                {onRemove && pair.kind === 'current' ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onPress={() => onRemove(pair.id)}
-                    label={t('common.remove')}
-                    accessibilityLabel={t('sectionHistory.removeLabel', {
-                      name: pair.name ?? unnamed,
-                    })}
-                    testID={`retired-pair-remove-${pair.id}`}
-                  />
-                ) : null}
-              </View>
+              <ButtonRow
+                actions={[
+                  ...(onPrefer
+                    ? [
+                        {
+                          variant: 'secondary' as const,
+                          size: 'sm' as const,
+                          onPress: () => onPrefer(selection.id, pair.id),
+                          label: t('sectionHistory.pairPreferThis'),
+                          accessibilityLabel: t('sectionHistory.pairPreferLabel', {
+                            kept: ownName,
+                            other: pair.name ?? unnamed,
+                          }),
+                          testID: `retired-pair-prefer-this-${pair.id}`,
+                        },
+                        {
+                          variant: 'secondary' as const,
+                          size: 'sm' as const,
+                          onPress: () => onPrefer(pair.id, selection.id),
+                          label: t('sectionHistory.pairPreferOther'),
+                          accessibilityLabel: t('sectionHistory.pairPreferLabel', {
+                            kept: pair.name ?? unnamed,
+                            other: ownName,
+                          }),
+                          testID: `retired-pair-prefer-${pair.kind}-${pair.id}`,
+                        },
+                      ]
+                    : []),
+                  ...(onRemove && pair.kind === 'current'
+                    ? [
+                        {
+                          variant: 'secondary' as const,
+                          size: 'sm' as const,
+                          onPress: () => onRemove(pair.id),
+                          label: t('common.remove'),
+                          accessibilityLabel: t('sectionHistory.removeLabel', {
+                            name: pair.name ?? unnamed,
+                          }),
+                          testID: `retired-pair-remove-${pair.id}`,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             ) : null}
           </View>
         ))
@@ -193,11 +233,6 @@ export function RetiredPairCard({
 const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.xs,
   },
   line: {

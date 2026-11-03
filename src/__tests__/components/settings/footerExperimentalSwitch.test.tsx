@@ -1,9 +1,9 @@
 /**
- * Scenario: the version line is tapped five times in the settings footer.
+ * Scenario: the settings footer and the experimental page.
  *
- * Expected behaviour: the experimental switch appears above the debug switch,
- * the experimental page row shows only while the switch is on, and the page
- * lists one row per feature with its blurb, its own switch and a link to it.
+ * Expected behaviour: the page row is always shown above the version line with no master switch,
+ * five taps still reveal the debug switch, and the page lists one row per feature with its blurb,
+ * its own switch and a link to it.
  */
 
 import React from 'react';
@@ -48,59 +48,39 @@ beforeEach(() => {
   jest.clearAllMocks();
   withEngine({});
   useDebugStore.setState({ unlocked: false, enabled: false });
-  useDebugStore.setState({
-    experimentalUnlocked: false,
-    experimentalEnabled: false,
-    experimentalFeatures: {},
-  });
+  useDebugStore.setState({ experimentalFeatures: {} });
 });
 
-describe('the experimental switch in the settings footer', () => {
-  it('is hidden until the version line is tapped five times', async () => {
-    const { queryByTestId, getByLabelText } = await render(<FooterSection />);
-    expect(queryByTestId('settings-experimental-switch')).toBeNull();
-
-    for (let i = 0; i < 4; i++) await fireEvent.press(getByLabelText(/t\(settings.version\)/));
-    expect(queryByTestId('settings-experimental-switch')).toBeNull();
-
-    await fireEvent.press(getByLabelText(/t\(settings.version\)/));
-    expect(queryByTestId('settings-experimental-switch')).toBeTruthy();
-    expect(queryByTestId('settings-debug-switch')).toBeTruthy();
-  });
-
-  it('sits above the debug switch', async () => {
-    useDebugStore.setState({ unlocked: true });
-    useDebugStore.setState({ experimentalUnlocked: true });
+describe('the experimental row in the settings footer', () => {
+  it('is there with no taps, above the version line, and has no master switch', async () => {
     const screen = await render(<FooterSection />);
-    const order = screen
-      .getAllByRole('switch')
-      .map((s) => s.props.testID as string)
-      .filter(Boolean);
-    expect(order).toEqual(['settings-experimental-switch', 'settings-debug-switch']);
-  });
+    const row = screen.getByTestId('settings-experimental-dashboard-link');
+    expect(screen.queryByTestId('settings-experimental-switch')).toBeNull();
 
-  it('shows the page row only while the switch is on', async () => {
-    useDebugStore.setState({ experimentalUnlocked: true });
-    const screen = await render(<FooterSection />);
-    expect(screen.queryByTestId('settings-experimental-dashboard-link')).toBeNull();
+    const tree = JSON.stringify(screen.toJSON());
+    expect(tree.indexOf('settings-experimental-dashboard-link')).toBeLessThan(
+      tree.indexOf('settings-version-text')
+    );
 
-    await fireEvent.press(screen.getByTestId('settings-experimental-switch'));
-    await waitFor(() => expect(useDebugStore.getState().experimentalEnabled).toBe(true));
-    await fireEvent.press(screen.getByTestId('settings-experimental-dashboard-link'));
+    await fireEvent.press(row);
     expect(navigateTo).toHaveBeenCalledWith('/experimental');
   });
 
-  it('is not turned on by debug mode', async () => {
-    useDebugStore.setState({ unlocked: true, enabled: true });
-    const screen = await render(<FooterSection />);
-    expect(screen.queryByTestId('settings-experimental-dashboard-link')).toBeNull();
-    expect(useDebugStore.getState().experimentalEnabled).toBe(false);
+  it('keeps the debug switch behind five taps on the version line', async () => {
+    const { queryByTestId, getByLabelText } = await render(<FooterSection />);
+    expect(queryByTestId('settings-debug-switch')).toBeNull();
+
+    for (let i = 0; i < 4; i++) await fireEvent.press(getByLabelText(/t\(settings.version\)/));
+    expect(queryByTestId('settings-debug-switch')).toBeNull();
+
+    await fireEvent.press(getByLabelText(/t\(settings.version\)/));
+    expect(queryByTestId('settings-debug-switch')).toBeTruthy();
+    expect(queryByTestId('settings-experimental-switch')).toBeNull();
   });
 });
 
 describe('the experimental page', () => {
   it('lists every feature with its blurb and its switch', async () => {
-    useDebugStore.setState({ experimentalUnlocked: true, experimentalEnabled: true });
     const screen = await renderPage();
 
     for (const feature of EXPERIMENTAL_FEATURES) {
@@ -112,7 +92,6 @@ describe('the experimental page', () => {
 
   it('links each feature to the section the engine names, and the Garmin page', async () => {
     withEngine({ efficiencyTrendSectionId: 'sec-eff', sectionCorrelationSectionId: 'sec-corr' });
-    useDebugStore.setState({ experimentalUnlocked: true, experimentalEnabled: true });
     const screen = await renderPage();
 
     await fireEvent.press(await screen.findByTestId('experimental-link-efficiencyTrends'));
@@ -121,11 +100,12 @@ describe('the experimental page', () => {
     expect(navigateTo).toHaveBeenLastCalledWith('/section/sec-corr');
     await fireEvent.press(screen.getByTestId('experimental-link-garminUpdate'));
     expect(navigateTo).toHaveBeenLastCalledWith('/garmin-connector');
+    await fireEvent.press(screen.getByTestId('experimental-link-climbingBests'));
+    expect(navigateTo).toHaveBeenLastCalledWith('/best-efforts');
   });
 
   it('says so, with no link, for a feature the library has no example of', async () => {
     withEngine({ sectionCorrelationSectionId: 'sec-corr' });
-    useDebugStore.setState({ experimentalUnlocked: true, experimentalEnabled: true });
     const screen = await renderPage();
 
     expect(await screen.findByTestId('experimental-no-example-efficiencyTrends')).toBeTruthy();
@@ -134,7 +114,6 @@ describe('the experimental page', () => {
   });
 
   it('shows every switch off until tapped, and turns one on without touching the others', async () => {
-    useDebugStore.setState({ experimentalUnlocked: true, experimentalEnabled: true });
     const screen = await renderPage();
     for (const feature of EXPERIMENTAL_FEATURES) {
       expect(
@@ -142,10 +121,10 @@ describe('the experimental page', () => {
       ).toBe(false);
     }
 
-    await fireEvent.press(screen.getByTestId('experimental-switch-garminUpdate'));
+    await fireEvent.press(screen.getByTestId('experimental-switch-climbingBests'));
 
     await waitFor(() =>
-      expect(useDebugStore.getState().experimentalFeatures).toEqual({ garminUpdate: true })
+      expect(useDebugStore.getState().experimentalFeatures).toEqual({ climbingBests: true })
     );
     expect(
       screen.getByTestId('experimental-switch-efficiencyTrends').props.accessibilityState.checked

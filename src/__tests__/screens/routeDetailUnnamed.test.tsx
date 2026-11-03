@@ -53,7 +53,8 @@ jest.mock('@/shared/app', () => ({
 }));
 jest.mock('@/shared/app/useCacheDays', () => ({ useCacheDays: () => 90 }));
 jest.mock('@/features/settings/stores/DebugStore', () => ({
-  useDebugStore: (select: (s: { enabled: boolean }) => unknown) => select({ enabled: false }),
+  useDebugStore: (select: (s: { enabled: boolean; experimentalFeatures: object }) => unknown) =>
+    select({ enabled: false, experimentalFeatures: {} }),
 }));
 jest.mock('@/shared/debug/useFFITimer', () => ({
   useFFITimer: () => ({ getPageMetrics: () => [] }),

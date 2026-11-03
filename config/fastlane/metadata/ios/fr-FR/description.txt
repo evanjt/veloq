@@ -1,34 +1,34 @@
-Veloq affiche votre entraînement intervals.icu sur votre téléphone et repère les parcours et les sections que vous répétez. L'analyse se fait sur votre appareil.
+Vos données vous appartiennent. Veloq repère les parcours et les sections que vous répétez, et génère vos aperçus directement sur votre téléphone.
 
 Enregistrement
-Enregistrez sorties à vélo, courses et autres sports avec le GPS, des capteurs Bluetooth ou une séance planifiée.
+Enregistrez en extérieur avec le GPS ou en salle, avec des capteurs Bluetooth, la séance planifiée du jour ou le tracé d'un parcours proche.
 
 Aperçus
 De courtes lectures de votre entraînement, chacune avec ses chiffres et la façon dont ils ont été calculés.
 
 Cartes
-Cartes interactives avec relief 3D, cartes de chaleur des parcours et styles clair, sombre et satellite.
+Cartes interactives avec relief 3D, cartes de chaleur des parcours, styles clair, sombre et satellite, le tout hors ligne.
 
 Parcours et sections
-Comparez chaque passage sur les parcours et sections que vous répétez, puis épinglez, raccourcissez ou renommez-les.
+Les sections tiennent compte du dénivelé, ignorent les remontées mécaniques et s'adaptent à votre historique. Comparez chaque passage et annulez chaque modification.
 
 Graphiques
-Fréquence cardiaque, puissance, allure, altitude et cadence sur une seule chronologie avec la carte.
+Fréquence cardiaque, puissance, allure, altitude et cadence sur une seule chronologie, avec la carte.
 
-Forme physique
+Forme et fatigue
 Forme physique, fatigue et forme avec les zones tracées, plus VFC, fréquence cardiaque au repos et sommeil.
 
 Force
 Vos séries de force sur un schéma du corps, par groupe musculaire et par exercice.
 
 Widgets
-Des widgets d'écran d'accueil pour votre forme physique et votre forme, votre dernière activité et vos aperçus.
+Widgets d'écran d'accueil pour votre résumé, votre dernière activité, vos aperçus et votre force.
 
 Notifications
 Une notification avec le nom du parcours et vos records éventuels à l'arrivée d'une nouvelle activité. Désactivée tant que vous ne l'activez pas.
 
 Sauvegardes
-Sauvegardez vos réglages et vos choix de sections dans un fichier, un dossier, un stockage en ligne ou un serveur WebDAV.
+Sauvegarde automatique de vos réglages et de vos modifications de sections sur iCloud Drive, dans un dossier ou sur un serveur WebDAV.
 
 Confidentialité
 Vos données d'entraînement restent sur votre appareil. Pas de mesure d'audience, pas de pistage. Les notifications push facultatives stockent votre identifiant d'athlète intervals.icu et un jeton d'appareil sur notre serveur, supprimés automatiquement après 30 jours. Open source sous licence Apache 2.0.

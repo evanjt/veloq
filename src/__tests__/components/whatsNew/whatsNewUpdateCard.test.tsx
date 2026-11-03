@@ -82,3 +82,11 @@ it('shows nothing in a first session', async () => {
   await render(<WhatsNewCard />);
   expect(screen.queryByTestId('whats-new-update-card')).toBeNull();
 });
+
+it('sets Dismiss and Open as a button row that measures each label word', async () => {
+  await render(<WhatsNewCard />);
+  expect(screen.getByTestId('whats-new-update-actions')).toBeTruthy();
+  const probe = { hidden: true };
+  expect(screen.getByTestId('whats-new-update-actions-word-0-0', probe)).toBeTruthy();
+  expect(screen.getByTestId('whats-new-update-actions-word-1-0', probe)).toBeTruthy();
+});

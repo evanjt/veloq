@@ -41,7 +41,7 @@ interface SensorSampleLite {
   at: number;
 }
 
-type SensorStreamKind = 'heartrate' | 'power' | 'cadence';
+type SensorStreamKind = 'heartrate' | 'power' | 'cadence' | 'speed';
 
 export function freshValue(sample: SensorSampleLite | null, now: number): number {
   if (!sample) return 0;
@@ -327,7 +327,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   workout: null,
   savedToLibrary: false,
   review: null,
-  latestSensor: { heartrate: null, power: null, cadence: null },
+  latestSensor: { heartrate: null, power: null, cadence: null, speed: null },
   rawSpeed: null,
   _lastRawFix: null,
   _pauseStart: null,
@@ -357,7 +357,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       workout: null,
       savedToLibrary: false,
       review: null,
-      latestSensor: { heartrate: null, power: null, cadence: null },
+      latestSensor: { heartrate: null, power: null, cadence: null, speed: null },
       rawSpeed: null,
       _lastRawFix: null,
       _pauseStart: null,
@@ -550,6 +550,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
 
   setSensorSample: (kind, value) => {
     if (!Number.isFinite(value) || value < 0) return;
+    if (kind === 'speed' && get().mode !== 'indoor') return;
     set((state) => ({
       latestSensor: { ...state.latestSensor, [kind]: { value, at: Date.now() } },
     }));
@@ -569,7 +570,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     const heartrate = freshValue(latestSensor.heartrate, nowMs);
     streams.time.push(elapsedSec);
     streams.altitude.push(NaN);
-    streams.speed.push(0);
+    streams.speed.push(freshValue(latestSensor.speed, nowMs));
     streams.distance.push(streams.distance[streams.distance.length - 1] ?? 0);
     streams.heartrate.push(heartrate);
     streams.power.push(freshValue(latestSensor.power, nowMs));
@@ -650,7 +651,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       workout: null,
       savedToLibrary: false,
       review: null,
-      latestSensor: { heartrate: null, power: null, cadence: null },
+      latestSensor: { heartrate: null, power: null, cadence: null, speed: null },
       rawSpeed: null,
       _lastRawFix: null,
       _pauseStart: null,

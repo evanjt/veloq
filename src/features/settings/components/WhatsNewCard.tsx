@@ -11,7 +11,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { Button } from '@/shared/ui';
+import { ButtonRow } from '@/shared/ui/ButtonRow';
 import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
 import { useTheme } from '@/shared/app';
@@ -51,22 +51,25 @@ export function WhatsNewCard() {
         <Text style={[styles.description, isDark && styles.descriptionDark]}>
           {t('whatsNew.updateCardBody', { count: card.slideCount })}
         </Text>
-        <View style={styles.actions}>
-          <Button
-            testID="whats-new-update-dismiss"
-            label={t('whatsNew.updateCardDismiss')}
-            variant="ghost"
-            size="sm"
-            onPress={dismiss}
-          />
-          <Button
-            testID="whats-new-update-open"
-            label={t('whatsNew.updateCardOpen')}
-            variant="primary"
-            size="sm"
-            onPress={open}
-          />
-        </View>
+        <ButtonRow
+          testID="whats-new-update-actions"
+          actions={[
+            {
+              testID: 'whats-new-update-dismiss',
+              label: t('whatsNew.updateCardDismiss'),
+              variant: 'ghost',
+              size: 'sm',
+              onPress: dismiss,
+            },
+            {
+              testID: 'whats-new-update-open',
+              label: t('whatsNew.updateCardOpen'),
+              variant: 'primary',
+              size: 'sm',
+              onPress: open,
+            },
+          ]}
+        />
       </Card>
     </View>
   );
@@ -91,10 +94,5 @@ const styles = StyleSheet.create({
   },
   descriptionDark: {
     color: darkColors.textSecondary,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
   },
 });

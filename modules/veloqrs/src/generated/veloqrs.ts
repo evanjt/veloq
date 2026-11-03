@@ -6695,9 +6695,17 @@ export enum FfiBestEffortKind {
    */
   Distance,
   /**
+   * The mile, a distance in metres named for its unit.
+   */
+  Mile,
+  /**
    * The half marathon, a distance in metres named for its race.
    */
   HalfMarathon,
+  /**
+   * The marathon, a distance in metres named for its race.
+   */
+  Marathon,
 }
 
 const FfiConverterTypeFfiBestEffortKind = (() => {
@@ -6710,7 +6718,11 @@ const FfiConverterTypeFfiBestEffortKind = (() => {
         case 2:
           return FfiBestEffortKind.Distance;
         case 3:
+          return FfiBestEffortKind.Mile;
+        case 4:
           return FfiBestEffortKind.HalfMarathon;
+        case 5:
+          return FfiBestEffortKind.Marathon;
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -6721,8 +6733,12 @@ const FfiConverterTypeFfiBestEffortKind = (() => {
           return c.writeI32(1);
         case FfiBestEffortKind.Distance:
           return c.writeI32(2);
-        case FfiBestEffortKind.HalfMarathon:
+        case FfiBestEffortKind.Mile:
           return c.writeI32(3);
+        case FfiBestEffortKind.HalfMarathon:
+          return c.writeI32(4);
+        case FfiBestEffortKind.Marathon:
+          return c.writeI32(5);
       }
     }
     allocationSize(value: TypeName): number {
@@ -6748,6 +6764,15 @@ export type FfiBestEffort = {
    */
   time?: number;
   activityId?: string;
+  /**
+   * Watts per kilogram for power, from the curve's own per-kilogram series.
+   */
+  wattsPerKg?: number;
+  /**
+   * The activity holding the per-kilogram best, which need not be the one
+   * holding the watts.
+   */
+  wkgActivityId?: string;
   /**
    * The name and start of the activity holding the best, when the device
    * holds that activity. Empty for one it does not, which the screen shows
@@ -6783,6 +6808,8 @@ const FfiConverterTypeFfiBestEffort = (() => {
         value: FfiConverterOptionalFloat64.readFromCursor(c),
         time: FfiConverterOptionalFloat64.readFromCursor(c),
         activityId: FfiConverterOptionalString.readFromCursor(c),
+        wattsPerKg: FfiConverterOptionalFloat64.readFromCursor(c),
+        wkgActivityId: FfiConverterOptionalString.readFromCursor(c),
         activity: FfiConverterOptionalTypeFfiActivityName.readFromCursor(c),
       };
     }
@@ -6792,6 +6819,8 @@ const FfiConverterTypeFfiBestEffort = (() => {
       FfiConverterOptionalFloat64.writeIntoCursor(value.value, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.time, c);
       FfiConverterOptionalString.writeIntoCursor(value.activityId, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.wattsPerKg, c);
+      FfiConverterOptionalString.writeIntoCursor(value.wkgActivityId, c);
       FfiConverterOptionalTypeFfiActivityName.writeIntoCursor(
         value.activity,
         c,
@@ -6804,6 +6833,8 @@ const FfiConverterTypeFfiBestEffort = (() => {
         FfiConverterOptionalFloat64.allocationSize(value.value) +
         FfiConverterOptionalFloat64.allocationSize(value.time) +
         FfiConverterOptionalString.allocationSize(value.activityId) +
+        FfiConverterOptionalFloat64.allocationSize(value.wattsPerKg) +
+        FfiConverterOptionalString.allocationSize(value.wkgActivityId) +
         FfiConverterOptionalTypeFfiActivityName.allocationSize(value.activity)
       );
     }
@@ -8142,6 +8173,14 @@ export type FfiCurrentMapSection = {
   hidden: boolean;
   supersededBy?: string;
   /**
+   * Its stored length.
+   */
+  distanceMeters: number;
+  /**
+   * Traversals, one per pass.
+   */
+  visitCount: number;
+  /**
    * Delta+varint encoded coordinates.
    */
   encodedPolyline: ArrayBuffer;
@@ -8176,6 +8215,8 @@ const FfiConverterTypeFfiCurrentMapSection = (() => {
         pinned: FfiConverterBool.readFromCursor(c),
         hidden: FfiConverterBool.readFromCursor(c),
         supersededBy: FfiConverterOptionalString.readFromCursor(c),
+        distanceMeters: FfiConverterFloat64.readFromCursor(c),
+        visitCount: FfiConverterUInt32.readFromCursor(c),
         encodedPolyline: FfiConverterArrayBuffer.readFromCursor(c),
       };
     }
@@ -8186,6 +8227,8 @@ const FfiConverterTypeFfiCurrentMapSection = (() => {
       FfiConverterBool.writeIntoCursor(value.pinned, c);
       FfiConverterBool.writeIntoCursor(value.hidden, c);
       FfiConverterOptionalString.writeIntoCursor(value.supersededBy, c);
+      FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
+      FfiConverterUInt32.writeIntoCursor(value.visitCount, c);
       FfiConverterArrayBuffer.writeIntoCursor(value.encodedPolyline, c);
     }
     allocationSize(value: TypeName): number {
@@ -8196,6 +8239,8 @@ const FfiConverterTypeFfiCurrentMapSection = (() => {
         FfiConverterBool.allocationSize(value.pinned) +
         FfiConverterBool.allocationSize(value.hidden) +
         FfiConverterOptionalString.allocationSize(value.supersededBy) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterUInt32.allocationSize(value.visitCount) +
         FfiConverterArrayBuffer.allocationSize(value.encodedPolyline)
       );
     }
@@ -18258,6 +18303,11 @@ export type FfiRetiredSection = {
    */
   distanceMeters?: number;
   /**
+   * How many passes it had when it left: its retirement event's count,
+   * else the newest archived state's. `None` when neither recorded one.
+   */
+  visitCount?: number;
+  /**
    * The version a restore rolls it back to: the newest `archived` state
    * that names a sport, which is what recreating the row needs. `None`
    * when no such state exists, and for a state a record restore still
@@ -18295,6 +18345,7 @@ const FfiConverterTypeFfiRetiredSection = (() => {
         versions: FfiConverterSequenceTypeWholeNumber.readFromCursor(c),
         name: FfiConverterOptionalString.readFromCursor(c),
         distanceMeters: FfiConverterOptionalFloat64.readFromCursor(c),
+        visitCount: FfiConverterOptionalUInt32.readFromCursor(c),
         restorableVersion:
           FfiConverterOptionalTypeWholeNumber.readFromCursor(c),
       };
@@ -18307,6 +18358,7 @@ const FfiConverterTypeFfiRetiredSection = (() => {
       FfiConverterSequenceTypeWholeNumber.writeIntoCursor(value.versions, c);
       FfiConverterOptionalString.writeIntoCursor(value.name, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.distanceMeters, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.visitCount, c);
       FfiConverterOptionalTypeWholeNumber.writeIntoCursor(
         value.restorableVersion,
         c,
@@ -18321,6 +18373,7 @@ const FfiConverterTypeFfiRetiredSection = (() => {
         FfiConverterSequenceTypeWholeNumber.allocationSize(value.versions) +
         FfiConverterOptionalString.allocationSize(value.name) +
         FfiConverterOptionalFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterOptionalUInt32.allocationSize(value.visitCount) +
         FfiConverterOptionalTypeWholeNumber.allocationSize(
           value.restorableVersion,
         )
@@ -18499,6 +18552,11 @@ export type FfiRetiredMapData = {
   retired: Array<FfiRetiredMapSection>;
   current: Array<FfiCurrentMapSection>;
   pairs: Array<FfiRetiredMapPair>;
+  /**
+   * The engine is still working out which lines share ground, so a line
+   * whose ground pairs are owed lists only its ledger and supersedes links.
+   */
+  pairsPending: boolean;
 };
 
 /**
@@ -18526,6 +18584,7 @@ const FfiConverterTypeFfiRetiredMapData = (() => {
         retired: FfiConverterSequenceTypeFfiRetiredMapSection.readFromCursor(c),
         current: FfiConverterSequenceTypeFfiCurrentMapSection.readFromCursor(c),
         pairs: FfiConverterSequenceTypeFfiRetiredMapPair.readFromCursor(c),
+        pairsPending: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -18538,6 +18597,7 @@ const FfiConverterTypeFfiRetiredMapData = (() => {
         c,
       );
       FfiConverterSequenceTypeFfiRetiredMapPair.writeIntoCursor(value.pairs, c);
+      FfiConverterBool.writeIntoCursor(value.pairsPending, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -18547,7 +18607,8 @@ const FfiConverterTypeFfiRetiredMapData = (() => {
         FfiConverterSequenceTypeFfiCurrentMapSection.allocationSize(
           value.current,
         ) +
-        FfiConverterSequenceTypeFfiRetiredMapPair.allocationSize(value.pairs)
+        FfiConverterSequenceTypeFfiRetiredMapPair.allocationSize(value.pairs) +
+        FfiConverterBool.allocationSize(value.pairsPending)
       );
     }
   }
@@ -19795,6 +19856,15 @@ export type FfiRoutesScreenData = {
    */
   groupsDirty: boolean;
   /**
+   * What keeps the owed regroup from running. An upgrade leaves it to the
+   * detector cutover, which waits behind the elevation download, so this is
+   * the hold ranked as the sections page ranks it while the cutover holds
+   * the regroup. `None` when no regroup is owed, when one is in flight, or
+   * when nothing holds it, and `groups_dirty` then means it is running or
+   * about to.
+   */
+  groupsHold?: FfiDetectionHold;
+  /**
    * How many groups the search and the minimum activity count leave. This is
    * what the page is taken out of, and what `has_more_groups` is measured
    * against. `group_count` stays the whole catalogue.
@@ -19890,6 +19960,7 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
         hasMoreGroups: FfiConverterBool.readFromCursor(c),
         hasMoreSections: FfiConverterBool.readFromCursor(c),
         groupsDirty: FfiConverterBool.readFromCursor(c),
+        groupsHold: FfiConverterOptionalTypeFfiDetectionHold.readFromCursor(c),
         filteredGroupCount: FfiConverterUInt32.readFromCursor(c),
         filteredSectionCount: FfiConverterUInt32.readFromCursor(c),
         unacceptedAutoCount: FfiConverterUInt32.readFromCursor(c),
@@ -19922,6 +19993,10 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
       FfiConverterBool.writeIntoCursor(value.hasMoreGroups, c);
       FfiConverterBool.writeIntoCursor(value.hasMoreSections, c);
       FfiConverterBool.writeIntoCursor(value.groupsDirty, c);
+      FfiConverterOptionalTypeFfiDetectionHold.writeIntoCursor(
+        value.groupsHold,
+        c,
+      );
       FfiConverterUInt32.writeIntoCursor(value.filteredGroupCount, c);
       FfiConverterUInt32.writeIntoCursor(value.filteredSectionCount, c);
       FfiConverterUInt32.writeIntoCursor(value.unacceptedAutoCount, c);
@@ -19956,6 +20031,9 @@ const FfiConverterTypeFfiRoutesScreenData = (() => {
         FfiConverterBool.allocationSize(value.hasMoreGroups) +
         FfiConverterBool.allocationSize(value.hasMoreSections) +
         FfiConverterBool.allocationSize(value.groupsDirty) +
+        FfiConverterOptionalTypeFfiDetectionHold.allocationSize(
+          value.groupsHold,
+        ) +
         FfiConverterUInt32.allocationSize(value.filteredGroupCount) +
         FfiConverterUInt32.allocationSize(value.filteredSectionCount) +
         FfiConverterUInt32.allocationSize(value.unacceptedAutoCount) +
@@ -20413,6 +20491,10 @@ export type FfiRoutesStatusData = {
   elevationRemaining?: number;
   elevationPaused: boolean;
   cutover: CutoverProgress;
+  /**
+   * The retired map's ground pairs are being worked out in the background.
+   */
+  retiredPairsRunning: boolean;
 };
 
 /**
@@ -20447,6 +20529,7 @@ const FfiConverterTypeFfiRoutesStatusData = (() => {
         elevationRemaining: FfiConverterOptionalUInt32.readFromCursor(c),
         elevationPaused: FfiConverterBool.readFromCursor(c),
         cutover: FfiConverterTypeCutoverProgress.readFromCursor(c),
+        retiredPairsRunning: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -20468,6 +20551,7 @@ const FfiConverterTypeFfiRoutesStatusData = (() => {
       FfiConverterOptionalUInt32.writeIntoCursor(value.elevationRemaining, c);
       FfiConverterBool.writeIntoCursor(value.elevationPaused, c);
       FfiConverterTypeCutoverProgress.writeIntoCursor(value.cutover, c);
+      FfiConverterBool.writeIntoCursor(value.retiredPairsRunning, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -20483,7 +20567,8 @@ const FfiConverterTypeFfiRoutesStatusData = (() => {
         ) +
         FfiConverterOptionalUInt32.allocationSize(value.elevationRemaining) +
         FfiConverterBool.allocationSize(value.elevationPaused) +
-        FfiConverterTypeCutoverProgress.allocationSize(value.cutover)
+        FfiConverterTypeCutoverProgress.allocationSize(value.cutover) +
+        FfiConverterBool.allocationSize(value.retiredPairsRunning)
       );
     }
   }
@@ -35430,7 +35515,8 @@ export interface SectionManagerLike {
   /**
    * The old-versus-new sections map in one read: the retired sections with
    * their lines, every catalogue row, and the pairs between them. Cached
-   * under the read stamp, so a selection on the map reads nothing.
+   * under the read stamp, so a selection on the map reads nothing. Ground
+   * pairs still owed are worked out on a thread of their own, never here.
    */
   getRetiredMap() /*throws*/ : FfiRetiredMapData;
   /**
@@ -36145,7 +36231,8 @@ export class SectionManager
   /**
    * The old-versus-new sections map in one read: the retired sections with
    * their lines, every catalogue row, and the pairs between them. Cached
-   * under the read stamp, so a selection on the map reads nothing.
+   * under the read stamp, so a selection on the map reads nothing. Ground
+   * pairs still owed are worked out on a thread of their own, never here.
    */
   getRetiredMap(): FfiRetiredMapData /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
@@ -41805,6 +41892,11 @@ const FfiConverterSequenceTypeFfiGroupWithPolyline = new FfiConverterArray(
   FfiConverterTypeFfiGroupWithPolyline,
 );
 
+// FfiConverter for FfiDetectionHold | undefined
+const FfiConverterOptionalTypeFfiDetectionHold = new FfiConverterOptional(
+  FfiConverterTypeFfiDetectionHold,
+);
+
 // FfiConverter for FfiCatalogueEmptyReason | undefined
 const FfiConverterOptionalTypeFfiCatalogueEmptyReason =
   new FfiConverterOptional(FfiConverterTypeFfiCatalogueEmptyReason);
@@ -43793,7 +43885,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_retired_map() !==
-    21304
+    10939
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_retired_map",

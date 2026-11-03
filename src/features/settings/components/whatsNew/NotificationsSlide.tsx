@@ -17,7 +17,8 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { sourceFor } from '@/shared/app/source';
 import { openExternal } from '@/shared/app/openExternal';
 import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
-import { Button, PermissionNotice, TextLink } from '@/shared/ui';
+import { PermissionNotice, TextLink } from '@/shared/ui';
+import { ButtonRow } from '@/shared/ui/ButtonRow';
 import { Icon } from '@/shared/ui/Icon';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { requestNotificationPermission } from '../../lib/notificationService';
@@ -173,23 +174,25 @@ export function NotificationsSlide() {
               onAllow={turnOn}
             />
           ) : null}
-          <View style={styles.actions}>
-            <Button
-              testID="tour-notifications-never"
-              label={t('whatsNew.tutorial.neverRemind')}
-              variant="ghost"
-              size="sm"
-              onPress={never}
-            />
-            <Button
-              testID="tour-notifications-turn-on"
-              label={t('whatsNew.tutorial.turnOn')}
-              variant="primary"
-              size="sm"
-              onPress={turnOn}
-              disabled={enabling}
-            />
-          </View>
+          <ButtonRow
+            actions={[
+              {
+                testID: 'tour-notifications-never',
+                label: t('whatsNew.tutorial.neverRemind'),
+                variant: 'ghost',
+                size: 'sm',
+                onPress: never,
+              },
+              {
+                testID: 'tour-notifications-turn-on',
+                label: t('whatsNew.tutorial.turnOn'),
+                variant: 'primary',
+                size: 'sm',
+                onPress: turnOn,
+                disabled: enabling,
+              },
+            ]}
+          />
         </>
       )}
     </View>
@@ -222,11 +225,5 @@ const styles = StyleSheet.create({
   status: {
     ...typography.bodySmall,
     textAlign: 'center',
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.lg,
   },
 });

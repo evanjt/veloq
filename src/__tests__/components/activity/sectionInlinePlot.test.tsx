@@ -8,7 +8,8 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { fireEvent, render, type RenderAPI } from '@testing-library/react-native';
+import { act, fireEvent, render, type RenderAPI } from '@testing-library/react-native';
+import type { ReactTestInstance } from 'react-test-renderer';
 
 import { SectionInlinePlot } from '@/features/activity/components/SectionInlinePlot';
 import { groupSectionEncounters } from '@/features/activity/lib/groupSectionEncounters';
@@ -17,8 +18,9 @@ import type { SectionEncounter } from 'veloqrs';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 
+const mockSparkline = jest.fn((_props: { showRange?: boolean }) => null);
 jest.mock('@/features/routes/components/section/SectionSparkline', () => ({
-  SectionSparkline: () => null,
+  SectionSparkline: (props: { showRange?: boolean }) => mockSparkline(props),
 }));
 
 function encounter(overrides: Partial<SectionEncounter> & { sectionId: string }): SectionEncounter {
@@ -95,6 +97,152 @@ function sectionIdInSlot(slot: number): string {
     if (sectionPaletteIndex(`slot-${i}`) === slot) return `slot-${i}`;
   }
 }
+
+/** Whether a Text node sits inside another Text, where it wraps with the run around it. */
+function insideTextRun(node: ReactTestInstance): boolean {
+  for (let up = node.parent; up; up = up.parent) {
+    const type: unknown = up.type;
+    if (type === 'Text') return true;
+  }
+  return false;
+}
+
+/** The nearest host node above `node`, which is its parent as layout sees it. */
+function hostParent(node: ReactTestInstance): ReactTestInstance | null {
+  for (let up = node.parent; up; up = up.parent) {
+    if (typeof up.type === 'string') return up;
+  }
+  return null;
+}
+
+const TRAVERSALS_WORD = 'sections.traversalsCount';
+
+function historied(): SectionEncounter {
+  return encounter({
+    sectionId: 'sec-63',
+    historyTimes: [140, 150],
+    historyActivityIds: ['act-1', 'act-0'],
+    historyDates: [1_700_000_000, 1_700_086_400],
+  });
+}
+
+async function layOutRow(screen: RenderAPI, width: number) {
+  await act(() => {
+    screen.getByTestId('section-inline-row-0').props.onLayout({
+      nativeEvent: { layout: { width, height: 40 } },
+    });
+  });
+}
+
+/** Reports each measured word of the meta line at the width `wordWidth` gives it. */
+async function layOutMetaWords(screen: RenderAPI, wordWidth: (word: string) => number) {
+  const probes = screen.getAllByTestId(/^section-inline-measure-0-\d+$/, {
+    includeHiddenElements: true,
+  });
+  await act(() => {
+    for (const probe of probes) {
+      probe.props.onLayout({
+        nativeEvent: { layout: { width: wordWidth(probe.props.children), height: 16 } },
+      });
+    }
+  });
+}
+
+describe('SectionInlinePlot row layout', () => {
+  const slowSecond = () =>
+    encounter({
+      sectionId: 'sec-climb',
+      rank: 2,
+      distanceMeters: 12_400,
+      lapTime: 4_500,
+      lapPace: 0.6,
+      visitCount: 124,
+      historyTimes: [4_500, 4_400],
+      historyActivityIds: ['act-1', 'act-0'],
+      historyDates: [1_700_000_000, 1_700_086_400],
+    });
+
+  beforeEach(() => mockSparkline.mockClear());
+
+  it('prints the pace as its own line that cannot break between value and unit', async () => {
+    const { getByText } = await renderGroup([slowSecond()], 0, 'Run');
+
+    const pace = getByText('27:47 /km');
+
+    expect(insideTextRun(pace)).toBe(false);
+    expect(pace.props.numberOfLines).toBe(1);
+  });
+
+  it('gives the medal and the plot their own slots beside the text column', async () => {
+    const { getByTestId } = await renderGroup([slowSecond()], 0, 'Run');
+
+    const row = getByTestId('section-inline-row-0');
+    const text = getByTestId('section-inline-text-0');
+    const markers = getByTestId('section-inline-markers-0');
+    const plot = getByTestId('section-inline-sparkline-0');
+
+    // Compared as booleans: a failed match on a node would print the whole tree.
+    expect([text, markers, plot].map((slot) => hostParent(slot) === row)).toEqual([
+      true,
+      true,
+      true,
+    ]);
+    expect(markers).toContainElement(getByTestId('section-inline-place-0'));
+    expect(insideTextRun(getByTestId('section-inline-place-0'))).toBe(false);
+    expect(StyleSheet.flatten(markers.props.style)?.flexShrink).toBe(0);
+    expect(StyleSheet.flatten(plot.props.style)?.flexShrink).toBe(0);
+    expect(StyleSheet.flatten(text.props.style)).toEqual(
+      expect.objectContaining({ flex: 1, minWidth: 0 })
+    );
+  });
+
+  it('keeps the trophy and the partial word in the marker slot', async () => {
+    const { getByTestId } = await renderGroup([
+      encounter({ sectionId: 'sec-a', direction: 'same', isPr: true }),
+      encounter({ sectionId: 'sec-a', direction: 'reverse', isComplete: false }),
+    ]);
+
+    expect(getByTestId('section-inline-markers-0')).toContainElement(
+      getByTestId('section-inline-trophy-0')
+    );
+    expect(getByTestId('section-inline-markers-0-1')).toContainElement(
+      getByTestId('section-inline-partial-0-1')
+    );
+  });
+
+  it('drops the range labels once the row is too narrow for them and the pace', async () => {
+    const screen = await renderGroup([slowSecond()], 0, 'Run');
+    expect(mockSparkline).toHaveBeenLastCalledWith(expect.objectContaining({ showRange: true }));
+
+    await act(() => {
+      screen.getByTestId('section-inline-row-0').props.onLayout({
+        nativeEvent: { layout: { width: 280, height: 40 } },
+      });
+    });
+
+    expect(mockSparkline).toHaveBeenLastCalledWith(expect.objectContaining({ showRange: false }));
+  });
+
+  it('keeps the distance and traversals line beside the pace while its widest word fits', async () => {
+    const screen = await renderGroup([historied()], 0, 'Ride');
+
+    await layOutRow(screen, 375);
+    await layOutMetaWords(screen, (word) => (word === TRAVERSALS_WORD ? 60 : 20));
+
+    const text = screen.getByTestId('section-inline-text-0');
+    expect(hostParent(screen.getByTestId('section-inline-meta-0')) === text).toBe(true);
+  });
+
+  it('moves the distance and traversals line onto its own line at narrow width and text size 1.3', async () => {
+    const screen = await renderGroup([historied()], 0, 'Ride');
+
+    await layOutRow(screen, 260);
+    await layOutMetaWords(screen, (word) => (word === TRAVERSALS_WORD ? 120 : 20));
+
+    const row = screen.getByTestId('section-inline-row-0');
+    expect(hostParent(screen.getByTestId('section-inline-meta-0')) === row).toBe(true);
+  });
+});
 
 describe('SectionInlinePlot', () => {
   it('shows the engine pace for a run even when distance and time imply another pace', async () => {

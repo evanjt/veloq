@@ -1,1 +1,1 @@
-moc,tempo,kadencja,tętno,strefy,ftp,hrv,gpx,podjazd,trasa,okrążenia,pływanie,triathlon,siła
+rower,bieg,trasy,odcinki,heatmap,analizy,offline,prywatność,wzniesienia,triathlon,mtb,gravel,hrv

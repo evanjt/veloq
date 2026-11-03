@@ -1,5 +1,5 @@
 import React from 'react';
-import { AccessibilityInfo, Alert, Platform, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Alert, Platform, View } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { routes } from 'veloqrs';
@@ -130,30 +130,6 @@ describe('detection settings screen', () => {
     mockGetSectionConfig.mockClear();
   });
 
-  it('insets the background jobs card by the same amount as the button below it', async () => {
-    const tree = await render(<DetectionSettingsScreen />);
-    // Horizontal margin and padding from the element's outer edge to the screen edge.
-    const inset = (testID: string, includeSelf: boolean) => {
-      let total = 0;
-      const start = tree.getByTestId(testID);
-      for (
-        let node = includeSelf ? start : (start.parent as typeof start);
-        node;
-        node = node.parent as typeof node
-      ) {
-        // A scroll view's content container is a prop of its own, not an ancestor view.
-        const content = StyleSheet.flatten(node.props?.contentContainerStyle) ?? {};
-        total += Number(content.paddingHorizontal ?? 0);
-        if (typeof node.type !== 'string') continue;
-        const style = StyleSheet.flatten(node.props?.style) ?? {};
-        total += Number(style.marginHorizontal ?? 0) + Number(style.paddingHorizontal ?? 0);
-      }
-      return total;
-    };
-    expect(inset('background-jobs-activity', true)).toBe(inset('detection-rescan-button', false));
-    expect(inset('background-jobs-activity', true)).toBeGreaterThan(0);
-  });
-
   it('offers no sensitivity sliders', async () => {
     const tree = await render(<DetectionSettingsScreen />);
     expect(
@@ -211,9 +187,9 @@ describe('detection settings screen', () => {
     });
   });
 
-  it('shows the activity bar on the screen that starts detection', async () => {
+  it('shows no jobs bar, since the jobs have their own screen', async () => {
     const tree = await render(<DetectionSettingsScreen />);
-    expect(tree.getByTestId('background-jobs-activity')).toBeTruthy();
+    expect(tree.queryByTestId('background-jobs-activity')).toBeNull();
   });
 
   it('reads no detector config, since nothing on the screen draws it', async () => {

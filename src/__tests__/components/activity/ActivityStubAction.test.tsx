@@ -47,7 +47,6 @@ const draw = (verdict: StubVerdict) =>
 beforeEach(() => {
   jest.clearAllMocks();
   useDebugStore.setState({
-    experimentalEnabled: true,
     experimentalFeatures: { garminUpdate: true },
   });
 });
@@ -80,7 +79,7 @@ it('draws nothing for a served card', async () => {
 });
 
 it('draws nothing while the experimental switch is off', async () => {
-  useDebugStore.setState({ experimentalEnabled: false });
+  useDebugStore.setState({ experimentalFeatures: {} });
   await draw(StubVerdict.GarminUpdatable);
   expect(screen.toJSON()).toBeNull();
 });

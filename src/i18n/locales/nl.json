@@ -492,7 +492,6 @@
   },
   "bestEffortsScreen": {
     "title": "Beste prestaties",
-    "viewAll": "Alle beste prestaties",
     "windowSubtitle_one": "Besten van de laatste {{count}} dag.",
     "windowSubtitle_other": "Besten van de laatste {{count}} dagen.",
     "allTimeSubtitle": "Persoonlijke records uit je gecachte geschiedenis.",
@@ -504,9 +503,12 @@
     "climbingOwed": "De klimrecords worden nog berekend.",
     "checkpoint": {
       "halfMarathon": "Halve marathon",
+      "marathon": "Marathon",
+      "mile": "Mijl",
       "metres": "{{value}} m",
       "kilometres": "{{value}} km"
-    }
+    },
+    "curveSource": "Vermogens- en tempobesten komen van intervals.icu."
   },
   "cache": {
     "allActivitiesSynced": "Alle activiteiten gesynchroniseerd",
@@ -1599,7 +1601,6 @@
     "settingsAutoPauseThreshold": "Snelheidsdrempel",
     "settingsAutoPauseWalkingAndOther": "Wandelen en andere sporten",
     "settingsDataFields": "Gegevensvelden",
-    "settingsUnits": "Eenheden",
     "slideToUnlock": "Schuif om te ontgrendelen",
     "lockControls": "Bediening vergrendelen",
     "unlockControls": "Bediening ontgrendelen",
@@ -2082,13 +2083,14 @@
     "signOut": "Uitloggen",
     "leaveDemo": "Demo verlaten",
     "display": "Weergave",
-    "largeHistoryConfirm": "Toch downloaden",
-    "largeHistoryMessage_one": "Zo ver terug haalt tot ongeveer {{count}} activiteit op. Dat duurt even, en de app blijft met zoveel data niet gegarandeerd snel.",
-    "largeHistoryMessage_other": "Zo ver terug haalt tot ongeveer {{count}} activiteiten op. Dat duurt even, en de app blijft met zoveel data niet gegarandeerd snel.",
-    "largeHistoryTitle": "Dat is een grote download",
     "largeHistoryDaysTitle_one": "Dit duurt minstens {{count}} dag",
     "largeHistoryDaysTitle_other": "Dit duurt minstens {{count}} dagen",
-    "largeHistoryDaysMessage": "intervals.icu beperkt hoeveel activiteiten de app per dag kan ophalen, en alle installaties delen die limiet. De rest komt de volgende dagen binnen. De app blijft met zoveel data niet gegarandeerd snel.",
+    "activityHistory": "Activiteitengeschiedenis",
+    "activityHistoryIntro": "intervals.icu beperkt hoeveel activiteiten de app per dag kan downloaden, en alle installaties delen die limiet. Een langere geschiedenis duurt langer, en een groter venster verhoogt de limiet niet.",
+    "activityHistorySummary": "Laatste {{span}}, activiteiten: {{activities}}",
+    "historyCost": "Te downloaden activiteiten: tot ongeveer {{activities}}",
+    "historyUnlocks": "Een langere geschiedenis geeft langere trends, meer sectiegeschiedenis en betere routegroepering.",
+    "historyConfirm": "Dit bereik downloaden",
     "localDataRange": "Lokaal datumbereik",
     "localDataRangeEnd": "Einde van lokaal datumbereik",
     "heroMetric": "Hoofdmetriek",
@@ -2208,7 +2210,6 @@
     "groupKeeps": "Bibliotheek en back-up",
     "routesAndSections": "Routes en secties",
     "storage": "Opslag",
-    "sinceDateSubtitle": "Sinds {{date}}",
     "elevationBackfillRunning": "Hoogte wordt aan activiteitensporen toegevoegd",
     "elevationBackfillProgress": "{{completed}} van {{total}} activiteiten",
     "elevationBackfillComplete": "Alle activiteitensporen hebben hoogte",
@@ -2283,7 +2284,7 @@
     "previewStatusGone": "Verwijderd",
     "previewCurrentLayer": "Huidig",
     "previewRetiredLayer": "Vervallen",
-    "previewProposedLayer": "Voorgesteld",
+    "previewAreaLayer": "Gebied",
     "previewKeep": "Behouden",
     "previewDiscard": "Verwerpen",
     "previewKeepTitle": "Deze instellingen toepassen?",
@@ -2338,7 +2339,6 @@
     "debugModeDescription": "Interne diagnostiek tonen op detailpagina's",
     "developerDashboardDescription": "Engine-statistieken, FFI-prestaties, geheugen",
     "experimentalFeatures": "Experimentele functies",
-    "experimentalFeaturesDescription": "Toon functies die nog in ontwikkeling zijn, elk met een eigen schakelaar",
     "experimentalDashboardDescription": "Zet elke experimentele functie aan of uit en open haar"
   },
   "stats": {
@@ -2777,6 +2777,7 @@
     "forget": "Vergeten",
     "connect": "Verbinden",
     "disconnect": "Verbreken",
+    "reconnect": "Opnieuw verbinden",
     "recordFrom": "{{kind}} opnemen van {{name}}",
     "chooseSourceHint": "Als twee sensoren dezelfde meetwaarde leveren, wordt die van de gemarkeerde opgenomen. Tik op de andere om te wisselen.",
     "bleUnavailable": "Bluetooth is niet beschikbaar",
@@ -2784,7 +2785,8 @@
     "kinds": {
       "heartRate": "Hartslag",
       "power": "Vermogen",
-      "cadence": "Cadans"
+      "cadence": "Cadans",
+      "runningCadence": "Loopcadans"
     },
     "status": {
       "connecting": "Verbinden…",
@@ -2792,6 +2794,12 @@
       "noData": "Verbonden, geen gegevens",
       "reconnecting": "Opnieuw verbinden…",
       "disconnected": "Niet verbonden"
+    },
+    "silent": {
+      "heartRate": "Gekoppeld, stuurt geen hartslag. Zet hartslaguitzending aan op het apparaat.",
+      "power": "Gekoppeld, stuurt geen vermogen. Zet vermogensuitzending aan op het apparaat.",
+      "cadence": "Gekoppeld, stuurt geen cadans. Zet cadansuitzending aan op het apparaat.",
+      "runningCadence": "Gekoppeld, stuurt geen loopcadans. Zet loopcadansuitzending aan op het apparaat."
     },
     "purpose": "Bluetooth wordt gebruikt om hartslag-, vermogen- en cadanssensoren te vinden en te verbinden.",
     "noneFound": "Geen sensoren gevonden",
@@ -2885,6 +2893,7 @@
     "retiredInto": "In {{name}}",
     "pairUnnamed": "Stuk zonder naam",
     "pairNone": "Geen ander stuk deelt dit traject",
+    "pairsPending": "Nog bezig met bepalen welke stukken dit traject delen",
     "pairRetiredLedger": "Vervallen in {{name}}",
     "pairRetiredSupersedes": "Had {{name}} verborgen",
     "pairCurrentLedger": "Nam het over van {{name}}",
@@ -2973,7 +2982,14 @@
     "heldByBudget": "Verzoeklimiet bereikt, wacht tot {{time}}",
     "pacedOnCaps_one": "Minstens {{count}} dag, volgens de daglimiet van intervals.icu",
     "pacedOnCaps_other": "Minstens {{count}} dagen, volgens de daglimiet van intervals.icu",
-    "lastFinished": "Laatste run {{time}}",
+    "headerRunning_one": "{{count}} achtergrondtaak actief",
+    "headerRunning_other": "{{count}} achtergrondtaken actief",
+    "headerStopped_one": "{{count}} achtergrondtaak voortijdig gestopt",
+    "headerStopped_other": "{{count}} achtergrondtaken voortijdig gestopt",
+    "headerWaiting": "Achtergrondtaken wachten tot {{time}}",
+    "headerWaitingNoTime": "Achtergrondtaken wachten",
+    "headerIdle": "Alle achtergrondtaken zijn klaar",
+    "pastRuns": "Eerdere runs",
     "lastRunNoChange": "Geen wijzigingen",
     "lastRunStopped": "Gestopt",
     "lastRunActivities_one": "{{count}} activiteit",
@@ -3236,6 +3252,10 @@
     "garminUpdate": {
       "title": "Activiteiten bijwerken vanuit Garmin",
       "blurb": "Vervangt de kopie van intervals.icu door Garmins eigen bestand als dat meer bevat. Vereist een Garmin-sleutel. Nog niet af."
+    },
+    "climbingBests": {
+      "title": "Beste klimprestaties",
+      "blurb": "Veloq berekent deze op je telefoon uit de hoogtegegevens van intervals.icu. intervals.icu levert zelf geen beste klimprestaties. Voor elk tijdvenster, van 15 seconden tot 20 minuten, zoekt Veloq je hoogste stijgsnelheid in meters per uur (VAM) en rekent die om naar W/kg, het vermogen dat nodig is om alleen je lichaamsgewicht op te tillen. Alleen activiteiten met gecorrigeerde hoogte van intervals.icu tellen mee."
     }
   }
 }

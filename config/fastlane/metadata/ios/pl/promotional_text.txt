@@ -1,1 +1,1 @@
-Twoja forma, kondycja i powtarzane trasy, odczytane z konta intervals.icu i analizowane na telefonie.
+Nowość: przebudowane odcinki uwzględniające wzniesienia, nagrywanie z czujnikami Bluetooth, mapy offline z terenem 3D i widżety z podsumowaniem, analizami i siłą.

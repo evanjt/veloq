@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { isAutoBackupEnabled, turnOnAutoBackup } from '@/features/settings/lib/autobackup';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
-import { Button } from '@/shared/ui';
+import { ButtonRow } from '@/shared/ui/ButtonRow';
 import { Icon } from '@/shared/ui/Icon';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { tourPanelColour } from './tourPanel';
@@ -62,22 +62,24 @@ export function BackupSlide() {
       {status ? (
         <Text style={[styles.status, { color: palette.textSecondary }]}>{status}</Text>
       ) : (
-        <View style={styles.actions}>
-          <Button
-            testID="tour-backup-never"
-            label={t('whatsNew.tutorial.neverRemind')}
-            variant="ghost"
-            size="sm"
-            onPress={never}
-          />
-          <Button
-            testID="tour-backup-turn-on"
-            label={t('whatsNew.tutorial.turnOn')}
-            variant="primary"
-            size="sm"
-            onPress={turnOn}
-          />
-        </View>
+        <ButtonRow
+          actions={[
+            {
+              testID: 'tour-backup-never',
+              label: t('whatsNew.tutorial.neverRemind'),
+              variant: 'ghost',
+              size: 'sm',
+              onPress: never,
+            },
+            {
+              testID: 'tour-backup-turn-on',
+              label: t('whatsNew.tutorial.turnOn'),
+              variant: 'primary',
+              size: 'sm',
+              onPress: turnOn,
+            },
+          ]}
+        />
       )}
     </View>
   );
@@ -104,11 +106,5 @@ const styles = StyleSheet.create({
   status: {
     ...typography.bodySmall,
     textAlign: 'center',
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.lg,
   },
 });

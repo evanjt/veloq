@@ -18,6 +18,7 @@ const enUS = resolvedLocale('en-US');
 
 /** Spelling that simply differs between the orthographies. */
 const SPELLING = [
+  'experimental.climbingBests.blurb',
   'about.openSource',
   'about.thirdPartyLicenses',
   'cache.analyzingRoutes',

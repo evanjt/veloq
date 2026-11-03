@@ -60,10 +60,10 @@ describe('the insights computation and the experimental switch', () => {
       insightsData: { sportTypes: [] },
     } as unknown as ReturnType<typeof fetchInsightsDataFromEngine>);
     idle = stubIdleScheduler('queued');
-    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
+    useDebugStore.setState({ experimentalFeatures: {} });
     switchAtCompute = [];
     mockCompute.mockImplementation(() => {
-      switchAtCompute.push(useDebugStore.getState().experimentalEnabled);
+      switchAtCompute.push(useDebugStore.getState().experimentalFeatures.efficiencyTrends === true);
       return { insights: [], failed: false };
     });
   });
@@ -71,7 +71,7 @@ describe('the insights computation and the experimental switch', () => {
   afterEach(() => {
     idle.restore();
     jest.useRealTimers();
-    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
+    useDebugStore.setState({ experimentalFeatures: {} });
   });
 
   it('computes without the experimental insights while the switch is off', async () => {
@@ -84,8 +84,6 @@ describe('the insights computation and the experimental switch', () => {
 
   it('computes with them when the switch is on at the visit', async () => {
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: {
         efficiencyTrends: true,
         sectionCorrelations: true,
@@ -105,8 +103,6 @@ describe('the insights computation and the experimental switch', () => {
 
     await act(() => {
       useDebugStore.setState({
-        experimentalEnabled: true,
-        experimentalUnlocked: true,
         experimentalFeatures: {
           efficiencyTrends: true,
           sectionCorrelations: true,
@@ -119,7 +115,7 @@ describe('the insights computation and the experimental switch', () => {
     expect(lastExperimental()).toBe(true);
 
     await act(() => {
-      useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
+      useDebugStore.setState({ experimentalFeatures: {} });
     });
     await settle();
     expect(mockCompute).toHaveBeenCalledTimes(3);

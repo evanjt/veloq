@@ -1107,6 +1107,13 @@ const GUARDS = [
       'a number, date or name held to one line and cut off with an ellipsis, past the recorded baseline, instead of shrinking through FitText or wrapping through NameText',
   },
   {
+    name: 'lint:button-row-siblings',
+    kind: 'style',
+    cmd: node('lint-button-row-siblings.mjs'),
+    catches:
+      'a new row of flex: 1 Button siblings outside ButtonRow, which breaks a label inside a word when a share is narrower than its longest word',
+  },
+  {
     name: 'lint:empty-state-styles',
     kind: 'style',
     cmd: node('lint-empty-state-styles.mjs'),

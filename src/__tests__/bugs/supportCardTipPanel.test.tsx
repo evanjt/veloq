@@ -107,3 +107,29 @@ describe('the support card tip panel', () => {
     ).toBeNull();
   });
 });
+
+describe('support card actions at a narrow width', () => {
+  const WORD_WIDTH = 60;
+
+  async function layoutOf(rowWidth: number) {
+    await render(<SupportCard />);
+    const row = screen.getByTestId('support-card-actions');
+    for (const word of screen.getAllByTestId(/^support-card-actions-word-/, {
+      includeHiddenElements: true,
+    })) {
+      await fireEvent(word, 'layout', {
+        nativeEvent: { layout: { width: WORD_WIDTH, height: 20 } },
+      });
+    }
+    await fireEvent(row, 'layout', { nativeEvent: { layout: { width: rowWidth, height: 40 } } });
+    return StyleSheet.flatten(screen.getByTestId('support-card-actions').props.style);
+  }
+
+  it('stacks the three actions when a third of the row cannot hold a word', async () => {
+    expect((await layoutOf(240)).flexDirection).toBeUndefined();
+  });
+
+  it('sets them side by side when every share holds its word', async () => {
+    expect((await layoutOf(600)).flexDirection).toBe('row');
+  });
+});

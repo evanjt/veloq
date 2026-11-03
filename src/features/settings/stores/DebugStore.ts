@@ -14,37 +14,39 @@ interface DebugState {
   enabled: boolean;
   isLoaded: boolean;
 
-  /** Whether the experimental switch has been revealed via the same gesture */
-  experimentalUnlocked: boolean;
-  /** The experimental master switch: no experimental surface shows while it is off */
-  experimentalEnabled: boolean;
-  /** Per-feature choices. A feature never switched is off, whatever the master says. */
+  /** Per-feature choices. A feature never switched is off. */
   experimentalFeatures: ExperimentalChoices;
 
   initialise: () => Promise<void>;
   unlock: () => Promise<void>;
   setEnabled: (enabled: boolean) => Promise<void>;
-  unlockExperimental: () => void;
-  setExperimentalEnabled: (enabled: boolean) => Promise<void>;
   setExperimentalFeature: (key: ExperimentalFeatureKey, on: boolean) => Promise<void>;
 }
 
-async function persistExperimental(enabled: boolean, features: ExperimentalChoices) {
-  await setSetting(EXPERIMENTAL_KEY, JSON.stringify({ enabled, features }));
+async function persistExperimental(features: ExperimentalChoices) {
+  await setSetting(EXPERIMENTAL_KEY, JSON.stringify({ features }));
 }
 
-async function readExperimental(): Promise<{ enabled: boolean; features: ExperimentalChoices }> {
+/**
+ * A row written while a master switch existed holds `enabled` beside the choices. A choice made
+ * under a master that was off never showed anything, so it folds to off and the row is rewritten
+ * without the flag.
+ */
+async function readExperimental(): Promise<ExperimentalChoices> {
   try {
     const stored = await getSetting(EXPERIMENTAL_KEY);
-    if (!stored) return { enabled: false, features: {} };
+    if (!stored) return {};
     const parsed = JSON.parse(stored);
+    const retiredMaster = 'enabled' in parsed ? parsed.enabled === true : null;
     const features: ExperimentalChoices = {};
     for (const [key, value] of Object.entries(parsed.features ?? {})) {
-      if (typeof value === 'boolean') features[key as ExperimentalFeatureKey] = value;
+      if (typeof value !== 'boolean') continue;
+      features[key as ExperimentalFeatureKey] = retiredMaster === false ? false : value;
     }
-    return { enabled: parsed.enabled === true, features };
+    if (retiredMaster !== null) await persistExperimental(features);
+    return features;
   } catch {
-    return { enabled: false, features: {} };
+    return {};
   }
 }
 
@@ -52,19 +54,12 @@ export const useDebugStore = create<DebugState>((set, get) => ({
   unlocked: false,
   enabled: false,
   isLoaded: false,
-  experimentalUnlocked: false,
-  experimentalEnabled: false,
   experimentalFeatures: {},
 
   initialise: async () => {
     try {
       const stored = await getSetting(DEBUG_MODE_KEY);
-      const experimental = await readExperimental();
-      set({
-        experimentalUnlocked: experimental.enabled,
-        experimentalEnabled: experimental.enabled,
-        experimentalFeatures: experimental.features,
-      });
+      set({ experimentalFeatures: await readExperimental() });
       if (stored) {
         const parsed = JSON.parse(stored);
         const enabled = parsed.enabled === true;
@@ -90,16 +85,9 @@ export const useDebugStore = create<DebugState>((set, get) => ({
     set({ enabled, unlocked: enabled });
   },
 
-  unlockExperimental: () => set({ experimentalUnlocked: true }),
-
-  setExperimentalEnabled: async (enabled: boolean) => {
-    await persistExperimental(enabled, get().experimentalFeatures);
-    set({ experimentalEnabled: enabled, experimentalUnlocked: enabled });
-  },
-
   setExperimentalFeature: async (key, on) => {
     const features = { ...get().experimentalFeatures, [key]: on };
-    await persistExperimental(get().experimentalEnabled, features);
+    await persistExperimental(features);
     set({ experimentalFeatures: features });
   },
 }));

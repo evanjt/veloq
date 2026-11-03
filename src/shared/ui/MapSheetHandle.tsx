@@ -66,6 +66,53 @@ export function MapSheetHandle({ sheetKey, drawn }: { sheetKey: string; drawn: b
 }
 
 /**
+ * The handle for a sheet laid inside a screen rather than presented as a route: two stops,
+ * collapsed and expanded, which a tap or a screen reader's increment and decrement move between.
+ * It draws the same bar as the route sheet's handle.
+ */
+export function MapSheetToggleHandle({
+  expanded,
+  onChange,
+  label,
+  testID,
+}: {
+  expanded: boolean;
+  onChange: (expanded: boolean) => void;
+  label: string;
+  testID?: string | undefined;
+}) {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const palette = isDark ? darkColors : colors;
+
+  const onAccessibilityAction = useCallback(
+    (event: AccessibilityActionEvent) => {
+      if (event.nativeEvent.actionName === 'increment') onChange(true);
+      else if (event.nativeEvent.actionName === 'decrement') onChange(false);
+    },
+    [onChange]
+  );
+
+  return (
+    <PressTarget
+      testID={testID}
+      style={styles.handleArea}
+      onPress={() => onChange(!expanded)}
+      hitSlop={slopToMinTapTarget(HANDLE_AREA_HEIGHT)}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={label}
+      accessibilityValue={{ text: expanded ? t('maps.sheetStop.full') : t('maps.sheetStop.peek') }}
+      accessibilityState={{ expanded }}
+      accessibilityActions={STOP_ACTIONS}
+      onAccessibilityAction={onAccessibilityAction}
+    >
+      <View style={[styles.handle, { backgroundColor: palette.track }]} />
+    </PressTarget>
+  );
+}
+
+/**
  * The handle as Android draws it, with nothing to press, for a sheet's shape standing in before
  * the sheet itself is presented.
  */

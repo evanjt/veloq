@@ -26,7 +26,7 @@
  * converting the eighty-odd call sites mechanical rather than a redesign.
  */
 
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -34,6 +34,7 @@ import {
   View,
   type StyleProp,
   type ViewStyle,
+  type TextLayoutEvent,
   type ViewInstance,
 } from 'react-native';
 
@@ -58,6 +59,7 @@ import {
   typography,
   stroke,
 } from '@/theme';
+import { midWordBreak } from './midWordBreak';
 import { Icon } from './Icon';
 import { DENSE_TEXT_SCALE } from './DenseText';
 import { FitText } from './FitText';
@@ -168,6 +170,21 @@ const GLYPH_SIZE = {
   md: iconSize.md,
 } as const;
 
+/**
+ * What a button spends beside its label, in dp: padding and edge on both sides, and the glyph with
+ * its gap when it draws one. A row of buttons weighs a label's longest word against its share
+ * plus this.
+ */
+export function buttonChromeWidth(size: ButtonSize, hasGlyph: boolean): number {
+  const padding = size === 'sm' ? spacing.smPlus : spacing.md;
+  return padding * 2 + stroke.one * 2 + (hasGlyph ? GLYPH_SIZE[size] + spacing.xs : 0);
+}
+
+/** The type a button's label is drawn in, for measuring a word as the button will draw it. */
+export function buttonLabelType(size: ButtonSize) {
+  return size === 'sm' ? typography.bodySmallBold : typography.bodyBold;
+}
+
 function Glyph({ glyph, size, color }: { glyph: ButtonGlyph; size: number; color: string }) {
   if (typeof glyph === 'string') {
     return <Icon name={glyph} size={size} color={color} />;
@@ -197,6 +214,18 @@ export function Button({
   const { isDark } = useTheme();
   const skin = paint(variant, isDark, useButtonShapes());
   const inert = disabled || loading;
+  const reported = useRef(false);
+  // console.error survives a release bundle, so a device job's log carries the report.
+  const reportMidWordBreak = (event: TextLayoutEvent) => {
+    if (reported.current) return;
+    const word = midWordBreak(
+      label,
+      event.nativeEvent.lines.map((line) => line.text)
+    );
+    if (word === null) return;
+    reported.current = true;
+    console.error(`[MidWordBreak] button label "${label}" broke inside "${word}"`);
+  };
   const glyphSize = GLYPH_SIZE[size];
   // A destructive button acts on press, so it carries the weight of the act itself.
   const handlePress =
@@ -245,6 +274,7 @@ export function Button({
         ) : null}
         <Text
           testID={labelTestID ?? (testID && `${testID}-label`)}
+          onTextLayout={reportMidWordBreak}
           style={[
             size === 'sm' ? styles.labelSm : styles.labelMd,
             styles.label,

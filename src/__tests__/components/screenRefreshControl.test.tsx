@@ -16,7 +16,8 @@ import { act, render, screen } from '@testing-library/react-native';
 
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { InsightsPanel } from '@/features/insights/components/InsightsPanel';
-import { colors, darkColors } from '@/theme';
+import { SyncState } from 'veloqrs';
+import { colors, darkColors, duration } from '@/theme';
 
 let mockIsDark = false;
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
@@ -25,6 +26,10 @@ jest.mock('@/features/routes', () => ({ TodayBanner: () => null }));
 jest.mock('@/features/insights/components/InsightDebugPanel', () => ({
   InsightDebugPanel: () => null,
 }));
+
+let mockSyncState: number | null = null;
+jest.mock('@/shared/native/useSyncStatus', () => ({ useSyncState: () => mockSyncState }));
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 const mockMedium = jest.fn();
 jest.mock('@/shared/ui/haptics', () => ({
@@ -37,6 +42,7 @@ jest.mock('@/shared/ui/haptics', () => ({
 }));
 
 afterEach(() => {
+  mockSyncState = null;
   mockIsDark = false;
   mockMedium.mockClear();
 });
@@ -86,6 +92,49 @@ describe('ScreenRefreshControl', () => {
     });
     expect(mockMedium).toHaveBeenCalledTimes(2);
     expect(onRefresh).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('a pull that starts a sync', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  async function pull(onRefresh = jest.fn()) {
+    const view = await render(<ScreenRefreshControl refreshing={false} onRefresh={onRefresh} />);
+    await act(async () => {
+      screen.UNSAFE_getByType(RefreshControl).props.onRefresh();
+    });
+    const refreshing = () => screen.UNSAFE_getByType(RefreshControl).props.refreshing;
+    return { view, refreshing, onRefresh };
+  }
+
+  it('keeps turning after the screen lets go, until the sync ends', async () => {
+    mockSyncState = SyncState.Syncing;
+    const { view, refreshing, onRefresh } = await pull();
+
+    await view.rerender(<ScreenRefreshControl refreshing={false} onRefresh={onRefresh} />);
+    expect(refreshing()).toBe(true);
+
+    mockSyncState = SyncState.Idle;
+    await view.rerender(<ScreenRefreshControl refreshing={false} onRefresh={onRefresh} />);
+    expect(refreshing()).toBe(false);
+  });
+
+  it('lets go after a short wait when no sync was announced', async () => {
+    const { refreshing } = await pull();
+    expect(refreshing()).toBe(true);
+
+    await act(async () => {
+      jest.advanceTimersByTime(duration.hold);
+    });
+    expect(refreshing()).toBe(false);
+  });
+
+  it('does not turn for a screen that was never pulled', async () => {
+    mockSyncState = SyncState.Syncing;
+    await render(<ScreenRefreshControl refreshing={false} onRefresh={jest.fn()} />);
+
+    expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false);
   });
 });
 

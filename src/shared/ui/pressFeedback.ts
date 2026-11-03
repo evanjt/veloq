@@ -77,16 +77,16 @@ export const FOCUS_RING_OFFSET = spacing.xxs;
  * Android's only focus answer on a `Pressable` is the ripple's focused wash, a
  * grey step near 1.2:1 drawn as a square over rounded controls, so the ring is
  * drawn beside it in `focusRing`. An outline draws outside the box, follows its
- * radius and moves no layout. iOS draws nothing of ours: Full Keyboard Access
- * may draw its own, and a second ring over the system's is the failure to
- * avoid.
+ * radius and moves no layout. iOS gets the same ring: its own Full Keyboard
+ * Access indication is not measured, and an outline of ours meets 3:1 on every
+ * control whatever the system adds.
  */
 export function focusRing(
   focused: boolean,
   isDark: boolean,
   os: typeof Platform.OS
 ): ViewStyle | null {
-  if (!focused || os !== 'android') return null;
+  if (!focused || (os !== 'android' && os !== 'ios')) return null;
   return {
     outlineWidth: FOCUS_RING_WIDTH,
     outlineStyle: 'solid',

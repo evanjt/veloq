@@ -14,6 +14,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { SectionsChangedCard } from '@/features/settings/components/SectionsChangedCard';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { navigateTo } from '@/shared/app/navigation';
+import { openHistoryRange } from '@/shared/app/historyRange';
 import { openLaunchSession } from '../../__shared__/launchSession';
 
 const mockRows = new Map<string, string>();
@@ -27,6 +28,7 @@ let mockStaged: { done: number; total: number; daysToFinish?: number } | null = 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
+jest.mock('@/shared/app/historyRange', () => ({ openHistoryRange: jest.fn() }));
 jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn(async (key: string) => mockRows.get(key) ?? null),
   setSetting: jest.fn(async (key: string, value: string) => {
@@ -225,12 +227,13 @@ describe('SectionsChangedCard', () => {
       ).not.toContain('pacedOnCaps');
     });
 
-    it('opens background jobs from the progress button', async () => {
+    it('opens the history sheet from the progress button', async () => {
       mockCountsOwed = true;
       mockStaged = { done: 480, total: 2600, daysToFinish: 3 };
       const tree = await render(<SectionsChangedCard />);
       await act(async () => fireEvent.press(tree.getByTestId('sections-changed-progress')));
-      expect(navigateTo).toHaveBeenCalledWith('/sync-settings');
+      expect(openHistoryRange).toHaveBeenCalledTimes(1);
+      expect(navigateTo).not.toHaveBeenCalledWith('/sync-settings');
     });
 
     it('returns with the outcome after the download-time card was dismissed', async () => {

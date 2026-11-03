@@ -1,1 +1,1 @@
-vermogen,tempo,cadans,hartslag,zones,ftp,hrv,gpx,klim,route,ronde,zwemmen,triatlon,kracht
+fietsen,hardlopen,routes,secties,heatmap,inzichten,offline,privacy,hoogte,triatlon,mtb,gravel,hrv

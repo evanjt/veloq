@@ -62,7 +62,7 @@ async function closeTour(): Promise<void> {
 beforeEach(() => {
   jest.mocked(setSetting).mockClear();
   mockAthlete.data = {};
-  useDebugStore.setState({ experimentalEnabled: false, experimentalFeatures: {} });
+  useDebugStore.setState({ experimentalFeatures: {} });
   openLaunchSession();
   useAuthStore.setState({ isAuthenticated: true, isDemoMode: false, authMethod: 'apiKey' });
   useWhatsNewStore.setState({
@@ -103,7 +103,6 @@ it('keeps the Garmin slide in the tour for an athlete whose intervals.icu uses G
 it('owes the Garmin slide after a tour that left it unanswered, to a Garmin athlete only', async () => {
   mockAthlete.data = { garminSyncsActivities: true };
   useDebugStore.setState({
-    experimentalEnabled: true,
     experimentalFeatures: { garminUpdate: true },
   });
   await render(<TourOfferCard />);

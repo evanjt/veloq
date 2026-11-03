@@ -2628,6 +2628,8 @@ impl PersistentEngine {
              DELETE FROM section_rank_dirty;
              DELETE FROM section_rank_dirty_activity;
              DELETE FROM section_list_counts;
+             DELETE FROM retired_ground_lines;
+             DELETE FROM retired_ground_pairs;
              DELETE FROM route_group_sizes;",
         )?;
 

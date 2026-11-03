@@ -23,7 +23,7 @@ import { useRecordingPreferences } from '@/features/recording/stores/RecordingPr
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { isLiveActivitySupported } from '@/features/recording/lib/liveActivity/bridge';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { replaceTo } from '@/shared/app/navigation';
+import { navigateTo, replaceTo } from '@/shared/app/navigation';
 import { useSensorStore } from '@/features/sensors/store';
 import {
   connectKnownSensors,
@@ -569,6 +569,19 @@ describe('the bottom edge', () => {
   });
 });
 
+/** Whether the first test id renders before the second in the screen's tree. */
+function precedes(first: string, second: string): boolean {
+  const order: string[] = [];
+  const walk = (node: unknown) => {
+    if (!node || typeof node !== 'object') return;
+    const n = node as { props?: { testID?: string }; children?: unknown[] };
+    if (n.props?.testID) order.push(n.props.testID);
+    (n.children ?? []).forEach(walk);
+  };
+  walk(screen.toJSON());
+  return order.indexOf(first) >= 0 && order.indexOf(first) < order.indexOf(second);
+}
+
 describe('the paired sensors and the fix before Start', () => {
   const STRAP = { id: 'strap-1', name: 'Chest strap', kinds: ['heartRate' as const] };
   const METER = { id: 'meter-1', name: 'Crank meter', kinds: ['power' as const] };
@@ -587,6 +600,39 @@ describe('the paired sensors and the fix before Start', () => {
 
     expect(connectKnownSensors).not.toHaveBeenCalled();
     expect(screen.queryByTestId('entry-sensors')).toBeNull();
+  });
+
+  it('offers to add a sensor above the sport chips when none is paired', async () => {
+    await render(<RecordScreen />);
+
+    const add = screen.getByTestId('entry-sensor-add');
+    expect(add).toHaveTextContent('Add a sensor');
+    expect(precedes('entry-sensor-add', 'record-sport-row')).toBe(true);
+    await fireEvent.press(add);
+    expect(navigateTo).toHaveBeenCalledWith('/sensor-settings');
+  });
+
+  it('puts the paired sensors above the sport chips with a link to sensor setup', async () => {
+    useSensorStore.setState({ knownSensors: [STRAP] });
+    await render(<RecordScreen />);
+
+    expect(precedes('entry-sensors', 'record-sport-row')).toBe(true);
+    expect(screen.queryByTestId('entry-sensor-add')).toBeNull();
+    await fireEvent.press(screen.getByTestId('entry-sensors-manage'));
+    expect(navigateTo).toHaveBeenCalledWith('/sensor-settings');
+  });
+
+  it('says what to turn on when a paired heart rate sensor is linked and silent', async () => {
+    useSensorStore.setState({
+      knownSensors: [STRAP],
+      connections: { [STRAP.id]: { status: 'noData', name: STRAP.name, kinds: STRAP.kinds } },
+    });
+    await render(<RecordScreen />);
+
+    expect(screen.getByTestId('entry-sensor-status-strap-1')).toHaveTextContent(
+      'Linked, not sending heart rate. Turn on heart rate broadcast on the device.'
+    );
+    expect(screen.queryByText(/Connected, no data/)).toBeNull();
   });
 
   it('connects nothing when the screen is left while Bluetooth access is being asked', async () => {
@@ -645,7 +691,7 @@ describe('the paired sensors and the fix before Start', () => {
     );
     expect(screen.getByTestId('entry-sensor-signal-strap-1')).toBeTruthy();
     expect(screen.getByTestId('entry-sensor-status-meter-1')).toHaveTextContent(
-      'Power · Connected, no data'
+      'Linked, not sending power. Turn on power broadcast on the device.'
     );
   });
 
@@ -669,15 +715,12 @@ describe('the paired sensors and the fix before Start', () => {
     expect(connectSensorForSession).toHaveBeenCalledWith(STRAP.id);
   });
 
-  it('forgets a pairing from its row', async () => {
+  it('leaves forgetting a pairing to sensor setup', async () => {
     useSensorStore.setState({ knownSensors: [STRAP, METER] });
     await render(<RecordScreen />);
 
-    await fireEvent.press(screen.getByTestId('entry-sensor-forget-strap-1'));
-
-    expect(useSensorStore.getState().knownSensors.map((s) => s.id)).toEqual([METER.id]);
-    expect(screen.queryByTestId('entry-sensor-strap-1')).toBeNull();
-    expect(screen.getByTestId('entry-sensor-meter-1')).toBeTruthy();
+    expect(screen.queryByTestId('entry-sensor-forget-strap-1')).toBeNull();
+    expect(screen.queryByText('Forget')).toBeNull();
   });
 
   it('lists the sensors indoors too, where there is no fix to show', async () => {

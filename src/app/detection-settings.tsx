@@ -17,12 +17,7 @@ import {
   ScreenScrollView,
   StatusLine,
 } from '@/shared/ui';
-import {
-  BackgroundJobsActivityBar,
-  CutoverStatus,
-  ElevationBackfillStatus,
-  SettingsNavRow,
-} from '@/features/settings';
+import { CutoverStatus, ElevationBackfillStatus, SettingsNavRow } from '@/features/settings';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
@@ -71,7 +66,6 @@ function DetectionSettingsScreenContent() {
       style={[styles.container, { backgroundColor: bg }]}
     >
       <ScreenScrollView showsVerticalScrollIndicator={false}>
-        <BackgroundJobsActivityBar />
         <View style={styles.body}>
           <View style={styles.toggleFrame}>
             <Card variant="flat" padding="none">

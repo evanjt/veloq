@@ -492,7 +492,6 @@
   },
   "bestEffortsScreen": {
     "title": "ベストエフォート",
-    "viewAll": "すべてのベストエフォート",
     "windowSubtitle_one": "過去{{count}}日間のベスト。",
     "windowSubtitle_other": "過去{{count}}日間のベスト。",
     "allTimeSubtitle": "キャッシュされた全履歴の自己ベスト記録。",
@@ -504,9 +503,12 @@
     "climbingOwed": "登坂ベストはまだ計算中です。",
     "checkpoint": {
       "halfMarathon": "ハーフマラソン",
+      "marathon": "マラソン",
+      "mile": "マイル",
       "metres": "{{value}}m",
       "kilometres": "{{value}}km"
-    }
+    },
+    "curveSource": "パワーとペースのベストは intervals.icu から取得しています。"
   },
   "cache": {
     "allActivitiesSynced": "すべてのアクティビティが同期されました",
@@ -1599,7 +1601,6 @@
     "settingsAutoPauseThreshold": "速度しきい値",
     "settingsAutoPauseWalkingAndOther": "ウォーキングとその他のスポーツ",
     "settingsDataFields": "データフィールド",
-    "settingsUnits": "単位",
     "slideToUnlock": "スライドしてロック解除",
     "lockControls": "操作をロック",
     "unlockControls": "操作のロックを解除",
@@ -2082,13 +2083,14 @@
     "signOut": "サインアウト",
     "leaveDemo": "デモを終了",
     "display": "表示",
-    "largeHistoryConfirm": "それでもダウンロード",
-    "largeHistoryMessage_one": "ここまで遡ると最大で約 {{count}} 件のアクティビティをダウンロードします。時間がかかり、この量では動作が遅くなる場合があります。",
-    "largeHistoryMessage_other": "ここまで遡ると最大で約 {{count}} 件のアクティビティをダウンロードします。時間がかかり、この量では動作が遅くなる場合があります。",
-    "largeHistoryTitle": "ダウンロード量が多くなります",
     "largeHistoryDaysTitle_one": "完了まで{{count}}日以上かかります",
     "largeHistoryDaysTitle_other": "完了まで{{count}}日以上かかります",
-    "largeHistoryDaysMessage": "intervals.icu はアプリが 1 日にダウンロードできるアクティビティ数を制限しており、すべてのインストールがその上限を共有します。残りは翌日以降にダウンロードされます。これだけ保存すると、アプリの速度は保証されません。",
+    "activityHistory": "アクティビティ履歴",
+    "activityHistoryIntro": "intervals.icu はアプリが 1 日にダウンロードできるアクティビティ数を制限しており、その上限はすべてのインストールで共有されます。履歴が長いほど取得に時間がかかり、期間を広げても上限は上がりません。",
+    "activityHistorySummary": "直近 {{span}}、アクティビティ: {{activities}}",
+    "historyCost": "ダウンロードするアクティビティ: 最大およそ {{activities}} 件",
+    "historyUnlocks": "履歴が長いほど、長期のトレンド、セクションの履歴、ルートのグループ分けが充実します。",
+    "historyConfirm": "この期間をダウンロード",
     "localDataRange": "ローカルデータ範囲",
     "localDataRangeEnd": "ローカルデータ範囲の終了",
     "heroMetric": "メイン指標",
@@ -2208,7 +2210,6 @@
     "groupKeeps": "ライブラリとバックアップ",
     "routesAndSections": "ルートとセクション",
     "storage": "ストレージ",
-    "sinceDateSubtitle": "{{date}}以降",
     "elevationBackfillRunning": "アクティビティの軌跡に標高を追加しています",
     "elevationBackfillProgress": "{{total}} 件中 {{completed}} 件",
     "elevationBackfillComplete": "すべてのアクティビティの軌跡に標高があります",
@@ -2283,7 +2284,7 @@
     "previewStatusGone": "削除",
     "previewCurrentLayer": "現在",
     "previewRetiredLayer": "消えた",
-    "previewProposedLayer": "提案",
+    "previewAreaLayer": "エリア",
     "previewKeep": "適用",
     "previewDiscard": "破棄",
     "previewKeepTitle": "この設定を適用しますか？",
@@ -2338,7 +2339,6 @@
     "debugModeDescription": "詳細ページに内部診断情報を表示",
     "developerDashboardDescription": "エンジン統計、FFIパフォーマンス、メモリ",
     "experimentalFeatures": "試験的な機能",
-    "experimentalFeaturesDescription": "開発中の機能を表示します。それぞれに専用のスイッチがあります",
     "experimentalDashboardDescription": "試験的な機能をそれぞれオンまたはオフにして開きます"
   },
   "stats": {
@@ -2777,6 +2777,7 @@
     "forget": "削除",
     "connect": "接続",
     "disconnect": "切断",
+    "reconnect": "再接続",
     "recordFrom": "{{name}}から{{kind}}を記録",
     "chooseSourceHint": "2つのセンサーが同じ項目を計測する場合、強調表示された方が記録されます。切り替えるにはもう一方をタップしてください。",
     "bleUnavailable": "Bluetoothを利用できません",
@@ -2784,7 +2785,8 @@
     "kinds": {
       "heartRate": "心拍数",
       "power": "パワー",
-      "cadence": "ケイデンス"
+      "cadence": "ケイデンス",
+      "runningCadence": "ランニングケイデンス"
     },
     "status": {
       "connecting": "接続中…",
@@ -2792,6 +2794,12 @@
       "noData": "接続済み、データなし",
       "reconnecting": "再接続中…",
       "disconnected": "未接続"
+    },
+    "silent": {
+      "heartRate": "接続済みですが、心拍数を送信していません。デバイスで心拍数のブロードキャストをオンにしてください。",
+      "power": "接続済みですが、パワーを送信していません。デバイスでパワーのブロードキャストをオンにしてください。",
+      "cadence": "接続済みですが、ケイデンスを送信していません。デバイスでケイデンスのブロードキャストをオンにしてください。",
+      "runningCadence": "接続済みですが、ランニングケイデンスを送信していません。デバイスでランニングケイデンスのブロードキャストをオンにしてください。"
     },
     "purpose": "Bluetoothは心拍・パワー・ケイデンスセンサーの検索と接続に使用します。",
     "noneFound": "センサーが見つかりません",
@@ -2885,6 +2893,7 @@
     "retiredInto": "{{name}}へ",
     "pairUnnamed": "名前のない区間",
     "pairNone": "この道を共有する区間は他にありません",
+    "pairsPending": "この道を共有する区間をまだ計算中です",
     "pairRetiredLedger": "{{name}}へ移って消えた",
     "pairRetiredSupersedes": "{{name}}を非表示にしていた",
     "pairCurrentLedger": "{{name}}から引き継いだ",
@@ -2973,7 +2982,14 @@
     "heldByBudget": "リクエスト上限に達しました。{{time}} まで待機します",
     "pacedOnCaps_one": "intervals.icu の 1 日の上限により、完了まで{{count}}日以上",
     "pacedOnCaps_other": "intervals.icu の 1 日の上限により、完了まで{{count}}日以上",
-    "lastFinished": "前回の実行 {{time}}",
+    "headerRunning_one": "バックグラウンド処理 {{count}} 件を実行中",
+    "headerRunning_other": "バックグラウンド処理 {{count}} 件を実行中",
+    "headerStopped_one": "バックグラウンド処理 {{count}} 件が途中で停止",
+    "headerStopped_other": "バックグラウンド処理 {{count}} 件が途中で停止",
+    "headerWaiting": "バックグラウンド処理は {{time}} まで待機中",
+    "headerWaitingNoTime": "バックグラウンド処理は待機中",
+    "headerIdle": "すべてのバックグラウンド処理が完了",
+    "pastRuns": "過去の実行",
     "lastRunNoChange": "変更なし",
     "lastRunStopped": "停止",
     "lastRunActivities_one": "{{count}}件のアクティビティ",
@@ -3236,6 +3252,10 @@
     "garminUpdate": {
       "title": "Garminからアクティビティを更新",
       "blurb": "Garminのファイルのほうが多くの情報を含む場合に、intervals.icuのコピーをGarmin自身のファイルに置き換えます。Garminのキーが必要です。未完成です。"
+    },
+    "climbingBests": {
+      "title": "登りのベスト",
+      "blurb": "Veloq がスマートフォン上で intervals.icu の標高データから計算します。intervals.icu 自体は登りのベストを提供していません。15 秒から 20 分までの各区間で、最も速い上昇速度をメートル毎時 (VAM) で求め、体重だけを持ち上げるのに必要なパワーである W/kg に換算します。intervals.icu の補正済み標高があるアクティビティだけが対象です。"
     }
   }
 }

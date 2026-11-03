@@ -29,8 +29,10 @@ import {
   type ClimbBest,
   type ClimbStatus,
 } from '@/features/stats';
+import { ExperimentalOnly } from '@/features/settings';
 import { useTheme } from '@/shared/app';
 import { formatDurationOrNull } from '@/shared/format/format';
+import { formatDecimal } from '@/shared/format';
 import {
   BEST_EFFORT_ROW_COUNT,
   BestEffortRow,
@@ -99,6 +101,10 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
           </Text>
         </View>
 
+        <Text style={[styles.source, isDark && styles.sourceDark]}>
+          {t('bestEffortsScreen.curveSource')}
+        </Text>
+
         {isLoading || (notFetched && curve.status === 'waiting') ? (
           <BestEffortRowsSkeleton rows={BEST_EFFORT_ROW_COUNT[sport]} />
         ) : notFetched ? (
@@ -115,7 +121,12 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
         ) : (
           efforts.map((effort, index) => {
             const timeStr = formatDurationOrNull(effort.time);
-            const shownTime = timeStr && sport !== 'Cycling' ? timeStr : null;
+            const perKgUnit = t('units.wattsPerKg');
+            const perKg =
+              sport === 'Cycling' && effort.wattsPerKg !== null
+                ? `${formatDecimal(effort.wattsPerKg, 2)} ${perKgUnit}`
+                : null;
+            const shownTime = sport === 'Cycling' ? perKg : timeStr;
             const valueText = formatEffortValue(effort.value, sport, t('units.watts'), isMetric);
             const isLast = index === efforts.length - 1;
 
@@ -271,14 +282,15 @@ function BestEffortsScreenContent() {
             ))}
 
             {CLIMBING_SPORTS.map((sport) => (
-              <ClimbingSection
-                key={sport}
-                sport={sport}
-                bests={climbingBySport.get(sport) ?? []}
-                status={climbStatusBySport.get(sport) ?? { owed: 0, sourceExcluded: 0 }}
-                isLoading={isLoading}
-                isDark={isDark}
-              />
+              <ExperimentalOnly key={sport} feature="climbingBests">
+                <ClimbingSection
+                  sport={sport}
+                  bests={climbingBySport.get(sport) ?? []}
+                  status={climbStatusBySport.get(sport) ?? { owed: 0, sourceExcluded: 0 }}
+                  isLoading={isLoading}
+                  isDark={isDark}
+                />
+              </ExperimentalOnly>
             ))}
           </>
         )}
@@ -327,6 +339,14 @@ const styles = StyleSheet.create({
   },
   cardTitleDark: {
     color: darkColors.textPrimary,
+  },
+  source: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  sourceDark: {
+    color: darkColors.textSecondary,
   },
   notDownloaded: {
     padding: spacing.md,

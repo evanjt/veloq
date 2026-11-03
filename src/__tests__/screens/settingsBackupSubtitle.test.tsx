@@ -71,6 +71,7 @@ jest.mock('@/features/settings', () => ({
     jest.requireMock('@/features/settings/lib/autobackup').getLastBackupTimestamp(),
   useAutoBackupEnabled: () =>
     jest.requireMock('@/features/settings/lib/autobackup').isAutoBackupEnabled(),
+  ActivityHistoryRow: () => null,
   SettingsNavRow: jest.requireActual('@/features/settings/components/SettingsNavRow')
     .SettingsNavRow,
   RecordingPermissionSection: jest.requireActual(

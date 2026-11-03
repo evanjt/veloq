@@ -261,6 +261,16 @@ static TABLES: &[Table] = &[
         "the last twenty native push runs and why each posted what it did",
     ),
     t(
+        "retired_ground_lines",
+        Derived,
+        "the fingerprint of each line the retired map's ground pairs were measured at",
+    ),
+    t(
+        "retired_ground_pairs",
+        Derived,
+        "which retired and current sections share ground, measured from their lines",
+    ),
+    t(
         "route_groups",
         Derived,
         "grouping output, re-cut by every detect",

@@ -1,38 +1,38 @@
-Veloq zeigt dein intervals.icu-Training auf dem Handy und sucht nach Routen und Abschnitten, die du wiederholst. Die Analyse läuft auf deinem Gerät.
+Deine Trainingsdaten gehören dir. Veloq findet die Routen und Abschnitte, die du wiederholst, und berechnet deine Einblicke direkt auf deinem Handy.
 
 <b>Aufzeichnung</b>
-Zeichne Radfahrten, Läufe und andere Sportarten mit GPS, Bluetooth-Sensoren oder einem geplanten Training auf.
+Zeichne mit GPS oder drinnen auf, mit Bluetooth-Sensoren, dem geplanten Training von heute oder der Linie einer Route in der Nähe.
 
 <b>Einblicke</b>
-Kurze Auswertungen deines Trainings, jede mit ihren Zahlen und dem Rechenweg dahinter.
+Kurze Auswertungen deines Trainings. Jede öffnet sich mit ihren Zahlen und dem Rechenweg dahinter.
 
 <b>Karten</b>
-Interaktive Karten mit 3D-Gelände, Routen-Heatmaps sowie hellen, dunklen und Satellitenstilen.
+Interaktive Karten mit 3D-Gelände, Routen-Heatmaps sowie hellen, dunklen und Satellitenstilen, alles offline.
 
 <b>Routen und Abschnitte</b>
-Vergleiche jeden Versuch auf den Routen und Abschnitten, die du wiederholst, und hefte sie an, kürze oder benenne sie um.
+Abschnitte berücksichtigen Höhenmeter, ignorieren Skilifte und wachsen mit deiner Historie. Vergleiche jeden Versuch und mache jede Änderung rückgängig.
 
 <b>Diagramme</b>
-Herzfrequenz, Leistung, Tempo, Höhe und Trittfrequenz auf einer Zeitachse mit der Karte.
+Herzfrequenz, Leistung, Tempo, Höhe und Trittfrequenz auf einer Zeitachse neben der Karte.
 
 <b>Fitness</b>
-Fitness, Ermüdung und Form mit eingezeichneten Zonen, dazu HRV, Ruheherzfrequenz und Schlaf.
+Fitness, Ermüdung und Form mit eingezeichneten Zonen, dazu HRV, Ruhepuls und Schlaf.
 
 <b>Kraft</b>
 Deine Kraftsätze auf einem Körperdiagramm, nach Muskelgruppe und Übung.
 
 <b>Widgets</b>
-Widgets für den Home-Bildschirm mit Fitness und Form, deiner letzten Aktivität und deinen Einblicken.
+Widgets für den Startbildschirm mit Übersicht, letzter Aktivität, Einblicken und Kraft.
 
 <b>Benachrichtigungen</b>
 Eine Benachrichtigung mit Routenname und etwaigen Bestleistungen, wenn eine neue Aktivität eintrifft. Aus, bis du sie einschaltest.
 
 <b>Sicherungen</b>
-Sichere deine Einstellungen und Abschnittsentscheidungen in einer Datei, einem Ordner, einem Cloud-Laufwerk oder auf einem WebDAV-Server.
+Automatische Sicherungen deiner Einstellungen und Abschnittsänderungen in einem Ordner, auf Google Drive oder einem WebDAV-Server.
 
 <b>Datenschutz</b>
 Deine Trainingsdaten bleiben auf deinem Gerät. Keine Analytics, kein Tracking. Optionale Push-Benachrichtigungen speichern deine intervals.icu-Athleten-ID und ein Geräte-Token auf unserem Server, die nach 30 Tagen automatisch gelöscht werden. Open Source unter Apache 2.0.
 
-Unterstützt Radfahren, Laufen, Schwimmen und 20+ Aktivitätstypen. Teste den integrierten Demomodus, um die App ohne Konto zu erkunden.
+Unterstützt Radfahren, Laufen, Schwimmen und über 20 Aktivitätstypen. Probiere den eingebauten Demomodus aus, um die App ohne Konto zu erkunden.
 
 Erfordert ein intervals.icu-Konto für Live-Daten. Erfordert Android 7.0 oder neuer. Nicht mit intervals.icu verbunden.

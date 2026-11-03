@@ -27,13 +27,12 @@ describe('ActivityProvenanceLine', () => {
   beforeEach(() => {
     mockNavigateTo.mockClear();
     useDebugStore.setState({
-      experimentalEnabled: true,
       experimentalFeatures: { garminUpdate: true },
     });
   });
 
   it("shows nothing for a Garmin-filled ride while Garmin's experimental switch is off", () => {
-    useDebugStore.setState({ experimentalEnabled: false });
+    useDebugStore.setState({ experimentalFeatures: {} });
     render(<ActivityProvenanceLine provenance={ActivityProvenance.GarminOnPhone} />);
 
     expect(screen.queryByTestId('activity-provenance')).toBeNull();

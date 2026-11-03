@@ -64,6 +64,24 @@ pub(crate) fn detection_state(conn: &Connection) -> DetectionState {
     }
 }
 
+/// What keeps an owed regroup from running, for a screen that shows the
+/// routes it already has meanwhile.
+///
+/// The launch leaves an owed regroup to an owed or running cutover, which
+/// regroups in its own detect, and the cutover waits behind the elevation
+/// download. So while the cutover holds detection and no regroup is in flight,
+/// the regroup waits on the same hold the sections page names. Any other owed
+/// regroup is running or scheduled, and has no hold to name.
+pub(crate) fn regroup_hold(conn: &Connection, groups_dirty: bool) -> Option<FfiDetectionHold> {
+    if !groups_dirty || super::regroup::regroup_in_flight() {
+        return None;
+    }
+    if !super::cutover::pooled::cutover_holds_detection(conn) {
+        return None;
+    }
+    detection_hold(conn)
+}
+
 fn running_detect() -> Option<(String, u32)> {
     let handle = super::persistent_engine_ffi::SECTION_DETECTION_HANDLE
         .lock()

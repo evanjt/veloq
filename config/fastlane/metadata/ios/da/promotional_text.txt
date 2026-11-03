@@ -1,1 +1,1 @@
-Din fitness, form og gentagne ruter, læst fra din intervals.icu konto og analyseret på din telefon.
+Nyt: ombyggede sektioner, der tager højde for højdeforskelle, optagelse med Bluetooth-sensorer, offlinekort med 3D-terræn og widgets til oversigt, indsigter og styrke.

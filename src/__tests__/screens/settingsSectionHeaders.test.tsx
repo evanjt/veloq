@@ -16,7 +16,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import SettingsScreen from '@/app/(tabs)/settings';
 import AboutScreen from '@/app/about';
-import RecordingSettingsScreen from '@/app/recording-settings';
 import { DisplaySettings } from '@/features/settings/components/DisplaySettings';
 import { colors, darkColors } from '@/theme';
 
@@ -25,6 +24,7 @@ let mockIsDark = false;
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useSegments: () => ['settings'],
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
 }));
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -76,6 +76,10 @@ jest.mock('@/features/settings', () => ({
   useGarminConnectorState: () => null,
   useExperimental: () => false,
   useAutoBackupEnabled: () => true,
+  ActivityHistoryRow: () => null,
+  BackgroundJobsHeaderItem: jest.requireActual(
+    '@/features/settings/components/BackgroundJobsHeaderItem'
+  ).BackgroundJobsHeaderItem,
   SettingsNavRow: jest.requireActual('@/features/settings/components/SettingsNavRow')
     .SettingsNavRow,
   RecordingPermissionSection: () => null,
@@ -147,14 +151,6 @@ describe('settings group headers', () => {
       'Veloq',
       'about.dataAttribution',
       'about.mapData',
-    ]);
-    await collect('recording', await render(<RecordingSettingsScreen />), [
-      'Upload',
-      'GPS & battery',
-      'recording.settingsAutoPause',
-      'recording.settingsDataFields',
-      'Sensors',
-      'recording.settingsUnits',
     ]);
 
     expect(looks[0].look.textTransform).toBe('uppercase');

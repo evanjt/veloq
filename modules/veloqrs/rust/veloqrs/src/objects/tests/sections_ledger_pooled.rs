@@ -363,9 +363,13 @@ fn the_retired_map_is_built_once_per_database_state() {
     let _guard = serial_global_state();
     let (_tmp, sections, id) = seeded_catalogue();
     let builds = || RETIRED_MAP_BUILDS.with(std::cell::Cell::get);
+    crate::with_persistent_engine(|e| e.level_retired_pairs())
+        .unwrap()
+        .expect("level the ground pairs");
     let start = builds();
 
     let first = sections.get_retired_map().unwrap();
+    assert!(!first.pairs_pending);
     let second = sections.get_retired_map().unwrap();
     assert_eq!(builds(), start + 1, "one database state, one build");
     assert_eq!(format!("{first:?}"), format!("{second:?}"));
@@ -391,4 +395,47 @@ fn the_retired_map_is_built_once_per_database_state() {
             .and_then(|c| c.name.as_deref()),
         Some("Quarry climb")
     );
+}
+
+/// Scenario: a merged-away section's archived line lies on a live section's
+/// ground, and the map is opened before the engine has measured that ground.
+/// Expected behaviour: the first read says the ground pairs are owed and lists
+/// only the ledger link, a worker measures them off the read, and the next
+/// read lists the ground pair with nothing owed.
+#[test]
+fn an_owed_retired_map_read_starts_the_worker_and_the_next_read_is_level() {
+    use crate::persistence::sections::retired_map::wait_for_level;
+
+    let _guard = serial_global_state();
+    let (_tmp, sections, id) = seeded_catalogue();
+    crate::with_persistent_engine(|e| {
+        let line: Vec<crate::GpsPoint> = e
+            .get_section_polyline(&id)
+            .chunks(2)
+            .map(|p| crate::GpsPoint::new(p[0], p[1]))
+            .collect();
+        e.db.execute(
+            "INSERT INTO section_geometry (section_id, version, source, blob, milestone, created_at)
+             VALUES ('auto_gone', 1, 'consensus', ?, 0, datetime('now'))",
+            [crate::persistence::codec::encode_polyline(&line)],
+        )
+        .unwrap();
+    })
+    .unwrap();
+
+    let owed = sections.get_retired_map().unwrap();
+    assert!(owed.pairs_pending);
+    assert!(
+        owed.pairs
+            .iter()
+            .all(|p| p.link != crate::FfiRetiredPairLink::Ground),
+        "the read measures no ground itself"
+    );
+
+    assert!(wait_for_level(std::time::Duration::from_secs(30)));
+    let level = sections.get_retired_map().unwrap();
+    assert!(!level.pairs_pending);
+    assert!(level.pairs.iter().any(|p| p.retired_id == "auto_gone"
+        && p.current_id == id
+        && p.link == crate::FfiRetiredPairLink::Ground));
 }

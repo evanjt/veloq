@@ -1,10 +1,9 @@
 /**
- * Scenario: Best Efforts and Season Bests on Fitness draw the same bests for a
- * period, and each used to read a power or pace curve per sport and pick the
+ * Scenario: Best Efforts draws the bests for a period, and used to read a power or pace curve per sport and pick the
  * checkpoints out of it in TypeScript.
  *
- * Expected behaviour: both read the one engine screen read for the period,
- * neither reads a curve export, and only a curve the read reports as never
+ * Expected behaviour: it reads the one engine screen read for the period,
+ * reads no curve export, and only a curve the read reports as never
  * fetched, for a sport the caller shows, is asked for.
  */
 
@@ -13,7 +12,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
 import { useBestEfforts } from '@/features/stats/hooks/useBestEfforts';
-import { useSeasonBests } from '@/features/stats/hooks/useSeasonBests';
+import { bestEffortsOf } from '@/features/stats/hooks/useSeasonBests';
+import { t } from 'i18next';
 import { getEngine } from '@/shared/native/engine';
 import { BestEffortKind, type BestEffortsData } from 'veloqrs';
 import { initialiseI18n } from '@/i18n';
@@ -89,16 +89,30 @@ afterEach(() => {
   client.clear();
 });
 
-describe('season bests', () => {
+describe('the rows read from the screen read', () => {
   it('reads the running bests from the screen read and no curve', async () => {
-    const { result } = await renderHook(() => useSeasonBests({ sport: 'Running', days: 42 }), {
-      wrapper,
-    });
+    const { result } = await renderHook(() => useBestEfforts(42, ['Run']), { wrapper });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.efforts).toEqual([
-      { label: '1K', checkpoint: 1000, value: null, time: null, activityId: undefined },
-      { label: '5K', checkpoint: 5000, value: 4, time: 1250, activityId: 'tempo' },
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(bestEffortsOf(result.current.data, 'Running', t)).toEqual([
+      {
+        label: '1K',
+        checkpoint: 1000,
+        value: null,
+        time: null,
+        wattsPerKg: null,
+        activityId: undefined,
+        activity: undefined,
+      },
+      {
+        label: '5K',
+        checkpoint: 5000,
+        value: 4,
+        time: 1250,
+        wattsPerKg: null,
+        activityId: 'tempo',
+        activity: undefined,
+      },
     ]);
     expect(engine.getBestEffortsData).toHaveBeenCalledWith(42);
     expect(engine.getPaceCurve).not.toHaveBeenCalled();
@@ -106,23 +120,40 @@ describe('season bests', () => {
   });
 
   it('asks for the cycling curve only when cycling is shown and it was never fetched', async () => {
-    const { result } = await renderHook(() => useSeasonBests({ sport: 'Cycling', days: 42 }), {
-      wrapper,
-    });
+    await renderHook(() => useBestEfforts(42, ['Ride']), { wrapper });
 
     await waitFor(() => expect(engine.syncPowerCurve).toHaveBeenCalledWith('Ride', 42));
-    expect(result.current.efforts[0]).toMatchObject({ label: '5 min', value: null });
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
   });
 
   it('asks for nothing when the shown curve is already stored', async () => {
-    const { result } = await renderHook(() => useSeasonBests({ sport: 'Running', days: 42 }), {
-      wrapper,
-    });
+    const { result } = await renderHook(() => useBestEfforts(42, ['Run']), { wrapper });
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.data).toBeDefined());
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
     expect(engine.syncPowerCurve).not.toHaveBeenCalled();
+  });
+
+  it('carries watts per kilogram beside the watts', async () => {
+    engine.getBestEffortsData.mockReturnValue({
+      sports: [
+        {
+          sport: 'Ride',
+          fetched: true,
+          efforts: [
+            { kind: BestEffortKind.Duration, checkpoint: 300, value: 300, wattsPerKg: 4.2 },
+          ],
+        },
+      ],
+      climbing: [],
+    });
+    const { result } = await renderHook(() => useBestEfforts(42, ['Ride']), { wrapper });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(bestEffortsOf(result.current.data, 'Cycling', t)[0]).toMatchObject({
+      value: 300,
+      wattsPerKg: 4.2,
+    });
   });
 });
 

@@ -16,7 +16,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { Button } from '@/shared/ui';
+import { ButtonRow } from '@/shared/ui/ButtonRow';
 import { Icon } from '@/shared/ui/Icon';
 
 import { useSessionAsk } from '../hooks/useLaunchSurfaces';
@@ -51,19 +51,21 @@ export function StreamConsentCard() {
         >
           {t('feed.streamConsentBody', { count: estimateRequests, megabytes: estimateMegabytes })}
         </Text>
-        <View style={styles.actions}>
-          <Button
-            testID="stream-consent-decline"
-            label={t('feed.streamConsentDecline')}
-            onPress={stop}
-            variant="ghost"
-          />
-          <Button
-            testID="stream-consent-download"
-            label={t('feed.streamConsentDownload')}
-            onPress={start}
-          />
-        </View>
+        <ButtonRow
+          actions={[
+            {
+              testID: 'stream-consent-decline',
+              label: t('feed.streamConsentDecline'),
+              onPress: stop,
+              variant: 'ghost',
+            },
+            {
+              testID: 'stream-consent-download',
+              label: t('feed.streamConsentDownload'),
+              onPress: start,
+            },
+          ]}
+        />
       </Card>
     </View>
   );
@@ -89,12 +91,5 @@ const styles = StyleSheet.create({
   },
   descriptionDark: {
     color: darkColors.textSecondary,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    gap: spacing.lg,
-    paddingTop: spacing.xs,
   },
 });

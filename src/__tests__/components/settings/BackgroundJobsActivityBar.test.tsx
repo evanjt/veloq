@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet, Text } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { BackgroundJobsActivityBar } from '@/features/settings/components/BackgroundJobsActivityBar';
@@ -38,6 +39,16 @@ function job(id: BackgroundJob['id'], over: Partial<BackgroundJob> = {}): Backgr
   };
 }
 
+const finishedRun = {
+  finishedAt: Date.now() - 60_000,
+  outcome: 'complete',
+  handled: 5,
+  added: 0,
+  changed: 0,
+  retired: 0,
+  failed: 0,
+};
+
 describe('BackgroundJobsActivityBar', () => {
   beforeAll(async () => {
     await initialiseI18n('en-GB');
@@ -47,39 +58,67 @@ describe('BackgroundJobsActivityBar', () => {
     await changeLanguage('en-GB');
   });
 
-  it('stays hidden when no job runs or owes work', async () => {
+  it('says all jobs are done when none runs or owes work and none has run', async () => {
     mockUseBackgroundJobs.mockReturnValue([job('detection'), job('streamBackfill')]);
-    expect(
-      await (await render(<BackgroundJobsActivityBar />)).queryByTestId('background-jobs-activity')
-    ).toBeNull();
+    const tree = await render(<BackgroundJobsActivityBar />);
+    expect(tree.getByTestId('background-jobs-empty')).toHaveTextContent('All background jobs done');
+    expect(tree.queryByTestId('background-jobs-activity-toggle')).toBeNull();
   });
 
-  it('expands to show each running or owed job and its progress', async () => {
+  it('lists each running or owed job open, with its progress and a status colour', async () => {
     mockUseBackgroundJobs.mockReturnValue([
       job('detection', { state: 'running', completed: 4, total: 12 }),
-      job('elevationBackfill', { state: 'complete' }),
+      job('elevationBackfill', { state: 'complete', lastRun: finishedRun }),
       job('cutover', { remaining: 1 }),
       job('streamBackfill', { remaining: 8 }),
     ]);
     const tree = await render(<BackgroundJobsActivityBar />);
 
-    expect(tree.getByTestId('background-jobs-activity')).toBeTruthy();
-    expect(tree.queryByTestId('background-job-detection')).toBeNull();
-    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-detection-detail').props.children).toBe('4 of 12');
     expect(tree.getByTestId('background-job-cutover')).toBeTruthy();
     expect(tree.getByTestId('background-job-streamBackfill')).toBeTruthy();
+    expect(tree.getByTestId('background-job-detection-status')).toHaveTextContent('Running');
+    // The finished job is history, folded until the athlete opens it.
     expect(tree.queryByTestId('background-job-elevationBackfill')).toBeNull();
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+    expect(tree.getByTestId('background-job-elevationBackfill-status')).toHaveTextContent(
+      'Finished'
+    );
   });
 
-  it('clears a finished job when the polled state has no work left', async () => {
+  it('draws running, finished, waiting and stopped jobs in four different inks', async () => {
+    mockUseBackgroundJobs.mockReturnValue([
+      job('detection', { state: 'running' }),
+      job('elevationBackfill', { state: 'waiting', remaining: 3 }),
+      job('streamBackfill', { remaining: 2, lastRun: { ...finishedRun, outcome: 'failed' } }),
+      job('cutover', { state: 'complete', lastRun: finishedRun }),
+    ]);
+    const tree = await render(<BackgroundJobsActivityBar />);
+    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+
+    const ink = (id: string) =>
+      StyleSheet.flatten(
+        tree.getByTestId(`background-job-${id}-status`).findByType(Text).props.style
+      ).color;
+    const inks = ['detection', 'elevationBackfill', 'streamBackfill', 'cutover'].map(ink);
+    expect(new Set(inks).size).toBe(4);
+    expect(tree.getByTestId('background-job-streamBackfill-status')).toHaveTextContent(
+      'Stopped early'
+    );
+  });
+
+  it('moves a finished job from the open list into the folded history', async () => {
     mockUseBackgroundJobs.mockReturnValue([job('detection', { state: 'running' })]);
     const tree = await render(<BackgroundJobsActivityBar />);
-    expect(tree.getByTestId('background-jobs-activity')).toBeTruthy();
+    expect(tree.getByTestId('background-job-detection')).toBeTruthy();
+    expect(tree.queryByTestId('background-jobs-activity-toggle')).toBeNull();
 
-    mockUseBackgroundJobs.mockReturnValue([job('detection', { state: 'complete' })]);
+    mockUseBackgroundJobs.mockReturnValue([
+      job('detection', { state: 'complete', lastRun: finishedRun }),
+    ]);
     await tree.rerender(<BackgroundJobsActivityBar />);
-    expect(tree.queryByTestId('background-jobs-activity')).toBeNull();
+    expect(tree.queryByTestId('background-job-detection')).toBeNull();
+    expect(tree.getByTestId('background-jobs-activity-toggle')).toBeTruthy();
   });
 
   it('shows translated cutover and detection phases in the active locale', async () => {
@@ -90,7 +129,6 @@ describe('BackgroundJobsActivityBar', () => {
     ]);
     const tree = await render(<BackgroundJobsActivityBar />);
 
-    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-cutover-detail').props.children).toBe(
       'Katalog vorbereiten'
     );
@@ -105,7 +143,6 @@ describe('BackgroundJobsActivityBar', () => {
     ]);
     const tree = await render(<BackgroundJobsActivityBar />);
 
-    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-cutover-detail').props.children).toBe('new_phase');
   });
 
@@ -123,7 +160,6 @@ describe('BackgroundJobsActivityBar', () => {
     ]);
     const tree = await render(<BackgroundJobsActivityBar />);
 
-    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-streamBackfill-detail').props.children).toBe(
       "1400 activities · At least 3 days to finish, on intervals.icu's daily limit"
     );
@@ -146,11 +182,10 @@ describe('BackgroundJobsActivityBar', () => {
     ]);
     const tree = await render(<BackgroundJobsActivityBar />);
 
-    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-cutover-detail').props.children).toBe(
       'Older activities joining: 412 of 1,840'
     );
-    expect(tree.getByTestId('background-jobs-activity-toggle')).toHaveTextContent(/1$/);
+    expect(tree.queryByTestId('background-jobs-activity-toggle')).toBeNull();
   });
 
   it('names no pacing for a queue the engine did not price in days', async () => {
@@ -159,7 +194,6 @@ describe('BackgroundJobsActivityBar', () => {
     ]);
     const tree = await render(<BackgroundJobsActivityBar />);
 
-    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-streamBackfill-detail').props.children).toBe(
       '40 activities'
     );
@@ -193,7 +227,6 @@ describe('BackgroundJobsActivityBar', () => {
     ]);
     const tree = await render(<BackgroundJobsActivityBar />);
 
-    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     const detail = tree.getByTestId('background-job-streamBackfill-detail');
     expect(detail).toHaveTextContent(`1200 activities · Resumes ${formatClockOrDate(resumesAt)}`);
     expect(tree.queryByText(/some to retry/)).toBeNull();
@@ -208,7 +241,6 @@ describe('BackgroundJobsActivityBar', () => {
     ]);
     const tree = await render(<BackgroundJobsActivityBar />);
 
-    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     expect(tree.getByTestId('background-job-elevationBackfill-detail').props.children).toBe(
       'Waiting to resume'
     );
@@ -222,7 +254,6 @@ describe('BackgroundJobsActivityBar', () => {
     ]);
     const tree = await render(<BackgroundJobsActivityBar />);
 
-    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
     const detail = tree.getByTestId('background-job-elevationBackfill-detail');
     expect(detail).toHaveTextContent(new RegExp(formatClockOrDate(resumesAt)));
     expect(detail).not.toHaveTextContent(/Resumes/);
@@ -237,7 +268,6 @@ describe('BackgroundJobsActivityBar', () => {
         job('streamBackfill', { state: 'partial', remaining: 3 }),
       ]);
       const tree = await render(<BackgroundJobsActivityBar />);
-      await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
 
       await fireEvent.press(tree.getByTestId('background-job-elevationBackfill-retry'));
       expect(mockRetryDownloadsNow).toHaveBeenCalledTimes(1);
@@ -253,7 +283,6 @@ describe('BackgroundJobsActivityBar', () => {
         job('cutover', { state: 'idle', remaining: 1 }),
       ]);
       const tree = await render(<BackgroundJobsActivityBar />);
-      await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
 
       expect(tree.queryByTestId('background-job-elevationBackfill-retry')).toBeNull();
       expect(tree.queryByTestId('background-job-streamBackfill-retry')).toBeNull();
@@ -272,7 +301,6 @@ describe('BackgroundJobsActivityBar', () => {
         }),
       ]);
       const tree = await render(<BackgroundJobsActivityBar />);
-      await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
 
       const retry = tree.getByTestId('background-job-elevationBackfill-retry');
       expect(retry).toBeDisabled();
@@ -294,7 +322,6 @@ describe('BackgroundJobsActivityBar', () => {
         }),
       ]);
       const tree = await render(<BackgroundJobsActivityBar />);
-      await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
 
       expect(tree.getByTestId('background-job-streamBackfill-retry')).toBeDisabled();
       const detail = tree.getByTestId('background-job-streamBackfill-detail');

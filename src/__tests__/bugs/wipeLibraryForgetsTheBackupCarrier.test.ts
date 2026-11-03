@@ -739,6 +739,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
       `${RUST}/persistence/mod.rs`,
       `${RUST}/persistence/regroup.rs`,
       `${RUST}/persistence/sections/detection.rs`,
+      `${RUST}/persistence/sections/retired_map.rs`,
       `${RUST}/persistence/tiles.rs`,
       'modules/veloqrs/src/EngineClient.ts',
     ],

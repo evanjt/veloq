@@ -728,14 +728,21 @@ impl PersistentEngine {
         if kept == other {
             return Err("A section cannot be preferred over itself".to_string());
         }
-        let Some(kept_row) = self.preference_row(kept)? else {
+        let mut kept_row = self.preference_row(kept)?;
+        if kept_row.is_none() {
+            self.restore_for_preference(kept, other)?;
+            kept_row = self.preference_row(kept)?;
+        }
+        let Some(kept_row) = kept_row else {
             return Err(format!("Section not found: {kept}"));
         };
         let Some(other_row) = self.preference_row(other)? else {
-            let retired_into_kept =
+            // A retired section is already out of the catalogue, so keeping
+            // the live one over it is the state the athlete asked for.
+            let retired =
                 crate::persistence::sections::history::pooled::retirement_of(&self.db, other)
-                    .is_some_and(|r| r.into.as_deref() == Some(kept));
-            return if retired_into_kept {
+                    .is_some();
+            return if retired {
                 Ok(())
             } else {
                 Err(format!("Section not found: {other}"))
@@ -792,6 +799,34 @@ impl PersistentEngine {
         self.finish_retirement(other, &freed);
         self.invalidate_section_cache(kept);
         self.refresh_section_badges(&[kept]);
+        Ok(())
+    }
+
+    /// Prefer on a retired `kept` brings it back first, from its newest
+    /// restorable state, so the choice runs as it does for a live custom
+    /// section. Checked before anything is written: `other` must be a live
+    /// auto section on the retired line's ground.
+    fn restore_for_preference(&mut self, kept: &str, other: &str) -> Result<(), String> {
+        use crate::persistence::sections::history::pooled;
+        let Some(version) = pooled::restorable_version_of(&self.db, kept) else {
+            return Err(format!("Section not found: {kept}"));
+        };
+        let Some(other_row) = self.preference_row(other)? else {
+            return Err(format!("Section not found: {other}"));
+        };
+        if other_row.custom {
+            return Err(format!(
+                "Sections {kept} and {other} are not one auto and one custom section"
+            ));
+        }
+        let line = self
+            .section_geometry_polyline(kept, version.0)
+            .ok_or_else(|| format!("Section {kept} has no stored version {}", version.0))?;
+        let other_line = self.stored_section_polyline(other)?;
+        if !tracematch::sections::shares_ground(&line, &other_line) {
+            return Err(format!("Sections {kept} and {other} do not share ground"));
+        }
+        self.revert_section_to_version(kept, version.0)?;
         Ok(())
     }
 

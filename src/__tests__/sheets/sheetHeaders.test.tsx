@@ -50,6 +50,7 @@ jest.mock('@/features/routes/hooks/useMergeSections', () => ({
 jest.mock('@/features/insights/components/content/InsightDetailContent', () => ({
   InsightDetailContent: () => null,
 }));
+jest.mock('@/features/settings/components/SyncRangePanel', () => ({ SyncRangePanel: () => null }));
 jest.mock('@/shared/storage/platformRecord', () => ({ platformRecordUri: () => null }));
 jest.mock('@/features/settings/lib/autobackup/webdavConfig', () => ({
   getWebdavConfig: () => ({ url: 'https://example.invalid/backups' }),
@@ -173,6 +174,11 @@ const SHEETS: Record<
     load: () => require('@/app/sheets/explainer').default,
     input: { title: 'Tide tables', body: 'When the water turns.' },
     dismiss: 'close',
+  },
+  'sheets/history-range': {
+    load: () => require('@/app/sheets/history-range').default,
+    input: {},
+    dismiss: 'cancel',
   },
 };
 

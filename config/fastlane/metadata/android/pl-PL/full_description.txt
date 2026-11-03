@@ -1,38 +1,38 @@
-Veloq pokazuje Twój trening z intervals.icu na telefonie i szuka tras i odcinków, które powtarzasz. Analiza odbywa się na Twoim urządzeniu.
+Dane treningowe należą do Ciebie. Veloq znajduje trasy i odcinki, które powtarzasz, i tworzy analizy wprost na Twoim telefonie.
 
 <b>Nagrywanie</b>
-Nagrywaj przejazdy, biegi i inne sporty z GPS, czujnikami Bluetooth lub zaplanowanym treningiem.
+Nagrywaj z GPS lub w pomieszczeniu, z czujnikami Bluetooth, dzisiejszym planowanym treningiem lub linią pobliskiej trasy.
 
 <b>Analizy</b>
-Krótkie odczyty Twojego treningu, każdy z liczbami i sposobem ich obliczenia.
+Krótkie podsumowania treningu. Każde otwiera się na swoje liczby i opis sposobu ich obliczenia.
 
 <b>Mapy</b>
-Interaktywne mapy z terenem 3D, mapami cieplnymi tras oraz stylami jasnym, ciemnym i satelitarnym.
+Interaktywne mapy z terenem 3D, mapami cieplnymi tras i stylami jasnym, ciemnym i satelitarnym, wszystko offline.
 
 <b>Trasy i odcinki</b>
-Porównuj każde podejście na trasach i odcinkach, które powtarzasz, a potem przypinaj je, skracaj lub zmieniaj ich nazwy.
+Odcinki uwzględniają wzniesienia, pomijają wyciągi narciarskie, zmieniają kształt lub dzielą się z historią. Porównuj próby i cofnij każdą zmianę.
 
 <b>Wykresy</b>
-Tętno, moc, tempo, wysokość i kadencja na jednej osi czasu razem z mapą.
+Tętno, moc, tempo, wzniesienia i kadencja na jednej osi czasu razem z mapą.
 
 <b>Kondycja</b>
-Kondycja, zmęczenie i forma z naniesionymi strefami, a do tego HRV, tętno spoczynkowe i sen.
+Forma, zmęczenie i dyspozycja z zaznaczonymi strefami, a także HRV, tętno spoczynkowe i sen.
 
 <b>Siła</b>
-Twoje serie siłowe na schemacie ciała, według grupy mięśni i ćwiczenia.
+Twoje serie siłowe na diagramie ciała, według grupy mięśni i ćwiczenia.
 
 <b>Widżety</b>
-Widżety ekranu głównego z kondycją i formą, ostatnią aktywnością i Twoimi analizami.
+Widżety na ekranie głównym z podsumowaniem, ostatnią aktywnością, analizami i siłą.
 
 <b>Powiadomienia</b>
 Powiadomienie z nazwą trasy i ewentualnymi rekordami osobistymi, gdy pojawi się nowa aktywność. Wyłączone, dopóki ich nie włączysz.
 
 <b>Kopie zapasowe</b>
-Zapisz ustawienia i decyzje o odcinkach w pliku, folderze, chmurze lub na serwerze WebDAV.
+Automatyczne kopie ustawień i zmian w odcinkach do folderu, na Dysk Google lub na serwer WebDAV.
 
 <b>Prywatność</b>
 Dane treningowe zostają na Twoim urządzeniu, bez analityki i śledzenia. Opcjonalne powiadomienia push zapisują Twój identyfikator sportowca i token urządzenia na naszym serwerze na 30 dni. Open source na licencji Apache 2.0.
 
-Obsługuje kolarstwo, bieganie, pływanie i ponad 20 typów aktywności. Wypróbuj wbudowany tryb demo, aby poznać aplikację bez zakładania konta.
+Obsługuje jazdę na rowerze, bieg, pływanie i ponad 20 typów aktywności. Wypróbuj wbudowany tryb demo, aby poznać aplikację bez konta.
 
-Wymaga konta intervals.icu do danych na żywo. Wymaga systemu Android 7.0 lub nowszego. Nie jest powiązany z intervals.icu.
+Wymaga konta intervals.icu do danych na żywo. Wymaga systemu Android 7.0 lub nowszego. Brak powiązań z intervals.icu.

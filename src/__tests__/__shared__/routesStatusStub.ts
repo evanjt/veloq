@@ -46,6 +46,7 @@ export interface StubbedStatusParts {
   elevationRemaining?: number | null;
   elevationPaused?: boolean;
   cutover?: { phase: string; running: boolean } | null;
+  retiredPairsRunning?: boolean;
 }
 
 export function routesStatus(parts: StubbedStatusParts = {}) {
@@ -79,5 +80,6 @@ export function routesStatus(parts: StubbedStatusParts = {}) {
     elevationRemaining: elevation.phase === 'fetching' ? null : (parts.elevationRemaining ?? null),
     elevationPaused: parts.elevationPaused ?? false,
     cutover: parts.cutover ?? { phase: 'idle', running: false },
+    retiredPairsRunning: parts.retiredPairsRunning ?? false,
   };
 }

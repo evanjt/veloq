@@ -51,15 +51,11 @@ jest.mock('@/features/activity', () => ({
   useActivities: () => ({ data: [] }),
 }));
 
-jest.mock('@/features/fitness/components/SeasonBestsSection', () => ({
-  SeasonBestsSection: () => null,
-}));
-
 beforeAll(async () => {
   await initialiseI18n('en-GB');
 });
 
-describe('the performance curve section expanded', () => {
+describe('the performance curve section', () => {
   it.each([
     ['Cycling', 'Power curve'],
     ['Running', 'Pace curve'],
@@ -69,19 +65,9 @@ describe('the performance curve section expanded', () => {
       <PerformanceCurveSection
         sportMode={sport as PrimarySport}
         days={30}
-        timeRange="1m"
         currentFTP={300}
         thresholdPace={undefined}
         swimThresholdPace={undefined}
-        performanceExpanded
-        onPerformanceToggle={() => {}}
-        bestsExpanded={false}
-        onBestsToggle={() => {}}
-        bestsEfforts={[]}
-        bestsClimbing={[]}
-        bestsClimbingStatus={'ready' as never}
-        loadingBests={false}
-        bestsHeader={null}
       />
     );
 

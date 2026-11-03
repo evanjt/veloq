@@ -619,7 +619,7 @@ fn settle_on_worker(
 
     // The write lock is released above before the finalize tail so any queued
     // reads see the saved sections during the indicator recompute.
-    super::super::with_persistent_engine_for(install, |e| {
+    let path = super::super::with_persistent_engine_for(install, |e| {
         e.apply_sections_finalize_with_progress(Some(progress));
         // Reload groups from DB in case this thread recomputed and saved them.
         // A regroup refused over a newer write, or a store made while the run
@@ -632,7 +632,14 @@ fn settle_on_worker(
             Some(owed) => e.adopt_run_groups(owed, groups_epoch_at_spawn),
             None => e.follow_committed_groups(),
         }
-    });
+        e.db.path().map(str::to_owned)
+    })
+    .flatten();
+    // The run moved the catalogue, so the retired map's ground pairs are
+    // measured here, still off the JS thread, before any screen asks.
+    if let Some(path) = path {
+        super::retired_map::level_now(install, &path);
+    }
     true
 }
 

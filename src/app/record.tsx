@@ -326,9 +326,8 @@ function RecordScreenContent() {
           },
         ]}
       >
-        {/* What the ride starts with: the fix and the paired sensors */}
+        {/* What the ride starts with: the fix */}
         {mode === 'gps' ? <GpsAccuracyLine state={gps.state} accuracy={gps.accuracy} /> : null}
-        <SessionSensorList />
 
         {/* Today's planned workout - only when something is planned */}
         {todayEvents.map((event) => (
@@ -363,6 +362,9 @@ function RecordScreenContent() {
             </Text>
           </PressTarget>
         ))}
+
+        {/* The paired sensors, or the way to add one */}
+        <SessionSensorList />
 
         {/* The sport: recent ones as chips, the full list behind More */}
         <ScrollView

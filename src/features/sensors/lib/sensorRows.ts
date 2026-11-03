@@ -3,7 +3,7 @@ import type {
   KnownSensor,
   SensorConnection,
   SensorConnectionStatus,
-  SensorKind,
+  SensorMetric,
 } from '../types';
 import { metricsSuppliedBy } from './sensorSource';
 
@@ -71,12 +71,18 @@ export function distinctLabels(rows: { id: string; label: string }[]): Map<strin
 /** A paired sensor's state on the record entry screen, `off` when it has no link. */
 export type SessionSensorState = SensorConnectionStatus | 'off';
 
+/** A link that reads no data is the one a fresh subscription can fix. */
+export function canReconnect(status: SessionSensorState | undefined): boolean {
+  return status === 'noData';
+}
+
 export interface SessionSensorRow {
   id: string;
   sensor: KnownSensor;
   state: SessionSensorState;
+  canReconnect: boolean;
   /** The metrics this sensor is the recorded source of, each with its last value. */
-  live: { kind: SensorKind; value: number }[];
+  live: { kind: SensorMetric; value: number }[];
   batteryPercent: number | null;
   signal: SignalLevel | null;
   /** The last signal reading in dBm, null before one. */
@@ -100,9 +106,9 @@ export function sessionSensorRows({
 }: {
   knownSensors: KnownSensor[];
   connections: Record<string, SensorConnection>;
-  activeSources: Partial<Record<SensorKind, string>>;
-  suppliedKinds: Record<string, SensorKind[]>;
-  latestSensor: Record<'heartrate' | 'power' | 'cadence', { value: number } | null>;
+  activeSources: Partial<Record<SensorMetric, string>>;
+  suppliedKinds: Record<string, SensorMetric[]>;
+  latestSensor: Partial<Record<'heartrate' | 'power' | 'cadence', { value: number } | null>>;
 }): SessionSensorRow[] {
   return knownSensors.map((sensor) => {
     const connection = connections[sensor.id];
@@ -120,6 +126,7 @@ export function sessionSensorRows({
       id: sensor.id,
       sensor,
       state,
+      canReconnect: canReconnect(state),
       live,
       batteryPercent: connection?.batteryPercent ?? null,
       signal: connection ? signalLevel(connection.rssi ?? null) : null,

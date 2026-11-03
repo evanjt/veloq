@@ -27,6 +27,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import AboutScreen from '@/app/about';
 import DetectionSettingsScreen from '@/app/detection-settings';
 import RecordingSettingsScreen from '@/app/recording-settings';
+import RecordingDataFieldsScreen from '@/app/recording-data-fields';
 import { Icon } from '@/shared/ui/Icon';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -155,10 +156,10 @@ describe('chevrons on the settings screens', () => {
     expectOnlyRowChevrons(await render(<AboutScreen />), 1);
   });
 
-  it('draws the shared chevron on the tour, release notes, About and dashboard rows of the footer', async () => {
+  it('draws the shared chevron on the tour, release notes, About, experimental and dashboard rows of the footer', async () => {
     useDebugStore.setState({ unlocked: true, enabled: true });
     try {
-      expectOnlyRowChevrons(await render(<FooterSection />), 4);
+      expectOnlyRowChevrons(await render(<FooterSection />), 5);
     } finally {
       useDebugStore.setState({ unlocked: false, enabled: false });
     }
@@ -170,11 +171,15 @@ describe('chevrons on the settings screens', () => {
     expect(tree.getAllByTestId('row-external', { includeHiddenElements: true })).toHaveLength(1);
   });
 
-  it('draws the shared chevron on the recordings, sensors, units and tile slot rows', async () => {
-    const tree = await render(<RecordingSettingsScreen />);
+  it('draws the shared chevron on the six recording settings rows', async () => {
+    expectOnlyRowChevrons(await render(<RecordingSettingsScreen />), 6);
+  });
+
+  it('draws the shared chevron on the data field tile slot rows', async () => {
+    const tree = await render(<RecordingDataFieldsScreen />);
     const tileSlots = tree.queryAllByTestId(/^settings-tile-/).length;
     expect(tileSlots).toBeGreaterThan(0);
-    expectOnlyRowChevrons(tree, 3 + tileSlots);
+    expectOnlyRowChevrons(tree, tileSlots);
   });
 
   it('draws the shared chevron on the two preview rows and the retired sections row of detection settings', async () => {

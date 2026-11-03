@@ -1106,3 +1106,69 @@ fn preferring_a_section_over_itself_or_an_absent_one_is_refused() {
     assert!(engine.prefer_section("s_auto", "s_gone").is_err());
     assert!(is_live(&engine, "s_auto"));
 }
+
+/// Whether the retired map pairs `a` and `b` once its ground pairs are level.
+fn map_pair(engine: &PersistentEngine, a: &str, b: &str) -> bool {
+    engine
+        .level_retired_pairs()
+        .expect("level the ground pairs");
+    crate::persistence::sections::retired_map::retired_map_data(&engine.db)
+        .pairs
+        .iter()
+        .any(|p| {
+            (p.retired_id == a && p.current_id == b) || (p.retired_id == b && p.current_id == a)
+        })
+}
+
+/// Scenario: the retired map pairs a retired section with the auto section cut
+/// on its ground, and the athlete prefers the retired one, then the auto one.
+/// Expected behaviour: preferring the retired id restores it and hides the auto
+/// section behind it, the pair stays on the map, and preferring the auto
+/// section puts the retired one back on the retired list.
+#[test]
+fn preferring_a_pair_of_the_retired_map_acts_on_both_sides() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = library(&dir, "prefer-map-pair.db");
+    engine.archive_current_catalogue().expect("archive");
+    retire(&engine, "s_auto");
+    insert_auto_section(&engine, "s_recut", &ride(7.0)[0..12], ("a1", 0, 12));
+    assert!(map_pair(&engine, "s_auto", "s_recut"));
+
+    engine
+        .prefer_section("s_auto", "s_recut")
+        .expect("prefer the retired section");
+
+    assert!(is_live(&engine, "s_auto"));
+    assert_eq!(superseded_by(&engine, "s_recut").as_deref(), Some("s_auto"));
+    assert_eq!(superseded_events(&engine, "s_recut").len(), 1);
+    assert_eq!(superseded_events(&engine, "s_auto").len(), 1);
+    assert!(map_pair(&engine, "s_auto", "s_recut"), "the pair stays");
+
+    engine
+        .prefer_section("s_recut", "s_auto")
+        .expect("prefer the auto section");
+    let entry = retired_entry(&engine, "s_auto").expect("retired again");
+    assert_eq!(entry.into.as_deref(), Some("s_recut"));
+    assert_eq!(superseded_by(&engine, "s_recut"), None);
+    assert!(map_pair(&engine, "s_auto", "s_recut"));
+}
+
+/// Scenario: the athlete prefers the auto section over a retired one.
+/// Expected behaviour: nothing is written and the call succeeds, since the
+/// retired section is already out of the catalogue.
+#[test]
+fn preferring_the_current_section_over_a_retired_one_writes_nothing() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = library(&dir, "prefer-over-retired.db");
+    engine.archive_current_catalogue().expect("archive");
+    retire(&engine, "s_auto");
+    insert_auto_section(&engine, "s_recut", &ride(7.0)[0..12], ("a1", 0, 12));
+    let events = engine.section_history("s_auto").len();
+
+    engine
+        .prefer_section("s_recut", "s_auto")
+        .expect("already in effect");
+
+    assert!(!is_live(&engine, "s_auto"));
+    assert_eq!(engine.section_history("s_auto").len(), events);
+}

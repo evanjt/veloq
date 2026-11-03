@@ -16,7 +16,9 @@ const STRAP = 'strap-1';
 
 beforeEach(() => {
   useSensorStore.getState().dropSources(STRAP);
-  useRecordingStore.setState({ latestSensor: { heartrate: null, power: null, cadence: null } });
+  useRecordingStore.setState({
+    latestSensor: { heartrate: null, power: null, cadence: null, speed: null },
+  });
 });
 
 it('lands each kind in the recording store under its stream name', () => {

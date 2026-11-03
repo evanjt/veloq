@@ -93,10 +93,8 @@ function view(props: {
       currentSections={props.currentSections}
       result={props.result}
       showCurrent
-      showProposed
       showRemoved
       onToggleCurrent={jest.fn()}
-      onToggleProposed={jest.fn()}
       onToggleRemoved={jest.fn()}
       selectedId={null}
       onSelect={jest.fn()}

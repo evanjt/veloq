@@ -44,13 +44,12 @@ describe('GarminPullRow', () => {
     await changeLanguage('en-AU');
     mockPullNow.mockClear();
     useDebugStore.setState({
-      experimentalEnabled: true,
       experimentalFeatures: { garminUpdate: true },
     });
   });
 
   it("stays away while Garmin's experimental switch is off", () => {
-    useDebugStore.setState({ experimentalEnabled: false });
+    useDebugStore.setState({ experimentalFeatures: {} });
     const tree = pull({ phase: FfiGarminPullPhase.Running });
 
     expect(tree.queryByTestId('settings-garmin-pull')).toBeNull();

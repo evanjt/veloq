@@ -83,10 +83,8 @@ async function renderMap() {
       centre={{ lat: 47.5, lng: 8.7 }}
       selectedId={null}
       showCurrent
-      showProposed
       showRemoved
       onToggleCurrent={jest.fn()}
-      onToggleProposed={jest.fn()}
       onToggleRemoved={jest.fn()}
       onSelect={jest.fn()}
     />

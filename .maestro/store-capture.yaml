@@ -129,9 +129,10 @@ tags:
 - assertNotVisible: "Open debugger to view warnings"
 
 # 02 regional map: satellite style, 3D terrain and the heatmap, framed on a
-# demo ride in the Valais. The style and terrain are the athlete's own map
+# demo ride in the Valais, with nothing over the map. The style and terrain are the athlete's own map
 # settings, the heatmap is the layer toggle in the map's layers menu, and the
-# camera is the deep link's activity, which the map fits.
+# camera is the deep link's activity, which the map fits. The deep link also
+# opens that ride's popup, which is closed before the shot.
 - runFlow:
     file: helpers/open-link.yaml
     env:
@@ -184,16 +185,25 @@ tags:
     commands:
       - tapOn:
           id: "map-toggle-heatmap"
-# The layers panel is shut before the shot: the store set shows the map, the
-# heatmap and the ride popup, and the panel is not shown over them.
+# The layers panel and the ride popup are shut before the shot: the map and
+# the heatmap fill the frame, with no card or menu over them.
 - runFlow:
     file: helpers/close-map-layers.yaml
+- runFlow:
+    when:
+      visible:
+        id: "activity-popup"
+    commands:
+      - tapOn:
+          id: "activity-popup-close"
 # MapLibre tile loading has no deterministic hook, so the satellite imagery and
 # the terrain get a settle window after the ready marker.
 - waitForAnimationToEnd:
     timeout: 15000
 - assertNotVisible:
     id: "map-layers-menu"
+- assertNotVisible:
+    id: "activity-popup"
 - assertNotVisible:
     id: "routes-sync-banner"
 - runFlow:

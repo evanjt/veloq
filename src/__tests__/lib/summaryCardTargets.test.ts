@@ -99,17 +99,17 @@ describe('the fitness parser', () => {
     expect(fitnessChartAnchor('calendar')).toBe('calendar');
     expect(fitnessChartAnchor('fitness')).toBe('chart');
     expect(fitnessChartAnchor('ftp')).toBe('trends');
-    expect(fitnessChartAnchor('css')).toBe('performance');
+    expect(fitnessChartAnchor('css')).toBe('chart');
   });
 
-  it('expand the section and switch to the sport a fitness chart needs', () => {
+  it('switch to the sport a fitness chart needs and open its section when it has one', () => {
     expect(FITNESS_CHART_PLACEMENT.ftp).toEqual({
       section: 'trends',
       sport: 'Cycling',
       place: 'trends',
     });
     expect(FITNESS_CHART_PLACEMENT.css).toEqual({
-      section: 'performance',
+      section: null,
       sport: 'Swimming',
       place: 'performance',
     });

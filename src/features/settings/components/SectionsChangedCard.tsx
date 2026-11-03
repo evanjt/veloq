@@ -27,7 +27,8 @@ import {
 } from '@/features/routes';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
-import { Button } from '@/shared/ui';
+import { openHistoryRange } from '@/shared/app/historyRange';
+import { ButtonRow } from '@/shared/ui/ButtonRow';
 import { Card } from '@/shared/ui/Card';
 import { Icon } from '@/shared/ui/Icon';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
@@ -58,7 +59,7 @@ export function SectionsChangedCard() {
   }, [dismiss]);
   const openProgress = useCallback(() => {
     dismiss();
-    navigateTo('/sync-settings');
+    openHistoryRange();
   }, [dismiss]);
 
   if (!eligible || !holdsAsk) return null;
@@ -108,33 +109,39 @@ export function SectionsChangedCard() {
             )}
           </Text>
         )}
-        <View style={styles.actions}>
-          <Button
-            testID="sections-changed-dismiss"
-            label={t('feed.sectionsChangedDismiss')}
-            variant="ghost"
-            size="sm"
-            onPress={dismiss}
-          />
-          {countsOwed ? (
-            <Button
-              testID="sections-changed-progress"
-              label={t('feed.sectionsChangedProgress')}
-              variant="primary"
-              size="sm"
-              onPress={openProgress}
-            />
-          ) : null}
-          {total > 0 && !countsOwed && (
-            <Button
-              testID="sections-changed-see"
-              label={t('feed.sectionsChangedSee')}
-              variant="primary"
-              size="sm"
-              onPress={open}
-            />
-          )}
-        </View>
+        <ButtonRow
+          actions={[
+            {
+              testID: 'sections-changed-dismiss',
+              label: t('feed.sectionsChangedDismiss'),
+              variant: 'ghost',
+              size: 'sm',
+              onPress: dismiss,
+            },
+            ...(countsOwed
+              ? [
+                  {
+                    testID: 'sections-changed-progress',
+                    label: t('feed.sectionsChangedProgress'),
+                    variant: 'primary' as const,
+                    size: 'sm' as const,
+                    onPress: openProgress,
+                  },
+                ]
+              : []),
+            ...(total > 0 && !countsOwed
+              ? [
+                  {
+                    testID: 'sections-changed-see',
+                    label: t('feed.sectionsChangedSee'),
+                    variant: 'primary' as const,
+                    size: 'sm' as const,
+                    onPress: open,
+                  },
+                ]
+              : []),
+          ]}
+        />
       </Card>
     </View>
   );
@@ -159,10 +166,5 @@ const styles = StyleSheet.create({
   },
   descriptionDark: {
     color: darkColors.textSecondary,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
   },
 });

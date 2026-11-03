@@ -1,6 +1,5 @@
 {
   "src/features/activity/components/SectionInlinePlot.tsx": 1,
-  "src/features/fitness/components/SeasonBestsSection.tsx": 1,
   "src/features/insights/components/content/RecentEffortsList.tsx": 1,
   "src/features/insights/components/InsightDetailSheet.tsx": 1,
   "src/features/insights/components/InsightListCard.tsx": 1,

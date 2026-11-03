@@ -113,7 +113,6 @@ function Probe({ onValue }: { onValue: (value: Preferences) => void }) {
 beforeEach(() => {
   // Garmin is experimental: every registered slide shows only with its switch on.
   useDebugStore.setState({
-    experimentalEnabled: true,
     experimentalFeatures: { garminUpdate: true },
   });
   current = null;
@@ -265,7 +264,7 @@ describe("Garmin slide in the What's New update set", () => {
   });
 
   it('is left out while the Garmin experimental switch is off', async () => {
-    useDebugStore.setState({ experimentalEnabled: false });
+    useDebugStore.setState({ experimentalFeatures: {} });
     await openUpdate();
     await act(async () => {
       await fireEvent.press(screen.getByText('whatsNew.nextButton'));

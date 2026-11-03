@@ -84,7 +84,6 @@ const ROUTES = [
   'notification-settings',
   'section-retired',
   'summary-card-settings',
-  'sync-settings',
 ];
 
 // Settings is a tab root, titled through the tab headers, and collapses its title the same way.

@@ -107,8 +107,9 @@ android/keystore.properties
 coverage/
 *.log
 
-# Fastlane gems
+# Fastlane gems and the run report every lane writes
 config/fastlane/vendor/bundle
+config/fastlane/report.xml
 
 # E2E test artifacts
 artifacts/
@@ -148,3 +149,6 @@ maestro-*-retest.xml
 # The app's own images, which app.json names and a fresh clone builds from.
 !src/assets/*.png
 .tsbuild/
+
+# App Store videos, built by a command from the committed stills.
+config/fastlane/store-assets/**/*.mp4

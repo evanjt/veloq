@@ -1478,6 +1478,10 @@ pub struct FfiCurrentMapSection {
     /// Disabled, or hidden behind the section `superseded_by` names.
     pub hidden: bool,
     pub superseded_by: Option<String>,
+    /// Its stored length.
+    pub distance_meters: f64,
+    /// Traversals, one per pass.
+    pub visit_count: u32,
     /// Delta+varint encoded coordinates.
     pub encoded_polyline: Vec<u8>,
 }
@@ -1512,6 +1516,9 @@ pub struct FfiRetiredMapData {
     pub retired: Vec<FfiRetiredMapSection>,
     pub current: Vec<FfiCurrentMapSection>,
     pub pairs: Vec<FfiRetiredMapPair>,
+    /// The engine is still working out which lines share ground, so a line
+    /// whose ground pairs are owed lists only its ledger and supersedes links.
+    pub pairs_pending: bool,
 }
 
 /// Section summary with embedded polyline for the Routes screen.
@@ -1655,6 +1662,13 @@ pub struct FfiRoutesScreenData {
     pub has_more_sections: bool,
     /// Whether route groups need recomputation (stale after activity removal)
     pub groups_dirty: bool,
+    /// What keeps the owed regroup from running. An upgrade leaves it to the
+    /// detector cutover, which waits behind the elevation download, so this is
+    /// the hold ranked as the sections page ranks it while the cutover holds
+    /// the regroup. `None` when no regroup is owed, when one is in flight, or
+    /// when nothing holds it, and `groups_dirty` then means it is running or
+    /// about to.
+    pub groups_hold: Option<FfiDetectionHold>,
     /// How many groups the search and the minimum activity count leave. This is
     /// what the page is taken out of, and what `has_more_groups` is measured
     /// against. `group_count` stays the whole catalogue.
@@ -3347,8 +3361,12 @@ pub enum FfiBestEffortKind {
     Duration,
     /// A distance in metres, for pace.
     Distance,
+    /// The mile, a distance in metres named for its unit.
+    Mile,
     /// The half marathon, a distance in metres named for its race.
     HalfMarathon,
+    /// The marathon, a distance in metres named for its race.
+    Marathon,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -3362,6 +3380,11 @@ pub struct FfiBestEffort {
     /// Seconds taken to cover the distance, for pace only.
     pub time: Option<f64>,
     pub activity_id: Option<String>,
+    /// Watts per kilogram for power, from the curve's own per-kilogram series.
+    pub watts_per_kg: Option<f64>,
+    /// The activity holding the per-kilogram best, which need not be the one
+    /// holding the watts.
+    pub wkg_activity_id: Option<String>,
     /// The name and start of the activity holding the best, when the device
     /// holds that activity. Empty for one it does not, which the screen shows
     /// as not cached.

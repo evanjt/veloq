@@ -140,5 +140,10 @@
   },
   "support": {
     "tipNote": "Tips are donations. They unlock nothing: Veloq is free for everyone."
+  },
+  "experimental": {
+    "climbingBests": {
+      "blurb": "Calculated by Veloq on your phone from intervals.icu's elevation data. intervals.icu does not provide climbing bests itself. For each window, from 15 seconds to 20 minutes, Veloq finds your fastest climb rate in meters per hour (VAM) and converts it to W/kg, the power needed to lift your body weight alone. Only activities with intervals.icu's corrected elevation count."
+    }
   }
 }

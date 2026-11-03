@@ -106,7 +106,9 @@ beforeEach(async () => {
   jest.clearAllMocks();
   monitors.clear();
   mockConnectToDevice.mockImplementation(async (id: string) => mockDeviceFor(id));
-  useRecordingStore.setState({ latestSensor: { heartrate: null, power: null, cadence: null } });
+  useRecordingStore.setState({
+    latestSensor: { heartrate: null, power: null, cadence: null, speed: null },
+  });
 });
 
 afterEach(async () => {

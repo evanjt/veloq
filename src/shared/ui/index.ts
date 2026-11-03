@@ -9,6 +9,7 @@ export { BottomTabBar } from './BottomTabBar';
 export { useBottomClearance, useScrollEndInset } from './tabBarClearance';
 export { BottomPillSlot, BottomPillStack } from './BottomPillStack';
 export { CompassArrow, StaticCompassArrow } from './CompassArrow';
+export { ButtonRow } from './ButtonRow';
 export { Button, ToggleButton, ToggleButtonRow, chipFrame, selectedChipPaint } from './Button';
 export type {
   ButtonGlyph,
@@ -125,6 +126,7 @@ export { flattenStyle } from './flattenStyle';
 export { TipButtons } from './TipButtons';
 export { canDrawProfilePhoto } from './profileAvatar';
 export { PressTarget, type PressTargetProps } from './PressTarget';
+export { MapSheetToggleHandle } from './MapSheetHandle';
 export {
   focusRing,
   pressable,

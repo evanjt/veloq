@@ -34,5 +34,6 @@ export { GroupingPreviewMap, type GroupingRoute } from './preview/GroupingPrevie
 export { PreviewMapView, type RetiredLayerProps } from './preview/PreviewMapView';
 export { RetiredPairCard } from './preview/RetiredPairCard';
 export { PreviewDiffStrip } from './preview/PreviewDiffStrip';
+export { PreviewSheet } from './preview/PreviewSheet';
 export { PreviewRunCost } from './preview/PreviewRunCost';
 export { PreviewSectionPopover } from './preview/PreviewSectionPopover';

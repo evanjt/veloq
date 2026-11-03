@@ -13,6 +13,7 @@ import { act, render } from '@testing-library/react-native';
 import { SyncState, SyncStep } from 'veloqrs';
 
 import { SyncPill, SYNC_MESSAGE_HOLD_MS } from '@/shared/ui/SyncPill';
+import { SYNC_PILL_GRACE_MS } from '@/shared/ui/syncPillVisible';
 import { getEngine } from '@/shared/native/engine';
 import { brand, colors, darkColors, motionPresets, stroke } from '@/theme';
 
@@ -53,6 +54,12 @@ async function wait(ms: number) {
   });
 }
 
+async function renderPastGrace() {
+  const view = await render(<SyncPill />);
+  await wait(SYNC_PILL_GRACE_MS);
+  return view;
+}
+
 const engine = {
   getSyncStatus: jest.fn(() => status),
   subscribe: jest.fn((_channel: string, listener: () => void) => {
@@ -82,7 +89,7 @@ test('an idle sync draws nothing', async () => {
 
 test('the pill passes touches through', async () => {
   status = { state: SyncState.Syncing, completed: 2, total: 8, step: SyncStep.Wellness };
-  const { getByTestId } = await render(<SyncPill />);
+  const { getByTestId } = await renderPastGrace();
 
   expect(getByTestId('sync-progress-pill').props.pointerEvents).toBe('none');
 });
@@ -94,7 +101,7 @@ test.each([
   mockIsDark = isDark;
   const palette = isDark ? darkColors : colors;
   status = { state: SyncState.Syncing, completed: 2, total: 8, step: SyncStep.Wellness };
-  const { getByTestId } = await render(<SyncPill />);
+  const { getByTestId } = await renderPastGrace();
 
   const pill = StyleSheet.flatten(getByTestId('sync-progress-pill').props.style);
   expect(pill.backgroundColor).toBe(palette.surfaceRaised);
@@ -120,7 +127,7 @@ test.each([
     mockIsDark = isDark;
     const palette = isDark ? darkColors : colors;
     status = { state: SyncState.Syncing, completed: 2, total: 8, step: SyncStep.Wellness };
-    const { getByTestId } = await render(<SyncPill />);
+    const { getByTestId } = await renderPastGrace();
 
     const ring = StyleSheet.flatten(getByTestId('sync-progress-mark').props.style);
     expect(ring.borderTopColor).toBe(palette.controlOn);
@@ -168,7 +175,7 @@ test('a long label wraps and the counts stay whole', async () => {
 
 test('a new step cross-fades in at the message duration', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
-  const { getByTestId } = await render(<SyncPill />);
+  const { getByTestId } = await renderPastGrace();
 
   const message = getByTestId('sync-progress-pill-title');
   expect(message.props.entering).toBe(motionPresets.message.entering);
@@ -177,7 +184,7 @@ test('a new step cross-fades in at the message duration', async () => {
 
 test('a step holds the line for the minimum time when the next arrives sooner', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
-  const { getByTestId } = await render(<SyncPill />);
+  const { getByTestId } = await renderPastGrace();
 
   await wait(200);
   await announce({
@@ -202,7 +209,7 @@ test('a step holds the line for the minimum time when the next arrives sooner', 
 
 test('a step that outlasts the hold changes the line at once', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
-  const { getByTestId, getAllByTestId } = await render(<SyncPill />);
+  const { getByTestId, getAllByTestId } = await renderPastGrace();
 
   await wait(SYNC_MESSAGE_HOLD_MS + 500);
   await announce({ state: SyncState.Syncing, completed: 3, total: 8, step: SyncStep.Census });
@@ -230,7 +237,7 @@ test('the item count inside one step follows at once', async () => {
 
 test('a sync that ends inside the hold stays on its last message, then goes', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.SportSettings };
-  const { getByTestId, queryByTestId } = await render(<SyncPill />);
+  const { getByTestId, queryByTestId } = await renderPastGrace();
 
   await wait(300);
   await announce({ state: SyncState.Idle });
@@ -251,4 +258,40 @@ test('a sync that settles after the hold goes at once', async () => {
   await announce({ state: SyncState.Idle });
 
   expect(queryByTestId('sync-progress-pill')).toBeNull();
+});
+
+test('a quick sync draws nothing and a long one draws its pill at the grace period', async () => {
+  status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Census };
+  const { queryByTestId } = await render(<SyncPill />);
+
+  await wait(SYNC_PILL_GRACE_MS - 1);
+  expect(queryByTestId('sync-progress-pill')).toBeNull();
+
+  await wait(1);
+  expect(queryByTestId('sync-progress-pill')).not.toBeNull();
+});
+
+test('a sync that settles inside the grace period never draws', async () => {
+  status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
+  const { queryByTestId } = await render(<SyncPill />);
+
+  await wait(1000);
+  await announce({ state: SyncState.Idle });
+  await wait(SYNC_PILL_GRACE_MS + SYNC_MESSAGE_HOLD_MS);
+
+  expect(queryByTestId('sync-progress-pill')).toBeNull();
+});
+
+test('a step that counts items draws at once', async () => {
+  status = {
+    state: SyncState.Syncing,
+    completed: 5,
+    total: 8,
+    step: SyncStep.RemainingActivities,
+    stepItemsDone: 0,
+    stepItemsTotal: 30,
+  };
+  const { getByTestId } = await render(<SyncPill />);
+
+  expect(getByTestId('sync-progress-pill-detail').props.children).toBe('5/8 · 0/30');
 });

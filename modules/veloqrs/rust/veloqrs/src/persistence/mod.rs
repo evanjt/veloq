@@ -2469,6 +2469,7 @@ fn routes_screen_data(
         has_more_groups: group_page.has_more,
         has_more_sections: section_page.has_more,
         groups_dirty,
+        groups_hold: empty_reason::regroup_hold(conn, groups_dirty),
         filtered_group_count: group_page.filtered_count,
         filtered_section_count: section_page.filtered_count,
         unaccepted_auto_count: section_page.unaccepted_auto_count,
@@ -4308,6 +4309,10 @@ mod section_route_ids_work;
 #[cfg(test)]
 #[path = "tests/routes_list_paging.rs"]
 mod routes_list_paging;
+
+#[cfg(test)]
+#[path = "tests/regroup_hold.rs"]
+mod regroup_hold;
 
 #[cfg(test)]
 #[path = "tests/stale_pr_record_effort.rs"]

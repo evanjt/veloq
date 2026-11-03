@@ -8,6 +8,7 @@
  */
 
 import type { FitnessPlace } from '@/shared/app/fitnessEntry';
+import { HISTORY_RANGE_PARAM } from '@/shared/app/historyRangeParam';
 
 export type PushPayloadShape = 'dataString' | 'body' | 'flat' | 'nested' | 'none';
 
@@ -241,6 +242,7 @@ export function openableSystemPath(
     if (!query.has('tab')) query.set('tab', 'calendar' satisfies FitnessPlace);
     return `/fitness?${query.toString()}`;
   }
+  if (screen === 'sync-settings') return `/settings?${HISTORY_RANGE_PARAM}=1`;
   const link = /^(activity|summary)\/([^/?#]+)\/?(?:\?([^#]*))?(?:#.*)?$/.exec(route);
   if (!link) {
     if (ENTRY_ROUTES.some((entry) => entry.test(screen))) return path;

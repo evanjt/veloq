@@ -108,19 +108,17 @@ const efficiencyInsights = (insights: { category: string }[]) =>
 
 describe('the efficiency trend on the Insights list and the widget', () => {
   afterEach(() => {
-    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
+    useDebugStore.setState({ experimentalFeatures: {} });
   });
 
   it('yields no efficiency insight without the experimental switch', () => {
-    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
+    useDebugStore.setState({ experimentalFeatures: {} });
     const { insights } = computeInsightsFromData(bundle(), t, true);
     expect(efficiencyInsights(insights)).toEqual([]);
   });
 
   it('yields one, labelled experimental, with the switch on', () => {
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: {
         efficiencyTrends: true,
         sectionCorrelations: true,
@@ -135,8 +133,6 @@ describe('the efficiency trend on the Insights list and the widget', () => {
 
   it('follows a flip of the switch between two reads', () => {
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: {
         efficiencyTrends: true,
         sectionCorrelations: true,
@@ -145,14 +141,12 @@ describe('the efficiency trend on the Insights list and the widget', () => {
     });
     expect(efficiencyInsights(computeInsightsFromData(bundle(), t, true).insights)).toHaveLength(1);
 
-    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
+    useDebugStore.setState({ experimentalFeatures: {} });
     expect(efficiencyInsights(computeInsightsFromData(bundle(), t, true).insights)).toEqual([]);
   });
 
   it('draws the experimental label on the list card', async () => {
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: {
         efficiencyTrends: true,
         sectionCorrelations: true,
@@ -168,8 +162,6 @@ describe('the efficiency trend on the Insights list and the widget', () => {
 
   it('draws no experimental label on a card that is not experimental', async () => {
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: {
         efficiencyTrends: true,
         sectionCorrelations: true,
@@ -188,8 +180,6 @@ describe('debug mode is not the experimental switch', () => {
   afterEach(() => {
     useDebugStore.setState({ enabled: false, unlocked: false });
     useDebugStore.setState({
-      experimentalEnabled: false,
-      experimentalUnlocked: false,
       experimentalFeatures: {},
     });
   });
@@ -202,8 +192,6 @@ describe('debug mode is not the experimental switch', () => {
 
   it('yields no efficiency insight when its own entry is off under the master switch', () => {
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: {
         efficiencyTrends: false,
         sectionCorrelations: true,
@@ -234,8 +222,6 @@ describe('debug mode is not the experimental switch', () => {
 
   it('draws one card without the other when only its entry is on', async () => {
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: {
         efficiencyTrends: true,
         sectionCorrelations: false,
@@ -273,19 +259,17 @@ describe('the experimental cards on the section and route pages', () => {
   } as unknown as React.ComponentProps<typeof SectionContentArea>;
 
   afterEach(() => {
-    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
+    useDebugStore.setState({ experimentalFeatures: {} });
   });
 
   it('draws no efficiency card without the switch', async () => {
-    useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
+    useDebugStore.setState({ experimentalFeatures: {} });
     const screen = await render(<SectionContentArea {...props} />);
     expect(screen.queryByTestId('section-efficiency-card')).toBeNull();
   });
 
   it('draws the card, labelled experimental, with the switch on', async () => {
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: {
         efficiencyTrends: true,
         sectionCorrelations: true,
@@ -300,7 +284,7 @@ describe('the experimental cards on the section and route pages', () => {
   it.each(['section', 'route'] as const)(
     'draws no wellness and speed card on the %s page without the switch',
     async (subject) => {
-      useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
+      useDebugStore.setState({ experimentalFeatures: {} });
       const screen = await render(<SectionContentArea {...props} subject={subject} />);
       expect(screen.queryByTestId('section-correlation-card')).toBeNull();
     }
@@ -310,8 +294,6 @@ describe('the experimental cards on the section and route pages', () => {
     'draws the wellness and speed card on the %s page, labelled experimental, with the switch on',
     async (subject) => {
       useDebugStore.setState({
-        experimentalEnabled: true,
-        experimentalUnlocked: true,
         experimentalFeatures: {
           efficiencyTrends: true,
           sectionCorrelations: true,

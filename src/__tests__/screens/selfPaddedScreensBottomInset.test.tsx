@@ -97,7 +97,15 @@ jest.mock('@/features/sensors', () => ({
   isBleAvailable: () => true,
 }));
 
-const ROUTES = ['detection-settings', 'recording-settings', 'sensor-settings'];
+const ROUTES = [
+  'detection-settings',
+  'recording-settings',
+  'recording-data-fields',
+  'recording-gps-settings',
+  'recording-auto-pause',
+  'recording-upload',
+  'sensor-settings',
+];
 
 describe('settings screens that pad their own bottom', () => {
   it.each(ROUTES)('%s takes a large title on iOS', (route) => {

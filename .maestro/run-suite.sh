@@ -17,7 +17,20 @@ if [ -z "${CI:-}" ] && [ -z "${VELOQ_DEVICE_LOCK_HELD:-}" ]; then
   exec "$(dirname "$0")/../scripts/with-device-lock.sh" "$0" "$@"
 fi
 
-MAESTRO="${MAESTRO_BIN:-$HOME/.maestro/bin/maestro}"
+# MAESTRO_BIN wins, then the installer's home directory, then whatever is on
+# PATH, since a Linux package puts it in /usr/bin. The choice is printed so a
+# run on a host with two installs says which one drove the flows.
+if [ -n "${MAESTRO_BIN:-}" ]; then
+  MAESTRO="$MAESTRO_BIN"
+elif [ -x "$HOME/.maestro/bin/maestro" ]; then
+  MAESTRO="$HOME/.maestro/bin/maestro"
+elif MAESTRO=$(command -v maestro); then
+  :
+else
+  echo "No Maestro found: set MAESTRO_BIN, or install it under ~/.maestro/bin or on PATH."
+  exit 1
+fi
+echo "Using Maestro at $MAESTRO"
 
 # Every flow names its app as ${APP_ID}. The gate sets it to the id that ships,
 # and a run with none drives the development build.
@@ -53,18 +66,26 @@ shift 2
 # Maestro takes the files in place of the directory, and the selection has
 # already applied the tags, so the tag flags are not passed on.
 targets=(.maestro/)
-tag_args=("$@")
-if [ -n "${MAESTRO_SHARD:-}" ]; then
-  include=""
-  exclude=""
-  tag_args=()
-  for arg in "$@"; do
-    case "$arg" in
-      --include-tags=*) include="${arg#--include-tags=}" ;;
-      --exclude-tags=*) exclude="${arg#--exclude-tags=}" ;;
-      *) tag_args+=("$arg") ;;
-    esac
-  done
+include=""
+exclude=""
+tag_args=()
+for arg in "$@"; do
+  case "$arg" in
+    --include-tags=*) include="${arg#--include-tags=}" ;;
+    --exclude-tags=*) exclude="${arg#--exclude-tags=}" ;;
+    *) tag_args+=("$arg") ;;
+  esac
+done
+# A real-account flow signs in with the key passed as -e API_KEY= and clears
+# the app's data first, so without a key it can only fail. The nightly picks
+# flows by tier and never meets one; a local run over every tier does.
+if [ -z "${API_KEY:-}" ]; then
+  exclude="${exclude:+$exclude,}real-account"
+fi
+if [ -z "${MAESTRO_SHARD:-}" ]; then
+  [ -z "$include" ] || tag_args+=("--include-tags=$include")
+  [ -z "$exclude" ] || tag_args+=("--exclude-tags=$exclude")
+else
   targets=()
   while IFS= read -r flow; do
     [ -n "$flow" ] && targets+=("$flow")

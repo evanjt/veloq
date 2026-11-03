@@ -27,7 +27,7 @@ export type SensorLinkEventKind =
   | 'firstSample'
   /** Written per characteristic on teardown, `count` the frames it carried. */
   | 'sampleCount'
-  /** `ms` is how long the link had been silent. */
+  /** The link began to read no data, `ms` how long it had been silent. The link stays up. */
   | 'watchdogFired'
   | 'teardown'
   /** `ms` is the delay before the next connect. */

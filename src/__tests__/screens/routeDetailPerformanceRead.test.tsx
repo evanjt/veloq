@@ -225,7 +225,7 @@ beforeEach(() => {
   mockParams = { id: 'grp-heath' };
   mockCounted = true;
   mockBelowChart = {};
-  useDebugStore.setState({ experimentalEnabled: false, experimentalUnlocked: false });
+  useDebugStore.setState({ experimentalFeatures: {} });
 });
 
 describe('route page on a route ridden and run', () => {
@@ -317,8 +317,6 @@ describe('route page on a route ridden and run', () => {
   it('draws the efficiency card from the read, for the sport on screen', async () => {
     // The card is experimental, drawn only with the developer switch on.
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: {
         efficiencyTrends: true,
         sectionCorrelations: true,
@@ -507,8 +505,6 @@ describe('route page below the chart', () => {
   it('shows the calendar with both years and the wellness card', async () => {
     // The wellness card is experimental, drawn only with the developer switch on.
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: {
         efficiencyTrends: true,
         sectionCorrelations: true,

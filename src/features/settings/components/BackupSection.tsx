@@ -10,6 +10,7 @@ import {
   StatusLine,
   SwitchRow,
 } from '@/shared/ui';
+import { ButtonRow } from '@/shared/ui/ButtonRow';
 import { Icon } from '@/shared/ui/Icon';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import { useTranslation } from 'react-i18next';
@@ -867,25 +868,27 @@ export function BackupSection() {
                 <Text testID="backup-import-paused" style={labelStyle}>
                   {t('backup.importPaused')}
                 </Text>
-                <View style={styles.actions}>
-                  <Button
-                    testID="backup-import-resume-button"
-                    label={t('common.retry')}
-                    variant="secondary"
-                    size="sm"
-                    onPress={handleResumeImport}
-                    loading={resumingImport}
-                    disabled={anyBusy}
-                  />
-                  <Button
-                    testID="backup-import-discard-button"
-                    label={t('backup.discardImport')}
-                    variant="ghost"
-                    size="sm"
-                    onPress={handleDiscardImport}
-                    disabled={resumingImport || anyBusy}
-                  />
-                </View>
+                <ButtonRow
+                  actions={[
+                    {
+                      testID: 'backup-import-resume-button',
+                      label: t('common.retry'),
+                      variant: 'secondary',
+                      size: 'sm',
+                      onPress: handleResumeImport,
+                      loading: resumingImport,
+                      disabled: anyBusy,
+                    },
+                    {
+                      testID: 'backup-import-discard-button',
+                      label: t('backup.discardImport'),
+                      variant: 'ghost',
+                      size: 'sm',
+                      onPress: handleDiscardImport,
+                      disabled: resumingImport || anyBusy,
+                    },
+                  ]}
+                />
               </View>
             </Row>
           </>

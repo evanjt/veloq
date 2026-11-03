@@ -113,7 +113,7 @@ describe('pairing a sensor outside a recording session', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('drops a silent pairing link instead of reconnecting it', async () => {
+  it('keeps a silent pairing link open while the screen is open and drops it on leaving', async () => {
     void connectPairedSensor(METER);
     await settle();
 
@@ -122,6 +122,9 @@ describe('pairing a sensor outside a recording session', () => {
     await settle();
 
     expect(mockConnectToDevice).not.toHaveBeenCalled();
+    expect(mockCancelDeviceConnection).not.toHaveBeenCalled();
+
+    await releasePairingConnections();
     expect(mockCancelDeviceConnection).toHaveBeenCalledWith(METER.id);
     expect(jest.getTimerCount()).toBe(0);
   });

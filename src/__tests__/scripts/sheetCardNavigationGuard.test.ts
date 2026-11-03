@@ -129,7 +129,7 @@ it.each([
 });
 
 it('passes a push that is not a detail route', () => {
-  expect(check(tree("navigateTo('/sync-settings')")).failed).toBe(false);
+  expect(check(tree("navigateTo('/detection-settings')")).failed).toBe(false);
   expect(check(tree("navigateTo('/section-retired')")).failed).toBe(false);
 });
 

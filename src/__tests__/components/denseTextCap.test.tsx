@@ -31,8 +31,8 @@ import type { WellnessData } from '@/types';
 
 /**
  * The surfaces that cannot reflow, named rather than felt: the stats grids,
- * the metric chip rows, the chips and pills, the chart axis labels, the tab bar, and the live
- * recording timer and unlock track. A file added here is a claim that its
+ * the metric chip rows, the chips and pills, the chart axis labels, the tab bar, the live
+ * recording timer and unlock track, and the activity section card's rows beside their plot. A file added here is a claim that its
  * layout breaks at 200 per cent, and a file that reaches for the cap without
  * being here fails this suite.
  */
@@ -40,6 +40,8 @@ const DENSE_SURFACES = [
   'src/features/activity/components/ChartTypeSelector.tsx',
   'src/features/activity/components/ChartXAxisLabel.tsx',
   'src/features/activity/components/ActivityStreams.tsx',
+  'src/features/activity/components/SectionInlinePlot.tsx',
+  'src/features/activity/lib/sectionInlineRowLayout.ts',
   'src/features/recording/components/DataFieldGrid.tsx',
   'src/features/recording/components/TimerHeader.tsx',
   'src/features/recording/components/UnlockTrack.tsx',

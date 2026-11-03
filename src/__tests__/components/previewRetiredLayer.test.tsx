@@ -87,10 +87,8 @@ async function renderMap(retiredLayer: Parameters<typeof PreviewMapView>[0]['ret
       centre={CENTRE}
       selectedId={null}
       showCurrent
-      showProposed
       showRemoved
       onToggleCurrent={jest.fn()}
-      onToggleProposed={jest.fn()}
       onToggleRemoved={jest.fn()}
       onSelect={onSelect}
       retiredLayer={retiredLayer}
@@ -173,13 +171,12 @@ describe('the retired layer on the preview map', () => {
         centre={CENTRE}
         selectedId={null}
         showCurrent
-        showProposed
         showRemoved
         onToggleCurrent={jest.fn()}
-        onToggleProposed={jest.fn()}
         onToggleRemoved={jest.fn()}
         onSelect={jest.fn()}
         retiredLayer={{ lines: LINES, show: true, onToggle, onSelect: jest.fn() }}
+        retiredOnly
       />
     );
 

@@ -1,34 +1,34 @@
-O Veloq mostra o seu treino do intervals.icu no telemóvel e procura os percursos e troços que repete. A análise é feita no seu dispositivo.
+Os seus dados de treino são seus. O Veloq encontra os percursos e troços que repete e gera os seus insights diretamente no telemóvel.
 
 Gravação
-Grave pedaladas, corridas e outros desportos com GPS, sensores Bluetooth ou um treino planeado.
+Grave com GPS ou em interiores, com sensores Bluetooth, o treino planeado do dia ou a linha de um percurso próximo.
 
 Insights
-Leituras curtas do seu treino, cada uma com os seus números e a forma como foram calculados.
+Leituras curtas sobre o seu treino. Cada uma abre para os seus números e para a forma como foram calculados.
 
 Mapas
-Mapas interativos com relevo 3D, mapas de calor de percursos e estilos claro, escuro e satélite.
+Mapas interativos com relevo 3D, mapas de calor dos percursos e estilos claro, escuro e satélite, tudo offline.
 
-Percursos e troços
-Compare cada tentativa nos percursos e troços que repete, e fixe, corte ou mude o nome.
+Rotas e trechos
+Os troços têm em conta a altitude, ignoram os teleféricos de esqui e crescem com o seu histórico. Compare cada tentativa e desfaça qualquer alteração.
 
 Gráficos
-Frequência cardíaca, potência, ritmo, altitude e cadência numa só linha cronológica com o mapa.
+Frequência cardíaca, potência, ritmo, altitude e cadência numa só linha cronológica, junto com o mapa.
 
-Condição
+Condicionamento
 Condição, fadiga e forma com as zonas desenhadas, além de VFC, frequência cardíaca em repouso e sono.
 
 Força
-As suas séries de força num diagrama do corpo, por grupo muscular e exercício.
+As suas séries de musculação num diagrama do corpo, por grupo muscular e exercício.
 
 Widgets
-Widgets do ecrã principal com condição e forma, a sua última atividade e os seus insights.
+Widgets do Ecrã Principal com o seu resumo, a sua última atividade, insights e força.
 
 Notificações
 Uma notificação com o nome do percurso e os recordes pessoais quando chega uma nova atividade. Desativada até a ativar.
 
-Cópias de segurança
-Guarde as definições e as decisões de troços num ficheiro, numa pasta, numa unidade na nuvem ou num servidor WebDAV.
+Backups
+Cópias de segurança automáticas das suas definições e edições de troços no iCloud Drive, numa pasta ou num servidor WebDAV.
 
 Privacidade
 Os seus dados de treino ficam no seu dispositivo. Sem análises, sem rastreio. As notificações push opcionais guardam o seu ID de atleta intervals.icu e um token do dispositivo no nosso servidor, apagados automaticamente após 30 dias. Código aberto sob Apache 2.0.

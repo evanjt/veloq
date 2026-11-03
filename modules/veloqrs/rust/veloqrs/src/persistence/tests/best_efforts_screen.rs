@@ -9,7 +9,7 @@
 //! non-finite.
 
 use super::pooled::best_efforts_data;
-use crate::FfiBestEffortKind::{Distance, Duration, HalfMarathon};
+use crate::FfiBestEffortKind::{Distance, Duration, HalfMarathon, Marathon, Mile};
 use crate::GpsPoint;
 use crate::metrics::vertical_power::CLIMB_WINDOWS_S;
 use crate::persistence::PersistentEngine;
@@ -45,6 +45,15 @@ const RUN_PACE: &str = r#"{
 
 /// Kind, checkpoint, watts and the activity holding them.
 type PowerRow<'a> = (FfiBestEffortKind, f64, Option<f64>, Option<&'a str>);
+
+/// Checkpoint, watts, its activity, watts per kilogram and its activity.
+type PowerKgRow<'a> = (
+    f64,
+    Option<f64>,
+    Option<&'a str>,
+    Option<f64>,
+    Option<&'a str>,
+);
 
 /// Kind, metres, speed, time and the activity holding them.
 type PaceRow<'a> = (
@@ -195,18 +204,25 @@ fn power_bests_are_read_at_each_checkpoint_of_the_stored_ride_curve() {
         .iter()
         .map(|e| (e.kind, e.checkpoint, e.value, e.activity_id.as_deref()))
         .collect();
+    let held: Vec<PowerRow> = rows.into_iter().filter(|r| r.2.is_some()).collect();
     assert_eq!(
-        rows,
+        held,
         vec![
             (Duration, 5.0, Some(780.0), Some("p2")),
             (Duration, 60.0, Some(410.0), Some("p3")),
             // A sample a second off its checkpoint stands for it.
             (Duration, 300.0, Some(300.0), Some("p4")),
             (Duration, 1200.0, Some(260.0), Some("p5")),
-            // The curve holds no hour, and the two-hour best is not one.
-            (Duration, 3600.0, None, None),
+            (Duration, 7200.0, Some(200.0), Some("p6")),
         ]
     );
+    // The curve holds no hour, and the two-hour best is not one.
+    let hour = ride
+        .efforts
+        .iter()
+        .find(|e| e.checkpoint == 3600.0)
+        .unwrap();
+    assert_eq!((hour.value, hour.activity_id.as_deref()), (None, None));
     assert!(ride.efforts.iter().all(|e| e.time.is_none()));
 }
 
@@ -233,8 +249,9 @@ fn pace_bests_carry_the_time_and_drop_a_distance_with_no_time() {
             )
         })
         .collect();
+    let held: Vec<PaceRow> = rows.into_iter().filter(|r| r.2.is_some()).collect();
     assert_eq!(
-        rows,
+        held,
         vec![
             (Distance, 400.0, Some(5.0), Some(80.0), Some("r1")),
             (
@@ -252,10 +269,11 @@ fn pace_bests_carry_the_time_and_drop_a_distance_with_no_time() {
                 Some("r3")
             ),
             (Distance, 10000.0, Some(4.0), Some(2500.0), Some("r4")),
-            // Within a metre of the half, but a zero time is no best.
-            (HalfMarathon, 21097.5, None, None, None),
         ]
     );
+    // Within a metre of the half, but a zero time is no best.
+    let half = run.efforts.iter().find(|e| e.kind == HalfMarathon).unwrap();
+    assert_eq!((half.value, half.activity_id.as_deref()), (None, None));
     assert_all_finite(&data);
 }
 
@@ -288,6 +306,7 @@ fn a_curve_never_fetched_for_the_period_says_so_and_holds_no_values() {
             (Distance, 100.0),
             (Distance, 200.0),
             (Distance, 400.0),
+            (Distance, 800.0),
             (Distance, 1500.0)
         ]
     );
@@ -458,6 +477,8 @@ fn a_checkpoint_row_carries_its_kind_and_measure_and_no_words() {
                 value: _,
                 time: _,
                 activity_id: _,
+                watts_per_kg: _,
+                wkg_activity_id: _,
                 activity: _,
             } = effort;
             (*kind, *checkpoint)
@@ -467,10 +488,13 @@ fn a_checkpoint_row_carries_its_kind_and_measure_and_no_words() {
         run,
         vec![
             (Distance, 400.0),
+            (Distance, 800.0),
             (Distance, 1000.0),
+            (Mile, 1609.34),
             (Distance, 5000.0),
             (Distance, 10000.0),
             (HalfMarathon, 21097.5),
+            (Marathon, 42195.0),
         ]
     );
     assert!(
@@ -660,5 +684,168 @@ fn a_climb_best_carries_the_name_of_the_activity_holding_it() {
             .iter()
             .all(|b| b.activity.is_none()),
         "no ride holds a best"
+    );
+}
+
+const FULL_POWER: &str = r#"{
+    "list": [{
+        "secs": [1, 5, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200],
+        "values": [1000, 900, 800, 700, 600, 500, 400, 350, 300, 280, 250, 220],
+        "activity_id": ["a1", "a5", "a15", "a30", "a60", "a120", "a300", "a600", "a1200", "a1800", "a3600", "a7200"],
+        "watts_per_kg": [14.0, 12.5, 11.0, 9.5, 8.0, 7.0, 5.5, 4.8, 4.1, 3.9, 3.4, 3.0],
+        "wkg_activity_id": ["w1", "w5", "w15", "w30", "w60", "w120", "w300", "w600", "w1200", "w1800", "w3600", "w7200"]
+    }]
+}"#;
+
+const FULL_RUN: &str = r#"{
+    "list": [{
+        "distance": [100, 400, 800, 1000, 1609.34, 3000, 5000, 10000, 21097.5],
+        "values": [12, 70, 150, 190, 320, 600, 1100, 2300, 4800],
+        "activity_id": ["x100", "x400", "x800", "x1000", "xmile", "x3000", "x5000", "x10000", "xhalf"]
+    }]
+}"#;
+
+const FULL_SWIM: &str = r#"{
+    "list": [{
+        "distance": [50, 100, 200, 400, 800, 1000, 1500, 1609.34],
+        "values": [35, 80, 170, 360, 740, 930, 1400, 1500],
+        "activity_id": ["s50", "s100", "s200", "s400", "s800", "s1000", "s1500", "smile"]
+    }]
+}"#;
+
+#[test]
+fn every_checkpoint_equals_the_body_value_at_its_exact_point_for_each_period() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    for days in [SEASON, ALL_TIME] {
+        engine
+            .set_curve_body(CurveKind::Power, "Ride", days, false, FULL_POWER)
+            .unwrap();
+        engine
+            .set_curve_body(CurveKind::Pace, "Run", days, false, FULL_RUN)
+            .unwrap();
+        engine
+            .set_curve_body(CurveKind::Pace, "Swim", days, false, FULL_SWIM)
+            .unwrap();
+        let data = read(&engine, days);
+
+        let power: Vec<PowerKgRow> = sport(&data, "Ride")
+            .efforts
+            .iter()
+            .map(|e| {
+                (
+                    e.checkpoint,
+                    e.value,
+                    e.activity_id.as_deref(),
+                    e.watts_per_kg,
+                    e.wkg_activity_id.as_deref(),
+                )
+            })
+            .collect();
+        let expected = |secs: f64, w: f64, kg: f64| {
+            let s = secs as u32;
+            (
+                secs,
+                Some(w),
+                Some(format!("a{s}")),
+                Some(kg),
+                Some(format!("w{s}")),
+            )
+        };
+        let want = [
+            expected(5.0, 900.0, 12.5),
+            expected(15.0, 800.0, 11.0),
+            expected(30.0, 700.0, 9.5),
+            expected(60.0, 600.0, 8.0),
+            expected(120.0, 500.0, 7.0),
+            expected(300.0, 400.0, 5.5),
+            expected(600.0, 350.0, 4.8),
+            expected(1200.0, 300.0, 4.1),
+            expected(1800.0, 280.0, 3.9),
+            expected(3600.0, 250.0, 3.4),
+            expected(7200.0, 220.0, 3.0),
+        ];
+        assert_eq!(power.len(), want.len());
+        for (got, want) in power.iter().zip(want.iter()) {
+            assert_eq!(got.0, want.0);
+            assert_eq!(got.1, want.1);
+            assert_eq!(got.2.map(str::to_string), want.2);
+            assert_eq!(got.3, want.3);
+            assert_eq!(got.4.map(str::to_string), want.4);
+        }
+
+        let run = sport(&data, "Run");
+        let by_metres = |name: &str, m: f64| {
+            let e = sport(&data, name)
+                .efforts
+                .iter()
+                .find(|e| e.checkpoint == m)
+                .unwrap_or_else(|| panic!("{name} {m}"));
+            (e.time, e.activity_id.clone())
+        };
+        let run_want = [
+            (400.0, 70.0, "x400"),
+            (800.0, 150.0, "x800"),
+            (1000.0, 190.0, "x1000"),
+            (1609.34, 320.0, "xmile"),
+            (5000.0, 1100.0, "x5000"),
+            (10000.0, 2300.0, "x10000"),
+            (21097.5, 4800.0, "xhalf"),
+        ];
+        for (m, t, id) in run_want {
+            assert_eq!(by_metres("Run", m), (Some(t), Some(id.to_string())), "{m}");
+        }
+        // The curve ends at the half, so the marathon stays empty.
+        assert_eq!(run.efforts.last().unwrap().checkpoint, 42195.0);
+        assert_eq!(by_metres("Run", 42195.0), (None, None));
+        for (m, t, id) in [
+            (100.0, 80.0, "s100"),
+            (200.0, 170.0, "s200"),
+            (400.0, 360.0, "s400"),
+            (800.0, 740.0, "s800"),
+            (1500.0, 1400.0, "s1500"),
+        ] {
+            assert_eq!(by_metres("Swim", m), (Some(t), Some(id.to_string())), "{m}");
+        }
+        assert_all_finite(&data);
+    }
+}
+
+#[test]
+fn a_run_curve_ending_at_nineteen_kilometres_leaves_the_half_and_marathon_empty() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    let body = r#"{"list":[{"distance":[5000,10000,19000],"values":[1100,2300,4300],
+        "activity_id":["a","b","c"]}]}"#;
+    engine
+        .set_curve_body(CurveKind::Pace, "Run", SEASON, false, body)
+        .unwrap();
+    let data = read(&engine, SEASON);
+    let run = sport(&data, "Run");
+    for e in run.efforts.iter().filter(|e| e.checkpoint > 19000.0) {
+        assert_eq!(
+            (e.value, e.activity_id.clone()),
+            (None, None),
+            "{}",
+            e.checkpoint
+        );
+    }
+    assert!(
+        run.efforts
+            .iter()
+            .any(|e| e.checkpoint == 10000.0 && e.value.is_some())
+    );
+}
+
+#[test]
+fn a_power_body_without_per_kilogram_series_leaves_watts_per_kg_empty() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .set_curve_body(CurveKind::Power, "Ride", SEASON, false, RIDE_POWER)
+        .unwrap();
+    let data = read(&engine, SEASON);
+    assert!(
+        sport(&data, "Ride")
+            .efforts
+            .iter()
+            .all(|e| e.watts_per_kg.is_none() && e.wkg_activity_id.is_none())
     );
 }

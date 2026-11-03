@@ -44,6 +44,8 @@ export interface RoutesStatus {
   elevationPaused: boolean;
   /** `run` is the running cutover's id, for `cancelRun`, or null between runs. */
   cutover: { phase: CutoverPhase; running: boolean; run: number | null };
+  /** The retired map's ground pairs are being worked out on a thread of their own. */
+  retiredPairsRunning: boolean;
   /** Tiles processed and tiles in the sweep, `[0, 0]` when none runs. */
 }
 
@@ -80,5 +82,6 @@ export function getRoutesStatusData(host: DelegateHost): RoutesStatus | null {
       running: status.cutover.running,
       run: status.cutover.run ?? null,
     },
+    retiredPairsRunning: status.retiredPairsRunning,
   };
 }

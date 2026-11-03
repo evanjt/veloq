@@ -360,6 +360,10 @@ name = "routes_screen_read_cost"
 harness = false
 
 [[bench]]
+name = "retired_map_cost"
+harness = false
+
+[[bench]]
 name = "route_representative_cost"
 harness = false
 
@@ -389,6 +393,12 @@ test = true
 name = "section_correlation_audit"
 path = "examples/section_correlation_audit.rs"
 test = true
+
+# Writes the library a released build leaves on disk, which dumped from the
+# release tag becomes that release's upgrade fixture under tests/fixtures.
+[[example]]
+name = "released_library"
+path = "examples/released_library.rs"
 
 [[example]]
 name = "stream_store_cost"

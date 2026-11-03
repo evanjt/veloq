@@ -91,7 +91,7 @@ describe('background jobs last run', () => {
     jest.useRealTimers();
   });
 
-  it('rests collapsed with a finished detection run and shows its counts when expanded', async () => {
+  it('folds a finished detection run into past runs and shows its counts when opened', async () => {
     runs = [run('detection', { handled: 77, added: 3, changed: 1 })];
     const tree = await render(<BackgroundJobsActivityBar />);
 
@@ -117,13 +117,13 @@ describe('background jobs last run', () => {
     expect(toggle().props.accessibilityState).toMatchObject({ expanded: false });
   });
 
-  it('opens from a disclosure header carrying the summary, not a button', async () => {
+  it('opens past runs from a disclosure header carrying the count, not a button', async () => {
     runs = [run('detection', { handled: 4 })];
     const tree = await render(<BackgroundJobsActivityBar />);
     const toggle = tree.getByTestId('background-jobs-activity-toggle');
 
     expect(toggle.props.accessibilityRole).toBe('header');
-    expect(toggle.props.accessibilityLabel).toMatch(/^Background jobs, Last run /);
+    expect(toggle.props.accessibilityLabel).toBe('Past runs, 1');
   });
 
   it('says no change when a complete run changed nothing', async () => {
@@ -149,14 +149,15 @@ describe('background jobs last run', () => {
     expect(line).not.toContain('No change');
   });
 
-  it('renders nothing when no job has run and nothing is owed', async () => {
+  it('says all jobs are done when no job has run and nothing is owed', async () => {
     const tree = await render(<BackgroundJobsActivityBar />);
-    expect(tree.queryByTestId('background-jobs-activity')).toBeNull();
+    expect(tree.getByTestId('background-jobs-empty')).toBeTruthy();
+    expect(tree.queryByTestId('background-jobs-activity-toggle')).toBeNull();
   });
 
   it('reads the screen read again when detection applies, and never on the tick', async () => {
     const tree = await render(<BackgroundJobsActivityBar />);
-    expect(tree.queryByTestId('background-jobs-activity')).toBeNull();
+    expect(tree.queryByTestId('background-jobs-activity-toggle')).toBeNull();
     const afterMount = screenReads;
 
     await act(() => {

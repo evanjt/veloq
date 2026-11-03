@@ -10,7 +10,8 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
-import { SeasonBestsSection } from '@/features/fitness/components/SeasonBestsSection';
+import { ClimbingBestRows } from '@/features/fitness/components/ClimbingBestRows';
+import { ClimbingStatusNote } from '@/features/fitness/components/ClimbingStatusNote';
 import { climbBestsOf, climbStatusOf } from '@/features/stats/hooks/useSeasonBests';
 import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import type { BestEffortsData } from 'veloqrs';
@@ -63,43 +64,18 @@ describe('climbBestsOf', () => {
   });
 });
 
-describe('Season Bests climbing rows', () => {
+describe('the climbing rows', () => {
   beforeEach(() => useUnitPreference.setState({ unitPreference: 'metric' }));
 
   it('draws W/kg for a short window, m/h for a long one and the absent mark for a gap', async () => {
-    await render(
-      <SeasonBestsSection
-        efforts={[]}
-        climbing={climbBestsOf(read, 'Running')}
-        sport="Running"
-        period="6m"
-        isLoading={false}
-      />
-    );
+    await render(<ClimbingBestRows bests={climbBestsOf(read, 'Running')} />);
 
-    expect(screen.getByText('bestEffortsScreen.climbingBests')).toBeTruthy();
     expect(screen.getByText('4.91 units.wattsPerKg')).toBeTruthy();
     expect(screen.getByText('900 units.metresPerHour')).toBeTruthy();
     expect(screen.getByTestId('season-bests-climbing-300')).toHaveTextContent(`5 min${ABSENT}`, {
       exact: true,
     });
-    expect(screen.queryByText('statsScreen.noEffortData')).toBeNull();
     expect(screen.queryByText(/NaN/)).toBeNull();
-  });
-
-  it('draws no climbing heading when there are no climbing rows', async () => {
-    await render(
-      <SeasonBestsSection
-        efforts={[]}
-        climbing={[]}
-        sport="Running"
-        period="6m"
-        isLoading={false}
-      />
-    );
-
-    expect(screen.queryByText('bestEffortsScreen.climbingBests')).toBeNull();
-    expect(screen.getByText('statsScreen.noEffortData')).toBeTruthy();
   });
 });
 
@@ -115,62 +91,20 @@ describe('climbStatusOf', () => {
   });
 });
 
-describe('Season Bests climbing status', () => {
-  const emptyBests = climbBestsOf(
-    {
-      sports: [],
-      climbing: [
-        {
-          sport: 'Run',
-          owed: 0,
-          sourceExcluded: 0,
-          bests: [{ label: '5m', windowS: 300, vam: undefined, wattsPerKg: undefined }],
-        },
-      ],
-    } as unknown as BestEffortsData,
-    'Running'
-  );
-
-  it('draws the excluded line under the rows only when the count is above zero', async () => {
+describe('the climbing status note', () => {
+  it('draws the excluded line only when the count is above zero', async () => {
     const { rerender } = await render(
-      <SeasonBestsSection
-        efforts={[]}
-        climbing={climbBestsOf(read, 'Running')}
-        climbingStatus={{ owed: 0, sourceExcluded: 2 }}
-        sport="Running"
-        period="6m"
-        isLoading={false}
-      />
+      <ClimbingStatusNote status={{ owed: 0, sourceExcluded: 2 }} />
     );
     expect(screen.getByTestId('climbing-source-excluded')).toBeTruthy();
 
-    await rerender(
-      <SeasonBestsSection
-        efforts={[]}
-        climbing={climbBestsOf(read, 'Running')}
-        climbingStatus={{ owed: 0, sourceExcluded: 0 }}
-        sport="Running"
-        period="6m"
-        isLoading={false}
-      />
-    );
+    await rerender(<ClimbingStatusNote status={{ owed: 0, sourceExcluded: 0 }} />);
     expect(screen.queryByTestId('climbing-source-excluded')).toBeNull();
     expect(screen.queryByTestId('climbing-owed')).toBeNull();
   });
 
-  it('draws the still-computing line when every window is empty and rows are owed', async () => {
-    await render(
-      <SeasonBestsSection
-        efforts={[]}
-        climbing={emptyBests}
-        climbingStatus={{ owed: 3, sourceExcluded: 0 }}
-        sport="Running"
-        period="6m"
-        isLoading={false}
-      />
-    );
+  it('draws the still-computing line when rows are owed', async () => {
+    await render(<ClimbingStatusNote status={{ owed: 3, sourceExcluded: 0 }} />);
     expect(screen.getByTestId('climbing-owed')).toBeTruthy();
-    expect(screen.getByText('bestEffortsScreen.climbingBests')).toBeTruthy();
-    expect(screen.queryByText('statsScreen.noEffortData')).toBeNull();
   });
 });

@@ -1,10 +1,11 @@
 /**
- * Scenario: on Android a keyboard or switch-access user moves focus onto a
- * shared control.
+ * Scenario: on Android or iOS a keyboard or switch-access user moves focus
+ * onto a shared control.
  *
  * Expected behaviour: the control draws the 2 pt `focusRing` outline outside
  * its box while it holds focus, takes it off on blur and draws it again on the
- * next focus. iOS draws none of ours, so no second ring sits over the system's.
+ * next focus. The ring is drawn on both platforms, since an outline of ours
+ * meets 3:1 whatever the system adds.
  */
 
 import React from 'react';
@@ -48,19 +49,18 @@ const ring = (outlineColor: string) => ({
 });
 
 describe('focusRing', () => {
-  it('is the 2 pt focus-ring outline when focused on Android, in both themes', () => {
+  it('is the 2 pt focus-ring outline when focused on Android and iOS, in both themes', () => {
     expect(focusRing(true, false, 'android')).toEqual(ring(colors.focusRing));
     expect(focusRing(true, true, 'android')).toEqual(ring(darkColors.focusRing));
+    expect(focusRing(true, false, 'ios')).toEqual(ring(colors.focusRing));
+    expect(focusRing(true, true, 'ios')).toEqual(ring(darkColors.focusRing));
   });
 
   it('is nothing when not focused', () => {
     expect(focusRing(false, false, 'android')).toBeNull();
     expect(focusRing(false, true, 'android')).toBeNull();
-  });
-
-  it('is nothing on iOS, where the system decides whether it draws a ring', () => {
-    expect(focusRing(true, false, 'ios')).toBeNull();
-    expect(focusRing(true, true, 'ios')).toBeNull();
+    expect(focusRing(false, false, 'ios')).toBeNull();
+    expect(focusRing(false, true, 'ios')).toBeNull();
   });
 });
 

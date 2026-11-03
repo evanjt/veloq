@@ -16,7 +16,7 @@ import type {
   SensorConnection,
   SensorAvailability,
   SensorConnectionStatus,
-  SensorKind,
+  SensorMetric,
 } from './types';
 
 const STORAGE_KEY = 'veloq-known-sensors';
@@ -34,9 +34,9 @@ interface SensorState {
   knownSensors: KnownSensor[];
   isLoaded: boolean;
   /** The sensor each metric is recorded from, set only when it changes. */
-  activeSources: Partial<Record<SensorKind, string>>;
+  activeSources: Partial<Record<SensorMetric, string>>;
   /** What each sensor has delivered, which can go beyond what it advertises: a power meter's crank cadence. */
-  suppliedKinds: Record<string, SensorKind[]>;
+  suppliedKinds: Record<string, SensorMetric[]>;
   // Actions
   initialise: () => Promise<void>;
   setAvailability: (availability: SensorAvailability) => void;
@@ -54,7 +54,7 @@ interface SensorState {
    * sample, when its sensor is the one source chosen for the metric.
    */
   setLatest: (
-    kind: SensorKind,
+    kind: SensorMetric,
     value: number,
     sensorId: string,
     origin?: SensorSourceOrigin
@@ -62,7 +62,7 @@ interface SensorState {
   /** Forget what a sensor was supplying, once it is disconnected. */
   dropSources: (sensorId: string) => void;
   /** Record a metric from this sensor over any other paired sensor that supplies it. */
-  setPreferredSource: (sensorId: string, kind: SensorKind) => void;
+  setPreferredSource: (sensorId: string, kind: SensorMetric) => void;
   addKnownSensor: (sensor: KnownSensor) => void;
   removeKnownSensor: (id: string) => void;
 }
@@ -71,7 +71,7 @@ interface SensorState {
  * When each source last sent, per metric. Outside the store state because it
  * moves on every notification, and nothing renders it.
  */
-const sourceSamples: Record<SensorKind, Map<string, SensorSource>> = {
+const sourceSamples: Record<SensorMetric, Map<string, SensorSource>> = {
   heartRate: new Map(),
   power: new Map(),
   cadence: new Map(),

@@ -573,9 +573,21 @@ impl SectionManager {
 
     /// The old-versus-new sections map in one read: the retired sections with
     /// their lines, every catalogue row, and the pairs between them. Cached
-    /// under the read stamp, so a selection on the map reads nothing.
+    /// under the read stamp, so a selection on the map reads nothing. Ground
+    /// pairs still owed are worked out on a thread of their own, never here.
     fn get_retired_map(&self) -> Result<crate::FfiRetiredMapData, VeloqError> {
-        with_reader(|conn| (*crate::persistence::screens::pooled::retired_map_data(conn)).clone())
+        with_reader(|conn| {
+            let data = (*crate::persistence::screens::pooled::retired_map_data(conn)).clone();
+            if data.pairs_pending
+                && let Some(path) = conn.path()
+            {
+                crate::persistence::sections::retired_map::schedule_level(
+                    crate::persistence::engine_install(),
+                    path.to_owned(),
+                );
+            }
+            data
+        })
     }
 
     fn delete(&self, section_id: String) -> Result<(), VeloqError> {

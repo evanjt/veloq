@@ -195,22 +195,18 @@ describe('the Garmin connector automatic swap switch', () => {
     useAuthStore.setState({ authMethod: 'apiKey' });
     useUploadPermissionStore.setState({ isLoaded: true, hasWritePermission: null });
     useDebugStore.setState({
-      experimentalEnabled: true,
-      experimentalUnlocked: true,
       experimentalFeatures: { garminUpdate: true },
     });
   });
 
   afterEach(() => {
     useDebugStore.setState({
-      experimentalEnabled: false,
-      experimentalUnlocked: false,
       experimentalFeatures: {},
     });
   });
 
   it('is absent while the experimental switch is off', async () => {
-    useDebugStore.setState({ experimentalEnabled: false });
+    useDebugStore.setState({ experimentalFeatures: {} });
     const screen = await connectedScreen(false);
     expect(screen.queryByTestId('garmin-auto-swap-switch')).toBeNull();
     expect(screen.getByTestId('garmin-upload-switch')).toBeTruthy();

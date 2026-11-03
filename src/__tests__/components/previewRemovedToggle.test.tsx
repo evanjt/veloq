@@ -83,10 +83,8 @@ async function renderMap(over: { showCurrent?: boolean; showRemoved?: boolean } 
       centre={CENTRE}
       selectedId={null}
       showCurrent={over.showCurrent ?? true}
-      showProposed
       showRemoved={over.showRemoved ?? true}
       onToggleCurrent={jest.fn()}
-      onToggleProposed={jest.fn()}
       onToggleRemoved={jest.fn()}
       onSelect={jest.fn()}
     />

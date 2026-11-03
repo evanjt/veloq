@@ -16,11 +16,12 @@ import {
   FfiCatalogueEmptyReason_Tags,
   FfiDetectionHold_Tags,
   type FfiCatalogueEmptyReason,
-  type FfiDetectionHold,
 } from 'veloqrs';
 import { EmptyState } from '@/shared/ui';
 import { navigateTo } from '@/shared/app/navigation';
+import { openHistoryRange } from '@/shared/app/historyRange';
 import { getPhaseDisplayKey } from '@/features/routes/lib/detectionProgress';
+import { detectionHoldText } from '@/features/routes/lib/detectionHoldText';
 
 export type CatalogueKind = 'routes' | 'sections';
 
@@ -39,25 +40,8 @@ interface EmptyCopy {
 function expandRange(t: TFunction): EmptyAction {
   return {
     label: t('mapScreen.expandRange') as string,
-    onPress: () => navigateTo('/sync-settings'),
+    onPress: () => openHistoryRange(),
   };
-}
-
-function heldDescription(hold: FfiDetectionHold, t: TFunction): string {
-  switch (hold.tag) {
-    case FfiDetectionHold_Tags.ElevationPaused:
-      return t('sections.detectionHeldElevationPaused') as string;
-    case FfiDetectionHold_Tags.ElevationRunning:
-      return t('sections.detectionPausedElevation') as string;
-    case FfiDetectionHold_Tags.ElevationWaiting:
-      return t('sections.detectionHeldElevationWaiting', { count: hold.inner.remaining }) as string;
-    case FfiDetectionHold_Tags.Cutover:
-      return t('sections.detectionPaused') as string;
-    default: {
-      const unhandled: never = hold;
-      throw new Error(`Unhandled detection hold: ${String(unhandled)}`);
-    }
-  }
 }
 
 function emptyCopy(reason: FfiCatalogueEmptyReason, kind: CatalogueKind, t: TFunction): EmptyCopy {
@@ -91,7 +75,7 @@ function emptyCopy(reason: FfiCatalogueEmptyReason, kind: CatalogueKind, t: TFun
       return {
         icon: 'pause-circle-outline',
         title: t('routes.emptyHeldTitle') as string,
-        description: heldDescription(hold, t),
+        description: detectionHoldText(hold, t),
         ...(hold.tag === FfiDetectionHold_Tags.ElevationPaused && {
           action: {
             label: t('common.openSettings') as string,

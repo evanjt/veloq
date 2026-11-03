@@ -29,30 +29,13 @@ tags:
 - tapOn:
     id: "fitness-sport-toggle-Cycling"
 
-# Centred, because the tab bar draws over the bottom of the screen and a header
-# stopped at the edge takes the tap meant for it.
 - scrollUntilVisible:
     element:
-      id: "fitness-section-performance"
+      id: "fitness-performance-curve"
     direction: DOWN
     timeout: 10000
     speed: 40
     centerElement: true
-
-# The tab stays mounted between flows, so an earlier one may have left it open,
-# and an open section may still be drawing its placeholder.
-- runFlow:
-    when:
-      notVisible:
-        id: "power-curve-chart"
-    commands:
-      - runFlow:
-          when:
-            notVisible:
-              id: "power-curve-loading"
-          commands:
-            - tapOn:
-                id: "fitness-section-performance"
 
 # The curve draws a placeholder until its stored body is read, and a scroll
 # that starts before then runs past the chart it is looking for.

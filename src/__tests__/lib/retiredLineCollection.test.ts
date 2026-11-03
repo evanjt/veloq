@@ -45,6 +45,8 @@ function retired(id: string, line: ArrayBuffer | undefined, over = {}) {
       at: '2026-10-01T00:00:00Z',
       versions: [],
       name: `Old ${id}`,
+      distanceMeters: 900,
+      visitCount: 7,
       ...over,
     },
     ...(line ? { encodedPolyline: line } : {}),
@@ -58,6 +60,8 @@ function current(id: string, line: ArrayBuffer, over = {}) {
     isUserDefined: false,
     pinned: false,
     hidden: false,
+    distanceMeters: 1200,
+    visitCount: 4,
     encodedPolyline: line,
     ...over,
   };
@@ -75,6 +79,7 @@ const DATA = {
     { retiredId: 'r-north', currentId: 'c-north', link: RetiredPairLink.Ground, overlap: 0.82 },
     { retiredId: 'r-north', currentId: 'c-hidden', link: RetiredPairLink.Supersedes },
   ],
+  pairsPending: false,
 };
 
 const ids = (c: GeoJSON.FeatureCollection) => c.features.map((f) => f.properties?.id);
@@ -151,7 +156,10 @@ describe('the retired lines', () => {
   });
 
   it('is empty for an empty read', () => {
-    const empty = buildRetiredLines({ retired: [], current: [], pairs: [] }, { decode });
+    const empty = buildRetiredLines(
+      { retired: [], current: [], pairs: [], pairsPending: false },
+      { decode }
+    );
 
     expect(empty.retired.features).toHaveLength(0);
     expect(empty.current.features).toHaveLength(0);
@@ -173,6 +181,8 @@ describe('naming the pair of a tapped line', () => {
         link: 'ground',
         overlap: 0.82,
         hidden: false,
+        distanceMeters: 1200,
+        visitCount: 4,
       },
       {
         id: 'c-hidden',
@@ -181,7 +191,46 @@ describe('naming the pair of a tapped line', () => {
         link: 'supersedes',
         overlap: null,
         hidden: true,
+        distanceMeters: 1200,
+        visitCount: 4,
       },
+    ]);
+    expect([named?.distanceMeters, named?.visitCount]).toEqual([900, 7]);
+  });
+
+  it('carries a retired section’s length to its own selection and to the pair on the other side', () => {
+    const data = {
+      ...DATA,
+      retired: [
+        retired('r-north', buf(1), { distanceMeters: 1250 }),
+        retired('r-far', buf(3), { distanceMeters: null }),
+      ],
+    };
+    expect(describeRetiredSelection(data, 'r-north')?.distanceMeters).toBe(1250);
+    expect(describeRetiredSelection(data, 'c-north')?.pairs[0]?.distanceMeters).toBe(1250);
+    expect(describeRetiredSelection(data, 'r-far')?.distanceMeters).toBeNull();
+  });
+
+  it('carries whether the ground pairs are still owed into the selection', () => {
+    expect(describeRetiredSelection(DATA, 'r-north')?.pairsPending).toBe(false);
+    expect(describeRetiredSelection({ ...DATA, pairsPending: true }, 'c-north')?.pairsPending).toBe(
+      true
+    );
+  });
+
+  it('keeps a restored section’s pair selectable from both live rows', () => {
+    const data = {
+      retired: [],
+      current: [current('c-restored', buf(1)), current('c-hidden', buf(1), { hidden: true })],
+      pairs: [{ retiredId: 'c-restored', currentId: 'c-hidden', link: RetiredPairLink.Supersedes }],
+      pairsPending: false,
+    };
+
+    const restored = describeRetiredSelection(data, 'c-restored');
+    expect(restored?.pairs.map((p) => [p.id, p.kind])).toEqual([['c-hidden', 'current']]);
+    const hidden = describeRetiredSelection(data, 'c-hidden');
+    expect(hidden?.pairs.map((p) => [p.id, p.name, p.kind])).toEqual([
+      ['c-restored', 'New c-restored', 'retired'],
     ]);
   });
 
@@ -190,6 +239,8 @@ describe('naming the pair of a tapped line', () => {
 
     expect(named?.kind).toBe('current');
     expect(named?.pairs.map((p) => [p.id, p.kind])).toEqual([['r-north', 'retired']]);
+    expect([named?.distanceMeters, named?.visitCount]).toEqual([1200, 4]);
+    expect([named?.pairs[0]?.distanceMeters, named?.pairs[0]?.visitCount]).toEqual([900, 7]);
   });
 
   it('answers an unpaired section with no pairs and an unknown id with nothing', () => {

@@ -51,8 +51,26 @@ export function buildPreviewSources(input: PreviewLayerInput): Record<string, Ma
   };
 }
 
-export function buildPreviewLayers(palette: MapPalette): MapLayerSpec[] {
+/**
+ * `comparing` is the retired screen, which sets retired sections against the catalogue
+ * that replaced them. Its current lines are solid in the proposed hue and its retired lines
+ * dashed in the removed one, so the two read apart on every base; elsewhere the catalogue is
+ * the neutral baseline of a diff.
+ */
+export function buildPreviewLayers(
+  palette: MapPalette,
+  comparing = false,
+  diffRun = false
+): MapLayerSpec[] {
   const { layer } = palette;
+  // Before a run the catalogue is the only thing drawn, so each section keeps
+  // the colour the section screens give it. Once a run exists the colours mean
+  // a diff category and the catalogue steps back to the baseline grey.
+  const currentColour = comparing
+    ? layer.proposed
+    : diffRun
+      ? layer.current
+      : ['coalesce', ['get', 'color'], layer.current];
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   return [
     // Bottom of the stack and not interactive: it says which ground the
@@ -92,10 +110,18 @@ export function buildPreviewLayers(palette: MapPalette): MapLayerSpec[] {
       source: 'current-sections',
       layout: roundLine,
       paint: {
-        'line-color': layer.current,
-        'line-opacity': 1,
+        'line-color': currentColour,
+        'line-opacity': comparing
+          ? [
+              'match',
+              ['get', 'role'],
+              'other',
+              DIMMED_OPACITY,
+              ['case', ['==', ['get', 'hidden'], true], 0.5, 1],
+            ]
+          : 1,
         'line-width': 3,
-        'line-dasharray': [2, 2],
+        ...(comparing || !diffRun ? {} : { 'line-dasharray': [2, 2] }),
       },
     },
     {
@@ -111,7 +137,7 @@ export function buildPreviewLayers(palette: MapPalette): MapLayerSpec[] {
       },
     },
     // A retired section has no catalogue row, so its line is a record of where it
-    // was: dashed and muted, behind everything the catalogue holds now. A current
+    // was: dashed and in the removed hue, behind everything the catalogue holds now. A current
     // row hidden behind another section draws the same way, fainter, so the
     // other half of a resolved pair is on the map too. Visible current rows are
     // the current layer's and are not drawn twice.
@@ -121,7 +147,7 @@ export function buildPreviewLayers(palette: MapPalette): MapLayerSpec[] {
       source: 'retired-sections',
       layout: roundLine,
       paint: {
-        'line-color': palette.muted,
+        'line-color': layer.removed,
         'line-opacity': ['match', ['get', 'role'], 'other', DIMMED_OPACITY, 0.9],
         'line-width': 3,
         'line-dasharray': [1, 2],
@@ -179,9 +205,17 @@ export function buildPreviewLayers(palette: MapPalette): MapLayerSpec[] {
       source: 'proposed-sections',
       layout: roundLine,
       paint: {
-        // 'changed' and 'unchanged' both render teal; the popover status chip
-        // carries the distinction.
-        'line-color': ['match', ['get', 'status'], 'new', layer.added, layer.proposed],
+        // The diff strip's four categories, one colour each. Unchanged is the
+        // baseline grey, so a run that moves little reads as mostly grey.
+        'line-color': [
+          'match',
+          ['get', 'status'],
+          'new',
+          layer.added,
+          'unchanged',
+          layer.current,
+          layer.proposed,
+        ],
         'line-opacity': 0.9,
         'line-width': 4,
       },
@@ -195,8 +229,14 @@ export function buildPreviewLayers(palette: MapPalette): MapLayerSpec[] {
  * paints new sections apart with a match expression, and the swatch takes its
  * fallback, the colour every other proposed line gets.
  */
-export function previewLayerSwatch(layerId: string, palette: MapPalette): string {
-  const colour = buildPreviewLayers(palette).find((l) => l.id === layerId)?.paint?.['line-color'];
+export function previewLayerSwatch(
+  layerId: string,
+  palette: MapPalette,
+  comparing = false,
+  diffRun = false
+): string {
+  const colour = buildPreviewLayers(palette, comparing, diffRun).find((l) => l.id === layerId)
+    ?.paint?.['line-color'];
   if (Array.isArray(colour)) return colour[colour.length - 1] as string;
   return typeof colour === 'string' ? colour : palette.layer.current;
 }

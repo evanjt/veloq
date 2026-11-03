@@ -26,6 +26,8 @@ export function bestEffortCheckpointLabel(
   if (effort.kind === BestEffortKind.HalfMarathon) {
     return t('bestEffortsScreen.checkpoint.halfMarathon');
   }
+  if (effort.kind === BestEffortKind.Marathon) return t('bestEffortsScreen.checkpoint.marathon');
+  if (effort.kind === BestEffortKind.Mile) return t('bestEffortsScreen.checkpoint.mile');
   return effort.checkpoint < 1000
     ? t('bestEffortsScreen.checkpoint.metres', { value: Math.round(effort.checkpoint) })
     : t('bestEffortsScreen.checkpoint.kilometres', {

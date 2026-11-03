@@ -9,9 +9,10 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { decodeCoords } from 'veloqrs';
 import {
   cameraMove,
@@ -24,6 +25,8 @@ import {
   spacing,
   typography,
   stroke,
+  sectionPalette,
+  sectionPaletteIndex,
 } from '@/theme';
 import { useTheme } from '@/shared/app';
 // Straight from the context, not the app barrel: a surface mounted with no
@@ -54,6 +57,7 @@ import {
   previewLayerSwatch,
   PREVIEW_INTERACTIVE_LAYERS,
 } from './previewMapLayerSpecs';
+import { buildPreviewKey, type PreviewKeyEntry } from './previewKey';
 import { PressTarget } from '@/shared/ui';
 
 /** The delegate hands the bytes over already decoded. */
@@ -68,7 +72,11 @@ function decodePolyline(polyline: ArrayBuffer): LngLat[] {
 function lineFeature(section: PreviewSection, coords: LngLat[]): GeoJSON.Feature {
   return {
     type: 'Feature',
-    properties: { id: section.id, status: section.status },
+    properties: {
+      id: section.id,
+      status: section.status,
+      color: sectionPalette[sectionPaletteIndex(section.id)],
+    },
     geometry: { type: 'LineString', coordinates: coords },
   };
 }
@@ -93,10 +101,8 @@ interface PreviewMapViewProps {
   centre: PreviewAreaCentre | null;
   selectedId: string | null;
   showCurrent: boolean;
-  showProposed: boolean;
   showRemoved: boolean;
   onToggleCurrent: () => void;
-  onToggleProposed: () => void;
   onToggleRemoved: () => void;
   onSelect: (section: PreviewSection | null) => void;
   retiredLayer?: RetiredLayerProps | null | undefined;
@@ -110,10 +116,8 @@ export function PreviewMapView({
   centre,
   selectedId,
   showCurrent,
-  showProposed,
   showRemoved,
   onToggleCurrent,
-  onToggleProposed,
   onToggleRemoved,
   onSelect,
   retiredLayer = null,
@@ -208,26 +212,34 @@ export function PreviewMapView({
 
   const retiredShown = retiredLayer !== null && retiredLayer.show;
 
+  const { current: currentFeatures, proposed: proposedFeatures, gone: goneFeatures } = features;
   const sources = useMemo(() => {
     const selectedSection = sections.find((s) => s.id === selectedId) ?? null;
     const selectedCoords = selectedSection ? (decoded.get(selectedSection.id) ?? []) : [];
     return buildPreviewSources({
-      area: areaFeatures,
-      current: showCurrent
-        ? { type: 'FeatureCollection', features: features.current }
-        : EMPTY_FEATURE_COLLECTION,
-      proposed: showProposed
-        ? { type: 'FeatureCollection', features: features.proposed }
-        : EMPTY_FEATURE_COLLECTION,
+      // The retired screen reads two kinds of line against each other. The
+      // settings area box and the preview's own catalogue are not part of it:
+      // the catalogue comes from the retired read, whose lines carry the
+      // selection role, so a tap and a dim reach every current line.
+      area: retiredOnly ? EMPTY_FEATURE_COLLECTION : areaFeatures,
+      current: retiredOnly
+        ? showCurrent && retiredShown
+          ? retiredLayer.lines.current
+          : EMPTY_FEATURE_COLLECTION
+        : showCurrent
+          ? { type: 'FeatureCollection', features: currentFeatures }
+          : EMPTY_FEATURE_COLLECTION,
+      proposed: { type: 'FeatureCollection', features: proposedFeatures },
       // Removals belong to the current catalogue, but they are routinely most
       // of what the map draws, so they toggle on their own. Reading a diff
       // where removals dominate means being able to take them off without
       // losing the catalogue they came from.
       gone: showRemoved
-        ? { type: 'FeatureCollection', features: features.gone }
+        ? { type: 'FeatureCollection', features: goneFeatures }
         : EMPTY_FEATURE_COLLECTION,
       retired: retiredShown ? retiredLayer.lines.retired : EMPTY_FEATURE_COLLECTION,
-      retiredCurrent: retiredShown ? retiredLayer.lines.current : EMPTY_FEATURE_COLLECTION,
+      retiredCurrent:
+        retiredShown && !retiredOnly ? retiredLayer.lines.current : EMPTY_FEATURE_COLLECTION,
       retiredSelection: retiredShown ? retiredLayer.lines.selection : EMPTY_FEATURE_COLLECTION,
       selected:
         selectedSection && selectedCoords.length >= 2
@@ -240,14 +252,16 @@ export function PreviewMapView({
   }, [
     sections,
     decoded,
-    features,
+    currentFeatures,
+    proposedFeatures,
+    goneFeatures,
     selectedId,
     showCurrent,
-    showProposed,
     showRemoved,
     areaFeatures,
     retiredShown,
     retiredLayer,
+    retiredOnly,
   ]);
 
   // The retired lines count towards the frame while they are drawn, so a re-cut
@@ -319,7 +333,16 @@ export function PreviewMapView({
     setChosenStyle
   );
   const palette = mapPalette(mapStyle);
-  const layers = useMemo(() => buildPreviewLayers(palette), [palette]);
+  const ranDiff = result !== null;
+  const layers = useMemo(
+    () => buildPreviewLayers(palette, retiredOnly, ranDiff),
+    [palette, retiredOnly, ranDiff]
+  );
+  const hasArea = !retiredOnly && areaFeatures.features.length > 0;
+  const key = useMemo(
+    () => buildPreviewKey(result?.counts ?? null, palette, hasArea),
+    [result, palette, hasArea]
+  );
   // Satellite sources are regional, so the credit follows the viewport rather
   // than the area the picker started on.
   const { attributionRef, initialAttribution, trackAttribution } = useSurfaceAttribution(mapStyle, {
@@ -370,51 +393,55 @@ export function PreviewMapView({
       >
         <MapControlButton.Glyph name={getStyleIcon(mapStyle)} />
       </MapControlButton>
-      <View style={styles.legend} pointerEvents="box-none">
-        <LegendChip
-          testID="preview-layer-current"
-          label={t('settings.previewCurrentLayer')}
-          swatch={previewLayerSwatch('current-line', palette)}
-          on={showCurrent}
-          onPress={onToggleCurrent}
-          background={chipBg}
-          border={chipBorder}
-          text={chipText}
-          textOn={textPrimary}
-        />
-        {retiredOnly ? null : (
-          <>
+      {/* One row that scrolls rather than wraps, so the key never stacks over the lines. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.legend}
+        contentContainerStyle={styles.legendContent}
+        testID="preview-key"
+      >
+        {retiredOnly ? (
+          <LegendChip
+            testID="preview-layer-current"
+            label={t('settings.previewCurrentLayer')}
+            swatch={previewLayerSwatch('current-line', palette, true)}
+            on={showCurrent}
+            onPress={onToggleCurrent}
+            background={chipBg}
+            border={chipBorder}
+            text={chipText}
+            textOn={textPrimary}
+          />
+        ) : (
+          key.map((entry) => (
             <LegendChip
-              testID="preview-layer-proposed"
-              label={t('settings.previewProposedLayer')}
-              swatch={previewLayerSwatch('proposed-line', palette)}
-              on={showProposed}
-              onPress={onToggleProposed}
+              key={entry.id}
+              testID={`preview-layer-${entry.id}`}
+              label={keyLabel(entry, t)}
+              swatch={entry.id === 'area' ? chipText : entry.swatch}
+              dashed={entry.dashed}
+              on={entry.id === 'current' ? showCurrent : entry.id === 'gone' ? showRemoved : true}
+              onPress={
+                entry.id === 'current'
+                  ? onToggleCurrent
+                  : entry.id === 'gone'
+                    ? onToggleRemoved
+                    : undefined
+              }
               background={chipBg}
               border={chipBorder}
               text={chipText}
               textOn={textPrimary}
             />
-            {/* The popover's own word for this status, rather than a second key
-            carrying the same translation in seventeen locales. */}
-            <LegendChip
-              testID="preview-layer-removed"
-              label={t('settings.previewStatusGone')}
-              swatch={previewLayerSwatch('gone-line', palette)}
-              on={showRemoved}
-              onPress={onToggleRemoved}
-              background={chipBg}
-              border={chipBorder}
-              text={chipText}
-              textOn={textPrimary}
-            />
-          </>
+          ))
         )}
-        {retiredLayer ? (
+        {retiredOnly && retiredLayer ? (
           <LegendChip
             testID="preview-layer-retired"
             label={t('settings.previewRetiredLayer')}
-            swatch={previewLayerSwatch('retired-line', palette)}
+            swatch={previewLayerSwatch('retired-line', palette, true)}
+            dashed
             on={retiredLayer.show}
             onPress={retiredLayer.onToggle}
             background={chipBg}
@@ -423,9 +450,28 @@ export function PreviewMapView({
             textOn={textPrimary}
           />
         ) : null}
-      </View>
+      </ScrollView>
     </View>
   );
+}
+
+function keyLabel(entry: PreviewKeyEntry, t: TFunction): string {
+  switch (entry.id) {
+    case 'current':
+      return t('settings.previewCurrentLayer');
+    case 'area':
+      return t('settings.previewAreaLayer');
+    case 'unchanged':
+      return t('settings.previewUnchanged', { count: entry.count });
+    case 'changed':
+      return t('settings.previewChanged', { count: entry.count });
+    case 'new':
+      return t('settings.previewNew', { count: entry.count });
+    case 'gone':
+      return t('settings.previewGone', { count: entry.count });
+    default:
+      return entry.id;
+  }
 }
 
 /**
@@ -437,6 +483,7 @@ function LegendChip({
   testID,
   label,
   swatch,
+  dashed = false,
   on,
   onPress,
   background,
@@ -447,8 +494,10 @@ function LegendChip({
   testID: string;
   label: string;
   swatch: string;
+  dashed?: boolean;
   on: boolean;
-  onPress: () => void;
+  /** Absent for a category that is only a key entry. */
+  onPress?: (() => void) | undefined;
   background: string;
   border: string;
   text: string;
@@ -464,21 +513,38 @@ function LegendChip({
       hitSlop={legendChipSlop}
       onPress={onPress}
       testID={testID}
-      accessibilityRole="switch"
-      accessibilityState={{ checked: on }}
+      accessibilityRole={onPress ? 'switch' : 'text'}
+      accessibilityState={onPress ? { checked: on } : {}}
       accessibilityLabel={label}
     >
-      <View
-        testID={`${testID}-swatch`}
-        style={[
-          styles.legendSwatch,
-          { borderColor: swatch, backgroundColor: on ? swatch : 'transparent' },
-        ]}
-      />
+      {dashed ? (
+        // Three short bars, the way the map dashes the line this entry keys.
+        <View testID={`${testID}-swatch`} style={styles.legendSwatchDashed}>
+          {DASH_KEYS.map((k) => (
+            <View
+              key={k}
+              style={[
+                styles.legendDash,
+                { borderColor: swatch, backgroundColor: on ? swatch : 'transparent' },
+              ]}
+            />
+          ))}
+        </View>
+      ) : (
+        <View
+          testID={`${testID}-swatch`}
+          style={[
+            styles.legendSwatch,
+            { borderColor: swatch, backgroundColor: on ? swatch : 'transparent' },
+          ]}
+        />
+      )}
       <Text style={[styles.legendText, { color: on ? textOn : text }]}>{label}</Text>
     </PressTarget>
   );
 }
+
+const DASH_KEYS = ['a', 'b', 'c'];
 
 // The legend chips sit side by side, so their slop is vertical only.
 const LEGEND_CHIP_HEIGHT = typography.caption.lineHeight + 2 * spacing.xs;
@@ -494,12 +560,26 @@ const styles = StyleSheet.create({
   legend: {
     position: 'absolute',
     top: spacing.sm,
+    left: spacing.sm + layout.minTapTarget + spacing.sm,
     right: spacing.sm,
+  },
+  legendContent: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'flex-end',
-    maxWidth: '75%',
+    flexGrow: 1,
     gap: spacing.xs,
+  },
+  legendSwatchDashed: {
+    width: 14,
+    height: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  legendDash: {
+    width: 4,
+    height: 4,
+    borderRadius: layout.borderRadiusFull,
+    borderWidth: stroke.one,
   },
   legendChip: {
     flexDirection: 'row',

@@ -22,7 +22,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams } from 'expo-router';
@@ -30,6 +30,7 @@ import { detection, hasStarted, previewClient } from 'veloqrs';
 import { useTheme } from '@/shared/app';
 import {
   Button,
+  ButtonRow,
   ErrorState,
   ProgressBar,
   ScreenSafeAreaView,
@@ -54,6 +55,7 @@ import {
   PreviewMapView,
   PreviewRunCost,
   PreviewParamPanel,
+  PreviewSheet,
   PreviewSectionPopover,
   RetiredPairCard,
   buildRetiredLines,
@@ -160,7 +162,6 @@ function DetectionPreviewScreenContent() {
     [result, selected]
   );
   const [showCurrent, setShowCurrent] = useState(true);
-  const [showProposed, setShowProposed] = useState(true);
   const [showRemoved, setShowRemoved] = useState(true);
 
   const bg = isDark ? darkColors.surfacePage : colors.surfacePage;
@@ -370,179 +371,220 @@ function DetectionPreviewScreenContent() {
   }, [running, cancel]);
   useEffect(() => () => abandon.current(), []);
 
-  return (
-    <ScreenSafeAreaView
-      testID="detection-preview-screen"
-      style={[styles.container, { backgroundColor: bg }]}
-    >
-      <View style={styles.map} testID="preview-map">
-        <PreviewMapView
-          result={result}
-          currentSections={currentSections}
-          centre={selectedCentre}
-          selectedId={selected?.id ?? null}
-          showCurrent={showCurrent}
-          showProposed={showProposed}
-          showRemoved={showRemoved}
-          onToggleCurrent={() => setShowCurrent((v) => !v)}
-          onToggleProposed={() => setShowProposed((v) => !v)}
-          onToggleRemoved={() => setShowRemoved((v) => !v)}
-          onSelect={handleSelectSection}
-          retiredLayer={retiredLayer}
-          retiredOnly={openedOnRetired}
+  // The popover for a tapped proposed section and the pair card for a tapped
+  // retired or current line. The settings preview lays them over its map; the
+  // retired screen seats them in the panel, so the line they describe stays in view.
+  const showCards = selected !== null || (showRetired && retiredSelection !== null);
+  const cards = showCards ? (
+    <>
+      {selected ? (
+        <PreviewSectionPopover
+          section={selected}
+          newNumber={newNumber}
+          onClose={() => handleSelectSection(null)}
         />
-        {selected || (showRetired && retiredSelection) ? (
-          <View style={styles.popover} pointerEvents="box-none">
-            {selected ? (
-              <PreviewSectionPopover
-                section={selected}
-                newNumber={newNumber}
-                onClose={() => handleSelectSection(null)}
-              />
-            ) : null}
-            {showRetired && retiredSelection && (!selected || listedPairs) ? (
-              <RetiredPairCard
-                selection={retiredSelection}
-                onSelect={(id) => {
-                  setSelected(null);
-                  setSelectedRetiredId(id);
-                }}
-                onClose={() => handleSelectSection(null)}
-                onRestore={handleRestore}
-                onPrefer={handlePrefer}
-                onRemove={handleRemove}
-                restoring={isReverting}
-              />
-            ) : null}
-          </View>
-        ) : null}
-      </View>
+      ) : null}
+      {showRetired && retiredSelection && (!selected || listedPairs) ? (
+        <RetiredPairCard
+          selection={retiredSelection}
+          onSelect={(id) => {
+            setSelected(null);
+            setSelectedRetiredId(id);
+          }}
+          onClose={() => handleSelectSection(null)}
+          onRestore={handleRestore}
+          onPrefer={handlePrefer}
+          onRemove={handleRemove}
+          restoring={isReverting}
+        />
+      ) : null}
+    </>
+  ) : null;
 
-      <View
-        style={[styles.panel, { paddingBottom: bottomClearance }]}
-        testID="preview-control-panel"
+  const centresFailure =
+    centresReadError !== undefined ? (
+      <ErrorState
+        variant="inline"
+        error={centresReadError}
+        onRetry={retryCentres}
+        testID="preview-centres-failure"
+      />
+    ) : null;
+  const picker = (
+    <View style={styles.pickerWrap}>
+      <PreviewCentrePicker
+        centres={centres}
+        labels={labels}
+        selectedBinKey={selectedCentre?.binKey ?? null}
+        onSelect={handleSelectCentre}
+      />
+    </View>
+  );
+
+  const map = (
+    <PreviewMapView
+      result={result}
+      currentSections={currentSections}
+      centre={selectedCentre}
+      selectedId={selected?.id ?? null}
+      showCurrent={showCurrent}
+      showRemoved={showRemoved}
+      onToggleCurrent={() => setShowCurrent((v) => !v)}
+      onToggleRemoved={() => setShowRemoved((v) => !v)}
+      onSelect={handleSelectSection}
+      retiredLayer={retiredLayer}
+      retiredOnly={openedOnRetired}
+    />
+  );
+
+  if (openedOnRetired) {
+    return (
+      <ScreenSafeAreaView
+        testID="detection-preview-screen"
+        style={[styles.container, { backgroundColor: bg }]}
       >
-        {centresReadError !== undefined ? (
-          <ErrorState
-            variant="inline"
-            error={centresReadError}
-            onRetry={retryCentres}
-            testID="preview-centres-failure"
-          />
-        ) : null}
-        <View style={styles.pickerWrap}>
-          <PreviewCentrePicker
-            centres={centres}
-            labels={labels}
-            selectedBinKey={selectedCentre?.binKey ?? null}
-            onSelect={handleSelectCentre}
-          />
+        <View style={styles.mapFill} testID="preview-map">
+          {map}
         </View>
-
-        {retiredLayer && showRetired ? (
-          <Button
-            variant="ghost"
-            onPress={() => navigateTo('/section-retired')}
-            icon="format-list-bulleted"
-            label={t('sectionHistory.seeRetiredList')}
-            testID="preview-retired-list-link"
-          />
-        ) : null}
-
-        {openedOnRetired ? (
+        <View
+          style={[styles.panel, { paddingBottom: bottomClearance }]}
+          testID="preview-control-panel"
+        >
+          {centresFailure}
+          {picker}
+          {cards ? (
+            <ScrollView
+              style={styles.cardScroll}
+              contentContainerStyle={styles.cardContent}
+              testID="preview-selection-cards"
+            >
+              {cards}
+            </ScrollView>
+          ) : null}
+          {retiredLayer && showRetired ? (
+            <Button
+              variant="ghost"
+              onPress={() => navigateTo('/section-retired')}
+              icon="format-list-bulleted"
+              label={t('sectionHistory.seeRetiredList')}
+              testID="preview-retired-list-link"
+            />
+          ) : null}
           <Text
             style={[styles.notice, { color: textSecondary }]}
             testID="preview-retired-explainer"
           >
             {t('sectionHistory.retiredIntro')}
           </Text>
-        ) : (
-          <>
-            <PreviewParamPanel params={params} onChange={setParams} onCommit={handleCommit} />
+        </View>
+      </ScreenSafeAreaView>
+    );
+  }
 
-            {result ? <PreviewDiffStrip counts={result.counts} /> : null}
+  // The map fills the screen and the controls sit over it. Collapsed, the sheet
+  // holds what a decision needs: the diff, the run state and Discard and Keep.
+  // The sliders and the run's cost open on a drag.
+  const summary = (
+    <>
+      {result ? <PreviewDiffStrip counts={result.counts} /> : null}
+      {running ? (
+        <View>
+          <View style={[styles.runBtn, { backgroundColor: surface, borderColor: border }]}>
+            <Spinner label={runLabel} />
+            <FitText style={[styles.runText, { color: textSecondary }]}>{runLabel}</FitText>
+          </View>
+          <ProgressBar
+            done={runPercent}
+            total={100}
+            label={runLabel}
+            testID="preview-progress"
+            fillTestID="preview-progress-fill"
+          />
+          {lapsed ? (
+            <Text style={[styles.notice, { color: textSecondary }]} testID="preview-slow">
+              {t('settings.runSlow')}
+            </Text>
+          ) : null}
+        </View>
+      ) : result ? (
+        <ButtonRow
+          actions={[
+            {
+              variant: 'secondary',
+              onPress: handleDiscard,
+              label: t('settings.previewDiscard'),
+              testID: 'preview-discard-button',
+            },
+            {
+              onPress: handleKeep,
+              disabled: !keepEnabled,
+              label: t('settings.previewKeep'),
+              testID: 'preview-keep-button',
+            },
+          ]}
+        />
+      ) : null}
 
-            {result ? <PreviewRunCost pool={result.pool} elapsedMs={result.elapsedMs} /> : null}
+      {currentFailed ? (
+        <Text style={[styles.notice, { color: danger }]} testID="preview-current-failed">
+          {t('settings.previewCurrentFailed')}
+        </Text>
+      ) : null}
+      {status === 'error' && (
+        <Text style={[styles.notice, { color: danger }]}>{t('settings.previewFailed')}</Text>
+      )}
+      {status === 'pool_unusable' && (
+        <Text style={[styles.notice, { color: danger }]} testID="preview-pool-unusable">
+          {t('settings.previewPoolUnusable')}
+        </Text>
+      )}
+      {refusalKey ? (
+        <Text style={[styles.notice, { color: textSecondary }]} testID="preview-refusal">
+          {t(refusalKey)}
+        </Text>
+      ) : null}
+      {migrating ? (
+        <Text style={[styles.notice, { color: textSecondary }]} testID="preview-migrating">
+          {t('settings.previewMigrating')}
+        </Text>
+      ) : null}
+      {migrating && result ? (
+        <Text style={[styles.notice, { color: textSecondary }]} testID="preview-keep-after-upgrade">
+          {t('settings.previewKeepAfterUpgrade')}
+        </Text>
+      ) : null}
+      {awaitingDetection !== null && awaitingDetection > 0 && (
+        <Text style={[styles.notice, { color: textSecondary }]} testID="preview-stale-catalogue">
+          {t('settings.previewStaleCatalogue', { count: awaitingDetection })}
+        </Text>
+      )}
+    </>
+  );
 
-            {running ? (
-              <View>
-                <View style={[styles.runBtn, { backgroundColor: surface, borderColor: border }]}>
-                  <Spinner label={runLabel} />
-                  <FitText style={[styles.runText, { color: textSecondary }]}>{runLabel}</FitText>
-                </View>
-                <ProgressBar
-                  done={runPercent}
-                  total={100}
-                  label={runLabel}
-                  testID="preview-progress"
-                  fillTestID="preview-progress-fill"
-                />
-                {lapsed ? (
-                  <Text style={[styles.notice, { color: textSecondary }]} testID="preview-slow">
-                    {t('settings.runSlow')}
-                  </Text>
-                ) : null}
-              </View>
-            ) : result ? (
-              <View style={styles.actionRow}>
-                <Button
-                  variant="secondary"
-                  style={styles.actionBtn}
-                  onPress={handleDiscard}
-                  label={t('settings.previewDiscard')}
-                  testID="preview-discard-button"
-                />
-                <Button
-                  style={styles.actionBtn}
-                  onPress={handleKeep}
-                  disabled={!keepEnabled}
-                  label={t('settings.previewKeep')}
-                  testID="preview-keep-button"
-                />
-              </View>
-            ) : null}
-
-            {currentFailed ? (
-              <Text style={[styles.notice, { color: danger }]} testID="preview-current-failed">
-                {t('settings.previewCurrentFailed')}
-              </Text>
-            ) : null}
-            {status === 'error' && (
-              <Text style={[styles.notice, { color: danger }]}>{t('settings.previewFailed')}</Text>
-            )}
-            {status === 'pool_unusable' && (
-              <Text style={[styles.notice, { color: danger }]} testID="preview-pool-unusable">
-                {t('settings.previewPoolUnusable')}
-              </Text>
-            )}
-            {refusalKey ? (
-              <Text style={[styles.notice, { color: textSecondary }]} testID="preview-refusal">
-                {t(refusalKey)}
-              </Text>
-            ) : null}
-            {migrating ? (
-              <Text style={[styles.notice, { color: textSecondary }]} testID="preview-migrating">
-                {t('settings.previewMigrating')}
-              </Text>
-            ) : null}
-            {migrating && result ? (
-              <Text
-                style={[styles.notice, { color: textSecondary }]}
-                testID="preview-keep-after-upgrade"
-              >
-                {t('settings.previewKeepAfterUpgrade')}
-              </Text>
-            ) : null}
-            {awaitingDetection !== null && awaitingDetection > 0 && (
-              <Text
-                style={[styles.notice, { color: textSecondary }]}
-                testID="preview-stale-catalogue"
-              >
-                {t('settings.previewStaleCatalogue', { count: awaitingDetection })}
-              </Text>
-            )}
-          </>
-        )}
+  return (
+    <ScreenSafeAreaView
+      testID="detection-preview-screen"
+      style={[styles.container, { backgroundColor: bg }]}
+    >
+      <View style={StyleSheet.absoluteFill} testID="preview-map">
+        {map}
+      </View>
+      <View style={styles.overlay} pointerEvents="box-none">
+        {cards ? (
+          <View style={styles.popover} pointerEvents="box-none">
+            {cards}
+          </View>
+        ) : null}
+        {centresFailure}
+        {picker}
+        <PreviewSheet
+          summary={summary}
+          bottomInset={bottomClearance}
+          testID="preview-control-panel"
+        >
+          <PreviewParamPanel params={params} onChange={setParams} onCommit={handleCommit} />
+          {result ? <PreviewRunCost pool={result.pool} elapsedMs={result.elapsedMs} /> : null}
+        </PreviewSheet>
       </View>
     </ScreenSafeAreaView>
   );
@@ -550,18 +592,26 @@ function DetectionPreviewScreenContent() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  map: {
-    height: '30%',
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  mapFill: {
+    flex: 1,
+  },
+  cardScroll: {
+    maxHeight: '50%',
+    flexGrow: 0,
+  },
+  cardContent: {
+    gap: spacing.sm,
   },
   popover: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    bottom: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
     gap: spacing.sm,
   },
   panel: {
-    flex: 1,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     gap: spacing.sm,
@@ -576,13 +626,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.sm,
     borderRadius: layout.borderRadius,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionBtn: {
-    flex: 1,
   },
   runText: {
     ...typography.bodyBold,

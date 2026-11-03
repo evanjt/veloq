@@ -7,6 +7,7 @@
  * - Heart Rate Service 0x180D, Heart Rate Measurement 0x2A37
  * - Cycling Power Service 0x1818, Cycling Power Measurement 0x2A63
  * - Cycling Speed and Cadence Service 0x1816, CSC Measurement 0x2A5B
+ * - Running Speed and Cadence Service 0x1814, RSC Measurement 0x2A53
  * - Battery Service 0x180F, Battery Level 0x2A19
  */
 
@@ -16,6 +17,8 @@ export const CYCLING_POWER_SERVICE = '00001818-0000-1000-8000-00805f9b34fb';
 export const CYCLING_POWER_MEASUREMENT = '00002a63-0000-1000-8000-00805f9b34fb';
 export const CSC_SERVICE = '00001816-0000-1000-8000-00805f9b34fb';
 export const CSC_MEASUREMENT = '00002a5b-0000-1000-8000-00805f9b34fb';
+export const RSC_SERVICE = '00001814-0000-1000-8000-00805f9b34fb';
+export const RSC_MEASUREMENT = '00002a53-0000-1000-8000-00805f9b34fb';
 export const BATTERY_SERVICE = '0000180f-0000-1000-8000-00805f9b34fb';
 export const BATTERY_LEVEL = '00002a19-0000-1000-8000-00805f9b34fb';
 
@@ -117,6 +120,49 @@ export function parseCsc(bytes: Uint8Array): CscMeasurement | null {
   }
 
   return { wheel, crank };
+}
+
+export interface RscMeasurement {
+  /** Instantaneous speed in metres per second. */
+  speed: number;
+  /** Instantaneous cadence in steps per minute. */
+  cadence: number;
+  strideLengthCm: number | null;
+  totalDistanceM: number | null;
+  /** Flags bit 2: the pod reports running rather than walking. */
+  running: boolean;
+}
+
+/**
+ * RSC Measurement (0x2A53): uint8 flags, uint16 speed in 1/256 m/s, uint8
+ * cadence, then stride length (uint16 cm) if bit 0 and total distance (uint32
+ * in 1/10 m) if bit 1.
+ */
+export function parseRsc(bytes: Uint8Array): RscMeasurement | null {
+  if (bytes.length < 4) return null;
+  const flags = bytes[0] ?? 0;
+  let offset = 4;
+
+  let strideLengthCm: number | null = null;
+  if (flags & 0x01) {
+    if (bytes.length < offset + 2) return null;
+    strideLengthCm = uint16le(bytes, offset);
+    offset += 2;
+  }
+
+  let totalDistanceM: number | null = null;
+  if (flags & 0x02) {
+    if (bytes.length < offset + 4) return null;
+    totalDistanceM = uint32le(bytes, offset) / 10;
+  }
+
+  return {
+    speed: uint16le(bytes, 1) / 256,
+    cadence: bytes[3] ?? 0,
+    strideLengthCm,
+    totalDistanceM,
+    running: (flags & 0x04) !== 0,
+  };
 }
 
 /** Battery Level (0x2A19): single uint8 percent. */

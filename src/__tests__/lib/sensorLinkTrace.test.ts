@@ -3,14 +3,18 @@
  * release build where every sensor log line is stripped.
  *
  * Expected behaviour: each link's connect, monitor registration, monitor error,
- * first sample, watchdog and teardown survive in memory as one report the
+ * first sample, silence and teardown survive in memory as one report the
  * debug screen reads, after the ride has been discarded.
  */
 
 import { useSensorStore } from '@/features/sensors/store';
 import { HEART_RATE_MEASUREMENT } from '@/features/sensors/lib/gatt';
 import { SENSOR_NO_DATA_MS } from '@/features/sensors/lib/connectionHealth';
-import { connectKnownSensors, disconnectAllSensors } from '@/features/sensors/lib/sensorManager';
+import {
+  connectKnownSensors,
+  disconnectAllSensors,
+  reconnectSensor,
+} from '@/features/sensors/lib/sensorManager';
 import {
   SENSOR_LINK_TRACE_CAPACITY,
   clearSensorLinkTrace,
@@ -144,7 +148,7 @@ describe('the sensor link trace on a silent strap', () => {
     jest.useRealTimers();
   });
 
-  it('records the registration, the watchdog, the teardown, the reconnect and the late first sample', async () => {
+  it('records the registration, the silence, the late first sample on the same subscription and an asked-for reconnect', async () => {
     void connectKnownSensors();
     await settle();
 
@@ -158,30 +162,38 @@ describe('the sensor link trace on a silent strap', () => {
     jest.advanceTimersByTime(SENSOR_NO_DATA_MS);
     const watchdog = sensorLinkEvents().find((event) => event.kind === 'watchdogFired');
     expect(watchdog?.ms).toBe(SENSOR_NO_DATA_MS);
-    expect(kinds().slice(4)).toEqual([
-      'watchdogFired',
-      'sampleCount',
-      'teardown',
-      'reconnectScheduled',
-    ]);
-    expect(sensorLinkEvents().find((event) => event.kind === 'sampleCount')?.count).toBe(0);
-    const delay = sensorLinkEvents().find((event) => event.kind === 'reconnectScheduled')?.ms;
-    expect(delay).toBeGreaterThan(0);
+    expect(kinds().slice(4)).toEqual(['watchdogFired']);
 
-    jest.advanceTimersByTime(delay ?? 0);
-    await settle();
-    jest.advanceTimersByTime(2_000);
+    jest.advanceTimersByTime(2 * SENSOR_NO_DATA_MS);
+    expect(kinds().slice(4)).toEqual(['watchdogFired']);
+    expect(mockCancelDeviceConnection).not.toHaveBeenCalled();
+
     deliver?.(null, HEART_RATE_72);
     deliver?.(null, HEART_RATE_72);
 
     const firsts = sensorLinkEvents().filter((event) => event.kind === 'firstSample');
     expect(firsts).toHaveLength(1);
-    expect(firsts[0]).toMatchObject({ characteristic: HEART_RATE_MEASUREMENT, ms: 2_000 });
+    expect(firsts[0]).toMatchObject({
+      characteristic: HEART_RATE_MEASUREMENT,
+      ms: 3 * SENSOR_NO_DATA_MS,
+    });
+
+    await reconnectSensor(SENSOR.id);
+    await settle();
+    expect(kinds().slice(6)).toEqual([
+      'sampleCount',
+      'teardown',
+      'connectStart',
+      'connected',
+      'discovered',
+      'monitorRegistered',
+    ]);
+    expect(sensorLinkEvents().find((event) => event.kind === 'sampleCount')?.count).toBe(2);
 
     const report = readSensorLinkReport() ?? '';
     expect(report).toContain(`Kite tether monitorRegistered ${HEART_RATE_MEASUREMENT}`);
     expect(report).toContain(`watchdogFired ${SENSOR_NO_DATA_MS}ms`);
-    expect(report).toContain(`firstSample ${HEART_RATE_MEASUREMENT} 2000ms`);
+    expect(report).toContain(`firstSample ${HEART_RATE_MEASUREMENT} ${3 * SENSOR_NO_DATA_MS}ms`);
   });
 
   it('counts each sample on teardown', async () => {

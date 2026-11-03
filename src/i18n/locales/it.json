@@ -494,7 +494,6 @@
   },
   "bestEffortsScreen": {
     "title": "Migliori sforzi",
-    "viewAll": "Tutti i migliori sforzi",
     "windowSubtitle_one": "Migliori prestazioni dell'ultimo {{count}} giorno.",
     "windowSubtitle_many": "Migliori prestazioni degli ultimi {{count}} giorni.",
     "windowSubtitle_other": "Migliori prestazioni degli ultimi {{count}} giorni.",
@@ -507,9 +506,12 @@
     "climbingOwed": "I migliori di salita sono ancora in calcolo.",
     "checkpoint": {
       "halfMarathon": "Mezza maratona",
+      "marathon": "Maratona",
+      "mile": "Miglio",
       "metres": "{{value}} m",
       "kilometres": "{{value}} km"
-    }
+    },
+    "curveSource": "I migliori di potenza e passo arrivano da intervals.icu."
   },
   "cache": {
     "allActivitiesSynced": "Tutte le attività sincronizzate",
@@ -1632,7 +1634,6 @@
     "settingsAutoPauseThreshold": "Soglia di velocità",
     "settingsAutoPauseWalkingAndOther": "Camminata e altri sport",
     "settingsDataFields": "Campi dati",
-    "settingsUnits": "Unità",
     "slideToUnlock": "Scorri per sbloccare",
     "lockControls": "Blocca i comandi",
     "unlockControls": "Sblocca i comandi",
@@ -2132,15 +2133,15 @@
     "signOut": "Disconnetti",
     "leaveDemo": "Esci dalla demo",
     "display": "Schermo",
-    "largeHistoryConfirm": "Scarica comunque",
-    "largeHistoryMessage_one": "Risalire così indietro scarica fino a circa {{count}} attività. Ci vorrà un po', e l'app non è garantita restare veloce con così tanti dati.",
-    "largeHistoryMessage_many": "Risalire così indietro scarica fino a circa {{count}} di attività. Ci vorrà un po', e l'app non è garantita restare veloce con così tanti dati.",
-    "largeHistoryMessage_other": "Risalire così indietro scarica fino a circa {{count}} attività. Ci vorrà un po', e l'app non è garantita restare veloce con così tanti dati.",
-    "largeHistoryTitle": "Download di grandi dimensioni",
     "largeHistoryDaysTitle_one": "Ci vorrà almeno {{count}} giorno",
     "largeHistoryDaysTitle_many": "Ci vorranno almeno {{count}} di giorni",
     "largeHistoryDaysTitle_other": "Ci vorranno almeno {{count}} giorni",
-    "largeHistoryDaysMessage": "intervals.icu limita quante attività l'app può scaricare al giorno, e tutte le installazioni condividono quel limite. Il resto arriva nei giorni successivi. L'app non è garantita restare veloce con così tanti dati.",
+    "activityHistory": "Cronologia delle attività",
+    "activityHistoryIntro": "intervals.icu limita quante attività l’app può scaricare al giorno e tutte le installazioni condividono questo limite. Una cronologia più lunga richiede più tempo, e un intervallo più ampio non alza il limite.",
+    "activityHistorySummary": "Ultimi {{span}}, attività: {{activities}}",
+    "historyCost": "Attività da scaricare: fino a circa {{activities}}",
+    "historyUnlocks": "Una cronologia più lunga offre tendenze più lunghe, più storico delle sezioni e un migliore raggruppamento dei percorsi.",
+    "historyConfirm": "Scarica questo intervallo",
     "localDataRange": "Intervallo dati locale",
     "localDataRangeEnd": "Fine dell'intervallo dati locale",
     "heroMetric": "Metrica Principale",
@@ -2262,7 +2263,6 @@
     "groupKeeps": "Libreria e backup",
     "routesAndSections": "Percorsi e sezioni",
     "storage": "Archiviazione",
-    "sinceDateSubtitle": "Dal {{date}}",
     "elevationBackfillRunning": "Aggiunta dell'altitudine ai tracciati delle attività",
     "elevationBackfillProgress": "{{completed}} di {{total}} attività",
     "elevationBackfillComplete": "Tutti i tracciati delle attività hanno l'altitudine",
@@ -2345,7 +2345,7 @@
     "previewStatusGone": "Rimossa",
     "previewCurrentLayer": "Attuale",
     "previewRetiredLayer": "Ritirati",
-    "previewProposedLayer": "Proposto",
+    "previewAreaLayer": "Zona",
     "previewKeep": "Mantieni",
     "previewDiscard": "Scarta",
     "previewKeepTitle": "Applicare queste impostazioni?",
@@ -2404,7 +2404,6 @@
     "debugModeDescription": "Mostra la diagnostica interna nelle pagine di dettaglio",
     "developerDashboardDescription": "Statistiche del motore, prestazioni FFI, memoria",
     "experimentalFeatures": "Funzioni sperimentali",
-    "experimentalFeaturesDescription": "Mostra funzioni ancora in sviluppo, ognuna con il proprio interruttore",
     "experimentalDashboardDescription": "Attiva o disattiva ogni funzione sperimentale e aprila"
   },
   "stats": {
@@ -2854,6 +2853,7 @@
     "forget": "Dimentica",
     "connect": "Connetti",
     "disconnect": "Disconnetti",
+    "reconnect": "Riconnetti",
     "recordFrom": "Registra {{kind}} da {{name}}",
     "chooseSourceHint": "Quando due sensori forniscono la stessa metrica, viene registrata quella evidenziata. Tocca l'altro per cambiare.",
     "bleUnavailable": "Bluetooth non disponibile",
@@ -2861,7 +2861,8 @@
     "kinds": {
       "heartRate": "Frequenza cardiaca",
       "power": "Potenza",
-      "cadence": "Cadenza"
+      "cadence": "Cadenza",
+      "runningCadence": "Cadenza di corsa"
     },
     "status": {
       "connecting": "Connessione…",
@@ -2869,6 +2870,12 @@
       "noData": "Connesso, nessun dato",
       "reconnecting": "Riconnessione…",
       "disconnected": "Non connesso"
+    },
+    "silent": {
+      "heartRate": "Collegato, non invia la frequenza cardiaca. Attiva la trasmissione della frequenza cardiaca sul dispositivo.",
+      "power": "Collegato, non invia la potenza. Attiva la trasmissione della potenza sul dispositivo.",
+      "cadence": "Collegato, non invia la cadenza. Attiva la trasmissione della cadenza sul dispositivo.",
+      "runningCadence": "Collegato, non invia la cadenza di corsa. Attiva la trasmissione della cadenza di corsa sul dispositivo."
     },
     "purpose": "Il Bluetooth serve a trovare e collegare sensori di frequenza cardiaca, potenza e cadenza.",
     "noneFound": "Nessun sensore trovato",
@@ -2964,6 +2971,7 @@
     "retiredInto": "In {{name}}",
     "pairUnnamed": "Tratto senza nome",
     "pairNone": "Nessun altro tratto condivide questo percorso",
+    "pairsPending": "Stiamo ancora calcolando quali tratti condividono questo percorso",
     "pairRetiredLedger": "Ritirato in {{name}}",
     "pairRetiredSupersedes": "Aveva nascosto {{name}}",
     "pairCurrentLedger": "Ha preso il posto di {{name}}",
@@ -3055,7 +3063,16 @@
     "heldByBudget": "Limite di richieste raggiunto, in attesa fino a {{time}}",
     "pacedOnCaps_one": "Almeno {{count}} giorno per completare, secondo il limite giornaliero di intervals.icu",
     "pacedOnCaps_other": "Almeno {{count}} giorni per completare, secondo il limite giornaliero di intervals.icu",
-    "lastFinished": "Ultima esecuzione {{time}}",
+    "headerRunning_one": "{{count}} attività in background in corso",
+    "headerRunning_many": "{{count}} attività in background in corso",
+    "headerRunning_other": "{{count}} attività in background in corso",
+    "headerStopped_one": "{{count}} attività in background interrotta in anticipo",
+    "headerStopped_many": "{{count}} attività in background interrotte in anticipo",
+    "headerStopped_other": "{{count}} attività in background interrotte in anticipo",
+    "headerWaiting": "Attività in background in attesa fino a {{time}}",
+    "headerWaitingNoTime": "Attività in background in attesa",
+    "headerIdle": "Tutte le attività in background sono concluse",
+    "pastRuns": "Esecuzioni precedenti",
     "lastRunNoChange": "Nessuna modifica",
     "lastRunStopped": "Interrotta",
     "lastRunActivities_one": "{{count}} attività",
@@ -3327,6 +3344,10 @@
     "garminUpdate": {
       "title": "Aggiorna le attività da Garmin",
       "blurb": "Sostituisce la copia di intervals.icu con il file proprio di Garmin quando ne contiene di più. Richiede una chiave Garmin. Non completa."
+    },
+    "climbingBests": {
+      "title": "Migliori in salita",
+      "blurb": "Veloq li calcola sul tuo telefono a partire dai dati di altitudine di intervals.icu. intervals.icu non fornisce da sé i migliori in salita. Per ogni intervallo, da 15 secondi a 20 minuti, Veloq trova la tua velocità di salita più alta in metri all'ora (VAM) e la converte in W/kg, la potenza necessaria per sollevare il solo peso del tuo corpo. Contano solo le attività con altitudine corretta da intervals.icu."
     }
   }
 }

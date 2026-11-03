@@ -145,3 +145,21 @@ describe('sessionSensorRows', () => {
     ]);
   });
 });
+
+describe('reconnect action', () => {
+  it('is offered only on a row whose link reads no data', () => {
+    const strap = { id: 'strap-1', name: 'Chest strap', kinds: ['heartRate' as const] };
+    const states = ['off', 'connecting', 'reconnecting', 'connected', 'noData'] as const;
+    for (const state of states) {
+      const rows = sessionSensorRows({
+        knownSensors: [strap],
+        connections:
+          state === 'off' ? {} : { [strap.id]: { status: state, name: 'x', kinds: ['heartRate'] } },
+        activeSources: {},
+        suppliedKinds: {},
+        latestSensor: { heartrate: null, power: null, cadence: null },
+      });
+      expect([state, rows[0].canReconnect]).toEqual([state, state === 'noData']);
+    }
+  });
+});

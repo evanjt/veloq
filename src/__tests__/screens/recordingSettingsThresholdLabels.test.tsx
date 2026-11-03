@@ -9,7 +9,9 @@
 import React from 'react';
 import { render, within } from '@testing-library/react-native';
 
-import RecordingSettingsScreen from '@/app/recording-settings';
+import RecordingAutoPauseScreen from '@/app/recording-auto-pause';
+import RecordingGpsScreen from '@/app/recording-gps-settings';
+import RecordingUploadScreen from '@/app/recording-upload';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -26,13 +28,13 @@ jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 describe('recording settings threshold labels', () => {
   it('labels the catch-all row as walking and every other sport', async () => {
-    const { getByTestId } = await render(<RecordingSettingsScreen />);
+    const { getByTestId } = await render(<RecordingAutoPauseScreen />);
     const row = getByTestId('settings-threshold-walking');
     expect(within(row).queryByText('recording.settingsAutoPauseWalkingAndOther')).not.toBeNull();
   });
 
   it('names both accuracy filter controls', async () => {
-    const { getByRole, getByTestId } = await render(<RecordingSettingsScreen />);
+    const { getByRole, getByTestId } = await render(<RecordingGpsScreen />);
     expect(getByRole('button', { name: 'recording.accuracyFilterDecrease' })).toBe(
       getByTestId('settings-accuracy-filter-minus')
     );
@@ -42,11 +44,18 @@ describe('recording settings threshold labels', () => {
   });
 
   it('names every switch by the label beside it', async () => {
-    const { getByRole, getAllByRole } = await render(<RecordingSettingsScreen />);
+    const upload = await render(<RecordingUploadScreen />);
+    expect(upload.getByRole('switch', { name: 'recording.autoUpload' })).toBeTruthy();
+    expect(upload.getAllByRole('switch')).toHaveLength(1);
+    await upload.unmount();
 
-    expect(getByRole('switch', { name: 'recording.autoUpload' })).toBeTruthy();
-    expect(getByRole('switch', { name: 'recording.keepAwake' })).toBeTruthy();
-    expect(getByRole('switch', { name: 'recording.settingsAutoPause' })).toBeTruthy();
-    expect(getAllByRole('switch')).toHaveLength(3);
+    const gps = await render(<RecordingGpsScreen />);
+    expect(gps.getByRole('switch', { name: 'recording.keepAwake' })).toBeTruthy();
+    expect(gps.getAllByRole('switch')).toHaveLength(1);
+    await gps.unmount();
+
+    const pause = await render(<RecordingAutoPauseScreen />);
+    expect(pause.getByRole('switch', { name: 'recording.settingsAutoPause' })).toBeTruthy();
+    expect(pause.getAllByRole('switch')).toHaveLength(1);
   });
 });

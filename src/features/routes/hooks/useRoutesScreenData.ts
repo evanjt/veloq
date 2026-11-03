@@ -141,6 +141,7 @@ function readFirstPage(query: {
       hasMoreGroups: result.hasMoreGroups,
       hasMoreSections: result.hasMoreSections,
       groupsDirty: result.groupsDirty ?? false,
+      groupsHold: result.groupsHold,
       groupEmptyReason: result.groupEmptyReason,
       sectionEmptyReason: result.sectionEmptyReason,
     } as PaginatedRoutesData;
@@ -346,6 +347,7 @@ export function useRoutesScreenData(opts?: {
         hasMoreGroups: hasMore.hasMoreGroups,
         hasMoreSections: hasMore.hasMoreSections,
         groupsDirty: result.groupsDirty ?? false,
+        groupsHold: result.groupsHold,
         groupEmptyReason: result.groupEmptyReason,
         sectionEmptyReason: result.sectionEmptyReason,
       } as PaginatedRoutesData;
@@ -430,9 +432,12 @@ export function useRoutesScreenData(opts?: {
   );
 
   // A running, held or owed detect moves with no announcement, so while a list
-  // says one of them the page is read again each time the jobs it names move.
+  // says one of them, or a regroup is held behind one, the page is read again
+  // each time the jobs it names move.
   const followsJobs =
-    reasonMovesOnItsOwn(data?.groupEmptyReason) || reasonMovesOnItsOwn(data?.sectionEmptyReason);
+    reasonMovesOnItsOwn(data?.groupEmptyReason) ||
+    reasonMovesOnItsOwn(data?.sectionEmptyReason) ||
+    data?.groupsHold !== undefined;
   useEffect(() => {
     if (!followsJobs) return undefined;
     let last: string | null = null;
@@ -516,12 +521,31 @@ export interface RetiredMapRead {
  * so the list and the map cannot disagree about which sections left.
  */
 export function useRetiredMapData(): RetiredMapRead {
-  const readRetired = useEngineRead(['sections', 'detectionApplied']);
-  return useMemo(() => {
+  // While ground pairs are owed, the engine works them out on a thread of its own and announces
+  // nothing when it stops, so the read is taken again each time the status says it has stopped.
+  const [levelTick, setLevelTick] = useState(0);
+  const readRetired = useEngineRead(['sections', 'detectionApplied'], [levelTick]);
+  const read = useMemo((): RetiredMapRead => {
     const result = attemptEngineRead(() => readRetired(() => sections.getRetiredMapData()));
     if (!result.ok) return { data: null, failure: { error: result.error } };
     return { data: result.value ?? null, failure: null };
   }, [readRetired]);
+
+  const pending = read.data?.pairsPending === true;
+  useEffect(() => {
+    if (!pending) return undefined;
+    let wasRunning: boolean | null = null;
+    return followRoutesStatus((status) => {
+      if (!status) return;
+      const running = status.retiredPairsRunning;
+      // The first idle tick covers a worker that finished before the follow began; after that
+      // only a stop is a reason to look again, so a worker that cannot run is not asked forever.
+      if (!running && wasRunning !== false) setLevelTick((t) => t + 1);
+      wasRunning = running;
+    });
+  }, [pending]);
+
+  return read;
 }
 
 function useRetiredCounts(): RetiredCounts {

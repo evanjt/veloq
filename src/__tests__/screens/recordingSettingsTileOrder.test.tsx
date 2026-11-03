@@ -11,7 +11,7 @@ import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, renderHook, waitFor, within } from '@testing-library/react-native';
 
-import RecordingSettingsScreen from '@/app/recording-settings';
+import RecordingDataFieldsScreen from '@/app/recording-data-fields';
 import { answerSheet } from '../__shared__/answerSheet';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import type { FieldPickerSheetInput } from '@/app/sheets/field-picker';
@@ -66,7 +66,7 @@ beforeEach(async () => {
 
 describe('recording settings tile order', () => {
   it('lists every tile of each mode in order', async () => {
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingDataFieldsScreen />);
     const gps = ['speed', 'distance', 'heartrate', 'power'];
     gps.forEach((field, index) => {
       const row = view.getByTestId(`settings-tile-gps-${index}`);
@@ -78,7 +78,7 @@ describe('recording settings tile order', () => {
   });
 
   it('opens the field picker on the tile with its current field', async () => {
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingDataFieldsScreen />);
     void fireEvent.press(view.getByTestId('settings-tile-gps-1'));
     const pushed = mockPush.mock.calls.at(-1)[0];
     expect(pushed.pathname).toBe('sheets/field-picker');
@@ -89,7 +89,7 @@ describe('recording settings tile order', () => {
   });
 
   it('puts the chosen field in that tile and stores it', async () => {
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingDataFieldsScreen />);
     void fireEvent.press(view.getByTestId('settings-tile-gps-2'));
     await answerSheet(mockPush, mockParams, 'cadence');
     await waitFor(() =>
@@ -107,7 +107,7 @@ describe('recording settings tile order', () => {
   });
 
   it('swaps places with a field already shown in another tile', async () => {
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingDataFieldsScreen />);
     void fireEvent.press(view.getByTestId('settings-tile-gps-2'));
     await answerSheet(mockPush, mockParams, 'speed');
     await waitFor(() =>
@@ -122,7 +122,7 @@ describe('recording settings tile order', () => {
   });
 
   it('leaves the other mode alone', async () => {
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingDataFieldsScreen />);
     void fireEvent.press(view.getByTestId('settings-tile-indoor-0'));
     await answerSheet(mockPush, mockParams, 'calories');
     await waitFor(() =>
@@ -142,7 +142,7 @@ describe('recording settings tile order', () => {
   });
 
   it('changes nothing when the picker is dismissed', async () => {
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingDataFieldsScreen />);
     void fireEvent.press(view.getByTestId('settings-tile-gps-2'));
     await answerSheet(mockPush, mockParams, null);
     await act(async () => {});
@@ -157,7 +157,7 @@ describe('recording settings tile order', () => {
 
   it('lists the default tiles of a mode the stored layout never named', async () => {
     useRecordingPreferences.setState({ dataFields: { gps: ['speed'] } });
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingDataFieldsScreen />);
     ['heartrate', 'power', 'cadence', 'timer'].forEach((field, index) => {
       const row = view.getByTestId(`settings-tile-indoor-${index}`);
       expect(within(row).getByText(`recording.fields.${field}`)).toBeTruthy();
@@ -168,7 +168,7 @@ describe('recording settings tile order', () => {
     useRecordingPreferences.setState({
       dataFields: { gps: ['speed', 'distance', 'heartrate', 'power', 'cadence', 'timer'] },
     });
-    const view = await render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingDataFieldsScreen />);
     expect(view.getByTestId('settings-field-count-gps')).toBeTruthy();
     expect(view.getByTestId('settings-field-gps-calories').props.accessibilityState.disabled).toBe(
       true

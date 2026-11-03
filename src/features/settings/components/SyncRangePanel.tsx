@@ -13,7 +13,7 @@ import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { useTrackStage } from '@/shared/native/useSyncStatus';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { useBackfillDayShare } from '../hooks/useBackfillDayShare';
-import { activitiesInRange, historyConfirmCopy, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
+import { activitiesInRange, historyConfirmCopy } from '../lib/historyGate';
 import { rangeProgress } from '../lib/rangeProgress';
 import { dailyLimitLines } from '../lib/dailyLimitLines';
 import { useDailyLimit } from '../hooks/useBackgroundJobs';
@@ -27,7 +27,8 @@ import {
   typography,
   themePalette,
 } from '@/theme';
-import { confirmAction, inform } from '@/shared/ui/dialog';
+import { inform } from '@/shared/ui/dialog';
+import { Button } from '@/shared/ui';
 import { ProgressBar } from '@/shared/ui/ProgressRow';
 
 export function SyncRangePanel() {
@@ -85,50 +86,42 @@ export function SyncRangePanel() {
     return { minDateForSlider: d, maxDateForSlider: now };
   }, [apiOldestDate]);
 
+  // The range the slider proposes. Nothing downloads until it is confirmed.
+  const [proposedStart, setProposedStart] = useState<Date | null>(null);
+
   const handleRangeChange = useCallback(
     (start: Date, _end: Date) => {
       if (start >= cachedStartDate) {
+        setProposedStart(null);
         putHandleBack();
         return;
       }
-      // A refused drag has to say why. The latch comes off when the first sync
-      // settles, and until then the slider springs back with nothing on screen.
-      const expand = () => {
-        if (syncDateRange(formatLocalDate(start), formatLocalDate(new Date())) === 'locked') {
-          putHandleBack();
-          inform({
-            title: t('settings.rangeLockedTitle'),
-            message: t('settings.rangeLockedMessage'),
-          });
-        }
-      };
-
-      // An upper bound, and zero when the sync has not stored the counts yet.
-      // Neither may hold the user behind a figure the app cannot produce.
-      const count = activitiesInRange(yearCounts, start, cachedStartDate);
-      if (count < LARGE_HISTORY_THRESHOLD) {
-        expand();
-        return;
-      }
-
-      const copy = historyConfirmCopy(count, dayShare);
-      confirmAction({
-        title:
-          copy.kind === 'days'
-            ? t('settings.largeHistoryDaysTitle', { count: copy.days })
-            : t('settings.largeHistoryTitle'),
-        message:
-          copy.kind === 'days'
-            ? t('settings.largeHistoryDaysMessage')
-            : t('settings.largeHistoryMessage', { count: copy.count }),
-        confirmLabel: t('settings.largeHistoryConfirm'),
-        cancelLabel: t('common.cancel'),
-        onConfirm: expand,
-        onCancel: putHandleBack,
-      });
+      setProposedStart(start);
     },
-    [syncDateRange, cachedStartDate, yearCounts, dayShare, t, putHandleBack]
+    [cachedStartDate, putHandleBack]
   );
+
+  // An upper bound, and zero when the sync has not stored the counts yet. Neither may hold the
+  // athlete behind a figure the app cannot produce.
+  const cost = useMemo(() => {
+    if (!proposedStart) return null;
+    const count = activitiesInRange(yearCounts, proposedStart, cachedStartDate);
+    return historyConfirmCopy(count, dayShare);
+  }, [proposedStart, yearCounts, cachedStartDate, dayShare]);
+
+  const confirm = useCallback(() => {
+    if (!proposedStart) return;
+    const outcome = syncDateRange(formatLocalDate(proposedStart), formatLocalDate(new Date()));
+    setProposedStart(null);
+    if (outcome === 'locked') {
+      // The latch comes off when the first sync settles, and until then the slider springs back.
+      putHandleBack();
+      inform({
+        title: t('settings.rangeLockedTitle'),
+        message: t('settings.rangeLockedMessage'),
+      });
+    }
+  }, [proposedStart, syncDateRange, putHandleBack, t]);
 
   return (
     <>
@@ -149,6 +142,35 @@ export function SyncRangePanel() {
             expandOnly
           />
         </View>
+
+        {/* What the proposed range costs, and what it unlocks */}
+        {cost ? (
+          <View style={styles.costRow}>
+            <Text
+              testID="history-range-cost"
+              style={[styles.progressText, isDark && styles.progressTextDark]}
+            >
+              {t('settings.historyCost', { activities: cost.count })}
+            </Text>
+            {cost.kind === 'days' ? (
+              <Text
+                testID="history-range-days"
+                style={[styles.progressText, isDark && styles.progressTextDark]}
+              >
+                {t('settings.largeHistoryDaysTitle', { count: cost.days })}
+              </Text>
+            ) : null}
+            <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
+              {t('settings.historyUnlocks')}
+            </Text>
+            <Button
+              testID="history-range-confirm"
+              style={styles.confirm}
+              label={t('settings.historyConfirm')}
+              onPress={confirm}
+            />
+          </View>
+        ) : null}
 
         {/* The range's tracks, owed or downloading */}
         {progress ? (
@@ -199,6 +221,13 @@ const styles = StyleSheet.create({
   sliderWrap: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  costRow: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  confirm: {
+    marginTop: spacing.sm,
   },
   progressRow: {
     paddingHorizontal: spacing.md,

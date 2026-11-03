@@ -17,35 +17,23 @@ tags:
       id: "fitness-screen"
     timeout: 10000
 
-# The curves and season bests are on the performance page.
+# The curve is on the performance page.
 - tapOn:
     id: "tab-performance"
 
-# Bring the performance section into view and verify it exists (don't expand, keeps page short)
+# The curve is a plain card, so it is in view without opening anything.
 - scrollUntilVisible:
     element:
-      id: "fitness-section-performance"
+      id: "fitness-performance-curve"
     direction: DOWN
     timeout: 15000
     speed: 40
 
 - takeScreenshot: "screenshots/fitness-performance-header"
 
-# Scroll to season bests section
-- scrollUntilVisible:
-    element:
-      id: "fitness-section-bests"
-    direction: DOWN
-    timeout: 15000
-    speed: 40
-
-- takeScreenshot: "screenshots/fitness-bests-header"
-
 # Zones section, just verify presence, don't try to expand.
 # CollapsibleSection headers stay in the accessibility tree even when off-screen,
 # which causes `runFlow when visible` + `tapOn` to fire on an untappable element.
-- takeScreenshot: "screenshots/fitness-after-bests"
-
 # Zones, the eFTP trend, thresholds and decoupling are on the trends page.
 - tapOn:
     id: "tab-trends"

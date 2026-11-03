@@ -1,1 +1,1 @@
-puissance,allure,cadence,fréquence cardiaque,zones,ftp,hrv,gpx,col,itinéraire,natation,triathlon
+vélo,course,parcours,sections,heatmap,aperçus,offline,privacy,dénivelé,triathlon,vtt,gravel,vfc

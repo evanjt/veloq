@@ -325,6 +325,7 @@ fn routes_screen(v: FfiRoutesScreenData) -> Lowered {
         has_more_groups,
         has_more_sections,
         groups_dirty,
+        groups_hold,
         filtered_group_count,
         filtered_section_count,
         unaccepted_auto_count,

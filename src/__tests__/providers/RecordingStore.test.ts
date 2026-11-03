@@ -265,7 +265,12 @@ describe('RecordingStore', () => {
       expect(state.streams.distance).toEqual([]);
       expect(state.laps).toEqual([]);
       expect(state.pairedEventId).toBeNull();
-      expect(state.latestSensor).toEqual({ heartrate: null, power: null, cadence: null });
+      expect(state.latestSensor).toEqual({
+        heartrate: null,
+        power: null,
+        cadence: null,
+        speed: null,
+      });
       expect(state._pauseStart).toBeNull();
     });
   });
