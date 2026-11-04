@@ -101,7 +101,7 @@ fn main() {
                 }
             }
             let grouping = t1.elapsed();
-            group_count = handle.take_groups().map(|g| g.len()).unwrap_or(0);
+            group_count = handle.take_result().map(|r| r.groups.len()).unwrap_or(0);
 
             walks.push(walk.as_secs_f64() * 1000.0);
             groups_ms.push(grouping.as_secs_f64() * 1000.0);

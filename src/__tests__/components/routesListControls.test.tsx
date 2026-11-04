@@ -133,8 +133,26 @@ describe('the routes list sort', () => {
 
 describe('the preview centre picker', () => {
   const centres: PreviewCentre[] = [
-    { binKey: 'b0', lat: 1, lng: 2, visitTotal: 14, sectionCount: 3, source: 'sections' },
-    { binKey: 'b1', lat: 3, lng: 4, visitTotal: 9, sectionCount: 2, source: 'sections' },
+    {
+      binKey: 'b0',
+      lat: 1,
+      lng: 2,
+      visitTotal: 14,
+      sectionCount: 3,
+      routeCount: 0,
+      name: null,
+      source: 'sections',
+    },
+    {
+      binKey: 'b1',
+      lat: 3,
+      lng: 4,
+      visitTotal: 9,
+      sectionCount: 2,
+      routeCount: 0,
+      name: null,
+      source: 'sections',
+    },
   ];
   const labels = centres.map((c, i) => ({ binKey: c.binKey, fallbackLetter: fallbackLetter(i) }));
 

@@ -28,6 +28,10 @@ export interface PreviewCentre {
   lng: number;
   visitTotal: number;
   sectionCount: number;
+  /** Route groups centred in the area. */
+  routeCount: number;
+  /** The locality most of the area's sections are named for, or null. */
+  name: string | null;
   source: 'sections' | 'activities';
 }
 
@@ -173,6 +177,8 @@ export function getPreviewCentres(host: DelegateHost, limit: number): PreviewCen
         lng: c.lng,
         visitTotal: c.visitTotal,
         sectionCount: c.sectionCount,
+        routeCount: c.routeCount,
+        name: c.name ?? null,
         source: c.source === 'sections' ? ('sections' as const) : ('activities' as const),
       }))
   );

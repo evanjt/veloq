@@ -15,6 +15,8 @@ function centre(over: Partial<PreviewCentre>): PreviewCentre {
     lng: 10,
     visitTotal: 5,
     sectionCount: 2,
+    routeCount: 0,
+    name: null,
     source: 'sections',
     ...over,
   };

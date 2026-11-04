@@ -27,10 +27,18 @@ interface PreviewSheetProps {
   children: React.ReactNode;
   /** Bottom padding, so the last row clears the tab bar and the home indicator. */
   bottomInset: number;
+  /** The handle's accessibility label; the section preview's by default. */
+  handleLabel?: string;
   testID?: string;
 }
 
-export function PreviewSheet({ summary, children, bottomInset, testID }: PreviewSheetProps) {
+export function PreviewSheet({
+  summary,
+  children,
+  bottomInset,
+  handleLabel,
+  testID,
+}: PreviewSheetProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const { height: windowHeight } = useWindowDimensions();
@@ -64,7 +72,7 @@ export function PreviewSheet({ summary, children, bottomInset, testID }: Preview
         <MapSheetToggleHandle
           expanded={expanded}
           onChange={setExpanded}
-          label={t('settings.previewSections')}
+          label={handleLabel ?? t('settings.previewSections')}
           testID={testID ? `${testID}-handle` : undefined}
         />
       </View>

@@ -43,6 +43,7 @@ import {
 import type { PaintedRoute } from '../../lib/groupingParams';
 import { groupingLegendRows, groupingPreviewLayers } from '../../lib/groupingLegend';
 import { groupingAreaBounds } from '../../lib/groupingAreaCamera';
+import { previewAreaOutline } from '../../lib/previewAreaOutline';
 import type { PreviewAreaCentre } from '../../lib/previewMapCamera';
 
 /** One of today's routes, with the line the routes screen already holds. */
@@ -156,14 +157,18 @@ export function GroupingPreviewMap({
     if (framing) surfaceRef.current?.fitBounds(framing, spacing.lg, cameraMove.brisk);
   }, [framing]);
 
+  const area = useMemo(() => previewAreaOutline(centre), [centre]);
+  const hasArea = area.features.length > 0;
+
   const sources: Record<string, MapSourceSpec> = useMemo(
     () => ({
+      'preview-area': { kind: 'geojson', data: area },
       'grouping-dropped': { kind: 'geojson', data: collection(features.dropped) },
       'grouping-other': { kind: 'geojson', data: collection(features.other) },
       'grouping-merging': { kind: 'geojson', data: collection(features.merging) },
       'grouping-largest': { kind: 'geojson', data: collection(features.largest) },
     }),
-    [features]
+    [features, area]
   );
 
   const palette = mapPalette(mapStyle);
@@ -193,9 +198,11 @@ export function GroupingPreviewMap({
         style={[styles.legend, { backgroundColor: chipBg, borderColor: chipBorder }]}
         pointerEvents="none"
       >
-        {groupingLegendRows(mergedCount, palette).map((row) => (
+        {groupingLegendRows(mergedCount, palette, hasArea).map((row) => (
           <LegendRow
             key={row.kind}
+            kind={row.kind}
+            dashed={row.dashed === true}
             colour={row.colour}
             opacity={row.opacity}
             label={t(row.labelKey, { count: row.count ?? 0 })}
@@ -207,20 +214,35 @@ export function GroupingPreviewMap({
   );
 }
 
+const DASH_KEYS = ['a', 'b', 'c'];
+
 function LegendRow({
+  kind,
+  dashed,
   colour,
   opacity,
   label,
   textColour,
 }: {
+  kind: string;
+  dashed: boolean;
   colour: string;
   opacity: number;
   label: string;
   textColour: string;
 }) {
   return (
-    <View style={styles.legendRow}>
-      <View style={[styles.swatch, { backgroundColor: colour, opacity }]} />
+    <View style={styles.legendRow} testID={`grouping-legend-${kind}`}>
+      {dashed ? (
+        // Three short bars, the way the map dashes the line this row keys.
+        <View style={styles.swatchDashed}>
+          {DASH_KEYS.map((k) => (
+            <View key={k} style={[styles.dash, { backgroundColor: colour, opacity }]} />
+          ))}
+        </View>
+      ) : (
+        <View style={[styles.swatch, { backgroundColor: colour, opacity }]} />
+      )}
       <Text style={[styles.legendLabel, { color: textColour }]}>{label}</Text>
     </View>
   );
@@ -240,5 +262,7 @@ const styles = StyleSheet.create({
   },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   swatch: { width: 12, height: 3, borderRadius: layout.borderRadiusFull },
+  swatchDashed: { width: 12, height: 3, flexDirection: 'row', justifyContent: 'space-between' },
+  dash: { width: 3, height: 3, borderRadius: layout.borderRadiusFull },
   legendLabel: { ...typography.caption },
 });

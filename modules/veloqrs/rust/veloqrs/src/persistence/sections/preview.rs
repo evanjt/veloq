@@ -32,7 +32,7 @@ fn announce_phase(progress: &SectionDetectionProgress, phase: &str, total: u32) 
     notify_phase(phase);
 }
 
-/// Bin edge for the ~5 km centre grid, in degrees of latitude.
+/// Bin edge of the key an area is named by, in degrees of latitude.
 const BIN_DEG: f64 = 0.045;
 
 /// A (min_lat, max_lat, min_lng, max_lng) box in degrees.
@@ -44,71 +44,196 @@ type DegreeBox = (f64, f64, f64, f64);
 pub static SECTION_PREVIEW_HANDLE: LazyLock<Mutex<Option<SectionPreviewHandle>>> =
     LazyLock::new(|| Mutex::new(None));
 
-/// A ranked riding area: one occupied ~5 km bin of the user's library.
+/// A ranked riding area: one connected region of the user's library.
 #[derive(Debug, Clone, uniffi::Record)]
 #[uniffi(name = "FfiPreviewCentre")]
 pub struct PreviewCentre {
-    /// "lat_bin:lng_bin" at ~5 km, an order-free ranking key.
+    /// "lat_bin:lng_bin" of the area's centre at ~5 km, an order-free ranking key.
     pub bin_key: String,
     pub lat: f64,
     pub lng: f64,
-    /// Sum of section visit counts in the bin, or activity count on fallback.
+    /// Sum of section visit counts in the area, or activity count on fallback.
     pub visit_total: u32,
     /// 0 on the activities fallback.
     pub section_count: u32,
+    /// Route groups centred in the area. 0 when none is.
+    pub route_count: u32,
+    /// The locality most of the area's sections are named for, when at least
+    /// two share one. None leaves the screen to letter the area.
+    pub name: Option<String>,
     /// "sections" | "activities"
     pub source: String,
 }
 
-/// How far apart two ranked bins have to be to count as different places.
-///
-/// Measured rather than chosen: replaying the binning over two libraries, a
-/// home valley occupies 46 of the 5 km bins spread along 45 km of river, so
-/// inside it the gap to a higher-ranked bin runs 0.7 to 25 km, and the first
-/// bin that is somewhere else rather than a further zoom of the same valley is
-/// 70 km away. Fifty keeps the valley as one area and the next town as another.
-///
-/// It is a distance off the athlete's own data. No place is named in code.
-const CENTRE_SPREAD_RADIUS_M: f64 = 50_000.0;
+/// One section's centre, or an activity's when there are no sections.
+struct CentreMember {
+    lat: f64,
+    lng: f64,
+    visits: u32,
+    /// The athlete's name for the section, absent for a handle or an activity.
+    name: Option<String>,
+}
 
-/// Thin the ranked areas so one place takes one slot, keeping visit total as
-/// the ranking.
-///
-/// Greedy: walk the list in rank order and take a bin unless a bin already
-/// taken is within [`CENTRE_SPREAD_RADIUS_M`] of it. The picker is a chooser
-/// for where to tune rather than a summary of where the athlete rides, so this
-/// is de-duplication and not a tour: it removes further zooms of a place
-/// already on the list and changes nothing else about the order.
-///
-/// **An athlete who only rides one valley still fills every slot.** When
-/// suppression cannot reach `limit`, the remaining slots come from the bins it
-/// suppressed, still in rank order, so that athlete gets their busiest
-/// sub-areas rather than one area and five empty rows. A second, smaller radius
-/// would do the same job and would be another constant to justify.
-fn spread_centres(centres: Vec<PreviewCentre>, limit: usize) -> Vec<PreviewCentre> {
-    if centres.len() <= limit {
-        return centres;
+/// One route group's centre, assigned to the area it rides in.
+struct RouteCentre {
+    lat: f64,
+    lng: f64,
+}
+
+/// The place a section name speaks of: the name without its last word, which
+/// is the kind of ground ("climb", "loop"), or the whole name when it is one
+/// word.
+fn locality_of(name: &str) -> Option<&str> {
+    let name = name.trim();
+    let place = name
+        .rsplit_once(char::is_whitespace)
+        .map_or(name, |(head, _)| head.trim_end());
+    (!place.is_empty()).then_some(place)
+}
+
+/// The locality at least two of `names` share, the most common first, then
+/// the one spelled first.
+fn shared_locality<'a>(names: impl Iterator<Item = &'a str>) -> Option<String> {
+    let mut counts: HashMap<&str, u32> = HashMap::new();
+    for place in names.filter_map(locality_of) {
+        *counts.entry(place).or_insert(0) += 1;
     }
-    let mut taken: Vec<PreviewCentre> = Vec::with_capacity(limit);
-    let mut suppressed: Vec<PreviewCentre> = Vec::new();
-    for centre in centres {
-        let crowded = taken.iter().any(|t| {
-            crate::persistence::haversine_distance_meters(t.lat, t.lng, centre.lat, centre.lng)
-                < CENTRE_SPREAD_RADIUS_M
+    counts
+        .into_iter()
+        .filter(|&(_, n)| n >= 2)
+        .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(a.0)))
+        .map(|(place, _)| place.to_string())
+}
+
+/// Group centres into riding regions by single linkage: two centres share a
+/// region when a chain of centres, each within `gap_m` of the next, joins
+/// them. A region is therefore the same however a grid would have cut it, and
+/// no two regions returned are within `gap_m` of each other by any link.
+///
+/// The gap is the one the preview run clusters activities by, so an area a
+/// chip names is the ground a run over it covers.
+///
+/// Each region reports the mean of its members' centres, summed in the order
+/// given so the result does not depend on hash order. Ranked by visit total,
+/// then by key.
+fn riding_regions(
+    members: &[CentreMember],
+    routes: &[RouteCentre],
+    gap_m: f64,
+    count_sections: bool,
+    source: &str,
+) -> Vec<PreviewCentre> {
+    let mut order: Vec<usize> = (0..members.len()).collect();
+    order.sort_by(|&a, &b| members[a].lat.total_cmp(&members[b].lat));
+    let gap_lat_deg = gap_m / 111_132.0;
+
+    let mut parent: Vec<usize> = (0..members.len()).collect();
+    fn root(parent: &mut [usize], mut i: usize) -> usize {
+        while parent[i] != i {
+            parent[i] = parent[parent[i]];
+            i = parent[i];
+        }
+        i
+    }
+    for (rank, &i) in order.iter().enumerate() {
+        for &j in &order[rank + 1..] {
+            if members[j].lat - members[i].lat > gap_lat_deg {
+                break;
+            }
+            let (ri, rj) = (root(&mut parent, i), root(&mut parent, j));
+            if ri == rj {
+                continue;
+            }
+            if crate::persistence::haversine_distance_meters(
+                members[i].lat,
+                members[i].lng,
+                members[j].lat,
+                members[j].lng,
+            ) <= gap_m
+            {
+                parent[rj.max(ri)] = rj.min(ri);
+            }
+        }
+    }
+
+    struct Region {
+        lat_sum: f64,
+        lng_sum: f64,
+        visit_total: u32,
+        n: u32,
+        routes: u32,
+    }
+    let mut regions: HashMap<usize, Region> = HashMap::new();
+    for (i, m) in members.iter().enumerate() {
+        let r = regions.entry(root(&mut parent, i)).or_insert(Region {
+            lat_sum: 0.0,
+            lng_sum: 0.0,
+            visit_total: 0,
+            n: 0,
+            routes: 0,
         });
-        if crowded {
-            suppressed.push(centre);
-        } else if taken.len() < limit {
-            taken.push(centre);
+        r.lat_sum += m.lat;
+        r.lng_sum += m.lng;
+        r.visit_total += m.visits;
+        r.n += 1;
+    }
+
+    for route in routes {
+        let nearest = members
+            .iter()
+            .enumerate()
+            .map(|(i, m)| {
+                (
+                    i,
+                    crate::persistence::haversine_distance_meters(
+                        route.lat, route.lng, m.lat, m.lng,
+                    ),
+                )
+            })
+            .filter(|&(_, d)| d <= gap_m)
+            .min_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+        if let Some((i, _)) = nearest
+            && let Some(r) = regions.get_mut(&root(&mut parent, i))
+        {
+            r.routes += 1;
         }
     }
-    for centre in suppressed {
-        if taken.len() >= limit {
-            break;
+    let mut names: HashMap<usize, Vec<&str>> = HashMap::new();
+    for (i, m) in members.iter().enumerate() {
+        if let Some(name) = m.name.as_deref() {
+            names.entry(root(&mut parent, i)).or_default().push(name);
         }
-        taken.push(centre);
     }
-    taken
+
+    let mut centres: Vec<PreviewCentre> = regions
+        .into_iter()
+        .map(|(key, r)| {
+            let lat = r.lat_sum / f64::from(r.n);
+            let lng = r.lng_sum / f64::from(r.n);
+            PreviewCentre {
+                bin_key: format!(
+                    "{}:{}",
+                    (lat / BIN_DEG).floor() as i64,
+                    (lng / BIN_DEG).floor() as i64
+                ),
+                lat,
+                lng,
+                visit_total: r.visit_total,
+                section_count: if count_sections { r.n } else { 0 },
+                route_count: r.routes,
+                name: names
+                    .get(&key)
+                    .and_then(|v| shared_locality(v.iter().copied())),
+                source: source.to_string(),
+            }
+        })
+        .collect();
+    centres.sort_by(|a, b| {
+        b.visit_total
+            .cmp(&a.visit_total)
+            .then_with(|| a.bin_key.cmp(&b.bin_key))
+    });
+    centres
 }
 
 /// The five caller-exposed detection knobs, overlaid onto the engine's live
@@ -526,8 +651,9 @@ fn diff_catalogues(
 }
 
 impl PersistentEngine {
-    /// Ranked riding areas at ~5 km. The sections substrate (bounds cache +
-    /// visit counts) speaks for the catalogue when any auto section carries
+    /// Ranked riding areas, each a connected region of the library. The
+    /// sections substrate (bounds cache + visit counts) speaks for the
+    /// catalogue when any auto section outside the virtual sports carries
     /// bounds; otherwise activity boxes stand in, with the (0, 0, 0, 0)
     /// sentinel filtered. Ordered visit_total DESC then bin_key ASC.
     pub fn preview_centres(&self, limit: u32) -> Vec<PreviewCentre> {
@@ -832,114 +958,73 @@ mod tests {
         );
     }
 
-    mod spreading_the_riding_areas {
-        use super::super::{PreviewCentre, spread_centres};
-
-        /// Scenario: the picker ranked six bins by visit total and a dense home
-        /// region holds forty-six of them, so five of the six slots were zooms
-        /// of one valley on a library with rides on three other continents.
-        ///
-        /// Expected behaviour: one area per place, ranked by visits as before,
-        /// and a library that only has one place still fills every slot with
-        /// that place's busiest sub-areas rather than going short.
-        fn centre(lat: f64, lng: f64, visits: u32) -> PreviewCentre {
-            PreviewCentre {
-                bin_key: format!("{lat}:{lng}"),
-                lat,
-                lng,
-                visit_total: visits,
-                section_count: 1,
-                source: "sections".to_string(),
-            }
+    fn member(lat: f64, lng: f64, name: Option<&str>) -> CentreMember {
+        CentreMember {
+            lat,
+            lng,
+            visits: 3,
+            name: name.map(str::to_string),
         }
+    }
 
-        fn visits(centres: &[PreviewCentre]) -> Vec<u32> {
-            centres.iter().map(|c| c.visit_total).collect()
-        }
+    #[test]
+    fn an_area_is_named_by_the_locality_most_of_its_sections_share() {
+        let members = [
+            member(46.500, 6.770, Some("Mont Pèlerin climb")),
+            member(46.501, 6.771, Some("Mont Pèlerin descent")),
+            member(46.502, 6.772, Some("Chexbres loop")),
+        ];
+        let centres = riding_regions(&members, &[], 1_000.0, true, "sections");
+        assert_eq!(centres.len(), 1);
+        assert_eq!(centres[0].name.as_deref(), Some("Mont Pèlerin"));
+    }
 
-        /// 0.1 degrees of latitude is about 11 km, 0.45 about 50 km.
-        #[test]
-        fn neighbouring_bins_of_one_valley_collapse_to_its_busiest() {
-            let valley = vec![
-                centre(46.2, 7.3, 1759),
-                centre(46.25, 7.35, 161),
-                centre(46.3, 7.4, 61),
-            ];
-            let out = spread_centres(valley, 3);
-            assert_eq!(
-                visits(&out),
-                vec![1759, 161, 61],
-                "a short list must still fill"
-            );
-            // But the order is the fallback's, so the first is the only
-            // unsuppressed one.
-            assert_eq!(out[0].visit_total, 1759);
-        }
+    #[test]
+    fn an_area_whose_sections_share_no_locality_has_no_name() {
+        let members = [
+            member(46.500, 6.770, Some("Mont Pèlerin climb")),
+            member(46.501, 6.771, Some("Chexbres loop")),
+            member(46.502, 6.772, None),
+        ];
+        let centres = riding_regions(&members, &[], 1_000.0, true, "sections");
+        assert_eq!(centres[0].name, None);
+    }
 
-        #[test]
-        fn a_library_on_three_continents_takes_one_area_each_before_a_second_of_the_first() {
-            let centres = vec![
-                centre(46.2, 7.3, 1759),
-                centre(46.25, 7.35, 161),
-                centre(-33.8, 151.2, 54),
-                centre(-37.8, 144.9, 38),
-            ];
-            assert_eq!(visits(&spread_centres(centres, 3)), vec![1759, 54, 38]);
-        }
-
-        #[test]
-        fn the_radius_is_fifty_kilometres() {
-            // 0.4 degrees of latitude is about 44 km, inside it.
-            let near = vec![centre(46.2, 7.3, 100), centre(46.6, 7.3, 90)];
-            assert_eq!(visits(&spread_centres(near, 2)), vec![100, 90]);
-            assert_eq!(
-                spread_centres(vec![centre(46.2, 7.3, 100), centre(46.6, 7.3, 90)], 1).len(),
-                1
-            );
-            // 0.7 degrees is about 78 km, outside it, so both are distinct
-            // places and the second slot is the far one rather than a refill.
-            let far = vec![
-                centre(46.2, 7.3, 100),
-                centre(46.25, 7.35, 95),
-                centre(46.9, 7.3, 10),
-            ];
-            assert_eq!(visits(&spread_centres(far, 2)), vec![100, 10]);
-        }
-
-        #[test]
-        fn a_one_valley_athlete_gets_the_busiest_sub_areas_rather_than_empty_slots() {
-            let valley: Vec<PreviewCentre> = (0..6)
-                .map(|i| centre(46.2 + f64::from(i) * 0.05, 7.3, 100 - i as u32))
-                .collect();
-            let out = spread_centres(valley, 6);
-            assert_eq!(out.len(), 6, "no slot may come back empty");
-            assert_eq!(visits(&out), vec![100, 99, 98, 97, 96, 95]);
-        }
-
-        #[test]
-        fn a_list_shorter_than_the_limit_is_returned_whole() {
-            let out = spread_centres(vec![centre(46.2, 7.3, 5)], 6);
-            assert_eq!(out.len(), 1);
-        }
-
-        /// The tiebreak on equal visit totals is what keeps the slots from
-        /// shuffling between reads, so suppression must not disturb it.
-        #[test]
-        fn equal_visit_totals_keep_their_order() {
-            let tied = vec![
-                centre(46.2, 7.3, 10),
-                centre(-33.8, 151.2, 10),
-                centre(-37.8, 144.9, 10),
-            ];
-            let first = spread_centres(tied.clone(), 3);
-            for _ in 0..5 {
-                let again = spread_centres(tied.clone(), 3);
-                assert_eq!(
-                    first.iter().map(|c| c.bin_key.clone()).collect::<Vec<_>>(),
-                    again.iter().map(|c| c.bin_key.clone()).collect::<Vec<_>>()
-                );
-            }
-        }
+    #[test]
+    fn an_area_reports_its_sections_and_its_routes() {
+        let members = [
+            member(46.500, 6.770, None),
+            member(46.501, 6.771, None),
+            member(46.502, 6.772, None),
+            member(46.503, 6.773, None),
+            member(47.500, 7.770, None),
+        ];
+        let routes = [
+            RouteCentre {
+                lat: 46.5015,
+                lng: 6.7715,
+            },
+            RouteCentre {
+                lat: 46.5025,
+                lng: 6.7725,
+            },
+            RouteCentre {
+                lat: 47.5005,
+                lng: 7.7705,
+            },
+            RouteCentre {
+                lat: 10.0,
+                lng: 10.0,
+            },
+        ];
+        let centres = riding_regions(&members, &routes, 1_000.0, true, "sections");
+        let big = centres.iter().find(|c| c.section_count == 4).unwrap();
+        assert_eq!(big.route_count, 2);
+        let small = centres.iter().find(|c| c.section_count == 1).unwrap();
+        assert_eq!(
+            small.route_count, 1,
+            "a route far from every area belongs to none"
+        );
     }
 
     fn bounds(min_lat: f64, max_lat: f64, min_lng: f64, max_lng: f64) -> tracematch::Bounds {
@@ -1158,8 +1243,8 @@ pub(crate) mod pooled {
     use tracematch::Bounds;
 
     use super::{
-        BIN_DEG, PayloadSection, PreviewCentre, Tunables, cluster_for, encoded_polyline,
-        spread_centres, within_component,
+        CentreMember, PayloadSection, PreviewCentre, RouteCentre, Tunables, cluster_for,
+        encoded_polyline, riding_regions, within_component,
     };
     use std::collections::HashSet;
 
@@ -1229,105 +1314,121 @@ pub(crate) mod pooled {
         Some(rows)
     }
 
-    /// Ranked riding areas at ~5 km, off committed rows.
+    /// The centre of every route group with a recorded box, outdoor sports only.
+    fn route_centres(conn: &Connection) -> Vec<RouteCentre> {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng, sport_type
+             FROM route_groups WHERE bounds_min_lat IS NOT NULL ORDER BY id",
+        ) else {
+            return Vec::new();
+        };
+        let Ok(rows) = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, f64>(0)?,
+                row.get::<_, f64>(1)?,
+                row.get::<_, f64>(2)?,
+                row.get::<_, f64>(3)?,
+                row.get::<_, String>(4)?,
+            ))
+        }) else {
+            return Vec::new();
+        };
+        rows.flatten()
+            .filter(|(.., sport)| !crate::sport::is_virtual(sport))
+            .map(|(min_lat, max_lat, min_lng, max_lng, _)| RouteCentre {
+                lat: (min_lat + max_lat) * 0.5,
+                lng: (min_lng + max_lng) * 0.5,
+            })
+            .collect()
+    }
+
+    /// Ranked riding regions, off committed rows.
     pub(crate) fn preview_centres(conn: &Connection, limit: u32) -> Vec<PreviewCentre> {
-        let mut members: Vec<(f64, f64, u32)> = Vec::new();
+        let mut members: Vec<CentreMember> = Vec::new();
         let mut source = "sections";
+        let names = crate::persistence::sections::named::pooled::overlay_names(conn);
 
         if let Ok(mut stmt) = conn.prepare(
-            "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng, visit_count
+            "SELECT id, bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng, visit_count,
+                    sport_type
              FROM sections WHERE section_type = 'auto' AND bounds_min_lat IS NOT NULL
              ORDER BY id",
         ) {
             let rows = stmt.query_map([], |row| {
                 Ok((
-                    row.get::<_, f64>(0)?,
+                    row.get::<_, String>(0)?,
                     row.get::<_, f64>(1)?,
                     row.get::<_, f64>(2)?,
                     row.get::<_, f64>(3)?,
-                    row.get::<_, u32>(4)?,
+                    row.get::<_, f64>(4)?,
+                    row.get::<_, u32>(5)?,
+                    row.get::<_, String>(6)?,
                 ))
             });
             if let Ok(rows) = rows {
-                for (min_lat, max_lat, min_lng, max_lng, visits) in rows.flatten() {
-                    members.push(((min_lat + max_lat) * 0.5, (min_lng + max_lng) * 0.5, visits));
+                for (id, min_lat, max_lat, min_lng, max_lng, visits, sport) in rows.flatten() {
+                    if crate::sport::is_virtual(&sport) {
+                        continue;
+                    }
+                    members.push(CentreMember {
+                        lat: (min_lat + max_lat) * 0.5,
+                        lng: (min_lng + max_lng) * 0.5,
+                        visits,
+                        name: names
+                            .get(&id)
+                            .filter(|n| !crate::persistence::sections::named::is_section_handle(n))
+                            .cloned(),
+                    });
                 }
             }
         }
 
         if members.is_empty() {
             source = "activities";
-            if let Ok(mut stmt) =
-                conn.prepare("SELECT min_lat, max_lat, min_lng, max_lng FROM activities")
-            {
+            let sport = crate::persistence::records::activity_sport_sql();
+            if let Ok(mut stmt) = conn.prepare(&format!(
+                "SELECT a.min_lat, a.max_lat, a.min_lng, a.max_lng, {sport}
+                 FROM activities a LEFT JOIN activity_metrics am ON am.activity_id = a.id
+                 ORDER BY a.id"
+            )) {
                 let rows = stmt.query_map([], |row| {
                     Ok((
                         row.get::<_, f64>(0)?,
                         row.get::<_, f64>(1)?,
                         row.get::<_, f64>(2)?,
                         row.get::<_, f64>(3)?,
+                        row.get::<_, Option<String>>(4)?,
                     ))
                 });
                 if let Ok(rows) = rows {
-                    for (min_lat, max_lat, min_lng, max_lng) in rows.flatten() {
+                    for (min_lat, max_lat, min_lng, max_lng, sport) in rows.flatten() {
                         if min_lat == 0.0 && max_lat == 0.0 && min_lng == 0.0 && max_lng == 0.0 {
                             continue;
                         }
-                        members.push(((min_lat + max_lat) * 0.5, (min_lng + max_lng) * 0.5, 1));
+                        if sport.as_deref().is_some_and(crate::sport::is_virtual) {
+                            continue;
+                        }
+                        members.push(CentreMember {
+                            lat: (min_lat + max_lat) * 0.5,
+                            lng: (min_lng + max_lng) * 0.5,
+                            visits: 1,
+                            name: None,
+                        });
                     }
                 }
             }
         }
 
-        struct Bin {
-            lat_sum: f64,
-            lng_sum: f64,
-            visit_total: u32,
-            section_count: u32,
-            n: u32,
-        }
-        let mut bins: HashMap<String, Bin> = HashMap::new();
-        for (lat, lng, visits) in members {
-            let key = format!(
-                "{}:{}",
-                (lat / BIN_DEG).floor() as i64,
-                (lng / BIN_DEG).floor() as i64
-            );
-            let bin = bins.entry(key).or_insert(Bin {
-                lat_sum: 0.0,
-                lng_sum: 0.0,
-                visit_total: 0,
-                section_count: 0,
-                n: 0,
-            });
-            bin.lat_sum += lat;
-            bin.lng_sum += lng;
-            bin.visit_total += visits;
-            if source == "sections" {
-                bin.section_count += 1;
-            }
-            bin.n += 1;
-        }
-
-        let mut centres: Vec<PreviewCentre> = bins
-            .into_iter()
-            .map(|(bin_key, b)| PreviewCentre {
-                bin_key,
-                lat: b.lat_sum / f64::from(b.n),
-                lng: b.lng_sum / f64::from(b.n),
-                visit_total: b.visit_total,
-                section_count: b.section_count,
-                source: source.to_string(),
-            })
-            .collect();
-        centres.sort_by(|a, b| {
-            b.visit_total
-                .cmp(&a.visit_total)
-                .then_with(|| a.bin_key.cmp(&b.bin_key))
-        });
-        // Between the sort and the cut, or a dense home region takes every slot
-        // in adjacent 5 km bins.
-        spread_centres(centres, limit as usize)
+        let routes = route_centres(conn);
+        let mut centres = riding_regions(
+            &members,
+            &routes,
+            Tunables::DEFAULT.cluster_gap_m,
+            source == "sections",
+            source,
+        );
+        centres.truncate(limit as usize);
+        centres
     }
 
     pub(crate) fn preview_component(conn: &Connection, lat: f64, lng: f64) -> Option<Vec<String>> {

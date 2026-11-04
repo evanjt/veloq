@@ -23,6 +23,7 @@ import type {
 const GROUPED: RouteGroupingOutcome = {
   state: 'grouped',
   groups: [{ key: 'p1', activityIds: ['a1'] }],
+  spreads: [{ groupId: 'g1', previewGroups: 1 }],
 };
 
 /**
@@ -102,7 +103,7 @@ it('discards the run in flight when the knob moves again', async () => {
 
   // The first run answers late, at the strictness the athlete moved off.
   await act(async () => {
-    c.finish({ state: 'grouped', groups: [{ key: 'stale', activityIds: ['a9'] }] }, 0);
+    c.finish({ state: 'grouped', groups: [{ key: 'stale', activityIds: ['a9'] }], spreads: [] }, 0);
   });
 
   expect(c.cancelRouteGroupingPreview).toHaveBeenCalled();

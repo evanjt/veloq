@@ -319,6 +319,8 @@ describe('changing the riding area under a finished preview', () => {
       lng: 151.2,
       visitTotal: 20,
       sectionCount: 4,
+      routeCount: 0,
+      name: null,
       source: 'sections',
     },
     {
@@ -327,6 +329,8 @@ describe('changing the riding area under a finished preview', () => {
       lng: 144.96,
       visitTotal: 9,
       sectionCount: 2,
+      routeCount: 0,
+      name: null,
       source: 'sections',
     },
   ];
@@ -422,6 +426,8 @@ describe('detection preview screen', () => {
     lng: 8.7,
     visitTotal: 40,
     sectionCount: 2,
+    routeCount: 0,
+    name: null,
     source: 'sections',
   };
 
@@ -980,6 +986,8 @@ describe('preview screen layout', () => {
           lng: 2,
           visitTotal: 10,
           sectionCount: 3,
+          routeCount: 0,
+          name: null,
           source: 'visits',
         },
         {
@@ -988,6 +996,8 @@ describe('preview screen layout', () => {
           lng: 4,
           visitTotal: 6,
           sectionCount: 1,
+          routeCount: 0,
+          name: null,
           source: 'sections',
         },
       ],
@@ -1799,6 +1809,8 @@ describe('the retired layer on the detection preview', () => {
     lng: 8.7,
     visitTotal: 40,
     sectionCount: 2,
+    routeCount: 0,
+    name: null,
     source: 'sections',
   };
   const BUSIEST: PreviewCentre = {
@@ -1807,6 +1819,8 @@ describe('the retired layer on the detection preview', () => {
     lng: 7.44,
     visitTotal: 30,
     sectionCount: 2,
+    routeCount: 0,
+    name: null,
     source: 'sections',
   };
 

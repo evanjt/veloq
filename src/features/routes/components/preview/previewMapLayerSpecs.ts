@@ -7,6 +7,7 @@
  */
 
 import type { MapPalette } from '@/theme';
+import { previewAreaLayerSpec } from '@/features/routes/lib/previewAreaOutline';
 import { EMPTY_FEATURE_COLLECTION, type MapLayerSpec, type MapSourceSpec } from '@/features/maps';
 
 export const PREVIEW_INTERACTIVE_LAYERS = [
@@ -73,20 +74,7 @@ export function buildPreviewLayers(
       : ['coalesce', ['get', 'color'], layer.current];
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   return [
-    // Bottom of the stack and not interactive: it says which ground the
-    // selected area covers and must never take a tap meant for a section.
-    {
-      id: 'preview-area-line',
-      type: 'line',
-      source: 'preview-area',
-      layout: roundLine,
-      paint: {
-        'line-color': layer.casing,
-        'line-opacity': 0.8,
-        'line-width': 1.5,
-        'line-dasharray': [4, 3],
-      },
-    },
+    previewAreaLayerSpec(palette),
     // The live catalogue is the baseline the whole diff is read against, so it
     // carries the same white casing every other coloured line on the app's
     // maps gets. That is what lets it stay a neutral grey and still be found

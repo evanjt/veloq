@@ -22,6 +22,14 @@ export interface RouteGroupPreview {
   activityIds: string[];
 }
 
+/** How many preview groups one of today's routes would fall into. */
+export interface RouteSpread {
+  /** The route's own id, the one the routes read carries. */
+  groupId: string;
+  /** Distinct preview groups holding at least one of its rides. */
+  previewGroups: number;
+}
+
 /**
  * How one run ended.
  *
@@ -31,7 +39,9 @@ export interface RouteGroupPreview {
  * engine, so it never reads as a refusal.
  */
 export type RouteGroupingOutcome =
-  { state: 'grouped'; groups: RouteGroupPreview[] } | { state: 'cancelled' } | { state: 'refused' };
+  | { state: 'grouped'; groups: RouteGroupPreview[]; spreads: RouteSpread[] }
+  | { state: 'cancelled' }
+  | { state: 'refused' };
 
 /** The surface the strictness control talks to. */
 export interface RouteGroupingPreviewClient {
@@ -70,6 +80,10 @@ export async function runRouteGroupingPreview(
         return {
           state: 'grouped',
           groups: outcome.inner.groups.map((g) => ({ key: g.key, activityIds: g.activityIds })),
+          spreads: outcome.inner.spreads.map((r) => ({
+            groupId: r.groupId,
+            previewGroups: r.previewGroups,
+          })),
         };
       case FfiGroupingOutcome_Tags.Cancelled:
         return { state: 'cancelled' };

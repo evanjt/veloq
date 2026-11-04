@@ -1,5 +1,6 @@
 import type { MapPalette } from '@/theme';
 import type { MapLayerSpec } from '@/features/maps';
+import { previewAreaLayerSpec } from './previewAreaOutline';
 
 export type GroupingLayerKind = 'largest' | 'merging' | 'other' | 'dropped';
 
@@ -22,18 +23,28 @@ type LegendLabelKey =
   | 'settings.groupingLegendMostRidden'
   | 'settings.groupingMerged'
   | 'settings.groupingLegendOther'
-  | 'settings.groupingLegendDropped';
+  | 'settings.groupingLegendDropped'
+  | 'settings.previewAreaLayer';
 
 export interface GroupingLegendRow {
-  kind: GroupingLayerKind;
+  kind: GroupingLayerKind | 'area';
   colour: string;
   opacity: number;
   labelKey: LegendLabelKey;
   count?: number;
+  /** The row keys a dashed box rather than a route line. */
+  dashed?: boolean;
 }
 
-/** One row per drawn layer; the merge count is every route that shares a group, the largest included. */
-export function groupingLegendRows(mergedCount: number, palette: MapPalette): GroupingLegendRow[] {
+/**
+ * One row per drawn layer; the merge count is every route that shares a group,
+ * the largest included. The area's box is listed last, while one is drawn.
+ */
+export function groupingLegendRows(
+  mergedCount: number,
+  palette: MapPalette,
+  hasArea = false
+): GroupingLegendRow[] {
   const paint = groupingLayerPaint(palette);
   const row = (
     kind: GroupingLayerKind,
@@ -51,14 +62,26 @@ export function groupingLegendRows(mergedCount: number, palette: MapPalette): Gr
     row('merging', 'settings.groupingMerged', mergedCount),
     row('other', 'settings.groupingLegendOther'),
     row('dropped', 'settings.groupingLegendDropped'),
+    ...(hasArea
+      ? [
+          {
+            kind: 'area' as const,
+            colour: palette.layer.casing,
+            opacity: paint.largest.opacity,
+            labelKey: 'settings.previewAreaLayer' as const,
+            dashed: true,
+          },
+        ]
+      : []),
   ];
 }
 
-/** The preview map's line layers, bottom to top: dropped, other, merging, then the largest group. */
+/** The preview map's layers, bottom to top: the area's box, dropped, other, merging, then the largest group. */
 export function groupingPreviewLayers(palette: MapPalette): MapLayerSpec[] {
   const paint = groupingLayerPaint(palette);
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   return [
+    previewAreaLayerSpec(palette),
     {
       id: 'grouping-dropped-line',
       type: 'line',

@@ -9,16 +9,17 @@
  * opaque, a pair this setting would merge in the merge colour, a route whose
  * ride falls out of every group faded.
  *
- * It opens on a riding area, the same ranked areas the section preview offers,
- * and draws the routes nearest it. The grouping still runs over the whole
- * library; the area decides only which of its routes are drawn and framed, so
- * an athlete with rides on several continents never opens on the world.
+ * It opens on a riding area, the same ranked areas the section preview offers.
+ * The grouping runs over the whole library and every route is read once; the
+ * area decides which of them are drawn, framed and counted, so an athlete with
+ * rides on several continents never opens on the world. A change that lands
+ * only in other areas is said so, with a chip for each area it touches.
  *
- * The column does not scroll. Tuning a knob you cannot see the map for defeats
- * the screen, so the map and the two rows share one fixed column.
+ * The map fills the screen and the controls sit in the bottom sheet over it:
+ * the summary and Keep and Discard always, the two sliders when it is open.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -30,10 +31,11 @@ import {
   ButtonRow,
   ErrorState,
   ScreenSafeAreaView,
+  ToggleButton,
   useBottomClearance,
   Spinner,
 } from '@/shared/ui';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import {
@@ -50,12 +52,15 @@ import {
   GroupingParamPanel,
   GroupingPreviewMap,
   PreviewCentrePicker,
+  PreviewSheet,
   paintPreview,
+  scopeGroupingDiff,
   rescanRefusalKey,
   useRouteGroupingPreview,
   useSectionRescan,
   usePreviewCentres,
   type GroupingParams,
+  type GroupingPreviewDiff,
   type GroupingRoute,
 } from '@/features/routes';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -63,11 +68,10 @@ import { goBack } from '@/shared/app/navigation';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 
 /**
- * How many of today's routes are drawn. They arrive nearest the selected area
- * first, or by ride count when the library has no area yet, and the cap bounds
- * one blocking read per area.
+ * The most routes one read returns. The preview judges every route against the
+ * regrouped library, so the read is not narrowed to the area on screen.
  */
-const ROUTES_DRAWN = 60;
+const ROUTES_READ = 5000;
 
 interface RouteRow extends GroupingRoute {
   representativeId: string;
@@ -81,15 +85,23 @@ interface RoutesRead {
 
 const NO_ROUTES: RoutesRead = { routes: [], error: undefined };
 
-function readRoutes(centre: PreviewCentre | null): RoutesRead {
+const NO_DIFF: GroupingPreviewDiff = {
+  routes: [],
+  previewGroupCount: 0,
+  droppedCount: 0,
+  mergedCount: 0,
+  splitCount: 0,
+};
+
+function readRoutes(): RoutesRead {
   const read = attemptEngineRead(() =>
     routes.getRoutesScreenData({
-      groupLimit: ROUTES_DRAWN,
+      groupLimit: ROUTES_READ,
       groupOffset: 0,
       sectionLimit: 0,
       sectionOffset: 0,
       minGroupActivityCount: 2,
-      groupSort: centre ? GroupSort.Nearby : GroupSort.Activities,
+      groupSort: GroupSort.Activities,
       groupSearch: '',
       sectionSort: SectionSort.Visits,
       sectionSearch: '',
@@ -99,8 +111,8 @@ function readRoutes(centre: PreviewCentre | null): RoutesRead {
         hideDisabled: false,
         hideUnaccepted: false,
       },
-      userLat: centre?.lat ?? Number.NaN,
-      userLng: centre?.lng ?? Number.NaN,
+      userLat: Number.NaN,
+      userLng: Number.NaN,
     })
   );
   if (!read.ok) return { routes: [], error: read.error };
@@ -132,8 +144,9 @@ function RouteGroupingPreviewScreenContent() {
   const [applied] = useState<GroupingParams>(params);
   const { rescan } = useSectionRescan();
   const [routesRead, setRoutesRead] = useState<RoutesRead>(NO_ROUTES);
-  const routes = routesRead.routes;
-  const { status, groups, refused, request } = useRouteGroupingPreview(routeGroupingPreview);
+  const allRoutes = routesRead.routes;
+  const { status, groups, spreads, refused, request } =
+    useRouteGroupingPreview(routeGroupingPreview);
   const {
     centres,
     labels,
@@ -143,25 +156,11 @@ function RouteGroupingPreviewScreenContent() {
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
   const selectedCentre = centre ?? centres[0] ?? null;
 
-  // The routes screen's blocking read waits for the push transition.
-  // The lines stay fixed while grouping changes on this screen, and are read
-  // again only when another area is chosen. The mount read takes the area
-  // through a ref so a chip tap does not re-arm the transition wait.
-  const centreRef = useRef(selectedCentre);
-  useEffect(() => {
-    centreRef.current = selectedCentre;
-  }, [selectedCentre]);
-  const rereadRoutes = useCallback(() => setRoutesRead(readRoutes(centreRef.current)), []);
+  // The routes screen's blocking read waits for the push transition. Every
+  // route is read once: choosing another area changes which of them are drawn
+  // and counted, and reads nothing.
+  const rereadRoutes = useCallback(() => setRoutesRead(readRoutes()), []);
   useAfterNavigationTransition(rereadRoutes);
-
-  const handleSelectCentre = useCallback(
-    (next: PreviewCentre) => {
-      if (next.binKey === selectedCentre?.binKey) return;
-      setCentre(next);
-      setRoutesRead(readRoutes(next));
-    },
-    [selectedCentre]
-  );
 
   // The knobs open on what is applied, so the first paint is the answer for
   // that rather than an empty map waiting for a drag.
@@ -172,8 +171,22 @@ function RouteGroupingPreviewScreenContent() {
   }, [params, request]);
 
   const diff = useMemo(
-    () => (groups === null ? null : paintPreview(routes, groups)),
-    [routes, groups]
+    () => (groups === null ? null : paintPreview(allRoutes, groups, spreads)),
+    [allRoutes, groups, spreads]
+  );
+  // Before the first answer the scope is judged against an empty diff, so the
+  // area's routes draw as themselves rather than waiting on the grouping.
+  const scoped = useMemo(
+    () => scopeGroupingDiff(allRoutes, diff ?? NO_DIFF, centres, selectedCentre?.binKey ?? null),
+    [allRoutes, diff, centres, selectedCentre]
+  );
+  const areaRoutes = useMemo(
+    () => allRoutes.filter((r) => scoped.inAreaRouteIds.has(r.groupId)),
+    [allRoutes, scoped]
+  );
+  const areaPaint = useMemo(
+    () => (diff ? diff.routes.filter((p) => scoped.inAreaRouteIds.has(p.groupId)) : []),
+    [diff, scoped]
   );
 
   const onChange = useCallback((next: GroupingParams) => setParams(next), []);
@@ -221,7 +234,8 @@ function RouteGroupingPreviewScreenContent() {
   // has to say so: without its own branch the text stayed on "grouping" with
   // the spinner gone, which reads as a run that will never end. A cancel is a
   // knob that moved and the next run is already asked for, so that one keeps
-  // the working text.
+  // the working text. The count is the library's; the area's own verdict is
+  // the line above it.
   const statusText = refused
     ? t('settings.groupingNothingToGroup')
     : status === 'error'
@@ -230,89 +244,156 @@ function RouteGroupingPreviewScreenContent() {
         ? t('settings.groupingRunning')
         : t('settings.groupingSummary', { count: diff.previewGroupCount });
 
+  const answered = diff !== null;
+  const areaUnchanged =
+    scoped.inArea.mergedCount === 0 &&
+    scoped.inArea.droppedCount === 0 &&
+    scoped.inArea.splitCount === 0;
+
+  const picker = (
+    <View style={styles.pickerWrap}>
+      <PreviewCentrePicker
+        centres={centres}
+        labels={labels}
+        selectedBinKey={selectedCentre?.binKey ?? null}
+        onSelect={setCentre}
+        countBy="routes"
+      />
+    </View>
+  );
+
+  const summary = (
+    <>
+      {centresError !== undefined && (
+        <ErrorState
+          variant="inline"
+          error={centresError}
+          onRetry={retryCentres}
+          testID="grouping-centres-failed"
+        />
+      )}
+
+      {routesFailed ? (
+        <ErrorState
+          variant="inline"
+          error={routesRead.error}
+          onRetry={rereadRoutes}
+          testID="grouping-routes-failed"
+        />
+      ) : null}
+
+      {answered && status !== 'running' && centres.length > 0 ? (
+        <View style={styles.areaLines}>
+          {areaUnchanged ? (
+            <Text
+              style={[styles.areaLine, { color: textPrimary }]}
+              testID="grouping-area-unchanged"
+            >
+              {t('settings.groupingAreaUnchanged')}
+            </Text>
+          ) : null}
+          {scoped.inArea.mergedCount > 0 ? (
+            <Text style={[styles.areaLine, { color: textPrimary }]} testID="grouping-area-merged">
+              {t('settings.groupingMerged', { count: scoped.inArea.mergedCount })}
+            </Text>
+          ) : null}
+          {scoped.inArea.droppedCount > 0 ? (
+            <Text style={[styles.areaLine, { color: textSecondary }]} testID="grouping-dropped">
+              {t('settings.groupingDropped', { count: scoped.inArea.droppedCount })}
+            </Text>
+          ) : null}
+          {scoped.inArea.splitCount > 0 ? (
+            <Text style={[styles.areaLine, { color: textPrimary }]} testID="grouping-area-split">
+              {t('settings.groupingSplit', { count: scoped.inArea.splitCount })}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {scoped.elsewhere.length > 0 ? (
+        <View style={styles.elsewhere} testID="grouping-elsewhere">
+          <Text style={[styles.note, { color: textSecondary }]}>
+            {t('settings.groupingElsewhere')}
+          </Text>
+          <View style={styles.chips}>
+            {scoped.elsewhere.map((change) => {
+              const target = centres.find((c) => c.binKey === change.binKey);
+              const index = centres.findIndex((c) => c.binKey === change.binKey);
+              if (!target) return null;
+              return (
+                <ToggleButton
+                  key={change.binKey}
+                  label={
+                    target.name ??
+                    t('settings.previewAreaFallback', {
+                      letter: labels[index]?.fallbackLetter ?? '',
+                    })
+                  }
+                  count={change.mergedCount + change.droppedCount + change.splitCount}
+                  selected={false}
+                  onPress={() => setCentre(target)}
+                  testID={`grouping-elsewhere-${change.binKey}`}
+                />
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+
+      <View style={styles.statusRow}>
+        {status === 'running' && <Spinner label={statusText} />}
+        <Text
+          style={[styles.statusText, { color: status === 'running' ? textSecondary : textPrimary }]}
+          testID="grouping-status"
+        >
+          {statusText}
+        </Text>
+      </View>
+
+      {changed && !routesFailed ? (
+        <ButtonRow
+          actions={[
+            {
+              label: t('settings.previewDiscard'),
+              variant: 'secondary',
+              onPress: handleDiscard,
+              testID: 'grouping-discard-button',
+            },
+            {
+              label: t('settings.previewKeep'),
+              onPress: handleKeep,
+              testID: 'grouping-keep-button',
+            },
+          ]}
+        />
+      ) : null}
+    </>
+  );
+
   return (
     <ScreenSafeAreaView
       testID="route-grouping-preview-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
-      <View style={[styles.column, { paddingBottom: bottomClearance }]}>
-        <View style={styles.mapWrap}>
-          <GroupingPreviewMap
-            routes={routes}
-            centre={selectedCentre}
-            painted={diff?.routes ?? []}
-            mergedCount={diff?.mergedCount ?? 0}
-            mapStyle={isDark ? 'dark' : 'light'}
-          />
-        </View>
-
-        {centresError !== undefined && (
-          <ErrorState
-            variant="inline"
-            error={centresError}
-            onRetry={retryCentres}
-            testID="grouping-centres-failed"
-          />
-        )}
-
-        {routesFailed ? (
-          <ErrorState
-            variant="inline"
-            error={routesRead.error}
-            onRetry={rereadRoutes}
-            testID="grouping-routes-failed"
-          />
-        ) : null}
-
-        {centres.length > 0 && (
-          <View style={styles.pickerWrap}>
-            <PreviewCentrePicker
-              centres={centres}
-              labels={labels}
-              selectedBinKey={selectedCentre?.binKey ?? null}
-              onSelect={handleSelectCentre}
-            />
-          </View>
-        )}
-
-        <View style={styles.statusRow}>
-          {status === 'running' && <Spinner label={statusText} />}
-          <Text
-            style={[
-              styles.statusText,
-              { color: status === 'running' ? textSecondary : textPrimary },
-            ]}
-            testID="grouping-status"
-          >
-            {statusText}
-          </Text>
-        </View>
-
-        {diff !== null && diff.droppedCount > 0 && (
-          <Text style={[styles.note, { color: textSecondary }]} testID="grouping-dropped">
-            {t('settings.groupingDropped', { count: diff.droppedCount })}
-          </Text>
-        )}
-
-        <GroupingParamPanel params={params} onChange={onChange} />
-
-        {changed && !routesFailed ? (
-          <ButtonRow
-            actions={[
-              {
-                label: t('settings.previewDiscard'),
-                variant: 'secondary',
-                onPress: handleDiscard,
-                testID: 'grouping-discard-button',
-              },
-              {
-                label: t('settings.previewKeep'),
-                onPress: handleKeep,
-                testID: 'grouping-keep-button',
-              },
-            ]}
-          />
-        ) : null}
+      <View style={StyleSheet.absoluteFill}>
+        <GroupingPreviewMap
+          routes={areaRoutes}
+          centre={selectedCentre}
+          painted={areaPaint}
+          mergedCount={scoped.inArea.mergedCount}
+          mapStyle={isDark ? 'dark' : 'light'}
+        />
+      </View>
+      <View style={styles.overlay} pointerEvents="box-none">
+        {centres.length > 0 && picker}
+        <PreviewSheet
+          summary={summary}
+          bottomInset={bottomClearance}
+          handleLabel={t('settings.previewRouteGrouping')}
+          testID="grouping-control-panel"
+        >
+          <GroupingParamPanel params={params} onChange={onChange} />
+        </PreviewSheet>
       </View>
     </ScreenSafeAreaView>
   );
@@ -320,11 +401,14 @@ function RouteGroupingPreviewScreenContent() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  column: { flex: 1, padding: spacing.md, gap: spacing.sm },
-  mapWrap: { flex: 1, borderRadius: layout.borderRadius, overflow: 'hidden' },
-  pickerWrap: { marginHorizontal: -spacing.md },
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  pickerWrap: { marginBottom: spacing.sm },
+  areaLines: { gap: spacing.xxs },
+  areaLine: { ...typography.bodyMedium },
+  elsewhere: { gap: spacing.xs },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  statusText: { ...typography.bodyMedium },
+  statusText: { ...typography.bodySmall },
   note: { ...typography.caption },
 });
 

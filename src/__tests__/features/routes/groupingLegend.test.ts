@@ -1,4 +1,8 @@
-import { groupingLayerPaint, groupingLegendRows } from '@/features/routes/lib/groupingLegend';
+import {
+  groupingLayerPaint,
+  groupingLegendRows,
+  groupingPreviewLayers,
+} from '@/features/routes/lib/groupingLegend';
 import { paintPreview } from '@/features/routes/lib/groupingParams';
 import { brand, mapLayerColors, mapPalette } from '@/theme';
 
@@ -24,5 +28,21 @@ describe('groupingLegendRows', () => {
     expect(other?.opacity).toBe(groupingLayerPaint(palette).other.opacity);
     expect(dropped?.colour).toBe(mapLayerColors.casing);
     expect(dropped?.labelKey).toBe('settings.groupingLegendDropped');
+  });
+
+  it('lists the selected area as a dashed box, after the route layers', () => {
+    const rows = groupingLegendRows(0, palette, true);
+    expect(rows.map((r) => r.kind)).toEqual(['largest', 'merging', 'other', 'dropped', 'area']);
+    const area = rows[rows.length - 1];
+    expect(area?.dashed).toBe(true);
+    expect(area?.labelKey).toBe('settings.previewAreaLayer');
+    expect(groupingLegendRows(0, palette).some((r) => r.kind === 'area')).toBe(false);
+  });
+
+  it('draws the area outline beneath every route layer, dashed like the section preview', () => {
+    const layers = groupingPreviewLayers(palette);
+    expect(layers[0]?.id).toBe('preview-area-line');
+    expect(layers[0]?.source).toBe('preview-area');
+    expect(layers[0]?.paint?.['line-dasharray']).toBeDefined();
   });
 });

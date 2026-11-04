@@ -1,7 +1,9 @@
 /**
  * Horizontal picker of ranked riding areas. Each is the selector chip, carrying
- * the area's letter, in display order, plus the visit or section count that
- * ranked it, which a screen reader hears with its unit.
+ * the area's locality when the engine found one and its letter, in display
+ * order, when it did not, plus the count that ranks it: sections on the section
+ * preview, routes on the route grouping preview, or visits when a library has no
+ * sections. A screen reader hears the count with its unit.
  *
  * The row runs off the screen on a phone, and a chip cut mid-word by the edge
  * reads as a layout bug rather than as more content. A fade sits over whichever
@@ -32,6 +34,8 @@ interface PreviewCentrePickerProps {
   labels: CentreLabel[];
   selectedBinKey: string | null;
   onSelect: (centre: PreviewCentre) => void;
+  /** The unit the chip counts. Sections unless the screen is about routes. */
+  countBy?: 'sections' | 'routes';
 }
 
 export function PreviewCentrePicker({
@@ -39,6 +43,7 @@ export function PreviewCentrePicker({
   labels,
   selectedBinKey,
   onSelect,
+  countBy = 'sections',
 }: PreviewCentrePickerProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -73,14 +78,23 @@ export function PreviewCentrePicker({
       >
         {centres.map((centre, i) => {
           const active = centre.binKey === selectedBinKey;
-          const label = t('settings.previewAreaFallback', {
-            letter: labels[i]?.fallbackLetter ?? fallbackLetter(i),
-          });
+          const label =
+            centre.name ??
+            t('settings.previewAreaFallback', {
+              letter: labels[i]?.fallbackLetter ?? fallbackLetter(i),
+            });
           const bySections = centre.source === 'sections';
-          const count = bySections ? centre.sectionCount : centre.visitTotal;
-          const detail = bySections
-            ? t('settings.previewAreaSections', { count })
-            : t('settings.previewAreaVisits', { count });
+          const byRoutes = countBy === 'routes';
+          const count = byRoutes
+            ? centre.routeCount
+            : bySections
+              ? centre.sectionCount
+              : centre.visitTotal;
+          const detail = byRoutes
+            ? t('settings.previewAreaRoutes', { count })
+            : bySections
+              ? t('settings.previewAreaSections', { count })
+              : t('settings.previewAreaVisits', { count });
           return (
             <ToggleButton
               key={centre.binKey}

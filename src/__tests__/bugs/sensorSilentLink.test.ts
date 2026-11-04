@@ -10,9 +10,12 @@
  * athlete's action on the row, and ends the link and connects again at once.
  */
 
+import { Platform } from 'react-native';
+
 import { useSensorStore } from '@/features/sensors/store';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { SENSOR_NO_DATA_MS, sensorConnectionHealth } from '@/features/sensors/lib/connectionHealth';
+import { clearSensorLinkTrace, sensorLinkEvents } from '@/features/sensors/lib/sensorLinkTrace';
 import {
   connectKnownSensors,
   disconnectAllSensors,
@@ -174,5 +177,129 @@ describe('a sensor that connects and sends nothing', () => {
     );
     expect(useSensorStore.getState().connections[SENSOR.id]?.status).not.toBe('connected');
     warn.mockRestore();
+  });
+});
+
+describe.each(['android', 'ios'] as const)('a reconnect of a silent link on %s', (os) => {
+  const originalOs = Platform.OS;
+
+  beforeEach(async () => {
+    Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
+    jest.useFakeTimers();
+    await disconnectAllSensors();
+    jest.clearAllMocks();
+    clearSensorLinkTrace();
+    deliver = null;
+    mockConnectToDevice.mockResolvedValue(mockDevice);
+    useSensorStore.setState({ knownSensors: [SENSOR], connections: {} });
+  });
+
+  afterEach(async () => {
+    await disconnectAllSensors();
+    jest.useRealTimers();
+    Object.defineProperty(Platform, 'OS', { value: originalOs, configurable: true });
+  });
+
+  it('asks for a fresh service table on Android only, and not on the first connect', async () => {
+    void connectKnownSensors();
+    await settle();
+    expect(mockConnectToDevice.mock.calls[0]?.[1]).not.toHaveProperty('refreshGatt');
+
+    jest.advanceTimersByTime(SENSOR_NO_DATA_MS + 1000);
+    void reconnectSensor(SENSOR.id);
+    await settle();
+
+    const options = mockConnectToDevice.mock.calls[1]?.[1] ?? {};
+    if (os === 'android') expect(options).toHaveProperty('refreshGatt', 'OnConnected');
+    else expect(options).not.toHaveProperty('refreshGatt');
+  });
+
+  it('records the reconnect discovery as refreshed only when the table was asked for', async () => {
+    void connectKnownSensors();
+    await settle();
+    jest.advanceTimersByTime(SENSOR_NO_DATA_MS + 1000);
+    void reconnectSensor(SENSOR.id);
+    await settle();
+
+    const discoveries = sensorLinkEvents().filter((e) => e.kind === 'discovered');
+    expect(discoveries).toHaveLength(2);
+    expect(discoveries[0]?.detail).toBeUndefined();
+    expect(discoveries[1]?.detail).toBe(os === 'android' ? 'refreshed' : undefined);
+  });
+});
+
+describe.each(['android', 'ios'] as const)('a monitor error on %s', (os) => {
+  const originalOs = Platform.OS;
+  const recordingStatus = useRecordingStore.getState().status;
+
+  beforeEach(async () => {
+    Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
+    jest.useFakeTimers();
+    await disconnectAllSensors();
+    jest.clearAllMocks();
+    deliver = null;
+    mockConnectToDevice.mockResolvedValue(mockDevice);
+    useRecordingStore.setState({ status: 'recording' });
+    useSensorStore.setState({ knownSensors: [SENSOR], connections: {} });
+  });
+
+  afterEach(async () => {
+    await disconnectAllSensors();
+    useRecordingStore.setState({ status: recordingStatus });
+    jest.useRealTimers();
+    Object.defineProperty(Platform, 'OS', { value: originalOs, configurable: true });
+  });
+
+  it('ends a link that has sent a frame and connects again at once with a fresh table', async () => {
+    void connectKnownSensors();
+    await settle();
+    deliver?.(null, HEART_RATE_72);
+
+    deliver?.({ message: 'Characteristic notification failed' }, null);
+    await settle();
+
+    expect(mockCancelDeviceConnection).toHaveBeenCalledTimes(1);
+    expect(mockConnectToDevice).toHaveBeenCalledTimes(2);
+    const options = mockConnectToDevice.mock.calls[1]?.[1] ?? {};
+    if (os === 'android') {
+      expect(options).toHaveProperty('refreshGatt', 'OnConnected');
+      expect(options).toHaveProperty('autoConnect', true);
+    } else {
+      expect(options).not.toHaveProperty('refreshGatt');
+    }
+  });
+
+  it('acts once for a link, however many errors its torn-down subscriptions deliver', async () => {
+    void connectKnownSensors();
+    await settle();
+    deliver?.(null, HEART_RATE_72);
+    const staleDeliver = deliver;
+
+    staleDeliver?.({ message: 'first' }, null);
+    await settle();
+    staleDeliver?.({ message: 'second' }, null);
+    await settle();
+
+    expect(mockCancelDeviceConnection).toHaveBeenCalledTimes(1);
+    expect(mockConnectToDevice).toHaveBeenCalledTimes(2);
+  });
+
+  it('paces a link that never sent a frame by the timed backoff', async () => {
+    void connectKnownSensors();
+    await settle();
+
+    deliver?.({ message: 'Characteristic notification failed' }, null);
+    await settle();
+
+    expect(mockConnectToDevice).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(1000);
+    await settle();
+    expect(mockConnectToDevice).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(60_000);
+    await settle();
+    expect(mockConnectToDevice).toHaveBeenCalledTimes(2);
+    const options = mockConnectToDevice.mock.calls[1]?.[1] ?? {};
+    if (os === 'android') expect(options).toHaveProperty('refreshGatt', 'OnConnected');
   });
 });

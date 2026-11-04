@@ -15,7 +15,7 @@
  */
 
 import { parseDecimalInput } from '@/shared/format/decimalInput';
-import type { RouteGroupPreview } from 'veloqrs';
+import type { RouteGroupPreview, RouteSpread } from 'veloqrs';
 
 export interface GroupingParams {
   /** Percentage of the route that has to match, 0 to 100. */
@@ -84,6 +84,12 @@ export interface PaintedRoute {
    * this setting would merge them.
    */
   mergesWithAnother: boolean;
+  /**
+   * True when the setting would tear this route's rides across more than one
+   * previewed group. The engine counts these, because the routes the screen
+   * holds name a representative ride and not their members.
+   */
+  splits: boolean;
 }
 
 export interface GroupingPreviewDiff {
@@ -94,6 +100,8 @@ export interface GroupingPreviewDiff {
   droppedCount: number;
   /** Today's routes that share a previewed group with another. */
   mergedCount: number;
+  /** Today's routes whose rides the setting would divide between groups. */
+  splitCount: number;
 }
 
 /**
@@ -106,8 +114,10 @@ export interface GroupingPreviewDiff {
  */
 export function paintPreview(
   routes: { groupId: string; representativeId: string }[],
-  preview: RouteGroupPreview[]
+  preview: RouteGroupPreview[],
+  spreads: readonly RouteSpread[] = []
 ): GroupingPreviewDiff {
+  const splitIds = new Set(spreads.filter((s) => s.previewGroups > 1).map((s) => s.groupId));
   const groupOfActivity = new Map<string, RouteGroupPreview>();
   for (const group of preview) {
     for (const id of group.activityIds) groupOfActivity.set(id, group);
@@ -137,6 +147,7 @@ export function paintPreview(
       previewSize: group?.activityIds.length ?? 0,
       isLargest: group !== undefined && group.key === largestKey,
       mergesWithAnother: group !== undefined && (routesPerKey.get(group.key) ?? 0) > 1,
+      splits: splitIds.has(route.groupId),
     };
   });
 
@@ -145,6 +156,7 @@ export function paintPreview(
     previewGroupCount: preview.length,
     droppedCount: painted.filter((r) => r.previewKey === null).length,
     mergedCount: painted.filter((r) => r.mergesWithAnother).length,
+    splitCount: painted.filter((r) => r.splits).length,
   };
 }
 

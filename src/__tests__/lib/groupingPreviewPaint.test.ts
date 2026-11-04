@@ -56,6 +56,7 @@ describe('paintPreview', () => {
       previewSize: 0,
       isLargest: false,
       mergesWithAnother: false,
+      splits: false,
     });
   });
 

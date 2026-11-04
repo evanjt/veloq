@@ -28,7 +28,7 @@ import { sensorConnectionHealth } from './connectionHealth';
 import { recordSensorLink, type SensorLinkEvent } from './sensorLinkTrace';
 import { stopSimulatedSensors } from './simulatedSensors';
 import type { KnownSensor, SensorAvailability, SensorKind } from '../types';
-import type { BleManager, Device, Subscription } from 'react-native-ble-plx';
+import type { BleManager, ConnectionOptions, Device, Subscription } from 'react-native-ble-plx';
 
 const log = debug.create('Sensors');
 
@@ -325,6 +325,9 @@ export async function startScan(): Promise<void> {
     return;
   }
 
+  // One scan runs at a time, so this one replaces a search for a sensor and
+  // `noteSeen` below keeps serving it.
+  seekScanActive = false;
   ble.startDeviceScan(SCANNED_SERVICES, { allowDuplicates: false }, (error, device) => {
     if (generation !== scanGeneration) return;
     if (error) {
@@ -334,6 +337,7 @@ export async function startScan(): Promise<void> {
       return;
     }
     if (!device) return;
+    noteSeen(device.id);
     const kinds = kindsFromServiceUUIDs(device.serviceUUIDs);
     if (kinds.length === 0) return;
     useSensorStore.getState().upsertDiscovered({
@@ -358,6 +362,7 @@ export function stopScan(): void {
   clearScanWindow();
   bleManager?.stopDeviceScan();
   useSensorStore.getState().setScanning(false);
+  startSeekScan();
 }
 
 // ─── Connections ──────────────────────────────────────────────────────────────
@@ -509,6 +514,30 @@ function logMonitorError(
 }
 
 /**
+ * A monitor error ends the link and connects again with a fresh service table,
+ * which is what a re-subscribe can fix. A link that delivered a sample
+ * reconnects at once through the pending connect. One that never did is paced
+ * by the timed backoff, so a sensor whose notification enable fails on every
+ * connect is not reconnected in a tight loop. Only the first error of a link
+ * acts: the teardown removes its subscriptions.
+ */
+function recoverFromMonitorError(active: ActiveConnection, sensor: KnownSensor): void {
+  if (active.cancelled) return;
+  const delivered = active.lastSampleAt != null;
+  cleanupConnection(sensor.id, { keepStoreEntry: true });
+  void (async () => {
+    try {
+      await bleManager?.cancelDeviceConnection(sensor.id);
+    } catch {
+      // Already gone, which is the outcome wanted.
+    }
+    if (!useSensorStore.getState().connections[sensor.id]) return;
+    if (delivered) pendReconnect(sensor, { freshTable: true });
+    else scheduleReconnect(sensor, 1, { freshTable: true });
+  })();
+}
+
+/**
  * Register one characteristic monitor. An error is logged and traced, an empty
  * frame is ignored, and every frame with a value is counted as a sample before
  * `onValue` parses it.
@@ -528,6 +557,7 @@ function monitorCharacteristic(
     active.device.monitorCharacteristicForService(service, characteristic, (error, frame) => {
       if (error) {
         logMonitorError(sensor, label, characteristic, error);
+        recoverFromMonitorError(active, sensor);
         return;
       }
       if (!frame?.value) return;
@@ -617,7 +647,43 @@ async function subscribeToSensor(active: ActiveConnection, sensor: KnownSensor):
   }
 }
 
-async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promise<void> {
+/**
+ * How a connect is made. `direct` has a 10 s timeout, so a sensor that is not
+ * nearby is reported. `pending` has none and is left with the platform, which
+ * completes it when the sensor is next in range: Android's `autoConnect`, and
+ * on iOS the untimed connect, which CoreBluetooth keeps pending.
+ */
+type ConnectMode = 'direct' | 'pending';
+
+/**
+ * What a connect asks the stack for. `freshTable` is for a reconnect that
+ * follows silence: Android otherwise answers discovery from its GATT cache,
+ * so a service table that changed since the cache was built is never re-read.
+ * iOS discovers afresh on every connect, so the request is Android's alone.
+ */
+interface ConnectRequest {
+  mode: ConnectMode;
+  freshTable: boolean;
+}
+
+function connectOptions({ mode, freshTable }: ConnectRequest): ConnectionOptions {
+  const options: ConnectionOptions = {};
+  if (mode === 'direct') options.timeout = 10_000;
+  else if (Platform.OS === 'android') options.autoConnect = true;
+  if (freshTable && Platform.OS === 'android') options.refreshGatt = 'OnConnected';
+  return options;
+}
+
+function isTimeout(error: unknown): boolean {
+  return (error as { errorCode?: number } | null)?.errorCode === BleErrorCode.OperationTimedOut;
+}
+
+async function connectAndSubscribe(
+  sensor: KnownSensor,
+  attempt: number,
+  mode: ConnectMode = 'direct',
+  { freshTable = false }: { freshTable?: boolean } = {}
+): Promise<void> {
   const ble = getBle();
   if (!ble) return;
 
@@ -641,7 +707,8 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
   try {
     const connectStartedAt = Date.now();
     traceLink(sensor, 'connectStart');
-    const device = await ble.connectToDevice(sensor.id, { timeout: 10_000 });
+    const options = connectOptions({ mode, freshTable });
+    const device = await ble.connectToDevice(sensor.id, options);
     const connectedAt = Date.now();
     traceLink(sensor, 'connected', { ms: connectedAt - connectStartedAt });
     if (superseded()) {
@@ -649,7 +716,10 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
       return;
     }
     await device.discoverAllServicesAndCharacteristics();
-    traceLink(sensor, 'discovered', { ms: Date.now() - connectedAt });
+    traceLink(sensor, 'discovered', {
+      ms: Date.now() - connectedAt,
+      detail: options.refreshGatt ? 'refreshed' : undefined,
+    });
     if (superseded()) {
       abandonConnect(sensor.id);
       return;
@@ -674,7 +744,7 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
       traceLink(sensor, 'disconnected');
       cleanupConnection(sensor.id, { keepStoreEntry: true });
       const conn = useSensorStore.getState().connections[sensor.id];
-      if (conn) scheduleReconnect(sensor, 1);
+      if (conn) pendReconnect(sensor);
     });
 
     await subscribeToSensor(active, sensor);
@@ -688,10 +758,94 @@ async function connectAndSubscribe(sensor: KnownSensor, attempt: number): Promis
     active.healthTimer = setInterval(() => watchdogTick(sensor), HEALTH_TICK_MS);
     log.log(`Sensor link open: ${sensor.name} (${sensor.kinds.join(', ')}), waiting for data`);
   } catch (e) {
+    // A cancelled connect rejects; whoever cancelled it has already moved on.
+    if (superseded()) return;
     log.warn(`Failed to connect ${sensor.name}:`, e);
-    noteBleError(e);
-    scheduleReconnect(sensor, attempt + 1);
+    if (noteBleError(e)) {
+      scheduleReconnect(sensor, attempt + 1);
+    } else if (mode === 'direct' && isTimeout(e)) {
+      seekSensor(sensor);
+    } else {
+      scheduleReconnect(sensor, attempt + 1);
+    }
   }
+}
+
+/**
+ * After a drop, hand the sensor to one connect the platform holds. Outside a
+ * session nothing needs the link, so it ends instead.
+ */
+function pendReconnect(sensor: KnownSensor, { freshTable = false } = {}): void {
+  if (!useSensorStore.getState().connections[sensor.id]) return;
+  if (!sessionOwnsConnections()) {
+    log.log(`Sensor link ended outside a recording session: ${sensor.name}`);
+    cleanupConnection(sensor.id);
+    pairingConnections.delete(sensor.id);
+    return;
+  }
+  useSensorStore.getState().setConnectionStatus(sensor.id, 'reconnecting');
+  if (radioBlocksConnect()) {
+    parkSensor(sensor);
+    return;
+  }
+  traceLink(sensor, 'reconnectPending', { detail: Platform.OS });
+  void connectAndSubscribe(sensor, 1, 'pending', { freshTable });
+}
+
+/**
+ * Sensors a direct connect could not find. Android's pending connect completes
+ * only for a device the stack has an address type for, one bonded or seen by a
+ * scan since boot, so a filtered scan runs until each is seen and the connect
+ * is pended then. A scan is bounded by the session: ending the sensor's link
+ * removes it from here.
+ */
+const seeking = new Map<string, KnownSensor>();
+/** Whether the scan running now was started for `seeking`, as opposed to the athlete's scan. */
+let seekScanActive = false;
+
+function seekSensor(sensor: KnownSensor): void {
+  if (!useSensorStore.getState().connections[sensor.id]) return;
+  useSensorStore.getState().setConnectionStatus(sensor.id, 'reconnecting');
+  traceLink(sensor, 'seeking');
+  seeking.set(sensor.id, sensor);
+  startSeekScan();
+}
+
+function startSeekScan(): void {
+  const ble = bleManager;
+  if (!ble || seeking.size === 0 || seekScanActive) return;
+  seekScanActive = true;
+  ble.startDeviceScan(SCANNED_SERVICES, { allowDuplicates: false }, (error, device) => {
+    if (error) {
+      log.warn('Sensor search scan error:', error.message);
+      noteBleError(error);
+      seekScanActive = false;
+      ble.stopDeviceScan();
+      // Without a scan the timed retry is what is left.
+      const lost = [...seeking.values()];
+      seeking.clear();
+      for (const sensor of lost) scheduleReconnect(sensor, 1);
+      return;
+    }
+    if (device) noteSeen(device.id);
+  });
+}
+
+/** A sensor was advertised: pend the connect of one being looked for. */
+function noteSeen(id: string): void {
+  const sensor = seeking.get(id);
+  if (!sensor) return;
+  seeking.delete(id);
+  stopSeekScanIfIdle();
+  if (!useSensorStore.getState().connections[id]) return;
+  traceLink(sensor, 'reconnectPending', { detail: Platform.OS });
+  void connectAndSubscribe(sensor, 1, 'pending');
+}
+
+function stopSeekScanIfIdle(): void {
+  if (seeking.size > 0 || !seekScanActive) return;
+  seekScanActive = false;
+  bleManager?.stopDeviceScan();
 }
 
 /**
@@ -718,7 +872,7 @@ export async function reconnectSensor(id: string): Promise<void> {
   } catch {
     // Already gone, which is the outcome wanted.
   }
-  await connectAndSubscribe(sensor, 0);
+  await connectAndSubscribe(sensor, 0, 'direct', { freshTable: true });
 }
 
 /**
@@ -746,7 +900,7 @@ function abandonConnect(id: string): void {
   });
 }
 
-function scheduleReconnect(sensor: KnownSensor, attempt = 1): void {
+function scheduleReconnect(sensor: KnownSensor, attempt = 1, { freshTable = false } = {}): void {
   const conn = useSensorStore.getState().connections[sensor.id];
   if (!conn) return; // Disconnected deliberately
   // Outside a session nothing needs the link, so a drop ends it rather than
@@ -768,7 +922,7 @@ function scheduleReconnect(sensor: KnownSensor, attempt = 1): void {
     reconnectTimers.delete(sensor.id);
     // Still wanted? (disconnectSensor removes the store entry)
     if (!useSensorStore.getState().connections[sensor.id]) return;
-    connectAndSubscribe(sensor, attempt);
+    void connectAndSubscribe(sensor, attempt, 'direct', { freshTable });
   }, delay);
   const previous = reconnectTimers.get(sensor.id);
   if (previous) clearTimeout(previous);
@@ -805,6 +959,7 @@ function cleanupConnection(id: string, options?: { keepStoreEntry?: boolean }): 
   // Before anything else: a connect still in flight has to see this.
   connectGenerations.set(id, (connectGenerations.get(id) ?? 0) + 1);
   parkedSensors.delete(id);
+  if (seeking.delete(id)) stopSeekScanIfIdle();
   const timer = reconnectTimers.get(id);
   if (timer) {
     clearTimeout(timer);

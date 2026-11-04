@@ -188,6 +188,7 @@ export type {
 
 export type {
   RouteGroupPreview,
+  RouteSpread,
   RouteGroupingPreviewClient,
 } from './delegates/routeGroupingPreview';
 

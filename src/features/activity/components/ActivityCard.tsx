@@ -343,17 +343,23 @@ export const ActivityCard = React.memo(
           {!!activity.trainingLoad && (
             <View style={styles.secondaryStat}>
               <Icon name="fire" size={iconSize.sm} color={palette.actionPrimary} />
-              <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+              <FitText
+                testID={`activity-card-${activity.id}-load`}
+                style={[styles.secondaryStatValue, { color: textColor }]}
+              >
                 {formatLoad(activity.trainingLoad)}
-              </RNText>
+              </FitText>
             </View>
           )}
           {averageHeartRate ? (
             <View style={styles.secondaryStat}>
               <Icon name="heart-pulse" size={iconSize.sm} color={colors.errorText} />
-              <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+              <FitText
+                testID={`activity-card-${activity.id}-heart-rate`}
+                style={[styles.secondaryStatValue, { color: textColor }]}
+              >
                 {formatHeartRate(averageHeartRate)}
-              </RNText>
+              </FitText>
             </View>
           ) : null}
           {averagePower ? (
@@ -363,9 +369,12 @@ export const ActivityCard = React.memo(
                 size={iconSize.sm}
                 color={isDark ? darkColors.warningText : colors.warningText}
               />
-              <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+              <FitText
+                testID={`activity-card-${activity.id}-power`}
+                style={[styles.secondaryStatValue, { color: textColor }]}
+              >
                 {formatPower(averagePower)}
-              </RNText>
+              </FitText>
             </View>
           ) : null}
           {!!activity.calories && (
@@ -375,17 +384,23 @@ export const ActivityCard = React.memo(
                 size={iconSize.sm}
                 color={isDark ? darkColors.successText : colors.successText}
               />
-              <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+              <FitText
+                testID={`activity-card-${activity.id}-calories`}
+                style={[styles.secondaryStatValue, { color: textColor }]}
+              >
                 {formatCalories(activity.calories)}
-              </RNText>
+              </FitText>
             </View>
           )}
           {activity.hasWeather && activity.averageWeatherTemp != null ? (
             <View style={styles.secondaryStat}>
               <Icon name="weather-partly-cloudy" size={iconSize.sm} color={colors.actionLink} />
-              <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
+              <FitText
+                testID={`activity-card-${activity.id}-temperature`}
+                style={[styles.secondaryStatValue, { color: textColor }]}
+              >
                 {formatTemperature(activity.averageWeatherTemp, isMetric)}
-              </RNText>
+              </FitText>
             </View>
           ) : null}
         </PressTarget>

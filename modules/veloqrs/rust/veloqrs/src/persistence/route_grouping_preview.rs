@@ -8,6 +8,7 @@
 //! identity remap are untouched, and the result leaves as one payload.
 
 use crate::{MatchConfig, RouteSignature};
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, mpsc};
 
@@ -34,6 +35,27 @@ pub struct PreviewGroup {
     pub activity_ids: Vec<String>,
 }
 
+/// How many preview groups one of today's routes would fall into.
+///
+/// A route whose members land in more than one preview group is one the
+/// setting would split. Members the preview leaves in no group are not
+/// counted: they are a drop, not a split.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[uniffi(name = "FfiRouteSpread")]
+pub struct RouteSpread {
+    /// The route's own stable id, as the routes read carries it.
+    pub group_id: String,
+    /// Distinct preview groups holding at least one of its members.
+    pub preview_groups: u32,
+}
+
+/// One finished run: the proposed groups, and how today's routes spread over
+/// them.
+pub struct GroupingPreviewResult {
+    pub groups: Vec<PreviewGroup>,
+    pub spreads: Vec<RouteSpread>,
+}
+
 /// The two knobs the strictness control exposes. The rest of `MatchConfig` is
 /// taken from the engine's live config: trusting a caller-supplied whole
 /// config would silently flip fields the panel never shows.
@@ -45,7 +67,7 @@ pub struct PreviewStrictness {
 
 /// How a finished run ended.
 pub enum PreviewOutcome {
-    Complete(Vec<PreviewGroup>),
+    Complete(GroupingPreviewResult),
     /// Cancelled cooperatively; nothing to take.
     Cancelled,
 }
@@ -96,12 +118,12 @@ impl RouteGroupingPreviewHandle {
         }
     }
 
-    /// Take the groups once. None while running, cancelled or already taken.
-    pub fn take_groups(&mut self) -> Option<Vec<PreviewGroup>> {
+    /// Take the result once. None while running, cancelled or already taken.
+    pub fn take_result(&mut self) -> Option<GroupingPreviewResult> {
         self.pump();
         match self.outcome {
             Some(PreviewOutcome::Complete(_)) => match self.outcome.take() {
-                Some(PreviewOutcome::Complete(groups)) => Some(groups),
+                Some(PreviewOutcome::Complete(result)) => Some(result),
                 _ => None,
             },
             _ => None,
@@ -168,6 +190,12 @@ impl PersistentEngine {
             return None;
         }
 
+        let routes: Vec<(String, Vec<String>)> = self
+            .groups
+            .iter()
+            .map(|g| (g.group_id.clone(), g.activity_ids.clone()))
+            .collect();
+
         let mut config = self.match_config.clone();
         config.min_match_percentage = strictness.min_match_percentage;
         config.endpoint_threshold = strictness.endpoint_threshold;
@@ -183,10 +211,11 @@ impl PersistentEngine {
             let owned: Vec<RouteSignature> =
                 signatures.iter().map(|a| a.as_ref().clone()).collect();
             let groups = group_at(&owned, &config);
+            let spreads = route_spreads(&routes, &groups);
             let _ = tx.send(if worker_cancel.load(Ordering::SeqCst) {
                 PreviewOutcome::Cancelled
             } else {
-                PreviewOutcome::Complete(groups)
+                PreviewOutcome::Complete(GroupingPreviewResult { groups, spreads })
             });
         });
 
@@ -196,6 +225,32 @@ impl PersistentEngine {
             outcome: None,
         })
     }
+}
+
+/// For each of today's routes, how many preview groups its members fall into.
+///
+/// `routes` is each route's id with its member activity ids. A route with no
+/// member in any preview group reports 0.
+fn route_spreads(routes: &[(String, Vec<String>)], groups: &[PreviewGroup]) -> Vec<RouteSpread> {
+    let mut key_of: HashMap<&str, &str> = HashMap::new();
+    for group in groups {
+        for id in &group.activity_ids {
+            key_of.insert(id.as_str(), group.key.as_str());
+        }
+    }
+    routes
+        .iter()
+        .map(|(group_id, members)| {
+            let keys: HashSet<&str> = members
+                .iter()
+                .filter_map(|id| key_of.get(id.as_str()).copied())
+                .collect();
+            RouteSpread {
+                group_id: group_id.clone(),
+                preview_groups: keys.len() as u32,
+            }
+        })
+        .collect()
 }
 
 /// The pure half, so a test can group without an engine or a thread. Ordered
@@ -276,5 +331,42 @@ mod tests {
                 .map(|g| g.activity_ids),
         );
         assert_eq!(previewed, expected);
+    }
+
+    fn preview_group(key: &str, ids: &[&str]) -> PreviewGroup {
+        PreviewGroup {
+            key: key.to_string(),
+            activity_ids: ids.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    fn route(id: &str, members: &[&str]) -> (String, Vec<String>) {
+        (
+            id.to_string(),
+            members.iter().map(|s| s.to_string()).collect(),
+        )
+    }
+
+    #[test]
+    fn a_route_whose_members_land_in_two_preview_groups_spreads_over_two() {
+        let groups = vec![
+            preview_group("k1", &["a", "b"]),
+            preview_group("k2", &["c"]),
+        ];
+        let routes = vec![
+            route("whole", &["a", "b"]),
+            route("torn", &["b", "c"]),
+            route("gone", &["x", "y"]),
+            route("partly_gone", &["c", "x"]),
+        ];
+        let spreads = route_spreads(&routes, &groups);
+        let counts: Vec<(&str, u32)> = spreads
+            .iter()
+            .map(|s| (s.group_id.as_str(), s.preview_groups))
+            .collect();
+        assert_eq!(
+            counts,
+            vec![("whole", 1), ("torn", 2), ("gone", 0), ("partly_gone", 1)]
+        );
     }
 }

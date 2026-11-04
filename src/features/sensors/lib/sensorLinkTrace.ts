@@ -18,7 +18,10 @@ export type SensorLinkEventKind =
   | 'connectStart'
   /** `ms` is how long the connect took. */
   | 'connected'
-  /** `ms` is how long service discovery took. */
+  /**
+   * `ms` is how long service discovery took. `detail` is `refreshed` when the
+   * connect asked Android to re-read the service table rather than use its cache.
+   */
   | 'discovered'
   | 'monitorRegistered'
   /** `detail` is the stack's message. */
@@ -32,6 +35,10 @@ export type SensorLinkEventKind =
   | 'teardown'
   /** `ms` is the delay before the next connect. */
   | 'reconnectScheduled'
+  /** A connect without a timeout is left pending with the platform; `detail` is the platform. */
+  | 'reconnectPending'
+  /** The sensor was not found by a direct connect, so a scan looks for it. */
+  | 'seeking'
   /** The Bluetooth stack reported the link gone. */
   | 'disconnected'
   /** Waiting for the radio to come on or be granted. */

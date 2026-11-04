@@ -45,10 +45,10 @@ import {
 } from '@/features/maps';
 import { sectionCameraSpec } from '@/features/routes/lib/sectionMapCamera';
 import {
-  previewAreaBounds,
   previewCameraBounds,
   type PreviewAreaCentre,
 } from '@/features/routes/lib/previewMapCamera';
+import { previewAreaOutline } from '@/features/routes/lib/previewAreaOutline';
 import type { PreviewResult, PreviewSection } from 'veloqrs';
 import type { RetiredLines } from '@/features/routes/lib/retiredLineCollection';
 import {
@@ -182,33 +182,7 @@ export function PreviewMapView({
   // The box the camera clamps to, drawn so the athlete can see which ground
   // the selected area covers. Same bounds as the camera and the label, so the
   // three never disagree about what this area is.
-  const areaFeatures = useMemo((): GeoJSON.FeatureCollection => {
-    const area = previewAreaBounds(centre);
-    if (!area) return EMPTY_FEATURE_COLLECTION;
-    const [west, south] = area.sw;
-    const [east, north] = area.ne;
-    return {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'Polygon',
-            coordinates: [
-              [
-                [west, south],
-                [east, south],
-                [east, north],
-                [west, north],
-                [west, south],
-              ],
-            ],
-          },
-        },
-      ],
-    };
-  }, [centre]);
+  const areaFeatures = useMemo(() => previewAreaOutline(centre), [centre]);
 
   const retiredShown = retiredLayer !== null && retiredLayer.show;
 

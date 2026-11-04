@@ -5,6 +5,7 @@ use crate::persistence::attempts::{self, Claim, ClaimGuard, JobKey};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::route_grouping_preview::{
     PreviewOutcome as GroupingOutcome, PreviewStrictness, ROUTE_GROUPING_PREVIEW_HANDLE,
+    RouteSpread,
 };
 use crate::persistence::sections::preview::{
     PreviewCentre, PreviewOverlay, PreviewPoll, SECTION_PREVIEW_HANDLE,
@@ -298,7 +299,11 @@ impl SectionPreview {
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum FfiGroupingOutcome {
     /// The grouping the strictness produced.
-    Grouped { groups: Vec<FfiRouteGroupPreview> },
+    Grouped {
+        groups: Vec<FfiRouteGroupPreview>,
+        /// How many preview groups each of today's routes falls into.
+        spreads: Vec<RouteSpread>,
+    },
     /// A run the caller superseded, which is the normal end of one: every knob
     /// movement cancels the run in flight.
     Cancelled,
@@ -438,8 +443,10 @@ impl RouteGroupingPreview {
             })?;
 
         Ok(match outcome {
-            Some(GroupingOutcome::Complete(groups)) => FfiGroupingOutcome::Grouped {
-                groups: groups
+            Some(GroupingOutcome::Complete(result)) => FfiGroupingOutcome::Grouped {
+                spreads: result.spreads,
+                groups: result
+                    .groups
                     .into_iter()
                     .map(|g| FfiRouteGroupPreview {
                         key: g.key,
@@ -808,7 +815,7 @@ mod tests {
         );
 
         let groups = match crate::runtime::block_on(preview.run(40.0, 500.0)).expect("the run") {
-            FfiGroupingOutcome::Grouped { groups } => groups,
+            FfiGroupingOutcome::Grouped { groups, .. } => groups,
             other => panic!("the preview did not group: {other:?}"),
         };
         assert!(
@@ -843,7 +850,7 @@ mod tests {
 
         let run = |min_pct: f64, endpoint: f64| -> usize {
             match crate::runtime::block_on(preview.run(min_pct, endpoint)).expect("the run") {
-                FfiGroupingOutcome::Grouped { groups } => groups.len(),
+                FfiGroupingOutcome::Grouped { groups, .. } => groups.len(),
                 other => panic!("the preview did not group: {other:?}"),
             }
         };

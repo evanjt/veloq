@@ -146,7 +146,13 @@ export type {
   MergeConfirmSheetResult,
   MergeSectionInfo,
 } from './lib/mergeSheets';
-export { type GroupingParams, groupingParamsOf, paintPreview } from './lib/groupingParams';
+export {
+  type GroupingParams,
+  type GroupingPreviewDiff,
+  groupingParamsOf,
+  paintPreview,
+} from './lib/groupingParams';
+export { scopeGroupingDiff, type ScopeArea } from './lib/groupingAreaScope';
 export { previewNewNumber } from './lib/previewNewNumber';
 export { previewAreaBounds } from './lib/previewMapCamera';
 export {

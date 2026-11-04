@@ -17,6 +17,8 @@ const PLACEHOLDERS: Record<string, string[]> = {
   previewAreaVisits_other: ['{{count}}'],
   previewAreaSections_one: ['{{count}}'],
   previewAreaSections_other: ['{{count}}'],
+  previewAreaRoutes_one: ['{{count}}'],
+  previewAreaRoutes_other: ['{{count}}'],
   sectionMaxLength: ['{{distance}}'],
   sectionSameTraffic: ['{{value}}'],
   previewRunning_one: ['{{count}}'],

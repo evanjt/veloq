@@ -150,6 +150,9 @@ mod superseded_lookup_is_one_call;
 #[path = "../thread_names.rs"]
 mod thread_names;
 
+#[path = "../preview_centres.rs"]
+mod preview_centres;
+
 #[path = "../tied_row_ordering.rs"]
 mod tied_row_ordering;
 

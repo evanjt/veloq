@@ -88,4 +88,35 @@ describe('GroupingPreviewMap', () => {
     settle([-40, 0], 15);
     expect(tree.getByTestId('map-attribution-text').props.children).not.toContain('swisstopo');
   });
+
+  it('draws the selected area as a box and lists it in the legend', async () => {
+    const tree = await render(
+      <GroupingPreviewMap
+        routes={[]}
+        centre={AARE_TOWN}
+        painted={[]}
+        mergedCount={0}
+        mapStyle="light"
+      />
+    );
+
+    const sources = mockSurfaceProps[mockSurfaceProps.length - 1].sources ?? {};
+    const area = sources['preview-area'];
+    expect(area?.kind).toBe('geojson');
+    const features = (area as { data: GeoJSON.FeatureCollection }).data.features;
+    expect(features).toHaveLength(1);
+    expect(features[0]?.geometry.type).toBe('Polygon');
+    expect(tree.getByTestId('grouping-legend-area')).toBeTruthy();
+  });
+
+  it('draws no box and no legend entry without an area', async () => {
+    const tree = await render(
+      <GroupingPreviewMap routes={[]} centre={null} painted={[]} mergedCount={0} mapStyle="light" />
+    );
+
+    const sources = mockSurfaceProps[mockSurfaceProps.length - 1].sources ?? {};
+    const area = sources['preview-area'] as { data: GeoJSON.FeatureCollection };
+    expect(area.data.features).toHaveLength(0);
+    expect(tree.queryByTestId('grouping-legend-area')).toBeNull();
+  });
 });

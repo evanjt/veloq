@@ -17,6 +17,8 @@ const CENTRE: PreviewCentre = {
   lng: 8.7,
   visitTotal: 40,
   sectionCount: 3,
+  routeCount: 0,
+  name: null,
   source: 'sections',
 };
 
@@ -26,6 +28,8 @@ const OTHER_CENTRE: PreviewCentre = {
   lng: 6.1,
   visitTotal: 12,
   sectionCount: 1,
+  routeCount: 0,
+  name: null,
   source: 'sections',
 };
 

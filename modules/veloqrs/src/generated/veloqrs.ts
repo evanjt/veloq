@@ -17330,23 +17330,32 @@ const FfiConverterTypeFfiPowerCurve = (() => {
 })();
 
 /**
- * A ranked riding area: one occupied ~5 km bin of the user's library.
+ * A ranked riding area: one connected region of the user's library.
  */
 export type FfiPreviewCentre = {
   /**
-   * "lat_bin:lng_bin" at ~5 km, an order-free ranking key.
+   * "lat_bin:lng_bin" of the area's centre at ~5 km, an order-free ranking key.
    */
   binKey: string;
   lat: number;
   lng: number;
   /**
-   * Sum of section visit counts in the bin, or activity count on fallback.
+   * Sum of section visit counts in the area, or activity count on fallback.
    */
   visitTotal: number;
   /**
    * 0 on the activities fallback.
    */
   sectionCount: number;
+  /**
+   * Route groups centred in the area. 0 when none is.
+   */
+  routeCount: number;
+  /**
+   * The locality most of the area's sections are named for, when at least
+   * two share one. None leaves the screen to letter the area.
+   */
+  name?: string;
   /**
    * "sections" | "activities"
    */
@@ -17380,6 +17389,8 @@ const FfiConverterTypeFfiPreviewCentre = (() => {
         lng: FfiConverterFloat64.readFromCursor(c),
         visitTotal: FfiConverterUInt32.readFromCursor(c),
         sectionCount: FfiConverterUInt32.readFromCursor(c),
+        routeCount: FfiConverterUInt32.readFromCursor(c),
+        name: FfiConverterOptionalString.readFromCursor(c),
         source: FfiConverterString.readFromCursor(c),
       };
     }
@@ -17389,6 +17400,8 @@ const FfiConverterTypeFfiPreviewCentre = (() => {
       FfiConverterFloat64.writeIntoCursor(value.lng, c);
       FfiConverterUInt32.writeIntoCursor(value.visitTotal, c);
       FfiConverterUInt32.writeIntoCursor(value.sectionCount, c);
+      FfiConverterUInt32.writeIntoCursor(value.routeCount, c);
+      FfiConverterOptionalString.writeIntoCursor(value.name, c);
       FfiConverterString.writeIntoCursor(value.source, c);
     }
     allocationSize(value: TypeName): number {
@@ -17398,6 +17411,8 @@ const FfiConverterTypeFfiPreviewCentre = (() => {
         FfiConverterFloat64.allocationSize(value.lng) +
         FfiConverterUInt32.allocationSize(value.visitTotal) +
         FfiConverterUInt32.allocationSize(value.sectionCount) +
+        FfiConverterUInt32.allocationSize(value.routeCount) +
+        FfiConverterOptionalString.allocationSize(value.name) +
         FfiConverterString.allocationSize(value.source)
       );
     }
@@ -19321,6 +19336,64 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
           value.trendCurves,
         ) +
         FfiConverterTypeFfiAttemptHistograms.allocationSize(value.histograms)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * How many preview groups one of today's routes would fall into.
+ *
+ * A route whose members land in more than one preview group is one the
+ * setting would split. Members the preview leaves in no group are not
+ * counted: they are a drop, not a split.
+ */
+export type FfiRouteSpread = {
+  /**
+   * The route's own stable id, as the routes read carries it.
+   */
+  groupId: string;
+  /**
+   * Distinct preview groups holding at least one of its members.
+   */
+  previewGroups: number;
+};
+
+/**
+ * Generated factory for {@link FfiRouteSpread} record objects.
+ */
+export const FfiRouteSpread = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRouteSpread, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRouteSpread>,
+  });
+})();
+
+const FfiConverterTypeFfiRouteSpread = (() => {
+  type TypeName = FfiRouteSpread;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        groupId: FfiConverterString.readFromCursor(c),
+        previewGroups: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.groupId, c);
+      FfiConverterUInt32.writeIntoCursor(value.previewGroups, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.groupId) +
+        FfiConverterUInt32.allocationSize(value.previewGroups)
       );
     }
   }
@@ -27112,7 +27185,10 @@ export enum FfiGroupingOutcome_Tags {
 export const FfiGroupingOutcome = (() => {
   type Grouped__interface = {
     tag: FfiGroupingOutcome_Tags.Grouped;
-    inner: Readonly<{ groups: Array<FfiRouteGroupPreview> }>;
+    inner: Readonly<{
+      groups: Array<FfiRouteGroupPreview>;
+      spreads: Array<FfiRouteSpread>;
+    }>;
   };
   /**
    * The grouping the strictness produced.
@@ -27124,13 +27200,22 @@ export const FfiGroupingOutcome = (() => {
      */
     readonly [uniffiTypeNameSymbol] = "FfiGroupingOutcome";
     readonly tag = FfiGroupingOutcome_Tags.Grouped;
-    readonly inner: Readonly<{ groups: Array<FfiRouteGroupPreview> }>;
-    constructor(inner: { groups: Array<FfiRouteGroupPreview> }) {
+    readonly inner: Readonly<{
+      groups: Array<FfiRouteGroupPreview>;
+      spreads: Array<FfiRouteSpread>;
+    }>;
+    constructor(inner: {
+      groups: Array<FfiRouteGroupPreview>;
+      spreads: Array<FfiRouteSpread>;
+    }) {
       super("FfiGroupingOutcome", "Grouped");
 
       this.inner = Object.freeze(inner);
     }
-    static new(inner: { groups: Array<FfiRouteGroupPreview> }): Grouped_ {
+    static new(inner: {
+      groups: Array<FfiRouteGroupPreview>;
+      spreads: Array<FfiRouteSpread>;
+    }): Grouped_ {
       return new Grouped_(inner);
     }
 
@@ -27221,6 +27306,7 @@ const FfiConverterTypeFfiGroupingOutcome = (() => {
           return new FfiGroupingOutcome.Grouped({
             groups:
               FfiConverterSequenceTypeFfiRouteGroupPreview.readFromCursor(c),
+            spreads: FfiConverterSequenceTypeFfiRouteSpread.readFromCursor(c),
           });
         case 2:
           return new FfiGroupingOutcome.Cancelled();
@@ -27237,6 +27323,10 @@ const FfiConverterTypeFfiGroupingOutcome = (() => {
           const inner = value.inner;
           FfiConverterSequenceTypeFfiRouteGroupPreview.writeIntoCursor(
             inner.groups,
+            c,
+          );
+          FfiConverterSequenceTypeFfiRouteSpread.writeIntoCursor(
+            inner.spreads,
             c,
           );
           return;
@@ -27261,6 +27351,9 @@ const FfiConverterTypeFfiGroupingOutcome = (() => {
           let size = 4;
           size += FfiConverterSequenceTypeFfiRouteGroupPreview.allocationSize(
             inner.groups,
+          );
+          size += FfiConverterSequenceTypeFfiRouteSpread.allocationSize(
+            inner.spreads,
           );
           return size;
         }
@@ -42114,6 +42207,11 @@ const FfiConverterSequenceTypeFfiRouteGroupPreview = new FfiConverterArray(
   FfiConverterTypeFfiRouteGroupPreview,
 );
 
+// FfiConverter for Array<FfiRouteSpread>
+const FfiConverterSequenceTypeFfiRouteSpread = new FfiConverterArray(
+  FfiConverterTypeFfiRouteSpread,
+);
+
 // FfiConverter for FfiActivityNotification | undefined
 const FfiConverterOptionalTypeFfiActivityNotification =
   new FfiConverterOptional(FfiConverterTypeFfiActivityNotification);
@@ -45116,6 +45214,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRouteLineLayer,
     FfiConverterTypeFfiRoutePerformance,
     FfiConverterTypeFfiRoutePerformanceResult,
+    FfiConverterTypeFfiRouteSpread,
     FfiConverterTypeFfiRoutesScreenData,
     FfiConverterTypeFfiRoutesScreenQuery,
     FfiConverterTypeFfiRoutesStatusData,

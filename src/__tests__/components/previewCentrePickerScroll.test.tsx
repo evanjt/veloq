@@ -29,6 +29,8 @@ function centre(binKey: string) {
     lng: 2,
     visitTotal: 10,
     sectionCount: 3,
+    routeCount: 0,
+    name: null,
     source: 'activities' as const,
   };
 }

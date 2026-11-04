@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { RouteGroupPreview, RouteGroupingPreviewClient } from 'veloqrs';
+import type { RouteGroupPreview, RouteGroupingPreviewClient, RouteSpread } from 'veloqrs';
 import type { GroupingParams } from '../lib/groupingParams';
 import { withAwakeDeadline } from '@/shared/async/awakeDeadline';
 
@@ -46,6 +46,8 @@ export interface RouteGroupingPreviewState {
   status: RouteGroupingStatus;
   /** The payload for the settled knobs, or null until one arrives. */
   groups: RouteGroupPreview[] | null;
+  /** How many preview groups each of today's routes falls into, for the same payload. */
+  spreads: RouteSpread[];
   /** True when there is nothing to group. A run already going is waited out, not refused. */
   refused: boolean;
   /** Ask for a regroup at these values. Debounced. */
@@ -58,6 +60,7 @@ export function useRouteGroupingPreview(
 ): RouteGroupingPreviewState {
   const [status, setStatus] = useState<RouteGroupingStatus>('idle');
   const [groups, setGroups] = useState<RouteGroupPreview[] | null>(null);
+  const [spreads, setSpreads] = useState<RouteSpread[]>([]);
   const [refused, setRefused] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Which run the screen is showing. A payload from a superseded run is
@@ -102,6 +105,7 @@ export function useRouteGroupingPreview(
         switch (outcome.value.state) {
           case 'grouped':
             setGroups(outcome.value.groups);
+            setSpreads(outcome.value.spreads);
             setStatus('complete');
             break;
           case 'cancelled':
@@ -136,5 +140,5 @@ export function useRouteGroupingPreview(
     [client]
   );
 
-  return { status, groups, refused, request, cancel };
+  return { status, groups, spreads, refused, request, cancel };
 }
