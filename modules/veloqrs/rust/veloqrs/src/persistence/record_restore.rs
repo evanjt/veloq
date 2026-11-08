@@ -774,12 +774,13 @@ impl PersistentEngine {
                 .execute(
                     "UPDATE sections SET original_polyline_blob = ?1,
                      representative_activity_id = ?2, rep_start_index = ?3,
-                     rep_end_index = ?4 WHERE id = ?5",
+                     rep_end_index = ?4, rep_reversed = ?5 WHERE id = ?6",
                     params![
                         original.as_deref().map(codec::serialize_track_points),
                         ground.rep_activity_id,
                         ground.rep_start_index,
                         ground.rep_end_index,
+                        ground.rep_reversed,
                         id
                     ],
                 )
@@ -1026,9 +1027,10 @@ impl PersistentEngine {
                 self.db
                     .execute(
                         "UPDATE sections SET representative_activity_id = ?1,
-                         rep_start_index = ?2, rep_end_index = ?3, geometry_source = 'exact'
-                     WHERE id = ?4",
-                        params![reference.0, reference.1, reference.2, id],
+                         rep_start_index = ?2, rep_end_index = ?3, rep_reversed = ?4,
+                         geometry_source = 'exact'
+                     WHERE id = ?5",
+                        params![reference.0, reference.1, reference.2, reference.3, id],
                     )
                     .map_err(|e| e.to_string())?;
                 id
@@ -1749,14 +1751,16 @@ impl PersistentEngine {
     }
 }
 
-/// A section's reference (activity id, start and end index) and the line rebuilt from it.
-type ReferencedLine<'a> = ((&'a str, u32, u32), Vec<GpsPoint>);
+/// A section's reference (activity id, start and end index, read backwards) and the line
+/// rebuilt from it.
+type ReferencedLine<'a> = ((&'a str, u32, u32, bool), Vec<GpsPoint>);
 
-fn ground_reference(ground: &RecordGround) -> Option<(&str, u32, u32)> {
+fn ground_reference(ground: &RecordGround) -> Option<(&str, u32, u32, bool)> {
     sections::geometry::reference(
         ground.rep_activity_id.as_deref(),
         ground.rep_start_index.and_then(|n| u32::try_from(n).ok()),
         ground.rep_end_index.and_then(|n| u32::try_from(n).ok()),
+        ground.rep_reversed,
     )
 }
 
@@ -1799,7 +1803,7 @@ fn cut_line(conn: &rusqlite::Connection, ground: &RecordGround) -> Option<CutGro
         .rep_activity_id
         .as_deref()
         .filter(|id| !id.is_empty())?;
-    if let Some(((_, start, end), points)) = exact_line(conn, ground) {
+    if let Some(((_, start, end, _), points)) = exact_line(conn, ground) {
         return Some(CutGround {
             source: source.to_string(),
             range: Some((start, end)),
@@ -1920,8 +1924,8 @@ fn store_restored_geometry(
     };
     conn.execute(
         "INSERT INTO section_geometry (section_id, version, encoding, blob, milestone,
-             rep_activity_id, rep_start_index, rep_end_index, source, point_count)
-         VALUES (?1, ?2, 1, ?3, 1, ?4, ?5, ?6, ?7, ?8)",
+             rep_activity_id, rep_start_index, rep_end_index, rep_reversed, source, point_count)
+         VALUES (?1, ?2, 1, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             section_id,
             version,
@@ -1929,6 +1933,7 @@ fn store_restored_geometry(
             reference.map(|r| r.0),
             reference.map(|r| r.1),
             reference.map(|r| r.2),
+            reference.is_some_and(|r| r.3),
             source,
             ground.point_count
         ],
@@ -3181,7 +3186,7 @@ mod tests {
             &source.db,
             "old-climb",
             &track[10..40],
-            Some(("ride-1", 10, 40)),
+            Some(("ride-1", 10, 40, false)),
         )
         .unwrap();
         crate::persistence::sections::history::append_history_on(
@@ -3543,6 +3548,7 @@ mod tests {
                     rep_activity_id: Some("ride-a".to_string()),
                     rep_start_index: None,
                     rep_end_index: None,
+                    rep_reversed: false,
                     point_count: None,
                     polyline_json: None,
                     activity_ids: Some(vec!["ride-a".to_string(), "ride-b".to_string()]),

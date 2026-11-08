@@ -32,8 +32,8 @@ jest.mock('@/features/activity', () => ({
 jest.mock('@/shared/app/useOldestActivityDate', () => ({
   useOldestActivityDate: () => ({ data: null }),
 }));
-jest.mock('@/features/settings/hooks/useActivityYearCounts', () => ({
-  useActivityYearCounts: () => ({ data: [] }),
+jest.mock('@/features/settings/hooks/useHistoryRangeEstimate', () => ({
+  useHistoryRangeEstimate: () => undefined,
 }));
 
 const analysing: TrackStage = {

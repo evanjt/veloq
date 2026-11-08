@@ -12,7 +12,7 @@ import { routesStatus } from '../__shared__/routesStatusStub';
 import { SyncState } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
-import { useBackgroundJobs } from '@/features/settings/hooks/useBackgroundJobs';
+import { useBackgroundJobs, useDailyLimit } from '@/features/settings/hooks/useBackgroundJobs';
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides(
@@ -57,6 +57,7 @@ interface EngineState {
   stagedHistory: { done: number; total: number } | null;
   runs: Record<string, unknown>[];
   dataThrows: string | null;
+  dailyLimit: { used: number; perDay: number; resetsAtMs: number } | null;
 }
 
 function defaultState(): EngineState {
@@ -77,6 +78,7 @@ function defaultState(): EngineState {
     stagedHistory: null,
     runs: [],
     dataThrows: null,
+    dailyLimit: null,
   };
 }
 
@@ -112,6 +114,7 @@ function engine() {
         detectionAwaiting: state.detectionAwaiting ?? undefined,
         cutoverOwed: state.cutoverPending,
         streamDaysToFinish: state.streamDaysToFinish ?? undefined,
+        dailyLimit: state.dailyLimit ?? undefined,
       };
     },
     getCutoverDiff: () => null,
@@ -614,5 +617,22 @@ describe('useBackgroundJobs', () => {
     const { result } = await jobs();
 
     expect(result.current.every((job) => job.resumesAt === null)).toBe(true);
+  });
+
+  /**
+   * The count moves when the governor spends a request, and no activity is
+   * stored in between, so the line has to hear the governor's own channel.
+   */
+  it('moves the daily request count when the governor spends one, with no activity stored', async () => {
+    state.dailyLimit = { used: 120, perDay: 800, resetsAtMs: Date.UTC(2026, 10, 9) };
+    const { result } = renderHook(() => useDailyLimit());
+    expect(result.current?.used).toBe(120);
+
+    state.dailyLimit = { ...state.dailyLimit, used: 121 };
+    await act(() => {
+      listeners.get('requestBudgetChanged')?.forEach((callback) => callback());
+    });
+
+    expect(result.current?.used).toBe(121);
   });
 });

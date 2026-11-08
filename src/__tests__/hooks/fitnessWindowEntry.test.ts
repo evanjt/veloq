@@ -48,9 +48,22 @@ describe('the fitness window an insight opens', () => {
     expect(hook.result.current.selectedDate).toBe('2026-09-10');
   });
 
+  it('opens on one month with no entry, not the six months the other screens share', async () => {
+    const { hook } = await mountWith(NONE);
+
+    expect(hook.result.current.timeRange).toBe('1m');
+    expect(hook.result.current.selectedDate).toBeNull();
+  });
+
+  it('opens on the range a cold link names rather than the default', async () => {
+    const { hook } = await mountWith({ range: '1y', date: null });
+
+    expect(hook.result.current.timeRange).toBe('1y');
+  });
+
   it('applies the range and day to a screen that is already mounted', async () => {
     const { hook, navigate } = await mountWith(NONE);
-    expect(hook.result.current.timeRange).toBe('6m');
+    expect(hook.result.current.timeRange).toBe('1m');
 
     await navigate(HRV);
 

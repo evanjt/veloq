@@ -23,4 +23,11 @@ describe('snapToNearest with a right-hand limit', () => {
     const result = layout.snapToNearest(tick.position - 0.01, tick.position);
     expect(result.position).toBeCloseTo(tick.position);
   });
+
+  it('keeps a position at the limit at the limit, not pulled to a tick short of it', () => {
+    const limit = tick.position + 0.01;
+    const result = layout.snapToNearest(limit, limit);
+    expect(result.position).toBe(limit);
+    expect(result.snapped).toBe(false);
+  });
 });

@@ -19,7 +19,7 @@ import {
   periodStart,
   type Period,
 } from '@/shared/app/period';
-import { DEFAULT_PERIOD } from '@/shared/app/period';
+import { DEFAULT_PERIOD, FITNESS_DEFAULT_PERIOD } from '@/shared/app/period';
 import { TIME_RANGES } from '@/shared/app/constants';
 import { SECTION_TIME_RANGES, RANGE_DAYS } from '@/features/routes/constants';
 import { PERIOD_OPTIONS as MAP_PERIODS, DEFAULT_MAP_PERIOD } from '@/features/maps/lib/mapPeriod';
@@ -114,9 +114,10 @@ describe('what a period is', () => {
  * different windows, so an athlete who set six months on one tab met one month
  * on the next.
  *
- * Expected behaviour: every picker opens on `DEFAULT_PERIOD`, the map opens on
- * All. That no screen names its opening window with a literal, which is how
- * the four drifted apart in the first place, is `lint:picker-default-period`.
+ * Expected behaviour: every picker opens on `DEFAULT_PERIOD`, Fitness on
+ * `FITNESS_DEFAULT_PERIOD`, and the map opens on All. That no screen names its
+ * opening window with a literal, which is how the four drifted apart in the
+ * first place, is `lint:picker-default-period`.
  */
 describe('what a picker opens on', () => {
   it('is six months, and every picker that shares the default offers it', () => {
@@ -126,7 +127,12 @@ describe('what a picker opens on', () => {
     }
   });
 
-  it('is All on the map, which is the one exception', () => {
+  it('is one month on Fitness, which is offered by the Fitness range picker', () => {
+    expect(FITNESS_DEFAULT_PERIOD).toBe('1m');
+    expect(TIME_RANGES.map((o) => o.id)).toContain(FITNESS_DEFAULT_PERIOD);
+  });
+
+  it('is All on the map', () => {
     expect(DEFAULT_MAP_PERIOD).toBe('all');
     expect(MAP_PERIODS.map((o) => o.id)).toContain(DEFAULT_MAP_PERIOD);
   });

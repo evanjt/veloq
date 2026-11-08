@@ -116,6 +116,7 @@ function pageHtml(base: MapBase): string {
     bearing: 0,
     pitch: 60,
     hasSavedCamera: false,
+    cameraPinned: false,
     terrainExaggeration: 1.5,
     initStyle: base,
     mapStyle: base,

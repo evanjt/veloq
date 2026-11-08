@@ -64,6 +64,7 @@ fn cut(engine: &PersistentEngine, members: &[&str]) -> FrequentSection {
         point_density: vec![members.len() as u32; polyline.len()],
         representative_activity_id: members[0].to_string(),
         representative_range: Some((0, polyline.len() as u32)),
+        representative_reversed: false,
         polyline,
         activity_ids: members.iter().map(|m| m.to_string()).collect(),
         visit_count: portions.len() as u32,

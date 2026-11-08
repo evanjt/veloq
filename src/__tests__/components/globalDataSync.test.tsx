@@ -51,7 +51,7 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
 // reconnect subscribers read is needed, not the NetInfo listener behind it.
 jest.mock('@/shared/app/NetworkContext', () => ({
   ...jest.requireActual('@/shared/app/NetworkContext'),
-  useNetwork: () => ({ isOnline: true }),
+  useNetwork: () => ({ isOnline: true, hasReading: true }),
   useIsOnline: () => mockOnline,
 }));
 let mockOnline = true;

@@ -16,7 +16,10 @@ export interface StripMark {
   width: number;
   /** Fraction of the strip's height, 0 to 1. */
   height: number;
-  /** Sport group portions from the bottom up, equal and in stack order. Fractions sum to 1. */
+  /**
+   * One portion per activity from the bottom up, each an equal share, the
+   * families in stack order. Fractions sum to 1.
+   */
   segments: { group: string; fraction: number }[];
   /** The date trained but carries no load, so it draws in the neutral colour. */
   noLoad: boolean;
@@ -35,14 +38,27 @@ function inStackOrder(groups: Iterable<string>): string[] {
 }
 
 /**
- * Each distinct sport family takes an equal portion, in the families' stack
- * order, so load, activity order and the language never move it. The strip
- * colours by family rather than by sport, because a sport colour each is more
- * hues than a mark a few pixels wide can tell apart.
+ * Each activity takes an equal portion, so a day of three rides shows three
+ * portions and a ride and a run show two. The portions sit in the families'
+ * stack order; activities of one family keep the order they arrived in, and
+ * they draw the same colour at the same size, so that order draws nothing.
+ * The strip colours by family rather than by sport, because a sport colour
+ * each is more hues than a mark a few pixels wide can tell apart.
  */
 function groupShares(day: StripDay): StripMark['segments'] {
-  const groups = inStackOrder(day.activities.map((a) => getActivityCategory(a.type)));
-  return groups.map((group) => ({ group, fraction: 1 / groups.length }));
+  const groups = day.activities.map((a) => getActivityCategory(a.type));
+  const stacked = SPORT_FAMILY_ORDER.flatMap((family) => groups.filter((g) => g === family));
+  return stacked.map((group) => ({ group, fraction: 1 / stacked.length }));
+}
+
+/**
+ * The surface gap between a mark's portions. A crowded day, one with so many
+ * activities that the bar gap would take more than half the mark, narrows the
+ * gap so the portions keep at least half the mark and never invert.
+ */
+export function portionGap(total: number, portions: number): number {
+  if (portions <= 1) return BAR_GAP;
+  return Math.min(BAR_GAP, total / (2 * (portions - 1)));
 }
 
 /**

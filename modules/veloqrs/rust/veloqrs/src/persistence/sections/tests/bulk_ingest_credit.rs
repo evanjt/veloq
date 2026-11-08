@@ -48,6 +48,7 @@ fn cut(line: Vec<GpsPoint>, members: &[&str]) -> FrequentSection {
         point_density: vec![members.len() as u32; line.len()],
         representative_activity_id: members[0].to_string(),
         representative_range: Some((0, line.len() as u32)),
+        representative_reversed: false,
         polyline: line,
         activity_ids: members.iter().map(|m| m.to_string()).collect(),
         visit_count: members.len() as u32,

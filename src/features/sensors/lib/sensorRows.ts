@@ -81,6 +81,8 @@ export interface SessionSensorRow {
   sensor: KnownSensor;
   state: SessionSensorState;
   canReconnect: boolean;
+  /** The sensor is broadcasting but sends nothing, which turning broadcast off and on fixes. */
+  stuck: boolean;
   /** The metrics this sensor is the recorded source of, each with its last value. */
   live: { kind: SensorMetric; value: number }[];
   batteryPercent: number | null;
@@ -127,6 +129,7 @@ export function sessionSensorRows({
       sensor,
       state,
       canReconnect: canReconnect(state),
+      stuck: state === 'noData' && connection?.stuck === true,
       live,
       batteryPercent: connection?.batteryPercent ?? null,
       signal: connection ? signalLevel(connection.rssi ?? null) : null,

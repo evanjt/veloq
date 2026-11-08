@@ -1702,6 +1702,69 @@ pub(crate) mod pooled {
 
         signature_from_parts(id, &points_blob, start_point, end_point, total_distance)
     }
+
+    /// The signature rebuilt from the stored track, for a stored one that
+    /// carries no elevation over a track that does.
+    ///
+    /// A signature written before the matcher kept each vertex's elevation
+    /// has none, so the line a card draws from it cannot place the camera the
+    /// detail places from the full altitude. `None` when the stored signature
+    /// already carries elevation, when the track has none or is missing or
+    /// unreadable, or when no signature can be built from it. The header of
+    /// the stored track says whether it carries elevation, so a track without
+    /// costs a row read and no decode.
+    pub(crate) fn signature_with_track_elevation(
+        conn: &Connection,
+        id: &str,
+        stored: &RouteSignature,
+    ) -> Option<RouteSignature> {
+        if super::carries_elevation(&stored.points) {
+            return None;
+        }
+        let blob: Vec<u8> = conn
+            .prepare_cached("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
+            .and_then(|mut stmt| {
+                stmt.query_row(params![id], |row| row.get::<_, Vec<u8>>(0))
+                    .optional()
+            })
+            .ok()??;
+        if super::codec::track_blob_carries_elevation(&blob) == Some(false) {
+            return None;
+        }
+        let super::codec::TrackRead::Present(points) = super::codec::TrackRead::from_blob(&blob)
+        else {
+            return None;
+        };
+        if !super::carries_elevation(&points) {
+            return None;
+        }
+        let config = crate::persistence::settings::match_config_from(conn).unwrap_or_default();
+        RouteSignature::from_points(id, &points, &config)
+            .filter(|rebuilt| super::carries_elevation(&rebuilt.points))
+    }
+}
+
+/// Write back the signatures a card read rebuilt from their tracks, so each
+/// row costs one track decode in its lifetime.
+///
+/// Best effort: a busy write lock, or an engine other than the one the read
+/// ran against, leaves the rows as they are and the next read rebuilds them
+/// again.
+pub(crate) fn persist_refilled_signatures(install: u64, signatures: &[RouteSignature]) {
+    if signatures.is_empty() {
+        return;
+    }
+    let written = super::try_with_persistent_engine_for(install, |engine| {
+        engine.store_refilled_signatures(signatures)
+    });
+    if let Some(Err(error)) = written {
+        log::warn!("[persist_refilled_signatures] {error}");
+    }
+}
+
+/// Whether any point has an elevation.
+fn carries_elevation(points: &[GpsPoint]) -> bool {
+    points.iter().any(|p| p.elevation.is_some())
 }
 
 // Both fragments refer to the activity_census alias `c`.
@@ -3374,6 +3437,28 @@ impl PersistentEngine {
 
     pub(super) fn store_signature(&self, id: &str, sig: &RouteSignature) -> SqlResult<()> {
         write_signature(&self.db, id, sig)
+    }
+
+    /// Write back signatures a reader rebuilt from their tracks so that each
+    /// vertex carries its elevation.
+    ///
+    /// A row is written only while it still carries none: the activity may
+    /// have been stored again, with elevation, between the read that rebuilt
+    /// the signature and this write, and that newer row stands.
+    pub(crate) fn store_refilled_signatures(
+        &mut self,
+        signatures: &[RouteSignature],
+    ) -> SqlResult<()> {
+        for signature in signatures {
+            let id = &signature.activity_id;
+            let still_bare = pooled::signature(&self.db, id)
+                .is_some_and(|stored| !carries_elevation(&stored.points));
+            if still_bare {
+                write_signature(&self.db, id, signature)?;
+                self.signature_cache.pop(id);
+            }
+        }
+        Ok(())
     }
 
     pub(super) fn rebuild_spatial_index(&mut self) {

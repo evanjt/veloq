@@ -363,7 +363,7 @@ fn seed_detected_section(
         .expect("seed member");
     }
     engine
-        .record_section_geometry("s1", &polyline, true, Some((representative, 10, 41)))
+        .record_section_geometry("s1", &polyline, true, Some((representative, 10, 41, false)))
         .expect("record version");
 }
 
@@ -413,7 +413,7 @@ fn a_version_cut_from_the_vanished_ride_still_reads_after_it_goes() {
     seed_detected_section(&dir, &mut engine, "kept", &["gone", "kept"]);
     let polyline = engine.get_gps_track("gone").expect("track")[10..=40].to_vec();
     let version = engine
-        .record_section_geometry("s1", &polyline, true, Some(("gone", 10, 41)))
+        .record_section_geometry("s1", &polyline, true, Some(("gone", 10, 41, false)))
         .expect("record version");
     assert_eq!(version_blob_len(&dir, version), 0);
 

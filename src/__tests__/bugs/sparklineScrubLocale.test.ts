@@ -8,31 +8,28 @@
  * language is not their device's.
  */
 
+import { changeLanguage, initialiseI18n } from '@/i18n';
 import { scrubDateLabel } from '@/features/home/lib/scrubDateLabel';
-import { getIntlLocale } from '@/shared/format/format';
 
-jest.mock('@/shared/format/format', () => ({
-  ...jest.requireActual('@/shared/format/format'),
-  getIntlLocale: jest.fn(() => 'de-DE'),
-}));
-
-const mockLocale = getIntlLocale as jest.MockedFunction<typeof getIntlLocale>;
+beforeAll(async () => {
+  await initialiseI18n('en-GB');
+});
 
 describe('the date label under a sparkline crosshair', () => {
-  it('spells the month in the app language, not the device one', () => {
-    mockLocale.mockReturnValue('de-DE');
+  it('spells the month in the app language, not the device one', async () => {
+    await changeLanguage('de-DE');
 
     expect(scrubDateLabel(0, new Date(2026, 2, 14))).toBe('14. März');
   });
 
-  it('counts back from the day the scrub is read on', () => {
-    mockLocale.mockReturnValue('en-AU');
+  it('counts back from the day the scrub is read on', async () => {
+    await changeLanguage('en-AU');
 
     expect(scrubDateLabel(3, new Date(2026, 2, 14))).toBe('11 Mar');
   });
 
-  it('crosses a month boundary going back', () => {
-    mockLocale.mockReturnValue('en-AU');
+  it('crosses a month boundary going back', async () => {
+    await changeLanguage('en-AU');
 
     expect(scrubDateLabel(20, new Date(2026, 2, 14))).toBe('22 Feb');
   });

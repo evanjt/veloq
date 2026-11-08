@@ -42,10 +42,10 @@ describe('store device frame', () => {
     expect(top + frame.outerHeight).toBeLessThanOrEqual(slot.height - d.pad);
   });
 
-  it('draws a Play phone at about 60% of the canvas width', () => {
+  it('draws a Play phone at about two thirds of the canvas width', () => {
     const { frame } = frameFor('android', 1080, 1920, 'whole');
-    expect(frame.outerWidth / 1080).toBeGreaterThan(0.55);
-    expect(frame.outerWidth / 1080).toBeLessThan(0.65);
+    expect(frame.outerWidth / 1080).toBeGreaterThan(0.62);
+    expect(frame.outerWidth / 1080).toBeLessThan(0.7);
   });
 
   it.each(SLOTS.filter((s) => s.kind !== 'ipad'))(
@@ -94,7 +94,7 @@ describe('store device frame', () => {
   });
 
   describe('rendered page', () => {
-    const caption: Caption = { kicker: 'Feed', cap: 'Your activity\nhistory', sub: 'Synced.' };
+    const caption: Caption = { cap: 'Your activity\nhistory' };
     const html = (kind: DeviceKind, w: number, h: number, layout: ShotLayout) =>
       phoneHtml(storePalette, dims(w, h, kind), caption, '/x.png', layout);
 

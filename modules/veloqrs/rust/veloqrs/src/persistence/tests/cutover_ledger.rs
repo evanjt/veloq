@@ -283,7 +283,7 @@ fn an_archived_state_survives_later_states_and_rolls_back() {
                 "s_auto",
                 &ride(7.0)[2..end as usize],
                 false,
-                Some(("a1", 2, end)),
+                Some(("a1", 2, end, false)),
             )
             .expect("a later state");
     }
@@ -355,7 +355,12 @@ fn rolling_back_to_a_state_whose_ride_is_absent_keeps_its_line() {
     engine.archive_current_catalogue().expect("archive");
     let (_, version) = archived_state(&engine, "s_absent");
     engine
-        .record_section_geometry("s_absent", &ride(7.0)[0..12], false, Some(("a1", 0, 12)))
+        .record_section_geometry(
+            "s_absent",
+            &ride(7.0)[0..12],
+            false,
+            Some(("a1", 0, 12, false)),
+        )
         .expect("a later state");
 
     engine
@@ -670,7 +675,7 @@ fn a_retired_sections_state_survives_later_writes_and_the_retention_pass() {
         .expect("an old ride");
     insert_auto_section(&engine, "s_other", &ride(7.0)[4..30], ("a1", 4, 30));
     engine
-        .record_section_geometry("s_auto", &ride(7.0)[0..8], false, Some(("a1", 0, 8)))
+        .record_section_geometry("s_auto", &ride(7.0)[0..8], false, Some(("a1", 0, 8, false)))
         .expect("an earlier state, so the archived one is not the first");
     let version = retired_archived(&engine);
     assert!(version > 1);
@@ -681,7 +686,7 @@ fn a_retired_sections_state_survives_later_writes_and_the_retention_pass() {
                 "s_other",
                 &ride(7.0)[2..end as usize],
                 false,
-                Some(("a1", 2, end)),
+                Some(("a1", 2, end, false)),
             )
             .expect("a later write on another section");
         engine
@@ -689,7 +694,7 @@ fn a_retired_sections_state_survives_later_writes_and_the_retention_pass() {
                 "s_auto",
                 &ride(7.0)[1..end as usize],
                 false,
-                Some(("a1", 1, end)),
+                Some(("a1", 1, end, false)),
             )
             .expect("a later write on the retired section");
     }

@@ -134,7 +134,8 @@ export type EngineEvent =
   | 'previewPhase'
   | 'previewFinished'
   | 'recordingsChanged'
-  | 'uploadPermissionRefused';
+  | 'uploadPermissionRefused'
+  | 'requestBudgetChanged';
 
 /** What an announcement carries. Events with no subject carry nothing. */
 export type EnginePayload =
@@ -1155,7 +1156,7 @@ class EngineClient implements DelegateHost {
   }
 
   /**
-   * `scope` is where the zip is going: shared storage gets a record without the
+   * `scope` is where the zip is going: an automatic backup gets a record without the
    * export privacy home. Rejects with `Cancelled` when `cancelRun` stopped it,
    * writing nothing.
    */
@@ -1495,6 +1496,7 @@ class EngineClient implements DelegateHost {
       previewFinished: () => post('previewFinished'),
       recordingsChanged: () => post('recordingsChanged'),
       uploadPermissionRefused: () => post('uploadPermissionRefused'),
+      requestBudgetChanged: () => post('requestBudgetChanged'),
     };
   }
 

@@ -6,16 +6,21 @@
  * the chart names the window under its rows.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RangeCoverage } from 'veloqrs';
 
-import { Card, CardHeader, ChartSkeleton, ErrorState, IconButton } from '@/shared/ui';
+import { Button, Card, CardHeader, ChartSkeleton, ErrorState, selectLabel } from '@/shared/ui';
 import { WellnessTrendsChart, type TimeRange } from '@/features/wellness';
 import type { WellnessData } from '@/types';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import type { SmoothingSheetInput } from '@/app/sheets/smoothing';
-import type { SmoothingWindow } from '@/shared/math/smoothing';
+import { subscribeToRestore } from '@/shared/storage/restoreSignal';
+import { getSmoothingChipLabel, type SmoothingWindow } from '@/shared/math/smoothing';
+import {
+  readWellnessSmoothing,
+  writeWellnessSmoothing,
+} from '@/features/fitness/lib/wellnessSmoothingPreference';
 
 const CHART_HEIGHT = 200;
 
@@ -46,16 +51,37 @@ export function WellnessTrendsCard({
   onDateSelect,
 }: WellnessTrendsCardProps) {
   const { t } = useTranslation();
-  const [smoothingWindow, setSmoothingWindow] = useState<SmoothingWindow>('auto');
+  // Null until the stored choice is read, so neither the chip nor the chart names a window the athlete did not pick.
+  const [smoothingWindow, setSmoothingWindow] = useState<SmoothingWindow | null>(null);
+  useEffect(() => {
+    let live = true;
+    const load = () => {
+      void readWellnessSmoothing().then((stored) => {
+        if (live) setSmoothingWindow(stored);
+      });
+    };
+    load();
+    const stopListening = subscribeToRestore(load);
+    return () => {
+      live = false;
+      stopListening();
+    };
+  }, []);
   const openSheet = useSheetOpener();
   const pickSmoothing = useCallback(async () => {
+    if (smoothingWindow === null) return;
     const result = await openSheet<SmoothingSheetInput, SmoothingWindow>('sheets/smoothing', {
       window: smoothingWindow,
+      timeRange,
     });
-    if (result.kind === 'selected') setSmoothingWindow(result.value);
-  }, [openSheet, smoothingWindow]);
+    if (result.kind === 'selected') {
+      setSmoothingWindow(result.value);
+      await writeWellnessSmoothing(result.value);
+    }
+  }, [openSheet, smoothingWindow, timeRange]);
 
-  const smoothed = smoothingWindow !== 'auto';
+  const chipLabel =
+    smoothingWindow === null ? null : getSmoothingChipLabel(smoothingWindow, timeRange, t as never);
 
   return (
     <Card variant="flat">
@@ -63,15 +89,17 @@ export function WellnessTrendsCard({
         testID="wellness-trends-header"
         title={t('wellnessScreen.trends')}
         accessory={
-          <IconButton
-            accessibilityLabel={t('wellness.smoothingTitle' as never)}
-            variant="secondary"
-            selected={smoothed}
-            onPress={pickSmoothing}
-            testID="wellness-smoothing-button"
-          >
-            <IconButton.Glyph name="chart-bell-curve-cumulative" />
-          </IconButton>
+          chipLabel === null ? undefined : (
+            <Button
+              variant="secondary"
+              size="sm"
+              opensMenu
+              label={chipLabel}
+              accessibilityLabel={selectLabel(t('wellness.smoothingTitle' as never), chipLabel)}
+              onPress={pickSmoothing}
+              testID="wellness-smoothing-button"
+            />
+          )
         }
       />
       {readError ? (
@@ -81,7 +109,7 @@ export function WellnessTrendsCard({
           onRetry={onRetry}
           testID="wellness-trends-failed"
         />
-      ) : !drawn || (isLoading && !wellness) ? (
+      ) : !drawn || smoothingWindow === null || (isLoading && !wellness) ? (
         <ChartSkeleton height={CHART_HEIGHT} header={false} />
       ) : (
         <WellnessTrendsChart

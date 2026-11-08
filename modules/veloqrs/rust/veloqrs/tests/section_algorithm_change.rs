@@ -308,6 +308,7 @@ fn handed_over(id: &str, line: Vec<GpsPoint>, rides: &[&str]) -> tracematch::Fre
         polyline: line,
         representative_activity_id: rides.first().copied().unwrap_or_default().to_string(),
         representative_range: None,
+        representative_reversed: false,
         activity_ids: rides.iter().map(|r| r.to_string()).collect(),
         activity_portions: rides
             .iter()

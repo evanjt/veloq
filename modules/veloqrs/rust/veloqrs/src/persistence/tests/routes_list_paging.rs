@@ -264,9 +264,175 @@ fn a_group_with_no_stored_count_sends_the_list_to_the_walk() {
     assert!(super::paged_group_page(&engine.db, &query).is_none());
     let page = super::pooled_route_group_page(&engine.db, &query);
     assert_eq!(page.groups[0].group_id, "g_old");
-    assert_eq!(page.total_count, 10);
+    assert_eq!(page.total_count, 8);
     assert_eq!(
         group_view(&page),
         group_view(&super::walked_group_page(&engine.db, &query))
     );
+}
+
+/// One group with `count` members in `sport`, and the activities behind them
+/// so a sport filter can read each member's sport.
+fn add_group(engine: &PersistentEngine, id: &str, count: u32, sport: &str) {
+    let ids: Vec<String> = (0..count).map(|n| format!("{id}_a{n}")).collect();
+    engine
+        .db
+        .execute(
+            "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
+                                       activity_count)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                id,
+                ids[0],
+                serde_json::to_string(&ids).unwrap(),
+                sport,
+                count
+            ],
+        )
+        .unwrap();
+    for activity in &ids {
+        engine
+            .db
+            .execute(
+                "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
+                 VALUES (?1, ?2, 0, 0, 0, 0, 1740000000)",
+                params![activity, sport],
+            )
+            .unwrap();
+    }
+}
+
+/// Six routes ridden at least twice, two of them named "loop" by the athlete,
+/// and forty groups ridden once.
+fn routes_and_one_offs() -> PersistentEngine {
+    let engine = PersistentEngine::in_memory().expect("engine");
+    for i in 0..6u32 {
+        add_group(&engine, &format!("r{i}"), 2 + i, "Ride");
+    }
+    for i in 0..40u32 {
+        add_group(&engine, &format!("one{i}"), 1, "Ride");
+    }
+    engine
+        .db
+        .execute_batch(
+            "INSERT INTO route_names (route_id, custom_name) VALUES ('r0', 'Harbour loop');
+             INSERT INTO route_names (route_id, custom_name) VALUES ('r1', 'Quarry loop');",
+        )
+        .unwrap();
+    engine
+}
+
+/// Scenario: the athlete opens the routes list with nothing searched and no sport
+/// chosen, in a library of six routes ridden at least twice and forty ridden once.
+///
+/// Expected behaviour: the list's total is the routes the minimum leaves, so the
+/// header reads six and not six of forty-six. A search narrows the shown count
+/// against that total, and so does a sport, which is applied after the total.
+#[test]
+fn the_list_total_is_the_routes_the_minimum_leaves() {
+    let engine = routes_and_one_offs();
+    let minimum = FfiRoutesScreenQuery {
+        min_group_activity_count: 2,
+        ..base()
+    };
+
+    let paged = super::pooled_route_group_page(&engine.db, &minimum);
+    assert_eq!((paged.total_count, paged.filtered_count), (6, 6));
+    assert_eq!(paged.groups.len(), 6);
+
+    let walked = super::pooled_route_group_page(
+        &engine.db,
+        &FfiRoutesScreenQuery {
+            group_sort: FfiGroupSort::Distance,
+            ..minimum.clone()
+        },
+    );
+    assert_eq!((walked.total_count, walked.filtered_count), (6, 6));
+
+    let searched = super::pooled_route_group_page(
+        &engine.db,
+        &FfiRoutesScreenQuery {
+            group_search: "loop".into(),
+            ..minimum.clone()
+        },
+    );
+    assert_eq!((searched.total_count, searched.filtered_count), (6, 2));
+
+    add_group(&engine, "run", 2, "Run");
+    let ride = super::pooled_route_group_page(
+        &engine.db,
+        &FfiRoutesScreenQuery {
+            group_sport_type: Some("Ride".into()),
+            ..minimum.clone()
+        },
+    );
+    assert_eq!((ride.total_count, ride.filtered_count), (7, 6));
+    let run = super::pooled_route_group_page(
+        &engine.db,
+        &FfiRoutesScreenQuery {
+            group_sport_type: Some("Run".into()),
+            ..minimum
+        },
+    );
+    assert_eq!((run.total_count, run.filtered_count), (7, 1));
+}
+
+/// Scenario: the athlete switches the Removed filter on in a catalogue of ten
+/// visible and five removed sections.
+///
+/// Expected behaviour: the total is the scope the list draws from, so it moves
+/// with the filter and the shown count never exceeds it, on the paged read and
+/// on the walked one, searched or not.
+#[test]
+fn the_sections_total_includes_removed_sections_when_the_filter_shows_them() {
+    let engine = library();
+    let filters = |hide_disabled| FfiSectionFilters {
+        hide_custom: false,
+        hide_auto: false,
+        hide_disabled,
+        hide_unaccepted: false,
+    };
+    for sort in [FfiSectionSort::Visits, FfiSectionSort::Name] {
+        let shown = super::pooled_route_section_page(
+            &engine.db,
+            &FfiRoutesScreenQuery {
+                section_sort: sort,
+                section_filters: filters(false),
+                section_limit: 50,
+                ..base()
+            },
+        );
+        assert_eq!(
+            (shown.total_count, shown.filtered_count),
+            (15, 15),
+            "{sort:?}"
+        );
+
+        let hidden = super::pooled_route_section_page(
+            &engine.db,
+            &FfiRoutesScreenQuery {
+                section_sort: sort,
+                section_filters: filters(true),
+                section_limit: 50,
+                ..base()
+            },
+        );
+        assert_eq!(
+            (hidden.total_count, hidden.filtered_count),
+            (10, 10),
+            "{sort:?}"
+        );
+    }
+
+    let searched = super::pooled_route_section_page(
+        &engine.db,
+        &FfiRoutesScreenQuery {
+            section_search: "hill 1".into(),
+            section_filters: filters(false),
+            section_limit: 50,
+            ..base()
+        },
+    );
+    assert_eq!(searched.total_count, 15);
+    assert!(searched.filtered_count < 15 && searched.filtered_count > 0);
 }

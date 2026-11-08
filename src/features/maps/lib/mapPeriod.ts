@@ -23,7 +23,7 @@ export function periodSelectLabelKey(period: MapPeriod): string {
 }
 
 /**
- * The map opens on the whole library, which is the one exception to
+ * The map opens on the whole library, which is an exception to
  * `DEFAULT_PERIOD`. The map is what an athlete opens to see everywhere they
  * have been, and six months of it answers a different question.
  */

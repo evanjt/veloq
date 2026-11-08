@@ -15,6 +15,7 @@ import {
   ChartCrosshair,
   chartStroke,
   ChartSurface,
+  type ChartReadingSource,
   CurveLine,
   dataExtent,
   projectRuns,
@@ -116,21 +117,24 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   const chartData = useMemo(() => formChartSeries(data ?? [], asPercent), [data, asPercent]);
 
   // What a screen reader hears and the Show data sheet lists: the form line, day by day.
-  const reading = useMemo(() => {
-    const series: SummarySeries = {
-      name: t('metrics.form'),
-      unit: asPercent ? '%' : undefined,
-      points: chartData.map((d) => ({
-        label: formatShortDate(d.date),
-        key: d.date,
-        value: d.form,
-      })),
-      format: (v) => `${signedForm(Math.round(v))}${asPercent ? '%' : ''}`,
+  const reading = useMemo<ChartReadingSource>(() => {
+    const build = () => {
+      const series: SummarySeries = {
+        name: t('metrics.form'),
+        unit: asPercent ? '%' : undefined,
+        points: chartData.map((d) => ({
+          label: formatShortDate(d.date),
+          key: d.date,
+          value: d.form,
+        })),
+        format: (v) => `${signedForm(Math.round(v))}${asPercent ? '%' : ''}`,
+      };
+      return {
+        summary: seriesSummary(series, t),
+        table: seriesTable(series.name, t('charts.column.date'), [series]),
+      };
     };
-    return {
-      summary: seriesSummary(series, t),
-      table: seriesTable(series.name, t('charts.column.date'), [series]),
-    };
+    return { hasRows: chartData.some((d) => Number.isFinite(d.form)), read: build };
   }, [chartData, asPercent, t]);
 
   const handleSelect = useCallback((point: FormChartPoint) => {
@@ -242,7 +246,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 
   return (
     <View style={styles.container}>
-      <ChartSurface summary={reading.summary} table={reading.table} style={styles.plot} held={held}>
+      <ChartSurface reading={reading} style={styles.plot} held={held}>
         <View style={styles.plotRow}>
           <YAxisLabels
             ticks={yTicks}

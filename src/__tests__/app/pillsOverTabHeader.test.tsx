@@ -33,7 +33,7 @@ jest.mock('@/shared/app', () => ({
 }));
 
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: false, offlineBannerShown: true }),
+  useNetwork: () => ({ isOnline: false, offlineIndicator: 'pill' }),
 }));
 
 const TOP_INSET = 47;

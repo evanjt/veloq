@@ -33,7 +33,8 @@ export type EngineEvent =
   | 'streamBackfillPhase'
   | 'fitParsed'
   | 'gpsTrackStored'
-  | 'cutoverSettled';
+  | 'cutoverSettled'
+  | 'requestBudgetChanged';
 
 /**
  * Returns a trigger value that changes when any subscribed event fires, and

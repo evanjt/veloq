@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
 
-import { DEFAULT_PERIOD } from '@/shared/app/period';
+import { FITNESS_DEFAULT_PERIOD } from '@/shared/app/period';
 import type { FitnessEntry } from '@/shared/app/fitnessEntry';
 import { useChartInteraction } from '@/shared/charts/useChartInteraction';
 import type { TimeRange } from '@/features/wellness';
@@ -18,7 +18,7 @@ import type { TimeRange } from '@/features/wellness';
  */
 export function useFitnessWindow(entry: FitnessEntry, clearEntry: () => void) {
   const { range: entryRange, date: entryDate } = entry;
-  const [timeRange, setTimeRange] = useState<TimeRange>(entryRange ?? DEFAULT_PERIOD);
+  const [timeRange, setTimeRange] = useState<TimeRange>(entryRange ?? FITNESS_DEFAULT_PERIOD);
   const interaction = useChartInteraction(entryDate);
   const { setSelectedDate, setSelectedValues } = interaction;
   // Shared with the charts for the crosshair, so it moves with the selection.

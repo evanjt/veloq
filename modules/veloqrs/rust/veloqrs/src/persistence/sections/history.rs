@@ -29,8 +29,9 @@ use tracematch::GpsPoint;
 #[path = "tests/section_sport_consistency.rs"]
 mod section_sport_consistency;
 
-/// The activity and point range an exact geometry version was sliced from.
-type SliceReference = (String, u32, u32);
+/// The activity and point range an exact geometry version was sliced from, and
+/// whether its line reads that range backwards.
+type SliceReference = (String, u32, u32, bool);
 
 /// Newest versions always retained, besides version 1, milestones, and the
 /// pinned version.
@@ -290,7 +291,7 @@ pub struct SectionHistoryEvent {
 fn droppable_blob(
     conn: &rusqlite::Connection,
     polyline: &[GpsPoint],
-    reference: Option<(&str, u32, u32)>,
+    reference: Option<(&str, u32, u32, bool)>,
 ) -> Vec<u8> {
     let encoded = codec::encode_polyline(polyline);
     let reproduces = reference
@@ -308,7 +309,7 @@ pub(super) fn record_geometry_on(
     section_id: &str,
     polyline: &[GpsPoint],
     milestone: bool,
-    reference: Option<(&str, u32, u32)>,
+    reference: Option<(&str, u32, u32, bool)>,
 ) -> rusqlite::Result<i64> {
     let version: i64 = conn.query_row(
         "SELECT COALESCE(MAX(version), 0) + 1 FROM section_geometry WHERE section_id = ?",
@@ -318,7 +319,7 @@ pub(super) fn record_geometry_on(
     // The stream's count at the moment of the cut, so a later re-slice can
     // tell the same stream from one a sync replaced under the same id.
     let point_count: Option<i64> = match reference {
-        Some((activity_id, _, _)) => conn
+        Some((activity_id, _, _, _)) => conn
             .query_row(
                 "SELECT point_count FROM gps_tracks WHERE activity_id = ?",
                 params![activity_id],
@@ -330,17 +331,19 @@ pub(super) fn record_geometry_on(
     conn.execute(
         "INSERT INTO section_geometry
              (section_id, version, encoding, blob, milestone,
-              rep_activity_id, rep_start_index, rep_end_index, source, point_count)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              rep_activity_id, rep_start_index, rep_end_index, rep_reversed, source,
+              point_count)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             section_id,
             version,
             ENCODING_QUANTISED,
             droppable_blob(conn, polyline, reference),
             milestone as i64,
-            reference.map(|(id, _, _)| id),
-            reference.map(|(_, start, _)| start),
-            reference.map(|(_, _, end)| end),
+            reference.map(|(id, _, _, _)| id),
+            reference.map(|(_, start, _, _)| start),
+            reference.map(|(_, _, end, _)| end),
+            reference.is_some_and(|(_, _, _, reversed)| reversed),
             if reference.is_some() {
                 SOURCE_EXACT
             } else {
@@ -391,7 +394,7 @@ pub(in crate::persistence) fn record_archived_geometry_on(
     conn: &rusqlite::Connection,
     section_id: &str,
     line: &[GpsPoint],
-    reference: Option<(&str, u32, u32)>,
+    reference: Option<(&str, u32, u32, bool)>,
 ) -> rusqlite::Result<Option<i64>> {
     if line.is_empty() && reference.is_none() {
         return Ok(None);
@@ -413,7 +416,9 @@ pub(in crate::persistence) fn record_archived_geometry_on(
             };
             let same_range = match (reference, stored.as_ref()) {
                 (None, _) => true,
-                (Some(wanted), Some((id, start, end))) => wanted == (id.as_str(), *start, *end),
+                (Some(wanted), Some((id, start, end, reversed))) => {
+                    wanted == (id.as_str(), *start, *end, *reversed)
+                }
                 (Some(_), None) => false,
             };
             if same_range && encode_course(&points) == encoded {
@@ -442,7 +447,7 @@ pub(in crate::persistence) fn record_archived_geometry_on(
         (None, _) => (SOURCE_CONSENSUS, codec::encode_polyline(line)),
     };
     let point_count: Option<i64> = match (reference, source) {
-        (Some((activity_id, _, _)), SOURCE_EXACT) => conn
+        (Some((activity_id, _, _, _)), SOURCE_EXACT) => conn
             .query_row(
                 "SELECT point_count FROM gps_tracks WHERE activity_id = ?",
                 params![activity_id],
@@ -461,13 +466,22 @@ pub(in crate::persistence) fn record_archived_geometry_on(
             version,
             ENCODING_QUANTISED,
             blob,
-            reference.map(|(id, _, _)| id),
-            reference.map(|(_, start, _)| start),
-            reference.map(|(_, _, end)| end),
+            reference.map(|(id, _, _, _)| id),
+            reference.map(|(_, start, _, _)| start),
+            reference.map(|(_, _, end, _)| end),
             source,
             point_count,
         ],
     )?;
+    // Only a backwards line names the direction. The archive carry an upgrade
+    // runs writes here before the column exists, and every line it keeps runs
+    // forwards, which is the column's default.
+    if reference.is_some_and(|(_, _, _, reversed)| reversed) {
+        conn.execute(
+            "UPDATE section_geometry SET rep_reversed = 1 WHERE section_id = ? AND version = ?",
+            params![section_id, version],
+        )?;
+    }
     Ok(Some(version))
 }
 
@@ -481,10 +495,19 @@ pub(in crate::persistence) fn settle_orphaned_references_on(
     activity_id: &str,
     stream: &[GpsPoint],
 ) -> rusqlite::Result<usize> {
-    type Orphan = (String, i64, Vec<u8>, Option<u32>, Option<u32>, Option<i64>);
+    type Orphan = (
+        String,
+        i64,
+        Vec<u8>,
+        Option<u32>,
+        Option<u32>,
+        Option<i64>,
+        bool,
+    );
     let orphans: Vec<Orphan> = {
         let mut stmt = conn.prepare(
-            "SELECT section_id, version, blob, rep_start_index, rep_end_index, point_count
+            "SELECT section_id, version, blob, rep_start_index, rep_end_index, point_count,
+                    rep_reversed
              FROM section_geometry
              WHERE rep_activity_id = ? AND source = 'orphaned' AND encoding = ?",
         )?;
@@ -496,12 +519,13 @@ pub(in crate::persistence) fn settle_orphaned_references_on(
                 row.get(3)?,
                 row.get(4)?,
                 row.get(5)?,
+                row.get(6)?,
             ))
         })?
         .collect::<rusqlite::Result<_>>()?
     };
     let mut settled = 0;
-    for (section_id, version, blob, start, end, point_count) in orphans {
+    for (section_id, version, blob, start, end, point_count, reversed) in orphans {
         let (Some(start), Some(end)) = (start, end) else {
             continue;
         };
@@ -509,7 +533,7 @@ pub(in crate::persistence) fn settle_orphaned_references_on(
         if point_count.is_some_and(|count| count != stream.len() as i64) {
             continue;
         }
-        let Some(sliced) = geometry::slice(stream, (activity_id, start, end)) else {
+        let Some(sliced) = geometry::slice(stream, (activity_id, start, end, reversed)) else {
             continue;
         };
         if !blob.is_empty() && codec::encode_polyline(&sliced) != blob {
@@ -860,6 +884,7 @@ struct PendingBaseline {
     rep_activity_id: Option<String>,
     rep_start: Option<u32>,
     rep_end: Option<u32>,
+    rep_reversed: bool,
     at: String,
     activity_count: i64,
 }
@@ -894,6 +919,7 @@ fn pending_baselines_on(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<Pen
     let mut stmt = conn.prepare(
         "SELECT s.id, s.polyline_blob, s.polyline_json,
                 s.representative_activity_id, s.rep_start_index, s.rep_end_index,
+                s.rep_reversed,
                 COALESCE(
                     (SELECT datetime(MIN(a.start_date), 'unixepoch')
                      FROM section_activities sa JOIN activities a ON a.id = sa.activity_id
@@ -912,8 +938,9 @@ fn pending_baselines_on(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<Pen
                 rep_activity_id: row.get(3)?,
                 rep_start: row.get(4)?,
                 rep_end: row.get(5)?,
-                at: row.get(6)?,
-                activity_count: row.get(7)?,
+                rep_reversed: row.get(6)?,
+                at: row.get(7)?,
+                activity_count: row.get(8)?,
             })
         })?
         .filter_map(|r| r.ok())
@@ -923,31 +950,35 @@ fn pending_baselines_on(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<Pen
 }
 
 /// The half-open range of `activity_id`'s stored stream that `line` is a slice
-/// of, with the stream's point count, when it is one. A triple the row already
-/// carries wins when it reproduces the line, so a stream that holds the line
-/// twice does not lose a range that was never ambiguous.
+/// of, whether the line reads it backwards, and the stream's point count, when
+/// it is one. A reference the row already carries wins when it reproduces the
+/// line, so a stream that holds the line twice does not lose a range that was
+/// never ambiguous.
 fn exact_reference(
     conn: &rusqlite::Connection,
     activity_id: &str,
-    stored: Option<(&str, u32, u32)>,
+    stored: Option<(&str, u32, u32, bool)>,
     line: &[GpsPoint],
-) -> Option<(String, u32, u32, i64)> {
+) -> Option<(String, u32, u32, bool, i64)> {
     let stream = geometry::stream(conn, activity_id)?;
-    let (start, end) = match stored {
-        Some((id, start, end))
+    let (start, end, reversed) = match stored {
+        Some((id, start, end, reversed))
             if id == activity_id
-                && geometry::slice(&stream, (id, start, end)).is_some_and(|sliced| {
+                && geometry::slice(&stream, (id, start, end, reversed)).is_some_and(|sliced| {
                     codec::encode_polyline(&sliced) == codec::encode_polyline(line)
                 }) =>
         {
-            (start, end)
+            (start, end, reversed)
         }
-        _ => {
-            let (start, last) = geometry::locate_slice(&stream, line)?;
-            (start, last + 1)
-        }
+        _ => geometry::locate_reference(&stream, line)?,
     };
-    Some((activity_id.to_string(), start, end, stream.len() as i64))
+    Some((
+        activity_id.to_string(),
+        start,
+        end,
+        reversed,
+        stream.len() as i64,
+    ))
 }
 
 fn seed_one_baseline_on(
@@ -963,10 +994,12 @@ fn seed_one_baseline_on(
         rep_activity_id,
         rep_start,
         rep_end,
+        rep_reversed,
         at,
         activity_count,
     } = row;
-    let stored_reference = geometry::reference(rep_activity_id.as_deref(), rep_start, rep_end);
+    let stored_reference =
+        geometry::reference(rep_activity_id.as_deref(), rep_start, rep_end, rep_reversed);
     let Ok(polyline) = geometry::line(conn, blob.as_deref(), json.as_deref(), stored_reference)
     else {
         return Ok(false);
@@ -978,11 +1011,12 @@ fn seed_one_baseline_on(
         .as_deref()
         .and_then(|activity_id| exact_reference(conn, activity_id, stored_reference, &polyline));
     match &exact {
-        Some((activity_id, start, end, point_count)) => conn.execute(
+        Some((activity_id, start, end, reversed, point_count)) => conn.execute(
             "INSERT INTO section_geometry
                  (section_id, version, created_at, encoding, blob, milestone,
-                  rep_activity_id, rep_start_index, rep_end_index, source, point_count)
-             VALUES (?, 1, ?, ?, X'', 1, ?, ?, ?, ?, ?)",
+                  rep_activity_id, rep_start_index, rep_end_index, rep_reversed, source,
+                  point_count)
+             VALUES (?, 1, ?, ?, X'', 1, ?, ?, ?, ?, ?, ?)",
             params![
                 id,
                 at,
@@ -990,6 +1024,7 @@ fn seed_one_baseline_on(
                 activity_id,
                 start,
                 end,
+                reversed,
                 SOURCE_EXACT,
                 point_count,
             ],
@@ -1131,7 +1166,8 @@ pub(super) fn milestone_prior_geometry_on(
     // unchanged line a change and write a version per detect.
     let newest: Option<(i64, Vec<u8>)> = conn
         .query_row(
-            "SELECT version, blob, rep_activity_id, rep_start_index, rep_end_index, point_count
+            "SELECT version, blob, rep_activity_id, rep_start_index, rep_end_index, point_count,
+                    rep_reversed
              FROM section_geometry
              WHERE section_id = ?1
                AND version = (SELECT MAX(version) FROM section_geometry WHERE section_id = ?1)",
@@ -1144,26 +1180,31 @@ pub(super) fn milestone_prior_geometry_on(
                     row.get::<_, Option<u32>>(3)?,
                     row.get::<_, Option<u32>>(4)?,
                     row.get::<_, Option<i64>>(5)?,
+                    row.get::<_, bool>(6)?,
                 ))
             },
         )
         .optional()?
-        .map(|(version, blob, rep_id, start, end, point_count)| {
-            let stored = match (blob.is_empty(), rep_id, start, end) {
-                (true, Some(id), Some(start), Some(end)) => {
-                    geometry::rebuild_counted(conn, (id.as_str(), start, end), point_count)
-                        .map(|points| codec::encode_polyline(&points))
-                        .unwrap_or_default()
-                }
-                _ => blob,
-            };
-            (version, stored)
-        });
+        .map(
+            |(version, blob, rep_id, start, end, point_count, reversed)| {
+                let stored = match (blob.is_empty(), rep_id, start, end) {
+                    (true, Some(id), Some(start), Some(end)) => geometry::rebuild_counted(
+                        conn,
+                        (id.as_str(), start, end, reversed),
+                        point_count,
+                    )
+                    .map(|points| codec::encode_polyline(&points))
+                    .unwrap_or_default(),
+                    _ => blob,
+                };
+                (version, stored)
+            },
+        );
     let current = current.filter(|points| !points.is_empty());
     // The outgoing line's provenance is whatever the row still says it is.
-    let reference: Option<(String, u32, u32)> = conn
+    let reference: Option<(String, u32, u32, bool)> = conn
         .query_row(
-            "SELECT representative_activity_id, rep_start_index, rep_end_index
+            "SELECT representative_activity_id, rep_start_index, rep_end_index, rep_reversed
              FROM sections WHERE id = ? AND geometry_source = 'exact'",
             params![section_id],
             |row| {
@@ -1171,12 +1212,15 @@ pub(super) fn milestone_prior_geometry_on(
                     row.get::<_, Option<String>>(0)?,
                     row.get::<_, Option<u32>>(1)?,
                     row.get::<_, Option<u32>>(2)?,
+                    row.get::<_, bool>(3)?,
                 ))
             },
         )
         .optional()?
-        .and_then(|(id, start, end)| Some((id?, start?, end?)));
-    let reference = reference.as_ref().map(|(id, s, e)| (id.as_str(), *s, *e));
+        .and_then(|(id, start, end, reversed)| Some((id?, start?, end?, reversed)));
+    let reference = reference
+        .as_ref()
+        .map(|(id, s, e, r)| (id.as_str(), *s, *e, *r));
     match (newest, current) {
         (Some((_, blob)), Some(points)) if codec::encode_polyline(points) != blob => Ok(Some(
             record_geometry_on(conn, section_id, points, true, reference)?,
@@ -1327,7 +1371,7 @@ impl PersistentEngine {
         section_id: &str,
         polyline: &[GpsPoint],
         milestone: bool,
-        reference: Option<(&str, u32, u32)>,
+        reference: Option<(&str, u32, u32, bool)>,
     ) -> rusqlite::Result<i64> {
         record_geometry_on(&self.db, section_id, polyline, milestone, reference)
     }
@@ -1341,11 +1385,12 @@ impl PersistentEngine {
     /// A version that already carries a blob, or whose stream no longer
     /// rebuilds it, is left as it is.
     pub fn materialise_geometry_cut_from(&self, activity_id: &str) -> rusqlite::Result<usize> {
-        type PendingRow = (String, i64, u32, u32, Option<i64>);
+        type PendingRow = (String, i64, u32, u32, Option<i64>, bool);
         let pending: Vec<PendingRow> = self
             .db
             .prepare(
-                "SELECT section_id, version, rep_start_index, rep_end_index, point_count
+                "SELECT section_id, version, rep_start_index, rep_end_index, point_count,
+                        rep_reversed
                  FROM section_geometry
                  WHERE rep_activity_id = ?1 AND length(blob) = 0
                    AND rep_start_index IS NOT NULL AND rep_end_index IS NOT NULL",
@@ -1357,15 +1402,18 @@ impl PersistentEngine {
                     row.get(2)?,
                     row.get(3)?,
                     row.get(4)?,
+                    row.get(5)?,
                 ))
             })?
             .collect::<rusqlite::Result<_>>()?;
 
         let mut written = 0;
-        for (section_id, version, start, end, point_count) in pending {
-            let Some(line) =
-                geometry::rebuild_counted(&self.db, (activity_id, start, end), point_count)
-            else {
+        for (section_id, version, start, end, point_count, reversed) in pending {
+            let Some(line) = geometry::rebuild_counted(
+                &self.db,
+                (activity_id, start, end, reversed),
+                point_count,
+            ) else {
                 continue;
             };
             written += self.db.execute(
@@ -1510,19 +1558,28 @@ impl PersistentEngine {
         if pooled::pinned_section_version(&self.db, section_id).is_some() {
             return Ok(());
         }
-        let (consensus, activity_id, start, end): (bool, Option<String>, Option<u32>, Option<u32>) =
-            self.db
-                .query_row(
-                    "SELECT geometry_source IS 'consensus', representative_activity_id,
-                            rep_start_index, rep_end_index
-                     FROM sections WHERE id = ?",
-                    params![section_id],
-                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-                )
-                .map_err(|e| e.to_string())?;
+        type Row = (bool, Option<String>, Option<u32>, Option<u32>, bool);
+        let (consensus, activity_id, start, end, reversed): Row = self
+            .db
+            .query_row(
+                "SELECT geometry_source IS 'consensus', representative_activity_id,
+                        rep_start_index, rep_end_index, rep_reversed
+                 FROM sections WHERE id = ?",
+                params![section_id],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )
+            .map_err(|e| e.to_string())?;
         // An averaged line belongs to no activity, so it is kept whole.
-        let reference =
-            geometry::reference(activity_id.as_deref(), start, end).filter(|_| !consensus);
+        let reference = geometry::reference(activity_id.as_deref(), start, end, reversed)
+            .filter(|_| !consensus);
         let line = geometry::stored_line(&self.db, section_id)?;
         let version = record_archived_geometry_on(&self.db, section_id, &line, reference)
             .map_err(|e| e.to_string())?
@@ -1734,11 +1791,12 @@ pub(crate) mod pooled {
             Option<u32>,
             Option<u32>,
             Option<i64>,
+            bool,
         );
         let row: GeometryRow = conn
             .query_row(
                 "SELECT encoding, blob, rep_activity_id, rep_start_index, rep_end_index,
-                        point_count
+                        point_count, rep_reversed
                  FROM section_geometry WHERE section_id = ? AND version = ?",
                 params![section_id, version],
                 |row| {
@@ -1749,6 +1807,7 @@ pub(crate) mod pooled {
                         row.get(3)?,
                         row.get(4)?,
                         row.get(5)?,
+                        row.get(6)?,
                     ))
                 },
             )
@@ -1759,7 +1818,7 @@ pub(crate) mod pooled {
             return None;
         }
         let reference = match (row.2, row.3, row.4) {
-            (Some(id), Some(start), Some(end)) => Some((id, start, end)),
+            (Some(id), Some(start), Some(end)) => Some((id, start, end, row.6)),
             _ => None,
         };
         // The version blob is a cache of its own triple, exactly as the live
@@ -1771,7 +1830,9 @@ pub(crate) mod pooled {
             .or_else(|| {
                 geometry::rebuild_counted(
                     conn,
-                    reference.as_ref().map(|(id, s, e)| (id.as_str(), *s, *e))?,
+                    reference
+                        .as_ref()
+                        .map(|(id, s, e, r)| (id.as_str(), *s, *e, *r))?,
                     row.5,
                 )
             })?;
@@ -2883,7 +2944,7 @@ mod tests {
     fn a_milestone_of_an_unchanged_exact_version_writes_no_second_copy() {
         let (engine, _dir, stored) = engine_with_ride();
         let line = stored[20..60].to_vec();
-        let reference = Some(("a1", 20u32, 60u32));
+        let reference = Some(("a1", 20u32, 60u32, false));
         record_geometry_on(&engine.db, "s1", &line, false, reference).expect("record");
 
         let milestoned = milestone_prior_geometry_on(&engine.db, "s1", Some(&line))
@@ -2903,7 +2964,8 @@ mod tests {
     fn a_milestone_does_not_keep_an_exact_version_whose_stream_was_replaced() {
         let (engine, _dir, stored) = engine_with_ride();
         let line = stored[20..60].to_vec();
-        record_geometry_on(&engine.db, "s1", &line, false, Some(("a1", 20, 60))).expect("record");
+        record_geometry_on(&engine.db, "s1", &line, false, Some(("a1", 20, 60, false)))
+            .expect("record");
         engine
             .db
             .execute(
@@ -2925,7 +2987,8 @@ mod tests {
     fn a_milestone_of_a_changed_line_writes_a_new_version() {
         let (engine, _dir, stored) = engine_with_ride();
         let line = stored[20..60].to_vec();
-        record_geometry_on(&engine.db, "s1", &line, false, Some(("a1", 20, 60))).expect("record");
+        record_geometry_on(&engine.db, "s1", &line, false, Some(("a1", 20, 60, false)))
+            .expect("record");
 
         let moved = stored[24..64].to_vec();
         let milestoned = milestone_prior_geometry_on(&engine.db, "s1", Some(&moved))

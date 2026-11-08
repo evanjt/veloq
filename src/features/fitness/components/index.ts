@@ -7,3 +7,4 @@ export { ClimbingStatusNote } from './ClimbingStatusNote';
 export { TimeRangeSelector } from './TimeRangeSelector';
 export { SportToggleSelector } from './SportToggleSelector';
 export { BestEffortsHeaderButton } from './BestEffortsHeaderButton';
+export { CalendarDayReadout } from './CalendarDayReadout';

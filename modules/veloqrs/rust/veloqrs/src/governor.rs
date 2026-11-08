@@ -11,8 +11,7 @@
 //! and the cooldown after a refusal.
 
 use std::collections::VecDeque;
-use std::sync::Arc;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, NaiveDate, TimeDelta, Utc};
@@ -1004,6 +1003,116 @@ impl Policy for YieldBackfillPolicy {
     }
 }
 
+/// The least time between two announcements that the day's count moved. A
+/// burst of spends announces its first change at once and its last change when
+/// the window closes, so the count on screen is never older than one window.
+const COUNT_NOTICE_WINDOW: Duration = Duration::from_secs(1);
+
+/// What the count notice knows: when it last sent, and whether a send is
+/// already scheduled for the close of the window.
+#[derive(Debug, Default)]
+struct NoticeState {
+    last: Option<Instant>,
+    pending: bool,
+}
+
+/// What a change to the count does about the announcement.
+#[derive(Debug, PartialEq, Eq)]
+enum NoticeStep {
+    /// Announce now.
+    Now,
+    /// Announce once this long from now, when the window closes.
+    Later(Duration),
+    /// An announcement is already scheduled and will carry this change too.
+    Held,
+}
+
+/// Decide what a change at `now` does, and record it. Pure, so the window is
+/// read off the instants it is given rather than the clock.
+fn notice_step(state: &mut NoticeState, now: Instant, window: Duration) -> NoticeStep {
+    if state.pending {
+        return NoticeStep::Held;
+    }
+    match state.last {
+        Some(last) if now.saturating_duration_since(last) < window => {
+            state.pending = true;
+            NoticeStep::Later((last + window).saturating_duration_since(now))
+        }
+        _ => {
+            state.last = Some(now);
+            NoticeStep::Now
+        }
+    }
+}
+
+/// Record that an announcement went out at `now`, as the window's close does.
+fn notice_sent(state: &mut NoticeState, now: Instant) {
+    state.pending = false;
+    state.last = Some(now);
+}
+
+/// Tells the observer the day's count moved, at most once per window. A window
+/// that holds changes closes on a thread of its own, and at most one such
+/// thread is pending at a time.
+struct CountNotice {
+    window: Duration,
+    sink: Arc<dyn Fn() + Send + Sync>,
+    state: Arc<Mutex<NoticeState>>,
+}
+
+impl CountNotice {
+    fn new(window: Duration, sink: impl Fn() + Send + Sync + 'static) -> Self {
+        Self {
+            window,
+            sink: Arc::new(sink),
+            state: Arc::new(Mutex::new(NoticeState::default())),
+        }
+    }
+
+    /// The count moved now.
+    fn moved(&self) {
+        let step = {
+            let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            notice_step(&mut state, Instant::now(), self.window)
+        };
+        match step {
+            NoticeStep::Now => (self.sink)(),
+            NoticeStep::Held => {}
+            NoticeStep::Later(wait) => self.close_window_after(wait),
+        }
+    }
+
+    fn close_window_after(&self, wait: Duration) {
+        let state = Arc::clone(&self.state);
+        let sink = Arc::clone(&self.sink);
+        let spawned = std::thread::Builder::new()
+            .name("veloq-count-notice".into())
+            .spawn(move || {
+                std::thread::sleep(wait);
+                notice_sent(
+                    &mut state.lock().unwrap_or_else(|e| e.into_inner()),
+                    Instant::now(),
+                );
+                sink();
+            });
+        if spawned.is_err() {
+            // Without a thread the close cannot run later, so the held change is
+            // announced now and the window restarts from here.
+            notice_sent(
+                &mut self.state.lock().unwrap_or_else(|e| e.into_inner()),
+                Instant::now(),
+            );
+            (self.sink)();
+        }
+    }
+}
+
+/// The announcement the production governor makes: the engine's observer hears
+/// the count moved.
+fn announce_count_moved() {
+    crate::objects::observer::notify(crate::objects::observer::Announcement::RequestBudgetChanged);
+}
+
 /// The process-wide dispatch choke point. Every outbound intervals.icu request
 /// acquires a slot here first, so one shared limiter governs the whole process
 /// rather than per-call pacers that can collectively exceed the edge's burst
@@ -1035,6 +1144,8 @@ pub struct Governor {
     jitter: fn() -> f64,
     /// The source of every instant the budget is asked or told about.
     clock: fn() -> DateTime<Utc>,
+    /// Announces that the day's counts moved, at most once per window.
+    count_notice: CountNotice,
 }
 
 /// No jitter, for a governor whose waits a test reads back.
@@ -1057,6 +1168,7 @@ impl Governor {
             garmin_gap: GARMIN_MIN_GAP,
             jitter: no_jitter,
             clock: Utc::now,
+            count_notice: CountNotice::new(COUNT_NOTICE_WINDOW, announce_count_moved),
         }
     }
 
@@ -1064,6 +1176,18 @@ impl Governor {
     /// can stand at a chosen time of day.
     pub fn with_clock(mut self, clock: fn() -> DateTime<Utc>) -> Self {
         self.clock = clock;
+        self
+    }
+
+    /// Announce moved counts to `sink` over `window` rather than the engine's
+    /// observer, so a test counts the announcements it is owed.
+    #[cfg(test)]
+    fn with_count_notice(
+        mut self,
+        window: Duration,
+        sink: impl Fn() + Send + Sync + 'static,
+    ) -> Self {
+        self.count_notice = CountNotice::new(window, sink);
         self
     }
 
@@ -1175,21 +1299,30 @@ impl Governor {
         now: DateTime<Utc>,
         f: impl FnOnce(&mut Budget) -> R,
     ) -> Option<R> {
-        let mut budget = self
-            .budget
-            .as_ref()?
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let loaded = self.store.as_ref().and_then(|store| store.load());
-        if let Some(stored) = &loaded {
-            budget.adopt(stored, now);
-        }
-        let result = f(&mut budget);
-        let after = budget.stored(now);
-        if let Some(store) = &self.store
-            && loaded.as_ref() != Some(&after)
-        {
-            store.save(&after);
+        let (result, moved) = {
+            let mut budget = self
+                .budget
+                .as_ref()?
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            let before = budget.today;
+            let loaded = self.store.as_ref().and_then(|store| store.load());
+            if let Some(stored) = &loaded {
+                budget.adopt(stored, now);
+            }
+            let result = f(&mut budget);
+            let after = budget.stored(now);
+            if let Some(store) = &self.store
+                && loaded.as_ref() != Some(&after)
+            {
+                store.save(&after);
+            }
+            (result, budget.today != before)
+        };
+        // The announcement is made once the count is stored and the lock is
+        // released: the reader it wakes takes the same lock to read the count.
+        if moved {
+            self.count_notice.moved();
         }
         Some(result)
     }
@@ -2637,5 +2770,116 @@ mod tests {
         assert_eq!(policy.max_queue_ahead(Lane::Interactive), None);
         assert_eq!(policy.pace(Lane::Backfill), Duration::ZERO);
         assert_eq!(policy.pace(Lane::Interactive), Duration::ZERO);
+    }
+
+    /// Scenario: the daily line sits beside the downloads it counts, and it has
+    /// to move when the governor spends a request, not only when a batch of
+    /// activities is committed.
+    ///
+    /// Expected behaviour: a change is announced at once when the window is
+    /// open, the changes behind it are held into the one announcement the
+    /// window's close makes, and a read that moves no count announces nothing.
+    mod the_count_notice {
+        use super::*;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::mpsc::channel;
+
+        const WINDOW: Duration = Duration::from_secs(1);
+
+        #[test]
+        fn a_change_is_announced_at_once_and_the_changes_behind_it_are_held() {
+            let t0 = Instant::now();
+            let mut state = NoticeState::default();
+            assert_eq!(notice_step(&mut state, t0, WINDOW), NoticeStep::Now);
+            assert_eq!(
+                notice_step(&mut state, t0 + Duration::from_millis(100), WINDOW),
+                NoticeStep::Later(Duration::from_millis(900))
+            );
+            assert_eq!(
+                notice_step(&mut state, t0 + Duration::from_millis(200), WINDOW),
+                NoticeStep::Held
+            );
+            notice_sent(&mut state, t0 + WINDOW);
+            assert_eq!(
+                notice_step(&mut state, t0 + Duration::from_millis(1500), WINDOW),
+                NoticeStep::Later(Duration::from_millis(500)),
+                "the window runs from the close that sent the last announcement"
+            );
+            assert_eq!(
+                notice_step(&mut state, t0 + Duration::from_millis(3000), WINDOW),
+                NoticeStep::Held,
+                "an announcement is still scheduled for the window"
+            );
+            notice_sent(&mut state, t0 + Duration::from_millis(2000));
+            assert_eq!(
+                notice_step(&mut state, t0 + Duration::from_millis(4000), WINDOW),
+                NoticeStep::Now
+            );
+        }
+
+        #[test]
+        fn spends_inside_one_window_reach_the_observer_once_until_it_closes() {
+            let heard = Arc::new(AtomicUsize::new(0));
+            let counted = Arc::clone(&heard);
+            let gov = Governor::new(1000, Box::new(NoopPolicy))
+                .with_budget(Budget::new(0), None, no_jitter)
+                .with_count_notice(Duration::from_secs(3600), move || {
+                    counted.fetch_add(1, Ordering::SeqCst);
+                });
+            let now = at("2026-03-04T10:00:00Z");
+            assert_eq!(gov.admit(Intent::Backfill, now), Admission::Admitted);
+            assert_eq!(
+                heard.load(Ordering::SeqCst),
+                1,
+                "the first spend is announced"
+            );
+            for _ in 0..3 {
+                assert_eq!(gov.admit(Intent::Backfill, now), Admission::Admitted);
+            }
+            assert_eq!(
+                heard.load(Ordering::SeqCst),
+                1,
+                "the spends behind it wait for the window to close"
+            );
+        }
+
+        #[test]
+        fn a_read_that_moves_no_count_announces_nothing() {
+            let heard = Arc::new(AtomicUsize::new(0));
+            let counted = Arc::clone(&heard);
+            let gov = Governor::new(1000, Box::new(NoopPolicy))
+                .with_budget(Budget::new(0), None, no_jitter)
+                .with_count_notice(Duration::from_secs(3600), move || {
+                    counted.fetch_add(1, Ordering::SeqCst);
+                });
+            let now = at("2026-03-04T10:00:00Z");
+            gov.budget_snapshot(now);
+            gov.deferred_until(Intent::Backfill, now);
+            gov.budget_snapshot(now);
+            assert_eq!(heard.load(Ordering::SeqCst), 0);
+        }
+
+        #[test]
+        fn the_window_close_announces_the_changes_it_held() {
+            let (tx, rx) = channel();
+            let gov = Governor::new(1000, Box::new(NoopPolicy))
+                .with_budget(Budget::new(0), None, no_jitter)
+                .with_count_notice(Duration::from_millis(50), move || {
+                    let _ = tx.send(());
+                });
+            let now = at("2026-03-04T10:00:00Z");
+            gov.admit(Intent::Backfill, now);
+            for _ in 0..3 {
+                gov.admit(Intent::Backfill, now);
+            }
+            let wait = Duration::from_secs(5);
+            rx.recv_timeout(wait).expect("the first spend is announced");
+            rx.recv_timeout(wait)
+                .expect("the held spends are announced when the window closes");
+            assert!(
+                rx.try_recv().is_err(),
+                "three held spends are one announcement, not three"
+            );
+        }
     }
 }

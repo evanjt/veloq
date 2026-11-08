@@ -13,10 +13,14 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 
 import FitnessScreen from '@/app/(tabs)/fitness';
 
-const mockParams: { current: Record<string, string | undefined> } = { current: {} };
+const mockParams: { current: Record<string, string | undefined> } = {
+  current: {},
+};
 const mockTrendsProps: { trendsExpanded: boolean; sportMode: string }[] = [];
 
-jest.mock('@/shared/debug/tabSwitchTiming', () => ({ useTabFirstFrame: jest.fn() }));
+jest.mock('@/shared/debug/tabSwitchTiming', () => ({
+  useTabFirstFrame: jest.fn(),
+}));
 jest.mock('@/shared/debug/renderTimer', () => ({
   logScreenRender: () => jest.fn(),
   logMemory: jest.fn(),
@@ -105,11 +109,17 @@ jest.mock('@/features/fitness', () => {
       </View>
     ),
     BestEffortsHeaderButton: () => null,
+    CalendarDayReadout: () => <View testID="calendar-day-readout" />,
     resolveThresholdPace: () => null,
     useFitnessRefresh: () => ({ isRefreshing: false, onRefresh: jest.fn() }),
     useFitnessComputations: () => ({ ftpTrend: [], dominantZone: null }),
     useFitnessScreenData: () => ({
-      training: { retry: jest.fn() },
+      training: {
+        retry: jest.fn(),
+        windows: {
+          heatmap: { first: new Date(2026, 0, 5), last: new Date(2026, 5, 17) },
+        },
+      },
       wellness: [],
       activities: [],
       dailyLoads: [],
@@ -119,6 +129,8 @@ jest.mock('@/features/fitness', () => {
       isError: false,
       refetch: jest.fn(),
     }),
+    useValueWhileActive: jest.requireActual('@/features/fitness/hooks/useValueWhileActive')
+      .useValueWhileActive,
     useFitnessWindow: () => {
       const [timeRange, changeTimeRange] = React.useState('3m');
       return {

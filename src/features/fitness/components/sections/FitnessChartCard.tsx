@@ -6,7 +6,6 @@ import type { SharedValue } from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
 import { spacing, opacity, stroke } from '@/theme';
 import { Card } from '@/shared/ui/Card';
-import { CardHeader } from '@/shared/ui/CardHeader';
 import { ErrorState } from '@/shared/ui/ErrorState';
 import { HeldRender } from '@/shared/ui/HeldRender';
 import type { DayLoad, RangeCoverage } from 'veloqrs';
@@ -116,7 +115,6 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
           testID="fitness-form-zone-chart"
           style={[styles.formSection, isDark && styles.formSectionDark]}
         >
-          <CardHeader title={t('metrics.form')} />
           <FormZoneChart
             data={wellness}
             height={140}

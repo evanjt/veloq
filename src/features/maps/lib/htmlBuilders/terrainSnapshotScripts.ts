@@ -10,6 +10,7 @@ import { setStyleStatement } from './shared';
 import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
 import { mapPalette } from '@/theme';
 import {
+  ENDPOINT_3D_CASING_RADIUS,
   ENDPOINT_3D_LAYER_IDS,
   ROUTE_3D_LINE_WIDTH,
   endpoint3DLayers,
@@ -82,10 +83,17 @@ function gapBackgroundFor(mapStyle: MapStyleType, style: unknown): [number, numb
   return mapStyle === 'satellite' ? styleBackgroundRgb(style) : null;
 }
 
+export type FitInset = number | { top: number; right: number; bottom: number; left: number };
+
 export interface SnapshotRequest {
   activityId: string;
   coordinates: [number, number][];
   camera: TerrainCamera;
+  /**
+   * The edges of the frame the route is fitted inside, in pixels. A number is the same on every
+   * edge. Absent, the fit leaves the end markers' casing radius.
+   */
+  fitInset?: FitInset;
   /** The athlete saved this camera, so it is drawn as given and never turned. */
   cameraPinned?: boolean;
   mapStyle: MapStyleType;
@@ -187,6 +195,12 @@ export function snapshotRenderScript(): string {
               var gapBackground = request.gapBackground;
               // The pitch the frame is drawn at, which a turned camera changes.
               var drawnPitch = camera.pitch;
+              // A camera the athlete saved is theirs and is drawn as given. Every
+              // other render with a route is fitted to the frame less this inset.
+              var fitInset = request.fitInset;
+              var fitting = request.coords.length > 1 && !request.cameraPinned
+                && typeof window._veloqFitInset === 'function';
+              var noInset = { top: 0, right: 0, bottom: 0, left: 0 };
               ${HILLSHADE_INSERT_INDEX_SCRIPT}
           var hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
 
@@ -347,12 +361,66 @@ export function snapshotRenderScript(): string {
               // deadline the render started with, which keeps it short of the
               // host's own timeout. A camera the athlete saved is theirs and
               // is never turned.
+              function readCamera() {
+                var c = window.map.getCenter();
+                return {
+                  center: c.lng === undefined ? [c[0], c[1]] : [c.lng, c.lat],
+                  zoom: window.map.getZoom(), bearing: window.map.getBearing(),
+                  pitch: window.map.getPitch(),
+                };
+              }
+
+              // Fits the route to the frame less the inset from the camera the map
+              // has now, at its pitch and on the terrain it has loaded.
+              function fitRoute() {
+                if (!fitting) return;
+                try {
+                  window._veloqFitInset(coords, fitInset, 0);
+                } catch (e) {
+                  window._rn_log('Fit failed: ' + e.message);
+                }
+              }
+
+              // The request's camera, and then its fit on whatever terrain is
+              // loaded, so the tiles the page waits for are the fitted view's.
+              function showRequestCamera() {
+                window.map.jumpTo({
+                  center: camera.center, zoom: camera.zoom,
+                  bearing: camera.bearing, pitch: camera.pitch,
+                  padding: noInset,
+                });
+                window._veloqInset = noInset;
+                if (!fitting) return;
+                fitRoute();
+                camera = readCamera();
+                drawnPitch = camera.pitch;
+              }
+
+              // A candidate camera as fitted, the map left where it was.
+              function fitCandidate(candidate) {
+                var keep = readCamera();
+                window.map.jumpTo({
+                  center: candidate.center, zoom: candidate.zoom,
+                  bearing: candidate.bearing, pitch: candidate.pitch,
+                });
+                fitRoute();
+                var fitted = readCamera();
+                window.map.jumpTo(keep);
+                return fitted;
+              }
+
               function captureAfterCamera() {
                 if (isStale()) return;
+                if (fitting) {
+                  fitRoute();
+                  camera = readCamera();
+                }
                 var picked = camera;
                 if (!isFlat && hasRoute && window._pickUnhiddenCamera && !cameraPinned) {
                   try {
-                    picked = window._pickUnhiddenCamera(window.map, camera, coords, boundsSpans());
+                    picked = window._pickUnhiddenCamera(
+                      window.map, camera, coords, boundsSpans(), fitting ? fitCandidate : undefined
+                    );
                   } catch (e) {
                     window._rn_log('Camera check failed: ' + e.message);
                   }
@@ -372,6 +440,8 @@ export function snapshotRenderScript(): string {
                   if (window.map.isStyleLoaded()) {
                     clearInterval(turnPoll);
                     clearTimeout(turnTimeout);
+                    // The turned view's terrain has loaded, so the fit is exact now.
+                    fitRoute();
                     requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
                   }
                 }, 200);
@@ -443,10 +513,7 @@ export function snapshotRenderScript(): string {
               if (window._currentBaseStyle === mapStyle && window._currentBaseMode === baseMode && coords.length > 0) {
                 if (isFlat || window.map.getSource('terrain')) {
                   window._renderPath = 'fast';
-                  window.map.jumpTo({
-                    center: camera.center, zoom: camera.zoom,
-                    bearing: camera.bearing, pitch: camera.pitch,
-                  });
+                  showRequestCamera();
                   // The fast path mounts no style, so its style stage is the
                   // jump alone. That it is near zero while the elapsed is not
                   // is the reading.
@@ -543,12 +610,7 @@ export function snapshotRenderScript(): string {
                 + (styleObj.glyphs ? ', glyphs OK' : ', NO glyphs')
                 + (styleObj.sprite ? ', sprite OK' : ', NO sprite'));
               ${setStyleStatement('window.map', 'styleObj')}
-              window.map.jumpTo({
-                center: camera.center,
-                zoom: camera.zoom,
-                bearing: camera.bearing,
-                pitch: camera.pitch,
-              });
+              showRequestCamera();
               // Closes the style stage: the Liberty fetch for light mode, the
               // terrain, hillshade and route spliced in above, and the call
               // that mounts the lot.
@@ -658,6 +720,7 @@ export function buildRenderSnapshotScript(
     mapStyle: request.mapStyle,
     coords: request.coordinates,
     camera: request.camera,
+    fitInset: request.fitInset ?? ENDPOINT_3D_CASING_RADIUS,
     isSatellite,
     isDark,
     isFlat: request.flat === true,

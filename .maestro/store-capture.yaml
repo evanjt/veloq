@@ -128,7 +128,146 @@ tags:
 - takeScreenshot: "screenshots/store-capture/01-feed"
 - assertNotVisible: "Open debugger to view warnings"
 
-# 02 regional map: satellite style, 3D terrain and the heatmap, framed on a
+# 02 section page, with the notification the engine writes for the ride up on
+# screen. Debug mode adds the repost button to the activity page, so it is
+# switched on only here and off again once the shot is taken.
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq:///settings"
+      TARGET: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-version-text"
+    direction: DOWN
+- scroll
+- tapOn:
+    id: "settings-version-text"
+    repeat: 5
+    delay: 100
+# The switch sits below the fold once revealed, and a run that died after turning
+# it on leaves it on, so it is only tapped when it is off. A scroll stops with
+# the row ten percent in view, behind the tab bar, so the page is taken to its
+# end before the tap.
+- scrollUntilVisible:
+    element:
+      id: "settings-debug-switch"
+    direction: DOWN
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 300
+- runFlow:
+    when:
+      visible:
+        id: "settings-debug-switch"
+        checked: false
+    commands:
+      - tapOn:
+          id: "settings-debug-switch"
+- waitForAnimationToEnd:
+    timeout: 2000
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+- extendedWaitUntil:
+    notVisible:
+      id: "routes-sync-banner"
+    timeout: 120000
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-3"
+      TARGET: "activity-detail-screen"
+- extendedWaitUntil:
+    visible:
+      id: "activity-regenerate-notification-delayed"
+    timeout: 15000
+# The post is held back 40 seconds. A banner leaves the screen after a few, so
+# a post made here would be gone by the time the section page is up.
+- evalScript: ${output.postedAt = Date.now()}
+- tapOn:
+    id: "activity-regenerate-notification-delayed"
+# The first post asks for notification permission, and a simulator build has
+# not been answered it.
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn:
+          text: "Allow"
+          optional: true
+# A ride that is no personal best gets no sentence, and the repost says so in a dialog.
+- runFlow:
+    when:
+      visible: "Nothing to post"
+    commands:
+      - tapOn: "OK"
+# The notification names a section this ride passes, so the page is opened from
+# the ride's own section list. The library-wide list's first row is any section.
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-3?tab=sections"
+      TARGET: "activity-detail-screen"
+- extendedWaitUntil:
+    visible:
+      id: "section-inline-plot-0"
+    timeout: 60000
+- tapOn:
+    id: "section-inline-plot-0"
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertNotVisible:
+    id: "routes-sync-banner"
+# The banner is on screen from about 40 to 48 seconds after the tap and
+# Maestro cannot see it, so the shot waits out the clock. An optional wait on a
+# text that is never there takes a second or so each time round.
+- repeat:
+    while:
+      true: ${Date.now() - output.postedAt < 42000}
+    commands:
+      - extendedWaitUntil:
+          visible: "never on screen"
+          timeout: 1000
+          optional: true
+- assertNotVisible:
+    id: "routes-sync-banner"
+- runFlow:
+    file: helpers/assert-debug-ui-absent.yaml
+- takeScreenshot: "screenshots/store-capture/02-section"
+- assertNotVisible: "Open debugger to view warnings"
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq:///settings"
+      TARGET: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-debug-switch"
+    direction: DOWN
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 300
+- runFlow:
+    when:
+      visible:
+        id: "settings-debug-switch"
+        checked: true
+    commands:
+      - tapOn:
+          id: "settings-debug-switch"
+# The switch must read off here. A miss above is not silent: the run stops, rather
+# than carrying debug mode into the shots that follow.
+- assertVisible:
+    id: "settings-debug-switch"
+    checked: false
+
+# 03 regional map: satellite style, 3D terrain and the heatmap, framed on a
 # demo ride in the Valais, with nothing over the map. The style and terrain are the athlete's own map
 # settings, the heatmap is the layer toggle in the map's layers menu, and the
 # camera is the deep link's activity, which the map fits. The deep link also
@@ -208,10 +347,10 @@ tags:
     id: "routes-sync-banner"
 - runFlow:
     file: helpers/assert-debug-ui-absent.yaml
-- takeScreenshot: "screenshots/store-capture/02-map"
+- takeScreenshot: "screenshots/store-capture/03-map"
 - assertNotVisible: "Open debugger to view warnings"
 
-# 03 activity detail
+# 04 activity detail
 - runFlow:
     file: helpers/open-link.yaml
     env:
@@ -227,148 +366,26 @@ tags:
     id: "routes-sync-banner"
 - runFlow:
     file: helpers/assert-debug-ui-absent.yaml
-- takeScreenshot: "screenshots/store-capture/03-activity"
+- takeScreenshot: "screenshots/store-capture/04-activity"
 - assertNotVisible: "Open debugger to view warnings"
 
-# 04 section page, with the notification the engine writes for the ride up on
-# screen. Debug mode adds the repost button to the activity page, so it is
-# switched on only here and off again once the shot is taken.
+# 05 fitness
 - runFlow:
-    file: helpers/open-link.yaml
-    env:
-      LINK: "veloq:///settings"
-      TARGET: "settings-screen"
-- scrollUntilVisible:
-    element:
-      id: "settings-version-text"
-    direction: DOWN
-- scroll
-- tapOn:
-    id: "settings-version-text"
-    repeat: 5
-    delay: 100
-# The switch sits below the fold once revealed, and a run that died after turning
-# it on leaves it on, so it is only tapped when it is off. A scroll stops with
-# the row ten percent in view, behind the tab bar, so the page is taken to its
-# end before the tap.
-- scrollUntilVisible:
-    element:
-      id: "settings-debug-switch"
-    direction: DOWN
-- swipe:
-    start: 50%, 75%
-    end: 50%, 25%
-    duration: 300
-- runFlow:
-    when:
-      visible:
-        id: "settings-debug-switch"
-        checked: false
-    commands:
-      - tapOn:
-          id: "settings-debug-switch"
-- waitForAnimationToEnd:
-    timeout: 2000
-- runFlow:
-    file: helpers/navigate-to-routes.yaml
-- extendedWaitUntil:
-    notVisible:
-      id: "routes-sync-banner"
-    timeout: 120000
-- runFlow:
-    file: helpers/open-link.yaml
-    env:
-      LINK: "veloq://activity/demo-test-3"
-      TARGET: "activity-detail-screen"
+    file: helpers/navigate-to-fitness.yaml
 - extendedWaitUntil:
     visible:
-      id: "activity-regenerate-notification-delayed"
-    timeout: 15000
-# The post is held back 40 seconds. A banner leaves the screen after a few, so
-# a post made here would be gone by the time the section page is up.
-- evalScript: ${output.postedAt = Date.now()}
-- tapOn:
-    id: "activity-regenerate-notification-delayed"
-# The first post asks for notification permission, and a simulator build has
-# not been answered it.
-- runFlow:
-    when:
-      visible: "Allow"
-    commands:
-      - tapOn:
-          text: "Allow"
-          optional: true
-# A ride that is no personal best gets no sentence, and the repost says so in a dialog.
-- runFlow:
-    when:
-      visible: "Nothing to post"
-    commands:
-      - tapOn: "OK"
-- runFlow:
-    file: helpers/navigate-to-sections.yaml
-- extendedWaitUntil:
-    visible:
-      id: "sections-list"
-    timeout: 15000
-- extendedWaitUntil:
-    notVisible:
-      id: "routes-sync-banner"
-    timeout: 60000
-- tapOn:
-    id: "section-row-0"
-- extendedWaitUntil:
-    visible:
-      id: "section-detail-screen"
+      id: "fitness-ctl-value"
     timeout: 15000
 - waitForAnimationToEnd:
     timeout: 3000
 - assertNotVisible:
     id: "routes-sync-banner"
-# The banner is on screen from about 40 to 48 seconds after the tap and
-# Maestro cannot see it, so the shot waits out the clock. An optional wait on a
-# text that is never there takes a second or so each time round.
-- repeat:
-    while:
-      true: ${Date.now() - output.postedAt < 42000}
-    commands:
-      - extendedWaitUntil:
-          visible: "never on screen"
-          timeout: 1000
-          optional: true
-- assertNotVisible:
-    id: "routes-sync-banner"
 - runFlow:
     file: helpers/assert-debug-ui-absent.yaml
-- takeScreenshot: "screenshots/store-capture/04-section"
+- takeScreenshot: "screenshots/store-capture/05-fitness"
 - assertNotVisible: "Open debugger to view warnings"
-- runFlow:
-    file: helpers/open-link.yaml
-    env:
-      LINK: "veloq:///settings"
-      TARGET: "settings-screen"
-- scrollUntilVisible:
-    element:
-      id: "settings-debug-switch"
-    direction: DOWN
-- swipe:
-    start: 50%, 75%
-    end: 50%, 25%
-    duration: 300
-- runFlow:
-    when:
-      visible:
-        id: "settings-debug-switch"
-        checked: true
-    commands:
-      - tapOn:
-          id: "settings-debug-switch"
-# The switch must read off here. A miss above is not silent: the run stops, rather
-# than carrying debug mode into the shots that follow.
-- assertVisible:
-    id: "settings-debug-switch"
-    checked: false
 
-# 05 insights. A listed library can still carry the regroup its load owed, and
+# 06 insights. A listed library can still carry the regroup its load owed, and
 # the shot would carry its "Computing routes" line.
 - runFlow:
     file: helpers/open-link.yaml
@@ -385,27 +402,33 @@ tags:
     timeout: 60000
 - waitForAnimationToEnd:
     timeout: 3000
-- assertNotVisible:
-    id: "routes-sync-banner"
-- runFlow:
-    file: helpers/assert-debug-ui-absent.yaml
-- takeScreenshot: "screenshots/store-capture/05-insights"
-- assertNotVisible: "Open debugger to view warnings"
-
-# 06 fitness
-- runFlow:
-    file: helpers/navigate-to-fitness.yaml
+# One insight opened to its numbers and method: the sheet leads with its figure,
+# and the method is folded until the toggle is tapped.
+- tapOn:
+    id: "insight-line"
+    index: 0
 - extendedWaitUntil:
     visible:
-      id: "fitness-ctl-value"
-    timeout: 15000
+      id: "insight-detail-sheet"
+    timeout: 10000
+- swipe:
+    start: 50%, 85%
+    end: 50%, 45%
+    duration: 300
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "methodology-toggle"
+- assertVisible:
+    id: "methodology-toggle"
+    checked: true
 - waitForAnimationToEnd:
     timeout: 3000
 - assertNotVisible:
     id: "routes-sync-banner"
 - runFlow:
     file: helpers/assert-debug-ui-absent.yaml
-- takeScreenshot: "screenshots/store-capture/06-fitness"
+- takeScreenshot: "screenshots/store-capture/06-insights"
 - assertNotVisible: "Open debugger to view warnings"
 
 # 07 strength, the body diagram with a muscle selected. The point is inside the
@@ -456,6 +479,11 @@ tags:
     visible:
       id: "recording-timer"
     timeout: 10000
+# The capture script plays a track on the device, one fix a second. The shot waits
+# until the ride has covered distance, so it shows a track and not a standing start.
+- extendedWaitUntil:
+    notVisible: "0 (m|ft)"
+    timeout: 60000
 - waitForAnimationToEnd:
     timeout: 3000
 - assertNotVisible:

@@ -9,6 +9,7 @@
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
 import { ActivityMapPreview } from '@/features/activity/components/ActivityMapPreview';
+import { CARD_FIT_INSET } from '@/features/activity/lib/cardLayout';
 import type { FeedCard } from '@/types';
 import { calculateTerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { getEngine } from '@/shared/native/engine';
@@ -193,6 +194,22 @@ describe('ActivityMapPreview', () => {
     const { queryByTestId } = await render(<ActivityMapPreview activity={activity} />);
 
     expect(queryByTestId('map-attribution')).toBeNull();
+  });
+
+  it('asks for a render fitted to the inset the card crops', async () => {
+    mockTerrain3DMode = 'always';
+    const requestSnapshot = jest.fn();
+    const snapshotRef = {
+      current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
+    };
+
+    await render(
+      <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
+    );
+
+    expect(requestSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ fitInset: CARD_FIT_INSET })
+    );
   });
 
   it('asks for a stand-in with the terrain camera when only the flat key is cached', async () => {

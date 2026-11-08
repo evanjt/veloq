@@ -17,11 +17,21 @@ interface NetworkContextValue {
   /** Whether device has network connectivity */
   isOnline: boolean;
   /**
-   * Whether the offline pill is up. It trails `isOnline` going false by
-   * `OFFLINE_BANNER_DELAY_MS` and follows it back on the same render.
+   * Whether a reading has come back and been handed to the engine. Until then
+   * `isOnline` is a seed and the engine holds no reading, so work that must
+   * not start on a guess waits for this.
    */
-  offlineBannerShown: boolean;
+  hasReading: boolean;
+  /**
+   * What the offline state draws. `'pill'` trails `isOnline` going false by
+   * `OFFLINE_BANNER_DELAY_MS`, `'badge'` follows `OFFLINE_PILL_HOLD_MS` later and
+   * stays for the rest of the spell, and an online reading returns `'none'` on
+   * the same render.
+   */
+  offlineIndicator: OfflineIndicator;
 }
+
+export type OfflineIndicator = 'none' | 'pill' | 'badge';
 
 const NetworkContext = createContext<NetworkContextValue | null>(null);
 
@@ -50,6 +60,12 @@ export const OFFLINE_DEBOUNCE_MS = 1500;
 export const OFFLINE_BANNER_DELAY_MS = 2500;
 
 /**
+ * How long the offline pill stays up before it settles into the badge. The
+ * spell goes on, so something has to say so after the pill has gone.
+ */
+export const OFFLINE_PILL_HOLD_MS = 5000;
+
+/**
  * Hand the edge to Rust as well as to TanStack.
  *
  * The network lifecycle is Rust's, and nothing in the crate can see the
@@ -67,15 +83,19 @@ function pushToEngine(online: boolean, foregrounded = false): void {
 }
 
 export function NetworkProvider({ children }: { children: ReactNode }) {
-  const [networkState, setNetworkState] = useState<{ isOnline: boolean }>({
+  const [networkState, setNetworkState] = useState<{ isOnline: boolean; hasReading: boolean }>({
     isOnline: true, // Assume online initially
+    hasReading: false,
   });
 
-  // Whether an offline spell has lasted the banner's delay. Read only beside
-  // `isOnline` below, so an online reading hides the banner on the render it
-  // lands. Armed where `isOnline` goes false and cleared where it comes back.
-  const [bannerDue, setBannerDue] = useState(false);
+  // How far an offline spell has got through the pill and its hold. Read only
+  // beside `isOnline` below, so an online reading clears the indicator on the
+  // render it lands. Armed where `isOnline` goes false and cleared where it
+  // comes back.
+  const [stage, setStage] = useState<OfflineIndicator>('none');
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Whether the offline spell's timers have been armed, so they arm once.
+  const spellRef = useRef(false);
 
   // Debounce timer for going-offline transitions
   const offlineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,17 +120,21 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     };
 
     const goOffline = () => {
-      setNetworkState({ isOnline: false });
+      setNetworkState({ isOnline: false, hasReading: true });
       onlineManager.setOnline(false);
       pushToEngine(false);
-      // An offline reading while the delay is counting leaves it counting, so
-      // a re-read inside the spell does not push the banner further out.
-      if (bannerTimerRef.current === null) {
+      // An offline reading inside a spell leaves the spell's timers and stage
+      // alone, so a re-read does not push the pill further out or bring it back.
+      if (spellRef.current) return;
+      spellRef.current = true;
+      bannerTimerRef.current = setTimeout(() => {
+        if (cancelled) return;
+        setStage('pill');
         bannerTimerRef.current = setTimeout(() => {
           bannerTimerRef.current = null;
-          if (!cancelled) setBannerDue(true);
-        }, OFFLINE_BANNER_DELAY_MS);
-      }
+          if (!cancelled) setStage('badge');
+        }, OFFLINE_PILL_HOLD_MS);
+      }, OFFLINE_BANNER_DELAY_MS);
     };
 
     const applyNetworkState = (state: Network.NetworkState) => {
@@ -125,8 +149,9 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       if (isOnline) {
         // Going online: update immediately
         clearBannerTimer();
-        setBannerDue(false);
-        setNetworkState({ isOnline: true });
+        spellRef.current = false;
+        setStage('none');
+        setNetworkState({ isOnline: true, hasReading: true });
         // TanStack has no React Native connectivity source of its own, so
         // without this it believes it is permanently online and
         // `refetchOnReconnect` never fires.
@@ -248,9 +273,10 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       isOnline: networkState.isOnline,
-      offlineBannerShown: !networkState.isOnline && bannerDue,
+      hasReading: networkState.hasReading,
+      offlineIndicator: networkState.isOnline ? ('none' as const) : stage,
     }),
-    [networkState.isOnline, bannerDue]
+    [networkState.isOnline, networkState.hasReading, stage]
   );
 
   return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>;
@@ -265,6 +291,15 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
  */
 export function useIsOnline(): boolean {
   return useContext(NetworkContext)?.isOnline ?? true;
+}
+
+/**
+ * The offline indicator for a surface that draws beside the pill, and renders
+ * with no provider above it: the tab bar is mounted in tests and previews
+ * without the app shell, where nothing is offline.
+ */
+export function useOfflineIndicator(): OfflineIndicator {
+  return useContext(NetworkContext)?.offlineIndicator ?? 'none';
 }
 
 export function useNetwork(): NetworkContextValue {

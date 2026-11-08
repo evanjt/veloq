@@ -56,8 +56,8 @@ jest.mock('@/features/activity/hooks', () => ({
 jest.mock('@/shared/app/useOldestActivityDate', () => ({
   useOldestActivityDate: () => ({ data: new Date('2015-01-01T00:00:00') }),
 }));
-jest.mock('@/features/settings/hooks/useActivityYearCounts', () => ({
-  useActivityYearCounts: () => ({ data: [] }),
+jest.mock('@/features/settings/hooks/useHistoryRangeEstimate', () => ({
+  useHistoryRangeEstimate: () => undefined,
 }));
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: (selector: (s: unknown) => unknown) =>

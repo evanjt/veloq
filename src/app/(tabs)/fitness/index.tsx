@@ -24,16 +24,19 @@ import {
   TimeRangeSelector,
   SportToggleSelector,
   BestEffortsHeaderButton,
+  CalendarDayReadout,
   WellnessTrendsCard,
   resolveThresholdPace,
   useFitnessRefresh,
   useFitnessComputations,
   useFitnessScreenData,
   useFitnessWindow,
+  useValueWhileActive,
   useSportPreference,
   type PrimarySport,
 } from '@/features/fitness';
 import { timeRangeToDays } from '@/features/wellness';
+import { formatLocalDate } from '@/shared/format/format';
 import { ActivityHeatmap, SeasonComparison, WeeklySummary } from '@/features/stats';
 import { useTheme, useCollapsibleSections } from '@/shared/app';
 import { spacing, layout } from '@/theme';
@@ -157,6 +160,11 @@ function FitnessScreenContent() {
 
   const { primarySport, isLoaded: sportLoaded, adoptLibrarySport } = useSportPreference();
 
+  // The calendar page's selected day and whether a drag over its grid is running, which holds the
+  // page still as a chart scrub does.
+  const [calendarDay, setCalendarDay] = useState<string | null>(null);
+  const [calendarScrubbing, setCalendarScrubbing] = useState(false);
+
   // Sport mode state - defaults to primary sport, can be toggled
   const [sportMode, setSportMode] = useState<PrimarySport>(() => primarySport);
   const [sportModeFor, setSportModeFor] = useState(primarySport);
@@ -251,7 +259,7 @@ function FitnessScreenContent() {
     isError,
     error,
     refetch,
-  } = useFitnessScreenData({ timeRange, sportMode });
+  } = useFitnessScreenData({ timeRange, sportMode, place });
 
   // Until the athlete picks a sport, it follows what the library is mostly
   // made of. Taken before paint, so the tab never shows the old sport's cards.
@@ -282,6 +290,8 @@ function FitnessScreenContent() {
   });
 
   const days = timeRangeToDays(timeRange);
+  // The curve reads its own range, so it follows the range only while its page is in front.
+  const performanceDays = useValueWhileActive(days, place === 'performance') ?? days;
   const retryWellness = useCallback(() => {
     void refetch();
   }, [refetch]);
@@ -349,7 +359,7 @@ function FitnessScreenContent() {
         { paddingBottom: layout.screenPadding + scrollEndInset },
       ]}
       showsVerticalScrollIndicator={false}
-      scrollEnabled={!(scrubs && chartInteracting)}
+      scrollEnabled={!(scrubs && chartInteracting) && !(key === 'calendar' && calendarScrubbing)}
       stickyHeaderIndices={header ? PINNED_HEADER : undefined}
       refreshControl={<ScreenRefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
     >
@@ -471,7 +481,17 @@ function FitnessScreenContent() {
             style={styles.frame}
           >
             <Card variant="flat">
-              <ActivityHeatmap training={training} drawn={stage >= CALENDAR_STAGE} />
+              <CalendarDayReadout
+                date={calendarDay}
+                firstDay={formatLocalDate(training.windows.heatmap.first)}
+                lastDay={formatLocalDate(training.windows.heatmap.last)}
+              />
+              <ActivityHeatmap
+                training={training}
+                drawn={stage >= CALENDAR_STAGE}
+                onDaySelect={setCalendarDay}
+                onScrubbingChange={setCalendarScrubbing}
+              />
             </Card>
           </View>
 
@@ -499,7 +519,7 @@ function FitnessScreenContent() {
             <View onLayout={(event) => reveals.performance.onAnchorLayout('chart', event)}>
               <PerformanceCurveSection
                 sportMode={sportMode}
-                days={days}
+                days={performanceDays}
                 currentFTP={currentFTP}
                 thresholdPace={thresholdPace}
                 swimThresholdPace={swimThresholdPace}

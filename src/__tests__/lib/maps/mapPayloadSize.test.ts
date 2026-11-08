@@ -209,6 +209,7 @@ describe('map page size', () => {
       bearing: 0,
       pitch: 60,
       hasSavedCamera: false,
+      cameraPinned: false,
       terrainExaggeration: 1.5,
       initStyle: 'light' as const,
       mapStyle: 'light' as const,

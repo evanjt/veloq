@@ -29,6 +29,7 @@ import {
   chartStroke,
   CurveArea,
   ChartSurface,
+  type ChartReadingSource,
   CurveLine,
   lanesSummary,
   niceScale,
@@ -183,25 +184,30 @@ export const FitnessChart = React.memo(function FitnessChart({
   }, [data]);
 
   // What a screen reader hears and the Show data sheet lists: the lines drawn, day by day.
-  const reading = useMemo(() => {
-    const title = t('fitnessScreen.fitnessAndFatigue');
-    const lane = (key: 'fitness' | 'fatigue', name: string): SummarySeries => ({
-      name,
-      points: chartData.map((d) => ({
-        label: formatShortDate(d.date),
-        key: d.date,
-        value: d[key],
-      })),
-      format: (v) => String(Math.round(v)),
-    });
-    const lanes = [
-      ...(visibleLines.fitness ? [lane('fitness', t('metrics.fitness'))] : []),
-      ...(visibleLines.fatigue ? [lane('fatigue', t('metrics.fatigue'))] : []),
-    ];
-    return {
-      summary: lanesSummary(title, lanes, t),
-      table: seriesTable(title, t('charts.column.date'), lanes),
+  const reading = useMemo<ChartReadingSource>(() => {
+    const build = () => {
+      const title = t('fitnessScreen.fitnessAndFatigue');
+      const lane = (key: 'fitness' | 'fatigue', name: string): SummarySeries => ({
+        name,
+        points: chartData.map((d) => ({
+          label: formatShortDate(d.date),
+          key: d.date,
+          value: d[key],
+        })),
+        format: (v) => String(Math.round(v)),
+      });
+      const lanes = [
+        ...(visibleLines.fitness ? [lane('fitness', t('metrics.fitness'))] : []),
+        ...(visibleLines.fatigue ? [lane('fatigue', t('metrics.fatigue'))] : []),
+      ];
+      return {
+        summary: lanesSummary(title, lanes, t),
+        table: seriesTable(title, t('charts.column.date'), lanes),
+      };
     };
+    const shown = (['fitness', 'fatigue'] as const).filter((key) => visibleLines[key]);
+    const hasRows = chartData.some((d) => shown.some((key) => Number.isFinite(d[key])));
+    return { hasRows, read: build };
   }, [chartData, visibleLines, t]);
 
   const handleSelect = useCallback((point: ChartDataPoint) => {
@@ -424,12 +430,7 @@ export const FitnessChart = React.memo(function FitnessChart({
         </View>
 
         {/* Chart */}
-        <ChartSurface
-          summary={reading.summary}
-          table={reading.table}
-          held={held}
-          testID="fitness-chart-plot"
-        >
+        <ChartSurface reading={reading} held={held} testID="fitness-chart-plot">
           <View style={styles.plotRow}>
             <YAxisLabels
               ticks={yTicks}

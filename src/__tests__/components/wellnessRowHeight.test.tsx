@@ -12,13 +12,14 @@
 
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { Canvas } from '@shopify/react-native-skia';
 
 import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTrendsChart';
 import { initialiseI18n } from '@/i18n';
 import { spacing, stroke } from '@/theme';
 import type { WellnessData } from '@/types';
+import { capturePans, release, scrub, scrubPan } from '../__shared__/chartScrub';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -103,4 +104,72 @@ describe('wellness row height', () => {
     });
     expect(canvasHeight()).toBe(ROWS.length * MIN_ROW);
   });
+});
+
+/**
+ * Scenario: weight was last logged days before the other rows, so at rest its
+ * row carries a date while the others carry an average, and while scrubbing
+ * each row carries its smoothed value or nothing.
+ *
+ * Expected behaviour: each row's values column holds the same lines at rest and
+ * while scrubbing, the value, the unit and one caption, so no row changes height
+ * between the two states.
+ */
+const SPARSE_DAYS: WellnessData[] = Array.from({ length: 10 }, (_, i) => ({
+  id: `2026-05-${String(i + 1).padStart(2, '0')}`,
+  hrv: 44 + (i % 4),
+  restingHR: 50 + (i % 3),
+  ...(i < 4 ? { weight: 70 + i } : {}),
+}));
+const ROW_KEYS = ['hrv', 'rhr', 'weight'];
+const SPARKLINE_LEFT = 80;
+const SPARKLINE_WIDTH = 200;
+const PLOT_PAD = 4;
+
+function linesInValues(key: string) {
+  return screen.getByTestId(`wellness-readings-${key}`).findAll((node) => node.type === Text)
+    .length;
+}
+
+function linesByRow() {
+  return Object.fromEntries(ROW_KEYS.map((key) => [key, linesInValues(key)]));
+}
+
+describe('wellness row values column', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([
+    ['1m', 7],
+    ['7d', 'none'],
+  ] as const)(
+    'holds the same lines at rest and while scrubbing at %s, smoothing %s',
+    async (timeRange, smoothingWindow) => {
+      const built = capturePans();
+      await render(
+        <WellnessTrendsChart
+          data={SPARSE_DAYS}
+          timeRange={timeRange}
+          smoothingWindow={smoothingWindow}
+        />
+      );
+      await act(async () => {
+        await fireEvent(screen.getByTestId('wellness-sparkline-column-hrv'), 'layout', {
+          nativeEvent: {
+            layout: { x: SPARKLINE_LEFT, y: 0, width: SPARKLINE_WIDTH, height: MIN_ROW },
+          },
+        });
+      });
+
+      const atRest = linesByRow();
+      expect(Object.values(atRest)).toEqual([3, 3, 3]);
+
+      const lastDayX = SPARKLINE_LEFT + PLOT_PAD + SPARKLINE_WIDTH - 2 * PLOT_PAD;
+      const pan = scrubPan(built);
+      await scrub(pan, lastDayX);
+      const whileScrubbing = linesByRow();
+      await release(pan);
+
+      expect(whileScrubbing).toEqual(atRest);
+    }
+  );
 });

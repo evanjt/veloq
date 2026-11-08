@@ -381,6 +381,13 @@ class Peripheral:
         self.adapter.Set(ADAPTER_IFACE, 'Powered', dbus.Boolean(on))
         log(f'adapter powered {"on" if on else "off"}')
         if on:
+            # BlueZ keeps the advertisement object registered across a power
+            # cycle and advertises nothing, and a second register is refused as
+            # already existing: unregister it first, then register it again.
+            try:
+                self.ad_manager.UnregisterAdvertisement(self.advertisement.get_path())
+            except dbus.exceptions.DBusException:
+                pass
             self.advertising = False
             self.advertise(True)
 

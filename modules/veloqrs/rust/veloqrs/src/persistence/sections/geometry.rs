@@ -12,15 +12,38 @@ use tracematch::GpsPoint;
 
 use crate::persistence::codec::{self, TrackRead};
 
-/// The reference triple, when a row carries a whole one. A half-triple
-/// indexes nothing.
+/// The reference triple and its direction, when a row carries a whole triple.
+/// A half-triple indexes nothing.
 pub(crate) fn reference(
     activity_id: Option<&str>,
     start: Option<u32>,
     end: Option<u32>,
-) -> Option<(&str, u32, u32)> {
+    reversed: bool,
+) -> Option<(&str, u32, u32, bool)> {
     let activity_id = activity_id.filter(|id| !id.is_empty())?;
-    Some((activity_id, start?, end?))
+    Some((activity_id, start?, end?, reversed))
+}
+
+/// The range of `line[from..to]` in the stream a line runs over, given the
+/// line's own range and direction. A line read backwards counts its indices
+/// from the range's end, so its first points are the stream's last.
+pub(crate) fn sub_range(range: (u32, u32), reversed: bool, from: u32, to: u32) -> (u32, u32) {
+    let (start, end) = range;
+    if reversed {
+        (end - to, end - from)
+    } else {
+        (start + from, start + to)
+    }
+}
+
+/// Where `line` sits in `track` as a half-open range, and whether it reads
+/// that range backwards, when it sits at exactly one place either way.
+pub(crate) fn locate_reference(track: &[GpsPoint], line: &[GpsPoint]) -> Option<(u32, u32, bool)> {
+    if let Some((start, last)) = locate_slice(track, line) {
+        return Some((start, last + 1, false));
+    }
+    let backwards: Vec<GpsPoint> = line.iter().rev().cloned().collect();
+    locate_slice(track, &backwards).map(|(start, last)| (start, last + 1, true))
 }
 
 /// The one offset at which `polyline` sits inside `track`, if it sits at exactly one.
@@ -78,7 +101,10 @@ pub(crate) fn stream(conn: &Connection, activity_id: &str) -> Option<Vec<GpsPoin
 /// The range is half-open and is refused rather than clamped. A range that no
 /// longer indexes its stream describes some other line, and a plausible wrong
 /// line renders as real geometry, which is worse than none.
-pub(crate) fn rebuild(conn: &Connection, reference: (&str, u32, u32)) -> Option<Vec<GpsPoint>> {
+pub(crate) fn rebuild(
+    conn: &Connection,
+    reference: (&str, u32, u32, bool),
+) -> Option<Vec<GpsPoint>> {
     let points = stream(conn, reference.0)?;
     slice(&points, reference)
 }
@@ -91,7 +117,7 @@ pub(crate) fn rebuild(conn: &Connection, reference: (&str, u32, u32)) -> Option<
 /// unknown count cannot be checked, and both are refused.
 pub(crate) fn rebuild_counted(
     conn: &Connection,
-    reference: (&str, u32, u32),
+    reference: (&str, u32, u32, bool),
     point_count: Option<i64>,
 ) -> Option<Vec<GpsPoint>> {
     let points = stream(conn, reference.0)?;
@@ -116,8 +142,13 @@ pub(crate) fn rebuild_counted(
     }
 }
 
-pub(crate) fn slice(points: &[GpsPoint], reference: (&str, u32, u32)) -> Option<Vec<GpsPoint>> {
-    let (activity_id, start, end) = reference;
+/// Cut a line out of its stream: the half-open range, read backwards when the
+/// reference says the line runs from the range's end.
+pub(crate) fn slice(
+    points: &[GpsPoint],
+    reference: (&str, u32, u32, bool),
+) -> Option<Vec<GpsPoint>> {
+    let (activity_id, start, end, reversed) = reference;
     let (start, end) = (start as usize, end as usize);
     if start >= end || end > points.len() {
         log::warn!(
@@ -127,7 +158,11 @@ pub(crate) fn slice(points: &[GpsPoint], reference: (&str, u32, u32)) -> Option<
         );
         return None;
     }
-    Some(points[start..end].to_vec())
+    let mut line = points[start..end].to_vec();
+    if reversed {
+        line.reverse();
+    }
+    Some(line)
 }
 
 /// A section's line: the cached blob, the legacy JSON, then a rebuild from the
@@ -137,7 +172,7 @@ pub(crate) fn line(
     conn: &Connection,
     blob: Option<&[u8]>,
     json: Option<&str>,
-    reference: Option<(&str, u32, u32)>,
+    reference: Option<(&str, u32, u32, bool)>,
 ) -> Result<Vec<GpsPoint>, String> {
     match codec::decode_polyline_row(blob, json) {
         Ok(points) if !points.is_empty() => Ok(points),
@@ -157,11 +192,12 @@ pub(crate) fn stored_line(conn: &Connection, section_id: &str) -> Result<Vec<Gps
         activity_id: Option<String>,
         start: Option<u32>,
         end: Option<u32>,
+        reversed: bool,
     }
     let row = conn
         .query_row(
             "SELECT polyline_blob, polyline_json, representative_activity_id,
-                    rep_start_index, rep_end_index
+                    rep_start_index, rep_end_index, rep_reversed
              FROM sections WHERE id = ?",
             params![section_id],
             |row| {
@@ -171,6 +207,7 @@ pub(crate) fn stored_line(conn: &Connection, section_id: &str) -> Result<Vec<Gps
                     activity_id: row.get(2)?,
                     start: row.get(3)?,
                     end: row.get(4)?,
+                    reversed: row.get(5)?,
                 })
             },
         )
@@ -179,6 +216,67 @@ pub(crate) fn stored_line(conn: &Connection, section_id: &str) -> Result<Vec<Gps
         conn,
         row.blob.as_deref(),
         row.json.as_deref(),
-        reference(row.activity_id.as_deref(), row.start, row.end),
+        reference(row.activity_id.as_deref(), row.start, row.end, row.reversed),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn stream(n: usize) -> Vec<GpsPoint> {
+        (0..n)
+            .map(|i| GpsPoint::new(47.0 + i as f64 * 0.0001, 8.0))
+            .collect()
+    }
+
+    /// Scenario: detection turned a line to face its majority, so the line is
+    /// its range read from the end.
+    /// Expected behaviour: the cut runs the way the line runs, and a forward
+    /// reference still cuts forwards.
+    #[test]
+    fn a_reversed_reference_cuts_its_range_backwards() {
+        let points = stream(10);
+        let mut backwards = points[2..7].to_vec();
+        backwards.reverse();
+
+        assert_eq!(slice(&points, ("ride", 2, 7, true)), Some(backwards));
+        assert_eq!(
+            slice(&points, ("ride", 2, 7, false)),
+            Some(points[2..7].to_vec())
+        );
+        assert_eq!(slice(&points, ("ride", 7, 2, true)), None);
+    }
+
+    /// Scenario: an athlete trims a stretch off a line by its own indices.
+    /// Expected behaviour: the stretch's range is the same ground cut from the
+    /// stream, whichever way the line runs.
+    #[test]
+    fn a_stretch_of_a_line_names_the_stream_range_under_it() {
+        let points = stream(20);
+        for reversed in [false, true] {
+            let line = slice(&points, ("ride", 4, 16, reversed)).unwrap();
+            let (start, end) = sub_range((4, 16), reversed, 3, 9);
+
+            assert_eq!(
+                slice(&points, ("ride", start, end, reversed)).unwrap(),
+                line[3..9].to_vec(),
+                "reversed: {reversed}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_line_is_located_in_its_stream_either_way_it_runs() {
+        let points = stream(12);
+        let mut backwards = points[3..8].to_vec();
+        backwards.reverse();
+
+        assert_eq!(
+            locate_reference(&points, &points[3..8]),
+            Some((3, 8, false))
+        );
+        assert_eq!(locate_reference(&points, &backwards), Some((3, 8, true)));
+        assert_eq!(locate_reference(&points, &stream(30)[20..25]), None);
+    }
 }

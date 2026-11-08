@@ -713,6 +713,7 @@ struct ArchivableSection {
     rep_activity_id: Option<String>,
     rep_start: Option<u32>,
     rep_end: Option<u32>,
+    rep_reversed: bool,
     consensus: bool,
 }
 
@@ -829,7 +830,7 @@ impl PersistentEngine {
                     sport_type, polyline_blob, polyline_json,
                     distance_meters, visit_count, created_at,
                     representative_activity_id, rep_start_index, rep_end_index,
-                    geometry_source IS 'consensus'
+                    geometry_source IS 'consensus', rep_reversed
              FROM sections
              WHERE {}",
             crate::persistence::sections::DERIVED_SECTION_PREDICATE
@@ -849,6 +850,7 @@ impl PersistentEngine {
                     rep_start: row.get(9)?,
                     rep_end: row.get(10)?,
                     consensus: row.get(11)?,
+                    rep_reversed: row.get(12)?,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -866,6 +868,7 @@ impl PersistentEngine {
                 section.rep_activity_id.as_deref(),
                 section.rep_start,
                 section.rep_end,
+                section.rep_reversed,
             )
             .filter(|_| !section.consensus);
             let line = geometry::line(
@@ -1173,6 +1176,7 @@ impl PersistentEngine {
                     created_at: text("created_at"),
                     representative_activity_id: String::new(),
                     representative_range: None,
+                    representative_reversed: false,
                     activity_ids: Vec::new(),
                     activity_portions: Vec::new(),
                     activity_traces: std::collections::HashMap::new(),
@@ -1344,6 +1348,9 @@ pub(super) fn carry_legacy_archive_between(
                 None => None,
             }
         } else {
+            // Read forwards: the carry runs on an upgrade before the migration
+            // that lets a line run backwards, and every line it reads was cut
+            // forwards.
             let live: Option<(Option<String>, Option<u32>, Option<u32>)> = tx
                 .query_row(
                     "SELECT representative_activity_id, rep_start_index, rep_end_index
@@ -1353,7 +1360,7 @@ pub(super) fn carry_legacy_archive_between(
                 )
                 .optional()?;
             let reference = live.as_ref().and_then(|(id, start, end)| {
-                let reference = geometry::reference(id.as_deref(), *start, *end)?;
+                let reference = geometry::reference(id.as_deref(), *start, *end, false)?;
                 let sliced = geometry::rebuild(&tx, reference)?;
                 (codec::encode_polyline(&sliced) == codec::encode_polyline(&line))
                     .then_some(reference)
@@ -1816,7 +1823,7 @@ mod tests {
             &engine.db,
             "s_pinned",
             &sliced,
-            Some(("a1", 0, 12)),
+            Some(("a1", 0, 12, false)),
         )
         .expect("first");
         let flat = track()[0..12].to_vec();

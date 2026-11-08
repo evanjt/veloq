@@ -1125,6 +1125,14 @@ pub struct FfiExperimentalExamples {
     pub section_correlation_section_id: Option<String>,
 }
 
+/// What widening the library's start to an earlier date would download.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct FfiHistoryRangeEstimate {
+    pub count: u32,
+    /// True when only per-year counts were known and the figure is prorated.
+    pub approximate: bool,
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiYearCount {
     pub year: u32,
@@ -1650,6 +1658,9 @@ impl Default for FfiRoutesScreenQuery {
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiRoutesScreenData {
     pub activity_count: u32,
+    /// How many routes the minimum activity count leaves, before the search and
+    /// the sport narrow them. A group ridden once is not a route, so it is not
+    /// counted here.
     pub group_count: u32,
     pub section_count: u32,
     pub oldest_date: Option<f64>,
@@ -1669,9 +1680,9 @@ pub struct FfiRoutesScreenData {
     /// when nothing holds it, and `groups_dirty` then means it is running or
     /// about to.
     pub groups_hold: Option<FfiDetectionHold>,
-    /// How many groups the search and the minimum activity count leave. This is
-    /// what the page is taken out of, and what `has_more_groups` is measured
-    /// against. `group_count` stays the whole catalogue.
+    /// How many groups the minimum activity count, the sport and the search
+    /// leave. This is what the page is taken out of, and what `has_more_groups`
+    /// is measured against. `group_count` is the scope it is taken out of.
     pub filtered_group_count: u32,
     /// How many sections the search and the hidden filters leave.
     pub filtered_section_count: u32,
@@ -4149,6 +4160,8 @@ mod tests {
             ],
             distance_meters: 1500.0,
             representative_activity_id: Some("act_rep".to_string()),
+            representative_range: None,
+            representative_reversed: false,
             activity_ids: vec!["act_123".to_string(), "act_456".to_string()],
             visit_count: 5,
             confidence: Some(0.95),
@@ -4235,6 +4248,7 @@ mod tests {
             ],
             representative_activity_id: "act_rep".to_string(),
             representative_range: None,
+            representative_reversed: false,
             activity_ids: vec!["act_1".to_string(), "act_2".to_string()],
             activity_portions: vec![tracematch::SectionPortion {
                 activity_id: "act_1".to_string(),

@@ -23,7 +23,7 @@ let mockIsDark = false;
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: false, offlineBannerShown: true }),
+  useNetwork: () => ({ isOnline: false, offlineIndicator: 'pill' }),
 }));
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (selector: (s: Record<string, unknown>) => unknown) =>

@@ -1,6 +1,6 @@
 /**
  * Scenario: the tour is where automatic backup is asked for. The slide says
- * what a backup holds and where it goes, and offers Turn on and Never remind me
+ * where a backup goes, on each platform, and offers Turn on and Never remind me
  * again.
  *
  * Expected behaviour: Turn on turns automatic backup on and writes the first
@@ -10,6 +10,7 @@
  */
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { BackupSlide } from '@/features/settings/components/whatsNew/BackupSlide';
@@ -78,13 +79,27 @@ beforeEach(() => {
   useWhatsNewStore.setState({ tourOffer: NO_TOUR_OFFER });
 });
 
-it('says what a backup holds and where it goes', async () => {
+it('says where a backup goes, and has no panel of its own for what it holds', async () => {
   await render(<BackupSlide />);
 
-  expect(screen.getByTestId('tour-backup-holds')).toHaveTextContent('backup.backupHolds');
+  expect(screen.queryByTestId('tour-backup-holds')).toBeNull();
   expect(screen.getByTestId('tour-backup-where')).toHaveTextContent(
-    'whatsNew.tutorial.backupWhere'
+    /^whatsNew\.tutorial\.backupWhere$/
   );
+});
+
+it('names the places set up in Settings on Android', async () => {
+  const originalOS = Platform.OS;
+  Platform.OS = 'android';
+  try {
+    await render(<BackupSlide />);
+
+    expect(screen.getByTestId('tour-backup-where')).toHaveTextContent(
+      /^whatsNew\.tutorial\.backupWhereAndroid$/
+    );
+  } finally {
+    Platform.OS = originalOS;
+  }
 });
 
 describe('Turn on', () => {

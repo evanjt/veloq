@@ -152,6 +152,7 @@ const MAP_3D: Map3DHtmlConfig = {
   bearing: 30,
   pitch: 60,
   hasSavedCamera: false,
+  cameraPinned: false,
   terrainExaggeration: 1.5,
   initStyle: 'light',
   mapStyle: 'light',
@@ -202,6 +203,7 @@ const PAGES: PageUnderTest[] = [
           centerOverride: [7.67, 45.978],
           zoom: 13,
           hasSavedCamera: true,
+          cameraPinned: true,
           initStyle: 'dark',
           mapStyle: 'dark',
         })

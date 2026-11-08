@@ -39,6 +39,7 @@ function map3DConfig(overrides: Partial<Map3DHtmlConfig>): Map3DHtmlConfig {
     bearing: 0,
     pitch: 0,
     hasSavedCamera: true,
+    cameraPinned: true,
     terrainExaggeration: 1,
     initStyle: 'light',
     mapStyle: 'light',

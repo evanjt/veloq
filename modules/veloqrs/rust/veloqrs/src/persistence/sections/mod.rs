@@ -139,7 +139,7 @@ pub const CATALOGUE_CONFIG_DIGEST_KEY: &str = "catalogue_config_digest";
 /// evidence cache and records an algorithm change for the stored catalogue.
 /// Revision 0 hashes the config alone, which keeps every digest written before
 /// this constant existed valid.
-pub const DETECTOR_REVISION: u32 = 0;
+pub const DETECTOR_REVISION: u32 = 2;
 
 /// Stable fingerprint of a detection config under the live detector revision,
 /// as 16 lowercase hex digits.
@@ -217,14 +217,14 @@ const ADOPTED_EXTENT_FRACTION: f64 = 0.05;
 /// before a detect replaced the row.
 struct OutgoingShape {
     line: Vec<GpsPoint>,
-    reference: Option<(String, u32, u32)>,
+    reference: Option<(String, u32, u32, bool)>,
     distance_meters: f64,
 }
 
 fn outgoing_shapes(conn: &rusqlite::Connection) -> SqlResult<HashMap<String, OutgoingShape>> {
     let mut stmt = conn.prepare(&format!(
         "SELECT id, polyline_blob, polyline_json, representative_activity_id,
-                rep_start_index, rep_end_index, distance_meters
+                rep_start_index, rep_end_index, distance_meters, rep_reversed
          FROM sections WHERE {DERIVED_SECTION_PREDICATE}"
     ))?;
     let rows = stmt.query_map([], |row| {
@@ -236,15 +236,17 @@ fn outgoing_shapes(conn: &rusqlite::Connection) -> SqlResult<HashMap<String, Out
             row.get::<_, Option<u32>>(4)?,
             row.get::<_, Option<u32>>(5)?,
             row.get::<_, f64>(6)?,
+            row.get::<_, bool>(7)?,
         ))
     })?;
     let mut shapes = HashMap::new();
     for row in rows {
-        let (id, blob, json, rep_id, start, end, distance_meters) = row?;
-        let reference = geometry::reference(rep_id.as_deref(), start, end);
+        let (id, blob, json, rep_id, start, end, distance_meters, reversed) = row?;
+        let reference = geometry::reference(rep_id.as_deref(), start, end, reversed);
         let line =
             geometry::line(conn, blob.as_deref(), json.as_deref(), reference).unwrap_or_default();
-        let reference = reference.map(|(id, start, end)| (id.to_string(), start, end));
+        let reference =
+            reference.map(|(id, start, end, reversed)| (id.to_string(), start, end, reversed));
         shapes.insert(
             id,
             OutgoingShape {
@@ -257,13 +259,27 @@ fn outgoing_shapes(conn: &rusqlite::Connection) -> SqlResult<HashMap<String, Out
     Ok(shapes)
 }
 
+/// A line cut from one member's track: the member, the range of its stream,
+/// whether the line reads that range backwards, and the points.
+type MemberSlice = (String, (u32, u32), bool, Vec<GpsPoint>);
+
+/// The reference a detected section's line was cut with: its representative,
+/// the range of that activity's stream and whether the line reads it backwards.
+fn section_reference(section: &FrequentSection) -> Option<(&str, u32, u32, bool)> {
+    let (start, end) = section.representative_range?;
+    geometry::reference(
+        Some(section.representative_activity_id.as_str()),
+        Some(start),
+        Some(end),
+        section.representative_reversed,
+    )
+}
+
 /// Whether adopting `section` over `outgoing` moved the reference ride or the
 /// length by enough that the ledger has to say so.
 fn adoption_moved_extent(section: &FrequentSection, outgoing: &OutgoingShape) -> bool {
-    let reference = section
-        .representative_range
-        .filter(|_| !section.representative_activity_id.is_empty())
-        .map(|(start, end)| (section.representative_activity_id.clone(), start, end));
+    let reference = section_reference(section)
+        .map(|(id, start, end, reversed)| (id.to_string(), start, end, reversed));
     if reference != outgoing.reference {
         return true;
     }
@@ -296,21 +312,22 @@ fn record_adoption(
             outgoing
                 .reference
                 .as_ref()
-                .map(|(id, start, end)| (id.as_str(), *start, *end)),
+                .map(|(id, start, end, reversed)| (id.as_str(), *start, *end, *reversed)),
         )?;
     }
-    let reference = (!section.representative_activity_id.is_empty())
-        .then_some(section.representative_range)
-        .flatten()
-        .map(|(start, end)| (section.representative_activity_id.as_str(), start, end));
-    let version =
-        history::record_geometry_on(conn, &section.id, &section.polyline, false, reference)?;
+    let version = history::record_geometry_on(
+        conn,
+        &section.id,
+        &section.polyline,
+        false,
+        section_reference(section),
+    )?;
     let details = serde_json::json!({
         "reason": "adopted",
         "from_distance_m": outgoing.distance_meters,
         "to_distance_m": section.distance_meters,
         "from_reference": outgoing.reference.as_ref().map(|r| r.0.as_str()),
-        "to_reference": reference.map(|r| r.0),
+        "to_reference": section_reference(section).map(|r| r.0),
     })
     .to_string();
     history::append_history_on(
@@ -718,7 +735,8 @@ impl PersistentEngine {
                         polyline_blob, point_density_blob,
                         elevation_gain_m, avg_grade_percent,
                         rep_start_index, rep_end_index,
-                        elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score
+                        elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score,
+                        rep_reversed
                  FROM sections
                  WHERE (section_type = 'auto' OR section_type = 'custom') AND disabled = 0
                  ORDER BY id",
@@ -736,6 +754,7 @@ impl PersistentEngine {
                     // Both columns or neither: a half-range indexes nothing.
                     let rep_start: Option<u32> = row.get(21)?;
                     let rep_end: Option<u32> = row.get(22)?;
+                    let rep_reversed: bool = row.get(30)?;
                     let polyline: Vec<GpsPoint> = geometry::line(
                         &self.db,
                         polyline_blob.as_deref(),
@@ -744,6 +763,7 @@ impl PersistentEngine {
                             representative_activity_id.as_deref(),
                             rep_start,
                             rep_end,
+                            rep_reversed,
                         ),
                     )
                     .unwrap_or_else(|e| {
@@ -782,6 +802,7 @@ impl PersistentEngine {
                         polyline,
                         representative_activity_id: representative_activity_id.unwrap_or_default(),
                         representative_range,
+                        representative_reversed: rep_reversed,
                         activity_ids,
                         activity_portions: portions,
                         visit_count,
@@ -890,12 +911,10 @@ impl PersistentEngine {
         // A line sliced from one activity recalculates by re-slicing that
         // range: the same input gives the same line, so a second call is a
         // no-op.
-        if let Some((start, end)) = section.representative_range
-            && let Some(track) = self.load_gps_track_from_db(&section.representative_activity_id)
-            && (start as usize) < (end as usize)
-            && (end as usize) <= track.len()
+        if let Some(reference) = section_reference(&section)
+            && let Some(track) = self.load_gps_track_from_db(reference.0)
+            && let Some(polyline) = geometry::slice(&track, reference)
         {
-            let polyline = track[start as usize..end as usize].to_vec();
             let distance = tracematch::matching::calculate_route_distance(&polyline);
             let result = crate::FfiSectionRecalcResult {
                 section_id: section.id.clone(),
@@ -921,7 +940,7 @@ impl PersistentEngine {
         // No triple: the line is an average no activity rode. Cut it from one
         // member's own track instead, located by geometry. A row no member
         // covers keeps the line it has.
-        let (activity_id, range, polyline) = self.slice_of_member_track(&section)?;
+        let (activity_id, range, reversed, polyline) = self.slice_of_member_track(&section)?;
         let distance = tracematch::matching::calculate_route_distance(&polyline);
         let result = crate::FfiSectionRecalcResult {
             section_id: section.id.clone(),
@@ -931,6 +950,7 @@ impl PersistentEngine {
         self.edit_sections([idx], |_, section| {
             section.representative_activity_id = activity_id.clone();
             section.representative_range = Some(range);
+            section.representative_reversed = reversed;
             section.polyline = polyline.clone();
             section.distance_meters = distance;
         });
@@ -945,11 +965,9 @@ impl PersistentEngine {
 
     /// The section's line as a slice of one member's stored track, found by
     /// matching the current line against each member (the representative
-    /// first). `None` when no member's track covers it.
-    pub(super) fn slice_of_member_track(
-        &self,
-        section: &FrequentSection,
-    ) -> Option<(String, (u32, u32), Vec<GpsPoint>)> {
+    /// first), read the way the line runs. `None` when no member's track
+    /// covers it.
+    pub(super) fn slice_of_member_track(&self, section: &FrequentSection) -> Option<MemberSlice> {
         if section.polyline.len() < 2 {
             return None;
         }
@@ -974,13 +992,12 @@ impl PersistentEngine {
                 &self.section_config,
             );
             for portion in portions {
-                let (lo, hi) = (portion.start_index as usize, portion.end_index as usize);
-                if lo + 1 < hi && hi <= track.len() {
-                    return Some((
-                        activity_id.to_string(),
-                        (portion.start_index, portion.end_index),
-                        track[lo..hi].to_vec(),
-                    ));
+                let (lo, hi) = (portion.start_index, portion.end_index);
+                let reversed = portion.direction == tracematch::Direction::Reverse;
+                if lo + 1 < hi
+                    && let Some(line) = geometry::slice(&track, (activity_id, lo, hi, reversed))
+                {
+                    return Some((activity_id.to_string(), (lo, hi), reversed, line));
                 }
             }
         }
@@ -1227,17 +1244,18 @@ impl PersistentEngine {
             Option<f64>,
             Option<u32>,
             Option<u32>,
+            bool,
         );
         let section_data: Option<SectionRow> = {
             // Cached: the attach loop refreshes one section per match and the
-            // parse of these twenty-two columns is the cost, not the row.
+            // parse of these twenty-three columns is the cost, not the row.
             let mut stmt = match self.db.prepare_cached(
                 "SELECT section_type, sport_type, name, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
                         created_at, updated_at, polyline_blob, point_density_blob,
                         elevation_gain_m, avg_grade_percent,
-                        rep_start_index, rep_end_index
+                        rep_start_index, rep_end_index, rep_reversed
                  FROM sections WHERE id = ?",
             ) {
                 Ok(s) => s,
@@ -1268,6 +1286,7 @@ impl PersistentEngine {
                     row.get::<_, Option<f64>>(19)?,     // avg_grade_percent
                     row.get::<_, Option<u32>>(20)?,     // rep_start_index
                     row.get::<_, Option<u32>>(21)?,     // rep_end_index
+                    row.get::<_, bool>(22)?,            // rep_reversed
                 ))
             })
             .ok()
@@ -1296,6 +1315,7 @@ impl PersistentEngine {
             avg_grade_percent,
             rep_start_index,
             rep_end_index,
+            rep_reversed,
         ) = match section_data {
             Some(data) => data,
             None => return, // Section not found
@@ -1331,6 +1351,7 @@ impl PersistentEngine {
                 representative_activity_id.as_deref(),
                 rep_start_index,
                 rep_end_index,
+                rep_reversed,
             ),
         ) {
             Ok(p) => p,
@@ -1374,6 +1395,7 @@ impl PersistentEngine {
             // Dropping this here would demote an exact section to consensus on
             // the next save, permanently.
             representative_range: rep_start_index.zip(rep_end_index),
+            representative_reversed: rep_reversed,
             activity_ids,
             // From the junction table: `save_sections` writes junction rows
             // FROM this field, so a blank here turns the next save into a
@@ -1738,12 +1760,13 @@ impl PersistentEngine {
         let mut refused = Vec::new();
         for idx in unranged {
             match self.slice_of_member_track(&self.sections[idx]) {
-                Some((activity_id, range, polyline)) => {
+                Some((activity_id, range, reversed, polyline)) => {
                     let distance = tracematch::matching::calculate_route_distance(&polyline);
                     self.edit_sections([idx], |_, section| {
                         section.distance_meters = distance;
                         section.representative_activity_id = activity_id.clone();
                         section.representative_range = Some(range);
+                        section.representative_reversed = reversed;
                         section.polyline = polyline.clone();
                     });
                 }
@@ -1849,7 +1872,7 @@ impl PersistentEngine {
         if from_detect && let Some((from, to)) = self.detector_generation_change() {
             let mut stmt = tx.prepare(&format!(
                 "SELECT id, polyline_blob, polyline_json, representative_activity_id,
-                        rep_start_index, rep_end_index
+                        rep_start_index, rep_end_index, rep_reversed
                  FROM sections
                  WHERE {DERIVED_SECTION_PREDICATE}"
             ))?;
@@ -1860,6 +1883,7 @@ impl PersistentEngine {
                 Option<String>,
                 Option<u32>,
                 Option<u32>,
+                bool,
             );
             let priors: Vec<Prior> = stmt
                 .query_map([], |row| {
@@ -1870,16 +1894,17 @@ impl PersistentEngine {
                         row.get(3)?,
                         row.get(4)?,
                         row.get(5)?,
+                        row.get(6)?,
                     ))
                 })?
                 .filter_map(|r| r.ok())
                 .collect();
             drop(stmt);
-            for (id, blob, json, rep_id, start, end) in priors {
+            for (id, blob, json, rep_id, start, end, reversed) in priors {
                 // The blob is a cache. The outgoing shape is the one thing the
                 // milestone exists to keep, so a cleared cache is rebuilt from
                 // the triple rather than milestoned as an empty line.
-                let reference = geometry::reference(rep_id.as_deref(), start, end);
+                let reference = geometry::reference(rep_id.as_deref(), start, end, reversed);
                 let prior = geometry::line(&tx, blob.as_deref(), json.as_deref(), reference)
                     .unwrap_or_default();
                 history::record_algorithm_change_on(&tx, &id, Some(&prior), Some(&from), &to)?;
@@ -1973,9 +1998,9 @@ impl PersistentEngine {
                 bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                 consensus_state_blob, polyline_blob, point_density_blob,
                 elevation_gain_m, avg_grade_percent,
-                rep_start_index, rep_end_index, geometry_source,
+                rep_start_index, rep_end_index, rep_reversed, geometry_source,
                 elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score
-            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {IS_LIFT_UNLESS_UNFLAGGED}, ?, ?)"
+            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {IS_LIFT_UNLESS_UNFLAGGED}, ?, ?)"
         ))?;
         // OR REPLACE: two passes of one activity can share a `start_index` on a
         // short section, and a UNIQUE violation would abort the whole apply.
@@ -2155,6 +2180,7 @@ impl PersistentEngine {
                 section.avg_grade_percent,
                 section.representative_range.map(|(start, _)| start),
                 section.representative_range.map(|(_, end)| end),
+                section.representative_range.is_some() && section.representative_reversed,
                 geometry_source,
                 section.enrichment.elevation_loss_m,
                 section.enrichment.max_grade_percent,
@@ -2244,7 +2270,7 @@ impl PersistentEngine {
                     event
                         .reference
                         .as_ref()
-                        .map(|(id, start, end)| (id.as_str(), *start, *end)),
+                        .map(|(id, start, end, reversed)| (id.as_str(), *start, *end, *reversed)),
                 )?),
                 None => None,
             };
@@ -3017,7 +3043,7 @@ pub(crate) mod pooled {
         let placeholders: Vec<&str> = section_ids.iter().map(|_| "?").collect();
         let query = format!(
             "SELECT id, polyline_blob, polyline_json, representative_activity_id,
-                    rep_start_index, rep_end_index
+                    rep_start_index, rep_end_index, rep_reversed
              FROM sections WHERE id IN ({})",
             placeholders.join(",")
         );
@@ -3042,11 +3068,12 @@ pub(crate) mod pooled {
             let rep: Option<String> = row.get(3)?;
             let rep_start: Option<u32> = row.get(4)?;
             let rep_end: Option<u32> = row.get(5)?;
+            let rep_reversed: bool = row.get(6)?;
             let points = super::geometry::line(
                 conn,
                 polyline_blob.as_deref(),
                 polyline_json.as_deref(),
-                super::geometry::reference(rep.as_deref(), rep_start, rep_end),
+                super::geometry::reference(rep.as_deref(), rep_start, rep_end, rep_reversed),
             )
             .unwrap_or_default();
             Ok((
@@ -3109,7 +3136,8 @@ pub(crate) mod pooled {
             sport_type: section.sport_type,
             polyline: section.polyline,
             representative_activity_id: section.representative_activity_id.unwrap_or_default(),
-            representative_range: None,
+            representative_range: section.representative_range,
+            representative_reversed: section.representative_reversed,
             activity_ids: section.activity_ids,
             activity_portions: portions,
             visit_count: section.visit_count,

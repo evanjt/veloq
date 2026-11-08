@@ -5,7 +5,7 @@ import { TimelineSlider } from '@/features/maps';
 import { useActivityBoundsCache } from '@/features/activity';
 import { useTheme } from '@/shared/app';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
-import { useActivityYearCounts } from '@/features/settings/hooks/useActivityYearCounts';
+import { useHistoryRangeEstimate } from '../hooks/useHistoryRangeEstimate';
 import { formatClockTime, formatLocalDate } from '@/shared/format/format';
 import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -13,7 +13,7 @@ import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { useTrackStage } from '@/shared/native/useSyncStatus';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { useBackfillDayShare } from '../hooks/useBackfillDayShare';
-import { activitiesInRange, historyConfirmCopy } from '../lib/historyGate';
+import { historyConfirmCopy } from '../lib/historyGate';
 import { rangeProgress } from '../lib/rangeProgress';
 import { dailyLimitLines } from '../lib/dailyLimitLines';
 import { useDailyLimit } from '../hooks/useBackgroundJobs';
@@ -39,7 +39,6 @@ export function SyncRangePanel() {
   // --- Data range state ---
   const { cacheStats, syncDateRange } = useActivityBoundsCache();
   const { data: apiOldestDate } = useOldestActivityDate();
-  const { data: yearCounts } = useActivityYearCounts();
   const dayShare = useBackfillDayShare();
 
   const syncOldest = useSyncDateRange((s) => s.oldest);
@@ -101,13 +100,13 @@ export function SyncRangePanel() {
     [cachedStartDate, putHandleBack]
   );
 
-  // An upper bound, and zero when the sync has not stored the counts yet. Neither may hold the
-  // athlete behind a figure the app cannot produce.
-  const cost = useMemo(() => {
-    if (!proposedStart) return null;
-    const count = activitiesInRange(yearCounts, proposedStart, cachedStartDate);
-    return historyConfirmCopy(count, dayShare);
-  }, [proposedStart, yearCounts, cachedStartDate, dayShare]);
+  // The engine's count of what the range adds. Without one the sheet states no figure, so the
+  // athlete is never held behind a number the app cannot produce.
+  const estimate = useHistoryRangeEstimate(proposedStart, cachedStartDate);
+  const cost = useMemo(
+    () => (estimate ? historyConfirmCopy(estimate.count, dayShare) : null),
+    [estimate, dayShare]
+  );
 
   const confirm = useCallback(() => {
     if (!proposedStart) return;
@@ -144,15 +143,17 @@ export function SyncRangePanel() {
         </View>
 
         {/* What the proposed range costs, and what it unlocks */}
-        {cost ? (
+        {proposedStart ? (
           <View style={styles.costRow}>
-            <Text
-              testID="history-range-cost"
-              style={[styles.progressText, isDark && styles.progressTextDark]}
-            >
-              {t('settings.historyCost', { activities: cost.count })}
-            </Text>
-            {cost.kind === 'days' ? (
+            {cost ? (
+              <Text
+                testID="history-range-cost"
+                style={[styles.progressText, isDark && styles.progressTextDark]}
+              >
+                {t('settings.historyCost', { activities: cost.count })}
+              </Text>
+            ) : null}
+            {cost?.kind === 'days' ? (
               <Text
                 testID="history-range-days"
                 style={[styles.progressText, isDark && styles.progressTextDark]}

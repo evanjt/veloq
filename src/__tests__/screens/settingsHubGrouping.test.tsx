@@ -60,6 +60,7 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
 }));
 
 jest.mock('@/features/settings', () => ({
+  OfflineRow: () => null,
   useMapPreferences: (...args: unknown[]) =>
     jest.requireMock('@/features/settings/stores/MapPreferencesContext').useMapPreferences(...args),
   useDashboardPreferences: jest.requireActual('@/features/settings/stores/summaryCardPreferences')

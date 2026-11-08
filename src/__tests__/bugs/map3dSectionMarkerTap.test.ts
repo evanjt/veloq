@@ -95,6 +95,7 @@ function runPage(hitsByLayer: Record<string, Hit[]>) {
     bearing: 0,
     pitch: 60,
     hasSavedCamera: false,
+    cameraPinned: false,
     terrainExaggeration: 1.5,
     initStyle: 'light',
     mapStyle: 'light',

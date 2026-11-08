@@ -742,3 +742,59 @@ fn encounters_carry_the_podium_place_and_the_trophy_is_first() {
         None
     );
 }
+
+fn project_traversal(db: &Connection, section_id: &str, activity_id: &str, projected_m: f64) {
+    db.execute(
+        "UPDATE section_activities SET projected_m = ?1
+         WHERE section_id = ?2 AND activity_id = ?3",
+        params![projected_m, section_id, activity_id],
+    )
+    .expect("set projection");
+}
+
+/// Scenario: two rides timed between the section's gates at 120 s and 100 s,
+/// and a third whose 80 s was projected 150 m to reach a gate.
+///
+/// Expected behaviour: the projected time is an estimate and an estimate
+/// never takes a record while a timed lap stands, so the 100 s ride keeps the
+/// trophy as the section screen says, and the estimate takes none.
+#[test]
+fn an_estimated_lap_neither_takes_a_trophy_nor_denies_one() {
+    let s = setup();
+    insert_activity(&s.raw, "slow", 1_700_000_000, 10_000.0, 3_000);
+    insert_activity(&s.raw, "timed", 1_700_100_000, 10_000.0, 3_000);
+    insert_activity(&s.raw, "projected", 1_700_200_000, 10_000.0, 3_000);
+    insert_section(&s.raw, "sec", "Hill", 1_000.0);
+    insert_traversal(&s.raw, "sec", "slow", "same", 0, 1_000.0, 120.0);
+    insert_traversal(&s.raw, "sec", "timed", "same", 0, 1_000.0, 100.0);
+    insert_traversal(&s.raw, "sec", "projected", "same", 0, 1_000.0, 80.0);
+    project_traversal(&s.raw, "sec", "projected", 150.0);
+
+    let projected = s.engine.get_activity_section_encounters("projected");
+    assert_eq!(projected.len(), 1);
+    assert!(
+        !projected[0].is_pr,
+        "an estimate holds no record: {projected:?}"
+    );
+    assert_eq!(projected[0].rank, None, "an estimate takes no place");
+
+    let timed = s.engine.get_activity_section_encounters("timed");
+    assert!(timed[0].is_pr, "the estimate is not the timed ride's rival");
+}
+
+/// Expected behaviour: where every lap is an estimate, the estimates stand, as
+/// the section screen's tier rule says.
+#[test]
+fn estimated_laps_stand_when_no_lap_is_timed() {
+    let s = setup();
+    insert_activity(&s.raw, "a", 1_700_000_000, 10_000.0, 3_000);
+    insert_activity(&s.raw, "b", 1_700_100_000, 10_000.0, 3_000);
+    insert_section(&s.raw, "sec", "Hill", 1_000.0);
+    insert_traversal(&s.raw, "sec", "a", "same", 0, 1_000.0, 120.0);
+    insert_traversal(&s.raw, "sec", "b", "same", 0, 1_000.0, 100.0);
+    project_traversal(&s.raw, "sec", "a", 150.0);
+    project_traversal(&s.raw, "sec", "b", 150.0);
+
+    let b = s.engine.get_activity_section_encounters("b");
+    assert!(b[0].is_pr);
+}

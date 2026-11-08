@@ -31,9 +31,15 @@ export const PERIOD_DAYS: Record<SpanPeriod, number> = {
 /**
  * The window every picker opens on. A screen keeps its own choice once the
  * athlete makes one, so this is where they all start rather than a setting they
- * share. The map is the one exception and names its own default.
+ * share. The map and Fitness are the exceptions and name their own defaults.
  */
 export const DEFAULT_PERIOD = '6m' as const satisfies SpanPeriod;
+
+/**
+ * The window the Fitness tab opens on. It is an insight glance, where six months
+ * of activities is more than the plot holds, so it opens on one month.
+ */
+export const FITNESS_DEFAULT_PERIOD = '1m' as const satisfies SpanPeriod;
 
 /**
  * One label per period per locale: `short` for a chip, `long` for prose. The

@@ -260,7 +260,7 @@ pub(crate) mod pooled {
          disabled, superseded_by, polyline_blob, point_density_blob,
          elevation_gain_m, avg_grade_percent,
          elevation_loss_m, max_grade_percent, straightness, klass, is_lift, rank_score, sport_rank_score,
-         rep_start_index, rep_end_index, sport_types";
+         rep_start_index, rep_end_index, sport_types, rep_reversed";
 
     /// Visibility filter: exclude disabled and superseded sections.
     pub(crate) const VISIBLE_FILTER: &str = "disabled = 0 AND superseded_by IS NULL";
@@ -424,6 +424,7 @@ pub(crate) mod pooled {
         let representative_activity_id: Option<String> = row.get(6)?;
         let rep_start: Option<u32> = row.get(33)?;
         let rep_end: Option<u32> = row.get(34)?;
+        let rep_reversed: bool = row.get(36)?;
 
         let activity_ids = try_section_activity_ids(conn, &id)?;
         let point_density = decode_point_density(
@@ -441,7 +442,12 @@ pub(crate) mod pooled {
             conn,
             polyline_blob.as_deref(),
             polyline_json.as_deref(),
-            geometry::reference(representative_activity_id.as_deref(), rep_start, rep_end),
+            geometry::reference(
+                representative_activity_id.as_deref(),
+                rep_start,
+                rep_end,
+                rep_reversed,
+            ),
         )
         .or_else(|error| {
             let stored = polyline_blob.is_some()
@@ -467,6 +473,8 @@ pub(crate) mod pooled {
             polyline,
             distance_meters: row.get(5)?,
             representative_activity_id,
+            representative_range: rep_start.zip(rep_end),
+            representative_reversed: rep_reversed,
             activity_ids,
             visit_count: 0,
             confidence: row.get(7)?,
@@ -1359,14 +1367,15 @@ pub(crate) mod pooled {
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .map_err(|_| format!("Section not found: {}", section_id))?;
-        if let Some((_, start, end)) = geometry::reference(
-            reference.0.as_deref(),
-            reference.1,
-            reference.2,
-        )
-        .filter(|&(_, start, end)| {
-            end > start && (end - start) as usize == polyline.len() && end as usize <= track.len()
-        }) {
+        if let Some((_, start, end, _)) =
+            geometry::reference(reference.0.as_deref(), reference.1, reference.2, false).filter(
+                |&(_, start, end, _)| {
+                    end > start
+                        && (end - start) as usize == polyline.len()
+                        && end as usize <= track.len()
+                },
+            )
+        {
             // The stored end is exclusive, the UI trims with an inclusive last index.
             return Ok((track, start, end - 1));
         }

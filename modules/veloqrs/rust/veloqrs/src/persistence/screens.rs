@@ -126,6 +126,69 @@ pub fn experimental_examples(conn: &rusqlite::Connection) -> crate::FfiExperimen
     examples
 }
 
+/// How many activities widening the library's start from `from` to `to`
+/// (both `YYYY-MM-DD`, `to` excluded) would download.
+///
+/// The census lists every activity the remote history holds with its start
+/// date, so the answer is the listed activities inside the range that the
+/// library does not hold, at day resolution. A library with no census yet
+/// only has per-year counts, which are prorated by the days of each year the
+/// range covers and reported as approximate. Nothing known reads as zero.
+pub fn history_range_estimate(
+    conn: &rusqlite::Connection,
+    from: &str,
+    to: &str,
+) -> Result<crate::FfiHistoryRangeEstimate, crate::objects::error::VeloqError> {
+    use crate::objects::error::VeloqError;
+    let database = |error: rusqlite::Error| VeloqError::Database {
+        msg: error.to_string(),
+    };
+    let missing: i64 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT CASE WHEN NOT EXISTS (
+                        SELECT 1 FROM activities a
+                         WHERE a.id = c.intervals_id OR a.intervals_id = c.intervals_id)
+                        THEN c.intervals_id END)
+               FROM activity_census c
+              WHERE substr(c.start_date_local, 1, 10) >= ?1
+                AND substr(c.start_date_local, 1, 10) < ?2",
+            rusqlite::params![from, to],
+            |row| row.get(0),
+        )
+        .map_err(database)?;
+    let census_held: i64 = conn
+        .query_row("SELECT COUNT(*) FROM activity_census", [], |row| row.get(0))
+        .map_err(database)?;
+    if census_held > 0 {
+        return Ok(crate::FfiHistoryRangeEstimate {
+            count: missing as u32,
+            approximate: false,
+        });
+    }
+    let parse = |date: &str| chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok();
+    let (Some(from), Some(to)) = (parse(from), parse(to)) else {
+        return Ok(crate::FfiHistoryRangeEstimate {
+            count: 0,
+            approximate: true,
+        });
+    };
+    let mut total = 0.0;
+    for crate::FfiYearCount { year, count } in activity_year_counts(conn)? {
+        let (Some(start), Some(end)) = (
+            chrono::NaiveDate::from_ymd_opt(year as i32, 1, 1),
+            chrono::NaiveDate::from_ymd_opt(year as i32 + 1, 1, 1),
+        ) else {
+            continue;
+        };
+        let overlap = (end.min(to) - start.max(from)).num_days().max(0);
+        total += f64::from(count) * overlap as f64 / (end - start).num_days() as f64;
+    }
+    Ok(crate::FfiHistoryRangeEstimate {
+        count: total.round() as u32,
+        approximate: true,
+    })
+}
+
 fn activity_year_counts(
     conn: &rusqlite::Connection,
 ) -> Result<Vec<crate::FfiYearCount>, crate::objects::error::VeloqError> {
@@ -1041,15 +1104,8 @@ impl super::PersistentEngine {
     /// down the feed draws from a hundred points rather than reading and
     /// boxing the four thousand of the stored track. `None` for an activity
     /// with no signature or an empty one: there is nothing to draw.
-    pub fn preview_track(&mut self, activity_id: &str) -> Option<crate::FfiPreviewTrack> {
-        let sig = self.get_signature(activity_id)?;
-        if sig.points.is_empty() {
-            return None;
-        }
-        Some(crate::FfiPreviewTrack {
-            activity_id: activity_id.to_string(),
-            encoded_coords: crate::persistence::codec::encode_polyline(&sig.points),
-        })
+    pub fn preview_track(&self, activity_id: &str) -> Option<crate::FfiPreviewTrack> {
+        pooled::preview_track(self.cold_connection(), activity_id)
     }
 
     /// The feed's first paint: the summary card and the preview tracks.
@@ -3650,12 +3706,37 @@ pub mod pooled {
         prev_end: i64,
         preview_activity_ids: &[String],
     ) -> crate::FfiStartupData {
-        crate::FfiStartupData {
+        startup_data_refilling(
+            conn,
+            current_start,
+            current_end,
+            prev_start,
+            prev_end,
+            preview_activity_ids,
+        )
+        .0
+    }
+
+    /// [`startup_data`] and the signatures rebuilt to draw its preview lines,
+    /// for the caller to write back with `persist_refilled_signatures`.
+    pub fn startup_data_refilling(
+        conn: &Connection,
+        current_start: i64,
+        current_end: i64,
+        prev_start: i64,
+        prev_end: i64,
+        preview_activity_ids: &[String],
+    ) -> (crate::FfiStartupData, Vec<tracematch::RouteSignature>) {
+        let mut refilled = Vec::new();
+        let mut preview_tracks = Vec::with_capacity(preview_activity_ids.len());
+        for id in preview_activity_ids {
+            let (track, rebuilt) = preview_track_refilling(conn, id);
+            preview_tracks.extend(track);
+            refilled.extend(rebuilt);
+        }
+        let data = crate::FfiStartupData {
             summary_card: summary_card(conn, current_start, current_end, prev_start, prev_end),
-            preview_tracks: preview_activity_ids
-                .iter()
-                .filter_map(|id| preview_track(conn, id))
-                .collect(),
+            preview_tracks,
             sparklines: crate::persistence::wellness::pooled::sparklines_to(
                 conn,
                 super::FEED_SPARKLINE_DAYS,
@@ -3663,7 +3744,8 @@ pub mod pooled {
             )
             .ok()
             .flatten(),
-        }
+        };
+        (data, refilled)
     }
 
     /// The week against the week before it, plus the three trends beside them.
@@ -3713,16 +3795,39 @@ pub mod pooled {
     /// `None` for an activity with no signature or an empty one: there is
     /// nothing to draw.
     pub fn preview_track(conn: &Connection, activity_id: &str) -> Option<crate::FfiPreviewTrack> {
-        let sig = crate::persistence::read_cache::signature(conn, activity_id, || {
+        preview_track_refilling(conn, activity_id).0
+    }
+
+    /// [`preview_track`] and, when the stored signature carries no elevation
+    /// over a track that does, the signature rebuilt from that track, which
+    /// the line is drawn from. The caller writes it back with
+    /// `persist_refilled_signatures`.
+    pub fn preview_track_refilling(
+        conn: &Connection,
+        activity_id: &str,
+    ) -> (
+        Option<crate::FfiPreviewTrack>,
+        Option<tracematch::RouteSignature>,
+    ) {
+        let Some(stored) = crate::persistence::read_cache::signature(conn, activity_id, || {
             crate::persistence::activities::pooled::signature(conn, activity_id)
-        })?;
-        if sig.points.is_empty() {
-            return None;
+        }) else {
+            return (None, None);
+        };
+        if stored.points.is_empty() {
+            return (None, None);
         }
-        Some(crate::FfiPreviewTrack {
+        let rebuilt = crate::persistence::activities::pooled::signature_with_track_elevation(
+            conn,
+            activity_id,
+            &stored,
+        );
+        let points = rebuilt.as_ref().map_or(&stored.points, |r| &r.points);
+        let track = crate::FfiPreviewTrack {
             activity_id: activity_id.to_string(),
-            encoded_coords: crate::persistence::codec::encode_polyline(&sig.points),
-        })
+            encoded_coords: crate::persistence::codec::encode_polyline(points),
+        };
+        (Some(track), rebuilt)
     }
 
     /// The two layers a map read may carry. `None` leaves a layer out; `Some`
@@ -4047,6 +4152,10 @@ pub mod pooled {
 #[cfg(test)]
 #[path = "tests/screens_performance_cache.rs"]
 mod performance_cache_tests;
+
+#[cfg(test)]
+#[path = "tests/history_range_estimate.rs"]
+mod history_range_estimate_tests;
 
 #[cfg(test)]
 #[path = "tests/best_efforts_screen.rs"]

@@ -41,6 +41,7 @@ fn detected(id: &str, members: usize) -> FrequentSection {
         polyline: track(0.0),
         representative_activity_id: "a0".to_string(),
         representative_range: None,
+        representative_reversed: false,
         activity_ids: activity_ids.clone(),
         activity_portions: activity_ids
             .iter()

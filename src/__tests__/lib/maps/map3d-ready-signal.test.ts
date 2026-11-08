@@ -30,6 +30,7 @@ function buildConfig(overrides: Partial<Map3DHtmlConfig> = {}): Map3DHtmlConfig 
     bearing: 0,
     pitch: 60,
     hasSavedCamera: false,
+    cameraPinned: false,
     terrainExaggeration: 1.5,
     initStyle: 'light',
     mapStyle: 'light',
@@ -370,8 +371,23 @@ describe('3D page opening camera', () => {
     expect(camera.every((m) => m.gesture === false)).toBe(true);
   });
 
+  it("turns a camera opened at a centre and zoom that is not the athlete's", () => {
+    const { map, posted } = openAndSettle(
+      buildMap3DHtml(longConfig({ hasSavedCamera: true, cameraPinned: false }))
+    );
+
+    expect(map!.queryTerrainElevation).toHaveBeenCalled();
+    expect(map!.jumpTo).toHaveBeenCalled();
+    map!.fire('moveend', undefined);
+    const camera = posted.filter((m) => m.type === 'cameraState');
+    expect(camera.length).toBeGreaterThan(0);
+    expect(camera.every((m) => m.gesture === false)).toBe(true);
+  });
+
   it('never queries the terrain when the athlete saved a camera', () => {
-    const { map } = openAndSettle(buildMap3DHtml(longConfig({ hasSavedCamera: true })));
+    const { map } = openAndSettle(
+      buildMap3DHtml(longConfig({ hasSavedCamera: true, cameraPinned: true }))
+    );
 
     expect(map!.queryTerrainElevation).not.toHaveBeenCalled();
     expect(map!.jumpTo).not.toHaveBeenCalled();
@@ -455,6 +471,7 @@ describe('3D page rebuilt in place for a new mount', () => {
           bearing: 45,
           pitch: 50,
           hasSavedCamera: true,
+          cameraPinned: true,
           initStyle: 'dark',
           mapStyle: 'dark',
         })

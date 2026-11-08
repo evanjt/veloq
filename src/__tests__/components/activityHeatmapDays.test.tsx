@@ -1,14 +1,13 @@
 /**
  * Scenario: the activity calendar is a drawn grid. Its colour stands for the
  * day's longest session, and each day it draws holds activities a reader may
- * want to open.
+ * want to look at.
  *
  * Expected behaviour: the legend names that measure and its four bins, every
- * day with activities is a cell a finger can press, and pressing it opens that
- * day's activities the way the fitness strip does: one activity directly,
- * several through the day's picker. A screen reader meets none of those cells:
+ * day with activities is a cell a finger can press, and pressing it selects
+ * that day and opens nothing. A screen reader meets none of those cells:
  * it gets one adjustable element that steps through the active days, reads
- * each with its date, count and longest session, and opens the day it holds.
+ * each with its date, count and longest session, and selects the day it holds.
  */
 
 import {
@@ -16,7 +15,6 @@ import {
   fireEvent,
   isHiddenFromAccessibility,
   render,
-  renderHook,
   waitFor,
 } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -26,12 +24,10 @@ import type { ReactTestInstance } from 'react-test-renderer';
 import { RangeCoverage } from 'veloqrs';
 
 import ChartDataSheet from '@/app/sheets/chart-data';
-import type { DayActivitiesInput } from '@/app/sheets/day-activities';
 import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
 import { initialiseI18n } from '@/i18n';
 import { chartStyles } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
-import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { localDay } from '../__shared__/clockEdges';
 import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
 import { dayStartEpochSeconds } from '@/shared/time/startDate';
@@ -125,7 +121,9 @@ const step = async (node: ReactTestInstance, actionName: string) => {
   });
 };
 
-async function renderHeatmap(props: { drawn?: boolean } = {}) {
+async function renderHeatmap(
+  props: { drawn?: boolean; onDaySelect?: (date: string | null) => void } = {}
+) {
   const view = await render(
     <WithScreenRead>
       {(training) => <ActivityHeatmap training={training} {...props} />}
@@ -192,61 +190,40 @@ describe('ActivityHeatmap days', () => {
     ).toBeNull();
   });
 
-  it('reads no activity until a day is pressed', async () => {
-    await renderHeatmap();
-
-    expect(engine.getFeedCards).not.toHaveBeenCalled();
-  });
-
-  it('opens the activity directly on a one-activity day', async () => {
+  it('reads no activity, whatever is pressed', async () => {
     const view = await renderHeatmap();
 
     await fireEvent.press(dayCell(view, ONE_RIDE));
     await act(async () => {});
 
-    expect(engine.getFeedCards).toHaveBeenCalledWith(
-      dayStartEpochSeconds(ONE_RIDE),
-      expect.any(Number)
-    );
-    expect(pushedRoutes()).toEqual(['/activity/ride-1']);
+    expect(engine.getFeedCards).not.toHaveBeenCalled();
   });
 
-  it('opens the day picker with both activities and then the chosen one', async () => {
-    const view = await renderHeatmap();
+  it('selects the pressed day, marks it, and opens nothing', async () => {
+    const onDaySelect = jest.fn();
+    const view = await renderHeatmap({ onDaySelect });
 
-    void fireEvent.press(dayCell(view, TWO_RUNS));
-    await act(async () => {});
-    const sheet = pushedRoutes()[0];
-    expect(sheet.pathname).toBe('sheets/day-activities');
-
-    mockParams.request = sheet.params.request;
-    const reader = await renderHook(() => useSheetRequest<DayActivitiesInput, string>());
-    const rows = [...(reader.result.current.input?.activities ?? [])].sort((x, y) =>
-      x.id.localeCompare(y.id)
-    );
-    expect(rows).toEqual([
-      expect.objectContaining({
-        id: 'run-am',
-        name: 'Harbour loop',
-        type: 'Run',
-        load: 40,
-        distance: 10_000,
-        movingTime: 55 * 60,
-      }),
-      expect.objectContaining({
-        id: 'run-pm',
-        name: 'Park loop',
-        type: 'Run',
-        load: 40,
-        distance: 10_000,
-        movingTime: 55 * 60,
-      }),
-    ]);
-    await act(() => reader.result.current.resolve('run-pm'));
-    await reader.unmount();
+    await fireEvent.press(dayCell(view, TWO_RUNS));
     await act(async () => {});
 
-    expect(pushedRoutes().at(-1)).toBe('/activity/run-pm');
+    expect(onDaySelect).toHaveBeenLastCalledWith(TWO_RUNS);
+    expect(pushedRoutes()).toEqual([]);
+    expect(
+      view.getByTestId('activity-heatmap-highlight', { includeHiddenElements: true })
+    ).toBeTruthy();
+  });
+
+  it('clears the selection when the selected day is pressed again', async () => {
+    const onDaySelect = jest.fn();
+    const view = await renderHeatmap({ onDaySelect });
+
+    await fireEvent.press(dayCell(view, ONE_RIDE));
+    await fireEvent.press(dayCell(view, ONE_RIDE));
+
+    expect(onDaySelect).toHaveBeenLastCalledWith(null);
+    expect(
+      view.queryByTestId('activity-heatmap-highlight', { includeHiddenElements: true })
+    ).toBeNull();
   });
 
   it('mounts no day controls while the grid is held undrawn', async () => {
@@ -319,13 +296,15 @@ describe('ActivityHeatmap days for a screen reader', () => {
     expect(Math.abs(mark.left - cell.left)).toBeLessThan(4);
   });
 
-  it('opens the day it holds when activated', async () => {
-    const view = await renderHeatmap();
+  it('selects the day it holds when activated, and opens nothing', async () => {
+    const onDaySelect = jest.fn();
+    const view = await renderHeatmap({ onDaySelect });
 
     await step(view.getByRole('adjustable'), 'activate');
     await act(async () => {});
 
-    expect(pushedRoutes()).toEqual(['/activity/ride-1']);
+    expect(onDaySelect).toHaveBeenLastCalledWith(ONE_RIDE);
+    expect(pushedRoutes()).toEqual([]);
   });
 });
 

@@ -86,6 +86,7 @@ export {
   MapsSection,
   NotificationSection,
   ProfileAccountSection,
+  OfflineRow,
   RecordingPermissionSection,
   SettingsNavRow,
   SummaryCardSection,

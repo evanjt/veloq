@@ -43,7 +43,8 @@ export function TopSafeAreaProvider({
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const hideDemoBanner = useAuthStore((s) => s.hideDemoBanner);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { offlineBannerShown } = useNetwork();
+  const { offlineIndicator } = useNetwork();
+  const offlineBannerShown = offlineIndicator !== 'none';
   const { lastError, retryAtMs } = useSyncHealth();
   const syncPaused = (retryAtMs ?? null) !== null;
   const engineInitFailed = useEngineStatus((s) => s.initFailed);

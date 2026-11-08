@@ -40,18 +40,11 @@ import { getWebdavConfig } from './webdavConfig';
 import { getGoogleDriveAccount } from './googleDriveAccount';
 import { zipFingerprint, type ZipFingerprint } from './zipFingerprint';
 import { backupFolderTarget } from '@/shared/native/backupFolder';
-import { exportFileUri, readBackCopyUri } from '@/shared/storage/cacheFiles';
+import { readBackCopyUri } from '@/shared/storage/cacheFiles';
 import { TIME } from '@/shared/app/time';
 
 const log = debug.create('AutoBackup');
 
-/**
- * The record a run writes for a carrier on shared storage, in the cache's
- * `exports/`, which a wipe deletes whole. Its name carries no share-copy
- * prefix, so a record export sweeping that directory leaves it alone while
- * the carrier reads it. The run deletes it once every carrier has had it.
- */
-const SHARED_RECORD_FILE = 'shared-storage-record.zip';
 const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
 
 const SETTING_LAST_BACKUP = '__last_auto_backup';
@@ -442,13 +435,12 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
 
   const timestamp = new Date().toISOString();
   const carriers: Record<string, CarrierOutcome> = {};
-  let sharedRecordUri: string | null = null;
 
   try {
     await inBackupSlot(() =>
       libraryMoved()
         ? Promise.resolve()
-        : engine.runRecordBackup(plainUriPath(recordPath), RecordScope.Whole)
+        : engine.runRecordBackup(plainUriPath(recordPath), RecordScope.Automatic)
     );
     if (libraryMoved()) return NOTHING_WRITTEN;
     // This library wrote the zip, so a later launch never offers it back.
@@ -476,24 +468,6 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
       }
       return fingerprint;
     };
-    // The record without the export privacy home, written the first time a
-    // carrier on shared storage is reached and handed to every such carrier.
-    let sharedRecord: Promise<string> | null = null;
-    const recordFor = async (carrier: BackupBackend): Promise<string> => {
-      if (!carrier.sharedStorage) return recordPath;
-      sharedRecord ??= (async () => {
-        const uri = await exportFileUri(SHARED_RECORD_FILE);
-        sharedRecordUri = uri;
-        await inBackupSlot(() =>
-          libraryMoved()
-            ? Promise.resolve()
-            : engine.runRecordBackup(plainUriPath(uri), RecordScope.SharedStorage)
-        );
-        return uri;
-      })();
-      return await sharedRecord;
-    };
-
     // A carrier that cannot be tried now is owed the zip, and leaves the stamp
     // unwritten. A permanent failure is shown to the athlete instead, and the
     // stamp is not written when nothing at all took the zip.
@@ -525,11 +499,10 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
         continue;
       }
       try {
-        const archive = await recordFor(carrier);
         if (libraryMoved()) return NOTHING_WRITTEN;
-        const backupId = await carrier.upload(archive, entry);
+        const backupId = await carrier.upload(recordPath, entry);
         if (libraryMoved()) return NOTHING_WRITTEN;
-        await verifyCarrierCopy(carrier, backupId, sentZip(archive));
+        await verifyCarrierCopy(carrier, backupId, sentZip(recordPath));
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         log.warn(`Auto-backup to ${carrier.id} failed:`, msg);
@@ -561,9 +534,6 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
     if (libraryMoved()) return NOTHING_WRITTEN;
     // Rethrow the original so the caller keeps the failure kind
     throw error instanceof Error ? error : new Error(msg);
-  } finally {
-    if (sharedRecordUri)
-      await FileSystem.deleteAsync(sharedRecordUri, { idempotent: true }).catch(() => {});
   }
 }
 

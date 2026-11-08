@@ -14,12 +14,15 @@ import {
   getSmoothingPresetLabel,
 } from '@/shared/math/smoothing';
 import type { SmoothingWindow } from '@/shared/math/smoothing';
+import type { TimeRange } from '@/shared/app/timeRange';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
 /** The wellness smoothing picker, a sheet route opened with `openSheet` and answered with the chosen window. */
 
 export interface SmoothingSheetInput {
   window: SmoothingWindow;
+  /** The range the caller draws, which Auto resolves against. */
+  timeRange: TimeRange;
 }
 
 function SmoothingSheetContent() {
@@ -27,6 +30,7 @@ function SmoothingSheetContent() {
   const { isDark } = useTheme();
   const { input, resolve } = useSheetRequest<SmoothingSheetInput, SmoothingWindow>();
   const current = input?.window;
+  const timeRange = input?.timeRange;
 
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
@@ -45,7 +49,7 @@ function SmoothingSheetContent() {
             <ToggleButton
               key={String(preset.value)}
               testID={`smoothing-option-${preset.value}`}
-              label={getSmoothingPresetLabel(preset.value, t as never)}
+              label={getSmoothingPresetLabel(preset.value, t as never, timeRange)}
               selected={isSelected}
               onPress={() => resolve(preset.value)}
             />

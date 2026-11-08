@@ -8,6 +8,7 @@ import {
   cellPositions,
   positionsOf as cellPositionsOf,
   columnYear,
+  dateAt,
   heatmapLayout,
   HEATMAP_CELL_GAP,
   HEATMAP_CELL_SIZE,
@@ -215,5 +216,29 @@ describe('heatmap span follows the first drawn day', () => {
     ]);
     expect(layout.monthLabels.every((l) => l.col < layout.weeks)).toBe(true);
     expect(columnYear(layout, HEATMAP_WEEKS - 1)).toBe(2026);
+  });
+});
+
+describe('dateAt', () => {
+  const layout = heatmapLayout(WEDNESDAY, day('2026-08-03'));
+  const lastCell = layout.cells[layout.cells.length - 1];
+
+  it('names the day whose cell or gap holds the point', () => {
+    const first = layout.cells[0];
+    expect(dateAt(layout, first.col * PITCH + 1, first.row * PITCH + 1)).toBe(first.date);
+    // The gap after a cell belongs to it, so a drag has no dead strip.
+    expect(dateAt(layout, first.col * PITCH + PITCH - 0.5, first.row * PITCH + PITCH - 0.5)).toBe(
+      first.date
+    );
+    expect(dateAt(layout, lastCell.col * PITCH + 3, lastCell.row * PITCH + 3)).toBe(lastCell.date);
+  });
+
+  it('answers null outside the grid and on the undrawn days after today', () => {
+    expect(dateAt(layout, -1, 5)).toBeNull();
+    expect(dateAt(layout, 5, -1)).toBeNull();
+    expect(dateAt(layout, layout.weeks * PITCH + 1, 5)).toBeNull();
+    expect(dateAt(layout, 5, 7 * PITCH + 1)).toBeNull();
+    // Thursday of the newest column is after today.
+    expect(dateAt(layout, lastCell.col * PITCH + 1, 6 * PITCH + 1)).toBeNull();
   });
 });

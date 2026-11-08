@@ -1,5 +1,6 @@
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { TimelineSlider } from '@/features/maps/components/timeline/TimelineSlider';
 import { createTimelineLayout } from '@/features/maps/lib/timelineLayout';
 
@@ -98,5 +99,129 @@ describe('TimelineSlider expandOnly start drag', () => {
     expect(onRangeChange).toHaveBeenCalledTimes(1);
     const [start] = onRangeChange.mock.calls[0];
     expect(dateToPosition(start)).toBeLessThanOrEqual(begin + 1e-6);
+  });
+});
+
+/**
+ * Scenario: the athlete drags the start of an expand-only range back past the downloaded start,
+ * then drags it right again.
+ * Expected behaviour: the handle moves freely left of the downloaded start and back right up to
+ * it, and no further. The span it proposes is drawn apart from the downloaded span.
+ */
+describe('TimelineSlider expandOnly start returns to the downloaded start', () => {
+  const downloadedStart = new Date('2025-08-01T00:00:00Z');
+  const jan2025 = new Date(2025, 0, 1);
+  const may2025 = new Date(2025, 4, 1);
+
+  interface Rendered {
+    onRangeChange: jest.Mock;
+    view: Awaited<ReturnType<typeof render>>;
+    rerender: () => void;
+  }
+
+  async function renderExpandOnly(): Promise<Rendered> {
+    const onRangeChange = jest.fn();
+    // A new element on each render, since React skips re-rendering an element it already holds.
+    const ui = () => (
+      <TimelineSlider
+        minDate={minDate}
+        maxDate={maxDate}
+        startDate={downloadedStart}
+        endDate={maxDate}
+        onRangeChange={onRangeChange}
+        fixedEnd
+        expandOnly
+      />
+    );
+    const view = await render(ui());
+    await act(() => {
+      view.getByTestId('timeline-slider-track').props.onLayout({
+        nativeEvent: { layout: { width: TRACK_WIDTH } },
+      });
+    });
+    return {
+      onRangeChange,
+      view,
+      rerender: () => {
+        view.rerender(ui());
+      },
+    };
+  }
+
+  // Drives the start handle from one position to another, as a pan that began on it would.
+  async function dragStart(from: Date, to: Date) {
+    const drag = mockGestures.find((g) => g.handlers?.onUpdate);
+    const translationX = (dateToPosition(to) - dateToPosition(from)) * TRACK_WIDTH;
+    await act(() => {
+      drag?.handlers?.onBegin?.();
+      drag?.handlers?.onUpdate?.({ translationX });
+      drag?.handlers?.onEnd?.({ x: 0 });
+      jest.advanceTimersByTime(100);
+    });
+  }
+
+  async function tapTrackAt(date: Date) {
+    const tap = [...mockGestures].reverse().find((g) => g.handlers?.onEnd && !g.handlers?.onUpdate);
+    await act(() => {
+      tap?.handlers?.onEnd?.({ x: dateToPosition(date) * TRACK_WIDTH });
+      jest.advanceTimersByTime(100);
+    });
+  }
+
+  const lastStart = (onRangeChange: jest.Mock): Date =>
+    onRangeChange.mock.calls[onRangeChange.mock.calls.length - 1][0];
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockGestures.length = 0;
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it('moves the start right again after dragging it left, and stops on the downloaded start', async () => {
+    const { onRangeChange } = await renderExpandOnly();
+
+    await dragStart(downloadedStart, jan2025);
+    await dragStart(jan2025, may2025);
+    expect(dateToPosition(lastStart(onRangeChange))).toBeCloseTo(dateToPosition(may2025), 6);
+
+    await dragStart(may2025, new Date('2025-11-01T00:00:00Z'));
+    expect(lastStart(onRangeChange)).toBe(downloadedStart);
+  });
+
+  it('draws the proposed span apart from the downloaded span only while a span is proposed', async () => {
+    const { view, onRangeChange, rerender } = await renderExpandOnly();
+    const proposed = () =>
+      StyleSheet.flatten(
+        view.getByTestId('timeline-slider-proposed-range', { includeHiddenElements: true }).props
+          .style
+      );
+    const downloaded = () =>
+      StyleSheet.flatten(
+        view.getByTestId('timeline-slider-downloaded-range', { includeHiddenElements: true }).props
+          .style
+      );
+
+    rerender();
+    expect(proposed().display).toBe('none');
+    expect(downloaded().backgroundColor).toBeDefined();
+
+    await dragStart(downloadedStart, may2025);
+    rerender();
+    expect(lastStart(onRangeChange)).toEqual(may2025);
+    expect(proposed().display).not.toBe('none');
+    expect(proposed().backgroundColor).not.toBe(downloaded().backgroundColor);
+  });
+
+  it('refuses a tap right of the downloaded start, and a tap on it clears a proposal', async () => {
+    const { onRangeChange } = await renderExpandOnly();
+
+    await tapTrackAt(new Date('2025-11-01T00:00:00Z'));
+    expect(onRangeChange).not.toHaveBeenCalled();
+
+    await tapTrackAt(may2025);
+    expect(dateToPosition(lastStart(onRangeChange))).toBeCloseTo(dateToPosition(may2025), 6);
+
+    await tapTrackAt(downloadedStart);
+    expect(lastStart(onRangeChange)).toBe(downloadedStart);
   });
 });

@@ -23,6 +23,7 @@ fn cut(latitude: f64, members: &[&str]) -> FrequentSection {
         polyline,
         representative_activity_id: members[0].into(),
         representative_range: Some((0, 39)),
+        representative_reversed: false,
         activity_ids: members.iter().map(|id| (*id).into()).collect(),
         activity_portions: vec![],
         visit_count: members.len() as u32,

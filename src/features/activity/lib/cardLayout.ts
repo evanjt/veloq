@@ -1,10 +1,22 @@
 import { StyleSheet } from 'react-native';
 
+import { ENDPOINT_3D_CASING_RADIUS } from '@/features/maps/light';
 import { spacing } from '@/theme';
 
 /** Geometry of the feed's activity card, read by the card and by its skeleton. */
 export const CARD_HEIGHT = 240;
 export const CARD_MARGIN = spacing.smPlus;
+/**
+ * The frame a card's route is fitted inside, in pixels from each edge of the map. The end markers
+ * stay whole at the foot of the route, and the card crops the map by its margin on the left and
+ * the right.
+ */
+export const CARD_FIT_INSET = {
+  top: ENDPOINT_3D_CASING_RADIUS,
+  right: ENDPOINT_3D_CASING_RADIUS + CARD_MARGIN,
+  bottom: ENDPOINT_3D_CASING_RADIUS,
+  left: ENDPOINT_3D_CASING_RADIUS + CARD_MARGIN,
+};
 /** The zone strip under the card's stats; its top zone stands this tall. */
 export const ZONE_STRIP_HEIGHT = spacing.md;
 /**

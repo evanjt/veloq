@@ -38,7 +38,7 @@ import {
   raised,
   spacing,
 } from '@/theme';
-import { CARD_FOOTER_CLEARANCE } from '@/features/activity/lib/cardLayout';
+import { CARD_FIT_INSET, CARD_FOOTER_CLEARANCE } from '@/features/activity/lib/cardLayout';
 import { SyncState } from 'veloqrs';
 import type { ActivityType, FeedCard } from '@/types';
 import type { PreviewTrack } from '@/features/home';
@@ -116,7 +116,11 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   );
 
   // The same verdict the context menu and the detail view show.
-  const { show3D, camera: terrainCamera } = useMemo(
+  const {
+    show3D,
+    camera: terrainCamera,
+    pinned: cameraPinned,
+  } = useMemo(
     () =>
       resolveTerrain3D({
         mode: terrain3DMode,
@@ -249,7 +253,8 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       activityId: activity.id,
       coordinates: lngLatCoords,
       camera: snapshotCamera,
-      cameraPinned: savedCamera !== null,
+      fitInset: CARD_FIT_INSET,
+      cameraPinned,
       mapStyle,
       flat: flat || !downgraded,
       standIn: !flat && !downgraded,
@@ -264,6 +269,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     flat,
     snapshotCamera,
     savedCamera,
+    cameraPinned,
     lngLatCoords,
     validCoordinates,
     activity.id,

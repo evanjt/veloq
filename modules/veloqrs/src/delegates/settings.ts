@@ -17,6 +17,7 @@ import type {
   GpxFile as FfiGpxFile,
   FfiBackupScreenData,
   FfiCacheScreenData,
+  FfiHistoryRangeEstimate,
   FfiExperimentalExamples,
   FfiRecordScreenData,
   FfiBackgroundJobsData,
@@ -89,6 +90,18 @@ export function getRecordScreenData(host: DelegateHost): FfiRecordScreenData | u
 export function getCacheScreenData(host: DelegateHost): FfiCacheScreenData | undefined {
   if (!host.ready) return undefined;
   return host.timed('getCacheScreenData', () => host.engine.settings().cacheScreenData());
+}
+
+/** How many activities widening the library's start from `from` to `to` (`YYYY-MM-DD`) would download. */
+export function getHistoryRangeEstimate(
+  host: DelegateHost,
+  from: string,
+  to: string
+): FfiHistoryRangeEstimate | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getHistoryRangeEstimate', () =>
+    host.engine.settings().historyRangeEstimate(from, to)
+  );
 }
 
 /** The sections where the experimental features have something to show. */

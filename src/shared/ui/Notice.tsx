@@ -19,6 +19,7 @@ import { AccessibilityInfo } from 'react-native';
 import { Snackbar } from 'react-native-paper';
 
 import { useTabBarClearance } from './tabBarClearance';
+import { useScreenReaderEnabled } from './useScreenReaderEnabled';
 
 /** How long a notice without an action stays when its caller names no duration. */
 export const NOTICE_DEFAULT_MS = 4000;
@@ -85,26 +86,6 @@ export function showNotice(args: NoticeArgs): number {
 /** Hide the notice with this id. A later notice that replaced it stays. */
 export function hideNotice(id: number): void {
   if (current?.id === id) publish(null);
-}
-
-function useScreenReaderEnabled(): boolean {
-  const [enabled, setEnabled] = useState(false);
-  useEffect(() => {
-    let live = true;
-    AccessibilityInfo.isScreenReaderEnabled()
-      .then((on) => {
-        if (live) setEnabled(on);
-      })
-      .catch(() => {
-        // A platform that cannot answer is treated as having no screen reader.
-      });
-    const subscription = AccessibilityInfo.addEventListener('screenReaderChanged', setEnabled);
-    return () => {
-      live = false;
-      subscription.remove();
-    };
-  }, []);
-  return enabled;
 }
 
 export function NoticeHost() {

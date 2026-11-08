@@ -2311,6 +2311,7 @@ mod tests {
                 .collect(),
             representative_activity_id: "a0".to_string(),
             representative_range: None,
+            representative_reversed: false,
             activity_portions: activity_ids
                 .iter()
                 .map(|id| crate::SectionPortion {

@@ -14,13 +14,16 @@ import {
   setAppMetricsEnabled,
   timeAppWork,
 } from '@/shared/debug/renderTimer';
+import { decodeCoords } from 'veloqrs';
 import { streamBuffers } from '../__shared__/streamBuffers';
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
-    decodeCoords: () => [{ latitude: 46.2, longitude: 7.36 }],
+    decodeCoords: jest.fn(() => [{ latitude: 46.2, longitude: 7.36 }]),
   })
 );
+
+const mockDecode = decodeCoords as jest.MockedFunction<typeof decodeCoords>;
 
 const rows = (name: string) => getFFIMetrics().filter((entry) => entry.name === name);
 
@@ -66,8 +69,19 @@ describe('the decoding after an engine read', () => {
     const tracks = buildPreviewTracks([
       { activityId: 'i1', encodedCoords: new ArrayBuffer(16) },
     ] as Parameters<typeof buildPreviewTracks>[0]);
-    expect(tracks.get('i1')?.coordinates).toEqual([{ latitude: 46.2, longitude: 7.36 }]);
+    expect(tracks.get('i1')?.points).toEqual([{ latitude: 46.2, longitude: 7.36 }]);
     expect(rows(DECODE_PREVIEW_TRACKS)).toHaveLength(1);
+  });
+
+  it('hands a preview track the elevation its line carries', () => {
+    mockDecode.mockReturnValueOnce([
+      { latitude: 46.2, longitude: 7.36, elevation: 410 },
+      { latitude: 46.21, longitude: 7.37, elevation: 432.5 },
+    ]);
+    const tracks = buildPreviewTracks([
+      { activityId: 'i1', encodedCoords: new ArrayBuffer(16) },
+    ] as Parameters<typeof buildPreviewTracks>[0]);
+    expect(tracks.get('i1')?.points.map((p) => p.elevation)).toEqual([410, 432.5]);
   });
 
   it('records no decoding row while Debug Mode is off', () => {

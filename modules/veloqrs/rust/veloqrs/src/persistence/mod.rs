@@ -2554,7 +2554,6 @@ fn paged_group_page(
         return None;
     }
     let sizes = routes::pooled::group_sizes(conn)?;
-    let total_count: u32 = sizes.iter().map(|(_, n)| n).sum();
     let filtered_count: u32 = sizes
         .iter()
         .filter(|(size, _)| *size >= query.min_group_activity_count)
@@ -2571,7 +2570,9 @@ fn paged_group_page(
     routes::pooled::fill_page_details(conn, &mut page);
     Some(PooledGroupPage {
         groups: pooled_group_rows(conn, page),
-        total_count,
+        // The minimum is the list's total, so a list that takes no search and
+        // no sport has its total and its shown count equal.
+        total_count: filtered_count,
         filtered_count,
         has_more,
     })
@@ -2585,8 +2586,8 @@ fn walked_group_page(conn: &Connection, query: &crate::FfiRoutesScreenQuery) -> 
     let group_limit = query.group_limit;
     let user_lat = query.user_lat;
     let user_lng = query.user_lng;
-    // Every group the catalogue holds, then the search and the minimum
-    // activity count, then the order, and only then the page. Doing any of
+    // Every group the catalogue holds, then the minimum activity count, the
+    // sport and the search, then the order, and only then the page. Doing any of
     // it after the page would order fifty rows and call it the library.
     // Only a search and the name order read the shown name of every group, so
     // any other list reads names for its page alone.
@@ -2596,13 +2597,15 @@ fn walked_group_page(conn: &Connection, query: &crate::FfiRoutesScreenQuery) -> 
         matches!(group_sort, crate::FfiGroupSort::Distance),
         reads_names,
     );
+    // The list's total is the routes the minimum leaves: the sport and the
+    // search narrow that total, and nothing widens it.
+    if min_group_activity_count > 0 {
+        raw_summaries.retain(|g| g.activity_count >= min_group_activity_count);
+    }
+    let total_groups = raw_summaries.len();
     if let Some(sport) = query.group_sport_type.as_deref() {
         routes::pooled::fill_page_details(conn, &mut raw_summaries);
         raw_summaries.retain(|g| in_sport(&g.sport_types, sport));
-    }
-    let total_groups = raw_summaries.len();
-    if min_group_activity_count > 0 {
-        raw_summaries.retain(|g| g.activity_count >= min_group_activity_count);
     }
     if !group_needle.is_empty() {
         raw_summaries.retain(|g| {
@@ -2756,7 +2759,7 @@ fn paged_section_page(
     let counters = SectionCounters::of(counts.iter().copied());
     Some(PooledSectionPage {
         sections: pooled_section_rows(conn, page, None),
-        total_count: counters.visible,
+        total_count: counters.total(&query.section_filters),
         filtered_count,
         has_more,
         unaccepted_auto_count: counters.unaccepted_auto,
@@ -2840,7 +2843,7 @@ fn walked_section_page(
 
     PooledSectionPage {
         sections,
-        total_count: counters.visible,
+        total_count: counters.total(&query.section_filters),
         filtered_count: filtered_section_count as u32,
         has_more: has_more_sections,
         unaccepted_auto_count: counters.unaccepted_auto,
@@ -2853,6 +2856,7 @@ fn walked_section_page(
 /// The sections list's total and its four counters, summed over kinds.
 struct SectionCounters {
     visible: u32,
+    all: u32,
     unaccepted_auto: u32,
     accepted_auto: u32,
     custom: u32,
@@ -2860,15 +2864,27 @@ struct SectionCounters {
 }
 
 impl SectionCounters {
+    /// The scope the list draws from: removed sections belong to it only while
+    /// the Removed filter shows them, so the shown count never exceeds it.
+    fn total(&self, filters: &crate::FfiSectionFilters) -> u32 {
+        if filters.hide_disabled {
+            self.visible
+        } else {
+            self.all
+        }
+    }
+
     fn of(counts: impl Iterator<Item = (sections::queries::pooled::SectionKind, u32)>) -> Self {
         let mut counters = Self {
             visible: 0,
+            all: 0,
             unaccepted_auto: 0,
             accepted_auto: 0,
             custom: 0,
             removed: 0,
         };
         for (kind, n) in counts {
+            counters.all += n;
             if !kind.removed {
                 counters.visible += n;
             }
@@ -4323,6 +4339,10 @@ mod stale_pr_record_effort;
 mod route_row_preview;
 
 #[cfg(test)]
+#[path = "tests/preview_elevation.rs"]
+mod preview_elevation;
+
+#[cfg(test)]
 #[path = "tests/nearby_routes.rs"]
 mod nearby_routes_tests;
 
@@ -4723,6 +4743,7 @@ mod tests {
             polyline,
             representative_activity_id: representative_activity_id.to_string(),
             representative_range: None,
+            representative_reversed: false,
             activity_ids: activity_ids.clone(),
             activity_portions: activity_ids
                 .iter()

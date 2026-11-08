@@ -236,12 +236,16 @@ fn recording_runs() -> (Arc<SyncService>, Runs) {
     let full = Arc::clone(&runs);
     let windows = Arc::clone(&runs);
     let svc = SyncService::starting_with(
-        move |force| full.lock().unwrap().push(SyncRequest::Full { force }),
+        move |force| {
+            full.lock().unwrap().push(SyncRequest::Full { force });
+            FfiStartOutcome::Started
+        },
         move |oldest, newest| {
             windows
                 .lock()
                 .unwrap()
-                .push(SyncRequest::Window { oldest, newest })
+                .push(SyncRequest::Window { oldest, newest });
+            FfiStartOutcome::Started
         },
     );
     svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());

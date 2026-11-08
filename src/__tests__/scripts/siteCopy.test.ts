@@ -384,7 +384,7 @@ describe('hasDistinctDark', () => {
 });
 
 describe('webSets', () => {
-  const caption = { kicker: 'K', cap: 'Line one\nline two', sub: 'S' };
+  const caption = { cap: 'Line one\nline two' };
   const captions = {
     shots: Array.from({ length: 9 }, () => caption),
     tagline: 't',
@@ -420,7 +420,7 @@ describe('webSets', () => {
 });
 
 describe('syncReadmeStrip', () => {
-  const caption = { kicker: 'K', cap: 'Line one\nline two', sub: 'S' };
+  const caption = { cap: 'Line one\nline two' };
   const sets = webSets({ shots: Array.from({ length: 9 }, () => caption), tagline: 't' });
   const stems = (md: string) =>
     [...md.matchAll(/docs\/screenshots\/([^"]+)"/g)].map((m) => m[1] ?? '');

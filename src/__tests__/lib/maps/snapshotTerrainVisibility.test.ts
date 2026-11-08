@@ -58,10 +58,8 @@ describe('terrain visibility check', () => {
   it('turns 180 when a ridge hides the route from the request camera', () => {
     const page = bootWorkerPage({ queryTerrainElevation: ridgeNorthOfRoute(300) });
     renderAndSettle(page, request());
-    const camera = page.map.jumpTo.mock.calls.at(-1)?.[0];
-    expect(page.map.jumpTo.mock.calls.length).toBeGreaterThan(1);
-    expect(camera.bearing).toBe(180);
-    expect(camera.pitch).toBe(60);
+    expect(page.map.getBearing()).toBe(180);
+    expect(page.map.getPitch()).toBe(60);
     expect(page.posted.some((m) => m.type === 'snapshot')).toBe(true);
   });
 
@@ -76,9 +74,7 @@ describe('terrain visibility check', () => {
     });
     const page = bootWorkerPage({ queryTerrainElevation: bank });
     renderAndSettle(page, request());
-    const camera = page.map.jumpTo.mock.calls.at(-1)?.[0];
-    expect(page.map.jumpTo.mock.calls.length).toBeGreaterThan(1);
-    expect(camera.bearing).toBe(180);
+    expect(page.map.getBearing()).toBe(180);
     expect(page.posted.some((m) => m.type === 'snapshot')).toBe(true);
   });
 
@@ -89,14 +85,15 @@ describe('terrain visibility check', () => {
     });
     const page = bootWorkerPage({ queryTerrainElevation: bank });
     renderAndSettle(page, request());
-    expect(page.map.jumpTo).toHaveBeenCalledTimes(1);
+    expect(page.map.getBearing()).toBe(0);
+    expect(page.map.getPitch()).toBe(60);
   });
 
   it('keeps the request camera over flat ground', () => {
     const page = bootWorkerPage({ queryTerrainElevation: jest.fn(() => 0) });
     renderAndSettle(page, request());
-    expect(page.map.jumpTo).toHaveBeenCalledTimes(1);
-    expect(page.map.jumpTo.mock.calls[0][0].bearing).toBe(0);
+    expect(page.map.getBearing()).toBe(0);
+    expect(page.map.getPitch()).toBe(60);
     expect(page.posted.some((m) => m.type === 'snapshot')).toBe(true);
   });
 
@@ -105,13 +102,14 @@ describe('terrain visibility check', () => {
     const page = bootWorkerPage({ queryTerrainElevation: query });
     renderAndSettle(page, request({ flat: true }));
     expect(query).not.toHaveBeenCalled();
-    expect(page.map.jumpTo).toHaveBeenCalledTimes(1);
+    expect(page.map.getBearing()).toBe(0);
   });
 
   it('counts a point with no loaded terrain as clear', () => {
     const page = bootWorkerPage({ queryTerrainElevation: jest.fn(() => undefined) });
     renderAndSettle(page, request());
-    expect(page.map.jumpTo).toHaveBeenCalledTimes(1);
+    expect(page.map.getBearing()).toBe(0);
+    expect(page.map.getPitch()).toBe(60);
   });
 
   it('picks pitch 40 when every bearing is hidden and a lower eye is not', () => {
@@ -125,9 +123,8 @@ describe('terrain visibility check', () => {
     });
     const page = bootWorkerPage({ queryTerrainElevation: ring });
     renderAndSettle(page, request());
-    const camera = page.map.jumpTo.mock.calls.at(-1)?.[0];
-    expect(camera.pitch).toBe(40);
-    expect(camera.bearing).toBe(0);
+    expect(page.map.getPitch()).toBe(40);
+    expect(page.map.getBearing()).toBe(0);
   });
 });
 

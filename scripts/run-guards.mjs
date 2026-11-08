@@ -453,6 +453,13 @@ const GUARDS = [
       'a store capture shot taken with debug mode on, putting the repost buttons into the listing set, or a debug-mode switch-off that is missed without the run noticing',
   },
   {
+    name: 'lint:maestro-store-shots',
+    kind: 'style',
+    cmd: node('lint-maestro-store-shots.mjs'),
+    catches:
+      'a store shot that no longer shows what its headline claims: a section page that is not the notified section, an insights shot with no insight opened to its method, or a recording shot taken before the ride has covered distance',
+  },
+  {
     name: 'lint:maestro-ids',
     kind: 'correctness',
     cmd: node('lint-maestro-ids.mjs'),

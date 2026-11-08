@@ -531,6 +531,7 @@ fn found_section(line: &[tracematch::GpsPoint]) -> crate::FrequentSection {
         polyline: line.to_vec(),
         representative_activity_id: "a1".to_string(),
         representative_range: None,
+        representative_reversed: false,
         activity_portions: vec![crate::SectionPortion {
             activity_id: "a1".to_string(),
             start_index: 0,

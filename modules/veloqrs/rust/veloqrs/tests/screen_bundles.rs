@@ -3009,7 +3009,7 @@ fn activity_detail_is_empty_for_an_unknown_activity() {
 #[test]
 fn one_preview_track_matches_the_one_the_startup_bundle_carries() {
     let _serial_state = crate::serial_state();
-    let mut s = populated();
+    let s = populated();
     let p = insights_params();
     let ids = vec!["a1".to_string()];
 
@@ -3057,7 +3057,7 @@ fn a_preview_track_is_the_signature_rather_than_the_whole_ride() {
 #[test]
 fn an_activity_with_no_signature_has_no_preview_track() {
     let _serial_state = crate::serial_state();
-    let mut s = populated();
+    let s = populated();
 
     assert!(s.engine.preview_track("nope").is_none());
 }

@@ -4,7 +4,7 @@
  *
  * Expected behaviour: every template sets its type in the app's bundled
  * Manrope, the feature graphic draws the outlined logo file, the caption is
- * sentence case with no rule, every colour is a token, the kicker is blue
+ * sentence case with no rule, every colour is a token, the headline stands alone
  * except on an achievement shot, and the line layer is drawn from the demo
  * library's own tracks.
  */
@@ -34,7 +34,7 @@ const fontUrls = (html: string) =>
 const imageSources = (html: string) =>
   [...html.matchAll(/<img[^>]*src="file:\/\/([^"]+)"/g)].map((m) => m[1]);
 
-const caption: Caption = { kicker: 'Feed', cap: 'Your activity\nhistory', sub: 'Synced.' };
+const caption: Caption = { cap: 'Your activity\nhistory' };
 const phone = (c: Caption) => phoneHtml(storePalette, dims(1080, 1920, 'android'), c, '/x.png');
 
 const tokenHexes = new Set(
@@ -96,19 +96,10 @@ describe('store composite look', () => {
     }
   });
 
-  it('colours the kicker blue, and gold on an achievement shot', () => {
-    const kicker = (html: string) => html.match(/<div class="kicker([^"]*)"/)?.[1] ?? null;
-    const plainCss = makeCss(storePalette);
-    expect(kicker(phone(caption))).toBe('');
-    expect(kicker(phone({ ...caption, achievement: true }))).toBe(' gold');
-    expect(plainCss).toContain(`.kicker { color: ${storePalette.kicker}`);
-    expect(plainCss).toContain(`.kicker.gold { color: ${storePalette.kickerAchievement}`);
-    expect(storePalette.kicker).toBe(colourTokens.light['blue-600']);
-    expect(storePalette.kickerAchievement).toBe(colourTokens.light['gold-600']);
-  });
-
-  it('renders no kicker element for a caption without one', () => {
-    expect(phone({ cap: 'A', sub: 'B' })).not.toMatch(/class="kicker/);
+  it('renders the headline alone, with no kicker and no subtitle', () => {
+    const html = phone(caption);
+    expect(html).toContain('<div class="caption">');
+    expect(html).not.toMatch(/class="(kicker|sub)/);
   });
 
   describe('track layer', () => {

@@ -36,6 +36,7 @@ import {
 import { useSheetWindow } from '@/shared/app/TopSafeAreaContext';
 import { ComponentErrorBoundary, showNotice } from '@/shared/ui';
 import { toActivityType } from '@/types';
+import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import type { Section as NativeSection } from 'veloqrs';
 import { useActivity, useActivityDetailStreams, useSectionOverlays } from '../hooks';
 import { useActivityDetailData } from '../hooks/useActivityDetailData';
@@ -65,6 +66,12 @@ export function ActivityDetailMap({ activityId: id }: ActivityDetailMapProps) {
   const { data: activity } = useActivity(id);
   const { data: streams, coordinates } = useActivityDetailStreams(id);
   const { data: detail } = useActivityDetailData(id);
+  // The camera is computed from the preview line the feed card draws, not from the
+  // full stream, so the same ride opens on the bearing its card showed.
+  const { coordinates: previewCoordinates, altitude: previewAltitude } = useMapPreviewCoordinates(
+    id,
+    (detail?.hasGpsTrack ?? false) || coordinates.length > 0
+  );
 
   const activeTab = useCardActiveTab(hostKey, 'charts');
   const highlightIndex = useCardHighlightIndex(hostKey);
@@ -140,18 +147,20 @@ export function ActivityDetailMap({ activityId: id }: ActivityDetailMapProps) {
   const terrain3DMode = activity?.sportType
     ? getTerrain3DMode(toActivityType(activity.sportType), activity.id)
     : 'off';
-  const saved3DCamera = useMemo(() => {
-    if (!activity?.id || terrain3DMode === 'off') return null;
+  const { camera: saved3DCamera, pinned: saved3DCameraPinned } = useMemo(() => {
+    if (!activity?.id || terrain3DMode === 'off') return { camera: null, pinned: false };
     const verdict = resolveTerrain3D({
       mode: terrain3DMode,
-      coordinates: coordinates.map((c): [number, number] => [c.longitude, c.latitude]),
-      altitude: streams?.altitude,
+      coordinates: previewCoordinates.map((c): [number, number] => [c.longitude, c.latitude]),
+      altitude: previewAltitude,
       gain: activity.elevationGain,
       distance: activity.distance,
       override: getActivityCamera(activity.id) ?? null,
     });
-    return verdict.show3D ? verdict.camera : null;
-  }, [activity, terrain3DMode, coordinates, streams, getActivityCamera]);
+    return verdict.show3D
+      ? { camera: verdict.camera, pinned: verdict.pinned }
+      : { camera: null, pinned: false };
+  }, [activity, terrain3DMode, previewCoordinates, previewAltitude, getActivityCamera]);
 
   // The tool's progress belongs to the map; the tool itself is the stop store's.
   const [creationState, setCreationState] = useState<CreationState | undefined>(undefined);
@@ -216,6 +225,7 @@ export function ActivityDetailMap({ activityId: id }: ActivityDetailMapProps) {
             onStyleChange={onStyleChange}
             onCameraCapture={handleCameraCapture}
             initial3DCamera={saved3DCamera}
+            initial3DCameraPinned={saved3DCameraPinned}
             creationMode={creationMode}
             creationState={creationState}
             creationError={creationError}

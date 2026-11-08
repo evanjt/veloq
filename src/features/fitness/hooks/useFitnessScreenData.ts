@@ -11,10 +11,14 @@ import { useZoneDistribution } from './useZoneDistribution';
 import { useDailyActivityLoads } from './useDailyActivityLoads';
 import { useFitnessScreenRead } from './useFitnessScreenRead';
 import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
+import type { FitnessPlace } from '@/shared/app/fitnessEntry';
+import { useValueWhileActive } from './useValueWhileActive';
 
 interface UseFitnessScreenDataArgs {
   timeRange: TimeRange;
   sportMode: PrimarySport;
+  /** The page in front. Zone, coverage and curve reads run only for the pages that show them. */
+  place: FitnessPlace;
 }
 
 /**
@@ -24,7 +28,7 @@ interface UseFitnessScreenDataArgs {
  * hook options so that query keys, stale times, and `enabled` flags stay
  * byte-identical to the pre-refactor screen.
  */
-export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenDataArgs) {
+export function useFitnessScreenData({ timeRange, sportMode, place }: UseFitnessScreenDataArgs) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const days = timeRangeToDays(timeRange);
@@ -42,11 +46,22 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
 
   const dailyLoads = useDailyActivityLoads(days, isAuthenticated);
 
-  const powerZones = useZoneDistribution({ type: 'power', sport: sportMode, days });
-  const hrZones = useZoneDistribution({ type: 'hr', sport: sportMode, days });
+  // The zone cards and their census are the Trends page's, and the threshold
+  // pace curves are the Performance and Trends pages'. Those pages stay
+  // mounted once visited, so each read follows the range only while its page
+  // is in front and a range picked elsewhere costs none of them.
+  const trendsDays = useValueWhileActive(days, place === 'trends');
+  const curveDays = useValueWhileActive(days, place === 'trends' || place === 'performance');
+  const trendsSport = trendsDays === undefined ? undefined : sportMode;
+  const powerZones = useZoneDistribution({
+    type: 'power',
+    sport: trendsSport,
+    days: trendsDays ?? days,
+  });
+  const hrZones = useZoneDistribution({ type: 'hr', sport: trendsSport, days: trendsDays ?? days });
   // The census over the period the zone cards are captioned with, which is
   // also the period the decoupling ride is picked from.
-  const periodCoverage = useRangeCoverage(days);
+  const periodCoverage = useRangeCoverage(trendsDays ?? days, trendsDays !== undefined);
 
   const {
     eftpTrend,
@@ -70,13 +85,13 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
   // pace snapshot write behind it.
   const { data: runPaceCurve } = usePaceCurve({
     sport: 'Run',
-    days,
-    enabled: sportMode === 'Running',
+    days: curveDays ?? days,
+    enabled: curveDays !== undefined && sportMode === 'Running',
   });
   const { data: swimPaceCurve } = usePaceCurve({
     sport: 'Swim',
-    days,
-    enabled: sportMode === 'Swimming',
+    days: curveDays ?? days,
+    enabled: curveDays !== undefined && sportMode === 'Swimming',
   });
 
   return {

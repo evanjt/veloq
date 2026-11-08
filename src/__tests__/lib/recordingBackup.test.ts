@@ -247,6 +247,83 @@ describe('save/load round-trip', () => {
   });
 });
 
+describe('a new ride starting beside an unresolved backup', () => {
+  const owned = (startTime: number, overrides = {}) => ({
+    ...buildRecordingBackup(makeState({ startTime, ...overrides }))!,
+    athleteId: 'i1',
+  });
+
+  beforeEach(() => {
+    useAuthStore.setState({ athleteId: 'i1' });
+  });
+
+  it('keeps the earlier ride recoverable when the new ride writes its first backup', async () => {
+    const interrupted = owned(1_000_000, { pausedDuration: 7_000 });
+    await saveRecordingBackup(interrupted);
+    await saveRecordingBackup(owned(2_000_000));
+
+    expect((await loadRecordingBackup())?.startTime).toBe(2_000_000);
+    await clearRecordingBackup('i1', owned(2_000_000));
+
+    const offered = await loadRecordingBackup();
+    expect(offered?.startTime).toBe(1_000_000);
+    expect(offered?.pausedDuration).toBe(7_000);
+  });
+
+  it('does not preserve anything while the same ride keeps saving', async () => {
+    await saveRecordingBackup(owned(1_000_000));
+    await saveRecordingBackup(owned(1_000_000, { pausedDuration: 9_000 }));
+    await clearRecordingBackup('i1', owned(1_000_000));
+    expect(await loadRecordingBackup()).toBeNull();
+  });
+
+  it('keeps the first preserved ride when a third ride starts before the second resolves', async () => {
+    await saveRecordingBackup(owned(1_000_000));
+    await saveRecordingBackup(owned(2_000_000));
+    await saveRecordingBackup(owned(3_000_000));
+    await clearRecordingBackup('i1', owned(3_000_000));
+    expect((await loadRecordingBackup())?.startTime).toBe(1_000_000);
+  });
+
+  it('offers every unresolved ride in turn, oldest first, as each resolves', async () => {
+    await saveRecordingBackup(owned(1_000_000, { pausedDuration: 1_000 }));
+    await saveRecordingBackup(owned(2_000_000, { pausedDuration: 2_000 }));
+    await saveRecordingBackup(owned(3_000_000));
+    await clearRecordingBackup('i1', owned(3_000_000));
+
+    const first = await loadRecordingBackup();
+    expect(first?.startTime).toBe(1_000_000);
+    expect(first?.pausedDuration).toBe(1_000);
+    await clearRecordingBackup('i1', first!);
+
+    const second = await loadRecordingBackup();
+    expect(second?.startTime).toBe(2_000_000);
+    expect(second?.pausedDuration).toBe(2_000);
+    await clearRecordingBackup('i1', second!);
+
+    expect(await loadRecordingBackup()).toBeNull();
+  });
+
+  it('keeps every earlier ride when several more rides start in a row', async () => {
+    for (let i = 1; i <= 5; i++) await saveRecordingBackup(owned(i * 1_000_000));
+    await clearRecordingBackup('i1', owned(5_000_000));
+    const offered: number[] = [];
+    for (;;) {
+      const next = await loadRecordingBackup();
+      if (!next) break;
+      offered.push(next.startTime);
+      await clearRecordingBackup('i1', next);
+    }
+    expect(offered).toEqual([1_000_000, 2_000_000, 3_000_000, 4_000_000]);
+  });
+
+  it('writes the new ride when the file on disk is unreadable', async () => {
+    mockFileStore.set('/mock/docs/recording_backup_i1.json', '{cut short');
+    await saveRecordingBackup(owned(2_000_000));
+    expect((await loadRecordingBackup())?.startTime).toBe(2_000_000);
+  });
+});
+
 describe('savedAt stamping', () => {
   // Restore credits the savedAt→now gap as paused time, so savedAt has to be
   // the moment of the snapshot rather than the moment recording started.

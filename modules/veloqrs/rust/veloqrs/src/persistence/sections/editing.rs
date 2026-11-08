@@ -6,7 +6,7 @@
 //! `migrations/`, never by this file.
 
 use crate::persistence::PersistentEngine;
-use crate::persistence::sections::geometry::locate_slice;
+use crate::persistence::sections::geometry;
 use rusqlite::{OptionalExtension, params};
 use tracematch::GpsPoint;
 use tracematch::matching::calculate_route_distance;
@@ -17,48 +17,51 @@ struct PreferenceRow {
     superseded_by: Option<String>,
 }
 
-/// The reference triple a row stores for a line, with the provenance word that goes beside it.
+/// The reference a row stores for a line, with the provenance word that goes beside it.
 /// A line with no triple is a consensus line: the blob is the only copy of it.
 fn triple_columns(
-    reference: Option<&(String, u32, u32)>,
-) -> (Option<&str>, Option<u32>, Option<u32>, &'static str) {
+    reference: Option<&(String, u32, u32, bool)>,
+) -> (Option<&str>, Option<u32>, Option<u32>, bool, &'static str) {
     match reference {
-        Some((id, start, end)) => (
+        Some((id, start, end, reversed)) => (
             Some(id.as_str()),
             Some(*start),
             Some(*end),
+            *reversed,
             crate::persistence::sections::SOURCE_EXACT,
         ),
         None => (
             None,
             None,
             None,
+            false,
             crate::persistence::sections::SOURCE_CONSENSUS,
         ),
     }
 }
 
 impl PersistentEngine {
-    /// The reference triple a section stores, when it is whole and its range is exactly as long
-    /// as the line the row holds now.
+    /// The reference a section stores, when it is whole and its range is exactly as long as
+    /// the line the row holds now.
     fn section_reference_of_length(
         &self,
         section_id: &str,
         line_len: usize,
-    ) -> Option<(String, u32, u32)> {
-        let (activity_id, start, end): (Option<String>, Option<u32>, Option<u32>) = self
+    ) -> Option<(String, u32, u32, bool)> {
+        type Row = (Option<String>, Option<u32>, Option<u32>, bool);
+        let (activity_id, start, end, reversed): Row = self
             .db
             .query_row(
-                "SELECT representative_activity_id, rep_start_index, rep_end_index
+                "SELECT representative_activity_id, rep_start_index, rep_end_index, rep_reversed
                  FROM sections WHERE id = ?",
                 params![section_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
             .ok()?;
-        let (activity_id, start, end) =
-            crate::persistence::sections::geometry::reference(activity_id.as_deref(), start, end)?;
+        let (activity_id, start, end, reversed) =
+            geometry::reference(activity_id.as_deref(), start, end, reversed)?;
         (end > start && (end - start) as usize == line_len)
-            .then(|| (activity_id.to_string(), start, end))
+            .then(|| (activity_id.to_string(), start, end, reversed))
     }
 
     /// Append the ledger row for an athlete's edit, inside the edit's own transaction.
@@ -90,7 +93,9 @@ impl PersistentEngine {
                 section_id,
                 &line,
                 false,
-                reference.as_ref().map(|(id, s, e)| (id.as_str(), *s, *e)),
+                reference
+                    .as_ref()
+                    .map(|(id, s, e, r)| (id.as_str(), *s, *e, *r)),
             )
             .map_err(|e| format!("Failed to record the edited line: {e}"))?;
         self.record_edit_event(section_id, kind, details, Some(version))
@@ -99,12 +104,13 @@ impl PersistentEngine {
     /// Keep the triple of the line an edit is about to back up, so a reset can say where the
     /// restored line came from. The backup column holds the points and nothing else.
     pub(super) fn remember_original_reference(&mut self, section_id: &str, line: &[GpsPoint]) {
-        let Some((id, start, end)) = self.section_reference_of_length(section_id, line.len())
+        let Some((id, start, end, reversed)) =
+            self.section_reference_of_length(section_id, line.len())
         else {
             return;
         };
         if let Err(e) =
-            self.record_section_geometry(section_id, line, false, Some((&id, start, end)))
+            self.record_section_geometry(section_id, line, false, Some((&id, start, end, reversed)))
         {
             log::warn!(
                 "veloqrs: [section edit] could not record the original line of {section_id}: {e}"
@@ -144,7 +150,7 @@ impl PersistentEngine {
         &self,
         section_id: &str,
         original: &[GpsPoint],
-    ) -> Option<(String, u32, u32)> {
+    ) -> Option<(String, u32, u32, bool)> {
         let same = |a: &[GpsPoint], b: &[GpsPoint]| {
             a.len() == b.len()
                 && a.iter().zip(b).all(|(x, y)| {
@@ -175,8 +181,8 @@ impl PersistentEngine {
             .flatten()
             .find_map(|activity_id| {
                 let track = self.get_gps_track(&activity_id)?;
-                let (start, end) = locate_slice(&track, original)?;
-                Some((activity_id, start, end + 1))
+                let (start, end, reversed) = geometry::locate_reference(&track, original)?;
+                Some((activity_id, start, end, reversed))
             })
     }
 
@@ -261,19 +267,29 @@ impl PersistentEngine {
         // Slice the polyline
         let trimmed: Vec<GpsPoint> = polyline[start..=end].to_vec();
 
-        // The anchor names a range of the source activity, so a trim shifts it by the slice offset.
+        let held = self.section_reference_of_length(section_id, polyline.len());
+
+        // The anchor names a range of the source activity, so a trim keeps the stretch of it
+        // under the kept line. An anchor on the reference's own range runs the way the line does.
         let anchor = self
             .section_anchor(section_id)
             .filter(|(_, a_start, a_end)| {
                 a_end >= a_start && (a_end - a_start) as usize + 1 == polyline.len()
             })
-            .map(|(activity_id, a_start, _)| {
-                (activity_id, a_start + start_index, a_start + end_index)
+            .map(|(activity_id, a_start, a_end)| {
+                let reversed = held.as_ref().is_some_and(|(id, r_start, _, reversed)| {
+                    *reversed && *id == activity_id && *r_start == a_start
+                });
+                let (start, end) =
+                    geometry::sub_range((a_start, a_end + 1), reversed, start_index, end_index + 1);
+                (activity_id, start, end - 1)
             });
 
-        let reference = self
-            .section_reference_of_length(section_id, polyline.len())
-            .map(|(id, r_start, _)| (id, r_start + start_index, r_start + end_index + 1));
+        let reference = held.map(|(id, r_start, r_end, reversed)| {
+            let (start, end) =
+                geometry::sub_range((r_start, r_end), reversed, start_index, end_index + 1);
+            (id, start, end, reversed)
+        });
 
         // Check minimum distance (50m)
         let distance = calculate_route_distance(&trimmed);
@@ -292,7 +308,7 @@ impl PersistentEngine {
         // corridor resolution, so a resolved name lands on the row first.
         self.adopt_corridor_name(section_id);
 
-        let (rep_id, rep_start, rep_end, source) = triple_columns(reference.as_ref());
+        let (rep_id, rep_start, rep_end, rep_reversed, source) = triple_columns(reference.as_ref());
 
         // Update section
         self.db
@@ -309,6 +325,7 @@ impl PersistentEngine {
                     representative_activity_id = COALESCE(?, representative_activity_id),
                     rep_start_index = ?,
                     rep_end_index = ?,
+                    rep_reversed = ?,
                     geometry_source = ?,
                     bounds_min_lat = ?,
                     bounds_max_lat = ?,
@@ -326,6 +343,7 @@ impl PersistentEngine {
                     rep_id,
                     rep_start,
                     rep_end,
+                    rep_reversed,
                     source,
                     bounds.min_lat,
                     bounds.max_lat,
@@ -437,8 +455,8 @@ impl PersistentEngine {
             .section_anchor(section_id)
             .and_then(|(activity_id, _, _)| {
                 let track = self.get_gps_track(&activity_id)?;
-                let (start, end) = locate_slice(&track, &original)?;
-                Some((activity_id, start, end))
+                let (start, end, _) = geometry::locate_reference(&track, &original)?;
+                Some((activity_id, start, end - 1))
             });
 
         // Recompute distance and bounds
@@ -451,7 +469,7 @@ impl PersistentEngine {
 
         let original_blob = crate::persistence::codec::serialize_track_points(&original);
         let reference = self.reference_of_line(section_id, &original);
-        let (rep_id, rep_start, rep_end, source) = triple_columns(reference.as_ref());
+        let (rep_id, rep_start, rep_end, rep_reversed, source) = triple_columns(reference.as_ref());
 
         // Restore polyline and clear original backup
         self.db
@@ -470,6 +488,7 @@ impl PersistentEngine {
                     representative_activity_id = COALESCE(?, representative_activity_id),
                     rep_start_index = ?,
                     rep_end_index = ?,
+                    rep_reversed = ?,
                     geometry_source = ?,
                     bounds_min_lat = ?,
                     bounds_max_lat = ?,
@@ -488,6 +507,7 @@ impl PersistentEngine {
                     rep_id,
                     rep_start,
                     rep_end,
+                    rep_reversed,
                     source,
                     bounds.min_lat,
                     bounds.max_lat,
@@ -613,6 +633,7 @@ impl PersistentEngine {
                     representative_activity_id = COALESCE(?, representative_activity_id),
                     rep_start_index = ?,
                     rep_end_index = ?,
+                    rep_reversed = ?,
                     geometry_source = ?,
                     bounds_min_lat = ?,
                     bounds_max_lat = ?,
@@ -624,9 +645,10 @@ impl PersistentEngine {
                     blob,
                     distance,
                     updated_at,
-                    reference.as_ref().map(|(id, _, _)| id.as_str()),
-                    reference.as_ref().map(|(_, s, _)| *s),
-                    reference.as_ref().map(|(_, _, e)| *e),
+                    reference.as_ref().map(|(id, _, _, _)| id.as_str()),
+                    reference.as_ref().map(|(_, s, _, _)| *s),
+                    reference.as_ref().map(|(_, _, e, _)| *e),
+                    reference.as_ref().is_some_and(|(_, _, _, r)| *r),
                     source,
                     bounds.min_lat,
                     bounds.max_lat,
@@ -948,12 +970,24 @@ impl PersistentEngine {
             Option<String>,
             Option<u32>,
             Option<u32>,
+            bool,
         );
-        let (name, sport, distance, visits, created, rep_activity, rep_start, rep_end): Row = self
+        let (
+            name,
+            sport,
+            distance,
+            visits,
+            created,
+            rep_activity,
+            rep_start,
+            rep_end,
+            rep_reversed,
+        ): Row = self
             .db
             .query_row(
                 "SELECT name, sport_type, distance_meters, visit_count, created_at,
-                        representative_activity_id, rep_start_index, rep_end_index
+                        representative_activity_id, rep_start_index, rep_end_index,
+                        rep_reversed
                  FROM sections WHERE id = ?",
                 params![section_id],
                 |row| {
@@ -966,12 +1000,14 @@ impl PersistentEngine {
                         row.get(5)?,
                         row.get(6)?,
                         row.get(7)?,
+                        row.get(8)?,
                     ))
                 },
             )
             .map_err(|e| format!("Failed to read section {section_id}: {e}"))?;
         let line = self.stored_section_polyline(section_id)?;
-        let reference = super::geometry::reference(rep_activity.as_deref(), rep_start, rep_end);
+        let reference =
+            super::geometry::reference(rep_activity.as_deref(), rep_start, rep_end, rep_reversed);
         let version =
             super::history::record_archived_geometry_on(&self.db, section_id, &line, reference)
                 .map_err(|e| format!("Failed to keep the section's line: {e}"))?;
@@ -1045,7 +1081,7 @@ impl PersistentEngine {
         section_id: &str,
         version: i64,
         polyline: &[GpsPoint],
-        reference: Option<&(String, u32, u32)>,
+        reference: Option<&(String, u32, u32, bool)>,
     ) -> Result<(), String> {
         let details: Option<String> = self
             .db
@@ -1087,9 +1123,9 @@ impl PersistentEngine {
                     crate::persistence::codec::NO_POLYLINE_JSON,
                     crate::persistence::codec::serialize_track_points(polyline),
                     calculate_route_distance(polyline),
-                    reference.map(|(id, _, _)| id.as_str()),
-                    reference.map(|(_, start, _)| *start),
-                    reference.map(|(_, _, end)| *end),
+                    reference.map(|(id, _, _, _)| id.as_str()),
+                    reference.map(|(_, start, _, _)| *start),
+                    reference.map(|(_, _, end, _)| *end),
                     created_at,
                 ],
             )
@@ -1138,7 +1174,21 @@ impl PersistentEngine {
             ));
         }
 
-        let new_polyline: Vec<GpsPoint> = track[start..=end].to_vec();
+        // A line that ran against this ride keeps running the way it did, so its start stays put.
+        let reversed: bool = self
+            .db
+            .query_row(
+                "SELECT rep_reversed FROM sections
+                 WHERE id = ? AND representative_activity_id = ?",
+                params![section_id, activity_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| format!("Failed to read the section: {e}"))?
+            .unwrap_or(false);
+        let new_polyline: Vec<GpsPoint> =
+            geometry::slice(&track, (activity_id, start_index, end_index + 1, reversed))
+                .ok_or_else(|| "Expanded range does not index the track".to_string())?;
         if new_polyline.len() < 5 {
             return Err("Expanded section must have at least 5 points".to_string());
         }
@@ -1177,6 +1227,7 @@ impl PersistentEngine {
                     representative_activity_id = COALESCE(?, representative_activity_id),
                     rep_start_index = ?,
                     rep_end_index = ?,
+                    rep_reversed = ?,
                     geometry_source = ?,
                     bounds_min_lat = ?,
                     bounds_max_lat = ?,
@@ -1194,6 +1245,7 @@ impl PersistentEngine {
                     activity_id,
                     start_index,
                     end_index + 1,
+                    reversed,
                     crate::persistence::sections::SOURCE_EXACT,
                     bounds.min_lat,
                     bounds.max_lat,
@@ -1349,16 +1401,16 @@ impl PersistentEngine {
             )
             .unwrap_or(0.0);
 
-        let members: Vec<(String, u32, u32)> = {
+        let members: Vec<(String, u32, u32, bool)> = {
             let mut stmt = self.db.prepare(
-                "SELECT activity_id, start_index, end_index
+                "SELECT activity_id, start_index, end_index, direction = 'reverse'
                  FROM section_activities
                  WHERE section_id = ? AND activity_id <> ? AND excluded = 0
                  ORDER BY abs(COALESCE(distance_meters, 0) - ?) ASC, activity_id ASC",
             )?;
             stmt.query_map(
                 params![section_id, vanished_activity_id, section_distance],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )?
             .collect::<rusqlite::Result<_>>()?
         };
@@ -1367,32 +1419,36 @@ impl PersistentEngine {
         // track or a slice past its end does not strand a section another
         // member can carry. A member's own slice wins; failing that, the line
         // the row holds is located in a member's track, which covers a member
-        // whose stored range is unusable.
+        // whose stored range is unusable. A member that rode against the line gives its slice
+        // read backwards, so the line keeps the direction it ran.
         let mut tracks: Vec<(String, Vec<GpsPoint>)> = Vec::new();
-        for (member_id, _, _) in &members {
+        for (member_id, _, _, _) in &members {
             if let Some(track) = self.get_gps_track(member_id) {
                 tracks.push((member_id.clone(), track));
             }
         }
         if let Some(successor) = successor.filter(|id| {
-            *id != vanished_activity_id && !members.iter().any(|(member_id, _, _)| member_id == id)
+            *id != vanished_activity_id
+                && !members.iter().any(|(member_id, _, _, _)| member_id == id)
         }) && let Some(track) = self.get_gps_track(successor)
         {
             tracks.push((successor.to_string(), track));
         }
-        let from_slice = members.iter().find_map(|(member_id, start, end)| {
-            let (_, track) = tracks.iter().find(|(id, _)| id == member_id)?;
-            let (lo, hi) = (*start as usize, *end as usize);
-            (lo <= hi && hi < track.len()).then(|| (member_id.clone(), *start, *end))
-        });
+        let from_slice = members
+            .iter()
+            .find_map(|(member_id, start, end, reversed)| {
+                let (_, track) = tracks.iter().find(|(id, _)| id == member_id)?;
+                let (lo, hi) = (*start as usize, *end as usize);
+                (lo <= hi && hi < track.len()).then(|| (member_id.clone(), *start, *end, *reversed))
+            });
         let located = || {
             let line = self.stored_section_polyline(section_id).ok()?;
             tracks.iter().find_map(|(member_id, track)| {
-                let (start, end) = locate_slice(track, &line)?;
-                Some((member_id.clone(), start, end))
+                let (start, end, reversed) = geometry::locate_reference(track, &line)?;
+                Some((member_id.clone(), start, end - 1, reversed))
             })
         };
-        let Some((new_id, start, end)) = from_slice.or_else(located) else {
+        let Some((new_id, start, end, reversed)) = from_slice.or_else(located) else {
             return Ok(None);
         };
         let Some(track) = tracks
@@ -1402,7 +1458,10 @@ impl PersistentEngine {
         else {
             return Ok(None);
         };
-        let polyline = track[start as usize..=end as usize].to_vec();
+        let Some(polyline) = geometry::slice(track, (new_id.as_str(), start, end + 1, reversed))
+        else {
+            return Ok(None);
+        };
 
         // The outgoing line is kept as stored points before the row moves,
         // because the stream it was cut from is deleted straight after and a
@@ -1428,7 +1487,7 @@ impl PersistentEngine {
             section_id,
             &polyline,
             true,
-            Some((new_id.as_str(), start, end + 1)),
+            Some((new_id.as_str(), start, end + 1, reversed)),
         )?;
 
         let bounds = tracematch::geo_utils::compute_bounds(&polyline);
@@ -1439,7 +1498,7 @@ impl PersistentEngine {
                  polyline_json = ?, polyline_blob = ?, distance_meters = ?,
                  updated_at = ?, source_activity_id = ?, start_index = ?, end_index = ?,
                  representative_activity_id = ?, rep_start_index = ?, rep_end_index = ?,
-                 geometry_source = 'exact',
+                 rep_reversed = ?, geometry_source = 'exact',
                  bounds_min_lat = ?, bounds_max_lat = ?, bounds_min_lng = ?, bounds_max_lng = ?
              WHERE id = ?",
             params![
@@ -1453,6 +1512,7 @@ impl PersistentEngine {
                 new_id,
                 start,
                 end + 1,
+                reversed,
                 bounds.min_lat,
                 bounds.max_lat,
                 bounds.min_lng,

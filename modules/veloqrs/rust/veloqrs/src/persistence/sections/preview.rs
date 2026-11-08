@@ -1068,6 +1068,7 @@ mod tests {
             created_at: None,
             representative_activity_id: String::new(),
             representative_range: None,
+            representative_reversed: false,
             activity_ids: Vec::new(),
             activity_portions: Vec::new(),
             activity_traces: HashMap::new(),

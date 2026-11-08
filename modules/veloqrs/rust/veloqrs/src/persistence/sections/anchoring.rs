@@ -224,7 +224,7 @@ impl PersistentEngine {
             outgoing.clone()
         };
         // The reference's end is half-open where the slice is inclusive.
-        let triple = (activity_id.as_str(), start as u32, end as u32 + 1);
+        let triple = (activity_id.as_str(), start as u32, end as u32 + 1, false);
 
         let pinned = pinned_section_version(&self.db, section_id);
         milestone_prior_geometry_on(&self.db, section_id, Some(&outgoing))
@@ -260,7 +260,8 @@ impl PersistentEngine {
                     "UPDATE sections SET
                          polyline_json = ?, polyline_blob = ?, distance_meters = ?,
                          updated_at = ?, representative_activity_id = ?,
-                         rep_start_index = ?, rep_end_index = ?, geometry_source = 'exact',
+                         rep_start_index = ?, rep_end_index = ?, rep_reversed = 0,
+                         geometry_source = 'exact',
                          bounds_min_lat = ?, bounds_max_lat = ?,
                          bounds_min_lng = ?, bounds_max_lng = ?
                      WHERE id = ?",
@@ -285,7 +286,7 @@ impl PersistentEngine {
                 .execute(
                     "UPDATE sections SET
                          representative_activity_id = ?, rep_start_index = ?,
-                         rep_end_index = ?, geometry_source = 'exact'
+                         rep_end_index = ?, rep_reversed = 0, geometry_source = 'exact'
                      WHERE id = ?",
                     params![triple.0, triple.1, triple.2, section_id],
                 )

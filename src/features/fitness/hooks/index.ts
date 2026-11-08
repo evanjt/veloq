@@ -10,3 +10,4 @@ export { useFitnessComputations } from './useFitnessComputations';
 export { useDailyActivityLoads } from './useDailyActivityLoads';
 export { useFitnessScreenData } from './useFitnessScreenData';
 export { useFitnessWindow } from './useFitnessWindow';
+export { useValueWhileActive } from './useValueWhileActive';

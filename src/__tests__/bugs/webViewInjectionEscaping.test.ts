@@ -60,6 +60,7 @@ describe('a value interpolated into injected JavaScript', () => {
         bearing: 0,
         pitch: 0,
         hasSavedCamera: false,
+        cameraPinned: false,
         terrainExaggeration: 1,
         initStyle: 'light',
         mapStyle: 'light',

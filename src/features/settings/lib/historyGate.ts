@@ -6,29 +6,6 @@
 export const LARGE_HISTORY_THRESHOLD = 500;
 
 /**
- * An upper bound on how many activities a widening from `to` back to `from`
- * would download, from the per-year counts the sync stores.
- *
- * Year buckets are the granularity available, so both boundary years count
- * whole. That over-counts rather than under-counts, which is the safe
- * direction for a warning, and the copy says "up to" for the same reason.
- * An empty list means the count is unknown, which reads as zero: the gate must
- * not block a user behind a figure it does not have.
- */
-export function activitiesInRange(
-  countsByYear: readonly { year: number; count: number }[] | undefined,
-  from: Date,
-  to: Date
-): number {
-  if (!countsByYear) return 0;
-  let total = 0;
-  for (const { year, count } of countsByYear) {
-    if (year >= from.getFullYear() && year <= to.getFullYear()) total += count;
-  }
-  return total;
-}
-
-/**
  * What the large-download confirm says. A range holding more activities than
  * one day's backfill share cannot finish in a day, so the confirm names the
  * days it takes at least; a range inside the share, or an engine that reports

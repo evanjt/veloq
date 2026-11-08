@@ -6,9 +6,10 @@
  * current window reads as selected, and closing without a tap cancels.
  */
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
-import SmoothingSheet from '@/app/sheets/smoothing';
+import SmoothingSheet, { type SmoothingSheetInput } from '@/app/sheets/smoothing';
+import type { TimeRange } from '@/shared/app/timeRange';
 import { openSheet } from '@/shared/app/sheetRequest';
 import { SMOOTHING_PRESETS, type SmoothingWindow } from '@/shared/math/smoothing';
 import { initialiseI18n } from '@/i18n';
@@ -28,9 +29,10 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
-async function open(current: SmoothingWindow) {
-  const result = openSheet<{ window: SmoothingWindow }, SmoothingWindow>('sheets/smoothing', {
+async function open(current: SmoothingWindow, timeRange: TimeRange = '3m') {
+  const result = openSheet<SmoothingSheetInput, SmoothingWindow>('sheets/smoothing', {
     window: current,
+    timeRange,
   });
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
   await render(<SmoothingSheet />);
@@ -64,6 +66,20 @@ describe('smoothing sheet', () => {
     expect(screen.getByTestId('smoothing-option-auto').props.accessibilityState).toMatchObject({
       selected: false,
     });
+  });
+
+  it('names the window Auto resolves to for the range the caller shows', async () => {
+    await open('auto', '6m');
+    expect(
+      within(screen.getByTestId('smoothing-option-auto')).getByText('Auto, 14 days')
+    ).toBeTruthy();
+  });
+
+  it('names Auto as no smoothing where the range has none', async () => {
+    await open('auto', '7d');
+    expect(
+      within(screen.getByTestId('smoothing-option-auto')).getByText('Auto, no smoothing')
+    ).toBeTruthy();
   });
 
   it('resolves cancelled when it unmounts without a tap', async () => {

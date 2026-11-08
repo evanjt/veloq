@@ -103,6 +103,16 @@ impl SettingsManager {
         with_reader(crate::persistence::screens::cache_screen_data)?
     }
 
+    /// How many activities widening the library's start from `from` to `to`
+    /// (`YYYY-MM-DD`) would download.
+    fn history_range_estimate(
+        &self,
+        from: String,
+        to: String,
+    ) -> Result<crate::FfiHistoryRangeEstimate, VeloqError> {
+        with_reader(|conn| crate::persistence::screens::history_range_estimate(conn, &from, &to))?
+    }
+
     /// The sections where the experimental features have something to show.
     fn experimental_examples(&self) -> Result<crate::FfiExperimentalExamples, VeloqError> {
         with_reader(crate::persistence::screens::experimental_examples)

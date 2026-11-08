@@ -1,5 +1,6 @@
 export {
   useWellness,
+  useWellnessDays,
   useWellnessForDate,
   useWellnessGeneration,
   useWellnessCoverage,

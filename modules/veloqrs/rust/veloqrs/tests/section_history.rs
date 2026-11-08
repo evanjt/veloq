@@ -232,7 +232,7 @@ fn an_exact_version_is_stored_as_its_reference_and_not_as_a_blob() {
     let line = stored[20..60].to_vec();
 
     let version = engine
-        .record_section_geometry(SID, &line, false, Some(("a1", 20, 60)))
+        .record_section_geometry(SID, &line, false, Some(("a1", 20, 60, false)))
         .expect("record");
 
     assert_eq!(
@@ -271,7 +271,7 @@ fn a_triple_that_does_not_reproduce_the_line_keeps_its_blob() {
     let line = stored[20..60].to_vec();
 
     let version = engine
-        .record_section_geometry(SID, &line, false, Some(("a1", 100, 140)))
+        .record_section_geometry(SID, &line, false, Some(("a1", 100, 140, false)))
         .expect("record");
 
     assert!(
@@ -292,7 +292,7 @@ fn a_reference_to_an_unstored_stream_keeps_its_blob() {
     let line = poly(4);
 
     let version = engine
-        .record_section_geometry(SID, &line, false, Some(("never-stored", 0, 40)))
+        .record_section_geometry(SID, &line, false, Some(("never-stored", 0, 40, false)))
         .expect("record");
 
     assert!(blob_len(&dir, SID, version) > 0);
@@ -309,7 +309,7 @@ fn an_exact_version_whose_stream_is_gone_is_unrestorable_rather_than_wrong() {
     let (mut engine, dir, stored) = engine_with_ride();
     let line = stored[20..60].to_vec();
     let version = engine
-        .record_section_geometry(SID, &line, false, Some(("a1", 20, 60)))
+        .record_section_geometry(SID, &line, false, Some(("a1", 20, 60, false)))
         .expect("record");
 
     let conn = rusqlite::Connection::open(dir.path().join("lifecycle.db")).expect("open");
@@ -337,7 +337,7 @@ fn dropping_the_blob_does_not_change_what_retention_keeps() {
     for start in 0..8u32 {
         let line = stored[start as usize..start as usize + 40].to_vec();
         engine
-            .record_section_geometry(SID, &line, false, Some(("a1", start, start + 40)))
+            .record_section_geometry(SID, &line, false, Some(("a1", start, start + 40, false)))
             .expect("record");
     }
 

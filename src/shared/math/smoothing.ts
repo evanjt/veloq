@@ -25,11 +25,35 @@ export const SMOOTHING_PRESETS: { value: SmoothingWindow }[] = [
   { value: 28 },
 ];
 
-/** The label of a preset, in the app's language */
-export function getSmoothingPresetLabel(preset: SmoothingWindow, t: Translate): string {
-  if (preset === 'auto') return t('wellness.smoothingAuto');
+/**
+ * The label of a preset, in the app's language. Given the range the chart is
+ * drawn over, Auto names the window it resolves to on that range.
+ */
+export function getSmoothingPresetLabel(
+  preset: SmoothingWindow,
+  t: Translate,
+  timeRange?: TimeRange
+): string {
+  if (preset === 'auto') {
+    if (timeRange === undefined) return t('wellness.smoothingAuto');
+    const window = DEFAULT_SMOOTHING_WINDOWS[timeRange];
+    return window === 0
+      ? t('wellness.smoothingAutoNone')
+      : t('wellness.smoothingAutoDays', { count: window });
+  }
   if (preset === 'none') return t('wellness.smoothingNone');
   return t('units.daysShort', { days: preset });
+}
+
+/** The short label the smoothing control shows: the window in force on this range. */
+export function getSmoothingChipLabel(
+  preference: SmoothingWindow,
+  timeRange: TimeRange,
+  t: Translate
+): string {
+  const effectiveWindow = getEffectiveWindow(preference, timeRange);
+  if (effectiveWindow === 0) return t('wellness.smoothingChipNone');
+  return t('wellness.smoothingChip', { count: effectiveWindow });
 }
 
 /** The rule Auto follows, stated from the windows above so the note and the chart agree. */

@@ -109,616 +109,192 @@ export const WEB_PLATFORMS: Record<SitePlatform, StoreTarget> = {
 const DEVICE_KIND = { play: 'android', appstore: 'iphone', ipad: 'ipad' } as const;
 
 // Captions keyed by Play locale, one per captured shot in the order of
-// CAPTURED_STEMS. Text wraps in the template and each headline and subtitle
-// fits two lines at slot width. Subcaptions describe what is on screen: no
-// absolutes, no speed promises, no coaching. The kicker and the feature terms
-// are the app's own words in that locale (src/i18n/locales).
+// CAPTURED_STEMS. Each shot has one headline that wraps in the template and
+// fits two lines at slot width. It names what a still cannot show; the screen
+// carries the rest. No absolutes, no speed promises, no coaching. The feature
+// terms are the app's own words in that locale (src/i18n/locales).
 export const CAPTIONS: Record<string, { shots: Caption[]; tagline: string }> = {
   'en-US': {
     shots: [
-      {
-        kicker: 'Feed',
-        cap: 'Your intervals.icu activities',
-        sub: 'A map and the key numbers for each one.',
-      },
-      {
-        kicker: 'Map',
-        cap: 'All your activities on one map',
-        sub: 'A heatmap over 3D satellite terrain.',
-      },
-      {
-        kicker: 'Activity',
-        cap: 'Charts linked to the map',
-        sub: 'Move along the chart to see where it happened.',
-      },
-      {
-        kicker: 'Sections',
-        cap: 'See how you did, from the notification',
-        sub: 'Your time on each section you repeat, compared with your best.',
-      },
-      {
-        kicker: 'Insights',
-        cap: 'What changed in your training',
-        sub: 'Records and trends, with how each one is worked out.',
-      },
-      {
-        kicker: 'Fitness',
-        cap: 'Fitness, fatigue and form',
-        sub: 'Also on your home screen as a widget.',
-      },
-      {
-        kicker: 'Strength',
-        cap: 'Strength training by muscle group',
-        sub: 'Sets from your workouts on a body diagram.',
-      },
-      {
-        kicker: 'Recording',
-        cap: 'Record rides and runs',
-        sub: 'GPS, indoor or manual, with Bluetooth sensors, uploaded to intervals.icu.',
-      },
-    ],
-    tagline: 'Training analysis for rides and runs.',
-  },
-  'en-AU': {
-    shots: [
-      {
-        kicker: 'Feed',
-        cap: 'Your intervals.icu activities',
-        sub: 'A map and the key numbers for each one.',
-      },
-      {
-        kicker: 'Map',
-        cap: 'All your activities on one map',
-        sub: 'A heatmap over 3D satellite terrain.',
-      },
-      {
-        kicker: 'Activity',
-        cap: 'Charts linked to the map',
-        sub: 'Move along the chart to see where it happened.',
-      },
-      {
-        kicker: 'Sections',
-        cap: 'See how you did, from the notification',
-        sub: 'Your time on each section you repeat, compared with your best.',
-      },
-      {
-        kicker: 'Insights',
-        cap: 'What changed in your training',
-        sub: 'Records and trends, with how each one is worked out.',
-      },
-      {
-        kicker: 'Fitness',
-        cap: 'Fitness, fatigue and form',
-        sub: 'Also on your home screen as a widget.',
-      },
-      {
-        kicker: 'Strength',
-        cap: 'Strength training by muscle group',
-        sub: 'Sets from your workouts on a body diagram.',
-      },
-      {
-        kicker: 'Recording',
-        cap: 'Record rides and runs',
-        sub: 'GPS, indoor or manual, with Bluetooth sensors, uploaded to intervals.icu.',
-      },
+      { cap: 'Your training, kept on your phone' },
+      { cap: 'Sections found in your own history' },
+      { cap: 'Heatmaps on 3D terrain, offline' },
+      { cap: 'Drag the chart, follow the map' },
+      { cap: 'See your form at a glance' },
+      { cap: 'Every insight shows its method' },
+      { cap: 'Your strength sets, muscle by muscle' },
+      { cap: "Follow a route or today's workout" },
     ],
     tagline: 'Training analysis for rides and runs.',
   },
   'it-IT': {
     shots: [
-      {
-        kicker: 'Notizie',
-        cap: 'Le tue attività di intervals.icu',
-        sub: 'Una mappa e i numeri chiave di ognuna.',
-      },
-      {
-        kicker: 'Mappa',
-        cap: 'Tutte le attività su una mappa',
-        sub: 'Una mappa di calore su terreno 3D satellitare.',
-      },
-      {
-        kicker: 'Attività',
-        cap: 'Grafici collegati alla mappa',
-        sub: 'Scorri il grafico per vedere dove è successo.',
-      },
-      {
-        kicker: 'Sezioni',
-        cap: "Scopri com'è andata, dalla notifica",
-        sub: 'Il tuo tempo su ogni sezione che ripeti, confrontato con il tuo migliore.',
-      },
-      {
-        kicker: 'Analisi',
-        cap: 'Cosa è cambiato nel tuo allenamento',
-        sub: 'Primati e tendenze, con il calcolo di ciascuno.',
-      },
-      {
-        kicker: 'Forma',
-        cap: 'Fitness, affaticamento e forma',
-        sub: 'Anche sulla schermata Home come widget.',
-      },
-      {
-        kicker: 'Forza',
-        cap: 'Allenamento di forza per gruppo muscolare',
-        sub: 'Serie dei tuoi allenamenti su uno schema del corpo.',
-      },
-      {
-        kicker: 'Registrazione',
-        cap: 'Registra uscite e corse',
-        sub: 'GPS, indoor o manuale, con sensori Bluetooth, caricato su intervals.icu.',
-      },
+      { cap: 'Il tuo allenamento, salvato sul telefono' },
+      { cap: 'Sezioni trovate nella tua storia' },
+      { cap: 'Mappe di calore su terreno 3D, offline' },
+      { cap: 'Trascina il grafico, segui la mappa' },
+      { cap: "La tua forma, a colpo d'occhio" },
+      { cap: 'Ogni analisi mostra il suo metodo' },
+      { cap: 'Le tue serie di forza, muscolo per muscolo' },
+      { cap: "Segui un percorso o l'allenamento di oggi" },
     ],
     tagline: 'Analisi degli allenamenti per bici e corsa.',
   },
   'fr-FR': {
     shots: [
-      {
-        kicker: 'Fil',
-        cap: 'Vos activités intervals.icu',
-        sub: 'Une carte et les chiffres clés de chacune.',
-      },
-      {
-        kicker: 'Carte',
-        cap: 'Toutes vos activités sur une carte',
-        sub: 'Une carte thermique sur un terrain 3D satellite.',
-      },
-      {
-        kicker: 'Activité',
-        cap: 'Des graphiques liés à la carte',
-        sub: "Parcourez le graphique pour voir où cela s'est passé.",
-      },
-      {
-        kicker: 'Sections',
-        cap: 'Voyez votre résultat depuis la notification',
-        sub: 'Votre temps sur chaque section répétée, comparé à votre meilleur.',
-      },
-      {
-        kicker: 'Aperçus',
-        cap: 'Ce qui a changé dans votre entraînement',
-        sub: 'Records et tendances, avec leur mode de calcul.',
-      },
-      {
-        kicker: 'Forme',
-        cap: 'Forme physique, fatigue et forme',
-        sub: "Aussi sur votre écran d'accueil, en widget.",
-      },
-      {
-        kicker: 'Force',
-        cap: 'Musculation par groupe musculaire',
-        sub: 'Séries de vos séances sur un schéma du corps.',
-      },
-      {
-        kicker: 'Enregistrement',
-        cap: 'Enregistrez vos sorties et courses',
-        sub: 'GPS, en salle ou manuel, avec capteurs Bluetooth, envoyé vers intervals.icu.',
-      },
+      { cap: 'Votre entraînement, sur votre mobile' },
+      { cap: 'Des sections trouvées dans votre historique' },
+      { cap: 'Cartes de chaleur sur terrain 3D, hors ligne' },
+      { cap: 'Glissez le graphique, la carte suit' },
+      { cap: "Votre forme en un coup d'œil" },
+      { cap: 'Chaque analyse montre sa méthode' },
+      { cap: 'Vos séries de force, muscle par muscle' },
+      { cap: "Suivez un parcours ou l'entraînement du jour" },
     ],
     tagline: "Analyse d'entraînement pour vélo et course.",
   },
   'es-ES': {
     shots: [
-      {
-        kicker: 'Inicio',
-        cap: 'Tus actividades de intervals.icu',
-        sub: 'Un mapa y los datos clave de cada una.',
-      },
-      {
-        kicker: 'Mapa',
-        cap: 'Todas tus actividades en un mapa',
-        sub: 'Un mapa de calor sobre terreno 3D por satélite.',
-      },
-      {
-        kicker: 'Actividad',
-        cap: 'Gráficos enlazados con el mapa',
-        sub: 'Recorre el gráfico para ver dónde ocurrió.',
-      },
-      {
-        kicker: 'Secciones',
-        cap: 'Mira cómo te fue, desde la notificación',
-        sub: 'Tu tiempo en cada sección que repites, comparado con tu mejor marca.',
-      },
-      {
-        kicker: 'Análisis',
-        cap: 'Qué cambió en tu entrenamiento',
-        sub: 'Récords y tendencias, con cómo se calcula cada uno.',
-      },
-      {
-        kicker: 'Forma física',
-        cap: 'Forma física, fatiga y forma',
-        sub: 'También en tu pantalla de inicio como widget.',
-      },
-      {
-        kicker: 'Fuerza',
-        cap: 'Fuerza por grupo muscular',
-        sub: 'Series de tus entrenamientos en un diagrama corporal.',
-      },
-      {
-        kicker: 'Grabación',
-        cap: 'Graba salidas en bici y carreras',
-        sub: 'GPS, interior o manual, con sensores Bluetooth, subido a intervals.icu.',
-      },
+      { cap: 'Tu entrenamiento, en tu teléfono' },
+      { cap: 'Secciones de tu propio historial' },
+      { cap: 'Mapas de calor 3D, sin conexión' },
+      { cap: 'Desliza el gráfico, sigue el mapa' },
+      { cap: 'Tu forma de un vistazo' },
+      { cap: 'Cada análisis muestra su método' },
+      { cap: 'Tus series de fuerza, músculo a músculo' },
+      { cap: 'Sigue una ruta o el entrenamiento de hoy' },
     ],
     tagline: 'Análisis de entrenamiento para bici y carrera.',
   },
   'es-419': {
     shots: [
-      {
-        kicker: 'Inicio',
-        cap: 'Tus actividades de intervals.icu',
-        sub: 'Un mapa y los datos clave de cada una.',
-      },
-      {
-        kicker: 'Mapa',
-        cap: 'Todas tus actividades en un mapa',
-        sub: 'Un mapa de calor sobre terreno 3D por satélite.',
-      },
-      {
-        kicker: 'Actividad',
-        cap: 'Gráficos enlazados con el mapa',
-        sub: 'Desliza el dedo por el gráfico para ver dónde ocurrió.',
-      },
-      {
-        kicker: 'Secciones',
-        cap: 'Mira cómo te fue, desde la notificación',
-        sub: 'Tu tiempo en cada sección que repites, comparado con tu mejor marca.',
-      },
-      {
-        kicker: 'Análisis',
-        cap: 'Qué cambió en tu entrenamiento',
-        sub: 'Récords y tendencias, con cómo se calcula cada uno.',
-      },
-      {
-        kicker: 'Condición física',
-        cap: 'Condición física, fatiga y forma',
-        sub: 'También en tu pantalla de inicio como widget.',
-      },
-      {
-        kicker: 'Fuerza',
-        cap: 'Fuerza por grupo muscular',
-        sub: 'Series de tus entrenamientos en un diagrama corporal.',
-      },
-      {
-        kicker: 'Grabación',
-        cap: 'Graba salidas en bici y carreras',
-        sub: 'GPS, interior o manual, con sensores Bluetooth, subido a intervals.icu.',
-      },
+      { cap: 'Tu entrenamiento, en tu celular' },
+      { cap: 'Secciones de tu propio historial' },
+      { cap: 'Mapas de calor 3D, sin conexión' },
+      { cap: 'Desliza el gráfico, sigue el mapa' },
+      { cap: 'Tu forma de un vistazo' },
+      { cap: 'Cada análisis muestra su método' },
+      { cap: 'Tus series de fuerza, músculo a músculo' },
+      { cap: 'Sigue una ruta o el entrenamiento de hoy' },
     ],
     tagline: 'Análisis de entrenamiento para bici y carrera.',
   },
   'de-DE': {
     shots: [
-      {
-        kicker: 'Feed',
-        cap: 'Deine intervals.icu-Aktivitäten',
-        sub: 'Eine Karte und die wichtigsten Werte zu jeder.',
-      },
-      {
-        kicker: 'Karte',
-        cap: 'Alle Aktivitäten auf einer Karte',
-        sub: 'Eine Heatmap über 3D-Satellitengelände.',
-      },
-      {
-        kicker: 'Aktivität',
-        cap: 'Diagramme mit der Karte verknüpft',
-        sub: 'Fahre am Diagramm entlang und sieh, wo es war.',
-      },
-      {
-        kicker: 'Abschnitte',
-        cap: 'Dein Ergebnis direkt per Benachrichtigung',
-        sub: 'Deine Zeit auf jedem Abschnitt, den du wiederholst, im Vergleich zu deiner Bestzeit.',
-      },
-      {
-        kicker: 'Einblicke',
-        cap: 'Was sich in deinem Training geändert hat',
-        sub: 'Rekorde und Trends, mit dem Rechenweg dazu.',
-      },
-      {
-        kicker: 'Fitness',
-        cap: 'Fitness, Ermüdung und Form',
-        sub: 'Auch als Widget auf deinem Startbildschirm.',
-      },
-      {
-        kicker: 'Kraft',
-        cap: 'Krafttraining nach Muskelgruppe',
-        sub: 'Sätze aus deinen Workouts an einer Körpergrafik.',
-      },
-      {
-        kicker: 'Aufnahme',
-        cap: 'Fahrten und Läufe aufzeichnen',
-        sub: 'GPS, indoor oder manuell, mit Bluetooth-Sensoren, hochgeladen zu intervals.icu.',
-      },
+      { cap: 'Dein Training, auf deinem Handy' },
+      { cap: 'Abschnitte aus deiner eigenen Historie' },
+      { cap: 'Heatmaps auf 3D-Gelände, offline' },
+      { cap: 'Diagramm ziehen, Karte folgen' },
+      { cap: 'Deine Form auf einen Blick' },
+      { cap: 'Jede Analyse zeigt ihre Methode' },
+      { cap: 'Deine Kraftsätze, Muskel für Muskel' },
+      { cap: 'Route oder Tagestraining folgen' },
     ],
     tagline: 'Trainingsanalyse für Rad und Lauf.',
   },
   'nl-NL': {
     shots: [
-      {
-        kicker: 'Feed',
-        cap: 'Je intervals.icu-activiteiten',
-        sub: 'Een kaart en de belangrijkste cijfers van elk.',
-      },
-      {
-        kicker: 'Kaart',
-        cap: 'Al je activiteiten op één kaart',
-        sub: 'Een heatmap over 3D-satellietterrein.',
-      },
-      {
-        kicker: 'Activiteit',
-        cap: 'Grafieken gekoppeld aan de kaart',
-        sub: 'Ga langs de grafiek om te zien waar het was.',
-      },
-      {
-        kicker: 'Secties',
-        cap: 'Zie je resultaat in de melding',
-        sub: 'Je tijd op elke sectie die je herhaalt, vergeleken met je beste.',
-      },
-      {
-        kicker: 'Inzichten',
-        cap: 'Wat er in je training veranderde',
-        sub: 'Records en trends, met hoe elk is berekend.',
-      },
-      {
-        kicker: 'Fitheid',
-        cap: 'Fitheid, vermoeidheid en vorm',
-        sub: 'Ook op je beginscherm als widget.',
-      },
-      {
-        kicker: 'Kracht',
-        cap: 'Krachttraining per spiergroep',
-        sub: 'Sets uit je workouts op een lichaamsschema.',
-      },
-      {
-        kicker: 'Opname',
-        cap: 'Neem ritten en runs op',
-        sub: 'GPS, indoor of handmatig, met Bluetooth-sensoren, geüpload naar intervals.icu.',
-      },
+      { cap: 'Je training, bewaard op je telefoon' },
+      { cap: 'Secties uit je eigen geschiedenis' },
+      { cap: 'Heatmaps op 3D-terrein, offline' },
+      { cap: 'Sleep over de grafiek, volg de kaart' },
+      { cap: 'Je vorm in één oogopslag' },
+      { cap: 'Elk inzicht toont zijn methode' },
+      { cap: 'Je krachtsets, spier voor spier' },
+      { cap: 'Volg een route of de training van vandaag' },
     ],
     tagline: 'Trainingsanalyse voor fietsen en hardlopen.',
   },
   'pt-PT': {
     shots: [
-      {
-        kicker: 'Feed',
-        cap: 'As tuas atividades do intervals.icu',
-        sub: 'Um mapa e os números principais de cada uma.',
-      },
-      {
-        kicker: 'Mapa',
-        cap: 'Todas as atividades num só mapa',
-        sub: 'Um mapa de calor sobre terreno 3D de satélite.',
-      },
-      {
-        kicker: 'Atividade',
-        cap: 'Gráficos ligados ao mapa',
-        sub: 'Percorre o gráfico para ver onde aconteceu.',
-      },
-      {
-        kicker: 'Troços',
-        cap: 'Vê como correu, logo na notificação',
-        sub: 'O teu tempo em cada troço que repetes, comparado com o teu melhor.',
-      },
-      {
-        kicker: 'Insights',
-        cap: 'O que mudou no teu treino',
-        sub: 'Recordes e tendências, com o cálculo de cada um.',
-      },
-      {
-        kicker: 'Forma',
-        cap: 'Condição, fadiga e forma',
-        sub: 'Também no ecrã inicial, como widget.',
-      },
-      {
-        kicker: 'Força',
-        cap: 'Treino de força por grupo muscular',
-        sub: 'Séries dos teus treinos num diagrama do corpo.',
-      },
-      {
-        kicker: 'Gravação',
-        cap: 'Grava pedaladas e corridas',
-        sub: 'GPS, interior ou manual, com sensores Bluetooth, enviado para o intervals.icu.',
-      },
+      { cap: 'O teu treino, no telemóvel' },
+      { cap: 'Secções do teu próprio histórico' },
+      { cap: 'Mapas de calor em terreno 3D, offline' },
+      { cap: 'Arrasta o gráfico, segue o mapa' },
+      { cap: 'A tua forma num relance' },
+      { cap: 'Cada análise mostra o seu método' },
+      { cap: 'Séries de força, músculo a músculo' },
+      { cap: 'Segue um percurso ou o treino de hoje' },
     ],
     tagline: 'Análise de treino para ciclismo e corrida.',
   },
   'pt-BR': {
     shots: [
-      {
-        kicker: 'Feed',
-        cap: 'Suas atividades do intervals.icu',
-        sub: 'Um mapa e os números principais de cada uma.',
-      },
-      {
-        kicker: 'Mapa',
-        cap: 'Todas as atividades em um só mapa',
-        sub: 'Um mapa de calor sobre terreno 3D de satélite.',
-      },
-      {
-        kicker: 'Atividade',
-        cap: 'Gráficos ligados ao mapa',
-        sub: 'Percorra o gráfico para ver onde aconteceu.',
-      },
-      {
-        kicker: 'Trechos',
-        cap: 'Veja como foi, direto na notificação',
-        sub: 'Seu tempo em cada trecho que você repete, comparado ao seu melhor.',
-      },
-      {
-        kicker: 'Insights',
-        cap: 'O que mudou no seu treino',
-        sub: 'Recordes e tendências, com o cálculo de cada um.',
-      },
-      {
-        kicker: 'Forma',
-        cap: 'Condicionamento, fadiga e forma',
-        sub: 'Também na tela inicial, como widget.',
-      },
-      {
-        kicker: 'Força',
-        cap: 'Treino de força por grupo muscular',
-        sub: 'Séries dos seus treinos em um diagrama do corpo.',
-      },
-      {
-        kicker: 'Gravação',
-        cap: 'Grave pedaladas e corridas',
-        sub: 'GPS, indoor ou manual, com sensores Bluetooth, enviado ao intervals.icu.',
-      },
+      { cap: 'Seu treino, guardado no seu celular' },
+      { cap: 'Seções do seu próprio histórico' },
+      { cap: 'Mapas de calor em terreno 3D, offline' },
+      { cap: 'Arraste o gráfico, siga o mapa' },
+      { cap: 'Sua forma de relance' },
+      { cap: 'Cada análise mostra o seu método' },
+      { cap: 'Suas séries de força, músculo a músculo' },
+      { cap: 'Siga uma rota ou o treino de hoje' },
     ],
     tagline: 'Análise de treino para ciclismo e corrida.',
   },
   'pl-PL': {
     shots: [
-      {
-        kicker: 'Główna',
-        cap: 'Twoje aktywności z intervals.icu',
-        sub: 'Mapa i najważniejsze liczby każdej z nich.',
-      },
-      {
-        kicker: 'Mapa',
-        cap: 'Wszystkie aktywności na jednej mapie',
-        sub: 'Mapa cieplna na satelitarnym terenie 3D.',
-      },
-      {
-        kicker: 'Aktywność',
-        cap: 'Wykresy powiązane z mapą',
-        sub: 'Przesuwaj się po wykresie, by zobaczyć, gdzie to było.',
-      },
-      {
-        kicker: 'Odcinki',
-        cap: 'Wynik od razu w powiadomieniu',
-        sub: 'Twój czas na każdym powtarzanym odcinku, w porównaniu z najlepszym.',
-      },
-      {
-        kicker: 'Analizy',
-        cap: 'Co zmieniło się w Twoim treningu',
-        sub: 'Rekordy i trendy, z opisem, jak je policzono.',
-      },
-      {
-        kicker: 'Kondycja',
-        cap: 'Kondycja, zmęczenie i forma',
-        sub: 'Także na ekranie głównym jako widżet.',
-      },
-      {
-        kicker: 'Siła',
-        cap: 'Trening siłowy według grup mięśni',
-        sub: 'Serie z treningów na schemacie ciała.',
-      },
-      {
-        kicker: 'Nagrywanie',
-        cap: 'Nagrywaj jazdy i biegi',
-        sub: 'GPS, w pomieszczeniu lub ręcznie, z czujnikami Bluetooth, wysyłane do intervals.icu.',
-      },
+      { cap: 'Twój trening, zapisany w telefonie' },
+      { cap: 'Odcinki znalezione w Twojej historii' },
+      { cap: 'Mapy cieplne na terenie 3D, offline' },
+      { cap: 'Przesuń wykres, śledź mapę' },
+      { cap: 'Twoja forma na pierwszy rzut oka' },
+      { cap: 'Każda analiza pokazuje metodę' },
+      { cap: 'Twoje serie siłowe, mięsień po mięśniu' },
+      { cap: 'Śledź trasę lub dzisiejszy trening' },
     ],
     tagline: 'Analiza treningu dla roweru i biegania.',
   },
   'da-DK': {
     shots: [
-      {
-        kicker: 'Forside',
-        cap: 'Dine aktiviteter fra intervals.icu',
-        sub: 'Et kort og nøgletallene for hver enkelt.',
-      },
-      {
-        kicker: 'Kort',
-        cap: 'Alle dine aktiviteter på ét kort',
-        sub: 'Et heatmap over 3D-satellitterræn.',
-      },
-      {
-        kicker: 'Aktivitet',
-        cap: 'Grafer knyttet til kortet',
-        sub: 'Bevæg dig langs grafen for at se, hvor det skete.',
-      },
-      {
-        kicker: 'Sektioner',
-        cap: 'Se resultatet i notifikationen',
-        sub: 'Din tid på hver sektion, du gentager, sammenlignet med din bedste.',
-      },
-      {
-        kicker: 'Indsigt',
-        cap: 'Hvad der ændrede sig i din træning',
-        sub: 'Rekorder og tendenser, med hvordan hver er regnet ud.',
-      },
-      {
-        kicker: 'Kondition',
-        cap: 'Kondition, træthed og formstatus',
-        sub: 'Også på din startskærm som widget.',
-      },
-      {
-        kicker: 'Styrke',
-        cap: 'Styrketræning efter muskelgruppe',
-        sub: 'Sæt fra dine træninger på et kropsdiagram.',
-      },
-      {
-        kicker: 'Optagelse',
-        cap: 'Optag ture og løb',
-        sub: 'GPS, indendørs eller manuelt, med Bluetooth-sensorer, uploadet til intervals.icu.',
-      },
+      { cap: 'Din træning, gemt på din telefon' },
+      { cap: 'Sektioner fundet i din egen historik' },
+      { cap: 'Varmekort på 3D-terræn, offline' },
+      { cap: 'Træk i grafen, følg kortet' },
+      { cap: 'Se din form med et blik' },
+      { cap: 'Hver indsigt viser sin metode' },
+      { cap: 'Dine styrkesæt, muskel for muskel' },
+      { cap: 'Følg en rute eller dagens træning' },
     ],
     tagline: 'Træningsanalyse til cykling og løb.',
   },
   'ja-JP': {
     shots: [
-      {
-        kicker: 'フィード',
-        cap: 'intervals.icu のアクティビティ',
-        sub: '地図と主な数値を、一つずつ。',
-      },
-      {
-        kicker: 'マップ',
-        cap: 'すべてのアクティビティを一枚の地図に',
-        sub: '3D 衛星地形の上にヒートマップ。',
-      },
-      {
-        kicker: 'アクティビティ',
-        cap: 'グラフと地図が連動',
-        sub: 'グラフをなぞると、その場所が分かります。',
-      },
-      {
-        kicker: '区間',
-        cap: '通知からそのまま結果を確認',
-        sub: '繰り返す区間ごとのタイムを、自己ベストと比較。',
-      },
-      {
-        kicker: '分析',
-        cap: 'トレーニングの変化',
-        sub: '記録とトレンド、それぞれの算出方法つき。',
-      },
-      {
-        kicker: 'フィットネス',
-        cap: 'フィットネス、疲労、フォーム',
-        sub: 'ホーム画面のウィジェットでも確認できます。',
-      },
-      {
-        kicker: '筋力',
-        cap: '筋群別の筋力トレーニング',
-        sub: 'ワークアウトのセットを人体図に表示。',
-      },
-      {
-        kicker: '記録',
-        cap: 'ライドとランを記録',
-        sub: 'GPS、屋内、手動に対応。Bluetooth センサー対応で、intervals.icu にアップロード。',
-      },
+      { cap: 'あなたのトレーニングを、スマホの中に' },
+      { cap: '自分の履歴から見つかったセクション' },
+      { cap: '3D地形のヒートマップ、オフラインで' },
+      { cap: 'グラフをなぞれば、地図がついてくる' },
+      { cap: 'コンディションをひと目で' },
+      { cap: 'すべての分析に、その算出方法' },
+      { cap: '筋肉ごとの筋トレセット' },
+      { cap: 'ルートや今日のワークアウトをたどる' },
     ],
     tagline: 'ライドとランのトレーニング分析。',
   },
   'zh-CN': {
     shots: [
-      { kicker: '动态', cap: '你的 intervals.icu 活动', sub: '每项活动都有地图和关键数据。' },
-      { kicker: '地图', cap: '所有活动，一张地图', sub: '3D 卫星地形上的热力图。' },
-      { kicker: '活动', cap: '图表与地图联动', sub: '沿图表移动，查看发生的位置。' },
-      {
-        kicker: '路段',
-        cap: '直接从通知查看表现',
-        sub: '你重复骑行的每个路段的用时，与最佳成绩对比。',
-      },
-      { kicker: '洞察', cap: '训练有什么变化', sub: '纪录与趋势，并说明各自的计算方式。' },
-      { kicker: '体能', cap: '体能、疲劳与状态', sub: '也可作为小组件显示在主屏幕上。' },
-      { kicker: '力量', cap: '按肌群划分的力量训练', sub: '训练中的组数显示在人体图上。' },
-      {
-        kicker: '录制',
-        cap: '录制骑行和跑步',
-        sub: 'GPS、室内或手动，支持蓝牙传感器，并上传到 intervals.icu。',
-      },
+      { cap: '你的训练，保存在手机上' },
+      { cap: '从你自己的历史中找出路段' },
+      { cap: '3D 地形热力图，离线可用' },
+      { cap: '拖动图表，地图跟随' },
+      { cap: '体能状态一目了然' },
+      { cap: '每项洞察都附带计算方法' },
+      { cap: '按肌肉划分的力量训练组数' },
+      { cap: '跟随路线或今日训练' },
     ],
     tagline: '骑行与跑步的训练分析。',
+  },
+  'en-AU': {
+    shots: [
+      { cap: 'Your training, kept on your phone' },
+      { cap: 'Sections found in your own history' },
+      { cap: 'Heatmaps on 3D terrain, offline' },
+      { cap: 'Drag the chart, follow the map' },
+      { cap: 'See your form at a glance' },
+      { cap: 'Every insight shows its method' },
+      { cap: 'Your strength sets, muscle by muscle' },
+      { cap: "Follow a route or today's workout" },
+    ],
+    tagline: 'Training analysis for rides and runs.',
   },
 };
 
@@ -873,7 +449,7 @@ function composeShots(
         d,
         PRIVACY_CAPTION,
         privacyListHtml(PRIVACY_CLAIMS),
-        PRIVACY_CSS(palette.line, palette.kickerAchievement, palette.cap)
+        PRIVACY_CSS(palette.line, palette.tick, palette.cap)
       );
     } else {
       throw new Error(`No composition for shot ${shot.stem}`);

@@ -95,6 +95,7 @@ fn auto_section(id: &str, polyline: Vec<GpsPoint>, members: &[&str]) -> Frequent
         polyline,
         representative_activity_id: members[0].to_string(),
         representative_range: None,
+        representative_reversed: false,
         activity_ids: members.iter().map(|a| (*a).to_string()).collect(),
         activity_portions: portions,
         visit_count: members.len() as u32,

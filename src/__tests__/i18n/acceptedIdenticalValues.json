@@ -111,7 +111,8 @@
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "activity.garminSwap.compare.start": "Danish word or phrase with the same spelling.",
-    "sections.sportFilter": "Danish word or phrase with the same spelling."
+    "sections.sportFilter": "Danish word or phrase with the same spelling.",
+    "navigation.offline": "Established Danish loanword or technical term."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -212,7 +213,8 @@
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "activity.garminSwap.compare.start": "German word or phrase with the same spelling.",
-    "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language."
+    "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language.",
+    "navigation.offline": "Established Swiss German loanword or technical term."
   },
   "de-DE": {
     "backup.entryAppVersion": "German word or phrase with the same spelling.",
@@ -339,7 +341,8 @@
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "activity.garminSwap.compare.start": "German word or phrase with the same spelling.",
-    "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language."
+    "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language.",
+    "navigation.offline": "Established German loanword or technical term."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -837,7 +840,8 @@
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
-    "sections.sportFilter": "Italian word or phrase with the same spelling."
+    "sections.sportFilter": "Italian word or phrase with the same spelling.",
+    "navigation.offline": "Established Italian loanword or technical term."
   },
   "ja": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -1043,7 +1047,8 @@
     "activity.garminSwap.compare.records": "Dutch word or phrase with the same spelling.",
     "activity.garminSwap.compare.start": "Dutch word or phrase with the same spelling.",
     "sections.sportFilter": "Dutch word or phrase with the same spelling.",
-    "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language."
+    "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language.",
+    "navigation.offline": "Established Dutch loanword or technical term."
   },
   "pl": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -1131,7 +1136,8 @@
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "activity.garminSwap.compare.start": "Polish word or phrase with the same spelling.",
-    "sections.sportFilter": "Polish word or phrase with the same spelling."
+    "sections.sportFilter": "Polish word or phrase with the same spelling.",
+    "navigation.offline": "Established Polish loanword or technical term."
   },
   "pt-BR": {
     "activity.stats.maxLabel": "Abbreviation of the Brazilian Portuguese label with the same spelling.",
@@ -1226,7 +1232,8 @@
     "common.experimental": "Brazilian Portuguese word or phrase with the same spelling.",
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
-    "activity.garminSwap.compare.intervals": "Product name, kept as written."
+    "activity.garminSwap.compare.intervals": "Product name, kept as written.",
+    "navigation.offline": "Established Brazilian Portuguese loanword or technical term."
   },
   "pt": {
     "activity.stats.maxLabel": "Abbreviation of the Portuguese label with the same spelling.",
@@ -1321,7 +1328,8 @@
     "common.experimental": "Portuguese word or phrase with the same spelling.",
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
-    "activity.garminSwap.compare.intervals": "Product name, kept as written."
+    "activity.garminSwap.compare.intervals": "Product name, kept as written.",
+    "navigation.offline": "Established Portuguese loanword or technical term."
   },
   "zh-Hans": {
     "backgroundJobs.progressPercent": "Numeric percentage template.",

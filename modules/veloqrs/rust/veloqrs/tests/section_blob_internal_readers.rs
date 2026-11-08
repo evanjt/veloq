@@ -229,7 +229,7 @@ fn a_geometry_version_rebuilds_from_its_own_triple() {
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
     let line = track(0.0)[0..12].to_vec();
     let version = engine
-        .record_section_geometry("s_versioned", &line, true, Some(("a1", 0, 12)))
+        .record_section_geometry("s_versioned", &line, true, Some(("a1", 0, 12, false)))
         .expect("record a version");
     drop(engine);
 

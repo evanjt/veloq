@@ -150,6 +150,27 @@ export function latLngsFromFlat(flat: ArrayLike<number>): LatLng[] {
 }
 
 /**
+ * A decoded preview line as the card draws it: the points the map can place,
+ * and the elevation of each of them when every one has one.
+ *
+ * An altitude that skipped a point would shift every later elevation onto the
+ * wrong coordinate, so a line with a gap carries none: the camera then falls
+ * back to the position-only angle rather than reading a misaligned profile.
+ */
+export function previewLineOf(points: readonly LatLng[]): {
+  coordinates: LatLng[];
+  altitude: number[] | undefined;
+} {
+  const coordinates = points.filter((p) => !isNaN(p.latitude) && !isNaN(p.longitude));
+  const altitude: number[] = [];
+  for (const point of coordinates) {
+    if (point.elevation === undefined) return { coordinates, altitude: undefined };
+    altitude.push(point.elevation);
+  }
+  return { coordinates, altitude: altitude.length > 0 ? altitude : undefined };
+}
+
+/**
  * Convert coordinate tuples to LatLng objects with auto-format detection.
  *
  * Automatically detects [lat, lng] vs [lng, lat] format and converts

@@ -24,7 +24,11 @@ import {
 } from './gatt';
 import { applyRscFrame } from './runningPod';
 import { createCrankCadenceCalculator } from './cadence';
-import { sensorConnectionHealth } from './connectionHealth';
+import {
+  SENSOR_NO_DATA_MS,
+  sensorConnectionHealth,
+  stuckBroadcastAction,
+} from './connectionHealth';
 import { recordSensorLink, type SensorLinkEvent } from './sensorLinkTrace';
 import { stopSimulatedSensors } from './simulatedSensors';
 import type { KnownSensor, SensorAvailability, SensorKind } from '../types';
@@ -472,11 +476,13 @@ function publishHealth(sensor: KnownSensor, active: ActiveConnection): void {
     log.warn(`Sensor sent nothing for ${now - since} ms: ${sensor.name}`);
     traceLink(sensor, 'watchdogFired', { ms: now - since });
   }
+  const { stuck, ...rest } = existing ?? {};
   useSensorStore.getState().setConnection(sensor.id, {
-    ...existing,
+    ...rest,
     status,
     name: sensor.name,
     kinds: sensor.kinds,
+    ...(status === 'noData' && stuck ? { stuck } : {}),
   });
 }
 
@@ -488,6 +494,7 @@ function noteSample(sensor: KnownSensor, active: ActiveConnection, link: Monitor
   const now = Date.now();
   active.lastSampleAt = now;
   link.samples++;
+  recoveredSilent.delete(sensor.id);
   if (link.samples === 1) {
     traceLink(sensor, 'firstSample', {
       characteristic: link.characteristic,
@@ -803,6 +810,17 @@ const seeking = new Map<string, KnownSensor>();
 /** Whether the scan running now was started for `seeking`, as opposed to the athlete's scan. */
 let seekScanActive = false;
 
+/**
+ * Linked sensors whose subscription has been silent, awaiting an advertisement:
+ * a watch advertises only while it broadcasts, so hearing one means a broadcast
+ * that is stuck rather than off.
+ */
+const silentWatch = new Set<string>();
+/** Of those, the ones whose advertisement has been heard since the current subscription. */
+const advertisementHeard = new Set<string>();
+/** Sensors already reconnected with a fresh service table for their current silence. */
+const recoveredSilent = new Set<string>();
+
 function seekSensor(sensor: KnownSensor): void {
   if (!useSensorStore.getState().connections[sensor.id]) return;
   useSensorStore.getState().setConnectionStatus(sensor.id, 'reconnecting');
@@ -813,7 +831,7 @@ function seekSensor(sensor: KnownSensor): void {
 
 function startSeekScan(): void {
   const ble = bleManager;
-  if (!ble || seeking.size === 0 || seekScanActive) return;
+  if (!ble || (seeking.size === 0 && silentWatch.size === 0) || seekScanActive) return;
   seekScanActive = true;
   ble.startDeviceScan(SCANNED_SERVICES, { allowDuplicates: false }, (error, device) => {
     if (error) {
@@ -822,6 +840,7 @@ function startSeekScan(): void {
       seekScanActive = false;
       ble.stopDeviceScan();
       // Without a scan the timed retry is what is left.
+      silentWatch.clear();
       const lost = [...seeking.values()];
       seeking.clear();
       for (const sensor of lost) scheduleReconnect(sensor, 1);
@@ -833,6 +852,10 @@ function startSeekScan(): void {
 
 /** A sensor was advertised: pend the connect of one being looked for. */
 function noteSeen(id: string): void {
+  if (silentWatch.delete(id)) {
+    advertisementHeard.add(id);
+    stopSeekScanIfIdle();
+  }
   const sensor = seeking.get(id);
   if (!sensor) return;
   seeking.delete(id);
@@ -843,7 +866,7 @@ function noteSeen(id: string): void {
 }
 
 function stopSeekScanIfIdle(): void {
-  if (seeking.size > 0 || !seekScanActive) return;
+  if (seeking.size > 0 || silentWatch.size > 0 || !seekScanActive) return;
   seekScanActive = false;
   bleManager?.stopDeviceScan();
 }
@@ -860,12 +883,61 @@ function watchdogTick(sensor: KnownSensor): void {
   if (!active || active.cancelled) return;
   publishHealth(sensor, active);
   readSignal(sensor.id, active);
+  judgeSilence(sensor, active);
+}
+
+/**
+ * A subscription that has sent nothing is watched for the sensor's
+ * advertisement. Heard, the broadcast is stuck: the link is made again once with
+ * a fresh service table, and if that is silent too the row says so.
+ */
+function judgeSilence(sensor: KnownSensor, active: ActiveConnection): void {
+  const now = Date.now();
+  const since = active.lastSampleAt ?? active.subscribedAt ?? now;
+  const silentMs = now - since;
+  if (silentMs < SENSOR_NO_DATA_MS) return;
+  const action = stuckBroadcastAction({
+    advertisementSeen: advertisementHeard.has(sensor.id),
+    samplesSinceSubscribe: active.monitors.reduce((total, link) => total + link.samples, 0),
+    silentMs,
+    recoveryTried: recoveredSilent.has(sensor.id),
+  });
+  if (action === 'wait') {
+    if (!advertisementHeard.has(sensor.id) && !silentWatch.has(sensor.id)) {
+      silentWatch.add(sensor.id);
+      startSeekScan();
+    }
+    return;
+  }
+  if (action === 'tell') {
+    const existing = useSensorStore.getState().connections[sensor.id];
+    if (existing && !existing.stuck) {
+      traceLink(sensor, 'stuckBroadcast');
+      useSensorStore.getState().setConnection(sensor.id, { ...existing, stuck: true });
+    }
+    return;
+  }
+  traceLink(sensor, 'stuckRecovery');
+  recoveredSilent.add(sensor.id);
+  void recoverSilentLink(sensor);
+}
+
+async function recoverSilentLink(sensor: KnownSensor): Promise<void> {
+  cleanupConnection(sensor.id, { keepStoreEntry: true });
+  try {
+    await bleManager?.cancelDeviceConnection(sensor.id);
+  } catch {
+    // Already gone, which is the outcome wanted.
+  }
+  if (!useSensorStore.getState().connections[sensor.id]) return;
+  await connectAndSubscribe(sensor, 0, 'direct', { freshTable: true });
 }
 
 /** End a paired sensor's link and connect it again at once, for a link that reads no data. */
 export async function reconnectSensor(id: string): Promise<void> {
   const sensor = useSensorStore.getState().knownSensors.find((s) => s.id === id);
   if (!sensor) return;
+  recoveredSilent.delete(id);
   cleanupConnection(id, { keepStoreEntry: true });
   try {
     await bleManager?.cancelDeviceConnection(id);
@@ -959,7 +1031,10 @@ function cleanupConnection(id: string, options?: { keepStoreEntry?: boolean }): 
   // Before anything else: a connect still in flight has to see this.
   connectGenerations.set(id, (connectGenerations.get(id) ?? 0) + 1);
   parkedSensors.delete(id);
-  if (seeking.delete(id)) stopSeekScanIfIdle();
+  const watched = silentWatch.delete(id);
+  advertisementHeard.delete(id);
+  if (!options?.keepStoreEntry) recoveredSilent.delete(id);
+  if (seeking.delete(id) || watched) stopSeekScanIfIdle();
   const timer = reconnectTimers.get(id);
   if (timer) {
     clearTimeout(timer);

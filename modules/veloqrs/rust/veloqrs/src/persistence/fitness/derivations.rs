@@ -363,13 +363,15 @@ pub(crate) mod pooled {
                     CASE WHEN sa.lap_pace > 0 THEN sa.lap_pace
                          WHEN sa.lap_time > 0 THEN sa.distance_meters / sa.lap_time
                          ELSE 0.0 END,
-                    (1 = 1{complete}) AS complete, sa.start_index
+                    (1 = 1{complete}) AS complete, sa.start_index, sa.projected_m
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              WHERE sa.activity_id = ?1 AND sa.excluded = 0 AND {visible_filter}
              ORDER BY sa.section_id, sa.direction, complete DESC,
                       CASE WHEN sa.lap_time IS NULL OR sa.lap_time <= 0 THEN 1 ELSE 0 END,
-                      sa.lap_time ASC"
+                      CASE WHEN sa.projected_m >= {estimated_from} THEN 1 ELSE 0 END,
+                      sa.lap_time ASC",
+            estimated_from = crate::persistence::sections::lap_timing::ESTIMATED_FROM_PROJECTED_M
         );
 
         let mut stmt = match conn.prepare(&query) {
@@ -387,6 +389,7 @@ pub(crate) mod pooled {
             lap_pace: f64,
             complete: bool,
             start_index: u32,
+            estimated: bool,
         }
 
         let passes: Vec<Traversal> = stmt
@@ -401,6 +404,7 @@ pub(crate) mod pooled {
                     lap_pace: row.get(6)?,
                     complete: row.get(7)?,
                     start_index: row.get::<_, i64>(8)?.max(0) as u32,
+                    estimated: crate::persistence::sections::lap_timing::is_estimated(row.get(9)?),
                 })
             })
             .ok()
@@ -459,7 +463,8 @@ pub(crate) mod pooled {
             // History for this (section, direction), in this activity's sport: a
             // run's progress over shared ground is its own, not the rides'.
             let history_query = format!(
-                "SELECT sa.lap_time, sa.activity_id, COALESCE(a.start_date, 0) as act_date
+                "SELECT sa.lap_time, sa.activity_id, COALESCE(a.start_date, 0) as act_date,
+                        sa.projected_m
                  FROM section_activities sa
                  JOIN activities a ON a.id = sa.activity_id
                  LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
@@ -478,6 +483,7 @@ pub(crate) mod pooled {
             let mut history_times: Vec<f64> = Vec::new();
             let mut history_ids: Vec<String> = Vec::new();
             let mut history_dates: Vec<f64> = Vec::new();
+            let mut history_estimated: Vec<bool> = Vec::new();
 
             if trav.direction != "partial" {
                 let mut hist_stmt = match conn.prepare(&history_query) {
@@ -491,39 +497,50 @@ pub(crate) mod pooled {
                             row.get::<_, f64>(0)?,
                             row.get::<_, String>(1)?,
                             row.get::<_, i64>(2)? as f64,
+                            crate::persistence::sections::lap_timing::is_estimated(row.get(3)?),
                         ))
                     },
                 ) {
-                    for (time, id, date) in rows.flatten() {
+                    for (time, id, date, estimated) in rows.flatten() {
                         history_times.push(time);
                         history_ids.push(id);
                         history_dates.push(date);
+                        history_estimated.push(estimated);
                     }
                 }
             }
             debug_assert_eq!(history_times.len(), history_ids.len());
 
+            // An estimated time stands for a record only where no lap was timed
+            // on the ground, the tier the section screen and the ledger apply.
+            let timed_stands = history_estimated.iter().any(|estimated| !estimated);
+            let stands = |estimated: bool| !timed_stands || !estimated;
             let rivals: Vec<f64> = history_times
                 .iter()
                 .zip(&history_ids)
-                .filter(|(_, id)| id.as_str() != activity_id)
-                .map(|(t, _)| *t)
+                .zip(&history_estimated)
+                .filter(|((_, id), estimated)| id.as_str() != activity_id && stands(**estimated))
+                .map(|((t, _), _)| *t)
                 .collect();
-            let rank = if trav.complete {
+            let eligible = trav.complete && stands(trav.estimated);
+            let rank = if eligible {
                 crate::persistence::records::podium_place(trav.lap_time, &rivals)
             } else {
                 None
             };
             // This activity's own rows are not its rivals, so a lapped session
             // cannot manufacture a record against its own laps, nor lose one.
-            let is_pr = trav.complete
+            let is_pr = eligible
                 && crate::persistence::records::holds_section_record(
                     trav.lap_time,
                     activity_id,
                     history_ids
                         .iter()
                         .map(String::as_str)
-                        .zip(history_times.iter().copied()),
+                        .zip(history_times.iter().copied())
+                        .zip(&history_estimated)
+                        .filter(|(_, estimated)| stands(**estimated))
+                        .map(|(lap, _)| lap),
                 );
 
             encounters.push(FfiSectionEncounter {

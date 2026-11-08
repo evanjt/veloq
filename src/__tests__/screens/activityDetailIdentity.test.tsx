@@ -189,6 +189,9 @@ const mockRouteHighlights = new Map<
   string,
   { isPr: boolean; prImprovementSeconds?: number; timeDeltaSeconds?: number }
 >();
+jest.mock('@/features/activity/hooks/useMapPreviewCoordinates', () => ({
+  useMapPreviewCoordinates: () => ({ coordinates: [], altitude: undefined, isLoading: false }),
+}));
 jest.mock('@/features/activity/hooks/useActivityDetailData', () => ({
   useActivityDetailData: () => ({ data: mockDetail }),
 }));

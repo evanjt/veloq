@@ -42,7 +42,7 @@ jest.mock('@/shared/native/useSyncStatus', () => ({
 }));
 
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: true }),
+  useNetwork: () => ({ isOnline: true, hasReading: true }),
   useIsOnline: () => true,
 }));
 

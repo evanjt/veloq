@@ -73,6 +73,10 @@ pub trait EngineObserver: Send + Sync {
     /// intervals.icu refused an upload for want of write permission, so every
     /// other ride would meet the same refusal until the athlete grants it.
     fn upload_permission_refused(&self);
+    /// The day's request count the governor keeps moved, for any intent. Carries
+    /// no payload: the reader takes a budget snapshot. The governor announces at
+    /// most once a second, and the last change in a burst always goes out.
+    fn request_budget_changed(&self);
 }
 
 /// One queued event, ready to hand to the observer.
@@ -100,6 +104,7 @@ pub(crate) enum Announcement {
     PreviewFinished,
     RecordingsChanged,
     UploadPermissionRefused,
+    RequestBudgetChanged,
 }
 
 impl Announcement {
@@ -125,6 +130,7 @@ impl Announcement {
             Self::PreviewFinished => observer.preview_finished(),
             Self::RecordingsChanged => observer.recordings_changed(),
             Self::UploadPermissionRefused => observer.upload_permission_refused(),
+            Self::RequestBudgetChanged => observer.request_budget_changed(),
         }
     }
 }
@@ -150,6 +156,7 @@ impl Announcement {
             Self::PreviewFinished => "preview_finished",
             Self::RecordingsChanged => "recordings_changed",
             Self::UploadPermissionRefused => "upload_permission_refused",
+            Self::RequestBudgetChanged => "request_budget_changed",
         }
     }
 }
@@ -531,6 +538,9 @@ pub(crate) mod recorder {
         fn upload_permission_refused(&self) {
             self.push("upload_permission_refused");
         }
+        fn request_budget_changed(&self) {
+            self.push("request_budget_changed");
+        }
     }
 }
 
@@ -692,6 +702,7 @@ mod tests {
             fn preview_finished(&self) {}
             fn recordings_changed(&self) {}
             fn upload_permission_refused(&self) {}
+            fn request_budget_changed(&self) {}
         }
 
         #[test]
@@ -1119,6 +1130,7 @@ mod tests {
                 preview_finished();
                 recordings_changed();
                 upload_permission_refused();
+                request_budget_changed();
             }
         }
 
@@ -1257,5 +1269,20 @@ mod tests {
                 "the phase moved even though announcing it panicked"
             );
         }
+    }
+
+    /// The governor's count reaches the screens as a payload-free notice on
+    /// its own channel, so a screen re-reads the count without any activity
+    /// having been stored.
+    #[test]
+    fn a_request_budget_change_reaches_the_observer_on_its_own_channel() {
+        let _guard = serial_global_state();
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        notify(Announcement::RequestBudgetChanged);
+        set_observer(None);
+
+        assert_eq!(recorder.events(), vec!["request_budget_changed"]);
     }
 }

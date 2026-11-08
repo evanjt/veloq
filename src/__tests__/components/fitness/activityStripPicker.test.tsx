@@ -1,8 +1,9 @@
 /**
- * Scenario: a day with several activities opens a picker from the strip label.
+ * Scenario: a tap on the strip opens the activities of the day under the finger.
  *
- * Expected behaviour: the label opens the activity sheet with that day's activities, the chosen
- * id opens that activity, a dismissed sheet opens nothing, and a one-activity day skips the sheet.
+ * Expected behaviour: a tap on a day with several activities opens the activity sheet with that
+ * day's activities, the chosen id opens that activity, a dismissed sheet opens nothing, a
+ * one-activity day skips the sheet, and a rest day opens nothing.
  */
 import React from 'react';
 import { act, fireEvent, render, renderHook } from '@testing-library/react-native';
@@ -12,6 +13,7 @@ import { answerSheet } from '../../__shared__/answerSheet';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import type { FeedCard, WellnessData } from '@/types';
 import { dayActivityRow } from '@/features/activity/light';
+import { Gesture } from 'react-native-gesture-handler';
 
 const mockPush = jest.fn();
 const mockParams: { request?: string } = {};
@@ -39,24 +41,51 @@ const ACTIVITIES = [
   activity('b1', '2026-03-11'),
 ];
 
-const strip = (day: string) => (
-  <ActivityDotsChart
-    data={WELLNESS}
-    activities={ACTIVITIES.map(dayActivityRow)}
-    selectedDate={day}
-  />
+const WIDTH = 300;
+
+const strip = () => (
+  <ActivityDotsChart data={WELLNESS} activities={ACTIVITIES.map(dayActivityRow)} />
 );
+
+type TapHandlers = { onEnd: (event: { x: number; y: number }) => void };
+
+/** Every tap the strip builds, newest last. */
+const taps: ReturnType<typeof Gesture.Tap>[] = [];
+
+/** Lays the strip out at a known width and taps it at x, as the finger would. */
+async function tapAt(x: number) {
+  const tree = await render(strip());
+  fireEvent(tree.getByTestId('activity-dots-surface'), 'layout', {
+    nativeEvent: { layout: { width: WIDTH, height: 32, x: 0, y: 0 } },
+  });
+  const tap = taps.at(-1) as unknown as { handlers: TapHandlers };
+  await act(async () => {
+    tap.handlers.onEnd({ x, y: 0 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  return tree;
+}
 
 const pushedRoutes = () => mockPush.mock.calls.map(([target]) => target);
 
 beforeEach(() => {
   mockPush.mockClear();
+  taps.length = 0;
+  const tap = Gesture.Tap.bind(Gesture);
+  jest.spyOn(Gesture, 'Tap').mockImplementation(() => {
+    const gesture = tap();
+    taps.push(gesture);
+    return gesture;
+  });
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 describe('the strip activity picker', () => {
   it('opens the sheet with the day activities and opens the chosen one', async () => {
-    const tree = await render(strip('2026-03-10'));
-    void fireEvent.press(tree.getByText(/fitness\.activitiesCount/));
+    await tapAt(0);
     const sheet = pushedRoutes()[0];
     expect(sheet.pathname).toBe('sheets/day-activities');
 
@@ -72,16 +101,14 @@ describe('the strip activity picker', () => {
   });
 
   it('opens nothing when the sheet is dismissed', async () => {
-    const tree = await render(strip('2026-03-10'));
-    void fireEvent.press(tree.getByText(/fitness\.activitiesCount/));
+    await tapAt(0);
     await answerSheet(mockPush, mockParams, null);
     await act(async () => {});
     expect(pushedRoutes()).toHaveLength(1);
   });
 
   it('goes straight to the activity on a one-activity day', async () => {
-    const tree = await render(strip('2026-03-11'));
-    await fireEvent.press(tree.getByText(/Ride b1/));
+    await tapAt(WIDTH);
     expect(pushedRoutes()).toEqual(['/activity/b1']);
   });
 });

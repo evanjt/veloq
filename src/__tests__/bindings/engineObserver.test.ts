@@ -127,6 +127,18 @@ it('refreshes the sections channel when a detection run ends', async () => {
   off();
 });
 
+it('announces a moved request count on its own channel', async () => {
+  const { client, observer } = clientWithFakeEngine();
+  const seen: string[] = [];
+  const off = client.subscribe('requestBudgetChanged', () => seen.push('requestBudgetChanged'));
+
+  observer.requestBudgetChanged();
+  await flush();
+
+  expect(seen).toEqual(['requestBudgetChanged']);
+  off();
+});
+
 it('refreshes the groups channel when a regroup is swapped in', async () => {
   const { client, observer } = clientWithFakeEngine();
   const seen: string[] = [];

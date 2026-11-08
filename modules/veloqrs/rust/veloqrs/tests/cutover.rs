@@ -1280,6 +1280,7 @@ impl EngineObserver for SettleRecorder {
     fn preview_finished(&self) {}
     fn recordings_changed(&self) {}
     fn upload_permission_refused(&self) {}
+    fn request_budget_changed(&self) {}
 }
 
 /// The change card hears the commit rather than polling for it. A completed

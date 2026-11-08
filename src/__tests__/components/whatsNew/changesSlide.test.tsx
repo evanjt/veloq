@@ -8,6 +8,7 @@
  * every line it shows is written in the reference locale.
  */
 import React from 'react';
+import { Platform } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import { getSlidesSince } from '@/features/settings/components/whatsNew/slides';
 import { ChangesSlide } from '@/features/settings/components/whatsNew/ChangesSlide';
@@ -36,6 +37,18 @@ describe("What's New changes slide", () => {
     }
   });
 
+  it('names the Android library change in its Android caption, not the iPhone one', () => {
+    const originalOS = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      render(<ChangesSlide />);
+      expect(screen.getByText('whatsNew.v040.changesBackupCaptionAndroid')).toBeTruthy();
+      expect(screen.queryByText('whatsNew.v040.changesBackupCaption')).toBeNull();
+    } finally {
+      Platform.OS = originalOS;
+    }
+  });
+
   it('writes every line it shows in the reference locale', () => {
     for (const change of CHANGES) {
       for (const part of ['Label', 'Caption'] as const) {
@@ -45,5 +58,6 @@ describe("What's New changes slide", () => {
         expect(line).not.toBe(`whatsNew.v040.${key}`);
       }
     }
+    expect(typeof english.whatsNew.v040.changesBackupCaptionAndroid).toBe('string');
   });
 });

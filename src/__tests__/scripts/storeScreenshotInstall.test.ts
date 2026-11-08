@@ -133,14 +133,13 @@ describe('CAPTIONS', () => {
     expect(strings.shots).toHaveLength(CAPTURED_STEMS.length);
     for (const shot of strings.shots) {
       expect(shot.cap.trim()).not.toBe('');
-      expect(shot.sub.trim()).not.toBe('');
     }
     expect(strings.tagline.trim()).not.toBe('');
   });
 });
 
 describe('rawCaptures', () => {
-  const STEMS = ['01-feed', '02-map', '03-activity'];
+  const STEMS = ['01-feed', '02-section', '03-map'];
 
   function raws(root: string, platform: string, play: string, size: [number, number]): void {
     for (const stem of STEMS) {

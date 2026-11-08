@@ -50,6 +50,11 @@ export function sportFamilyLabel(family: string): (typeof SPORT_FAMILY_LABELS)[S
   return SPORT_FAMILY_LABELS[isSportFamily(family) ? family : 'Other'];
 }
 
+/** A family's glyph; a name that is no family reads as Other. */
+export function sportFamilyIcon(family: string): MaterialIconName {
+  return SPORT_FAMILY_ICONS[isSportFamily(family) ? family : 'Other'];
+}
+
 /** The family an activity type is drawn in; a type no family lists is Other. */
 export function getActivityCategory(type: string): SportFamily {
   return FAMILY_OF.get(type) ?? 'Other';

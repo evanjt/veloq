@@ -124,7 +124,7 @@ export type {
 } from './chartSummary';
 
 export { ChartShowDataButton, ChartSurface } from './ChartSurface';
-export type { ChartSurfaceProps } from './ChartSurface';
+export type { ChartReadingSource, ChartSurfaceProps } from './ChartSurface';
 
 export { Sparkline, SPARKLINE_RANGE_WIDTH } from './Sparkline';
 export type { SparklinePoint, SparklineProps } from './Sparkline';

@@ -52,6 +52,7 @@ fn auto_section(
         polyline,
         representative_activity_id: members[0].into(),
         representative_range: Some((0, POINTS as u32 - 1)),
+        representative_reversed: false,
         activity_ids: members.iter().map(|m| (*m).into()).collect(),
         activity_portions: members.iter().map(|m| portion(m, distance)).collect(),
         visit_count: members.len() as u32,

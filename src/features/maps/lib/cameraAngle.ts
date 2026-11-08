@@ -32,28 +32,10 @@ export const SMART_3D_MIN_RELIEF_M = 30;
 const MEDIUM_ELEVATION = 100;
 const MOUNTAINOUS_ELEVATION = 400;
 
-/** Zoom reduction threshold for tall terrain with exaggeration */
-const ZOOM_REDUCTION_THRESHOLD = 300;
-
-/**
- * Calculate optimal terrain camera parameters for a route.
- *
- * Algorithm:
- * 1. Compute bounding box and center
- * 2. If altitude data with sufficient range is available:
- *    - Compute elevation gradient vector (weighted sum of point offsets from center)
- *    - Camera bearing points toward high terrain (MapLibre positions camera opposite)
- *    - Shift center 8% toward camera (low side) to avoid clipping
- *    - Adaptive pitch: flatter for mountainous terrain (avoids exaggerated peaks)
- *    - Reduce zoom for very tall terrain
- * 3. Fallback: perpendicular to start→end bearing, 60° pitch
- */
-/** Bounds midpoint + fitted zoom for a route, shared by the 3D and flat cameras. */
+/** Bounds midpoint + seed zoom for a route, shared by the 3D and flat cameras. */
 function computeBoundsAndZoom(coordinates: [number, number][]): {
   centerLng: number;
   centerLat: number;
-  latSpan: number;
-  lngSpan: number;
   zoom: number;
 } | null {
   let minLng = Infinity;
@@ -76,8 +58,8 @@ function computeBoundsAndZoom(coordinates: [number, number][]): {
   const latSpan = maxLat - minLat;
   const lngSpan = maxLng - minLng;
 
-  // Calculate zoom from bounds span
-  // paddingFactor 2.0 gives ~30% margin around the route in terrain previews
+  // The zoom is a seed: the page's fit replaces it, and it is chosen so the route
+  // is inside the frame at pitch 0.
   let zoom: number;
   if (latSpan < 0.0001 && lngSpan < 0.0001) {
     zoom = 14;
@@ -89,9 +71,21 @@ function computeBoundsAndZoom(coordinates: [number, number][]): {
   }
   zoom = Math.max(8, Math.min(15, isFinite(zoom) ? zoom : 10));
 
-  return { centerLng, centerLat, latSpan, lngSpan, zoom };
+  return { centerLng, centerLat, zoom };
 }
 
+/**
+ * Calculate terrain camera parameters for a route.
+ *
+ * Algorithm:
+ * 1. Compute bounding box, its midpoint as the centre, and the seed zoom
+ * 2. If altitude data with sufficient range is available:
+ *    - Compute elevation gradient vector (weighted sum of point offsets from center)
+ *    - Camera bearing points toward high terrain (MapLibre positions camera opposite)
+ *    - Adaptive pitch: flatter for mountainous terrain (avoids exaggerated peaks)
+ *    - Centre and zoom are the midpoint and the seed zoom
+ * 3. Fallback: perpendicular to start→end bearing, 60° pitch
+ */
 export function calculateTerrainCamera(
   coordinates: [number, number][],
   altitude?: ArrayLike<number>
@@ -118,27 +112,15 @@ export function calculateTerrainCamera(
     };
   }
 
-  const { centerLng, centerLat, latSpan, lngSpan } = bounds;
-  let zoom = bounds.zoom;
+  const { centerLng, centerLat, zoom } = bounds;
 
   // Try elevation-aware camera
   const elevationResult = computeElevationCamera(coordinates, altitude, centerLng, centerLat);
 
   if (elevationResult) {
-    // Shift center 8% of bbox span toward camera (away from high terrain)
-    const bearingRad = (elevationResult.bearing * Math.PI) / 180;
-    // Camera sits opposite to bearing, so shift center opposite to bearing (toward camera)
-    const offsetLng = -Math.sin(bearingRad) * lngSpan * 0.08;
-    const offsetLat = -Math.cos(bearingRad) * latSpan * 0.08;
-
-    // Reduce zoom for very tall terrain (exaggerated peaks need room)
-    if (elevationResult.elevationRange > ZOOM_REDUCTION_THRESHOLD) {
-      zoom = Math.max(8, zoom - 0.5);
-    }
-
     return {
       camera: {
-        center: [centerLng + offsetLng, centerLat + offsetLat],
+        center: [centerLng, centerLat],
         zoom,
         bearing: elevationResult.bearing,
         pitch: elevationResult.pitch,
@@ -304,6 +286,8 @@ export interface Terrain3DInput {
 export interface Terrain3DVerdict {
   show3D: boolean;
   camera: TerrainCamera | null;
+  /** The camera is the athlete's saved override, which no surface turns off a hiding ridge. */
+  pinned: boolean;
 }
 
 /**
@@ -314,7 +298,9 @@ export interface Terrain3DVerdict {
  */
 export function resolveTerrain3D(input: Terrain3DInput): Terrain3DVerdict {
   const { mode, coordinates, altitude, gain, distance, override } = input;
-  if (mode !== 'always' && mode !== 'smart') return { show3D: false, camera: null };
+  if (mode !== 'always' && mode !== 'smart') {
+    return { show3D: false, camera: null, pinned: override !== null };
+  }
 
   const hasTrack = coordinates.length >= 2;
   const hasAltitude = !!altitude && altitude.length > 0;
@@ -322,18 +308,20 @@ export function resolveTerrain3D(input: Terrain3DInput): Terrain3DVerdict {
   if (mode === 'always') {
     const camera =
       override ?? (hasTrack ? calculateTerrainCamera(coordinates, altitude).camera : null);
-    return { show3D: true, camera };
+    return { show3D: true, camera, pinned: override !== null };
   }
 
-  if (override) return { show3D: true, camera: override };
+  if (override) return { show3D: true, camera: override, pinned: true };
   if (hasAltitude) {
-    if (!hasTrack) return { show3D: false, camera: null };
+    if (!hasTrack) return { show3D: false, camera: null, pinned: false };
     const result = calculateTerrainCamera(coordinates, altitude);
-    return { show3D: result.hasInterestingTerrain, camera: result.camera };
+    return { show3D: result.hasInterestingTerrain, camera: result.camera, pinned: false };
   }
-  if (!isLikelyInterestingTerrain(gain, distance)) return { show3D: false, camera: null };
+  if (!isLikelyInterestingTerrain(gain, distance))
+    return { show3D: false, camera: null, pinned: false };
   return {
     show3D: true,
     camera: hasTrack ? calculateTerrainCamera(coordinates, altitude).camera : null,
+    pinned: false,
   };
 }

@@ -571,7 +571,7 @@ fn quarantine_salvages_readable_history_rows() {
             .add_activity("act_1".to_string(), line.clone(), "Ride".to_string())
             .unwrap();
         let v1 = engine
-            .record_section_geometry("sec_ledger", &line, true, Some(("act_1", 3, 22)))
+            .record_section_geometry("sec_ledger", &line, true, Some(("act_1", 3, 22, false)))
             .unwrap();
         engine
             .append_section_history("sec_ledger", "formed", Some("{\"note\":1}"), Some(v1))
@@ -614,7 +614,7 @@ fn quarantine_salvages_readable_history_rows() {
         .section_geometry_version("sec_ledger", 1)
         .expect("the geometry version came across");
     assert_eq!(polyline.len(), line.len());
-    assert_eq!(reference, Some(("act_1".to_string(), 3, 22)));
+    assert_eq!(reference, Some(("act_1".to_string(), 3, 22, false)));
     assert_eq!(fresh.pinned_section_version("sec_ledger"), Some(1));
     assert_eq!(
         activity_count(&db_path),
@@ -943,7 +943,7 @@ fn a_quarantine_is_readable_once_with_what_it_salvaged() {
             .add_activity("act_1".to_string(), line.clone(), "Ride".to_string())
             .unwrap();
         let v1 = engine
-            .record_section_geometry("sec_told", &line, true, Some(("act_1", 3, 22)))
+            .record_section_geometry("sec_told", &line, true, Some(("act_1", 3, 22, false)))
             .unwrap();
         engine
             .append_section_history("sec_told", "formed", None, Some(v1))

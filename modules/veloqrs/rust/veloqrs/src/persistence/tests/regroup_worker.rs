@@ -642,6 +642,7 @@ mod reads_the_engine_when_told {
         fn preview_finished(&self) {}
         fn recordings_changed(&self) {}
         fn upload_permission_refused(&self) {}
+        fn request_budget_changed(&self) {}
     }
 }
 

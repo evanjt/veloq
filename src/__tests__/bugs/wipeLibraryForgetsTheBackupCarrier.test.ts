@@ -910,8 +910,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
-    where:
-      'cache/exports/, every file the share sheet is handed and the record a backup run writes for shared storage',
+    where: 'cache/exports/, every file the share sheet is handed',
     writers: [
       'src/shared/storage/cacheFiles.ts',
       'src/features/settings/lib/shareFile.ts',
@@ -1433,12 +1432,13 @@ const DEVICE_WRITES: DeviceWrite[] = [
   {
     confirm: [],
     where:
-      'device preferences: units, language, theme, sport, dashboard, map, routes, heatmap, tiles, debug, experimental, support, what is new, the tour offer and the sections-changed answer, days of use',
+      'device preferences: units, language, theme, sport, wellness smoothing, dashboard, map, routes, heatmap, tiles, debug, experimental, support, what is new, the tour offer and the sections-changed answer, days of use',
     writers: [
       'src/shared/app/UnitPreferenceStore.ts',
       'src/shared/app/LanguageStore.ts',
       'src/shared/app/ThemeProvider.ts',
       'src/features/fitness/stores/SportPreferenceStore.ts',
+      'src/features/fitness/lib/wellnessSmoothingPreference.ts',
       'src/features/settings/stores/summaryCardPreferences.ts',
       'src/features/maps/stores/HeatmapPreferenceStore.ts',
       'src/features/maps/lib/storage/tileCacheSettings.ts',

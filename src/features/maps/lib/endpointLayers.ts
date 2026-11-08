@@ -21,6 +21,11 @@ export const ENDPOINT_IMAGES: MapImageSpec[] = [SECTION_START_ICON, SECTION_END_
 
 const ENDPOINT_RADIUS = 7;
 const ENDPOINT_BORDER_RADIUS = 8.5;
+
+/** How far a marker's casing reaches from its point, at the scale a page draws it. */
+export function endpointCasingRadius(scale = 1): number {
+  return ENDPOINT_BORDER_RADIUS * scale;
+}
 // The icons are 64 px squares, so this draws the glyph at 9 px inside a 14 px dot.
 const ENDPOINT_ICON_SIZE = 0.14;
 
@@ -51,7 +56,7 @@ export function buildEndpointLayers(
       id: `${idPrefix}-border`,
       type: 'circle',
       source,
-      paint: { 'circle-radius': ENDPOINT_BORDER_RADIUS * scale, 'circle-color': palette.casing },
+      paint: { 'circle-radius': endpointCasingRadius(scale), 'circle-color': palette.casing },
     },
     {
       id: `${idPrefix}-fill`,

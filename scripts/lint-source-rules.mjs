@@ -457,7 +457,7 @@ const COVERAGE_HOOKS = [
 ];
 
 const PICKER_OPENINGS = {
-  'src/features/fitness/hooks/useFitnessWindow.ts': 'DEFAULT_PERIOD',
+  'src/features/fitness/hooks/useFitnessWindow.ts': 'FITNESS_DEFAULT_PERIOD',
   'src/features/routes/hooks/useSectionUIState.ts': 'DEFAULT_PERIOD',
   'src/features/insights/components/StrengthTab.tsx': 'DEFAULT_PERIOD',
   'src/app/(tabs)/map.tsx': 'DEFAULT_MAP_PERIOD',
@@ -990,7 +990,7 @@ const RULES = {
           continue;
         }
         // A screen may open on something a link handed it, `entryRange ??
-        // DEFAULT_PERIOD` on the fitness tab, but the fallback is the constant.
+        // FITNESS_DEFAULT_PERIOD` on the fitness tab, but the fallback is the constant.
         const expression = initialiser[1].trim();
         if (!expression.endsWith(constant) || /['"`]/.test(expression)) {
           out.push(`${file}  opens on \`${expression}\`, not on ${constant}`);
@@ -998,7 +998,7 @@ const RULES = {
       }
       return out;
     },
-    fix: 'open the picker on the shared constant, falling back to it after any handed-in range',
+    fix: 'open the picker on its screen constant, falling back to it after any handed-in range',
   },
 
   // The insight sheet is opened from the Insights tab, so a card targeting the

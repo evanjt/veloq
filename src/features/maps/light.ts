@@ -13,3 +13,4 @@ export {
   setCameraOverride,
   subscribeCameraOverrides,
 } from './lib/storage/terrainCameraOverrides';
+export { ENDPOINT_3D_CASING_RADIUS } from './lib/terrain3DPaint';

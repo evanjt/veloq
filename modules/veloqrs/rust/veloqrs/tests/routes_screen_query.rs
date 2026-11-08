@@ -54,6 +54,7 @@ fn auto_section(id: &str, seed: usize) -> FrequentSection {
         polyline: track(seed + 1_000),
         representative_activity_id: format!("a{seed}"),
         representative_range: Some((0, POINTS_PER_TRACK as u32)),
+        representative_reversed: false,
         activity_ids: vec![format!("a{seed}")],
         activity_portions: vec![SectionPortion {
             activity_id: format!("a{seed}"),
@@ -478,8 +479,8 @@ fn retired_auto_sections_follow_the_removed_filter_and_sort_after_visible_rows()
             ..query()
         });
 
-        assert_eq!(shown.section_count, before.section_count - 1);
-        assert_eq!(hidden.section_count, shown.section_count);
+        assert_eq!(shown.section_count, before.section_count);
+        assert_eq!(hidden.section_count, before.section_count - 1);
         assert_eq!(shown.accepted_auto_count, before.accepted_auto_count);
         assert_eq!(
             shown.unaccepted_auto_count,
@@ -532,8 +533,8 @@ fn disabled_custom_sections_follow_the_removed_filter_too() {
         shown.filtered_section_count,
         hidden.filtered_section_count + 1
     );
-    assert_eq!(shown.section_count, before.section_count - 1);
-    assert_eq!(hidden.section_count, shown.section_count);
+    assert_eq!(shown.section_count, before.section_count);
+    assert_eq!(hidden.section_count, before.section_count - 1);
 }
 
 #[test]
@@ -995,5 +996,6 @@ fn a_sport_filter_keeps_the_groups_any_member_was_recorded_in() {
         group_sport_type: Some("Ride".into()),
         ..query()
     });
-    assert_eq!(narrowed.group_count, 1);
+    assert_eq!(narrowed.group_count, 2);
+    assert_eq!(narrowed.filtered_group_count, 1);
 }

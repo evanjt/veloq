@@ -56,13 +56,14 @@ export function SyncErrorBanner() {
   const { t } = useTranslation();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
-  const { offlineBannerShown } = useNetwork();
+  const { offlineIndicator } = useNetwork();
   const { lastError, lastErrorReason, lastSuccessAt, retryAtMs } = useSyncHealth();
   const [closedOn, setClosedOn] = useState<string | null>(null);
 
   // The offline pill already owns the no-connection case, and a sync cannot
-  // progress offline, so this one gives way when the pill shows and not before:
-  // an offline reading still inside the pill's hold leaves it up. A
+  // progress offline, so this one gives way when the pill shows and stays away while the badge
+  // stands, and not before: an offline reading still inside the pill's delay
+  // leaves it up. A
   // logged-out user has no sync to report on, and the engine keeps the error
   // from the session that just ended. Demo data needs no account sync.
   const reasonKey = lastErrorReason === null ? undefined : SYNC_ERROR_REASON_KEY[lastErrorReason];
@@ -70,7 +71,7 @@ export function SyncErrorBanner() {
   if (
     !isAuthenticated ||
     isDemoMode ||
-    offlineBannerShown ||
+    offlineIndicator !== 'none' ||
     (retryAtMs ?? null) !== null ||
     (!lastError && !reasonKey)
   ) {

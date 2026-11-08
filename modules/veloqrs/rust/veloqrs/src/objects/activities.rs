@@ -417,7 +417,14 @@ impl ActivityManager {
         activity_id: String,
     ) -> Result<Option<crate::FfiPreviewTrack>, VeloqError> {
         // Off the engine lock, like the feed bundle this serves a card of.
-        with_reader(|conn| crate::persistence::screens::pooled::preview_track(conn, &activity_id))
+        let install = crate::persistence::engine_install();
+        let (track, refilled) = with_reader(|conn| {
+            crate::persistence::screens::pooled::preview_track_refilling(conn, &activity_id)
+        })?;
+        if let Some(signature) = refilled {
+            crate::persistence::activities::persist_refilled_signatures(install, &[signature]);
+        }
+        Ok(track)
     }
 
     /// What one activity was worth, as the title and body a lock screen shows

@@ -36,7 +36,7 @@ const FADE_SECONDS = 0.8;
 const FPS = 30;
 const PHONE_HEIGHT = 960;
 // The strongest feature first, so the poster frame stands alone.
-const SHOT_ORDER = ['02-map', '04-section', '03-activity', '01-feed', '05-insights', '06-fitness'];
+const SHOT_ORDER = ['03-map', '02-section', '04-activity', '01-feed', '06-insights', '05-fitness'];
 
 function readUrls(file: string | undefined): Record<string, string> {
   return file ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
@@ -68,9 +68,7 @@ function buildCut(cut: string, work: string): string {
     const caption = strings.shots[index];
     if (!caption) throw new Error(`${locale} has no caption for ${stem}`);
     const text = path.join(work, `${i}.txt`);
-    const sub = path.join(work, `${i}-sub.txt`);
     fs.writeFileSync(text, caption.cap);
-    fs.writeFileSync(sub, caption.sub);
     const clip = path.join(work, `${i}.mp4`);
     const draw = (file: string, font: string, size: number, colour: string, y: number) =>
       `drawtext=fontfile=${path.join(FONTS, font)}:textfile=${file}:fontsize=${size}:fontcolor=${colour}:x=120:y=${y}:line_spacing=12`;
@@ -78,7 +76,7 @@ function buildCut(cut: string, work: string): string {
       `color=c=${storePalette.stageTop}:s=${WIDTH}x${HEIGHT}:r=${FPS}[bg]`,
       `[0:v]scale=-2:${PHONE_HEIGHT}[phone]`,
       `[bg][phone]overlay=x=W-w-160:y=(H-h)/2:shortest=1[v]`,
-      `[v]${draw(text, 'Manrope-Bold.ttf', 76, storePalette.cap, 380)},${draw(sub, 'Manrope-Regular.ttf', 40, storePalette.sub, 640)}`,
+      `[v]${draw(text, 'Manrope-Bold.ttf', 76, storePalette.cap, 380)}`,
     ].join(';');
     execFileSync(
       'ffmpeg',

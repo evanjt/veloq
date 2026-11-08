@@ -23,12 +23,11 @@ export interface StorePalette {
   washGoldClear: string;
   /** Track lines drawn behind everything. */
   line: string;
-  /** Kicker, and the kicker on an achievement shot. */
-  kicker: string;
-  kickerAchievement: string;
   /** Headline and subtitle. */
   cap: string;
   sub: string;
+  /** The tick beside each privacy claim. */
+  tick: string;
   /** Device bezel, dark on the light stage. */
   bezel: string;
   /** CSS box-shadow for the device. */
@@ -43,10 +42,9 @@ export const storePalette: StorePalette = {
   washGold: t['gold-100'],
   washGoldClear: colorWithOpacity(t['gold-100'], 0),
   line: colorWithOpacity(t['blue-500'], opacity.tint1),
-  kicker: t['blue-600'],
-  kickerAchievement: t['gold-600'],
   cap: t['blue-900'],
   sub: t['text-secondary'],
+  tick: t['gold-600'],
   bezel: darkColors.surfacePage,
   shadow:
     `0 40px 90px ${colorWithOpacity(t['blue-800'], opacity.tint4)}, ` +
@@ -61,5 +59,4 @@ export const storeLayout = {
   padRatio: 0.078,
   capRatio: 0.078,
   subRatio: 0.44, // of cap
-  kickerRatio: 0.36, // of cap
 };

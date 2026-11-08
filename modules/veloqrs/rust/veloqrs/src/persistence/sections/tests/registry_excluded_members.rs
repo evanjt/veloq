@@ -51,6 +51,7 @@ fn engine_with_two_members_one_excluded() -> PersistentEngine {
             polyline,
             representative_activity_id: "kept".into(),
             representative_range: Some((0, POINTS as u32 - 1)),
+            representative_reversed: false,
             activity_ids: vec!["kept".into(), "excluded".into()],
             activity_portions: vec![portion("kept", distance), portion("excluded", distance)],
             visit_count: 2,

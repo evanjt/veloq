@@ -1,19 +1,17 @@
 /**
- * Scenario: the activity strip under the fitness plot names the selected day's
- * activities but not what they add up to; load shows only per activity inside
- * the picker.
+ * Scenario: the activity strip under the fitness plot sits above the form plot on one phone
+ * screen, so it carries no title, no day-activity row, no load text, no gloss sentence and no
+ * Show data link of its own.
  *
- * Expected behaviour: the selected day's recorded training load reads beside
- * the label without opening the picker, including on a single-activity day. A
- * day whose activities carry no load reads unavailable, a day with only some
- * reads partial, and a change of selection never carries the previous total.
+ * Expected behaviour: the strip is its marks and a legend of one icon per sport family, each icon
+ * named for a screen reader and none printing text. The strip stays a labelled chart for a screen
+ * reader, and a window of rest days has no legend.
  */
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
-import { DayLoadStatus, type DayLoad } from 'veloqrs';
 import type { FeedCard, WellnessData } from '@/types';
 import { dayActivityRow } from '@/features/activity/light';
 
@@ -23,8 +21,6 @@ const WELLNESS = [
   { id: '2026-03-10', ctl: 40, atl: 50 },
   { id: '2026-03-11', ctl: 41, atl: 49 },
   { id: '2026-03-12', ctl: 42, atl: 48 },
-  { id: '2026-03-13', ctl: 43, atl: 47 },
-  { id: '2026-03-14', ctl: 44, atl: 46 },
 ] as WellnessData[];
 
 function activity(id: string, day: string): FeedCard {
@@ -36,158 +32,83 @@ function activity(id: string, day: string): FeedCard {
   } as FeedCard;
 }
 
-const ACTIVITIES = [
-  activity('a1', '2026-03-10'),
-  activity('a2', '2026-03-10'),
-  activity('b1', '2026-03-11'),
-  activity('b2', '2026-03-11'),
-  activity('c1', '2026-03-12'),
-  activity('d1', '2026-03-13'),
-];
+const withLoad = (a: FeedCard, sport: FeedCard['sportType'], load: number): FeedCard =>
+  ({ ...a, sportType: sport, trainingLoad: load }) as FeedCard;
 
-const LOADS: DayLoad[] = [
-  { date: '2026-03-10', status: DayLoadStatus.Complete, total: 100, activityCount: 2 },
-  { date: '2026-03-11', status: DayLoadStatus.Partial, total: 40, activityCount: 2 },
-  { date: '2026-03-12', status: DayLoadStatus.Unavailable, activityCount: 1 },
-  { date: '2026-03-13', status: DayLoadStatus.Complete, total: 0, activityCount: 1 },
-];
-
-function strip(selectedDate: string | null) {
+function strip(selectedDate: string | null, activities: FeedCard[]) {
   return (
     <ActivityDotsChart
       data={WELLNESS}
-      activities={ACTIVITIES.map(dayActivityRow)}
-      dailyLoads={LOADS}
+      activities={activities.map(dayActivityRow)}
+      dailyLoads={[]}
       selectedDate={selectedDate}
     />
   );
 }
 
-describe('the activity strip selected-day load', () => {
-  it('reads the total of a complete day without opening the picker', async () => {
-    const tree = await render(strip('2026-03-10'));
+const MIXED = [
+  withLoad(activity('r1', '2026-03-10'), 'Ride', 50),
+  withLoad(activity('u1', '2026-03-11'), 'Run', 30),
+  withLoad(activity('w1', '2026-03-12'), 'Walk', 0),
+];
 
-    expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/100/);
-    expect(tree.getByTestId('fitness-day-load')).not.toHaveTextContent(/fitness\.loadPartial/);
-  });
+describe('the activity strip', () => {
+  it('prints no title, day row, load text, gloss or Show data link', async () => {
+    const tree = await render(strip('2026-03-10', MIXED));
 
-  it('marks a partial day as partial and keeps its known total', async () => {
-    const tree = await render(strip('2026-03-11'));
-
-    expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/40/);
-    expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/fitness\.loadPartial/);
-  });
-
-  it('reads unavailable, never a zero, for a day whose activities carry no load', async () => {
-    const tree = await render(strip('2026-03-12'));
-
-    expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/fitness\.loadUnavailable/);
-    expect(tree.getByTestId('fitness-day-load')).not.toHaveTextContent(/\b0\b/);
-  });
-
-  it('reads an explicit zero as a known zero', async () => {
-    const tree = await render(strip('2026-03-13'));
-
-    expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/\b0\b/);
-    expect(tree.getByTestId('fitness-day-load')).not.toHaveTextContent(/fitness\.loadUnavailable/);
-  });
-
-  it('prints nothing on a rest day', async () => {
-    const tree = await render(strip('2026-03-14'));
-
+    expect(tree.queryByText(/fitness\.daysTrained/)).toBeNull();
+    expect(tree.queryByRole('header')).toBeNull();
     expect(tree.queryByTestId('fitness-day-load')).toBeNull();
+    expect(tree.queryByTestId('fitness-strip-gloss')).toBeNull();
+    expect(tree.queryByTestId('activity-dots-plot-show-data')).toBeNull();
+    expect(tree.queryByText(/metrics\.trainingLoad/)).toBeNull();
   });
 
-  it('follows the selected date and carries no total into the next selection', async () => {
-    const tree = await render(strip('2026-03-10'));
-    expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/100/);
+  it('keys each sport family and the no-load state as a named icon with no visible text', async () => {
+    const tree = await render(strip(null, MIXED));
 
-    await tree.rerender(strip('2026-03-12'));
-    expect(tree.getByTestId('fitness-day-load')).toHaveTextContent(/fitness\.loadUnavailable/);
-    expect(tree.getByTestId('fitness-day-load')).not.toHaveTextContent(/100/);
-
-    await tree.rerender(strip('2026-03-14'));
-    expect(tree.queryByTestId('fitness-day-load')).toBeNull();
-
-    await tree.rerender(strip(null));
-    expect(tree.queryByTestId('fitness-day-load')).toBeNull();
-  });
-});
-
-describe('the activity strip title and key', () => {
-  const MIXED_WELLNESS = [
-    { id: '2026-03-10', ctl: 40, atl: 50 },
-    { id: '2026-03-11', ctl: 41, atl: 49 },
-    { id: '2026-03-12', ctl: 42, atl: 48 },
-  ] as WellnessData[];
-
-  function mixed(selectedDate: string | null, activities: FeedCard[]) {
-    return (
-      <ActivityDotsChart
-        data={MIXED_WELLNESS}
-        activities={activities.map(dayActivityRow)}
-        dailyLoads={[]}
-        selectedDate={selectedDate}
-      />
-    );
-  }
-
-  const withLoad = (a: FeedCard, sport: FeedCard['sportType'], load: number): FeedCard =>
-    ({ ...a, sportType: sport, trainingLoad: load }) as FeedCard;
-
-  const MIXED = [
-    withLoad(activity('r1', '2026-03-10'), 'Ride', 50),
-    withLoad(activity('u1', '2026-03-11'), 'Run', 30),
-    withLoad(activity('w1', '2026-03-12'), 'Walk', 0),
-  ];
-
-  it('titles the strip as a header and keys both sports and the neutral state', async () => {
-    const tree = await render(mixed(null, MIXED));
-
-    expect(tree.getByRole('header')).toHaveTextContent(/fitness\.daysTrained/);
-    expect(tree.getByTestId('fitness-strip-key-Ride')).toHaveTextContent(/sportFamilies\.ride/);
-    expect(tree.getByTestId('fitness-strip-key-Run')).toHaveTextContent(/sportFamilies\.run/);
-    expect(tree.queryByTestId('fitness-strip-key-Foot')).toBeNull();
-    expect(tree.getByTestId('fitness-strip-key-noLoad')).toHaveTextContent(/fitness\.noLoadKey/);
-    expect(tree.getByTestId('fitness-strip-gloss')).toHaveTextContent(/fitness\.stripGloss/);
+    expect(tree.getByLabelText('sportFamilies.ride')).toBeTruthy();
+    expect(tree.getByLabelText('sportFamilies.run')).toBeTruthy();
+    expect(tree.getByLabelText('fitness.noLoadKey')).toBeTruthy();
+    expect(tree.queryByText(/sportFamilies\./)).toBeNull();
+    expect(tree.queryByText(/fitness\.noLoadKey/)).toBeNull();
+    expect(tree.queryByLabelText('sportFamilies.foot')).toBeNull();
   });
 
-  it('keeps the title and key through selecting and clearing a day', async () => {
-    const tree = await render(mixed('2026-03-10', MIXED));
-    expect(tree.getByRole('header')).toHaveTextContent(/fitness\.daysTrained/);
+  it('keeps the legend through selecting and clearing a day', async () => {
+    const tree = await render(strip('2026-03-10', MIXED));
     expect(tree.getByTestId('fitness-strip-key-Run')).toBeTruthy();
 
-    await tree.rerender(mixed(null, MIXED));
-    expect(tree.getByRole('header')).toHaveTextContent(/fitness\.daysTrained/);
+    await tree.rerender(strip(null, MIXED));
     expect(tree.getByTestId('fitness-strip-key-Run')).toBeTruthy();
   });
 
   it('keys sports of one group as that group, once', async () => {
     const tree = await render(
-      mixed(null, [
+      strip(null, [
         withLoad(activity('r1', '2026-03-10'), 'Ride', 50),
         withLoad(activity('v1', '2026-03-11'), 'VirtualRide', 40),
         withLoad(activity('g1', '2026-03-12'), 'GravelRide', 30),
       ])
     );
 
-    expect(tree.getByTestId('fitness-strip-key-Ride')).toHaveTextContent(/sportFamilies\.ride/);
+    expect(tree.getByTestId('fitness-strip-key-Ride')).toBeTruthy();
     expect(tree.queryByTestId('fitness-strip-key-VirtualRide')).toBeNull();
     expect(tree.queryByTestId('fitness-strip-key-GravelRide')).toBeNull();
   });
 
-  it('omits sports and the neutral entry that the window does not show', async () => {
-    const tree = await render(mixed(null, [withLoad(activity('r1', '2026-03-10'), 'Ride', 50)]));
+  it('omits sports and the no-load entry that the window does not show', async () => {
+    const tree = await render(strip(null, [withLoad(activity('r1', '2026-03-10'), 'Ride', 50)]));
 
     expect(tree.getByTestId('fitness-strip-key-Ride')).toBeTruthy();
     expect(tree.queryByTestId('fitness-strip-key-Run')).toBeNull();
     expect(tree.queryByTestId('fitness-strip-key-noLoad')).toBeNull();
   });
 
-  it('keeps the title with no key on a window of rest days', async () => {
-    const tree = await render(mixed(null, []));
+  it('has no legend on a window of rest days', async () => {
+    const tree = await render(strip(null, []));
 
-    expect(tree.getByRole('header')).toHaveTextContent(/fitness\.daysTrained/);
-    expect(tree.queryByTestId('fitness-strip-gloss')).toBeNull();
+    expect(tree.queryByTestId('fitness-strip-key-Ride')).toBeNull();
+    expect(tree.queryByTestId('fitness-strip-key-noLoad')).toBeNull();
   });
 });

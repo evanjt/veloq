@@ -14,13 +14,9 @@ const FONTS = path.join(ROOT, 'assets', 'fonts');
 // typeset again here.
 const LOGO = path.join(ROOT, 'src', 'assets', 'logos', 'logo.svg');
 
+/** A shot's headline: one line of text over the device, no kicker and no subtitle. */
 export interface Caption {
-  /** The screen's name, above the headline. Absent where a locale has none yet. */
-  kicker?: string;
   cap: string;
-  sub: string;
-  /** A shot about a record or a milestone: its kicker takes the gold role. */
-  achievement?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -33,7 +29,6 @@ export interface Dims {
   pad: number;
   cap: number;
   sub: number;
-  kicker: number;
   kind: DeviceKind;
   headH: number;
 }
@@ -42,27 +37,22 @@ export function dims(width: number, height: number, kind: DeviceKind): Dims {
   const pad = Math.floor(width * storeLayout.padRatio);
   const cap = Math.floor(width * storeLayout.capRatio);
   const sub = Math.floor(cap * storeLayout.subRatio);
-  const kicker = Math.floor(cap * storeLayout.kickerRatio);
   return {
     width,
     height,
     pad,
     cap,
     sub,
-    kicker,
     kind,
-    // The kicker line, two headline lines at line-height 1.06, the subtitle's
-    // top margin, then two subtitle lines at 1.32. Two of each is the worst
-    // case any locale needs; reserving it keeps the device at one height
-    // across the whole set.
-    headH: Math.round(kicker * 1.4 + 2 * cap * 1.06 + cap * 0.26 + 2 * sub * 1.32),
+    // Two headline lines at line-height 1.06 is the worst case any locale
+    // needs; reserving it keeps the device at one height across the whole set.
+    headH: Math.round(2 * cap * 1.06),
   };
 }
 
 export function makeCss(p: StorePalette): string {
   return `
   @font-face { font-family: 'Store'; src: url('file://${FONTS}/Manrope-Bold.ttf'); font-weight: 700; }
-  @font-face { font-family: 'StoreKicker'; src: url('file://${FONTS}/Manrope-SemiBold.ttf'); font-weight: 600; }
   @font-face { font-family: 'StoreText'; src: url('file://${FONTS}/Manrope-Regular.ttf'); font-weight: 400; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; }
@@ -76,15 +66,6 @@ export function makeCss(p: StorePalette): string {
   }
   .tracks { position: absolute; left: 0; top: 0; }
   .canvas { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; padding: var(--pad); }
-  .kicker {
-    font-family: 'StoreKicker', sans-serif;
-    font-weight: 600;
-    font-size: var(--kicker);
-    letter-spacing: 0.06em;
-    margin-bottom: calc(var(--kicker) * 0.5);
-  }
-  .kicker { color: ${p.kicker}; }
-  .kicker.gold { color: ${p.kickerAchievement}; }
   .caption {
     font-family: 'Store', sans-serif;
     font-weight: 700;
@@ -122,11 +103,6 @@ export function makeCss(p: StorePalette): string {
 `;
 }
 
-function kickerHtml(caption: Caption): string {
-  if (!caption.kicker) return '';
-  return `<div class="kicker${caption.achievement ? ' gold' : ''}">${caption.kicker}</div>`;
-}
-
 export function phoneHtml(
   p: StorePalette,
   d: Dims,
@@ -155,7 +131,7 @@ export function deviceHtml(
 <html><head><meta charset="utf-8"><style>
 ${makeCss(p)}
 :root {
-  --pad: ${d.pad}px; --cap: ${d.cap}px; --sub: ${d.sub}px; --kicker: ${d.kicker}px;
+  --pad: ${d.pad}px; --cap: ${d.cap}px; --sub: ${d.sub}px;
   --headh: ${d.headH}px; --devw: ${f.outerWidth}px; --devh: ${f.outerHeight}px; --devr: ${f.outerRadius}px;
   --scr: ${f.screenRadius}px; --bezel: ${f.bezel}px;
 }
@@ -165,9 +141,7 @@ ${extraCss}
   ${tracks}
   <div class="canvas">
     <div class="head">
-      ${kickerHtml(caption)}
       <div class="caption">${caption.cap}</div>
-      <div class="sub">${caption.sub}</div>
     </div>
     <div class="stage">
       <div class="device">${screenHtml}${cutout}</div>
@@ -189,15 +163,13 @@ export function textPanelHtml(
   return `<!doctype html>
 <html><head><meta charset="utf-8"><style>
 ${makeCss(p)}
-:root { --pad: ${d.pad}px; --cap: ${d.cap}px; --sub: ${d.sub}px; --kicker: ${d.kicker}px; }
+:root { --pad: ${d.pad}px; --cap: ${d.cap}px; --sub: ${d.sub}px; }
 ${extraCss}
 </style></head>
 <body>
   ${tracks}
   <div class="canvas">
-    ${kickerHtml(caption)}
     <div class="caption">${caption.cap}</div>
-    <div class="sub">${caption.sub}</div>
     ${bodyHtml}
   </div>
 </body></html>

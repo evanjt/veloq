@@ -166,3 +166,16 @@ export function positionsOf(layout: HeatmapLayout): Map<string, CellPosition> {
   }
   return positions;
 }
+
+/**
+ * The day drawn at a point in the grid's own coordinates, or null outside the
+ * grid and on the undrawn days after today. A cell owns the gap to its right
+ * and below, so a finger dragged across the grid meets no dead strip.
+ */
+export function dateAt(layout: HeatmapLayout, x: number, y: number): string | null {
+  if (x < 0 || y < 0) return null;
+  const col = Math.floor(x / HEATMAP_PITCH);
+  const row = Math.floor(y / HEATMAP_PITCH);
+  if (col >= layout.weeks || row >= 7) return null;
+  return layout.cells[col * 7 + row]?.date ?? null;
+}

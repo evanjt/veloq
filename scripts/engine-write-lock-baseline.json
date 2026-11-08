@@ -23,6 +23,7 @@
   "modules/veloqrs/rust/veloqrs/src/objects/sync.rs": 10,
   "modules/veloqrs/rust/veloqrs/src/objects/tiles.rs": 2,
   "modules/veloqrs/rust/veloqrs/src/objects/tracks.rs": 2,
+  "modules/veloqrs/rust/veloqrs/src/persistence/activities.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/attempts.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/climb_bests.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/persistence/cutover.rs": 11,

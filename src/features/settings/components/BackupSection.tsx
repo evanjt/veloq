@@ -677,17 +677,6 @@ export function BackupSection() {
   const divider = <RowDivider />;
   const anyBusy = restoringEntry !== null;
 
-  const info = (...parts: string[]) => parts.join('\n\n');
-  // Neither platform's own backup gets a row: Android's is off for the app, and on
-  // iPhone the cloud backup named is iCloud Drive, which Veloq writes and can list.
-  const destinationsInfo = (
-    <InfoButton
-      testID="backup-info-destinations"
-      title={t('backup.sectionDestinations')}
-      message={webdavSet ? t('backup.webdavRestorePath') : t('backup.localRestorePath')}
-    />
-  );
-
   const runStatus = describeBackupRun(t, backupResult, backupError, runResult, {
     webdav: getWebdavConfig()?.url ?? '',
     folder: folderName ?? '',
@@ -702,21 +691,10 @@ export function BackupSection() {
         <SwitchRow
           icon="cloud-sync-outline"
           title={t('backup.autoBackup')}
-          description={t('backup.backupHolds')}
+          description={t('backup.autoBackupScope')}
           descriptionTestID="backup-holds"
           value={autoEnabled}
           onValueChange={handleToggleAutoBackup}
-          accessory={
-            <InfoButton
-              testID="backup-info-auto"
-              title={t('backup.autoBackup')}
-              message={t(
-                Platform.OS === 'ios'
-                  ? 'backup.autoBackupDescription'
-                  : 'backup.autoBackupDescriptionAndroid'
-              )}
-            />
-          }
           testID="backup-auto-switch"
         />
         {divider}
@@ -782,7 +760,7 @@ export function BackupSection() {
             <InfoButton
               testID="backup-info-restore"
               title={t('backup.sectionRestore')}
-              message={info(t('backup.restoreInfo'), t('backup.manualRestorePath'))}
+              message={t('backup.restoreInfo')}
             />
           }
         >
@@ -958,6 +936,8 @@ export function BackupSection() {
         ) : null}
       </Card>
 
+      {/* Neither platform's own backup gets a row: Android's is off for the app, and on
+          iPhone the cloud backup named is iCloud Drive, which Veloq writes and can list. */}
       <ListSectionHeader>{t('backup.sectionDestinations')}</ListSectionHeader>
       <Card variant="flat" padding="none">
         {icloudSupported ? (
@@ -968,7 +948,6 @@ export function BackupSection() {
                 title={t('backup.carrierIcloud')}
                 description={t('backup.carrierIcloudDescription')}
                 value={icloudOn}
-                accessory={destinationsInfo}
                 onValueChange={handleToggleIcloud}
                 testID="backup-icloud-switch"
               />
@@ -1036,11 +1015,6 @@ export function BackupSection() {
               />
             </View>
           ) : null}
-          <View style={styles.failure}>
-            <Text testID="backup-folder-description" style={detailStyle}>
-              {t('backup.carrierFolderDescription')}
-            </Text>
-          </View>
         </View>
         {driveSupported ? (
           <>
@@ -1097,7 +1071,7 @@ export function BackupSection() {
         ) : null}
         {divider}
         <View testID="backup-carrier-webdav">
-          <Row accessory={icloudSupported ? undefined : destinationsInfo}>
+          <Row>
             <Icon name="server-network" size={iconSize.lg} color={iconColor} />
             <View style={styles.fill}>
               <Text style={labelStyle}>{t('backup.backendWebdav')}</Text>
@@ -1138,7 +1112,7 @@ export function BackupSection() {
             <InfoButton
               testID="backup-info-export"
               title={t('backup.exportBackup')}
-              message={t('backup.notEncryptedWarning')}
+              message={t('backup.exportInfo')}
             />
           }
         >

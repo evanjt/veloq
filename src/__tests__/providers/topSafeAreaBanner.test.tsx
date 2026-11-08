@@ -19,7 +19,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 let mockIsOnline = true;
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: mockIsOnline, offlineBannerShown: !mockIsOnline }),
+  useNetwork: () => ({ isOnline: mockIsOnline, offlineIndicator: !mockIsOnline ? 'pill' : 'none' }),
 }));
 
 let mockHealth: { lastError: string | null; lastSuccessAt: string | null } = {

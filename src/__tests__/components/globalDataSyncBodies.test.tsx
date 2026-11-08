@@ -48,7 +48,7 @@ jest.mock('@/features/routes/lib/timeStreamBackfill', () => ({
   timeStreamsProgress: jest.fn(),
 }));
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: true }),
+  useNetwork: () => ({ isOnline: true, hasReading: true }),
   useIsOnline: () => true,
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());

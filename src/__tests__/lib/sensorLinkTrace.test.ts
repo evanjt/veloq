@@ -48,6 +48,7 @@ jest.mock('react-native-ble-plx', () => ({
     cancelDeviceConnection: mockCancelDeviceConnection,
     onDeviceDisconnected: jest.fn(() => ({ remove: jest.fn() })),
     onStateChange: jest.fn(() => ({ remove: jest.fn() })),
+    startDeviceScan: jest.fn(),
     stopDeviceScan: jest.fn(),
   })),
 }));

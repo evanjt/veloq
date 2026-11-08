@@ -37,7 +37,7 @@ jest.mock('@/shared/app', () => ({
 
 let mockOffline = true;
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: !mockOffline, offlineBannerShown: mockOffline }),
+  useNetwork: () => ({ isOnline: !mockOffline, offlineIndicator: mockOffline ? 'pill' : 'none' }),
 }));
 
 jest.mock('@/shared/native/useSyncHealth', () => ({

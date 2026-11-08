@@ -1266,35 +1266,22 @@ describe('on Android, where the app carries nothing in the device backup', () =>
     );
   });
 
-  it('says automatic backup writes to the destinations, not to a device backup', async () => {
-    mockOpenExplainer.mockClear();
+  it('has no explanation sheet on the automatic switch, its line sits under it', async () => {
     await render(<BackupSection />);
 
-    await fireEvent.press(screen.getByTestId('backup-info-auto'));
-
-    expect(String(mockOpenExplainer.mock.calls[0]?.[0].body)).toBe(
-      'backup.autoBackupDescriptionAndroid'
-    );
+    expect(screen.queryByTestId('backup-info-auto')).toBeNull();
+    expect(screen.getByTestId('backup-holds')).toHaveTextContent(/^backup\.autoBackupScope$/);
   });
 
-  it('keeps the destinations explanation, without the device backup in it', async () => {
-    mockOpenExplainer.mockClear();
+  it('has no destinations explanation on any row', async () => {
     await render(<BackupSection />);
 
-    await fireEvent.press(screen.getByTestId('backup-info-destinations'));
-
-    const message = String(mockOpenExplainer.mock.calls[0]?.[0].body);
-    expect(message).toContain('backup.localRestorePath');
+    expect(screen.queryByTestId('backup-info-destinations')).toBeNull();
   });
 });
 
 describe('one layout', () => {
-  const explanations = [
-    'backup.autoBackupDescription',
-    'backup.manualRestorePath',
-    'backup.notEncryptedWarning',
-    'backup.localRestorePath',
-  ];
+  const explanations = ['backup.restoreInfo', 'backup.exportInfo'];
 
   it('draws no explanation inline, only labels and states', async () => {
     await render(<BackupSection />);
@@ -1307,20 +1294,18 @@ describe('one layout', () => {
     expect(screen.queryByTestId('backup-manual-restore-path')).toBeNull();
   });
 
-  it('says at the top of the section what a backup holds, under the automatic switch', async () => {
+  it('says at the top of the section what automatic backup keeps, under the switch', async () => {
     await render(<BackupSection />);
 
-    expect(screen.getByTestId('backup-holds')).toHaveTextContent(/^backup\.backupHolds$/);
+    expect(screen.getByTestId('backup-holds')).toHaveTextContent(/^backup\.autoBackupScope$/);
     expect(screen.getByTestId('backup-auto-switch').props.accessibilityHint).toBe(
-      'backup.backupHolds'
+      'backup.autoBackupScope'
     );
   });
 
   it.each([
-    ['backup-info-auto', ['backup.autoBackupDescription']],
-    ['backup-info-restore', ['backup.restoreInfo', 'backup.manualRestorePath']],
-    ['backup-info-destinations', ['backup.localRestorePath']],
-    ['backup-info-export', ['backup.notEncryptedWarning']],
+    ['backup-info-restore', ['backup.restoreInfo']],
+    ['backup-info-export', ['backup.exportInfo']],
   ])('keeps the explanation behind %s', async (testID, keys) => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockOpenExplainer.mockClear();
@@ -1337,7 +1322,7 @@ describe('one layout', () => {
   it('names every info button after its topic, each one a control of its own', async () => {
     await render(<BackupSection />);
 
-    const names = ['auto', 'restore', 'destinations', 'export'].map((id) => {
+    const names = ['restore', 'export'].map((id) => {
       const name = screen.getByTestId(`backup-info-${id}`).props.accessibilityLabel as string;
       expect(name).toMatch(/^backup\.aboutTopic/);
       expect(screen.getByRole('button', { name })).toBeTruthy();
@@ -1565,19 +1550,13 @@ describe('the iCloud Drive destination', () => {
     expect(screen.getByTestId('backup-carrier-icloud')).toBeTruthy();
   });
 
-  it('keeps the destinations explanation on the iCloud Drive row, without the device backup', async () => {
+  it('puts no explanation on the iCloud Drive row', async () => {
     mockIcloudSupported = true;
-    mockOpenExplainer.mockClear();
     await render(<BackupSection />);
 
-    const info = within(screen.getByTestId('backup-carrier-icloud')).getByTestId(
-      'backup-info-destinations'
-    );
-    await fireEvent.press(info);
-
-    expect(mockOpenExplainer).toHaveBeenCalledTimes(1);
-    const message = String(mockOpenExplainer.mock.calls[0]?.[0].body);
-    expect(message).toContain('backup.localRestorePath');
+    expect(
+      within(screen.getByTestId('backup-carrier-icloud')).queryByTestId('backup-info-destinations')
+    ).toBeNull();
   });
 
   it('names iCloud Drive among the destinations a Back Up Now run wrote', async () => {

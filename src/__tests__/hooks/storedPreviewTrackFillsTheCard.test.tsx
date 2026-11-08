@@ -19,6 +19,7 @@ import {
 } from '@/features/activity/hooks/useMapPreviewCoordinates';
 import { getEngine } from '@/shared/native/engine';
 import { decodeCoords } from 'veloqrs';
+import { buildPreviewTracks } from '@/features/home/hooks/useStartupData';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { LatLng } from '@/shared/geo/polyline';
 
@@ -59,7 +60,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 /** A card and both app-lifetime subscribers, as the app mounts them. */
-function useCard(activityId: string, startupTrack?: undefined | { coordinates: []; altitude: [] }) {
+function useCard(activityId: string, startupTrack?: undefined | { points: LatLng[] }) {
   useMutatedPreviewTracks();
   useStoredPreviewTracks();
   return useMapPreviewCoordinates(activityId, true, startupTrack as never);
@@ -106,7 +107,7 @@ it('leaves every other card alone', async () => {
 });
 
 it('does not read for a card the startup bundle already filled', async () => {
-  await renderHook(() => useCard('a1', { coordinates: [], altitude: [] }), { wrapper });
+  await renderHook(() => useCard('a1', { points: [] }), { wrapper });
 
   await act(async () => {
     announceStored('a1');
@@ -162,4 +163,45 @@ it('reads the stream body once when the preview read throws', async () => {
   await renderHook(() => useCard('a1'), { wrapper });
 
   await waitFor(() => expect(engine.getActivityStreams).toHaveBeenCalledTimes(1));
+});
+
+describe('one input for the card and the detail', () => {
+  const line: LatLng[] = [
+    { latitude: 46.2, longitude: 7.3, elevation: 410 },
+    { latitude: 46.21, longitude: 7.31, elevation: 432.5 },
+    { latitude: 46.22, longitude: 7.32, elevation: 470 },
+  ];
+
+  it('hands the altitude the stored line carries, index-aligned with its coordinates', async () => {
+    mockDecode.mockReturnValue(line);
+    const { result } = await renderHook(() => useCard('a1'), { wrapper });
+
+    await waitFor(() => expect(result.current.coordinates).toHaveLength(3));
+    expect(Array.from(result.current.altitude ?? [])).toEqual([410, 432.5, 470]);
+  });
+
+  it('reads the same coordinates and altitude from the startup record as from the engine', async () => {
+    mockDecode.mockReturnValue(line);
+    const record = buildPreviewTracks([
+      { activityId: 'a1', encodedCoords: new ArrayBuffer(8) },
+    ] as Parameters<typeof buildPreviewTracks>[0]).get('a1');
+
+    const card = await renderHook(() => useCard('a1', record), { wrapper });
+    const detail = await renderHook(() => useCard('a1'), { wrapper });
+
+    await waitFor(() => expect(detail.result.current.coordinates).toHaveLength(3));
+    expect(card.result.current.coordinates).toEqual(detail.result.current.coordinates);
+    expect(Array.from(card.result.current.altitude ?? [])).toEqual(
+      Array.from(detail.result.current.altitude ?? [])
+    );
+    expect(card.result.current.altitude).toBeDefined();
+  });
+
+  it('carries no altitude when one point of the line has none', async () => {
+    mockDecode.mockReturnValue([line[0]!, { latitude: 46.21, longitude: 7.31 }]);
+    const { result } = await renderHook(() => useCard('a1'), { wrapper });
+
+    await waitFor(() => expect(result.current.coordinates).toHaveLength(2));
+    expect(result.current.altitude).toBeUndefined();
+  });
 });

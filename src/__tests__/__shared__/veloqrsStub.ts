@@ -236,7 +236,7 @@ export enum BulkExportFormat {
 /** `RecordScope` as generated, held to the source by the same test. */
 export enum RecordScope {
   Whole = 1,
-  SharedStorage = 2,
+  Automatic = 2,
 }
 
 /** `DownloadPriority` as generated, held to the source by the same test. */

@@ -540,6 +540,35 @@ export function calendarDaysBetween(from: Date, to: Date): number {
 }
 
 /**
+ * Date formatters by locale and option set. Constructing a formatter is the
+ * costly step, and a chart names every day it draws, so each pair is built once
+ * and reused. The locale is part of the key, so a language change builds its
+ * own formatters on first use.
+ */
+const dateFormats = new Map<string, Intl.DateTimeFormat>();
+
+function dateFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let format = dateFormats.get(key);
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, options);
+    dateFormats.set(key, format);
+  }
+  return format;
+}
+
+/**
+ * A date or time in the given locale and options, through the shared formatter.
+ * The date and time helpers in this file all format through here. An invalid
+ * date reads "Invalid Date", as `toLocaleDateString` gives it, where
+ * `Intl.DateTimeFormat.format` would throw.
+ */
+function formatDateIn(date: Date, options: Intl.DateTimeFormatOptions, locale: string): string {
+  if (Number.isNaN(date.getTime())) return 'Invalid Date';
+  return dateFormat(locale, options).format(date);
+}
+
+/**
  * Format date as relative time or localized date.
  *
  * Returns human-readable relative dates:
@@ -573,24 +602,32 @@ export function formatRelativeDate(dateString: string): string {
   } else if (diffDays === 1) {
     return i18n.t('time.yesterday') || 'Yesterday';
   } else if (diffDays < 7) {
-    return date.toLocaleDateString(locale, { weekday: 'long' });
+    return formatDateIn(date, { weekday: 'long' }, locale);
   } else if (isCurrentYear) {
-    return date.toLocaleDateString(locale, {
-      month: 'short',
-      day: 'numeric',
-    });
+    return formatDateIn(
+      date,
+      {
+        month: 'short',
+        day: 'numeric',
+      },
+      locale
+    );
   } else {
-    return date.toLocaleDateString(locale, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return formatDateIn(
+      date,
+      {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      },
+      locale
+    );
   }
 }
 
 /** A clock time in the app language and the system's 12 or 24-hour setting, with no seconds. */
 function formatShortTime(date: Date, locale: string): string {
-  return date.toLocaleTimeString(locale, { timeStyle: 'short', hourCycle: systemHourCycle() });
+  return formatDateIn(date, { timeStyle: 'short', hourCycle: systemHourCycle() }, locale);
 }
 
 /** A day and a time of day joined the way the app language joins them. */
@@ -622,12 +659,16 @@ export function formatRelativeDateTime(dateString: string): string {
 export function formatDateTime(instant: string | number): string {
   const date = new Date(instant);
   const locale = getIntlLocale();
-  const day = date.toLocaleDateString(locale, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const day = formatDateIn(
+    date,
+    {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    },
+    locale
+  );
   return joinDayAndTime(day, formatShortTime(date, locale));
 }
 
@@ -642,7 +683,7 @@ export function formatDateTime(instant: string | number): string {
 export function formatClockTime(dateString: string): string {
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return ABSENT;
-  return date.toLocaleTimeString(getIntlLocale(), { hour: 'numeric', minute: '2-digit' });
+  return formatDateIn(date, { hour: 'numeric', minute: '2-digit' }, getIntlLocale());
 }
 
 /**
@@ -653,13 +694,17 @@ export function formatClockOrDate(epochMs: number, now: Date = new Date()): stri
   const date = new Date(epochMs);
   const locale = getIntlLocale();
   if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString(locale, {
-      hour: 'numeric',
-      minute: '2-digit',
-      hourCycle: systemHourCycle(),
-    });
+    return formatDateIn(
+      date,
+      {
+        hour: 'numeric',
+        minute: '2-digit',
+        hourCycle: systemHourCycle(),
+      },
+      locale
+    );
   }
-  return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+  return formatDateIn(date, { month: 'short', day: 'numeric' }, locale);
 }
 
 /**
@@ -697,11 +742,15 @@ function asDay(date: Date | string): Date {
  * east of Greenwich every set is dated a day late.
  */
 export function formatEpochDayUtc(seconds: number): string {
-  return new Date(seconds * 1000).toLocaleDateString(getIntlLocale(), {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  });
+  return formatDateIn(
+    new Date(seconds * 1000),
+    {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    },
+    getIntlLocale()
+  );
 }
 
 /**
@@ -713,12 +762,18 @@ export function epochDayKeyUtc(seconds: number): string {
 }
 
 /**
+ * Format date as short date (e.g., "Jan 2") in the given locale. A caller that memoises
+ * its labels passes the locale, so the memo has the language as a dependency it reads.
+ */
+export function formatShortDateIn(date: Date | string, locale: string): string {
+  return formatDateIn(asDay(date), { month: 'short', day: 'numeric' }, locale);
+}
+
+/**
  * Format date as short date (e.g., "Jan 2")
  */
 export function formatShortDate(date: Date | string): string {
-  const d = asDay(date);
-  const locale = getIntlLocale();
-  return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+  return formatShortDateIn(date, getIntlLocale());
 }
 
 /**
@@ -727,11 +782,15 @@ export function formatShortDate(date: Date | string): string {
 export function formatShortDateWithWeekday(date: Date | string): string {
   const d = asDay(date);
   const locale = getIntlLocale();
-  return d.toLocaleDateString(locale, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
+  return formatDateIn(
+    d,
+    {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    },
+    locale
+  );
 }
 
 /**
@@ -750,11 +809,12 @@ export function formatShortDateWithYear(date: Date): string {
  * For axes only: a specific day is `formatFullDate`.
  */
 export function formatAxisDate(date: Date, includeDay: boolean): string {
-  return date.toLocaleDateString(
-    getIntlLocale(),
+  return formatDateIn(
+    date,
     includeDay
       ? { month: 'short', day: 'numeric', year: '2-digit' }
-      : { month: 'short', year: 'numeric' }
+      : { month: 'short', year: 'numeric' },
+    getIntlLocale()
   );
 }
 
@@ -763,7 +823,7 @@ export function formatAxisDate(date: Date, includeDay: boolean): string {
  * room for no more, otherwise in full.
  */
 export function formatYear(date: Date, twoDigit = false): string {
-  return date.toLocaleDateString(getIntlLocale(), { year: twoDigit ? '2-digit' : 'numeric' });
+  return formatDateIn(date, { year: twoDigit ? '2-digit' : 'numeric' }, getIntlLocale());
 }
 
 /**
@@ -772,24 +832,28 @@ export function formatYear(date: Date, twoDigit = false): string {
 export function formatMonth(date: Date | string): string {
   const d = asDay(date);
   const locale = getIntlLocale();
-  return d.toLocaleDateString(locale, { month: 'short' });
+  return formatDateIn(d, { month: 'short' }, locale);
 }
 
 /**
  * Format month and year (e.g., "Jun 2026")
  */
 export function formatMonthYear(date: Date | string): string {
-  return asDay(date).toLocaleDateString(getIntlLocale(), { month: 'short', year: 'numeric' });
+  return formatDateIn(asDay(date), { month: 'short', year: 'numeric' }, getIntlLocale());
 }
 
 export function formatFullDate(date: Date | string): string {
   const d = asDay(date);
   const locale = getIntlLocale();
-  return d.toLocaleDateString(locale, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return formatDateIn(
+    d,
+    {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    },
+    locale
+  );
 }
 
 /**
@@ -809,7 +873,7 @@ export function formatDateSpan(
   if (from.toDateString() === to.toDateString()) return formatFullDate(to);
   const fromText =
     from.getFullYear() === to.getFullYear()
-      ? from.toLocaleDateString(getIntlLocale(), { month: 'short', day: 'numeric' })
+      ? formatDateIn(from, { month: 'short', day: 'numeric' }, getIntlLocale())
       : formatFullDate(from);
   return `${fromText} – ${formatFullDate(to)}`;
 }
@@ -827,12 +891,16 @@ export function formatDateOrDash(date: string | null): string {
 export function formatFullDateWithWeekday(date: Date | string): string {
   const d = asDay(date);
   const locale = getIntlLocale();
-  return d.toLocaleDateString(locale, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return formatDateIn(
+    d,
+    {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    },
+    locale
+  );
 }
 
 /**

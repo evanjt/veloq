@@ -146,6 +146,35 @@ export function useWellness(range: TimeRange = '3m') {
   return useQuery({ ...wellnessWindowQuery(range, isAuthenticated), select: selectDays });
 }
 
+const selectDaysByDate = (window: WellnessWindow): ReadonlyMap<string, WellnessData> =>
+  new Map(window.days.map((d) => [d.id, d]));
+
+/**
+ * The stored days of an explicit window keyed by date, read once whatever days
+ * a caller looks up in it. Null until the first answer, or signed out, so a day not yet read is not
+ * taken for a day with nothing stored.
+ */
+export function useWellnessDays(
+  oldest: string,
+  newest: string
+): ReadonlyMap<string, WellnessData> | null {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  useWellnessInvalidation();
+
+  const { data } = useQuery({
+    ...LOCAL_READ_QUERY,
+    queryKey: queryKeys.wellness.byRange('window', oldest, newest),
+    queryFn: () => readWellness(oldest, newest),
+    enabled: isAuthenticated,
+    staleTime: Infinity,
+    gcTime: TIME.DAY,
+    select: selectDaysByDate,
+  });
+  // empty-on-error: null reads as not yet read, never as a window with nothing stored
+  return data ?? null;
+}
+
 /**
  * Whether the window `useWellness` reads for `range` holds stored wellness,
  * holds none, or was never pulled, as the engine answers it beside the days.

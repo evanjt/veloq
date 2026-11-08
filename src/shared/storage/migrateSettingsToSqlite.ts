@@ -34,6 +34,7 @@ export const PREFERENCE_KEYS = [
   'veloq-unit-preference',
   'veloq-resolved-unit-system',
   'veloq-primary-sport',
+  'veloq-wellness-smoothing',
   'veloq-map-preferences',
   'veloq-route-settings',
   'veloq-map-routes-visible',

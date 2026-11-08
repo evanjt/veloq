@@ -13,7 +13,7 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { CACHE } from '@/shared/app/constants';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { decodeCoords } from 'veloqrs';
-import { latLngsFromFlat } from '@/shared/geo/polyline';
+import { latLngsFromFlat, previewLineOf } from '@/shared/geo/polyline';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { ActivityStreams } from '@/types';
 import type { PreviewTrack } from '@/features/home';
@@ -144,34 +144,24 @@ export function useMapPreviewCoordinates(
     needsFetch && streams !== undefined && !bulkRunHasIt
   );
 
-  // 4. Build unified coordinate array (priority: startup → engine → API)
-  const coordinates = useMemo((): LatLng[] => {
-    if (startupTrack) return startupTrack.coordinates;
-    if (engineResult) {
-      return engineResult.filter((p) => !isNaN(p.latitude) && !isNaN(p.longitude));
-    }
+  // 4. One line for every source. Startup and engine hand over decoded points
+  // with their elevations and both turn into coordinates and altitude through
+  // `previewLineOf`, so a card and a detail reading the same stored line get
+  // the same camera input. Only the API fallback builds them from the streams.
+  const line = useMemo((): { coordinates: LatLng[]; altitude: ArrayLike<number> | undefined } => {
+    const points = startupTrack?.points ?? engineResult;
+    if (points) return previewLineOf(points);
     if (streams?.latlng && streams.latlng.length > 0) {
-      return latLngsFromFlat(streams.latlng).filter(
-        (c) => !isNaN(c.latitude) && !isNaN(c.longitude)
-      );
+      return {
+        coordinates: latLngsFromFlat(streams.latlng).filter(
+          (c) => !isNaN(c.latitude) && !isNaN(c.longitude)
+        ),
+        altitude: streams.altitude && streams.altitude.length > 0 ? streams.altitude : undefined,
+      };
     }
-    return [];
+    return { coordinates: [], altitude: undefined };
   }, [startupTrack, engineResult, streams]);
-
-  // 5. Altitude data for terrain camera calculations
-  const altitude = useMemo((): ArrayLike<number> | undefined => {
-    if (startupTrack) return startupTrack.altitude;
-    if (engineResult) {
-      const elevations = engineResult
-        .map((p) => p.elevation)
-        .filter((e): e is number => e !== undefined);
-      return elevations.length > 0 ? elevations : undefined;
-    }
-    if (streams?.altitude && streams.altitude.length > 0) {
-      return streams.altitude;
-    }
-    return undefined;
-  }, [startupTrack, engineResult, streams]);
+  const { coordinates, altitude } = line;
 
   return {
     coordinates,

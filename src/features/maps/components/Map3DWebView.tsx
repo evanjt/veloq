@@ -168,6 +168,8 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
       }
     | null
     | undefined;
+  /** The initial camera is the athlete's own, so the page never turns it. */
+  initialCameraPinned?: boolean | undefined;
   /** Called when user taps on the map (for section creation) */
   onMapClick?: ((coordinate: [number, number]) => void) | undefined;
   /** Called when user taps on a section line feature */
@@ -240,6 +242,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       fitPadding,
       frameSize,
       initialCamera,
+      initialCameraPinned,
       onMapClick,
       onSectionClick,
       onActivityClick,
@@ -298,6 +301,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const initialCenterRef = useRef(initialCenter);
     const initialZoomRef = useRef(initialZoom);
     const initialCameraRef = useRef(initialCamera);
+    const initialCameraPinnedRef = useRef(initialCameraPinned === true);
     // Track mapStyle in ref - style changes are applied via setStyle() injection
     // `appliedStyleRef` is what the page shows, `pageStyleRef` what its html was
     // built with, which is what any reload comes back up in.
@@ -563,6 +567,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           bearing,
           pitch,
           hasSavedCamera: !!savedCamera,
+          // A camera the page already posted, turned or moved, is not turned again.
+          cameraPinned: !!savedCameraRef.current || initialCameraPinnedRef.current,
           terrainExaggeration,
           // The style in effect when the page is built, so a rebuild after a
           // basemap toggle does not come up in the first-mounted one. It is not a

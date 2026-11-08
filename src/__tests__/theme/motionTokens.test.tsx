@@ -24,7 +24,7 @@ jest.mock('@/shared/app', () => ({
 }));
 jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: false, offlineBannerShown: true }),
+  useNetwork: () => ({ isOnline: false, offlineIndicator: 'pill' }),
 }));
 
 type Animated = { props: { entering?: unknown; exiting?: unknown } };

@@ -32,7 +32,7 @@ jest.unmock('expo-router/react-navigation');
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: true, offlineBannerShown: false }),
+  useNetwork: () => ({ isOnline: true, offlineIndicator: 'none' }),
 }));
 jest.mock('@/shared/native/useSyncHealth', () => ({
   useSyncHealth: () => ({ lastError: null, lastSuccessAt: null }),

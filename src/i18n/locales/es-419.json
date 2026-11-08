@@ -34,24 +34,21 @@
     "exportBackup": "Exportar respaldo",
     "exportError": "Error al exportar el respaldo.",
     "importBackup": "Importar respaldo",
-    "legacyImportMessage": "Al importar este respaldo se reemplazan tus ajustes guardados, como el tema, las unidades y las preferencias del mapa, y los nombres de tus secciones y rutas. Los valores reemplazados no se conservan.",
+    "legacyImportMessage": "Al importar este respaldo se reemplazan tu tema, tus unidades, las preferencias del mapa y los nombres de tus secciones y rutas. Los valores reemplazados no se conservan.",
     "signInRequired": "Inicia sesión antes de importar un respaldo.",
     "heldUntilSignIn": "El respaldo se restaurará cuando inicies sesión.",
     "importError": "Error al importar el respaldo.",
     "autoBackup": "Respaldo de seguridad automática",
     "title": "Respaldo y restauración",
-    "autoBackupDescription": "Desactivada: Veloq no crea ninguna respaldo por sí mismo. Activada: el archivo de datos se escribe cada día tras la sincronización en la respaldo del dispositivo y en cada destino configurado abajo.",
     "lastBackup": "Último respaldo: {{date}}",
-    "noBrowsableDestination": "El respaldo del dispositivo solo vuelve cuando configuras un teléfono nuevo, así que no se puede restaurar desde aquí. Para restaurar en este teléfono, agrega WebDAV o una carpeta abajo, o importa un archivo de respaldo.",
+    "noBrowsableDestination": "El respaldo del dispositivo solo vuelve en un teléfono nuevo, así que no aparece aquí. Para restaurar en este teléfono, agrega WebDAV o una carpeta abajo, o importa un archivo.",
     "carrierOlderOnDevice": "Respaldos anteriores en este dispositivo",
     "backupFailedMessage": "No se pudo completar el respaldo. Revisa el destino e inténtalo de nuevo.",
     "backupFailedQuota": "El servidor no tiene espacio para el respaldo.",
     "backupFailedPath": "El servidor no encontró la carpeta de respaldos. Revisa la URL del servidor.",
     "backupFailedFolder": "Veloq ya no puede acceder a la carpeta de respaldos. Elige la carpeta de nuevo.",
-    "notEncryptedWarning": "Los respaldos no están cifrados. Cualquiera que abra el archivo puede leer tus ajustes, los nombres de tus rutas y secciones, dónde están esas secciones en el mapa y la ubicación de casa definida para la privacidad de la exportación.",
     "nextcloudQrHint": "Nextcloud → Configuración → Seguridad → Crear nueva contraseña de app → Escanear código QR",
     "scanQrInstructions": "En Nextcloud, ve a Configuración → Seguridad → Crear nueva contraseña de app, luego escanea el código QR mostrado.",
-    "autoBackupDescriptionAndroid": "Desactivada: Veloq no crea ningún respaldo por sí mismo. Activada: el archivo de datos se escribe cada día tras la sincronización en cada destino configurado abajo.",
     "noDestinationSetUp": "No hay ningún destino configurado desde el que restaurar. Agrega uno abajo o importa un archivo de respaldo.",
     "restoreOfferFoundOnPhone": "Se encontró un respaldo en este teléfono."
   },
@@ -206,7 +203,7 @@
     "v030": {
       "backupTitle": "Respaldo y restauración",
       "backupTip": "Toca Respaldar ahora para crear un respaldo, o activa el respaldo automático para tener siempre uno al día.",
-      "backupBody": "Guarda tus ajustes y decisiones en un archivo de respaldo pequeño y compártelo desde tu dispositivo. Al restaurarlo, las actividades se descargan de nuevo y tus decisiones se aplican donde coincidan."
+      "backupBody": "Respalda todo lo que intervals.icu no guarda: los nombres de tus secciones, tus ediciones y tus ajustes."
     }
   },
   "strength": {

@@ -101,10 +101,6 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
           </Text>
         </View>
 
-        <Text style={[styles.source, isDark && styles.sourceDark]}>
-          {t('bestEffortsScreen.curveSource')}
-        </Text>
-
         {isLoading || (notFetched && curve.status === 'waiting') ? (
           <BestEffortRowsSkeleton rows={BEST_EFFORT_ROW_COUNT[sport]} />
         ) : notFetched ? (
@@ -339,14 +335,6 @@ const styles = StyleSheet.create({
   },
   cardTitleDark: {
     color: darkColors.textPrimary,
-  },
-  source: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  sourceDark: {
-    color: darkColors.textSecondary,
   },
   notDownloaded: {
     padding: spacing.md,

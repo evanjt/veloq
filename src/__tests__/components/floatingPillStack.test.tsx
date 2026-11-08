@@ -41,8 +41,12 @@ jest.mock('@/shared/app', () => ({
 }));
 
 let mockOffline = false;
+let mockBadge = false;
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: !mockOffline, offlineBannerShown: mockOffline }),
+  useNetwork: () => ({
+    isOnline: !mockOffline && !mockBadge,
+    offlineIndicator: mockBadge ? 'badge' : mockOffline ? 'pill' : 'none',
+  }),
 }));
 
 let mockHealth = {
@@ -89,6 +93,7 @@ beforeEach(() => {
   (getEngine as jest.Mock).mockReturnValue(engine);
   mockIsDark = false;
   mockOffline = false;
+  mockBadge = false;
   mockSyncing = false;
   mockQuietStep = false;
   mockHealth = { lastError: null, lastErrorReason: null, lastSuccessAt: null, retryAtMs: null };
@@ -225,6 +230,14 @@ describe('the paused sync', () => {
 
     expect(screen.queryByTestId('paused-sync-pill')).toBeNull();
     expect(screen.getByTestId('offline-pill')).toBeTruthy();
+  });
+
+  it('stays hidden while the offline spell has settled into the badge', async () => {
+    mockBadge = true;
+    await render(<FloatingPillStack />);
+
+    expect(screen.queryByTestId('paused-sync-pill')).toBeNull();
+    expect(screen.queryByTestId('offline-pill')).toBeNull();
   });
 
   it('draws nothing signed out or in demo mode', async () => {

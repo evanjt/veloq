@@ -19,8 +19,8 @@ import type { LatLng } from '@/shared/geo/polyline';
  */
 export interface PreviewTrack {
   activityId: string;
-  coordinates: LatLng[];
-  altitude: number[] | undefined;
+  /** The decoded line with each point's elevation, as the engine stores it. */
+  points: LatLng[];
 }
 
 /**
@@ -44,14 +44,9 @@ export function buildPreviewTracks(
   return timeAppWork(DECODE_PREVIEW_TRACKS, () => {
     const tracks = new Map<string, PreviewTrack>();
     for (const track of rawTracks) {
-      const decoded = decodeCoords(track.encodedCoords);
-      const coords = decoded.filter((p) => !isNaN(p.latitude) && !isNaN(p.longitude));
-      if (coords.length > 0) {
-        tracks.set(track.activityId, {
-          activityId: track.activityId,
-          coordinates: coords,
-          altitude: undefined, // preview cards render position only
-        });
+      const points = decodeCoords(track.encodedCoords);
+      if (points.length > 0) {
+        tracks.set(track.activityId, { activityId: track.activityId, points });
       }
     }
     return tracks;
@@ -65,11 +60,12 @@ function retainUnchangedPreviewTracks(
   if (!previous) return next;
   for (const [id, track] of next) {
     const prior = previous.get(id);
-    if (!prior || prior.coordinates.length !== track.coordinates.length) continue;
-    const unchanged = track.coordinates.every(
+    if (!prior || prior.points.length !== track.points.length) continue;
+    const unchanged = track.points.every(
       (point, index) =>
-        point.latitude === prior.coordinates[index]?.latitude &&
-        point.longitude === prior.coordinates[index]?.longitude
+        point.latitude === prior.points[index]?.latitude &&
+        point.longitude === prior.points[index]?.longitude &&
+        point.elevation === prior.points[index]?.elevation
     );
     if (unchanged) next.set(id, prior);
   }

@@ -463,6 +463,7 @@ fn detected_line() -> tracematch::FrequentSection {
         polyline: polyline.clone(),
         representative_activity_id: "source".into(),
         representative_range: None,
+        representative_reversed: false,
         activity_ids: vec!["source".into()],
         activity_portions: vec![tracematch::SectionPortion {
             activity_id: "source".into(),

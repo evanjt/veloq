@@ -18,12 +18,9 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
 import { ClimbingBestRows } from '@/features/fitness/components/ClimbingBestRows';
-import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
 import ExerciseDetailScreen from '@/features/strength/components/ExerciseDetailScreen';
 import type { ClimbBest } from '@/features/stats';
-import type { FeedCard, WellnessData } from '@/types';
 import { layout } from '@/theme';
-import { dayActivityRow } from '@/features/activity/light';
 
 const mockPush = jest.fn();
 
@@ -94,34 +91,6 @@ describe('climbing bests', () => {
     const row = screen.getByTestId('season-bests-climbing-600');
     expect(row.props.accessibilityRole).toBe('button');
     expect(row.props.accessibilityLabel).toMatch(/Kite session/);
-    expectTapTargetRow(row);
-    expectNoArrow();
-
-    await fireEvent.press(row);
-    expect(pushed()).toEqual(['/activity/kite-day']);
-  });
-});
-
-describe('the days-trained strip', () => {
-  it('opens the chosen day activity from a row with no arrow', async () => {
-    const wellness = [{ id: '2026-02-14', ctl: 40, atl: 50 }] as WellnessData[];
-    const activities = [
-      {
-        id: 'kite-day',
-        name: 'Kite session',
-        sportType: 'Ride',
-        startDateLocal: '2026-02-14T07:00:00',
-      },
-    ] as FeedCard[];
-    await render(
-      <ActivityDotsChart
-        data={wellness}
-        activities={activities.map(dayActivityRow)}
-        selectedDate="2026-02-14"
-      />
-    );
-
-    const row = screen.getByRole('button', { name: /Kite session/ });
     expectTapTargetRow(row);
     expectNoArrow();
 

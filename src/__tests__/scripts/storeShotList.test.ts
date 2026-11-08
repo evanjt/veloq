@@ -43,6 +43,19 @@ describe('the store shot list', () => {
     expect(flowStems()).toEqual(CAPTURED_STEMS);
   });
 
+  it('takes the shots in the order feed, sections, map, activity, fitness, insights, strength, recording', () => {
+    expect(CAPTURED_STEMS).toEqual([
+      '01-feed',
+      '02-section',
+      '03-map',
+      '04-activity',
+      '05-fitness',
+      '06-insights',
+      '07-strength',
+      '08-recording',
+    ]);
+  });
+
   it('numbers its stems in order, each once', () => {
     const stems = STORE_SHOTS.map((s) => s.stem);
     expect(new Set(stems).size).toBe(stems.length);
@@ -54,7 +67,7 @@ describe('the store shot list', () => {
   it('puts the map, section and strength shots in both phone stores', () => {
     for (const target of ['play', 'appstore'] as const) {
       const stems = shotsFor(target).map((s) => s.stem);
-      expect(stems).toEqual(expect.arrayContaining(['02-map', '04-section', '07-strength']));
+      expect(stems).toEqual(expect.arrayContaining(['03-map', '02-section', '07-strength']));
     }
   });
 
@@ -94,14 +107,14 @@ describe('the capture flow', () => {
   };
 
   it('sets the satellite style, 3D terrain and the heatmap before the map shot', () => {
-    const shot = at('store-capture/02-map');
+    const shot = at('store-capture/03-map');
     expect(at('map-style-satellite')).toBeLessThan(shot);
     expect(at('terrain-3d-always')).toBeLessThan(shot);
     expect(at('map-toggle-heatmap')).toBeLessThan(shot);
   });
 
   it('closes the layers menu after the heatmap toggle and asserts it gone before the map shot', () => {
-    const shot = at('store-capture/02-map');
+    const shot = at('store-capture/03-map');
     const heatmap = FLOW.lastIndexOf('map-toggle-heatmap', shot);
     const closed = FLOW.indexOf('helpers/close-map-layers.yaml', heatmap);
     expect(closed).toBeGreaterThan(heatmap);
@@ -109,14 +122,14 @@ describe('the capture flow', () => {
   });
 
   it('closes the ride popup and asserts it gone before the map shot', () => {
-    const shot = at('store-capture/02-map');
+    const shot = at('store-capture/03-map');
     const closeTap = FLOW.lastIndexOf('activity-popup-close', shot);
     expect(closeTap).toBeGreaterThan(at('regional-map-ready'));
     expect(FLOW.slice(closeTap, shot)).toMatch(/assertNotVisible:\s*\n\s+id: "activity-popup"/);
   });
 
   it('frames the map on the Valais ride rather than the library default', () => {
-    expect(FLOW.slice(0, at('store-capture/02-map'))).toContain('veloq://map?activity=demo-test-0');
+    expect(FLOW.slice(0, at('store-capture/03-map'))).toContain('veloq://map?activity=demo-test-0');
   });
 
   it('scrolls the feed to its top before the feed shot', () => {
@@ -125,7 +138,7 @@ describe('the capture flow', () => {
   });
 
   it('waits for the Insights routes line to clear before the insights shot', () => {
-    const before = FLOW.slice(0, at('store-capture/05-insights'));
+    const before = FLOW.slice(0, at('store-capture/06-insights'));
     expect(before.lastIndexOf('routes-sync-banner')).toBeGreaterThan(
       before.indexOf('insights-panel')
     );
@@ -141,12 +154,16 @@ describe('the capture flow', () => {
     }
   });
 
-  it('keeps debug mode off while the activity shot is taken', () => {
-    const activity = at('store-capture/03-activity');
+  it('switches debug mode off again after the section shot, before the map and activity shots', () => {
+    const section = at('store-capture/02-section');
     const debugOn = FLOW.indexOf(
       'checked: false\n    commands:\n      - tapOn:\n          id: "settings-debug-switch"'
     );
-    expect(debugOn).toBeGreaterThan(activity);
+    expect(debugOn).toBeGreaterThan(-1);
+    expect(debugOn).toBeLessThan(section);
+    const offAgain = FLOW.indexOf('checked: false\n', section);
+    expect(offAgain).toBeGreaterThan(section);
+    expect(offAgain).toBeLessThan(at('store-capture/03-map'));
   });
 
   it('switches debug mode off, and asserts it reads off, before the first shot', () => {

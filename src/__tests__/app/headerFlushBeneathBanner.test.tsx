@@ -23,7 +23,7 @@ jest.mock('expo-router', () => ({ ...jest.requireActual('expo-router') }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: true, offlineBannerShown: false }),
+  useNetwork: () => ({ isOnline: true, offlineIndicator: 'none' }),
 }));
 jest.mock('@/shared/native/useSyncHealth', () => ({
   useSyncHealth: () => ({ lastError: null, lastSuccessAt: null }),

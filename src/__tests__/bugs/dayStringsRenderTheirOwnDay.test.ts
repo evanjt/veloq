@@ -34,19 +34,25 @@ jest.mock('@/i18n', () => ({
   i18n: { t: (key: string) => key },
 }));
 
-/** The Date a formatter hands to Intl, whatever it renders. */
+/**
+ * The Date a formatter hands to Intl, whatever it renders. Read at
+ * `Intl.DateTimeFormat.prototype.format`, which every date the app prints goes
+ * through, so it holds whichever formatter instance was built or reused.
+ */
 function dateHandedToIntl(format: (d: string) => string, day: string): Date {
   let seen = new Date(NaN);
-  const spy = jest.spyOn(Date.prototype, 'toLocaleDateString').mockImplementation(function (
-    this: Date
-  ) {
-    seen = this;
-    return '';
+  const original = Object.getOwnPropertyDescriptor(Intl.DateTimeFormat.prototype, 'format');
+  Object.defineProperty(Intl.DateTimeFormat.prototype, 'format', {
+    configurable: true,
+    get: () => (date?: Date | number) => {
+      seen = new Date(date ?? NaN);
+      return '';
+    },
   });
   try {
     format(day);
   } finally {
-    spy.mockRestore();
+    Object.defineProperty(Intl.DateTimeFormat.prototype, 'format', original!);
   }
   return seen;
 }

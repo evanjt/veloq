@@ -97,9 +97,9 @@ describe('the fitness and strength shots', () => {
   afterAll(() => fs.rmSync(raw, { recursive: true, force: true }));
 
   it.each([
-    ['android', '06-fitness', 'summary-4x2'],
+    ['android', '05-fitness', 'summary-4x2'],
     ['android', '07-strength', 'strength-4x2'],
-    ['ios', '06-fitness', 'summary-medium'],
+    ['ios', '05-fitness', 'summary-medium'],
     ['ios', '07-strength', 'strength-medium'],
   ] as const)('%s %s draws the %s widget capture over the screen', (platform, stem, drawn) => {
     const html = capturedScreenHtml(`/raw/${stem}.png`, shotWidgetFile(raw, platform, stem));
@@ -115,12 +115,12 @@ describe('the fitness and strength shots', () => {
   });
 
   it('names a missing widget capture rather than composing without it', () => {
-    expect(() => shotWidgetFile(path.join(raw, 'nowhere'), 'ios', '06-fitness')).toThrow(
+    expect(() => shotWidgetFile(path.join(raw, 'nowhere'), 'ios', '05-fitness')).toThrow(
       /Missing widget capture/
     );
   });
 
   it('carries a widget on exactly the fitness and strength shots', () => {
-    expect(SHOT_WIDGETS).toEqual({ '06-fitness': 'summary', '07-strength': 'strength' });
+    expect(SHOT_WIDGETS).toEqual({ '05-fitness': 'summary', '07-strength': 'strength' });
   });
 });

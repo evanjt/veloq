@@ -34,6 +34,8 @@ export interface SensorConnection {
   batteryPercent?: number;
   /** Received signal strength in dBm, read while the link is open. */
   rssi?: number;
+  /** The sensor advertises, so it is broadcasting, yet its subscription stays silent after a recovery. */
+  stuck?: boolean;
 }
 
 /**

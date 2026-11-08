@@ -233,12 +233,17 @@ fn cut_records(
 }
 
 /// A section's geometry provenance, when its line is a real slice.
-fn reference_of(section: &FrequentSection) -> Option<(String, u32, u32)> {
+fn reference_of(section: &FrequentSection) -> Option<(String, u32, u32, bool)> {
     let (start, end) = section.representative_range?;
     if section.representative_activity_id.is_empty() {
         return None;
     }
-    Some((section.representative_activity_id.clone(), start, end))
+    Some((
+        section.representative_activity_id.clone(),
+        start,
+        end,
+        section.representative_reversed,
+    ))
 }
 
 /// What one apply did to the catalogue, in the three words the last-run line
@@ -277,8 +282,9 @@ pub(crate) struct SectionLifecycleEvent {
     pub kind: &'static str,
     pub details: Option<String>,
     pub geometry: Option<Vec<GpsPoint>>,
-    /// Where `geometry` was sliced from, when it is a slice of one activity.
-    pub reference: Option<(String, u32, u32)>,
+    /// Where `geometry` was sliced from, when it is a slice of one activity,
+    /// and whether it reads that range backwards.
+    pub reference: Option<(String, u32, u32, bool)>,
 }
 
 /// What arrives with one replay step.
@@ -2598,7 +2604,7 @@ impl PersistentEngine {
         let Ok(mut stmt) = self.db.prepare(
             "SELECT id, bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     polyline_blob, polyline_json, representative_activity_id,
-                    rep_start_index, rep_end_index
+                    rep_start_index, rep_end_index, rep_reversed
              FROM sections WHERE is_user_defined = 1 AND bounds_min_lat IS NOT NULL",
         ) else {
             return Vec::new();
@@ -2613,6 +2619,7 @@ impl PersistentEngine {
                 row.get::<_, Option<String>>(7)?,
                 row.get::<_, Option<u32>>(8)?,
                 row.get::<_, Option<u32>>(9)?,
+                row.get::<_, bool>(10)?,
             ))
         }) {
             Ok(iter) => iter.flatten().collect(),
@@ -2621,8 +2628,16 @@ impl PersistentEngine {
         drop(stmt);
         rows.into_iter()
             .filter_map(
-                |([min_lat, max_lat, min_lng, max_lng], blob, json, rep_id, start, end)| {
-                    let reference = geometry::reference(rep_id.as_deref(), start, end);
+                |(
+                    [min_lat, max_lat, min_lng, max_lng],
+                    blob,
+                    json,
+                    rep_id,
+                    start,
+                    end,
+                    reversed,
+                )| {
+                    let reference = geometry::reference(rep_id.as_deref(), start, end, reversed);
                     let ground =
                         geometry::line(&self.db, blob.as_deref(), json.as_deref(), reference)
                             .ok()
@@ -2658,7 +2673,7 @@ impl PersistentEngine {
         {
             let mut stmt = match self.db.prepare(concat!(
                 "SELECT id, polyline_blob, polyline_json, representative_activity_id,
-                        rep_start_index, rep_end_index
+                        rep_start_index, rep_end_index, rep_reversed
                  FROM sections
                  WHERE section_type = 'custom'
                     OR is_user_defined = 1
@@ -2678,18 +2693,19 @@ impl PersistentEngine {
                     row.get::<_, Option<String>>(3)?,
                     row.get::<_, Option<u32>>(4)?,
                     row.get::<_, Option<u32>>(5)?,
+                    row.get::<_, bool>(6)?,
                 ))
             }) {
                 Ok(iter) => iter.flatten().collect(),
                 Err(_) => return (grounds, ids),
             };
             drop(stmt);
-            for (id, blob, json, rep_id, start, end) in rows {
+            for (id, blob, json, rep_id, start, end, reversed) in rows {
                 ids.insert(id);
                 // The blob is a cache. A cleared one still has to yield the
                 // ground, or the corridor the user shaped is re-emitted under
                 // a second id on the next detect.
-                let reference = geometry::reference(rep_id.as_deref(), start, end);
+                let reference = geometry::reference(rep_id.as_deref(), start, end, reversed);
                 if let Ok(pts) =
                     geometry::line(&self.db, blob.as_deref(), json.as_deref(), reference)
                     && !pts.is_empty()
@@ -3228,6 +3244,7 @@ mod tests {
             ],
             representative_activity_id: "a1".to_string(),
             representative_range: Some((0, 12)),
+            representative_reversed: false,
             activity_ids: vec!["a1".to_string()],
             activity_portions: vec![],
             visit_count: 3,
@@ -3838,7 +3855,7 @@ mod tests {
         &'static str,
         Option<String>,
         Option<Vec<GpsPoint>>,
-        Option<(String, u32, u32)>,
+        Option<(String, u32, u32, bool)>,
     );
 
     fn event_rows(events: &[SectionLifecycleEvent]) -> Vec<EventRow> {

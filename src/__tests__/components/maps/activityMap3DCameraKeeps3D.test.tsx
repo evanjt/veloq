@@ -188,7 +188,7 @@ describe('saving a 3D camera angle', () => {
     await leave3D(view);
 
     expect(prefs.getTerrain3DMode('Ride', ACTIVITY_ID)).not.toBe('off');
-    expect(verdict()).toEqual({ show3D: true, camera: ATHLETE_CAMERA });
+    expect(verdict()).toEqual({ show3D: true, camera: ATHLETE_CAMERA, pinned: true });
     expect(prefs.getActivityCamera(ACTIVITY_ID)).toEqual(ATHLETE_CAMERA);
   });
 

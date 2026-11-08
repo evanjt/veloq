@@ -103,7 +103,8 @@ fn current_rows(conn: &Connection) -> Vec<CurrentRow> {
     let Ok(mut stmt) = conn.prepare(
         "SELECT id, name, is_user_defined, disabled, superseded_by,
                 polyline_blob, polyline_json, representative_activity_id,
-                rep_start_index, rep_end_index, distance_meters, visit_count
+                rep_start_index, rep_end_index, distance_meters, visit_count,
+                rep_reversed
          FROM sections ORDER BY id",
     ) else {
         return Vec::new();
@@ -121,11 +122,12 @@ fn current_rows(conn: &Connection) -> Vec<CurrentRow> {
         let rep_end: Option<u32> = row.get(9)?;
         let distance: Option<f64> = row.get(10)?;
         let visits: Option<u32> = row.get(11)?;
+        let rep_reversed: bool = row.get(12)?;
         let line = super::geometry::line(
             conn,
             blob.as_deref(),
             json.as_deref(),
-            super::geometry::reference(rep.as_deref(), rep_start, rep_end),
+            super::geometry::reference(rep.as_deref(), rep_start, rep_end, rep_reversed),
         )
         .unwrap_or_default();
         Ok((

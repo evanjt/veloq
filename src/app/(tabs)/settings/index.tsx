@@ -29,6 +29,7 @@ import {
   SettingsNavRow,
   BackgroundJobsHeaderItem,
   ActivityHistoryRow,
+  OfflineRow,
   RecordingPermissionSection,
   FooterSection,
   SupportSection,
@@ -265,6 +266,8 @@ function SettingsScreenContent() {
         testID="settings-scrollview"
         contentContainerStyle={{ paddingBottom: spacing.xl }}
       >
+        <OfflineRow />
+
         {/* Account */}
         <AccountRow
           athlete={athlete}

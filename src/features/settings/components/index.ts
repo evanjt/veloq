@@ -17,6 +17,7 @@ export { HeatmapRow } from './HeatmapRow';
 export { MapsSection } from './MapsSection';
 export { NotificationSection } from './NotificationSection';
 export { ProfileAccountSection } from './ProfileAccountSection';
+export { OfflineRow } from './OfflineRow';
 export { RecordingPermissionSection } from './RecordingPermissionSection';
 export { SettingsNavRow } from './SettingsNavRow';
 export { StorageStatsPanel } from './StorageStatsPanel';

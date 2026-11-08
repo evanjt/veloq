@@ -6,7 +6,11 @@
  */
 import type { MapPalette } from '@/theme';
 import type { MapLayerSpec } from '@/features/maps/lib/htmlBuilders';
-import { ENDPOINT_IMAGES, buildEndpointLayers } from '@/features/maps/lib/endpointLayers';
+import {
+  ENDPOINT_IMAGES,
+  buildEndpointLayers,
+  endpointCasingRadius,
+} from '@/features/maps/lib/endpointLayers';
 import {
   MAP_3D_SCALE,
   OVERLAY_LINE_WIDTH,
@@ -64,6 +68,9 @@ export function endpoint3DLayers(palette: MapPalette): MapLayerSpec[] {
     scale: MAP_3D_SCALE,
   });
 }
+
+/** How far an end marker's casing reaches from its point on a 3D page. */
+export const ENDPOINT_3D_CASING_RADIUS = endpointCasingRadius(MAP_3D_SCALE);
 
 /** The ids of the end marker layers, in the order the page draws them. */
 export const ENDPOINT_3D_LAYER_IDS = ['start-end-border', 'start-end-fill', 'start-end-icon'];

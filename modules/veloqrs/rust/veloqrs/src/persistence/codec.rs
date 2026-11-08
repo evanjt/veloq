@@ -591,6 +591,18 @@ pub fn encode_polyline(points: &[crate::GpsPoint]) -> Vec<u8> {
     out
 }
 
+/// Whether a stored track blob carries elevation on any point, read from the
+/// header of a quantised track without decoding a point. `None` for a
+/// container whose header does not say (a legacy one), which the caller
+/// decodes.
+pub fn track_blob_carries_elevation(bytes: &[u8]) -> Option<bool> {
+    let payload = unframe(POLYLINE_TAG, bytes)?;
+    let mut pos = 0usize;
+    let count = read_varint(payload, &mut pos)?;
+    let mode = *payload.get(pos)?;
+    Some(count > 0 && mode != ELE_NONE)
+}
+
 /// The most points `remaining` bytes could possibly encode.
 ///
 /// Two varint bytes per point is the floor: one for the latitude delta, one for
@@ -1013,6 +1025,31 @@ mod tests {
         assert_eq!(decode_polyline(&encode_polyline(&points)).unwrap(), points);
     }
 
+    /// The stored header says whether a track carries elevation without a
+    /// point being decoded; a container with no such header says nothing.
+    #[test]
+    fn a_stored_track_header_says_whether_it_carries_elevation() {
+        let with = vec![pt(46.2, 7.36, Some(512.3)), pt(46.2005, 7.3607, None)];
+        let without = vec![pt(46.2, 7.36, None), pt(46.2005, 7.3607, None)];
+        assert_eq!(
+            track_blob_carries_elevation(&serialize_track_points(&with)),
+            Some(true)
+        );
+        assert_eq!(
+            track_blob_carries_elevation(&serialize_track_points(&without)),
+            Some(false)
+        );
+        assert_eq!(
+            track_blob_carries_elevation(&serialize_track_points(&[])),
+            Some(false)
+        );
+        assert_eq!(
+            track_blob_carries_elevation(&serialize_points(&with).unwrap()),
+            None
+        );
+        assert_eq!(track_blob_carries_elevation(&[]), None);
+    }
+
     #[test]
     fn empty_and_single_point_round_trip() {
         assert_eq!(decode_polyline(&encode_polyline(&[])).unwrap(), vec![]);
@@ -1213,6 +1250,7 @@ mod tests {
             polyline,
             representative_activity_id: String::new(),
             representative_range: None,
+            representative_reversed: false,
             activity_ids: vec![],
             activity_portions: vec![],
             visit_count: 0,

@@ -81,6 +81,7 @@ impl EngineObserver for Counter {
     }
     fn recordings_changed(&self) {}
     fn upload_permission_refused(&self) {}
+    fn request_budget_changed(&self) {}
 }
 
 /// A ~2.2 km line: 200 points ~11 m apart, laterally jittered per activity

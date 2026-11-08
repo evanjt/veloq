@@ -210,6 +210,52 @@ export function buildRecordingBackup(state: {
   };
 }
 
+/** How many earlier unresolved rides are kept beside the one at the main path. */
+const MAX_SET_ASIDE = 8;
+
+/** Slot 0 is the oldest set-aside ride, and a higher slot is a newer one. */
+function preservedPath(path: string, slot: number): string {
+  return path.replace(/\.json$/, slot === 0 ? '.interrupted.json' : `.interrupted.${slot}.json`);
+}
+
+/**
+ * Moves the file at `path` aside when it holds a readable ride other than
+ * `incoming`, so the first write of a new ride does not replace the only copy
+ * of an unresolved one. Every ride already set aside stays, in the next free
+ * slot, up to a bound. Only with every slot taken is the file at `path`
+ * replaced as before.
+ */
+async function preserveOtherRide(path: string, incoming: RecordingBackup): Promise<void> {
+  if (!(await FileSystem.getInfoAsync(path)).exists) return;
+  const onDisk = parseBackup(
+    safeJsonParse<unknown>(await FileSystem.readAsStringAsync(path), null)
+  );
+  if (!onDisk || onDisk.startTime === incoming.startTime) return;
+  for (let slot = 0; slot < MAX_SET_ASIDE; slot++) {
+    const aside = preservedPath(path, slot);
+    if ((await FileSystem.getInfoAsync(aside)).exists) continue;
+    await replaceFile(path, aside);
+    log.log('Set aside the unresolved recording backup of an earlier ride');
+    return;
+  }
+  log.warn('Every set-aside slot is taken, replacing the unresolved recording backup');
+}
+
+/**
+ * Puts the oldest ride set aside back at `path` once nothing else holds the
+ * path, and closes the gap it leaves so the slots stay in order.
+ */
+async function restorePreserved(path: string): Promise<void> {
+  if ((await FileSystem.getInfoAsync(path)).exists) return;
+  if (!(await FileSystem.getInfoAsync(preservedPath(path, 0))).exists) return;
+  await replaceFile(preservedPath(path, 0), path);
+  for (let slot = 1; slot < MAX_SET_ASIDE; slot++) {
+    const aside = preservedPath(path, slot);
+    if (!(await FileSystem.getInfoAsync(aside)).exists) return;
+    await replaceFile(aside, preservedPath(path, slot - 1));
+  }
+}
+
 export async function saveRecordingBackup(backup: RecordingBackup): Promise<boolean> {
   const path = backupPath(backup.athleteId);
   return queueBackupOperation(path, async () => {
@@ -218,6 +264,7 @@ export async function saveRecordingBackup(backup: RecordingBackup): Promise<bool
         `${path}.tmp`,
         JSON.stringify({ ...backup, version: BACKUP_VERSION })
       );
+      await preserveOtherRide(path, backup);
       await replaceFile(`${path}.tmp`, path);
       log.log('Saved recording backup');
       return true;
@@ -243,6 +290,7 @@ export async function loadRecordingBackup(
   return queueBackupOperation(path, async () => {
     await clearTemporaryBackup(path);
     try {
+      await restorePreserved(path);
       const info = await FileSystem.getInfoAsync(path);
       if (!info.exists) return null;
 
@@ -281,6 +329,7 @@ export async function clearRecordingBackup(
           return;
       }
       await FileSystem.deleteAsync(path, { idempotent: true });
+      await restorePreserved(path);
       log.log('Cleared recording backup');
     } catch {
       // Best effort cleanup

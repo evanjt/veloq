@@ -361,11 +361,6 @@ const CONTRACTS: Contract[] = [
     b: { file, has: ts },
   })),
   {
-    agree: 'the history range reads typed year counts from the settings screen',
-    a: { file: `${RUST}/ffi_types.rs`, has: 'pub activity_year_counts: Vec<FfiYearCount>' },
-    b: { file: 'src/features/settings/hooks/useActivityYearCounts.ts', has: '.activityYearCounts' },
-  },
-  {
     agree: 'the wipe and the open use the panic log name the engine appends to',
     a: { file: `${RUST}/persistence/mod.rs`, has: `.join("${PANIC_LOG_NAME}")` },
     b: {

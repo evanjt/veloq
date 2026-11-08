@@ -101,7 +101,9 @@ export function SessionSensorList() {
             : row.sensor.kinds.map((kind) => t(`sensors.kinds.${kind}`)).join(', '),
           row.state === 'off' ? t('sensors.status.disconnected') : null,
           row.state === 'noData'
-            ? row.sensor.kinds.map((kind) => t(`sensors.silent.${kind}`)).join(' ')
+            ? row.stuck
+              ? t('sensors.stuck')
+              : row.sensor.kinds.map((kind) => t(`sensors.silent.${kind}`)).join(' ')
             : row.state === 'off'
               ? null
               : t(`sensors.status.${row.state}`),

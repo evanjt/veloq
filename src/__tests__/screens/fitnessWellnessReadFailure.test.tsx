@@ -19,7 +19,9 @@ const mockRefetch = jest.fn();
 const mockCardProps: unknown[] = [];
 const mockWellnessCardProps: unknown[] = [];
 
-jest.mock('@/shared/debug/tabSwitchTiming', () => ({ useTabFirstFrame: jest.fn() }));
+jest.mock('@/shared/debug/tabSwitchTiming', () => ({
+  useTabFirstFrame: jest.fn(),
+}));
 jest.mock('@/shared/debug/renderTimer', () => ({
   logScreenRender: () => jest.fn(),
   logMemory: jest.fn(),
@@ -95,11 +97,17 @@ jest.mock('@/features/fitness', () => {
     TimeRangeSelector: () => <View testID="time-range" />,
     SportToggleSelector: () => <View testID="sport-toggle" />,
     BestEffortsHeaderButton: () => null,
+    CalendarDayReadout: () => null,
     resolveThresholdPace: () => null,
     useFitnessRefresh: () => ({ isRefreshing: false, onRefresh: jest.fn() }),
     useFitnessComputations: () => ({ ftpTrend: [], dominantZone: null }),
     useFitnessScreenData: () => ({
-      training: { retry: jest.fn() },
+      training: {
+        retry: jest.fn(),
+        windows: {
+          heatmap: { first: new Date(2026, 0, 5), last: new Date(2026, 5, 17) },
+        },
+      },
       wellness: undefined,
       activities: [],
       dailyLoads: [],
@@ -110,6 +118,8 @@ jest.mock('@/features/fitness', () => {
       error: mockError,
       refetch: mockRefetch,
     }),
+    useValueWhileActive: jest.requireActual('@/features/fitness/hooks/useValueWhileActive')
+      .useValueWhileActive,
     useFitnessWindow: () => ({
       timeRange: '3m',
       changeTimeRange: jest.fn(),
@@ -120,7 +130,10 @@ jest.mock('@/features/fitness', () => {
       handleInteractionChange: jest.fn(),
       handleDateSelect: jest.fn(),
     }),
-    useSportPreference: () => ({ primarySport: 'Cycling', adoptLibrarySport: jest.fn() }),
+    useSportPreference: () => ({
+      primarySport: 'Cycling',
+      adoptLibrarySport: jest.fn(),
+    }),
     FORM_ZONE_COLORS: { optimal: 'green' },
   };
 });
@@ -190,10 +203,16 @@ describe('fitness tab with the wellness read failing', () => {
       expect(trends.getByTestId('fitness-trends')).toBeTruthy();
       expect(screen.UNSAFE_getAllByType(RefreshControl)).toHaveLength(4);
       expect(mockCardProps.at(-1)).toEqual(
-        expect.objectContaining({ readError: mockError, onRetry: expect.any(Function) })
+        expect.objectContaining({
+          readError: mockError,
+          onRetry: expect.any(Function),
+        })
       );
       expect(mockWellnessCardProps.at(-1)).toEqual(
-        expect.objectContaining({ readError: mockError, onRetry: expect.any(Function) })
+        expect.objectContaining({
+          readError: mockError,
+          onRetry: expect.any(Function),
+        })
       );
     } finally {
       frames.restore();
@@ -230,7 +249,10 @@ describe('fitness chart card with the wellness read failing', () => {
   });
 
   it('names a busy engine rather than a generic failure', async () => {
-    await renderFailedCard(jest.fn(), { tag: 'Busy', message: 'a job is running' });
+    await renderFailedCard(jest.fn(), {
+      tag: 'Busy',
+      message: 'a job is running',
+    });
     expect(screen.getByText('engine.failure.busy')).toBeTruthy();
     expect(screen.queryByText('emptyState.error.description')).toBeNull();
   });

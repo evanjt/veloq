@@ -34,7 +34,7 @@ jest.mock('@/shared/native/useSyncHealth', () => ({
   useSyncHealth: () => ({ lastError: null, retryAtMs: null }),
 }));
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: true, offlineBannerShown: false }),
+  useNetwork: () => ({ isOnline: true, offlineIndicator: 'none' }),
 }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),

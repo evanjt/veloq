@@ -86,7 +86,7 @@ jest.mock('@/features/stats/hooks/useSeasonBests', () => ({
 }));
 
 function FitnessDecouplingCard() {
-  const data = useFitnessScreenData({ timeRange: '1m', sportMode: 'Cycling' });
+  const data = useFitnessScreenData({ timeRange: '1m', sportMode: 'Cycling', place: 'trends' });
   return (
     <FitnessTrendSections
       sportMode="Cycling"

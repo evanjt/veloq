@@ -107,7 +107,7 @@ export function widgetFiles(rawRoot: string, platform: WidgetPlatform): string[]
 
 /** The widget a captured shot carries on its screen, by stem. */
 export const SHOT_WIDGETS: Readonly<Record<string, WidgetName>> = {
-  '06-fitness': 'summary',
+  '05-fitness': 'summary',
   '07-strength': 'strength',
 };
 
@@ -239,14 +239,6 @@ export const PRIVACY_CSS = (line: string, tick: string, text: string): string =>
 /** English only: the panels' text has no translations yet. */
 export const PANEL_LOCALES: readonly string[] = ['en-US', 'en-AU'];
 
-export const WIDGETS_CAPTION: Caption = {
-  kicker: 'Widgets',
-  cap: 'Your training, on the home screen',
-  sub: 'Summary, latest activity, insights and strength.',
-};
+export const WIDGETS_CAPTION: Caption = { cap: 'Your training on the home screen' };
 
-export const PRIVACY_CAPTION: Caption = {
-  kicker: 'Privacy',
-  cap: 'Open source, no Veloq account',
-  sub: 'Your data stays on your phone, with no analytics.',
-};
+export const PRIVACY_CAPTION: Caption = { cap: 'Open source. No account. No tracking.' };

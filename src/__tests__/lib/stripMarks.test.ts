@@ -4,13 +4,21 @@
  * same day drew differently at different ranges.
  *
  * Expected behaviour: one constant-height mark per active date at every
- * range, sport groups in equal portions in the families' fixed stack order whatever their load,
- * marks bound to the date slot so they never overlap, and nothing for rest.
+ * range, one equal portion per activity with the families in their fixed
+ * stack order whatever their load, marks bound to the date slot so they never
+ * overlap, and nothing for rest.
  */
 
-import { stripMarks, stripKey, markFills, MARK_HEIGHT } from '@/features/fitness/lib/stripMarks';
+import {
+  stripMarks,
+  stripKey,
+  markFills,
+  portionGap,
+  MARK_HEIGHT,
+} from '@/features/fitness/lib/stripMarks';
 import type { StripDay } from '@/features/fitness/lib/stripMarks';
 import type { ActivityType } from '@/types';
+import { BAR_GAP } from '@/shared/charts/chartMarks';
 
 const WIDTH = 324;
 
@@ -126,14 +134,30 @@ describe('stripMarks', () => {
     expect(mark.segments.map((s) => s.group)).toEqual(STACK_ORDER);
   });
 
-  it('does not weight a sport by how many activities it has', () => {
+  it('draws one portion per activity, so three rides on one day are three portions', () => {
     const [mark] = stripMarks(
       [
         day(0, [
           { type: 'Ride', load: 50 },
           { type: 'Ride', load: 50 },
           { type: 'Ride', load: 50 },
+        ]),
+      ],
+      WIDTH
+    );
+    expect(mark.segments).toEqual([
+      { group: 'Ride', fraction: 1 / 3 },
+      { group: 'Ride', fraction: 1 / 3 },
+      { group: 'Ride', fraction: 1 / 3 },
+    ]);
+  });
+
+  it('draws a ride and a run as two portions in stack order, whatever their order arrived', () => {
+    const [mark] = stripMarks(
+      [
+        day(0, [
           { type: 'Run', load: 50 },
+          { type: 'Ride', load: 50 },
         ]),
       ],
       WIDTH
@@ -144,7 +168,7 @@ describe('stripMarks', () => {
     ]);
   });
 
-  it('draws sports of one group as that group, once', () => {
+  it('draws every activity of one group as that group, one portion each', () => {
     const [mark] = stripMarks(
       [
         day(0, [
@@ -157,10 +181,31 @@ describe('stripMarks', () => {
       ],
       WIDTH
     );
-    expect(mark.segments).toEqual([
-      { group: 'Ride', fraction: 0.5 },
-      { group: 'Strength', fraction: 0.5 },
+    expect(mark.segments.map((s) => s.group)).toEqual([
+      'Ride',
+      'Ride',
+      'Ride',
+      'Strength',
+      'Strength',
     ]);
+    expect(mark.segments.every((s) => s.fraction === 1 / 5)).toBe(true);
+  });
+
+  it('fills the mark: its portions sum to one whatever the number of activities', () => {
+    for (const count of [1, 2, 3, 7, 12]) {
+      const [mark] = stripMarks(
+        [
+          day(
+            0,
+            Array.from({ length: count }, () => ({ type: 'Ride' as ActivityType, load: 10 }))
+          ),
+        ],
+        WIDTH
+      );
+      const total = mark.segments.reduce((sum, s) => sum + s.fraction, 0);
+      expect(mark.segments).toHaveLength(count);
+      expect(total).toBeCloseTo(1, 12);
+    }
   });
 
   it('draws a sport no group names under Other', () => {
@@ -288,6 +333,33 @@ describe('a group that trained without load', () => {
       { color: '#Ride', fraction: 0.5, outline: false },
       { color: '#Run', fraction: 0.5, outline: false },
     ]);
+  });
+});
+
+describe('portionGap', () => {
+  const MARK = 32;
+
+  it('leaves the bar gap between a few portions', () => {
+    expect(portionGap(MARK, 1)).toBe(BAR_GAP);
+    expect(portionGap(MARK, 2)).toBe(BAR_GAP);
+    expect(portionGap(MARK, 3)).toBe(BAR_GAP);
+  });
+
+  it('narrows the gap on a crowded day so the portions keep at least half the mark', () => {
+    for (const portions of [9, 10, 16, 17, 40, 200]) {
+      const gap = portionGap(MARK, portions);
+      const drawn = MARK - (portions - 1) * gap;
+      expect(gap).toBeGreaterThanOrEqual(0);
+      expect(drawn).toBeGreaterThanOrEqual(MARK / 2 - 1e-9);
+    }
+  });
+
+  it('never gives a portion a negative height at any count', () => {
+    for (let portions = 1; portions <= 60; portions++) {
+      const gap = portionGap(MARK, portions);
+      const each = (MARK - (portions - 1) * gap) / portions;
+      expect(each).toBeGreaterThanOrEqual(0);
+    }
   });
 });
 

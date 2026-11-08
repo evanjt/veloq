@@ -35,6 +35,7 @@ import { z } from 'zod';
 import { debug } from '@/shared/debug/debug';
 import { queryClient } from '@/shared/query/QueryProvider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { signalRestoreCompleted } from '@/shared/storage/restoreSignal';
 
 const log = debug.create('Backup');
 
@@ -387,6 +388,7 @@ export async function reinitialiseAllStores(): Promise<void> {
       log.error(`${initialisers[index][0]} failed`, result.reason);
     }
   });
+  signalRestoreCompleted();
 }
 
 export type DatabaseRestoreResult =

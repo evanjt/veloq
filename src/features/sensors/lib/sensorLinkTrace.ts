@@ -32,6 +32,10 @@ export type SensorLinkEventKind =
   | 'sampleCount'
   /** The link began to read no data, `ms` how long it had been silent. The link stays up. */
   | 'watchdogFired'
+  /** The sensor advertises while its subscription is silent, so the link is made again once. */
+  | 'stuckRecovery'
+  /** The sensor still sends nothing after that, and the row says to turn broadcast off and on. */
+  | 'stuckBroadcast'
   | 'teardown'
   /** `ms` is the delay before the next connect. */
   | 'reconnectScheduled'

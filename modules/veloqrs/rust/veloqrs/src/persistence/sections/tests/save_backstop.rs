@@ -21,6 +21,7 @@ fn section(id: &str, rides: &[&str]) -> FrequentSection {
         polyline: track(),
         representative_activity_id: rides[0].to_string(),
         representative_range: None,
+        representative_reversed: false,
         activity_ids: rides.iter().map(|r| r.to_string()).collect(),
         activity_portions: rides
             .iter()

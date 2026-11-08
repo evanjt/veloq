@@ -123,6 +123,7 @@ struct VisibleRow {
     representative_activity_id: Option<String>,
     rep_start_index: Option<u32>,
     rep_end_index: Option<u32>,
+    rep_reversed: bool,
     created_at: String,
     bbox: (f64, f64, f64, f64),
 }
@@ -133,6 +134,7 @@ impl VisibleRow {
             self.representative_activity_id.as_deref(),
             self.rep_start_index,
             self.rep_end_index,
+            self.rep_reversed,
         );
         geometry::line(
             conn,
@@ -699,6 +701,7 @@ mod tests {
             polyline,
             representative_activity_id: "rep".to_string(),
             representative_range: range,
+            representative_reversed: false,
             activity_ids: vec![],
             activity_portions: vec![],
             visit_count: 0,
@@ -1229,7 +1232,7 @@ pub(crate) mod compute {
             "SELECT id, polyline_json, created_at,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     polyline_blob, representative_activity_id,
-                    rep_start_index, rep_end_index
+                    rep_start_index, rep_end_index, rep_reversed
              FROM sections
              WHERE disabled = 0 AND superseded_by IS NULL
                AND is_user_defined = 0 AND section_type = 'auto'",
@@ -1249,6 +1252,7 @@ pub(crate) mod compute {
                 row.get::<_, Option<String>>(8)?,
                 row.get::<_, Option<u32>>(9)?,
                 row.get::<_, Option<u32>>(10)?,
+                row.get::<_, bool>(11)?,
             ))
         });
         let Ok(iter) = rows else { return Vec::new() };
@@ -1266,6 +1270,7 @@ pub(crate) mod compute {
                     representative_activity_id,
                     rep_start_index,
                     rep_end_index,
+                    rep_reversed,
                 )| {
                     let bb = match (lat0, lat1, lng0, lng1) {
                         (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
@@ -1274,6 +1279,7 @@ pub(crate) mod compute {
                                 representative_activity_id.as_deref(),
                                 rep_start_index,
                                 rep_end_index,
+                                rep_reversed,
                             );
                             let line = super::geometry::line(
                                 conn,
@@ -1295,6 +1301,7 @@ pub(crate) mod compute {
                         representative_activity_id,
                         rep_start_index,
                         rep_end_index,
+                        rep_reversed,
                         created_at,
                         bbox: bb,
                     })
@@ -1313,7 +1320,7 @@ pub(crate) mod compute {
             "SELECT id, polyline_json, created_at,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     polyline_blob, representative_activity_id,
-                    rep_start_index, rep_end_index
+                    rep_start_index, rep_end_index, rep_reversed
              FROM sections
              WHERE (disabled = 1 OR superseded_by IS NOT NULL)
                AND is_user_defined = 0 AND section_type = 'auto'",
@@ -1333,6 +1340,7 @@ pub(crate) mod compute {
                 row.get::<_, Option<String>>(8)?,
                 row.get::<_, Option<u32>>(9)?,
                 row.get::<_, Option<u32>>(10)?,
+                row.get::<_, bool>(11)?,
             ))
         });
         let Ok(iter) = rows else { return Vec::new() };
@@ -1350,6 +1358,7 @@ pub(crate) mod compute {
                     representative_activity_id,
                     rep_start_index,
                     rep_end_index,
+                    rep_reversed,
                 )| {
                     let bb = match (lat0, lat1, lng0, lng1) {
                         (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
@@ -1358,6 +1367,7 @@ pub(crate) mod compute {
                                 representative_activity_id.as_deref(),
                                 rep_start_index,
                                 rep_end_index,
+                                rep_reversed,
                             );
                             let line = super::geometry::line(
                                 conn,
@@ -1379,6 +1389,7 @@ pub(crate) mod compute {
                         representative_activity_id,
                         rep_start_index,
                         rep_end_index,
+                        rep_reversed,
                         created_at,
                         bbox: bb,
                     })

@@ -12750,6 +12750,59 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
 })();
 
 /**
+ * What widening the library's start to an earlier date would download.
+ */
+export type FfiHistoryRangeEstimate = {
+  count: number;
+  /**
+   * True when only per-year counts were known and the figure is prorated.
+   */
+  approximate: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiHistoryRangeEstimate} record objects.
+ */
+export const FfiHistoryRangeEstimate = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiHistoryRangeEstimate,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiHistoryRangeEstimate>,
+  });
+})();
+
+const FfiConverterTypeFfiHistoryRangeEstimate = (() => {
+  type TypeName = FfiHistoryRangeEstimate;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        count: FfiConverterUInt32.readFromCursor(c),
+        approximate: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.count, c);
+      FfiConverterBool.writeIntoCursor(value.approximate, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.count) +
+        FfiConverterBool.allocationSize(value.approximate)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * HRV trend summary over a trailing window. `label` is the i18n key suffix
  * ("trendingUp" | "stable" | "trendingDown") - TS resolves translations.
  */
@@ -19910,6 +19963,11 @@ const FfiConverterTypeFfiCatalogueEmptyReason = (() => {
  */
 export type FfiRoutesScreenData = {
   activityCount: number;
+  /**
+   * How many routes the minimum activity count leaves, before the search and
+   * the sport narrow them. A group ridden once is not a route, so it is not
+   * counted here.
+   */
   groupCount: number;
   sectionCount: number;
   oldestDate?: number;
@@ -19938,9 +19996,9 @@ export type FfiRoutesScreenData = {
    */
   groupsHold?: FfiDetectionHold;
   /**
-   * How many groups the search and the minimum activity count leave. This is
-   * what the page is taken out of, and what `has_more_groups` is measured
-   * against. `group_count` stays the whole catalogue.
+   * How many groups the minimum activity count, the sport and the search
+   * leave. This is what the page is taken out of, and what `has_more_groups`
+   * is measured against. `group_count` is the scope it is taken out of.
    */
   filteredGroupCount: number;
   /**
@@ -28139,15 +28197,16 @@ const FfiConverterTypeMapDistanceBand = (() => {
  */
 export enum RecordScope {
   /**
-   * Storage only this app reads: its own documents, the Google Drive app
-   * folder, the iCloud Drive app folder, the athlete's WebDAV server.
+   * Everything the record carries, for a file the athlete exports and
+   * keeps or shares by choice.
    */
   Whole = 1,
   /**
-   * A folder on the device's shared storage, which other apps and a
-   * connected computer can read. It leaves out the export privacy home.
+   * An automatic backup, whichever destination takes it: the device's
+   * documents, WebDAV, Google Drive, iCloud Drive or a folder. It leaves
+   * out the export privacy home.
    */
-  SharedStorage = 2,
+  Automatic = 2,
 }
 
 const FfiConverterTypeRecordScope = (() => {
@@ -28158,7 +28217,7 @@ const FfiConverterTypeRecordScope = (() => {
         case 1:
           return RecordScope.Whole;
         case 2:
-          return RecordScope.SharedStorage;
+          return RecordScope.Automatic;
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -28167,7 +28226,7 @@ const FfiConverterTypeRecordScope = (() => {
       switch (value) {
         case RecordScope.Whole:
           return c.writeI32(1);
-        case RecordScope.SharedStorage:
+        case RecordScope.Automatic:
           return c.writeI32(2);
       }
     }
@@ -31676,6 +31735,12 @@ export interface EngineObserver {
    * other ride would meet the same refusal until the athlete grants it.
    */
   uploadPermissionRefused(): void;
+  /**
+   * The day's request count the governor keeps moved, for any intent. Carries
+   * no payload: the reader takes a budget snapshot. The governor announces at
+   * most once a second, and the last change in a burst always goes out.
+   */
+  requestBudgetChanged(): void;
 }
 
 /**
@@ -31989,6 +32054,23 @@ export class EngineObserverImpl
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_upload_permission_refused(
+          uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  /**
+   * The day's request count the governor keeps moved, for any intent. Carries
+   * no payload: the reader takes a budget snapshot. The governor announces at
+   * most once a second, and the last change in a burst always goes out.
+   */
+  requestBudgetChanged(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_engineobserver_request_budget_changed(
           uniffiTypeEngineObserverImplObjectFactory.clonePointer(this),
           callStatus,
         );
@@ -32428,6 +32510,25 @@ const uniffiCallbackInterfaceEngineObserver: {
       const uniffiMakeCall = (): void => {
         const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
         return jsCallback.uploadPermissionRefused();
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower.bind(FfiConverterString),
+        /*alloc:*/ nativeModule().rustbuffer_alloc,
+      );
+      return uniffiResult;
+    },
+    request_budget_changed: (uniffiHandle: bigint) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback = FfiConverterTypeEngineObserver.lift(uniffiHandle);
+        return jsCallback.requestBudgetChanged();
       };
       const uniffiResult = UniffiResult.ready<void>();
       const uniffiHandleSuccess = (obj: any) => {};
@@ -37423,6 +37524,14 @@ export interface SettingsManagerLike {
    */
   getSetting(key: string) /*throws*/ : string | undefined;
   /**
+   * How many activities widening the library's start from `from` to `to`
+   * (`YYYY-MM-DD`) would download.
+   */
+  historyRangeEstimate(
+    from: string,
+    to: string,
+  ) /*throws*/ : FfiHistoryRangeEstimate;
+  /**
    * The heart rate zone, numbered from 1, a reading falls in for a sport
    * type, from the athlete's own zones. None when the reading is not a
    * positive number.
@@ -37763,6 +37872,35 @@ export class SettingsManager
     );
     try {
       return FfiConverterOptionalString.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * How many activities widening the library's start from `from` to `to`
+   * (`YYYY-MM-DD`) would download.
+   */
+  historyRangeEstimate(
+    from: string,
+    to: string,
+  ): FfiHistoryRangeEstimate /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_history_range_estimate(
+          uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(from, nativeModule().rustbuffer_alloc),
+          FfiConverterString.lower(to, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiHistoryRangeEstimate.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -43254,6 +43392,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_request_budget_changed() !==
+    10626
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_engineobserver_request_budget_changed",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_fitnessmanager_new() !==
     13786
   ) {
@@ -44270,6 +44416,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_history_range_estimate() !==
+    16735
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_history_range_estimate",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_hr_zone_for() !==
     32941
   ) {
@@ -45125,6 +45279,7 @@ export default Object.freeze({
     FfiConverterTypeFfiGroupWithPolyline,
     FfiConverterTypeFfiGroupingOutcome,
     FfiConverterTypeFfiHeatmapDay,
+    FfiConverterTypeFfiHistoryRangeEstimate,
     FfiConverterTypeFfiHrZoneBand,
     FfiConverterTypeFfiHrvTrend,
     FfiConverterTypeFfiImprovementBasis,

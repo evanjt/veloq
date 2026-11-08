@@ -402,7 +402,7 @@ fn engine_with_uploaded_twin(
     }
     // The version the athlete named, cut from the saved ride's stream.
     engine
-        .record_section_geometry("s1", &polyline, true, Some((&provisional, 10, 41)))
+        .record_section_geometry("s1", &polyline, true, Some((&provisional, 10, 41, false)))
         .expect("record the version cut from the saved ride");
     (engine, provisional)
 }

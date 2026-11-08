@@ -565,9 +565,9 @@ pub struct SyncService {
     creds: Mutex<Option<Credentials>>,
     base_url: Mutex<String>,
     /// Starts a default sync the slot refused, once it frees.
-    start_full: Box<dyn Fn(bool) + Send + Sync>,
+    start_full: Box<dyn Fn(bool) -> FfiStartOutcome + Send + Sync>,
     /// Starts a window the slot refused, once it frees.
-    start_window: Box<dyn Fn(String, String) + Send + Sync>,
+    start_window: Box<dyn Fn(String, String) -> FfiStartOutcome + Send + Sync>,
 }
 
 impl SyncService {
@@ -580,12 +580,18 @@ impl SyncService {
     fn starting_windows_with(
         start_window: impl Fn(String, String) + Send + Sync + 'static,
     ) -> Self {
-        Self::starting_with(|_| {}, start_window)
+        Self::starting_with(
+            |_| FfiStartOutcome::Started,
+            move |oldest, newest| {
+                start_window(oldest, newest);
+                FfiStartOutcome::Started
+            },
+        )
     }
 
     fn starting_with(
-        start_full: impl Fn(bool) + Send + Sync + 'static,
-        start_window: impl Fn(String, String) + Send + Sync + 'static,
+        start_full: impl Fn(bool) -> FfiStartOutcome + Send + Sync + 'static,
+        start_window: impl Fn(String, String) -> FfiStartOutcome + Send + Sync + 'static,
     ) -> Self {
         SyncService {
             inner: Mutex::new(SyncInner::default()),
@@ -977,11 +983,34 @@ impl SyncService {
             if !self.still_signed_in(&next.athlete_id) {
                 continue;
             }
-            match next.request {
+            let outcome = match next.request {
                 SyncRequest::Full { force } => (self.start_full)(force),
                 SyncRequest::Window { oldest, newest } => (self.start_window)(oldest, newest),
+            };
+            // The start that refused kept the run owed to the connection, so
+            // the online edge asks for it; the runs behind it would be
+            // refused the same way.
+            if outcome == FfiStartOutcome::Offline {
+                return;
             }
         }
+    }
+
+    /// Keep a run that was refused for want of a connection owed to the
+    /// connection, so the online edge starts it. A signed-out install owes
+    /// nothing.
+    fn owe_to_reconnect(&self, request: SyncRequest) {
+        let Some(athlete_id) = self.athlete_id() else {
+            return;
+        };
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        owe_into(
+            &mut inner.owed_to_reconnect,
+            OwedRun {
+                athlete_id,
+                request,
+            },
+        );
     }
 
     /// End the run on a refusal from intervals.icu or the request budget,
@@ -1199,14 +1228,7 @@ fn stamp_last_success(install: u64) {
 
 /// The process-wide sync service.
 pub static SYNC_SERVICE: LazyLock<SyncService> = LazyLock::new(|| {
-    SyncService::starting_with(
-        |force| {
-            start_full_sync(force);
-        },
-        |oldest, newest| {
-            start_window_sync(oldest, newest);
-        },
-    )
+    SyncService::starting_with(|force| start_full_sync(force).outcome, start_window_sync)
 });
 
 /// The connection came back. Pushed from the FFI on the online edge.
@@ -4714,6 +4736,9 @@ pub struct SyncManager {
 
 /// Why the default sync must not start at `now`, held with the time it lifts.
 ///
+/// A device the engine holds offline comes first: nothing is sent, nothing
+/// is timed, and the connection returning is what asks again.
+///
 /// A refusal's cooldown, or the sync's own allowance spent, defers every step
 /// it would run. `deferred` is when the allowance that stopped the last run
 /// frees: a restart before then would spend the sync's requests only to stop
@@ -4726,7 +4751,11 @@ fn sync_hold(
     deferred: Option<chrono::DateTime<chrono::Utc>>,
     force: bool,
     now: chrono::DateTime<chrono::Utc>,
+    offline: bool,
 ) -> Option<FfiStartResult> {
+    if offline {
+        return Some(FfiStartOutcome::Offline.into());
+    }
     governor
         .deferred_until(crate::governor::Intent::Sync, now)
         .or_else(|| deferred.filter(|until| !force && *until > now))
@@ -4745,7 +4774,11 @@ fn start_full_sync(force: bool) -> FfiStartResult {
         SYNC_SERVICE.deferred_until(),
         force,
         chrono::Utc::now(),
+        crate::net::connectivity::is_offline(),
     ) {
+        if held.outcome == FfiStartOutcome::Offline {
+            SYNC_SERVICE.owe_to_reconnect(SyncRequest::Full { force });
+        }
         // A wake-up that came early for other work spent the one this start
         // was owed, so it is asked for again.
         if let Some(at) = held
@@ -4819,6 +4852,10 @@ fn start_window_sync(oldest: String, newest: String) -> FfiStartOutcome {
         oldest: oldest.clone(),
         newest: newest.clone(),
     };
+    if crate::net::connectivity::is_offline() {
+        SYNC_SERVICE.owe_to_reconnect(request);
+        return FfiStartOutcome::Offline;
+    }
     let session = match SYNC_SERVICE.try_start_for(request) {
         Ok(session) => session,
         Err(refusal) => return refusal,
@@ -7521,7 +7558,7 @@ mod tests {
         let until = gov
             .deferred_until(crate::governor::Intent::Sync, now)
             .expect("the allowance is still spent");
-        let held = sync_hold(&gov, svc.deferred_until(), false, now)
+        let held = sync_hold(&gov, svc.deferred_until(), false, now, false)
             .expect("a restart inside the deferral is held");
         assert_eq!(held.outcome, FfiStartOutcome::Held);
         assert_eq!(held.retry_at_ms, Some(until.timestamp_millis() as f64));
@@ -7544,15 +7581,15 @@ mod tests {
         let now = chrono::Utc::now();
         let until = now + chrono::TimeDelta::minutes(10);
 
-        let held = sync_hold(&gov, Some(until), false, now).expect("the restart is held");
+        let held = sync_hold(&gov, Some(until), false, now, false).expect("the restart is held");
         assert_eq!(held.outcome, FfiStartOutcome::Held);
         assert_eq!(held.retry_at_ms, Some(until.timestamp_millis() as f64));
         assert_eq!(
-            sync_hold(&gov, Some(until), true, now),
+            sync_hold(&gov, Some(until), true, now, false),
             None,
             "a pull was held"
         );
-        assert_eq!(sync_hold(&gov, Some(until), false, until), None);
+        assert_eq!(sync_hold(&gov, Some(until), false, until, false), None);
     }
 
     /// Scenario: the app comes to the foreground while a refusal's cooldown
@@ -7570,7 +7607,7 @@ mod tests {
         );
         let now = chrono::Utc::now();
         assert_eq!(
-            sync_hold(&gov, None, false, now),
+            sync_hold(&gov, None, false, now, false),
             None,
             "nothing holds a fresh budget"
         );
@@ -7585,7 +7622,7 @@ mod tests {
             panic!("a long Retry-After sets a cooldown");
         };
 
-        let held = sync_hold(&gov, None, true, now).expect("a cooldown holds the sync");
+        let held = sync_hold(&gov, None, true, now, false).expect("a cooldown holds the sync");
         assert_eq!(held.outcome, FfiStartOutcome::Held);
         assert_eq!(held.retry_at_ms, Some(until.timestamp_millis() as f64));
         assert_eq!(
@@ -9350,6 +9387,7 @@ mod body_count_tests {
         fn preview_finished(&self) {}
         fn recordings_changed(&self) {}
         fn upload_permission_refused(&self) {}
+        fn request_budget_changed(&self) {}
     }
 
     fn init_global_engine() -> TempDir {
@@ -9548,6 +9586,68 @@ mod body_count_tests {
             count_reaches(before + 1),
             "the start made once the connection was back never landed"
         );
+        restore_service();
+    }
+
+    /// Scenario: the device is offline, the budget is untouched and no
+    /// cooldown holds.
+    ///
+    /// Expected behaviour: the default sync is refused `Offline`, for a pull
+    /// to refresh as well, and the refusal carries no time to try again: the
+    /// connection returning is what restarts it.
+    #[test]
+    fn a_sync_while_offline_is_refused_offline_before_the_governor() {
+        let gov = crate::governor::Governor::new(1000, Box::new(crate::governor::NoopPolicy))
+            .with_budget(crate::governor::Budget::new(0), None, || 0.0);
+        let now = chrono::Utc::now();
+        for force in [false, true] {
+            let held = sync_hold(&gov, None, force, now, true).expect("offline holds the sync");
+            assert_eq!(held.outcome, FfiStartOutcome::Offline);
+            assert_eq!(held.retry_at_ms, None);
+        }
+        assert_eq!(sync_hold(&gov, None, false, now, false), None);
+    }
+
+    /// Scenario: the device is offline and the app is launched or returns to
+    /// the foreground, which asks for the default sync and a window.
+    ///
+    /// Expected behaviour: both answer `Offline`, take no slot and send no
+    /// request. The default sync stays owed, and the connection returning
+    /// starts it once.
+    #[test]
+    fn a_default_sync_asked_while_offline_asks_nothing_and_starts_on_reconnect() {
+        let _guard = serial_global_state();
+        let _dir = init_global_engine();
+        let server = MockServer::start();
+        let profile = server.mock(|when, then| {
+            when.method(GET);
+            then.status(200).json_body(json!([]));
+        });
+        aim_service_at(&server);
+        crate::net::connectivity::set_online(false);
+
+        let manager = SyncManager::new();
+        assert_eq!(
+            manager.sync_now(false).expect("the start answers").outcome,
+            FfiStartOutcome::Offline
+        );
+        assert_eq!(
+            start_window_sync("2020-01-01".into(), "2020-01-31".into()),
+            FfiStartOutcome::Offline
+        );
+        assert_eq!(SYNC_SERVICE.snapshot().state, SyncState::Idle);
+        profile.assert_calls(0);
+
+        SYNC_SERVICE.foregrounded();
+        assert_eq!(SYNC_SERVICE.snapshot().state, SyncState::Idle);
+        profile.assert_calls(0);
+
+        crate::ffi::set_network_online(true, false);
+        let started = (0..200).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(25));
+            profile.calls() > 0
+        });
+        assert!(started, "the owed sync never started once online");
         restore_service();
     }
 

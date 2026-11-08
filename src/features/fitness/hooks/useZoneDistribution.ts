@@ -9,7 +9,7 @@ import { useEngineRead } from '@/shared/native/useEngineSubscription';
 interface UseZoneDistributionOptions {
   type: 'power' | 'hr';
   /** Optional sport filter - if provided, only activities matching this sport are included */
-  sport?: PrimarySport;
+  sport?: PrimarySport | undefined;
   /** The trailing range, in days, the totals cover. */
   days: number;
 }

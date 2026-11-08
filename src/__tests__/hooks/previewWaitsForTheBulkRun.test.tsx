@@ -103,10 +103,9 @@ it('opens the gate for good when a run ended before the card mounted', async () 
 });
 
 it('asks for nothing for a card the startup bundle already filled', async () => {
-  await renderHook(
-    () => useMapPreviewCoordinates('a1', true, { coordinates: [], altitude: [] } as never),
-    { wrapper }
-  );
+  await renderHook(() => useMapPreviewCoordinates('a1', true, { points: [] } as never), {
+    wrapper,
+  });
 
   await waitFor(() => expect(engine.getPreviewTrack).not.toHaveBeenCalled());
   expect(mockRequestStreams).not.toHaveBeenCalled();

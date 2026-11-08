@@ -13,14 +13,15 @@ import { useSyncHealth } from '@/shared/native/useSyncHealth';
 import { FloatingPill } from './FloatingPill';
 
 /**
- * Shows once the provider says so, which trails the offline reading by a
- * delay, and hides on the render the device comes back.
+ * Shows while the provider's indicator is the pill: after the offline
+ * reading's delay, until the hold ends and the badge takes over, and not a
+ * render past the device coming back.
  */
 export function OfflinePill() {
   const { t } = useTranslation();
-  const { offlineBannerShown } = useNetwork();
+  const { offlineIndicator } = useNetwork();
 
-  if (!offlineBannerShown) return null;
+  if (offlineIndicator !== 'pill') return null;
 
   const title = t('emptyState.offline.title');
   const detail = t('emptyState.offline.description');
@@ -38,17 +39,17 @@ export function OfflinePill() {
 /**
  * The time the engine asks again, while a run that ended on a refusal from
  * intervals.icu waits for it. It asks nothing of the athlete, so it is a pill
- * and not a banner. It gives way to the offline pill, since no sync runs
+ * and not a banner. It gives way to being offline, since no sync runs
  * offline, and draws nothing signed out or in demo mode, where there is no
  * account sync.
  */
 export function usePausedSyncUntil(): number | null {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
-  const { offlineBannerShown } = useNetwork();
+  const { isOnline } = useNetwork();
   const { retryAtMs } = useSyncHealth();
 
-  if (!isAuthenticated || isDemoMode || offlineBannerShown) return null;
+  if (!isAuthenticated || isDemoMode || !isOnline) return null;
   return retryAtMs ?? null;
 }
 

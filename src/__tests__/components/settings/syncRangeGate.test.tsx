@@ -19,7 +19,8 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 const mockSyncDateRange = jest.fn();
 let mockSliderRangeChange: ((start: Date, end: Date) => void) | null = null;
 let mockResetKeys: (number | undefined)[] = [];
-let mockYearCounts: { year: number; count: number }[] = [];
+let mockEstimate: ((from: Date) => { count: number; approximate: boolean } | undefined) | null =
+  null;
 let mockDayShare: number | undefined;
 
 jest.mock('react-i18next', () => ({
@@ -66,8 +67,9 @@ jest.mock('@/features/settings/hooks/useBackfillDayShare', () => ({
   useBackfillDayShare: () => mockDayShare,
 }));
 
-jest.mock('@/features/settings/hooks/useActivityYearCounts', () => ({
-  useActivityYearCounts: () => ({ data: mockYearCounts }),
+jest.mock('@/features/settings/hooks/useHistoryRangeEstimate', () => ({
+  useHistoryRangeEstimate: (from: Date | null) =>
+    from && mockEstimate ? mockEstimate(from) : undefined,
 }));
 
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
@@ -92,15 +94,13 @@ jest.mock('@/features/maps/lib/heatmapTiles', () => ({
   HEATMAP_TILES_DIR: '/tmp/heatmap',
 }));
 
-const BIG = [
-  { year: 2015, count: 700 },
-  { year: 2025, count: 40 },
-  { year: 2026, count: 60 },
-];
-const SMALL = [
-  { year: 2025, count: 40 },
-  { year: 2026, count: 60 },
-];
+// The engine's figure: 10 a month from the proposed start to the synced edge in June 2026.
+const monthlyEstimate = (from: Date) => {
+  const months = (2026 - from.getFullYear()) * 12 + (5 - from.getMonth());
+  return { count: months * 10, approximate: false };
+};
+const BIG = (from: Date) => ({ count: from.getFullYear() <= 2015 ? 700 : 50, approximate: false });
+const SMALL = () => ({ count: 50, approximate: false });
 
 async function propose(start: string) {
   const view = await render(<SyncRangePanel />);
@@ -115,12 +115,12 @@ describe('the history sheet slider', () => {
     jest.clearAllMocks();
     mockSliderRangeChange = null;
     mockResetKeys = [];
-    mockYearCounts = [];
+    mockEstimate = null;
     mockDayShare = undefined;
   });
 
   it('starts nothing while the slider moves, and states the cost', async () => {
-    mockYearCounts = SMALL;
+    mockEstimate = SMALL;
     const view = await propose('2025-01-01');
 
     expect(mockSyncDateRange).not.toHaveBeenCalled();
@@ -135,7 +135,7 @@ describe('the history sheet slider', () => {
   });
 
   it('changes the cost line with the proposed range', async () => {
-    mockYearCounts = BIG;
+    mockEstimate = BIG;
     const view = await propose('2025-01-01');
     const small = view.getByTestId('history-range-cost').props.children;
     await act(() => {
@@ -145,8 +145,23 @@ describe('the history sheet slider', () => {
     expect(view.getByTestId('history-range-cost').props.children).not.toEqual(small);
   });
 
+  it("states the engine's figure for the proposed start, which moves with it", async () => {
+    mockEstimate = monthlyEstimate;
+    const view = await propose('2026-03-01');
+    const text = () => view.getByTestId('history-range-cost').props.children;
+    expect(text()).toBe('settings.historyCost:30');
+    await act(() => {
+      mockSliderRangeChange?.(new Date('2025-12-01T00:00:00'), new Date());
+    });
+    expect(text()).toBe('settings.historyCost:60');
+    await act(() => {
+      mockSliderRangeChange?.(new Date('2025-06-01T00:00:00'), new Date());
+    });
+    expect(text()).toBe('settings.historyCost:120');
+  });
+
   it('names the days at the daily limit when the range outruns one day', async () => {
-    mockYearCounts = BIG;
+    mockEstimate = BIG;
     mockDayShare = 400;
     const view = await propose('2015-01-01');
 
@@ -157,7 +172,7 @@ describe('the history sheet slider', () => {
   });
 
   it('names no days when the range fits inside one day or the engine reports no share', async () => {
-    mockYearCounts = SMALL;
+    mockEstimate = SMALL;
     mockDayShare = 400;
     const view = await propose('2025-01-01');
 
@@ -167,7 +182,7 @@ describe('the history sheet slider', () => {
   it('starts the download once on confirm, and never opens an alert for a large range', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockSyncDateRange.mockReturnValue('expanded');
-    mockYearCounts = BIG;
+    mockEstimate = BIG;
     const view = await propose('2015-01-01');
 
     await fireEvent.press(view.getByTestId('history-range-confirm'));
@@ -180,7 +195,7 @@ describe('the history sheet slider', () => {
 
   it('expands without a count it does not have', async () => {
     mockSyncDateRange.mockReturnValue('expanded');
-    mockYearCounts = [];
+    mockEstimate = null;
     const view = await propose('2015-01-01');
 
     await fireEvent.press(view.getByTestId('history-range-confirm'));
@@ -189,7 +204,7 @@ describe('the history sheet slider', () => {
   });
 
   it('withdraws the proposal when the handle is dragged back to the synced edge', async () => {
-    mockYearCounts = SMALL;
+    mockEstimate = SMALL;
     const view = await propose('2025-01-01');
     await act(() => {
       mockSliderRangeChange?.(new Date('2026-08-01T00:00:00'), new Date());
@@ -202,7 +217,7 @@ describe('the history sheet slider', () => {
   it('says why and puts the handle back when the expansion latch refuses the confirm', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockSyncDateRange.mockReturnValue('locked');
-    mockYearCounts = SMALL;
+    mockEstimate = SMALL;
     const view = await propose('2025-01-01');
     const before = new Set(mockResetKeys).size;
 

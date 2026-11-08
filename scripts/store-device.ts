@@ -110,7 +110,7 @@ const DEVICES: Record<DeviceKind, DeviceClass> = {
 };
 
 /** Width of a 'detail' phone, of canvas width. */
-export const DETAIL_WIDTH_RATIO = 0.86;
+export const DETAIL_WIDTH_RATIO = 0.94;
 /** Widest a tablet is drawn, of canvas width. */
 export const TABLET_WIDTH_RATIO = 0.6;
 

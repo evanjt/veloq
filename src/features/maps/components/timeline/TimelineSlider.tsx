@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,7 +13,9 @@ import * as haptics from '@/shared/ui/haptics';
 import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 import {
   colors,
+  colorWithOpacity,
   darkColors,
+  opacity,
   typography,
   spacing,
   layout,
@@ -61,7 +63,16 @@ interface TimelineSliderProps {
 // Larger touch area for handles
 const HANDLE_SIZE = 28;
 const HANDLE_HIT_SLOP = Platform.select({ ios: 30, default: 20 });
+const HANDLE_HIT_SLOP_BOX = {
+  top: HANDLE_HIT_SLOP,
+  bottom: HANDLE_HIT_SLOP,
+  left: HANDLE_HIT_SLOP,
+  right: HANDLE_HIT_SLOP,
+};
+/** A handle drag claims a horizontal move past this, and yields to a vertical one past it. */
+const HANDLE_DRAG_SLOP = 10;
 const MIN_RANGE = 0.02;
+const POSITION_EPSILON = 1e-9;
 const STEP_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }];
 /** Tick labels sit under the tick mark, and the row is tall enough for one line at the cap. */
 const TICK_LABEL_TOP = 6;
@@ -82,6 +93,8 @@ export function TimelineSlider({
 }: TimelineSliderProps) {
   const { t } = useTranslation();
   const [trackWidth, setTrackWidth] = useState(0);
+  // The gesture worklets read the width from here, so they stay the same object across layouts.
+  const trackWidthValue = useSharedValue(0);
 
   const { dateToPosition, positionToDate, snapPoints, snapToNearest } = useMemo(
     () => createTimelineLayout({ minDate, maxDate, trackWidth }),
@@ -93,16 +106,28 @@ export function TimelineSlider({
   const endPos = useSharedValue(dateToPosition(endDate));
   const startPosAtGestureStart = useSharedValue(0);
   const endPosAtGestureStart = useSharedValue(0);
+  // In expandOnly mode the start's limit: the downloaded start, which the gesture worklets read.
+  const downloadedStartPos = useSharedValue(dateToPosition(startDate));
+  // The start last reported through onRangeChange. In expandOnly mode the handle can sit left of
+  // the prop while a span is proposed, so a month step runs from this rather than from the prop.
+  const reportedStart = useRef(startDate);
 
   // Sync shared values when props change
   useEffect(() => {
     startPos.value = dateToPosition(startDate);
     endPos.value = dateToPosition(endDate);
-  }, [startDate, endDate, dateToPosition, startPos, endPos, resetKey]);
+    downloadedStartPos.value = dateToPosition(startDate);
+    reportedStart.current = startDate;
+  }, [startDate, endDate, dateToPosition, startPos, endPos, downloadedStartPos, resetKey]);
 
-  const onLayout = useCallback((e: LayoutChangeEvent) => {
-    setTrackWidth(e.nativeEvent.layout.width);
-  }, []);
+  const onLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const width = e.nativeEvent.layout.width;
+      trackWidthValue.value = width;
+      setTrackWidth(width);
+    },
+    [trackWidthValue]
+  );
 
   const tickLabels = useMemo(
     () =>
@@ -137,13 +162,26 @@ export function TimelineSlider({
     haptics.light();
   }, []);
 
+  // In expandOnly mode a start at the downloaded start is that date exactly, so a return to it
+  // is recognised by the host as no proposal rather than a date a rounding error short of it.
+  const startDateAt = useCallback(
+    (startPosValue: number) => {
+      if (expandOnly && startPosValue >= downloadedStartPos.value - POSITION_EPSILON) {
+        return startDate;
+      }
+      return positionToDate(startPosValue);
+    },
+    [expandOnly, startDate, downloadedStartPos, positionToDate]
+  );
+
   const updateDatesFromPositions = useCallback(
     (startPosValue: number, endPosValue: number) => {
-      const start = positionToDate(startPosValue);
+      const start = startDateAt(startPosValue);
       const end = positionToDate(endPosValue);
+      reportedStart.current = start;
       onRangeChange(start, end);
     },
-    [positionToDate, onRangeChange]
+    [startDateAt, positionToDate, onRangeChange]
   );
 
   const applySnapAndUpdate = useCallback(
@@ -169,13 +207,10 @@ export function TimelineSlider({
       if (trackWidth === 0) return;
 
       const tapPosition = Math.max(0, Math.min(1, tapX / trackWidth));
-      const snappedResult = snapToNearest(tapPosition);
-      const targetPos = snappedResult.position;
-
-      // In expandOnly mode, only allow tapping to positions left of current start
-      if (expandOnly && targetPos >= startPos.value) {
-        return;
-      }
+      // In expandOnly mode the start may be tapped anywhere at or left of the downloaded start
+      const limit = expandOnly ? downloadedStartPos.value : undefined;
+      if (limit !== undefined && tapPosition > limit) return;
+      const targetPos = snapToNearest(tapPosition, limit).position;
 
       if (targetPos >= endPos.value) {
         // Don't move past end position
@@ -192,6 +227,7 @@ export function TimelineSlider({
       triggerHaptic,
       updateDatesFromPositions,
       expandOnly,
+      downloadedStartPos,
       startPos,
       endPos,
     ]
@@ -200,11 +236,13 @@ export function TimelineSlider({
 
   const stepStart = useCallback(
     (direction: 1 | -1) => {
-      let target = addCalendarMonths(startDate, direction);
+      const current = expandOnly ? reportedStart.current : startDate;
+      let target = addCalendarMonths(current, direction);
       if (target < minDate) target = minDate;
-      if (expandOnly && target >= startDate) return;
-      if (target.getTime() === startDate.getTime() || target >= endDate) return;
+      if (expandOnly && target > startDate) target = startDate;
+      if (target.getTime() === current.getTime() || target >= endDate) return;
       startPos.value = dateToPosition(target);
+      reportedStart.current = target;
       triggerHaptic();
       onRangeChange(target, endDate);
     },
@@ -251,64 +289,80 @@ export function TimelineSlider({
   const formatHandleDate = (date: Date) =>
     date.toLocaleDateString(getIntlLocale(), { year: 'numeric', month: 'long', day: 'numeric' });
 
-  // Gestures
-  const trackTapGesture = Gesture.Tap().onEnd((e) => {
-    runOnJS(trackTapOnJS)(e.x);
-  });
-
-  const startGesture = Gesture.Pan()
-    .hitSlop({
-      top: HANDLE_HIT_SLOP,
-      bottom: HANDLE_HIT_SLOP,
-      left: HANDLE_HIT_SLOP,
-      right: HANDLE_HIT_SLOP,
-    })
-    .onBegin(() => {
-      startPosAtGestureStart.value = startPos.value;
-    })
-    .onUpdate((e) => {
-      if (trackWidth === 0) return;
-      const delta = e.translationX / trackWidth;
-      let newPos = startPosAtGestureStart.value + delta;
-
-      // In expandOnly mode, only allow moving left (lower position values)
-      if (expandOnly) {
-        newPos = Math.min(newPos, startPosAtGestureStart.value);
-      }
-
-      newPos = Math.max(0, Math.min(endPos.value - MIN_RANGE, newPos));
-      startPos.value = newPos;
-    })
-    .onEnd(() => {
-      runOnJS(snapOnJS)(
-        startPos.value,
-        endPos.value,
-        expandOnly ? startPosAtGestureStart.value : undefined
-      );
+  // Built once per set of inputs. A rebuilt gesture is a new native handler, and one that replaces
+  // a handler mid-drag drops the touch that handler holds, so the engine-driven re-renders while a
+  // download runs must not build them again. A vertical move past the slop before a horizontal one
+  // fails a handle, which leaves the touch to the surrounding sheet. A handle that is active blocks
+  // the track tap from firing.
+  const { trackTapGesture, startGesture, endGesture } = useMemo(() => {
+    const trackTap = Gesture.Tap().onEnd((e) => {
+      runOnJS(trackTapOnJS)(e.x);
     });
 
-  const endGesture = Gesture.Pan()
-    .hitSlop({
-      top: HANDLE_HIT_SLOP,
-      bottom: HANDLE_HIT_SLOP,
-      left: HANDLE_HIT_SLOP,
-      right: HANDLE_HIT_SLOP,
-    })
-    .onBegin(() => {
-      endPosAtGestureStart.value = endPos.value;
-    })
-    .onUpdate((e) => {
-      if (trackWidth === 0) return;
-      const delta = e.translationX / trackWidth;
-      const newPos = Math.max(
-        startPos.value + MIN_RANGE,
-        Math.min(1, endPosAtGestureStart.value + delta)
-      );
-      endPos.value = newPos;
-    })
-    .onEnd(() => {
-      runOnJS(snapOnJS)(startPos.value, endPos.value);
-    });
+    const start = Gesture.Pan()
+      .hitSlop(HANDLE_HIT_SLOP_BOX)
+      .activeOffsetX([-HANDLE_DRAG_SLOP, HANDLE_DRAG_SLOP])
+      .failOffsetY([-HANDLE_DRAG_SLOP, HANDLE_DRAG_SLOP])
+      .blocksExternalGesture(trackTap)
+      .onBegin(() => {
+        startPosAtGestureStart.value = startPos.value;
+      })
+      .onUpdate((e) => {
+        const width = trackWidthValue.value;
+        if (width === 0) return;
+        const delta = e.translationX / width;
+        let newPos = startPosAtGestureStart.value + delta;
+
+        // In expandOnly mode the start moves freely left of the downloaded start, and no further right
+        if (expandOnly) {
+          newPos = Math.min(newPos, downloadedStartPos.value);
+        }
+
+        newPos = Math.max(0, Math.min(endPos.value - MIN_RANGE, newPos));
+        startPos.value = newPos;
+      })
+      .onEnd(() => {
+        runOnJS(snapOnJS)(
+          startPos.value,
+          endPos.value,
+          expandOnly ? downloadedStartPos.value : undefined
+        );
+      });
+
+    const end = Gesture.Pan()
+      .hitSlop(HANDLE_HIT_SLOP_BOX)
+      .activeOffsetX([-HANDLE_DRAG_SLOP, HANDLE_DRAG_SLOP])
+      .failOffsetY([-HANDLE_DRAG_SLOP, HANDLE_DRAG_SLOP])
+      .blocksExternalGesture(trackTap)
+      .onBegin(() => {
+        endPosAtGestureStart.value = endPos.value;
+      })
+      .onUpdate((e) => {
+        const width = trackWidthValue.value;
+        if (width === 0) return;
+        const delta = e.translationX / width;
+        const newPos = Math.max(
+          startPos.value + MIN_RANGE,
+          Math.min(1, endPosAtGestureStart.value + delta)
+        );
+        endPos.value = newPos;
+      })
+      .onEnd(() => {
+        runOnJS(snapOnJS)(startPos.value, endPos.value);
+      });
+
+    return { trackTapGesture: trackTap, startGesture: start, endGesture: end };
+  }, [
+    expandOnly,
+    trackTapOnJS,
+    snapOnJS,
+    startPos,
+    endPos,
+    startPosAtGestureStart,
+    endPosAtGestureStart,
+    downloadedStartPos,
+    trackWidthValue,
+  ]);
 
   // Animated styles
   const startHandleStyle = useAnimatedStyle(() => ({
@@ -324,8 +378,25 @@ export function TimelineSlider({
     right: trackWidth - endPos.value * trackWidth,
   }));
 
+  // Expand-only: the downloaded span runs from the downloaded start to now, and the proposed span
+  // from the handle to the downloaded start. The proposed span is hidden while the handle is on it.
+  const downloadedRangeStyle = useAnimatedStyle(() => ({
+    left: downloadedStartPos.value * trackWidth,
+    right: trackWidth - endPos.value * trackWidth,
+  }));
+
+  const proposedRangeStyle = useAnimatedStyle(() => ({
+    left: startPos.value * trackWidth,
+    right: trackWidth - downloadedStartPos.value * trackWidth,
+    display:
+      startPos.value < downloadedStartPos.value - POSITION_EPSILON
+        ? ('flex' as const)
+        : ('none' as const),
+  }));
+
   const primary = themePalette(isDark).actionPrimary;
   const markFill = { backgroundColor: primary };
+  const proposedFill = { backgroundColor: colorWithOpacity(primary, opacity.tint3) };
   const handleRing = { borderColor: primary };
 
   return (
@@ -336,7 +407,20 @@ export function TimelineSlider({
           <View style={styles.sliderContainer} onLayout={onLayout} testID="timeline-slider-track">
             <View style={[styles.track, isDark && styles.trackDark]} />
 
-            <Animated.View style={[styles.selectedRange, markFill, rangeStyle]} />
+            {expandOnly ? (
+              <>
+                <Animated.View
+                  style={[styles.selectedRange, markFill, downloadedRangeStyle]}
+                  testID="timeline-slider-downloaded-range"
+                />
+                <Animated.View
+                  style={[styles.selectedRange, proposedFill, proposedRangeStyle]}
+                  testID="timeline-slider-proposed-range"
+                />
+              </>
+            ) : (
+              <Animated.View style={[styles.selectedRange, markFill, rangeStyle]} />
+            )}
 
             {/* Start handle - bracket style [ for expandable */}
             <GestureDetector gesture={startGesture}>

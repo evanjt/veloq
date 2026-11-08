@@ -41,7 +41,7 @@ jest.mock('@/shared/app', () => ({
 }));
 
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: true, offlineBannerShown: false }),
+  useNetwork: () => ({ isOnline: true, offlineIndicator: 'none' }),
 }));
 
 let mockHealth: {

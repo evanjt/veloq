@@ -25,6 +25,14 @@ import {
 const mockCancelDeviceConnection = jest.fn(async () => undefined);
 const mockConnectToDevice = jest.fn();
 
+/** The scan callback the manager registered, so a test can play an advertisement into it. */
+let advertise: ((error: unknown, device: { id: string }) => void) | null = null;
+const mockStartDeviceScan = jest.fn(
+  (_services: unknown, _options: unknown, cb: (e: unknown, d: { id: string }) => void) => {
+    advertise = cb;
+  }
+);
+
 /** The monitor callback the manager registered, so a test can deliver to it. */
 let deliver: ((error: unknown, characteristic: unknown) => void) | null = null;
 
@@ -46,6 +54,7 @@ jest.mock('react-native-ble-plx', () => ({
     cancelDeviceConnection: mockCancelDeviceConnection,
     onDeviceDisconnected: jest.fn(() => ({ remove: jest.fn() })),
     onStateChange: jest.fn(() => ({ remove: jest.fn() })),
+    startDeviceScan: mockStartDeviceScan,
     stopDeviceScan: jest.fn(),
   })),
 }));
@@ -107,6 +116,7 @@ describe('a sensor that connects and sends nothing', () => {
     await disconnectAllSensors();
     jest.clearAllMocks();
     deliver = null;
+    advertise = null;
     mockConnectToDevice.mockResolvedValue(mockDevice);
     useSensorStore.setState({ knownSensors: [SENSOR], connections: {} });
   });
@@ -190,6 +200,7 @@ describe.each(['android', 'ios'] as const)('a reconnect of a silent link on %s',
     jest.clearAllMocks();
     clearSensorLinkTrace();
     deliver = null;
+    advertise = null;
     mockConnectToDevice.mockResolvedValue(mockDevice);
     useSensorStore.setState({ knownSensors: [SENSOR], connections: {} });
   });
@@ -238,6 +249,7 @@ describe.each(['android', 'ios'] as const)('a monitor error on %s', (os) => {
     await disconnectAllSensors();
     jest.clearAllMocks();
     deliver = null;
+    advertise = null;
     mockConnectToDevice.mockResolvedValue(mockDevice);
     useRecordingStore.setState({ status: 'recording' });
     useSensorStore.setState({ knownSensors: [SENSOR], connections: {} });
@@ -301,5 +313,67 @@ describe.each(['android', 'ios'] as const)('a monitor error on %s', (os) => {
     expect(mockConnectToDevice).toHaveBeenCalledTimes(2);
     const options = mockConnectToDevice.mock.calls[1]?.[1] ?? {};
     if (os === 'android') expect(options).toHaveProperty('refreshGatt', 'OnConnected');
+  });
+});
+
+describe('a silent link whose sensor is advertising', () => {
+  const originalOs = Platform.OS;
+
+  beforeEach(async () => {
+    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+    jest.useFakeTimers();
+    await disconnectAllSensors();
+    jest.clearAllMocks();
+    clearSensorLinkTrace();
+    deliver = null;
+    advertise = null;
+    mockConnectToDevice.mockResolvedValue(mockDevice);
+    useSensorStore.setState({ knownSensors: [SENSOR], connections: {} });
+  });
+
+  afterEach(async () => {
+    await disconnectAllSensors();
+    jest.useRealTimers();
+    Object.defineProperty(Platform, 'OS', { value: originalOs, configurable: true });
+  });
+
+  async function silentFor(ms: number): Promise<void> {
+    jest.advanceTimersByTime(ms);
+    await settle();
+  }
+
+  it('reconnects once with a fresh service table, then says the broadcast is stuck', async () => {
+    void connectKnownSensors();
+    await settle();
+    await silentFor(SENSOR_NO_DATA_MS + 2000);
+    expect(mockStartDeviceScan).toHaveBeenCalled();
+    advertise?.(null, { id: SENSOR.id });
+    await silentFor(2000);
+
+    expect(mockConnectToDevice).toHaveBeenCalledTimes(2);
+    expect(mockConnectToDevice.mock.calls[1]?.[1]).toHaveProperty('refreshGatt', 'OnConnected');
+    expect(useSensorStore.getState().connections[SENSOR.id]?.stuck).toBeUndefined();
+
+    await silentFor(SENSOR_NO_DATA_MS + 2000);
+    advertise?.(null, { id: SENSOR.id });
+    await silentFor(2000);
+
+    expect(mockConnectToDevice).toHaveBeenCalledTimes(2);
+    expect(useSensorStore.getState().connections[SENSOR.id]).toMatchObject({
+      status: 'noData',
+      stuck: true,
+    });
+
+    deliver?.(null, HEART_RATE_72);
+    expect(useSensorStore.getState().connections[SENSOR.id]?.stuck).toBeUndefined();
+  });
+
+  it('leaves a silent link alone while its sensor is not advertising', async () => {
+    void connectKnownSensors();
+    await settle();
+    await silentFor(SENSOR_NO_DATA_MS * 3);
+
+    expect(mockConnectToDevice).toHaveBeenCalledTimes(1);
+    expect(useSensorStore.getState().connections[SENSOR.id]?.stuck).toBeUndefined();
   });
 });

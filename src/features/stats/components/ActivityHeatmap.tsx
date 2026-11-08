@@ -17,6 +17,11 @@ import {
   type ScrollViewInstance,
 } from 'react-native';
 import { useTheme } from '@/shared/app';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
+import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
+import { useGestureCallback } from '@/shared/ui/useGestureCallback';
+import { scrollerEdges, usePagerScrollerGesture } from '@/shared/ui/pagerScrollers';
 import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -50,10 +55,10 @@ import {
   getIntlLocale,
 } from '@/shared/format/format';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
-import { dayActivityRow, readFeedCards, useOpenDayActivities } from '@/features/activity/light';
 import {
   cellPosition,
   columnYear,
+  dateAt,
   positionsOf,
   HEATMAP_CELL_GAP,
   HEATMAP_CELL_SIZE,
@@ -75,6 +80,14 @@ interface ActivityHeatmapProps {
    * box is the canvas's own size, so drawing it moves nothing. Default true.
    */
   drawn?: boolean;
+  /**
+   * The day the athlete selects, by a press or by a drag that follows a hold,
+   * or null when the selection is cleared. The grid opens nothing: what the
+   * day shows is the screen's to say.
+   */
+  onDaySelect?: ((date: string | null) => void) | undefined;
+  /** True from the hold that starts a drag until the finger lifts. */
+  onScrubbingChange?: ((scrubbing: boolean) => void) | undefined;
 }
 
 /** How the Health screen pushes a scrubbed day into the heatmap. */
@@ -100,7 +113,7 @@ const LEGEND_BINS = [
 
 /**
  * What the calendar's one screen-reader element answers: a step to the next or previous active
- * day, and opening the day it holds.
+ * day, and selecting the day it holds.
  */
 const DAY_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }, { name: 'activate' }];
 
@@ -125,15 +138,43 @@ function columnAt(offset: number): number {
 }
 
 export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityHeatmapProps>(
-  function ActivityHeatmap({ training, drawn = true }, ref) {
-    const [highlightDate, setHighlight] = useState<string | null>(null);
-    useImperativeHandle(ref, () => ({ setHighlight }), []);
+  function ActivityHeatmap({ training, drawn = true, onDaySelect, onScrubbingChange }, ref) {
+    const [highlightDate, setHighlightDate] = useState<string | null>(null);
+    // The day the grid scrolls to, set only by what moves the selection away from the finger.
+    const [revealDate, setRevealDate] = useState<string | null>(null);
+    const [scrubbing, setScrubbing] = useState(false);
+    // The selection as the last touch left it, so a tick of a drag over the same cell does nothing
+    // and a press reads the current day without rebuilding the day controls.
+    const selectedRef = useRef<string | null>(null);
+    const select = useCallback(
+      (date: string | null) => {
+        selectedRef.current = date;
+        setHighlightDate(date);
+        onDaySelect?.(date);
+      },
+      [onDaySelect]
+    );
+    const pressDay = useCallback(
+      (date: string) => select(selectedRef.current === date ? null : date),
+      [select]
+    );
+    const setHighlight = useCallback(
+      (date: string | null) => {
+        select(date);
+        setRevealDate(date);
+      },
+      [select]
+    );
+    useImperativeHandle(ref, () => ({ setHighlight }), [setHighlight]);
     const { t } = useTranslation();
     const { isDark } = useTheme();
     const palette = themePalette(isDark);
     // Level 0 to 4, the engine's bracket of the day's longest session.
     const intensityColors = contributionRamp[isDark ? 'dark' : 'light'];
     const scrollRef = useRef<ScrollViewInstance>(null);
+    // The grid scrolls under a pan on it, and a pan at either end pages the tabs.
+    const edges = useSharedValue({ atLeft: false, atRight: true });
+    const scrollerGesture = usePagerScrollerGesture(edges);
 
     // The one interval every part of the card describes, and the days the
     // fitness screen read takes for it. It moves with the local date, so a
@@ -257,16 +298,6 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
       return recorder.finishRecordingAsPicture();
     }, [drawn, grid, gridWidth, intensities, intensityColors, dividerColor]);
 
-    // A day's activities are read only when it is pressed, from the feed
-    // cards for that one date.
-    const openDay = useOpenDayActivities();
-    const openDayOn = useCallback(
-      (date: string) => {
-        void openDay(readFeedCards(date, date).map(dayActivityRow));
-      },
-      [openDay]
-    );
-
     // The days with activities, oldest first: what a finger can press on the grid and what the
     // screen reader steps through.
     const activeCells = useMemo(
@@ -308,7 +339,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
             testID={`activity-heatmap-day-${cell.date}`}
             accessibilityRole="button"
             accessibilityLabel={dayReading(cell.date) ?? undefined}
-            onPress={() => openDayOn(cell.date)}
+            onPress={() => pressDay(cell.date)}
             style={[
               styles.dayControl,
               { left: x - HEATMAP_CELL_GAP / 2, top: y - HEATMAP_CELL_GAP / 2 },
@@ -316,7 +347,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
           />
         );
       });
-    }, [drawn, activeCells, dayReading, openDayOn]);
+    }, [drawn, activeCells, dayReading, pressDay]);
 
     // The active day the screen reader holds: the latest until it steps, and the latest again
     // when the day it stepped to leaves the window.
@@ -331,7 +362,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
         if (!heldDay) return;
         const action = event.nativeEvent.actionName;
         if (action === 'activate') {
-          openDayOn(heldDay);
+          select(heldDay);
           return;
         }
         if (action !== 'increment' && action !== 'decrement') return;
@@ -342,7 +373,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
         // Marked on the grid and scrolled to, for a reader who also looks.
         setHighlight(next);
       },
-      [heldDay, activeDays, openDayOn]
+      [heldDay, activeDays, select, setHighlight]
     );
 
     // Built once with the grid, off the same layout, so a scrub tick is one
@@ -352,6 +383,57 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
     const highlightPos = useMemo(
       () => (highlightDate ? (positions.get(highlightDate) ?? null) : null),
       [highlightDate, positions]
+    );
+    const revealPos = useMemo(
+      () => (revealDate ? (positions.get(revealDate) ?? null) : null),
+      [revealDate, positions]
+    );
+
+    // A hold, then a drag, moves the selection across the cells under the finger. The coordinates
+    // are the plot's own, so a scroll under the finger needs no correction. The pager is held at
+    // both ends while it runs, since a drag past the grid's edge is not a swipe.
+    const beginScrub = useCallback(
+      (x: number, y: number) => {
+        setScrubbing(true);
+        onScrubbingChange?.(true);
+        edges.value = { atLeft: false, atRight: false };
+        const date = dateAt(grid, x, y);
+        if (date) select(date);
+      },
+      [grid, edges, onScrubbingChange, select]
+    );
+    const moveScrub = useCallback(
+      (x: number, y: number) => {
+        const date = dateAt(grid, x, y);
+        if (date && date !== selectedRef.current) select(date);
+      },
+      [grid, select]
+    );
+    const endScrub = useCallback(() => {
+      setScrubbing(false);
+      onScrubbingChange?.(false);
+    }, [onScrubbingChange]);
+    const beginScrubOnJS = useGestureCallback(beginScrub);
+    const moveScrubOnJS = useGestureCallback(moveScrub);
+    const endScrubOnJS = useGestureCallback(endScrub);
+    const scrubGesture = useMemo(
+      () =>
+        Gesture.Pan()
+          .activateAfterLongPress(PREVIEW_HOLD_MS)
+          .simultaneousWithExternalGesture(scrollerGesture)
+          .onStart((e) => {
+            'worklet';
+            runOnJS(beginScrubOnJS)(e.x, e.y);
+          })
+          .onUpdate((e) => {
+            'worklet';
+            runOnJS(moveScrubOnJS)(e.x, e.y);
+          })
+          .onFinalize(() => {
+            'worklet';
+            runOnJS(endScrubOnJS)();
+          }),
+      [scrollerGesture, beginScrubOnJS, moveScrubOnJS, endScrubOnJS]
     );
 
     // The year of the leftmost column in view, pinned beside the grid. Before
@@ -363,19 +445,24 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
     const onViewportLayout = useCallback((event: LayoutChangeEvent) => {
       setViewportWidth(event.nativeEvent.layout.width);
     }, []);
-    const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      setScrolledColumn(columnAt(event.nativeEvent.contentOffset.x));
-    }, []);
+    const onScroll = useCallback(
+      (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+        setScrolledColumn(columnAt(contentOffset.x));
+        edges.value = scrollerEdges(contentOffset.x, layoutMeasurement.width, contentSize.width);
+      },
+      [edges]
+    );
     const leftColumn = scrolledColumn ?? columnAt(gridWidth - viewportWidth);
     const pinnedYear = columnYear(grid, leftColumn);
 
-    // Auto-scroll to highlighted cell
+    // Scroll to a day chosen away from the finger.
     useEffect(() => {
-      if (highlightPos && scrollRef.current) {
-        const scrollX = Math.max(0, highlightPos.x - 100);
+      if (revealPos && scrollRef.current) {
+        const scrollX = Math.max(0, revealPos.x - 100);
         scrollRef.current.scrollTo({ x: scrollX, animated: !isReduceMotionOn() });
       }
-    }, [highlightPos]);
+    }, [revealPos]);
 
     // Show empty state when the drawn range holds nothing. The cache is the
     // source, so an empty grid and no activities are the same thing, and the
@@ -442,124 +529,129 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
           </View>
 
           {/* Horizontally scrollable heatmap grid */}
-          <ScrollView
-            ref={scrollRef}
-            testID="activity-heatmap-scroll"
-            focusable={false}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            onLayout={onViewportLayout}
-            onScroll={onScroll}
-            scrollEventThrottle={16}
-            onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
-          >
-            {/* The month labels, the highlight and the day controls are placed in the canvas's
+          <GestureDetector gesture={scrollerGesture}>
+            <ScrollView
+              ref={scrollRef}
+              testID="activity-heatmap-scroll"
+              focusable={false}
+              horizontal
+              scrollEnabled={!scrubbing}
+              showsHorizontalScrollIndicator={false}
+              onLayout={onViewportLayout}
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+            >
+              {/* The month labels, the highlight and the day controls are placed in the canvas's
                 own coordinates, so they share its left to right box. */}
-            <View style={chartStyles.plotDirection}>
-              {/* Month labels, January carrying its year */}
-              <View
-                testID="activity-heatmap-months"
-                style={[styles.monthLabels, { width: gridWidth }]}
-              >
-                {labels.months.map((m) =>
-                  m.year !== undefined ? (
-                    <View
-                      key={m.col}
-                      style={[styles.monthLabelContainer, { left: m.col * HEATMAP_PITCH }]}
-                    >
-                      <Text
-                        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                        style={[styles.yearLabel, isDark && styles.textLight]}
+              <View style={chartStyles.plotDirection}>
+                {/* Month labels, January carrying its year */}
+                <View
+                  testID="activity-heatmap-months"
+                  style={[styles.monthLabels, { width: gridWidth }]}
+                >
+                  {labels.months.map((m) =>
+                    m.year !== undefined ? (
+                      <View
+                        key={m.col}
+                        style={[styles.monthLabelContainer, { left: m.col * HEATMAP_PITCH }]}
                       >
-                        {m.year}
-                      </Text>
+                        <Text
+                          maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                          style={[styles.yearLabel, isDark && styles.textLight]}
+                        >
+                          {m.year}
+                        </Text>
+                        <Text
+                          maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                          style={[styles.monthLabel, isDark && styles.textDark]}
+                        >
+                          {m.name}
+                        </Text>
+                      </View>
+                    ) : (
                       <Text
+                        key={m.col}
                         maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                        style={[styles.monthLabel, isDark && styles.textDark]}
+                        style={[
+                          styles.monthLabel,
+                          styles.monthLabelAbsolute,
+                          isDark && styles.textDark,
+                          { left: m.col * HEATMAP_PITCH },
+                        ]}
                       >
                         {m.name}
                       </Text>
-                    </View>
-                  ) : (
-                    <Text
-                      key={m.col}
-                      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                      style={[
-                        styles.monthLabel,
-                        styles.monthLabelAbsolute,
-                        isDark && styles.textDark,
-                        { left: m.col * HEATMAP_PITCH },
-                      ]}
-                    >
-                      {m.name}
-                    </Text>
-                  )
-                )}
-              </View>
+                    )
+                  )}
+                </View>
 
-              <View>
-                {/* The day controls stay beside the plot rather than in it, so the plot keeps its
+                <GestureDetector gesture={scrubGesture}>
+                  <View>
+                    {/* The day controls stay beside the plot rather than in it, so the plot keeps its
                     summary and the stepped days are a stop of their own, and Show data sits under
                     the scroll rather than at its far end. */}
-                <ChartSurface
-                  summary={reading.summary}
-                  table={reading.table}
-                  style={[styles.grid, { width: gridWidth }]}
-                  showDataButton={false}
-                  testID="activity-heatmap-plot"
-                >
-                  {heatmapPicture ? (
-                    <Canvas style={[styles.grid, { width: gridWidth }]}>
-                      <Picture picture={heatmapPicture} />
-                    </Canvas>
-                  ) : (
-                    <View
-                      testID="activity-heatmap-placeholder"
+                    <ChartSurface
+                      summary={reading.summary}
+                      table={reading.table}
                       style={[styles.grid, { width: gridWidth }]}
-                    />
-                  )}
-                </ChartSurface>
-                {highlightPos ? (
-                  <View
-                    testID="activity-heatmap-highlight"
-                    style={[
-                      styles.highlightCell,
-                      {
-                        left: highlightPos.x - 2,
-                        top: highlightPos.y - 2,
-                        width: CELL_SIZE + 4,
-                        height: CELL_SIZE + 4,
-                        borderColor: palette.actionPrimary,
-                      },
-                    ]}
-                  />
-                ) : null}
-                {dayControls ? (
-                  <View
-                    style={StyleSheet.absoluteFill}
-                    pointerEvents="box-none"
-                    importantForAccessibility="no-hide-descendants"
-                    accessibilityElementsHidden
-                  >
-                    {dayControls}
+                      showDataButton={false}
+                      testID="activity-heatmap-plot"
+                    >
+                      {heatmapPicture ? (
+                        <Canvas style={[styles.grid, { width: gridWidth }]}>
+                          <Picture picture={heatmapPicture} />
+                        </Canvas>
+                      ) : (
+                        <View
+                          testID="activity-heatmap-placeholder"
+                          style={[styles.grid, { width: gridWidth }]}
+                        />
+                      )}
+                    </ChartSurface>
+                    {highlightPos ? (
+                      <View
+                        testID="activity-heatmap-highlight"
+                        style={[
+                          styles.highlightCell,
+                          {
+                            left: highlightPos.x - 2,
+                            top: highlightPos.y - 2,
+                            width: CELL_SIZE + 4,
+                            height: CELL_SIZE + 4,
+                            borderColor: palette.actionPrimary,
+                          },
+                        ]}
+                      />
+                    ) : null}
+                    {dayControls ? (
+                      <View
+                        style={StyleSheet.absoluteFill}
+                        pointerEvents="box-none"
+                        importantForAccessibility="no-hide-descendants"
+                        accessibilityElementsHidden
+                      >
+                        {dayControls}
+                      </View>
+                    ) : null}
+                    {drawn && heldReading ? (
+                      <View
+                        testID="activity-heatmap-days"
+                        style={StyleSheet.absoluteFill}
+                        pointerEvents="none"
+                        accessible
+                        accessibilityRole="adjustable"
+                        accessibilityLabel={t('stats.activityCalendar')}
+                        accessibilityValue={{ text: heldReading }}
+                        accessibilityActions={DAY_ACTIONS}
+                        onAccessibilityAction={onDayAction}
+                      />
+                    ) : null}
                   </View>
-                ) : null}
-                {drawn && heldReading ? (
-                  <View
-                    testID="activity-heatmap-days"
-                    style={StyleSheet.absoluteFill}
-                    pointerEvents="none"
-                    accessible
-                    accessibilityRole="adjustable"
-                    accessibilityLabel={t('stats.activityCalendar')}
-                    accessibilityValue={{ text: heldReading }}
-                    accessibilityActions={DAY_ACTIONS}
-                    onAccessibilityAction={onDayAction}
-                  />
-                ) : null}
+                </GestureDetector>
               </View>
-            </View>
-          </ScrollView>
+            </ScrollView>
+          </GestureDetector>
         </View>
         <ChartShowDataButton table={reading.table} testID="activity-heatmap-plot" />
 

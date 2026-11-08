@@ -68,6 +68,7 @@ impl EngineObserver for Counter {
     fn preview_finished(&self) {}
     fn recordings_changed(&self) {}
     fn upload_permission_refused(&self) {}
+    fn request_budget_changed(&self) {}
 }
 
 fn line_track(jitter: f64) -> Vec<GpsPoint> {

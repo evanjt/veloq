@@ -3,6 +3,7 @@ import {
   buildSnapshotWorkerHtml,
 } from '@/features/maps/lib/htmlBuilders/snapshotWorker';
 import { buildRenderSnapshotScript } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
+import { makePerspectiveMap } from './perspectiveMap';
 import type {
   SnapshotRequest,
   SnapshotStylesHeld,
@@ -16,6 +17,11 @@ export interface FakeMap {
   getTerrain: jest.Mock;
   setTerrain: jest.Mock;
   jumpTo: jest.Mock;
+  /** The camera the last `jumpTo` left, over a flat ground in longitude and latitude. */
+  getZoom: () => number;
+  getBearing: () => number;
+  getPitch: () => number;
+  project: (point: [number, number]) => { x: number; y: number };
   remove: jest.Mock;
   /** Whether every tile of the mounted style has arrived. True unless a test says otherwise. */
   isStyleLoaded: jest.Mock;
@@ -85,7 +91,10 @@ export function bootWorkerPage(
   } = {}
 ): WorkerPage {
   const listeners: Record<string, Handler[]> = {};
+  // Longitude and latitude on a flat ground: 512 px a tile at zoom 12 is 4096 tiles round.
+  const camera = makePerspectiveMap({ pitch: 0, unit: (512 * 4096) / 360 }).map;
   const map = {
+    ...camera,
     on: (name: string, handler: Handler) => {
       (listeners[name] ??= []).push(handler);
     },
@@ -96,7 +105,7 @@ export function bootWorkerPage(
     setStyle: jest.fn(),
     getTerrain: jest.fn(() => null),
     setTerrain: jest.fn(),
-    jumpTo: jest.fn(),
+    jumpTo: jest.fn(camera.jumpTo),
     // A removed map fires nothing more, so its listeners go with it.
     remove: jest.fn(() => {
       for (const name of Object.keys(listeners)) delete listeners[name];

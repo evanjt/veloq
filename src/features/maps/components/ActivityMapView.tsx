@@ -182,6 +182,8 @@ interface ActivityMapViewProps {
     bearing: number;
     pitch: number;
   } | null;
+  /** The initial 3D camera is the athlete's own, and is never turned off a hiding ridge */
+  initial3DCameraPinned?: boolean;
   /** Activity streams - required to compute per-point gradient coloring */
   streams?: ActivityStreams | null | undefined;
 }
@@ -219,6 +221,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   onSectionMarkerPress,
   onCameraCapture,
   initial3DCamera,
+  initial3DCameraPinned,
   streams,
 }: ActivityMapViewProps) {
   // The placeholder and every control drawn over the map follow the app theme, not the base.
@@ -1037,6 +1040,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 onBearingChange={handleBearingChange}
                 onCameraStateChange={handleCameraStateChange}
                 initialCamera={initial3DCamera}
+                initialCameraPinned={initial3DCameraPinned}
                 onMapClick={handle3DMapClick}
                 onSectionClick={handle3DSectionClick}
                 sectionCreationGeoJSON={creationMode ? sectionGeoJSON : null}

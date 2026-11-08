@@ -108,6 +108,11 @@ describe('the snapshot encode', () => {
     expect(SNAPSHOT_JPEG_QUALITY).toBeLessThanOrEqual(0.85);
   });
 
+  it('re-renders the previews drawn before the route was fitted to the card', () => {
+    expect(TERRAIN_CACHE_VERSION).toBe(12);
+    expect(QUALITY_CACHE_VERSION).toBe(7);
+  });
+
   it('has a cache version recorded against the quality it was drawn at', () => {
     // The pair moves together. A device holds previews drawn at whatever the
     // quality was when they were made, and only a version bump redraws them.

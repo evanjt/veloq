@@ -1,4 +1,4 @@
-import { getIntlLocale } from '@/shared/format/format';
+import { formatShortDate } from '@/shared/format/format';
 
 /**
  * The date under a sparkline crosshair, `daysAgo` back from today.
@@ -11,5 +11,5 @@ export function scrubDateLabel(daysAgo: number, today: Date = new Date()): strin
   const date = new Date(today);
   date.setDate(date.getDate() - daysAgo);
 
-  return date.toLocaleDateString(getIntlLocale(), { month: 'short', day: 'numeric' });
+  return formatShortDate(date);
 }

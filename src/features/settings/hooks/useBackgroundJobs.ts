@@ -177,8 +177,9 @@ interface BackgroundJobsData {
  *
  * It is a `COUNT` and a table read under the engine's connection, so it is
  * taken on the channels that move it and never on the progress tick: a run
- * settling, activities landing and a cutover finishing are all announced. The
- * cutover's phase is a process-global static that starts at idle, so the owed
+ * settling, activities landing and a cutover finishing are all announced, and
+ * so is each move of the day's request count, which the governor spends without
+ * storing anything. The cutover's phase is a process-global static that starts at idle, so the owed
  * rebuild comes from the durable token behind this read, and a relaunch with a
  * re-cut still owed is not reported as nothing to do. Undefined means the
  * engine could not answer, which a count must not read as nothing left to do.
@@ -190,6 +191,7 @@ function useBackgroundJobsData(): BackgroundJobsData | undefined {
     'backfillPhase',
     'streamBackfillPhase',
     'cutoverSettled',
+    'requestBudgetChanged',
   ]);
   return useMemo(
     () =>

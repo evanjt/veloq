@@ -43,7 +43,7 @@ fn library() -> (TempDir, std::path::PathBuf, i64) {
         .expect("add_activity");
     let line = track(POINTS, 0.0)[0..12].to_vec();
     let version = engine
-        .record_section_geometry(SID, &line, true, Some(("a1", 0, 12)))
+        .record_section_geometry(SID, &line, true, Some(("a1", 0, 12, false)))
         .expect("record a version");
     drop(engine);
 
@@ -190,7 +190,12 @@ fn the_upgrade_backfills_the_count_from_the_stored_track() {
     {
         let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
         engine
-            .record_section_geometry("s_orphaned", &track(12, 0.5), false, Some(("gone", 0, 12)))
+            .record_section_geometry(
+                "s_orphaned",
+                &track(12, 0.5),
+                false,
+                Some(("gone", 0, 12, false)),
+            )
             .expect("record a version over a missing stream");
     }
     {

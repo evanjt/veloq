@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { View } from 'react-native';
+import { AccessibilityInfo, View } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import ChartDataSheet from '@/app/sheets/chart-data';
@@ -19,6 +19,7 @@ import { FitnessChart } from '@/features/fitness/components/FitnessChart';
 import { StrengthBodyDiagram } from '@/features/strength/components/StrengthBodyDiagram';
 import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTrendsChart';
 import { CurveChart } from '@/shared/charts';
+import * as formatModule from '@/shared/format/format';
 import { initialiseI18n } from '@/i18n';
 import type { FeedCard, ActivityStreams as StreamsData, MuscleVolume, WellnessData } from '@/types';
 import { dayActivityRow } from '@/features/activity/light';
@@ -121,14 +122,15 @@ beforeAll(async () => {
 });
 beforeEach(() => {
   mockPush.mockClear();
+  jest.spyOn(AccessibilityInfo, 'isScreenReaderEnabled').mockResolvedValue(true);
 });
 
 function plot() {
-  return screen.getByRole('image', { name: /, / });
+  return screen.findByRole('image', { name: /, / });
 }
 
 async function openThroughAction() {
-  const surface = plot();
+  const surface = await plot();
   expect(surface.props.accessibilityActions).toEqual(
     expect.arrayContaining([{ name: 'showData', label: 'Show data' }])
   );
@@ -154,7 +156,9 @@ async function openedSheet() {
 describe('a chart can be read without seeing it', () => {
   it('speaks the fitness chart and opens one row per plotted day', async () => {
     await render(<FitnessChart data={FITNESS_DAYS} />);
-    expect(plot().props.accessibilityLabel).toMatch(/Fitness.*latest 43.*Fatigue.*latest 55/);
+    expect((await plot()).props.accessibilityLabel).toMatch(
+      /Fitness.*latest 43.*Fatigue.*latest 55/
+    );
     const rows = await openThroughAction();
     expect(rows).toHaveLength(FITNESS_DAYS.length);
   });
@@ -181,7 +185,7 @@ describe('a chart can be read without seeing it', () => {
         }}
       />
     );
-    expect(plot().props.accessibilityLabel).toBe(
+    expect((await plot()).props.accessibilityLabel).toBe(
       'Kiln output, 5 s to 1200 s: 900 W at 5 s, 270 W at 1200 s, peak 900 W'
     );
     const rows = await openThroughAction();
@@ -193,9 +197,28 @@ describe('a chart can be read without seeing it', () => {
     await render(
       <WellnessTrendsChart data={WELLNESS_DAYS} timeRange="7d" smoothingWindow="none" />
     );
-    expect(plot().props.accessibilityLabel).toMatch(/HRV.*latest 70.*Resting HR.*latest 48/);
+    expect((await plot()).props.accessibilityLabel).toMatch(
+      /HRV.*latest 70.*Resting HR.*latest 48/
+    );
     const rows = await openThroughButton();
     expect(rows).toHaveLength(4);
+  });
+
+  it("lists each day's own reading in the table, not the smoothed line drawn through it", async () => {
+    await render(
+      <WellnessTrendsChart
+        data={[
+          { id: '2026-06-01', hrv: 40 },
+          { id: '2026-06-02', hrv: 80 },
+          { id: '2026-06-03', hrv: 40 },
+        ]}
+        timeRange="7d"
+        smoothingWindow={3}
+      />
+    );
+    const rows = await openThroughButton();
+    expect(rows[1]).toHaveTextContent(/80 ms$/);
+    expect(rows[1]).not.toHaveTextContent(/53 ms/);
   });
 
   it('speaks each drawn activity stream in its unit and opens one row per plotted point', async () => {
@@ -208,7 +231,7 @@ describe('a chart can be read without seeing it', () => {
       />
     );
     await layOut();
-    expect(plot().props.accessibilityLabel).toBe(
+    expect((await plot()).props.accessibilityLabel).toBe(
       'Activity chart. Power, 0.00 km to 9.00 km: latest 290 W, range 200 W to 290 W, average 245 W'
     );
     const rows = await openThroughAction();
@@ -233,16 +256,14 @@ describe('a chart can be read without seeing it', () => {
     expect(screen.queryByText('245')).toBeNull();
   });
 
-  it('speaks the days trained with its longest break and lists each day trained', async () => {
+  it('speaks the days trained with its longest break and draws no Show data link', async () => {
     await render(
       <ActivityDotsChart data={STRIP_DAYS} activities={STRIP_ACTIVITIES.map(dayActivityRow)} />
     );
-    expect(plot().props.accessibilityLabel).toBe(
+    expect((await plot()).props.accessibilityLabel).toBe(
       'Days trained, May 1 to May 5: active on 2 of 5 days. Longest break 2 days'
     );
-    const rows = await openThroughButton();
-    expect(rows).toHaveLength(2);
-    expect(screen.getByText('Kiln ride, Clay swim')).toBeTruthy();
+    expect(screen.queryByTestId('activity-dots-plot-show-data')).toBeNull();
   });
 
   it('speaks each trained muscle and opens one row per muscle', async () => {
@@ -270,5 +291,32 @@ describe('a chart can be read without seeing it', () => {
   it('offers no table when the chart has nothing to plot', async () => {
     await render(<FitnessChart data={[]} />);
     expect(screen.queryByRole('button', { name: 'Show data' })).toBeNull();
+  });
+});
+
+describe('building the reading on demand', () => {
+  function days(count: number) {
+    return Array.from({ length: count }, (_, i) => ({
+      id: new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10),
+      ctl: 40 + i,
+      atl: 48 + i,
+    }));
+  }
+
+  async function labelCalls(count: number): Promise<number> {
+    jest.spyOn(AccessibilityInfo, 'isScreenReaderEnabled').mockResolvedValue(false);
+    const spy = jest.spyOn(formatModule, 'formatShortDate');
+    spy.mockClear();
+    await render(<FitnessChart data={days(count)} />);
+    const calls = spy.mock.calls.length;
+    spy.mockRestore();
+    screen.unmount();
+    return calls;
+  }
+
+  it('does not label a day per day shown while no screen reader is on', async () => {
+    const few = await labelCalls(10);
+    const many = await labelCalls(90);
+    expect(many).toBe(few);
   });
 });

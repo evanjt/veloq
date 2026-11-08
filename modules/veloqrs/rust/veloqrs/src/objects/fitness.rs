@@ -366,8 +366,9 @@ impl FitnessManager {
         // nothing the engine holds in memory, so a sync page mid-transaction
         // does not hold the first screen the athlete sees.
         let params = with_week_bounds(params);
-        with_reader(|conn| {
-            crate::persistence::screens::pooled::startup_data(
+        let install = crate::persistence::engine_install();
+        let (data, refilled) = with_reader(|conn| {
+            crate::persistence::screens::pooled::startup_data_refilling(
                 conn,
                 params.current_start as i64,
                 params.current_end as i64,
@@ -375,7 +376,9 @@ impl FitnessManager {
                 params.prev_end as i64,
                 &preview_activity_ids,
             )
-        })
+        })?;
+        crate::persistence::activities::persist_refilled_signatures(install, &refilled);
+        Ok(data)
     }
 
     /// The home-screen widget snapshot, as the JSON the widgets read, composed

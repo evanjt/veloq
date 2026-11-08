@@ -183,6 +183,40 @@ describe('Map3DWebView on a held page', () => {
     await view.unmount();
   });
 
+  it('turns a computed camera the host hands in, and pins one the page already posted or the athlete saved', async () => {
+    const camera = { center: [7.45, 46.92] as [number, number], zoom: 13, bearing: 30, pitch: 60 };
+    const computed = (pinned?: boolean) => (
+      <Map3DWebView
+        coordinates={ROUTE}
+        mapStyle="light"
+        routesGeoJSON={EMPTY}
+        initialCamera={camera}
+        initialCameraPinned={pinned}
+      />
+    );
+
+    const view = await render(computed());
+    await post({ type: 'pageAdopted', revision: map3DPageRevision() });
+    expect(builds()[0]).toContain('hasSavedCamera: true');
+    expect(builds()[0]).toContain('cameraPinned: false');
+
+    await post({
+      type: 'cameraState',
+      gesture: false,
+      camera: { center: [7.46, 46.93], zoom: 13, bearing: 80, pitch: 60 },
+    });
+    injected.length = 0;
+    await post({ type: 'pageAdopted', revision: map3DPageRevision() });
+    expect(builds()[0]).toContain('cameraPinned: true');
+    await view.unmount();
+
+    injected.length = 0;
+    const pinned = await render(computed(true));
+    await post({ type: 'pageAdopted', revision: map3DPageRevision() });
+    expect(builds()[0]).toContain('cameraPinned: true');
+    await pinned.unmount();
+  });
+
   it('holds a layer update sent before the rebuilt map is ready and sends it after', async () => {
     const view = await render(heldSurface(EMPTY));
     await post({ type: 'pageAdopted', revision: map3DPageRevision() });

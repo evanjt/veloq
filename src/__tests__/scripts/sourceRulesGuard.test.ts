@@ -431,7 +431,7 @@ describe('coverage-hooks-read', () => {
 describe('picker-default-period', () => {
   const OPENINGS = {
     'src/features/fitness/hooks/useFitnessWindow.ts':
-      'const [r, setR] = useState<TimeRange>(entryRange ?? DEFAULT_PERIOD);\n',
+      'const [r, setR] = useState<TimeRange>(entryRange ?? FITNESS_DEFAULT_PERIOD);\n',
     'src/features/routes/hooks/useSectionUIState.ts':
       'const [r, setR] = useState<SectionTimeRange>(DEFAULT_PERIOD);\n',
     'src/features/insights/components/StrengthTab.tsx':
@@ -464,6 +464,19 @@ describe('picker-default-period', () => {
     });
 
     expect(runRule('picker-default-period', root).status).toBe(1);
+  });
+
+  it('fails the fitness tab opening on the shared default rather than its own', () => {
+    const root = fixture({
+      ...OPENINGS,
+      'src/features/fitness/hooks/useFitnessWindow.ts':
+        'const [r, setR] = useState<TimeRange>(entryRange ?? DEFAULT_PERIOD);\n',
+    });
+
+    const { status, output } = runRule('picker-default-period', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/fitness/hooks/useFitnessWindow.ts  opens on');
   });
 
   it('fails the map opening on the shared period rather than its own', () => {

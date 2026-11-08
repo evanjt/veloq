@@ -179,11 +179,14 @@ export function tileHostWarmScript(): string {
  * clear. The request camera stays at 5% hidden or less. Otherwise the least
  * hidden of its turns of 180, 90 and 270 degrees (centre moved 8% of the span
  * toward the new eye) and the request bearing at pitch 40 is returned, the
- * first listed winning a tie.
+ * first listed winning a tie. A page that fits its frame passes `fit`, which
+ * returns a candidate camera fitted to the frame; each candidate is fitted
+ * before it is scored, and the centre then stays where it was, since the fit
+ * recentres it.
  */
 export function terrainVisibilityScript(): string {
   return `
-    window._pickUnhiddenCamera = function(map, camera, coords, spans) {
+    window._pickUnhiddenCamera = function(map, camera, coords, spans, fit) {
       var KEEP_BELOW = 0.05, CLEARANCE_M = 3, RAY_STEPS = 16, MAX_POINTS = 200;
       if (!map || !map.queryTerrainElevation || !map.transform || !coords || coords.length < 2) return camera;
       var rad = Math.PI / 180;
@@ -203,6 +206,7 @@ export function terrainVisibilityScript(): string {
         pts.push({ lng: coords[i][0], lat: coords[i][1], z: ez === null ? 0 : ez });
       }
       function shift(bearing) {
+        if (fit) return [0, 0];
         var b = bearing * rad;
         return [-Math.sin(b) * spans[0] * 0.08, -Math.cos(b) * spans[1] * 0.08];
       }
@@ -244,6 +248,9 @@ export function terrainVisibilityScript(): string {
         });
       }
       candidates.push({ center: camera.center, zoom: camera.zoom, bearing: camera.bearing, pitch: 40 });
+      if (fit) {
+        for (var f = 0; f < candidates.length; f++) candidates[f] = fit(candidates[f]) || candidates[f];
+      }
       for (var c = 0; c < candidates.length; c++) {
         var h = hidden(candidates[c]);
         if (h < bestHidden) { bestHidden = h; best = candidates[c]; }
@@ -436,8 +443,67 @@ export function visibleInsetScript(): string {
       window._veloqInset = inset;
       window._veloqMoveTo({ padding: inset, center: kept }, duration);
     };
-    // Fits 'bounds' to the part of the map 'inset' leaves, at the map's bearing unless one is given.
-    window._veloqFitInset = function(bounds, inset, duration, options) {
+    // The points a fit works from: a pair is a bounds pair and stands for its four corners, a longer
+    // list is the route itself, sampled to at most 200 points.
+    window._veloqFitPoints = function(points) {
+      if (points.length === 2) {
+        var lo = points[0], hi = points[1];
+        return [[lo[0], lo[1]], [hi[0], lo[1]], [hi[0], hi[1]], [lo[0], hi[1]]];
+      }
+      if (points.length <= 200) return points;
+      var sampled = [];
+      for (var i = 0; i < 200; i++) sampled.push(points[Math.round(i * (points.length - 1) / 199)]);
+      return sampled;
+    };
+    window._veloqBoundsOf = function(points) {
+      var lo = [Infinity, Infinity], hi = [-Infinity, -Infinity];
+      for (var i = 0; i < points.length; i++) {
+        lo = [Math.min(lo[0], points[i][0]), Math.min(lo[1], points[i][1])];
+        hi = [Math.max(hi[0], points[i][0]), Math.max(hi[1], points[i][1])];
+      }
+      return [lo, hi];
+    };
+    // At a pitch above 0 the library's fit leaves the route in part of the frame, since it works
+    // the zoom out for a flat view. Starting from that camera, this moves the centre to the middle of
+    // the route's projected box and scales the zoom by the tighter side of the room the inset leaves,
+    // on the live transform so loaded terrain counts, until the scale is within 0.2% of 1 and the
+    // box is centred, at most 12 rounds.
+    window._veloqRefineFit = function(points, inset, target, maxZoom) {
+      var map = window.map;
+      var box = map.getContainer();
+      var room = [box.clientWidth - inset.left - inset.right, box.clientHeight - inset.top - inset.bottom];
+      map.jumpTo({ padding: inset, center: target.center, zoom: target.zoom, bearing: target.bearing });
+      var screenBox = function() {
+        var lo = [Infinity, Infinity], hi = [-Infinity, -Infinity];
+        for (var i = 0; i < points.length; i++) {
+          var at = map.project(points[i]);
+          if (!isFinite(at.x) || !isFinite(at.y)) return null;
+          lo = [Math.min(lo[0], at.x), Math.min(lo[1], at.y)];
+          hi = [Math.max(hi[0], at.x), Math.max(hi[1], at.y)];
+        }
+        return { lo: lo, hi: hi };
+      };
+      for (var round = 0; round < 12; round++) {
+        var measured = screenBox();
+        if (!measured) return null;
+        map.jumpTo({ center: map.unproject([(measured.lo[0] + measured.hi[0]) / 2, (measured.lo[1] + measured.hi[1]) / 2]) });
+        measured = screenBox();
+        if (!measured) return null;
+        var scale = Math.min(
+          room[0] / Math.max(measured.hi[0] - measured.lo[0], 1e-6),
+          room[1] / Math.max(measured.hi[1] - measured.lo[1], 1e-6)
+        );
+        var zoom = map.getZoom() + Math.log(scale) / Math.LN2;
+        var capped = maxZoom !== undefined && maxZoom !== null && zoom > maxZoom;
+        if (capped) zoom = maxZoom;
+        map.jumpTo({ zoom: zoom });
+        if (capped || Math.abs(scale - 1) < 0.002) break;
+      }
+      return { center: map.getCenter(), zoom: map.getZoom(), bearing: target.bearing, padding: inset };
+    };
+    // Fits 'points' (a bounds pair, or the route) to the part of the map 'inset' leaves, at the map's
+    // bearing unless one is given and at the map's own pitch.
+    window._veloqFitInset = function(points, inset, duration, options) {
       var map = window.map;
       if (!map) return;
       options = options || {};
@@ -448,6 +514,8 @@ export function visibleInsetScript(): string {
         pitch: map.getPitch(), padding: window._veloqInset,
       };
       var bearing = options.bearing === undefined ? before.bearing : options.bearing;
+      var fitPoints = window._veloqFitPoints(points);
+      var bounds = points.length === 2 ? points : window._veloqBoundsOf(points);
       // An explicit undefined maxZoom makes the library's fit NaN, so the key is only set when given.
       var fitOptions = { padding: inset, bearing: bearing };
       if (options.maxZoom !== undefined && options.maxZoom !== null) fitOptions.maxZoom = options.maxZoom;
@@ -465,6 +533,11 @@ export function visibleInsetScript(): string {
         map.jumpTo(before);
         return framed;
       });
+      if (target && before.pitch) {
+        var refined = window._veloqRefineFit(fitPoints, inset, target, options.maxZoom);
+        map.jumpTo(before);
+        if (refined) target = refined;
+      }
       if (!target) return;
       window._veloqInset = inset;
       window._veloqMoveTo(target, duration);

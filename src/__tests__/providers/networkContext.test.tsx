@@ -21,7 +21,9 @@ import { AppState } from 'react-native';
 import {
   FOREGROUND_REREAD_MS,
   NetworkProvider,
+  OFFLINE_BANNER_DELAY_MS,
   OFFLINE_DEBOUNCE_MS,
+  OFFLINE_PILL_HOLD_MS,
   useNetwork,
 } from '@/shared/app/NetworkContext';
 
@@ -847,5 +849,86 @@ describe('the first reading after a cold boot', () => {
       jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
     });
     expect(result.current.isOnline).toBe(false);
+  });
+
+  describe('offline indicator', () => {
+    const offline = { isConnected: false, isInternetReachable: false, type: 'NONE' };
+    const online = { isConnected: true, isInternetReachable: true, type: 'WIFI' };
+
+    async function dropOffline() {
+      const hook = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => getMock().listener!(online));
+      await act(() => getMock().listener!(offline));
+      return hook;
+    }
+
+    it('is the pill after the debounce and delay, the badge after the hold, none online', async () => {
+      const { result } = await dropOffline();
+      expect(result.current.offlineIndicator).toBe('none');
+
+      await act(() => {
+        jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS + OFFLINE_BANNER_DELAY_MS);
+      });
+      expect(result.current.offlineIndicator).toBe('pill');
+
+      await act(() => {
+        jest.advanceTimersByTime(OFFLINE_PILL_HOLD_MS - 1);
+      });
+      expect(result.current.offlineIndicator).toBe('pill');
+      await act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(result.current.offlineIndicator).toBe('badge');
+
+      await act(() => getMock().listener!(online));
+      expect(result.current.offlineIndicator).toBe('none');
+    });
+
+    it('goes straight to none from the pill on an online reading', async () => {
+      const { result } = await dropOffline();
+      await act(() => {
+        jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS + OFFLINE_BANNER_DELAY_MS);
+      });
+      await act(() => getMock().listener!(online));
+      expect(result.current.offlineIndicator).toBe('none');
+
+      await act(() => {
+        jest.advanceTimersByTime(OFFLINE_PILL_HOLD_MS * 2);
+      });
+      expect(result.current.offlineIndicator).toBe('none');
+    });
+
+    it('a repeated offline reading during the hold restarts nothing', async () => {
+      const { result } = await dropOffline();
+      await act(() => {
+        jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS + OFFLINE_BANNER_DELAY_MS);
+      });
+      await act(() => {
+        jest.advanceTimersByTime(OFFLINE_PILL_HOLD_MS - 2000);
+      });
+      await act(() => getMock().listener!(offline));
+      await act(() => {
+        jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
+      });
+      expect(result.current.offlineIndicator).toBe('pill');
+      await act(() => {
+        jest.advanceTimersByTime(500);
+      });
+      expect(result.current.offlineIndicator).toBe('badge');
+    });
+
+    it('a repeated offline reading in the badge stays the badge', async () => {
+      const { result } = await dropOffline();
+      await act(() => {
+        jest.advanceTimersByTime(
+          OFFLINE_DEBOUNCE_MS + OFFLINE_BANNER_DELAY_MS + OFFLINE_PILL_HOLD_MS
+        );
+      });
+      await act(() => getMock().listener!(offline));
+      await act(() => {
+        jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS + OFFLINE_BANNER_DELAY_MS);
+      });
+      expect(result.current.offlineIndicator).toBe('badge');
+    });
   });
 });

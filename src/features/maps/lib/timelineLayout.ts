@@ -163,11 +163,14 @@ export function createTimelineLayout({
     return { position, threshold: Math.min(SNAP_THRESHOLD, gap / 4) };
   });
 
-  // A caller that may only move left passes the right-hand limit, so a point beyond it never captures.
+  // A caller that may only move left passes the right-hand limit, so a point beyond it never
+  // captures. A position at the limit stays there, so a handle held up to a fixed start is not
+  // pulled short of it onto a tick that lies just left of it.
   const snapToNearest = (
     pos: number,
     maxPosition = Infinity
   ): { position: number; snapped: boolean } => {
+    if (pos >= maxPosition - SNAP_EPSILON) return { position: maxPosition, snapped: false };
     let closestPoint = pos;
     let closestDistance = Infinity;
     for (const { position, threshold } of thresholds) {

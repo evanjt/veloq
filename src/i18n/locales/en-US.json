@@ -32,9 +32,7 @@
   "feed": {
     "notificationsTitle": "You’re missing out on personalized notifications"
   },
-  "fitness": {
-    "stripGloss": "Marks show days trained; colors identify sports, not shares of load. Gray means no recorded load."
-  },
+  "fitness": {},
   "formZones": {
     "greyZone": "Gray zone"
   },

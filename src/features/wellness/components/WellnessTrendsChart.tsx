@@ -21,6 +21,7 @@ import {
   chartLinePaint,
   chartStroke,
   ChartSurface,
+  type ChartReadingSource,
   drawChartDot,
   REFERENCE_DASH,
   lanesSummary,
@@ -32,7 +33,12 @@ import {
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { toDisplayWeight, weightUnitLabel } from '@/shared/format/weight';
-import { formatShortDate, formatShortDateWithWeekday } from '@/shared/format/format';
+import {
+  formatShortDate,
+  formatShortDateIn,
+  formatShortDateWithWeekday,
+  getIntlLocale,
+} from '@/shared/format/format';
 import { ABSENT } from '@/shared/format/absent';
 import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
 import { FitText } from '@/shared/ui/FitText';
@@ -175,24 +181,24 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     [smoothingWindow, timeRange]
   );
 
-  // Process data for each metric
-  const { sortedData, hrvData, rhrData, sleepData, sleepScoreData, weightData, totalDays } =
+  // The rows in date order and each metric's unsmoothed points. Neither depends on the
+  // smoothing window, so changing the window sorts nothing and re-reads no row.
+  const { sortedData, hrvRaw, rhrRaw, sleepRaw, sleepScoreRaw, weightRaw, totalDays } =
     useMemo(() => {
       if (!data || data.length === 0) {
         return {
           sortedData: [],
-          hrvData: [],
-          rhrData: [],
-          sleepData: [],
-          sleepScoreData: [],
-          weightData: [],
+          hrvRaw: [],
+          rhrRaw: [],
+          sleepRaw: [],
+          sleepScoreRaw: [],
+          weightRaw: [],
           totalDays: 0,
         };
       }
 
       // Sort by date ascending
       const sorted = sortByDateId(data);
-      const totalDays = sorted.length;
 
       const hrvDataRaw: MetricChartData[] = [];
       const rhrDataRaw: MetricChartData[] = [];
@@ -239,23 +245,28 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         }
       });
 
-      // Apply smoothing
-      const hrvData = smoothDataPoints(hrvDataRaw, effectiveWindow);
-      const rhrData = smoothDataPoints(rhrDataRaw, effectiveWindow);
-      const sleepData = smoothDataPoints(sleepDataRaw, effectiveWindow);
-      const sleepScoreData = smoothDataPoints(sleepScoreDataRaw, effectiveWindow);
-      const weightData = smoothDataPoints(weightDataRaw, effectiveWindow);
-
       return {
         sortedData: sorted,
-        hrvData,
-        rhrData,
-        sleepData,
-        sleepScoreData,
-        weightData,
-        totalDays,
+        hrvRaw: hrvDataRaw,
+        rhrRaw: rhrDataRaw,
+        sleepRaw: sleepDataRaw,
+        sleepScoreRaw: sleepScoreDataRaw,
+        weightRaw: weightDataRaw,
+        totalDays: sorted.length,
       };
-    }, [data, effectiveWindow, isMetric]);
+    }, [data, isMetric]);
+
+  // The only work a window change does: five smoothing passes over the raw points.
+  const { hrvData, rhrData, sleepData, sleepScoreData, weightData } = useMemo(
+    () => ({
+      hrvData: smoothDataPoints(hrvRaw, effectiveWindow),
+      rhrData: smoothDataPoints(rhrRaw, effectiveWindow),
+      sleepData: smoothDataPoints(sleepRaw, effectiveWindow),
+      sleepScoreData: smoothDataPoints(sleepScoreRaw, effectiveWindow),
+      weightData: smoothDataPoints(weightRaw, effectiveWindow),
+    }),
+    [hrvRaw, rhrRaw, sleepRaw, sleepScoreRaw, weightRaw, effectiveWindow]
+  );
 
   // Build metric configs for active metrics
   const activeMetrics: MetricConfig[] = useMemo(() => {
@@ -305,28 +316,44 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
   const hasAnyData = activeMetrics.length > 0;
 
-  // What a screen reader hears and the Show data sheet lists: each drawn row, day by day.
-  const reading = useMemo(() => {
-    const title = t('wellnessScreen.trends');
-    const lanes: SummarySeries[] = activeMetrics.map((metric) => {
-      const byDay = new Map(metric.data.map((d) => [d.x, d.value]));
+  // A day's short label depends on the rows and the app language, not on the window, so it is
+  // formatted once per data rather than once per window change.
+  const locale = getIntlLocale();
+  const dayLabels = useMemo(
+    () => sortedData.map((day) => formatShortDateIn(day.id, locale)),
+    [sortedData, locale]
+  );
+
+  // What a screen reader hears and the Show data sheet lists: each drawn row, day by day. Each
+  // day is the athlete's own reading, not the smoothed value the line passes through: a
+  // measurement shown is the athlete's measurement.
+  const reading = useMemo<ChartReadingSource>(() => {
+    const build = () => {
+      const title = t('wellnessScreen.trends');
+      const lanes: SummarySeries[] = activeMetrics.map((metric) => {
+        const byDay = new Map(metric.data.map((d) => [d.x, d.rawValue]));
+        return {
+          name: metric.label,
+          unit: metric.unit || undefined,
+          points: sortedData.map((day, idx) => ({
+            label: dayLabels[idx] ?? '',
+            key: day.id,
+            value: byDay.get(idx),
+          })),
+          format: (v) =>
+            metric.unit ? `${metric.formatValue(v)} ${metric.unit}` : metric.formatValue(v),
+        };
+      });
       return {
-        name: metric.label,
-        unit: metric.unit || undefined,
-        points: sortedData.map((day, idx) => ({
-          label: formatShortDate(day.id),
-          key: day.id,
-          value: byDay.get(idx),
-        })),
-        format: (v) =>
-          metric.unit ? `${metric.formatValue(v)} ${metric.unit}` : metric.formatValue(v),
+        summary: lanesSummary(title, lanes, t),
+        table: seriesTable(title, t('charts.column.date'), lanes),
       };
-    });
-    return {
-      summary: lanesSummary(title, lanes, t),
-      table: seriesTable(title, t('charts.column.date'), lanes),
     };
-  }, [activeMetrics, sortedData, t]);
+    const hasRows = activeMetrics.some((metric) =>
+      metric.data.some((d) => Number.isFinite(d.rawValue))
+    );
+    return { hasRows, read: build };
+  }, [activeMetrics, sortedData, dayLabels, t]);
 
   const sparklineWidth = sparklineColumn.width;
   const leftPadding = sparklineColumn.left;
@@ -489,26 +516,6 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
   const smoothingDescription = getSmoothingDescription(smoothingWindow, timeRange, t as never);
 
-  // What each row prints: its own range and period average, the day's reading,
-  // and while scrubbing under smoothing the line's value the dot sits on.
-  const metricDisplayValues = useMemo(() => {
-    return activeMetrics.map((metric) => {
-      const stats = wellnessRowStats(metric.data);
-      const isSelected = selectedIdx !== null;
-      const displayValue = wellnessRowReading(metric.data, selectedIdx);
-      const marker = effectiveWindow > 0 ? wellnessRowMarker(metric.data, selectedIdx) : null;
-      const withUnit = (v: number) =>
-        metric.unit ? `${metric.formatValue(v)} ${metric.unit}` : metric.formatValue(v);
-      return {
-        displayValue,
-        avgValue: stats?.average ?? null,
-        range: stats ? `${metric.formatValue(stats.low)}-${withUnit(stats.high)}` : null,
-        smoothedText: marker ? `${smoothingDescription} ${metric.formatValue(marker.value)}` : null,
-        isSelected,
-      };
-    });
-  }, [activeMetrics, selectedIdx, effectiveWindow, smoothingDescription]);
-
   // At rest the header names the newest reading across the rows, and a row whose
   // own reading is older carries its date, so no stale value reads as today's.
   const newestReadingDate = useMemo(
@@ -519,6 +526,45 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       }, null),
     [activeMetrics]
   );
+
+  // What each row prints: its own range, the day's reading, and one caption line.
+  // At rest the caption is the stale date, else the period average. While scrubbing
+  // it is the smoothed value the dot sits on, when a window applies.
+  const metricDisplayValues = useMemo(() => {
+    return activeMetrics.map((metric) => {
+      const stats = wellnessRowStats(metric.data);
+      const isSelected = selectedIdx !== null;
+      const displayValue = wellnessRowReading(metric.data, selectedIdx);
+      const marker = effectiveWindow > 0 ? wellnessRowMarker(metric.data, selectedIdx) : null;
+      const withUnit = (v: number) =>
+        metric.unit ? `${metric.formatValue(v)} ${metric.unit}` : metric.formatValue(v);
+      const staleDate =
+        !isSelected && displayValue && displayValue.date !== newestReadingDate
+          ? displayValue.date
+          : null;
+      let caption: { text: string; testID?: string } | null = null;
+      if (isSelected) {
+        if (marker) {
+          caption = {
+            text: `${smoothingDescription} ${metric.formatValue(marker.value)}`,
+            testID: `wellness-smoothed-${metric.key}`,
+          };
+        }
+      } else if (staleDate) {
+        caption = { text: formatShortDate(staleDate) };
+      } else if (stats) {
+        caption = {
+          text: `${t('sections.avg')} ${metric.formatValue(stats.average)}`,
+          testID: `wellness-average-${metric.key}`,
+        };
+      }
+      return {
+        displayValue,
+        range: stats ? `${metric.formatValue(stats.low)}-${withUnit(stats.high)}` : null,
+        caption,
+      };
+    });
+  }, [activeMetrics, selectedIdx, effectiveWindow, smoothingDescription, newestReadingDate, t]);
 
   const onSparklineLayout = useCallback((e: LayoutChangeEvent) => {
     const { x, width } = e.nativeEvent.layout;
@@ -585,12 +631,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         )}
       </View>
 
-      <ChartSurface
-        summary={reading.summary}
-        table={reading.table}
-        style={styles.lanes}
-        held={held}
-      >
+      <ChartSurface reading={reading} style={styles.lanes} held={held}>
         <GestureDetector gesture={gesture}>
           <View testID="wellness-trends-surface" {...accessibilityProps}>
             {activeMetrics.map((metric, i) => (
@@ -656,32 +697,14 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                       {metric.unit}
                     </FitText>
                   ) : null}
-                  {metricDisplayValues[i]?.isSelected ? (
-                    metricDisplayValues[i].smoothedText ? (
-                      <FitText
-                        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                        testID={`wellness-smoothed-${metric.key}`}
-                        style={styles.metricAvg}
-                      >
-                        {metricDisplayValues[i].smoothedText}
-                      </FitText>
-                    ) : null
-                  ) : metricDisplayValues[i]?.avgValue != null ? (
-                    <FitText
-                      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                      testID={`wellness-average-${metric.key}`}
-                      style={styles.metricAvg}
-                    >
-                      {t('sections.avg')} {metric.formatValue(metricDisplayValues[i].avgValue)}
-                    </FitText>
-                  ) : null}
-                  {!metricDisplayValues[i]?.isSelected &&
-                  metricDisplayValues[i]?.displayValue &&
-                  metricDisplayValues[i].displayValue.date !== newestReadingDate ? (
-                    <FitText maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.metricAvg}>
-                      {formatShortDate(metricDisplayValues[i].displayValue.date)}
-                    </FitText>
-                  ) : null}
+                  {/* One caption line in both states, so the column keeps its height */}
+                  <FitText
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    testID={metricDisplayValues[i]?.caption?.testID}
+                    style={styles.metricAvg}
+                  >
+                    {metricDisplayValues[i]?.caption?.text ?? ' '}
+                  </FitText>
                 </View>
               </View>
             ))}

@@ -1,8 +1,9 @@
 //! Scenario: a detected catalogue, read back through the stored triple rather
 //! than the cached line.
 //! Expected behaviour: a section drawn from one activity records the range it
-//! was sliced from, and re-slicing the stored stream reproduces the line point
-//! for point. That is what makes the cached blob droppable.
+//! was sliced from and which way its line reads it, and re-slicing the stored
+//! stream reproduces the line point for point. That is what makes the cached
+//! blob droppable.
 
 #![cfg(feature = "synthetic")]
 
@@ -72,13 +73,15 @@ struct Stored {
     activity_id: Option<String>,
     start: Option<u32>,
     end: Option<u32>,
+    reversed: bool,
     source: Option<String>,
 }
 
 fn stored_rows(db: &Connection) -> Vec<Stored> {
     let mut stmt = db
         .prepare(
-            "SELECT id, representative_activity_id, rep_start_index, rep_end_index, geometry_source
+            "SELECT id, representative_activity_id, rep_start_index, rep_end_index, geometry_source,
+                    rep_reversed
              FROM sections
              WHERE section_type = 'auto'
              ORDER BY id",
@@ -92,6 +95,7 @@ fn stored_rows(db: &Connection) -> Vec<Stored> {
             start: row.get(2)?,
             end: row.get(3)?,
             source: row.get(4)?,
+            reversed: row.get(5)?,
         })
     })
     .expect("query")
@@ -143,8 +147,12 @@ fn an_exact_section_re_slices_to_its_own_line() {
         let section = engine
             .get_section_by_id(&row.id)
             .expect("the row is readable");
+        let mut slice = track[start..end].to_vec();
+        if row.reversed {
+            slice.reverse();
+        }
         assert!(
-            same_points(&track[start..end], &section.polyline),
+            same_points(&slice, &section.polyline),
             "section {} does not re-slice to its stored line",
             row.id
         );
@@ -182,7 +190,8 @@ fn provenance_and_the_triple_agree() {
 }
 
 /// A refresh reads the row back whole. Dropping the range here would demote an
-/// exact section to consensus on the next save.
+/// exact section to consensus on the next save, and dropping the direction
+/// would turn its line back.
 #[test]
 fn refreshing_a_section_keeps_its_provenance() {
     let (dir, mut engine) = detected();
@@ -209,6 +218,50 @@ fn refreshing_a_section_keeps_its_provenance() {
             refreshed.representative_range,
             row.start.zip(row.end),
             "section {} lost its range across a refresh",
+            row.id
+        );
+        assert_eq!(
+            refreshed.representative_reversed, row.reversed,
+            "section {} lost the way its line runs across a refresh",
+            row.id
+        );
+    }
+}
+
+/// A read by id returns the row's range and direction, turned or not.
+#[test]
+fn a_read_by_id_carries_the_range_and_the_direction() {
+    let (dir, mut engine) = detected();
+    let db = Connection::open(dir.path().join("geometry.db")).expect("open");
+
+    let exact: Vec<Stored> = stored_rows(&db)
+        .into_iter()
+        .filter(|r| r.source.as_deref() == Some("exact"))
+        .collect();
+    assert!(
+        !exact.is_empty(),
+        "no exact section to read, so this test would pass vacuously"
+    );
+
+    db.execute(
+        "UPDATE sections SET rep_reversed = 1 WHERE geometry_source = 'exact'",
+        [],
+    )
+    .expect("turn the stored lines");
+
+    for row in &exact {
+        let read = engine
+            .get_section_by_id(&row.id)
+            .expect("the stored section is readable");
+        assert_eq!(
+            read.representative_range,
+            row.start.zip(row.end),
+            "section {} lost its range on a read by id",
+            row.id
+        );
+        assert!(
+            read.representative_reversed,
+            "section {} lost the way its line runs on a read by id",
             row.id
         );
     }

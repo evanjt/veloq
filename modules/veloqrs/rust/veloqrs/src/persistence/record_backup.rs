@@ -77,12 +77,13 @@ pub(crate) struct RecordPayload {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
 #[repr(u8)]
 pub enum RecordScope {
-    /// Storage only this app reads: its own documents, the Google Drive app
-    /// folder, the iCloud Drive app folder, the athlete's WebDAV server.
+    /// Everything the record carries, for a file the athlete exports and
+    /// keeps or shares by choice.
     Whole = 1,
-    /// A folder on the device's shared storage, which other apps and a
-    /// connected computer can read. It leaves out the export privacy home.
-    SharedStorage = 2,
+    /// An automatic backup, whichever destination takes it: the device's
+    /// documents, WebDAV, Google Drive, iCloud Drive or a folder. It leaves
+    /// out the export privacy home.
+    Automatic = 2,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -98,6 +99,10 @@ pub(crate) struct RecordGround {
     pub(crate) rep_activity_id: Option<String>,
     pub(crate) rep_start_index: Option<i64>,
     pub(crate) rep_end_index: Option<i64>,
+    /// Whether the line reads the range backwards. Left out when it does not,
+    /// so a file an older build reads holds nothing it cannot place.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub(crate) rep_reversed: bool,
     pub(crate) point_count: Option<i64>,
     pub(crate) polyline_json: Option<String>,
     /// A route's members, which a restore resolves its group by. A route has
@@ -116,6 +121,16 @@ fn table_exists(db: &Connection, table: &str) -> Result<bool, String> {
     .optional()
     .map(|found| found.is_some())
     .map_err(|e| e.to_string())
+}
+
+/// The `rep_reversed` column of `table` as a select term, or a forward `0` for a file
+/// written before a line could run backwards.
+fn reversed_column(db: &Connection, table: &str) -> Result<&'static str, String> {
+    Ok(if column_exists(db, table, "rep_reversed")? {
+        "rep_reversed"
+    } else {
+        "0"
+    })
 }
 
 fn column_exists(db: &Connection, table: &str, column: &str) -> Result<bool, String> {
@@ -216,12 +231,13 @@ fn geometry_ground(
     if !table_exists(db, "section_geometry")? {
         return Ok(None);
     }
+    let reversed = reversed_column(db, "section_geometry")?;
     let mut statement = db
-        .prepare(
-            "SELECT rep_activity_id, rep_start_index, rep_end_index, point_count, blob
+        .prepare(&format!(
+            "SELECT rep_activity_id, rep_start_index, rep_end_index, point_count, blob, {reversed}
          FROM section_geometry WHERE section_id = ?1 AND (?2 IS NULL OR version = ?2)
-         ORDER BY version DESC LIMIT 1",
-        )
+         ORDER BY version DESC LIMIT 1"
+        ))
         .map_err(|e| e.to_string())?;
     statement
         .query_row((section_id, version), |row| {
@@ -235,6 +251,7 @@ fn geometry_ground(
                 rep_activity_id: row.get(0)?,
                 rep_start_index: row.get(1)?,
                 rep_end_index: row.get(2)?,
+                rep_reversed: row.get(5)?,
                 point_count: row.get(3)?,
                 polyline_json,
                 activity_ids: None,
@@ -282,12 +299,15 @@ fn section_row_ground(db: &Connection, section_id: &str) -> Result<Option<Record
     if !table_exists(db, "sections")? {
         return Ok(None);
     }
+    let reversed = reversed_column(db, "sections")?;
     let ground = db
         .query_row(
-            "SELECT representative_activity_id, rep_start_index, rep_end_index,
-                 source_activity_id, start_index, end_index, polyline_blob, polyline_json,
-                 section_type = 'custom' AND geometry_source IS NOT 'consensus'
-             FROM sections WHERE id = ?1",
+            &format!(
+                "SELECT representative_activity_id, rep_start_index, rep_end_index,
+                     source_activity_id, start_index, end_index, polyline_blob, polyline_json,
+                     section_type = 'custom' AND geometry_source IS NOT 'consensus', {reversed}
+                 FROM sections WHERE id = ?1"
+            ),
             [section_id],
             |row| {
                 let blob: Option<Vec<u8>> = row.get(6)?;
@@ -307,21 +327,23 @@ fn section_row_ground(db: &Connection, section_id: &str) -> Result<Option<Record
                     (row.get(0)?, row.get(1)?, row.get(2)?);
                 let inclusive: (Option<String>, Option<i64>, Option<i64>) =
                     (row.get(3)?, row.get(4)?, row.get(5)?);
-                let (rep_activity_id, rep_start_index, rep_end_index) = match (half_open, inclusive)
-                {
-                    (_, (id, start, end)) if !exact_cut => (id, start, end),
-                    ((Some(id), Some(start), Some(end)), _) if end > start => {
-                        (Some(id), Some(start), Some(end))
-                    }
-                    (_, (Some(id), Some(start), Some(end))) if end > start => {
-                        (Some(id), Some(start), Some(end + 1))
-                    }
-                    (_, (id, start, end)) => (id, start, end),
-                };
+                let rep_reversed: bool = row.get(9)?;
+                let (rep_activity_id, rep_start_index, rep_end_index, rep_reversed) =
+                    match (half_open, inclusive) {
+                        (_, (id, start, end)) if !exact_cut => (id, start, end, false),
+                        ((Some(id), Some(start), Some(end)), _) if end > start => {
+                            (Some(id), Some(start), Some(end), rep_reversed)
+                        }
+                        (_, (Some(id), Some(start), Some(end))) if end > start => {
+                            (Some(id), Some(start), Some(end + 1), false)
+                        }
+                        (_, (id, start, end)) => (id, start, end, false),
+                    };
                 let ground = RecordGround {
                     rep_activity_id,
                     rep_start_index,
                     rep_end_index,
+                    rep_reversed,
                     point_count: None,
                     polyline_json,
                     activity_ids: None,
@@ -358,6 +380,7 @@ fn row_ground(db: &Connection, row: &RecordRow) -> Result<Option<RecordGround>, 
             rep_activity_id: None,
             rep_start_index: None,
             rep_end_index: None,
+            rep_reversed: false,
             point_count: None,
             polyline_json: string(values, "polyline_json").map(str::to_string),
             activity_ids: None,
@@ -366,6 +389,7 @@ fn row_ground(db: &Connection, row: &RecordRow) -> Result<Option<RecordGround>, 
             rep_activity_id: string(values, "activity_id").map(str::to_string),
             rep_start_index: integer(values, "start_index"),
             rep_end_index: integer(values, "end_index"),
+            rep_reversed: false,
             point_count: None,
             polyline_json: None,
             activity_ids: None,
@@ -415,6 +439,7 @@ fn row_ground(db: &Connection, row: &RecordRow) -> Result<Option<RecordGround>, 
                 rep_activity_id: Some(rep_activity_id),
                 rep_start_index: None,
                 rep_end_index: None,
+                rep_reversed: false,
                 point_count: None,
                 polyline_json: None,
                 activity_ids: Some(members),
@@ -501,17 +526,17 @@ const RECORD_INTERNAL_SETTINGS: &[&str] = &[
     super::settings_keys::GARMIN_CONNECTOR_ENABLED,
 ];
 
-/// The export privacy home, which a record for shared storage leaves out.
-/// The coordinates say where the athlete lives, and a shared folder is read
-/// by other apps and by a computer the phone is connected to. The radius says
+/// The export privacy home, which an automatic record leaves out.
+/// The coordinates say where the athlete lives, and a backup destination can be
+/// read by other apps, a computer or a cloud account. The radius says
 /// nothing on its own, so it travels.
 pub(crate) const EXPORT_HOME: &[&str] = &[
     super::settings_keys::EXPORT_HOME_LAT,
     super::settings_keys::EXPORT_HOME_LNG,
 ];
 
-/// What a record for shared storage leaves out.
-const SHARED_STORAGE_LEFT_OUT: &[&str] = EXPORT_HOME;
+/// What an automatic record leaves out.
+const AUTOMATIC_LEFT_OUT: &[&str] = EXPORT_HOME;
 
 /// The settings without the `__` prefix that belong to this library or
 /// install rather than to the athlete, so neither a backup writes them nor a
@@ -707,7 +732,7 @@ pub(crate) fn collect_record_payload_for(
 fn leave_out(entries: &mut Vec<RecordRow>, scope: RecordScope) -> Vec<String> {
     let keys: &[&str] = match scope {
         RecordScope::Whole => return Vec::new(),
-        RecordScope::SharedStorage => SHARED_STORAGE_LEFT_OUT,
+        RecordScope::Automatic => AUTOMATIC_LEFT_OUT,
     };
     let before = entries.len();
     entries.retain(|row| !names_setting(row, keys));
@@ -1053,13 +1078,13 @@ mod tests {
     }
 
     /// Scenario: the athlete has set a home for export privacy, and the record
-    /// is written once for storage only this app reads and once for a shared
-    /// folder other apps and a connected computer can read.
+    /// is written once whole, as an export, and once as an automatic backup.
     ///
-    /// Expected behaviour: the shared copy holds no home coordinates and names
-    /// them as left out, the other holds them, and both keep the radius.
+    /// Expected behaviour: the automatic copy holds no home coordinates and
+    /// names them as left out, the whole one holds them, and both keep the
+    /// radius.
     #[test]
-    fn test_record_backup_for_shared_storage_leaves_the_export_home_out() {
+    fn test_automatic_record_backup_leaves_the_export_home_out() {
         use crate::persistence::settings_keys::{
             EXPORT_HOME_LAT, EXPORT_HOME_LNG, EXPORT_PRIVACY_RADIUS_M,
         };
@@ -1089,7 +1114,7 @@ mod tests {
         };
 
         let whole = write("whole.zip", super::RecordScope::Whole);
-        let shared = write("shared.zip", super::RecordScope::SharedStorage);
+        let automatic = write("automatic.zip", super::RecordScope::Automatic);
 
         let whole_settings = settings_in(&whole);
         assert_eq!(
@@ -1107,40 +1132,41 @@ mod tests {
                 .is_empty()
         );
 
-        let shared_settings = settings_in(&shared);
-        assert!(!shared_settings.contains_key(EXPORT_HOME_LAT));
-        assert!(!shared_settings.contains_key(EXPORT_HOME_LNG));
+        let automatic_settings = settings_in(&automatic);
+        assert!(!automatic_settings.contains_key(EXPORT_HOME_LAT));
+        assert!(!automatic_settings.contains_key(EXPORT_HOME_LNG));
         assert_eq!(
-            shared_settings
+            automatic_settings
                 .get(EXPORT_PRIVACY_RADIUS_M)
                 .map(String::as_str),
             Some("250")
         );
-        let raw = std::fs::read(&shared).unwrap();
+        let raw = std::fs::read(&automatic).unwrap();
         let mut archive = zip::ZipArchive::new(std::io::Cursor::new(raw)).unwrap();
         let mut json = String::new();
         std::io::Read::read_to_string(&mut archive.by_name("record.json").unwrap(), &mut json)
             .unwrap();
         assert!(
             !json.contains("46.2044") && !json.contains("6.1432"),
-            "the shared copy names no home coordinate anywhere"
+            "the automatic copy names no home coordinate anywhere"
         );
         assert_eq!(
-            read_record_zip(shared.to_str().unwrap()).unwrap().left_out,
+            read_record_zip(automatic.to_str().unwrap())
+                .unwrap()
+                .left_out,
             vec![EXPORT_HOME_LAT.to_string(), EXPORT_HOME_LNG.to_string()]
         );
     }
 
-    /// Scenario: a library with no export privacy home is written for a
-    /// shared folder.
+    /// Scenario: a library with no export privacy home is written as an
+    /// automatic backup.
     ///
     /// Expected behaviour: nothing was left out, so the file names nothing as
     /// left out and a restore from it asks the athlete to set nothing again.
     #[test]
-    fn test_record_backup_for_shared_storage_without_a_home_leaves_nothing_out() {
+    fn test_automatic_record_backup_without_a_home_leaves_nothing_out() {
         let payload =
-            super::collect_record_payload_for(&fixture(), super::RecordScope::SharedStorage)
-                .unwrap();
+            super::collect_record_payload_for(&fixture(), super::RecordScope::Automatic).unwrap();
         assert!(payload.left_out.is_empty());
     }
 

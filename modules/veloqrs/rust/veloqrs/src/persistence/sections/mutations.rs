@@ -183,6 +183,7 @@ impl PersistentEngine {
                 .end_index
                 .filter(|_| spans_a_line)
                 .map(|end| end.saturating_add(1)),
+            false,
         );
         let geometry_source = if reference.is_some() {
             crate::persistence::sections::SOURCE_EXACT
@@ -211,8 +212,8 @@ impl PersistentEngine {
                     params.source_activity_id.as_deref(),
                     params.start_index,
                     params.end_index,
-                    reference.map(|(_, start, _)| start),
-                    reference.map(|(_, _, end)| end),
+                    reference.map(|(_, start, _, _)| start),
+                    reference.map(|(_, _, end, _)| end),
                     geometry_source,
                     &created_at,
                     1,
@@ -462,7 +463,7 @@ impl PersistentEngine {
                     section_id,
                     &polyline,
                     true,
-                    Some((activity_id, start, end_exclusive)),
+                    Some((activity_id, start, end_exclusive, false)),
                 )
                 .map_err(|e| format!("Failed to record section geometry: {}", e))?,
             );
@@ -480,6 +481,7 @@ impl PersistentEngine {
                         end_index = ?,
                         rep_start_index = ?,
                         rep_end_index = ?,
+                        rep_reversed = 0,
                         geometry_source = ?,
                         polyline_json = ?,
                         polyline_blob = ?,
@@ -576,6 +578,7 @@ impl PersistentEngine {
                             representative_activity_id = ?,
                             rep_start_index = NULL,
                             rep_end_index = NULL,
+                            rep_reversed = 0,
                             geometry_source = ?,
                             is_user_defined = 1,
                             updated_at = ?
@@ -596,7 +599,7 @@ impl PersistentEngine {
                         section_id,
                         &new_polyline,
                         true,
-                        Some((activity_id, start as u32, end as u32)),
+                        Some((activity_id, start as u32, end as u32, false)),
                     )
                     .map_err(|e| format!("Failed to record section geometry: {}", e))?,
                 );
@@ -611,6 +614,7 @@ impl PersistentEngine {
                             representative_activity_id = ?,
                             rep_start_index = ?,
                             rep_end_index = ?,
+                            rep_reversed = 0,
                             geometry_source = ?,
                             polyline_json = ?,
                             polyline_blob = ?,

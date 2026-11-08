@@ -19,7 +19,7 @@ export interface RestoreDrops {
 /** What a restore that went through reports, as the engine answers it. */
 export interface RestoreReport extends RestoreDrops {
   /**
-   * The file left out the export privacy home, as a copy for shared storage
+   * The file left out the export privacy home, as an automatic backup
    * does, so the home is unset and has to be set again.
    */
   exportHomeLeftOut: boolean;

@@ -11,7 +11,12 @@
  *
  * Kept as a pure function so callers can memoize it off the worker list.
  */
-import { consoleBridgeScript, mapLibreHead, terrainVisibilityScript } from './shared';
+import {
+  consoleBridgeScript,
+  mapLibreHead,
+  terrainVisibilityScript,
+  visibleInsetScript,
+} from './shared';
 import { dropRetiredTileCachesScript } from '@/features/maps/lib/tileCacheBudget';
 import { regionalSatelliteSourceIds } from '@/features/maps/components/mapStyles';
 import { snapshotRenderScript } from './terrainSnapshotScripts';
@@ -136,6 +141,7 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
 ${dropRetiredTileCachesScript()}
 
 ${terrainVisibilityScript()}
+${visibleInsetScript()}
 
     window._rn_log('Initialising MapLibre (worker ${workerId})...');
 

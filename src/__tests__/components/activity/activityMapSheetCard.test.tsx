@@ -32,6 +32,9 @@ import type { SectionOverlay } from '@/features/maps/components/ActivityMapView'
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
+jest.mock('@/features/activity/hooks/useMapPreviewCoordinates', () => ({
+  useMapPreviewCoordinates: () => ({ coordinates: [], altitude: undefined, isLoading: false }),
+}));
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
   impactAsync: jest.fn(),

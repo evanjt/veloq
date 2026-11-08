@@ -1,6 +1,7 @@
 import {
   getEffectiveWindow,
   smoothDataPoints,
+  getSmoothingChipLabel,
   getSmoothingDescription,
   getSmoothingPresetLabel,
 } from '@/shared/math/smoothing';
@@ -136,5 +137,38 @@ describe('getSmoothingPresetLabel', () => {
     expect(getSmoothingPresetLabel('auto', t)).toBe('wellness.smoothingAuto');
     expect(getSmoothingPresetLabel('none', t)).toBe('wellness.smoothingNone');
     expect(getSmoothingPresetLabel(21, t)).toBe('units.daysShort{"days":21}');
+  });
+});
+
+describe('getSmoothingChipLabel', () => {
+  const t = (key: string, opts?: Record<string, unknown>) =>
+    `${key}${opts ? JSON.stringify(opts) : ''}`;
+
+  it('names the window in force for Auto, resolved through the range', () => {
+    expect(getSmoothingChipLabel('auto', '1m', t)).toBe('wellness.smoothingChip{"count":3}');
+    expect(getSmoothingChipLabel('auto', '6m', t)).toBe('wellness.smoothingChip{"count":14}');
+  });
+
+  it('names no smoothing when Auto or the athlete resolves to none', () => {
+    expect(getSmoothingChipLabel('auto', '7d', t)).toBe('wellness.smoothingChipNone');
+    expect(getSmoothingChipLabel('none', '1y', t)).toBe('wellness.smoothingChipNone');
+  });
+
+  it('names an explicit window whatever the range', () => {
+    expect(getSmoothingChipLabel(14, '7d', t)).toBe('wellness.smoothingChip{"count":14}');
+  });
+});
+
+describe('getSmoothingPresetLabel with the range', () => {
+  const t = (key: string, opts?: Record<string, unknown>) =>
+    `${key}${opts ? JSON.stringify(opts) : ''}`;
+
+  it('names the window Auto resolves to for the range it is shown on', () => {
+    expect(getSmoothingPresetLabel('auto', t, '6m')).toBe('wellness.smoothingAutoDays{"count":14}');
+    expect(getSmoothingPresetLabel('auto', t, '7d')).toBe('wellness.smoothingAutoNone');
+  });
+
+  it('keeps the plain Auto label when no range is given', () => {
+    expect(getSmoothingPresetLabel('auto', t)).toBe('wellness.smoothingAuto');
   });
 });

@@ -40,3 +40,35 @@ export function sensorConnectionHealth({
   if (now - since >= SENSOR_NO_DATA_MS) return 'noData';
   return lastSampleAt === null ? pending : 'connected';
 }
+
+export interface StuckBroadcastEvidence {
+  /** Whether the sensor's advertisement was heard while its subscription was silent. */
+  advertisementSeen: boolean;
+  /** Notifications delivered since the current subscription was made. */
+  samplesSinceSubscribe: number;
+  /** How long the current subscription has delivered nothing. */
+  silentMs: number;
+  /** Whether a fresh-service-table reconnect was already made for this silence. */
+  recoveryTried: boolean;
+}
+
+/**
+ * What to do about a silent subscription. A watch advertises only while it is
+ * broadcasting, so an advertisement beside a subscription that never sent a
+ * sample is a broadcast that is stuck, not one that is off. The first time, the
+ * link is ended and made again with a fresh service table; if that is still
+ * silent, the athlete is told to turn broadcast off and on. A link that has
+ * streamed resumes by itself, and one with no advertisement is not broadcasting,
+ * so both wait.
+ */
+export function stuckBroadcastAction({
+  advertisementSeen,
+  samplesSinceSubscribe,
+  silentMs,
+  recoveryTried,
+}: StuckBroadcastEvidence): 'wait' | 'recover' | 'tell' {
+  if (!advertisementSeen || samplesSinceSubscribe > 0 || silentMs < SENSOR_NO_DATA_MS) {
+    return 'wait';
+  }
+  return recoveryTried ? 'tell' : 'recover';
+}

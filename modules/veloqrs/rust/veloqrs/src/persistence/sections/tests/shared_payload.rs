@@ -197,6 +197,7 @@ fn fixed_section(id: &str, latitude: f64, members: &[&str]) -> FrequentSection {
         polyline,
         representative_activity_id: members[0].into(),
         representative_range: Some((2, 13)),
+        representative_reversed: false,
         activity_ids: members.iter().map(|m| (*m).into()).collect(),
         activity_portions: members
             .iter()
@@ -228,9 +229,11 @@ fn fixed_section(id: &str, latitude: f64, members: &[&str]) -> FrequentSection {
 
 /// Encoded registry bytes for two rows, a grave and a seen set, taken when a
 /// row held its section by value and was never ranked. A shared payload must
-/// not move a byte.
+/// not move a byte. The digest was retaken when a section gained the field that
+/// says which way its line reads its reference range; the encoding names its
+/// fields, so a blob written before it decodes with the field forwards.
 const FIXED_REGISTRY_SHA256: &str =
-    "12e23d3e8173eb9be00c15f7930ed6c92b58c35430303c9c0737a54602914614";
+    "9e1c860228b2ce4d7ba8b3b33511f9e0e9c387cb08a10c510a6e9e85ba274b6b";
 
 #[test]
 fn a_shared_payload_encodes_the_registry_blob_unchanged() {

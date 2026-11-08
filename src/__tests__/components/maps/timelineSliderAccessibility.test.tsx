@@ -85,6 +85,22 @@ describe('TimelineSlider accessibility', () => {
     expect(onRangeChange.mock.calls[0][0]).toEqual(minDate);
   });
 
+  it('increment steps an expand-only start back toward the downloaded start and stops on it', async () => {
+    const downloaded = new Date(2024, 2, 31);
+    const { onRangeChange, act } = await setup({ startDate: downloaded, expandOnly: true });
+    await act('timeline-slider-start-handle', 'decrement');
+    expect(onRangeChange.mock.calls[0][0]).toEqual(new Date(2024, 1, 29));
+
+    await act('timeline-slider-start-handle', 'increment');
+    expect(onRangeChange.mock.calls[1][0]).toEqual(new Date(2024, 2, 29));
+
+    await act('timeline-slider-start-handle', 'increment');
+    expect(onRangeChange.mock.calls[2][0]).toBe(downloaded);
+
+    await act('timeline-slider-start-handle', 'increment');
+    expect(onRangeChange).toHaveBeenCalledTimes(3);
+  });
+
   it('increment never carries the start to or past the end', async () => {
     const { onRangeChange, act } = await setup({ startDate: new Date(2025, 11, 20) });
     await act('timeline-slider-start-handle', 'increment');

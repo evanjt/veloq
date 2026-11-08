@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -7,15 +7,29 @@ import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import { accessibleActions } from '@/shared/ui/accessibleActions';
 import { heldRenderProps } from '@/shared/ui/HeldRender';
 import { TextLink } from '@/shared/ui/TextLink';
+import { useScreenReaderEnabled } from '@/shared/ui/useScreenReaderEnabled';
 import { chartStyles, spacing } from '@/theme';
 
 import type { ChartTable } from './chartSummary';
 
+/**
+ * A chart's spoken summary and table, built on demand. Both cost a formatted label per plotted
+ * point, and are read only by a screen reader or when Show data opens, so a chart passes this
+ * rather than building them on every data change.
+ */
+export interface ChartReadingSource {
+  /** Whether the plot has rows to list, known without building them. */
+  hasRows: boolean;
+  read: () => { summary: string; table: ChartTable | null };
+}
+
 export interface ChartSurfaceProps {
   /** The sentence a screen reader speaks for the plot, from `chartSummary`. */
-  summary: string;
+  summary?: string;
   /** The rows behind the plot. With none, the plot offers no Show data. */
-  table: ChartTable | null;
+  table?: ChartTable | null | undefined;
+  /** Instead of `summary` and `table`: built only when a screen reader is on or Show data opens. */
+  reading?: ChartReadingSource;
   /** The plot's own box, `flex: 1` by default so it fills a sized parent. */
   style?: StyleProp<ViewStyle>;
   /** The plot is the previous data, kept on screen while the new data is read. */
@@ -31,12 +45,17 @@ export interface ChartSurfaceProps {
 }
 
 /** Opens the chart's rows in the table sheet, or null when it has none. */
-function useShowData(table: ChartTable | null): (() => void) | null {
+function useShowData(
+  table: ChartTable | null | undefined,
+  reading: ChartReadingSource | undefined
+): (() => void) | null {
   const openSheet = useSheetOpener();
   const showData = useCallback(() => {
-    if (table) void openSheet<ChartTable, never>('sheets/chart-data', table);
-  }, [openSheet, table]);
-  return table != null && table.rows.length > 0 ? showData : null;
+    const rows = reading ? reading.read().table : table;
+    if (rows) void openSheet<ChartTable, never>('sheets/chart-data', rows);
+  }, [openSheet, table, reading]);
+  const hasRows = reading ? reading.hasRows : table != null && table.rows.length > 0;
+  return hasRows ? showData : null;
 }
 
 /**
@@ -50,6 +69,7 @@ function useShowData(table: ChartTable | null): (() => void) | null {
 export function ChartSurface({
   summary,
   table,
+  reading,
   style,
   held = false,
   showDataButton = true,
@@ -57,7 +77,12 @@ export function ChartSurface({
   children,
 }: ChartSurfaceProps) {
   const { t } = useTranslation();
-  const showData = useShowData(table);
+  const showData = useShowData(table, reading);
+  const screenReader = useScreenReaderEnabled();
+  const spoken = useMemo(
+    () => (reading ? (screenReader ? reading.read().summary : '') : (summary ?? '')),
+    [reading, screenReader, summary]
+  );
   const heldProps = heldRenderProps(held);
 
   return (
@@ -67,7 +92,7 @@ export function ChartSurface({
         testID={testID}
         accessible
         accessibilityRole="image"
-        accessibilityLabel={composeAccessibilityLabel(summary)}
+        accessibilityLabel={composeAccessibilityLabel(spoken)}
         accessibilityState={heldProps.accessibilityState}
         {...accessibleActions(
           showData ? [{ name: 'showData', label: t('charts.showData'), run: showData }] : undefined
@@ -75,7 +100,9 @@ export function ChartSurface({
       >
         {children}
       </View>
-      {showDataButton ? <ChartShowDataButton table={table} testID={testID} /> : null}
+      {showDataButton ? (
+        <ChartShowDataButton table={table} reading={reading} testID={testID} />
+      ) : null}
     </>
   );
 }
@@ -86,14 +113,16 @@ export function ChartSurface({
  */
 export function ChartShowDataButton({
   table,
+  reading,
   testID,
 }: {
-  table: ChartTable | null;
+  table?: ChartTable | null | undefined;
+  reading?: ChartReadingSource | undefined;
   /** The plot's own test id, which the button carries with `-show-data` after it. */
   testID?: string | undefined;
 }) {
   const { t } = useTranslation();
-  const showData = useShowData(table);
+  const showData = useShowData(table, reading);
   if (!showData) return null;
   return (
     <TextLink

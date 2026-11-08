@@ -157,7 +157,7 @@ jest.mock('@/features/activity/components', () => {
   return {
     ActivityCard: (props: {
       activity: { id: string; name: string };
-      startupTrack?: { coordinates: { latitude: number }[] };
+      startupTrack?: { points: { latitude: number }[] };
     }) => {
       const { activity, startupTrack } = props;
       mockCardTracks.set(activity.id, startupTrack);
@@ -165,7 +165,7 @@ jest.mock('@/features/activity/components', () => {
       return ReactLocal.createElement(
         Text,
         { testID: `card-${activity.id}` },
-        startupTrack?.coordinates[0]?.latitude ?? activity.name
+        startupTrack?.points[0]?.latitude ?? activity.name
       );
     },
   };
@@ -179,8 +179,7 @@ let mockStartupData:
         string,
         {
           activityId: string;
-          coordinates: { latitude: number; longitude: number }[];
-          altitude: undefined;
+          points: { latitude: number; longitude: number }[];
         }
       >;
     }
@@ -286,8 +285,7 @@ beforeEach(() => {
 it('replaces a startup preview when its track moves under the same activity id', async () => {
   const track = (activityId: string, latitude: number) => ({
     activityId,
-    coordinates: [{ latitude, longitude: 7.3 }],
-    altitude: undefined,
+    points: [{ latitude, longitude: 7.3 }],
   });
   const a2 = track('a2', 46.5);
   mockStartupData = {

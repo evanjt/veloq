@@ -16,7 +16,9 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 
 import FitnessScreen from '@/app/(tabs)/fitness';
 
-jest.mock('@/shared/debug/tabSwitchTiming', () => ({ useTabFirstFrame: jest.fn() }));
+jest.mock('@/shared/debug/tabSwitchTiming', () => ({
+  useTabFirstFrame: jest.fn(),
+}));
 jest.mock('@/shared/debug/renderTimer', () => ({
   logScreenRender: () => jest.fn(),
   logMemory: jest.fn(),
@@ -89,11 +91,17 @@ jest.mock('@/features/fitness', () => {
     TimeRangeSelector: () => <View testID="time-range" />,
     SportToggleSelector: () => <View testID="sport-toggle" />,
     BestEffortsHeaderButton: () => null,
+    CalendarDayReadout: () => null,
     resolveThresholdPace: () => null,
     useFitnessRefresh: () => ({ isRefreshing: false, onRefresh: jest.fn() }),
     useFitnessComputations: () => ({ ftpTrend: [], dominantZone: null }),
     useFitnessScreenData: () => ({
-      training: { retry: jest.fn() },
+      training: {
+        retry: jest.fn(),
+        windows: {
+          heatmap: { first: new Date(2026, 0, 5), last: new Date(2026, 5, 17) },
+        },
+      },
       wellness: [],
       activities: [],
       dailyLoads: [],
@@ -103,6 +111,8 @@ jest.mock('@/features/fitness', () => {
       isError: false,
       refetch: jest.fn(),
     }),
+    useValueWhileActive: jest.requireActual('@/features/fitness/hooks/useValueWhileActive')
+      .useValueWhileActive,
     useFitnessWindow: () => ({
       timeRange: '3m',
       changeTimeRange: jest.fn(),
@@ -113,7 +123,10 @@ jest.mock('@/features/fitness', () => {
       handleInteractionChange: jest.fn(),
       handleDateSelect: jest.fn(),
     }),
-    useSportPreference: () => ({ primarySport: 'Cycling', adoptLibrarySport: jest.fn() }),
+    useSportPreference: () => ({
+      primarySport: 'Cycling',
+      adoptLibrarySport: jest.fn(),
+    }),
     FORM_ZONE_COLORS: { optimal: 'green' },
   };
 });
@@ -229,10 +242,16 @@ function pinnedOn(place: string) {
   }>;
   const ids = header
     ? header
-        .findAll((node) => typeof node.props.testID === 'string', { deep: true })
+        .findAll((node) => typeof node.props.testID === 'string', {
+          deep: true,
+        })
         .map((node) => node.props.testID as string)
     : [];
-  return { sticky, firstIsHeader: first?.props.testID === 'fitness-pinned-header', ids };
+  return {
+    sticky,
+    firstIsHeader: first?.props.testID === 'fitness-pinned-header',
+    ids,
+  };
 }
 
 it('pins the range on the fitness page, the range and the sport row on performance and trends, and nothing on the calendar', async () => {

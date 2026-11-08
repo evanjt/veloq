@@ -137,6 +137,7 @@ fn detection_save_writes_blob_as_authority() {
             polyline: polyline.clone(),
             representative_activity_id: "act_blob".to_string(),
             representative_range: None,
+            representative_reversed: false,
             activity_ids: vec!["act_blob".to_string()],
             activity_portions: vec![SectionPortion {
                 activity_id: "act_blob".to_string(),

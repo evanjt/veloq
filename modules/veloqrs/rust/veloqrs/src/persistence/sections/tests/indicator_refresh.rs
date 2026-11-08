@@ -61,6 +61,7 @@ fn detected_line() -> tracematch::FrequentSection {
         polyline: polyline.clone(),
         representative_activity_id: "source".into(),
         representative_range: None,
+        representative_reversed: false,
         activity_ids: activity_portions
             .iter()
             .map(|p| p.activity_id.clone())

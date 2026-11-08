@@ -37,8 +37,9 @@ jest.mock('@/shared/native/useSyncStatus', () => ({
 }));
 
 let mockIsOnline = true;
+let mockHasReading = true;
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: mockIsOnline }),
+  useNetwork: () => ({ isOnline: mockIsOnline, hasReading: mockHasReading }),
   useIsOnline: () => mockIsOnline,
 }));
 
@@ -100,6 +101,7 @@ describe('useEngineSync', () => {
     jest.clearAllMocks();
     mockStatus = null;
     mockIsOnline = true;
+    mockHasReading = true;
     appStateListeners.length = 0;
     jest.spyOn(AppState, 'addEventListener').mockImplementation(((
       _event: string,
@@ -121,6 +123,27 @@ describe('useEngineSync', () => {
     await renderHook(() => useEngineSync());
 
     expect(syncNow.mock.calls).toEqual([[false]]);
+  });
+
+  /**
+   * Scenario: a cold boot in aeroplane mode. The engine is ready before the
+   * first network reading reaches it, so a launch sync started now would run
+   * with the engine believing it is online.
+   */
+  it('starts the launch sync only once the first network reading has landed', async () => {
+    mockHasReading = false;
+    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    mockGetEngine.mockReturnValue(engineWith(syncNow));
+
+    const { rerender } = await renderHook(() => useEngineSync());
+    expect(syncNow).not.toHaveBeenCalled();
+
+    mockHasReading = true;
+    await rerender({});
+    expect(syncNow.mock.calls).toEqual([[false]]);
+
+    await rerender({});
+    expect(syncNow).toHaveBeenCalledTimes(1);
   });
 
   it('retries once the engine is ready when the first call found none', async () => {

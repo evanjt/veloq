@@ -17,7 +17,7 @@ const NONE: Inset = { top: 0, right: 0, bottom: 0, left: 0 };
  * a screen row away from it lands on the ground stretched by 1 / cos(pitch), as a tilted view does.
  */
 function makeMap(initial: { center: Pt; pitch: number }) {
-  const state = { center: initial.center, pitch: initial.pitch, padding: NONE };
+  const state = { center: initial.center, pitch: initial.pitch, padding: NONE, zoom: 12 };
   const frameMiddle = (inset: Inset): Pt => [
     (inset.left + WIDTH - inset.right) / 2,
     (inset.top + HEIGHT - inset.bottom) / 2,
@@ -27,20 +27,30 @@ function makeMap(initial: { center: Pt; pitch: number }) {
     state,
     getContainer: () => ({ clientWidth: WIDTH, clientHeight: HEIGHT }),
     getCenter: () => state.center,
-    getZoom: () => 12,
+    getZoom: () => state.zoom,
     getBearing: () => 0,
     getPitch: () => state.pitch,
     unproject: ([x, y]: Pt): Pt => {
       const [mx, my] = frameMiddle(state.padding);
-      return [state.center[0] + (x - mx), state.center[1] + (y - my) * stretch()];
+      const scale = 2 ** (state.zoom - 12);
+      return [state.center[0] + (x - mx) / scale, state.center[1] + ((y - my) * stretch()) / scale];
+    },
+    project: ([gx, gy]: Pt) => {
+      const [mx, my] = frameMiddle(state.padding);
+      const scale = 2 ** (state.zoom - 12);
+      return {
+        x: mx + (gx - state.center[0]) * scale,
+        y: my + ((gy - state.center[1]) * scale) / stretch(),
+      };
     },
     cameraForBounds: (bounds: [Pt, Pt], options: { padding: Inset }) => {
       const middle: Pt = [(bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2];
       const shift = (options.padding.top - options.padding.bottom) / 2;
       return { center: [middle[0], middle[1] - shift] as Pt, zoom: 12 };
     },
-    jumpTo: (options: { center?: Pt; pitch?: number; padding?: Inset }) => {
+    jumpTo: (options: { center?: Pt; pitch?: number; padding?: Inset; zoom?: number }) => {
       if (options.center) state.center = options.center;
+      if (options.zoom !== undefined) state.zoom = options.zoom;
       if (options.pitch !== undefined) state.pitch = options.pitch;
       if (options.padding) state.padding = options.padding;
     },

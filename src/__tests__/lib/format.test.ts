@@ -14,6 +14,8 @@ import {
   formatFullDate,
   formatDuration,
   formatDurationOrNull,
+  formatShortDate,
+  formatShortDateIn,
   formatShortDateWithYear,
   formatDurationDelta,
   formatDurationHuman,
@@ -654,5 +656,50 @@ describe('calendarDaysBetween', () => {
     expect(calendarDaysBetween(new Date(2024, 0, 1, 12), new Date(2024, 11, 31, 12))).toBe(365);
     expect(calendarDaysBetween(new Date(2024, 2, 1), new Date(2024, 3, 30))).toBe(60);
     expect(calendarDaysBetween(new Date(2024, 9, 1), new Date(2024, 10, 30))).toBe(60);
+  });
+});
+
+describe('shared date formatter', () => {
+  beforeAll(async () => {
+    await initialiseI18n('en-GB');
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('builds one Intl.DateTimeFormat per locale and option set, not one per date', async () => {
+    // A module registry of its own, so no formatter built by an earlier test is already cached.
+    let fresh!: { format: typeof import('@/shared/format/format'); i18n: typeof import('@/i18n') };
+    jest.isolateModules(() => {
+      fresh = { format: require('@/shared/format/format'), i18n: require('@/i18n') };
+    });
+    await fresh.i18n.initialiseI18n('en-GB');
+
+    const day = new Date(2024, 0, 15, 12);
+    const frenchExpected = new Intl.DateTimeFormat('fr', { month: 'short', day: 'numeric' }).format(
+      day
+    );
+
+    const constructor = jest.spyOn(Intl, 'DateTimeFormat');
+    for (let i = 0; i < 180; i++) fresh.format.formatShortDate(new Date(2024, 0, 1 + (i % 28), 12));
+    expect(constructor).toHaveBeenCalledTimes(1);
+
+    await fresh.i18n.changeLanguage('fr');
+    expect(fresh.format.formatShortDate(day)).toBe(frenchExpected);
+    expect(constructor).toHaveBeenCalledTimes(2);
+
+    for (let i = 0; i < 180; i++) fresh.format.formatShortDate(new Date(2024, 0, 1 + (i % 28), 12));
+    expect(constructor).toHaveBeenCalledTimes(2);
+  });
+
+  it('reads an invalid date as the platform does instead of throwing', () => {
+    expect(formatShortDate(new Date(NaN))).toBe('Invalid Date');
+    expect(formatShortDate('not a date')).toBe('Invalid Date');
+  });
+
+  it('formats in the locale it is given, whatever the app language', () => {
+    expect(formatShortDateIn('2026-03-14', 'de-DE')).toBe('14. März');
+    expect(formatShortDateIn('2026-03-14', 'en-AU')).toBe('14 Mar');
   });
 });

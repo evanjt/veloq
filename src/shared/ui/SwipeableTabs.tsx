@@ -37,8 +37,12 @@ import {
 } from '@/theme';
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { layoutTabStrip, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
-import { pagerPanDecision } from '@/shared/ui/pagerPanDecision';
-import { PagerScrollerContext, type RegisterPagerScroller } from './pagerScrollers';
+import { pagerPanDecision, type PagerScrollerEdges } from '@/shared/ui/pagerPanDecision';
+import {
+  PagerScrollerContext,
+  type PagerScrollerState,
+  type RegisterPagerScroller,
+} from './pagerScrollers';
 import { PagerPageContext } from './pagerPageScroll';
 import { pageAccessibility } from './pagerAccessibility';
 import { isReduceMotionOn } from './reduceMotion';
@@ -57,6 +61,11 @@ const TIMING_CONFIG = {
 
 // Horizontal padding inside each tab, either side of its content
 const TAB_PADDING = spacing.sm;
+
+type PagerScrollerEntry = {
+  gesture: Parameters<RegisterPagerScroller>[0];
+  state?: PagerScrollerState | undefined;
+};
 
 export interface SwipeableTab {
   key: string;
@@ -257,10 +266,11 @@ export function SwipeableTabs({
 
   // The horizontal scrollers on the pages, which the pan waits on, so a pan
   // that starts on one scrolls it rather than paging.
-  const [scrollers, setScrollers] = useState<Parameters<RegisterPagerScroller>[0][]>([]);
-  const registerScroller = useCallback<RegisterPagerScroller>((gesture) => {
-    setScrollers((prev) => [...prev, gesture]);
-    return () => setScrollers((prev) => prev.filter((g) => g !== gesture));
+  const [scrollers, setScrollers] = useState<PagerScrollerEntry[]>([]);
+  const registerScroller = useCallback<RegisterPagerScroller>((gesture, state) => {
+    const entry = { gesture, state };
+    setScrollers((prev) => [...prev, entry]);
+    return () => setScrollers((prev) => prev.filter((e) => e !== entry));
   }, []);
 
   // Memoize pan gesture to prevent recreation on every render
@@ -268,7 +278,7 @@ export function SwipeableTabs({
     () =>
       Gesture.Pan()
         .enabled(gestureEnabled)
-        .requireExternalGestureToFail(...scrollers)
+        .requireExternalGestureToFail(...scrollers.map((e) => e.gesture))
         // Decided by hand so a swipe the pager cannot use, or one from the
         // leading edge, fails and is left to the system back swipe.
         .manualActivation(true)
@@ -284,6 +294,10 @@ export function SwipeableTabs({
           'worklet';
           const touch = e.allTouches[0];
           if (panTaken.value || !touch) return;
+          let scroller: PagerScrollerEdges | undefined;
+          for (const entry of scrollers) {
+            if (entry.state?.touching.value) scroller = entry.state.edges.value;
+          }
           const decision = pagerPanDecision({
             index: activeTabIndex.value,
             tabCount,
@@ -292,6 +306,7 @@ export function SwipeableTabs({
             // The touch is in window coordinates, and so is the system's back-swipe edge.
             screenWidth: windowWidth,
             isRTL,
+            scroller,
           });
           if (decision === 'activate') {
             panTaken.value = true;

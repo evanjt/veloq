@@ -28,6 +28,7 @@ fn section_on(reference: &str, points: usize) -> tracematch::FrequentSection {
         polyline,
         representative_activity_id: reference.into(),
         representative_range: Some((0, points as u32 - 1)),
+        representative_reversed: false,
         activity_ids: vec![reference.into()],
         activity_portions: vec![tracematch::SectionPortion {
             activity_id: reference.into(),

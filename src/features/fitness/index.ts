@@ -10,6 +10,7 @@ export {
   TimeRangeSelector,
   SportToggleSelector,
   BestEffortsHeaderButton,
+  CalendarDayReadout,
 } from './components';
 
 export {
@@ -27,6 +28,7 @@ export {
   useFitnessComputations,
   useFitnessScreenData,
   useFitnessWindow,
+  useValueWhileActive,
   getISOWeekNumber,
   formatWeekRange,
   type WeeklySummaryData,

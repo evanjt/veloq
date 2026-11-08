@@ -2,7 +2,7 @@
  * Where the fitness tab opens when a card sends the athlete there.
  *
  * An insight card summarises a window and a day. The tab read no params, so a
- * "HRV trending down over 14 days" card landed on the default six-month range
+ * "HRV trending down over 14 days" card landed on the tab's default range
  * with nothing selected and the athlete scrolled for the window the card had
  * just described.
  */

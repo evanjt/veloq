@@ -49,6 +49,13 @@ pub struct Section {
 
     /// The activity used as reference for the polyline.
     pub representative_activity_id: Option<String>,
+    /// The slice of the representative activity's stream the line was drawn
+    /// from; None when the line is a consensus or was never anchored.
+    #[serde(default)]
+    pub representative_range: Option<(u32, u32)>,
+    /// Whether the line reads that slice backwards.
+    #[serde(default)]
+    pub representative_reversed: bool,
 
     /// Activity IDs that match this section.
     pub activity_ids: Vec<String>,

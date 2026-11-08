@@ -13,6 +13,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { Skia } from '@shopify/react-native-skia';
 
 import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTrendsChart';
+import * as formatModule from '@/shared/format/format';
 import type { WellnessData } from '@/types';
 import { capturePans, scrub, scrubPan } from '../__shared__/chartScrub';
 
@@ -74,4 +75,41 @@ describe('wellness trends scrub', () => {
 
     expect(built.length).toBe(beforeScrub);
   });
+
+  it('re-derives only the curves when the smoothing window changes', async () => {
+    const year = yearOfDays();
+    const tree = await render(
+      <WellnessTrendsChart data={year} timeRange="1y" smoothingWindow={7} />
+    );
+    await layout(tree);
+
+    const format = jest.spyOn(formatModule, 'formatShortDate');
+    const formatIn = jest.spyOn(formatModule, 'formatShortDateIn');
+    const sort = jest.spyOn(Array.prototype, 'sort');
+    const svg = jest.spyOn(Skia.Path, 'MakeFromSVGString');
+
+    await act(async () => {
+      tree.rerender(<WellnessTrendsChart data={year} timeRange="1y" smoothingWindow={21} />);
+    });
+
+    expect(format).not.toHaveBeenCalled();
+    expect(formatIn).not.toHaveBeenCalled();
+    expect(sort).not.toHaveBeenCalled();
+    expect(svg).toHaveBeenCalledTimes(5);
+  });
 });
+
+/** A year of consecutive days, in one array so every render receives the same data reference. */
+function yearOfDays(): WellnessData[] {
+  return Array.from({ length: 365 }, (_, i) => {
+    const day = new Date(Date.UTC(2026, 0, 1) + i * 86_400_000).toISOString().slice(0, 10);
+    return {
+      id: day,
+      hrv: 40 + (i % 7),
+      restingHR: 50 + (i % 5),
+      sleepSecs: 25_200 + i * 60,
+      sleepScore: 70 + (i % 10),
+      weight: 72 + (i % 3) * 0.2,
+    };
+  });
+}

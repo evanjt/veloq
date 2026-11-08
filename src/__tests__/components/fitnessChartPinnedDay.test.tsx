@@ -14,11 +14,9 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
-import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
-import type { FeedCard, WellnessData } from '@/types';
+import type { WellnessData } from '@/types';
 import { ABSENT } from '@/shared/format/absent';
-import { dayActivityRow } from '@/features/activity/light';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/i18n', () => ({
@@ -124,31 +122,5 @@ describe('the readout form under form as a percentage', () => {
 
     expect(tree.getByTestId('fitness-form-value')).toHaveTextContent('-12');
     expect(tree.getByTestId('fitness-form-zone')).toHaveTextContent('formZones.optimal');
-  });
-});
-
-describe('the activity strip on a pinned day with no row', () => {
-  const RIDE = {
-    id: 'r1',
-    name: 'Morning Ride',
-    sportType: 'Ride',
-    startDateLocal: '2026-03-02T07:00:00',
-  } as FeedCard;
-
-  it('drops the day selected before it rather than keeping its activity label', async () => {
-    const tree = await render(
-      <ActivityDotsChart
-        data={DAYS}
-        activities={[dayActivityRow(RIDE)]}
-        selectedDate="2026-03-02"
-      />
-    );
-    expect(tree.queryByText(/Morning Ride/)).not.toBeNull();
-
-    await tree.rerender(
-      <ActivityDotsChart data={DAYS} activities={[dayActivityRow(RIDE)]} selectedDate={MISSING} />
-    );
-
-    expect(tree.queryByText(/Morning Ride/)).toBeNull();
   });
 });

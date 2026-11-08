@@ -26,11 +26,11 @@ const EVERY = ['play', 'appstore', 'ipad'] as const;
 /** Every shot, in the order the stems number them. */
 export const STORE_SHOTS: readonly StoreShot[] = [
   { stem: '01-feed', layout: 'whole', source: 'captured', targets: EVERY },
-  { stem: '02-map', layout: 'detail', source: 'captured', targets: EVERY },
-  { stem: '03-activity', layout: 'detail', source: 'captured', targets: EVERY },
-  { stem: '04-section', layout: 'whole', source: 'captured', targets: EVERY },
-  { stem: '05-insights', layout: 'whole', source: 'captured', targets: EVERY },
-  { stem: '06-fitness', layout: 'whole', source: 'captured', targets: EVERY },
+  { stem: '02-section', layout: 'whole', source: 'captured', targets: EVERY },
+  { stem: '03-map', layout: 'detail', source: 'captured', targets: EVERY },
+  { stem: '04-activity', layout: 'detail', source: 'captured', targets: EVERY },
+  { stem: '05-fitness', layout: 'whole', source: 'captured', targets: EVERY },
+  { stem: '06-insights', layout: 'whole', source: 'captured', targets: EVERY },
   { stem: '07-strength', layout: 'detail', source: 'captured', targets: EVERY },
   {
     stem: '08-recording',

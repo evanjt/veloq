@@ -11,6 +11,7 @@ import React, { memo, useCallback, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Icon, type IconName } from './Icon';
+import { Badge } from './Badge';
 import { DENSE_TEXT_SCALE } from './DenseText';
 import { FitText } from './FitText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ import * as haptics from './haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useOfflineIndicator } from '@/shared/app/NetworkContext';
 import {
   colors,
   darkColors,
@@ -33,6 +35,7 @@ import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
 import { PressTarget } from './PressTarget';
+import { composeAccessibilityLabel } from './accessibilityLabel';
 import { TAB_BAR_HEIGHT, isTabBarRoute } from './tabBarClearance';
 import { emitTabReselect, type TabRoute } from './tabReselect';
 
@@ -82,6 +85,9 @@ function BottomTabBarComponent() {
   const segments = useSegments();
   // Demo mode counts as a session, `enterDemoMode` sets `isAuthenticated`.
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  // Set for every offline state, the pill's seconds included. The Settings tab
+  // marks it; the row at the head of Settings says it in full.
+  const offline = useOfflineIndicator() !== 'none';
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const palette = isDark ? darkColors : colors;
@@ -145,6 +151,12 @@ function BottomTabBarComponent() {
               : pathname.startsWith(item.route);
 
           const label = t(`navigation.${item.key}`);
+          // The Settings tab carries the offline state, so its label speaks it too.
+          const isSettings = item.key === 'settingsTab';
+          const spokenLabel =
+            isSettings && offline
+              ? composeAccessibilityLabel(label, t('navigation.offline'))
+              : label;
 
           return (
             <PressTarget
@@ -153,7 +165,7 @@ function BottomTabBarComponent() {
               ripple="none"
               fade={false}
               onPress={() => handlePress(item.route)}
-              accessibilityLabel={label}
+              accessibilityLabel={spokenLabel}
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
             >
@@ -168,6 +180,18 @@ function BottomTabBarComponent() {
                         size={iconSize.lg}
                         color={lit ? palette.controlOn : palette.iconSecondary}
                       />
+                      {isSettings && offline ? (
+                        <Badge
+                          testID="bottom-tab-settingsTab-offline-badge"
+                          tone="warning"
+                          text=""
+                          icon="cloud-off-outline"
+                          size="sm"
+                          label={t('navigation.offline')}
+                          isDark={isDark}
+                          style={styles.offlineBadge}
+                        />
+                      ) : null}
                     </View>
                     <FitText
                       maxFontSizeMultiplier={DENSE_TEXT_SCALE}
@@ -227,6 +251,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: iconSize.lg,
     width: iconSize.lg,
+  },
+  // Overlaps the glyph's top right corner, so the glyph keeps its full box and the
+  // badge does not move the label.
+  offlineBadge: {
+    position: 'absolute',
+    top: -spacing.xs,
+    right: -spacing.sm,
   },
   // The badge style at two weights, light at rest and heavy selected, so the weight carries the
   // selection beside the glyph's fill and the colour. With bold text on each draws one face

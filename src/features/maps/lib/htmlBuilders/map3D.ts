@@ -78,6 +78,12 @@ export interface Map3DHtmlConfig {
    * `buildMapOptions(...)` helper picks `center + zoom` over `bounds`.
    */
   hasSavedCamera: boolean;
+  /**
+   * True when the camera is the athlete's own, or one the page already showed
+   * and posted. Such a camera is never turned off a hiding ridge; any other,
+   * a computed one included, is turned once on the first idle.
+   */
+  cameraPinned: boolean;
   /** Terrain exaggeration factor applied to the DEM source. */
   terrainExaggeration: number;
   /**
@@ -119,6 +125,7 @@ function buildArguments(config: Map3DHtmlConfig): string {
     bearing,
     pitch,
     hasSavedCamera,
+    cameraPinned,
     terrainExaggeration,
     initStyle,
     mapStyle,
@@ -144,6 +151,7 @@ function buildArguments(config: Map3DHtmlConfig): string {
       bearing: ${jsNumber(bearing, 0)},
       pitch: ${jsNumber(pitch, 0)},
       hasSavedCamera: ${hasSavedCamera === true},
+      cameraPinned: ${cameraPinned === true},
       isSatellite: ${initStyle === 'satellite'},
       reduceMotion: ${reduceMotion === true},
       devicePixelRatio: ${jsNumber(devicePixelRatio, 1)},
@@ -433,7 +441,7 @@ ${visibleInsetScript()}
     map.on('pitchend', saveCameraState);
 
     // The opening camera is turned off a hiding ridge once, and only while the
-    // athlete has neither saved a camera nor moved this one.
+    // camera is not pinned (the athlete's own, or one already shown) and the athlete has not moved it.
     var _athleteMoved = false, _openingChecked = false;
     ['movestart', 'zoomstart', 'rotatestart', 'pitchstart'].forEach(function(name) {
       map.on(name, function(e) { if (e && e.originalEvent) _athleteMoved = true; });
@@ -442,7 +450,7 @@ ${visibleInsetScript()}
     function turnOpeningCamera() {
       if (_openingChecked) return;
       _openingChecked = true;
-      if (cfg.hasSavedCamera || _athleteMoved || coordinates.length < 2 || !window._pickUnhiddenCamera) return;
+      if (cfg.cameraPinned || _athleteMoved || coordinates.length < 2 || !window._pickUnhiddenCamera) return;
       try {
         var c = map.getCenter();
         var opening = { center: [c.lng, c.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };

@@ -775,6 +775,10 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_request_budget_changed(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_constructor_fitnessmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
@@ -1448,6 +1452,12 @@ interface NativeModuleInterface {
     key: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_history_range_estimate(
+    uniffiSelf: bigint,
+    from: Uint8Array,
+    to: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_hr_zone_for(
     uniffiSelf: bigint,
     sportType: Uint8Array,
@@ -1969,6 +1979,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_engineobserver_preview_finished(): number;
   ubrn_uniffi_veloqrs_checksum_method_engineobserver_recordings_changed(): number;
   ubrn_uniffi_veloqrs_checksum_method_engineobserver_upload_permission_refused(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_request_budget_changed(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compose_widget_snapshot(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_intervals(): number;
@@ -2096,6 +2107,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_export_privacy_preview(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_setting(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_history_range_estimate(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_hr_zone_for(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_record_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_athlete_profile(): number;
@@ -2340,6 +2352,9 @@ type UniffiCallbackInterfaceVeloqrsEngineObserverMethod16 = (
 type UniffiCallbackInterfaceVeloqrsEngineObserverMethod17 = (
   uniffiHandle: bigint,
 ) => UniffiResult<void>;
+type UniffiCallbackInterfaceVeloqrsEngineObserverMethod18 = (
+  uniffiHandle: bigint,
+) => UniffiResult<void>;
 type UniffiCallbackInterfaceCloneVeloqrsEngineObserver = (
   handle: bigint,
 ) => UniffiResult<void>;
@@ -2367,6 +2382,7 @@ export type UniffiVTableCallbackInterfaceVeloqrsEngineObserver = {
   preview_finished: UniffiCallbackInterfaceVeloqrsEngineObserverMethod15;
   recordings_changed: UniffiCallbackInterfaceVeloqrsEngineObserverMethod16;
   upload_permission_refused: UniffiCallbackInterfaceVeloqrsEngineObserverMethod17;
+  request_budget_changed: UniffiCallbackInterfaceVeloqrsEngineObserverMethod18;
 };
 
 // UniffiRustFutureContinuationCallback is generated as part of the component interface's

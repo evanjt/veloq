@@ -433,7 +433,7 @@ function FeedScreenContent() {
   const previewTracksKey = useMemo(
     () =>
       rawPreviewTracks
-        ? JSON.stringify([...rawPreviewTracks].map(([id, track]) => [id, track.coordinates]))
+        ? JSON.stringify([...rawPreviewTracks].map(([id, track]) => [id, track.points]))
         : 'none',
     [rawPreviewTracks]
   );

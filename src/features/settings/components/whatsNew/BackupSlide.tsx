@@ -1,6 +1,6 @@
 /**
- * The tour's backup slide: what a backup holds and where it goes, and the one
- * place outside Settings that asks for automatic backup.
+ * The tour's backup slide: where a backup goes, and the one place outside
+ * Settings that asks for automatic backup.
  *
  * Turn on goes the way the Settings switch does, so the first backup is written
  * at once. Never remind me again records the answer alone, so neither this
@@ -8,7 +8,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { Platform, View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -47,15 +47,13 @@ export function BackupSlide() {
   return (
     <View style={styles.container}>
       <View style={[styles.panel, { backgroundColor: panel }]}>
-        <Icon name="shield-check-outline" size={iconSize.md} color={palette.actionPrimary} />
-        <Text style={[styles.panelText, { color: palette.textPrimary }]} testID="tour-backup-holds">
-          {t('backup.backupHolds')}
-        </Text>
-      </View>
-      <View style={[styles.panel, { backgroundColor: panel }]}>
         <Icon name="cloud-sync-outline" size={iconSize.md} color={palette.actionPrimary} />
         <Text style={[styles.panelText, { color: palette.textPrimary }]} testID="tour-backup-where">
-          {t('whatsNew.tutorial.backupWhere')}
+          {t(
+            Platform.OS === 'android'
+              ? 'whatsNew.tutorial.backupWhereAndroid'
+              : 'whatsNew.tutorial.backupWhere'
+          )}
         </Text>
       </View>
 

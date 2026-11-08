@@ -145,21 +145,16 @@ describe('calculateTerrainCamera', () => {
     });
   });
 
-  describe('center offset', () => {
-    it('shifts center away from high terrain', () => {
+  describe('center', () => {
+    it('stays on the bounds midpoint when the high ground lies north', () => {
       // Route goes north, altitude increases to the north
       const coords = line(10, 45, 10, 46, 20);
       const altitude = Array.from({ length: 20 }, (_, i) => 500 + (i / 19) * 1500);
 
-      const resultWithAlt = calculateTerrainCamera(coords, altitude);
-      const resultNoAlt = calculateTerrainCamera(coords);
-
-      // Without altitude, center is exactly bbox midpoint
-      const bboxCenterLat = (45 + 46) / 2;
-      expect(resultNoAlt.camera.center[1]).toBeCloseTo(bboxCenterLat, 5);
-
-      // With altitude looking north, center should shift SOUTH (away from high terrain)
-      expect(resultWithAlt.camera.center[1]).toBeLessThan(bboxCenterLat);
+      const result = calculateTerrainCamera(coords, altitude);
+      expect(result.hasInterestingTerrain).toBe(true);
+      expect(result.camera.center[0]).toBeCloseTo(10, 6);
+      expect(result.camera.center[1]).toBeCloseTo((45 + 46) / 2, 6);
     });
   });
 
@@ -180,7 +175,23 @@ describe('calculateTerrainCamera', () => {
     });
   });
 
-  describe('zoom adjustment', () => {
+  describe('zoom', () => {
+    it('is the fitted seed zoom whatever the elevation range', () => {
+      const coords = line(10, 45, 10.1, 45.1, 20);
+      const tall = calculateTerrainCamera(
+        coords,
+        Array.from({ length: 20 }, (_, i) => 200 + (i / 19) * 900)
+      );
+      const shallow = calculateTerrainCamera(
+        coords,
+        Array.from({ length: 20 }, (_, i) => 200 + (i / 19) * 90)
+      );
+      expect(tall.elevationRange).toBe(900);
+      expect(shallow.elevationRange).toBe(90);
+      expect(tall.camera.zoom).toBe(shallow.camera.zoom);
+      expect(tall.camera.zoom).toBe(calculateFlatCamera(coords).zoom);
+    });
+
     it('never goes below minimum zoom of 8', () => {
       // Very large route already at low zoom
       const coords = line(-10, 30, 20, 60, 20);
@@ -324,6 +335,16 @@ describe('resolveTerrain3D', () => {
       override: null,
     });
     expect(v.show3D).toBe(false);
+  });
+
+  it('reports a saved override as pinned and a computed camera as not', () => {
+    const base = { coordinates: coords, altitude: ramp(300), gain: 300, distance: 10000 };
+    for (const mode of ['smart', 'always'] as const) {
+      expect(resolveTerrain3D({ ...base, mode, override }).pinned).toBe(true);
+      const computed = resolveTerrain3D({ ...base, mode, override: null });
+      expect(computed.camera).not.toBeNull();
+      expect(computed.pinned).toBe(false);
+    }
   });
 
   it('a saved camera override gives 3D even when the prefilter fails', () => {

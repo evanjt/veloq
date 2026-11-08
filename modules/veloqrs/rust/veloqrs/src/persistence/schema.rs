@@ -10,7 +10,7 @@ use super::{PersistentEngine, codec, sections};
 /// pass and read by the post-migration hooks. `PRAGMA user_version` is the
 /// other record, the one `rusqlite_migration` skips on, and it ends one for
 /// one with the migration list. Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 80;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 81;
 
 /// The migration that drops the cutover archive tables, counted from one. The
 /// open carries their rows into the ledger before it runs.
@@ -314,6 +314,7 @@ impl PersistentEngine {
             include_str!("../migrations/m20261030_075054_pass_projection.sql"),
             include_str!("../migrations/m20261030_225057_drop_rank_record_flag.sql"),
             include_str!("../migrations/m20261103_090716_retired_ground_pairs.sql"),
+            include_str!("../migrations/m20261108_130440_section_rep_reversed.sql"),
         ]
     }
 
@@ -1525,7 +1526,9 @@ WHERE activity_count IS NOT NULL GROUP BY activity_count;"#
             // The blob is a cache, and the new id is a function of the line.
             // A cleared cache would leave the row on its clock-minted id for
             // ever, which is the one id two devices can never agree on.
-            let reference = sections::geometry::reference(rep_id.as_deref(), start, end);
+            // Read forwards: the id comes from the line's heart, which a
+            // direction does not move, and the rows predate the flag.
+            let reference = sections::geometry::reference(rep_id.as_deref(), start, end, false);
             let Ok(polyline) =
                 sections::geometry::line(conn, blob.as_deref(), json.as_deref(), reference)
             else {
@@ -1645,7 +1648,10 @@ WHERE activity_count IS NOT NULL GROUP BY activity_count;"#
         let tx = conn.unchecked_transaction()?;
         let mut promoted = 0usize;
         for (id, polyline_json, blob, rep_id, start, end) in rows {
-            let reference = super::sections::geometry::reference(rep_id.as_deref(), start, end);
+            // Read forwards: a footprint is the same ground whichever way the
+            // line runs, and the rows predate the flag.
+            let reference =
+                super::sections::geometry::reference(rep_id.as_deref(), start, end, false);
             let Ok(polyline) = super::sections::geometry::line(
                 conn,
                 blob.as_deref(),
@@ -1766,7 +1772,10 @@ WHERE activity_count IS NOT NULL GROUP BY activity_count;"#
             if is_section_handle(&name) {
                 continue;
             }
-            let reference = super::sections::geometry::reference(rep_id.as_deref(), start, end);
+            // Read forwards: a footprint is the same ground whichever way the
+            // line runs, and the rows predate the flag.
+            let reference =
+                super::sections::geometry::reference(rep_id.as_deref(), start, end, false);
             // A line that reads as empty would give the intent no footprint,
             // and one without a footprint never resolves, so the row keeps
             // its name instead.

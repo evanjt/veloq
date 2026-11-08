@@ -135,7 +135,7 @@ export interface ChartGestureOptions<T> {
    * Tap that does something other than select a point, typically opening the
    * screen behind the chart. Mutually exclusive with `resolveTapIndex`.
    */
-  onTap?: (() => void) | undefined;
+  onTap?: ((x: number, y: number) => void) | undefined;
 
   /** Longest touch still counted as a tap. */
   tapMaxDuration?: number | undefined;
@@ -386,7 +386,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
         if (idx >= 0) applySelection(idx, 'tap');
         return;
       }
-      onTapRef.current?.();
+      onTapRef.current?.(x, y);
     },
     [applySelection]
   );

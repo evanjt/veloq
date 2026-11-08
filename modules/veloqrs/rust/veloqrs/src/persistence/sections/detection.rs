@@ -2906,6 +2906,7 @@ mod tests {
         fn preview_finished(&self) {}
         fn recordings_changed(&self) {}
         fn upload_permission_refused(&self) {}
+        fn request_budget_changed(&self) {}
 
         fn detection_applied(&self) {
             *self.result_gone.lock().unwrap_or_else(|e| e.into_inner()) = Some(

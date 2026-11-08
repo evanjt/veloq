@@ -10,12 +10,19 @@
  */
 
 import { BACK_SWIPE_EDGE_WIDTH, startsInBackSwipeEdge } from '@/shared/ui/backSwipeEdge';
-import { pagerPanDecision } from '@/shared/ui/pagerPanDecision';
+import { pagerPanDecision, type PagerScrollerEdges } from '@/shared/ui/pagerPanDecision';
+import { scrollerEdges } from '@/shared/ui/pagerScrollers';
 
 const SCREEN = 400;
 const MID = 200;
 
-function decide(index: number, startX: number, translationX: number, isRTL = false) {
+function decide(
+  index: number,
+  startX: number,
+  translationX: number,
+  isRTL = false,
+  scroller?: PagerScrollerEdges
+) {
   return pagerPanDecision({
     index,
     tabCount: 3,
@@ -24,6 +31,7 @@ function decide(index: number, startX: number, translationX: number, isRTL = fal
     screenWidth: SCREEN,
     isRTL,
     edgeWidth: BACK_SWIPE_EDGE_WIDTH,
+    scroller,
   });
 }
 
@@ -104,5 +112,52 @@ describe('startsInBackSwipeEdge', () => {
     expect(startsInBackSwipeEdge(SCREEN - 1, SCREEN, true)).toBe(true);
     expect(startsInBackSwipeEdge(SCREEN - BACK_SWIPE_EDGE_WIDTH, SCREEN, true)).toBe(false);
     expect(startsInBackSwipeEdge(0, SCREEN, true)).toBe(false);
+  });
+});
+
+describe('pagerPanDecision on a touch that began on a scroller', () => {
+  const mid = { atLeft: false, atRight: false };
+  const atNewest = { atLeft: false, atRight: true };
+  const atOldest = { atLeft: true, atRight: false };
+
+  it('leaves a pan to the scroller while it can still move that way', () => {
+    expect(decide(1, MID, -15, false, mid)).toBe('wait');
+    expect(decide(1, MID, 15, false, mid)).toBe('wait');
+    expect(decide(1, MID, -15, false, atOldest)).toBe('wait');
+    expect(decide(1, MID, 15, false, atNewest)).toBe('wait');
+  });
+
+  it('pages a leftward pan once the scroller is at its right end', () => {
+    expect(decide(1, MID, -15, false, atNewest)).toBe('activate');
+  });
+
+  it('pages a rightward pan once the scroller is at its left end', () => {
+    expect(decide(1, MID, 15, false, atOldest)).toBe('activate');
+  });
+
+  it('still fails a pan toward a page that does not exist', () => {
+    expect(decide(2, MID, -15, false, atNewest)).toBe('fail');
+    expect(decide(0, MID, 15, false, atOldest)).toBe('fail');
+  });
+
+  it('waits below the activation offset at an end', () => {
+    expect(decide(1, MID, -5, false, atNewest)).toBe('wait');
+  });
+});
+
+describe('scrollerEdges', () => {
+  it('reads the ends from the offset', () => {
+    expect(scrollerEdges(0, 300, 900)).toEqual({ atLeft: true, atRight: false });
+    expect(scrollerEdges(300, 300, 900)).toEqual({ atLeft: false, atRight: false });
+    expect(scrollerEdges(600, 300, 900)).toEqual({ atLeft: false, atRight: true });
+  });
+
+  it('is at both ends when the content fits', () => {
+    expect(scrollerEdges(0, 300, 200)).toEqual({ atLeft: true, atRight: true });
+  });
+
+  it('treats an overscroll bounce as the end it is past', () => {
+    expect(scrollerEdges(-12, 300, 900).atLeft).toBe(true);
+    expect(scrollerEdges(630, 300, 900).atRight).toBe(true);
   });
 });
