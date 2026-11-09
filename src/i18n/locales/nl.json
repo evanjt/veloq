@@ -851,13 +851,11 @@
     "activitiesCount_one": "{{count}} activiteit",
     "activitiesCount_other": "{{count}} activiteiten",
     "daysTrained": "Trainingsdagen",
-    "eftpChanged": "eFTP gewijzigd",
     "fatigueATL": "Vermoeidheid (ATL)",
     "fitnessCTL": "Fitheid (CTL)",
     "loadUnavailable": "Niet beschikbaar",
     "noData": "Geen fitheidsgegevens beschikbaar",
     "noDataCause": "Fitheid, vermoeidheid en vorm komen uit je welzijnsgegevens op intervals.icu, en voor deze periode is er niets opgeslagen.",
-    "noLoadKey": "Geen belasting",
     "restDay": "Rustdag",
     "selectActivity": "Activiteit selecteren"
   },

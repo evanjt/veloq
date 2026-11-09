@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
+import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Group } from '@shopify/react-native-skia';
 import { Canvas } from '@/shared/ui/SkiaCanvas';
@@ -16,17 +17,30 @@ import {
   useChartGestures,
   type SummaryDay,
 } from '@/shared/charts';
-import { colors, darkColors, spacing, layout, stroke, iconSize } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  stroke,
+  iconSize,
+  typography,
+  slopToMinTapTarget,
+} from '@/theme';
 import { sortByDateId } from '@/shared/activity/activityUtils';
-import { sportFamilyIcon, sportFamilyLabel } from '@/shared/activity/sportCategories';
+import {
+  getActivityCategory,
+  sportFamilyIcon,
+  sportFamilyLabel,
+} from '@/shared/activity/sportCategories';
 import type { DayLoad } from 'veloqrs';
 import type { WellnessData } from '@/types';
 import { stripMarks, stripKey, markFills, portionGap } from '../lib/stripMarks';
 import { dayLoadReadout } from '../lib/dayLoadReadout';
-import { groupColor } from '../lib/dayPillTone';
+import { dayPillTone, groupColor } from '../lib/dayPillTone';
 import { formFromLoads } from '@/shared/math';
 import { formatShortDate } from '@/shared/format/format';
-import { Icon } from '@/shared/ui';
+import { Icon, PressTarget } from '@/shared/ui';
 
 import { useOpenDayActivities, type DayActivity } from '@/features/activity/light';
 
@@ -216,10 +230,17 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     }
   }, [selectedDate, dotData, isActive, externalSelectedIdx]);
 
+  // Letting go of a scrub clears the shared selection, so the chip keeps the last day the
+  // scrub pinned while it has activities, and a tap can still open them. A rest day lets go.
+  const [heldDate, setHeldDate] = useState<string | null>(null);
+  React.useEffect(() => {
+    if (!selectedDate) return;
+    const day = dotData.find((d) => d.date === selectedDate);
+    setHeldDate(day && day.activities.length > 0 ? selectedDate : null);
+  }, [selectedDate, dotData]);
+
   // One mark per active date, constant height, split equally by sport.
   const marks = useMemo(() => stripMarks(dotData, chartWidth), [dotData, chartWidth]);
-
-  const key = useMemo(() => stripKey(dotData), [dotData]);
 
   // Days sit on an even split of the width, so the crosshair can land on one
   // even when the selection came from another chart.
@@ -240,8 +261,76 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
 
   const mutedColor = isDark ? darkColors.textDisabled : colors.textDisabled;
   const colorOf = (group: string) => groupColor(group, isDark);
+  const mutedTextColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+  // The chip stands for the day the scrub or a sibling chart pinned, else the whole range.
+  const pinnedDate = selectedDate ?? heldDate;
+  const pinned = pinnedDate ? dotData.find((d) => d.date === pinnedDate) : undefined;
+  const shown = pinned ? [pinned] : dotData;
+  const shownActivities = shown.flatMap((d) => d.activities);
+  const shownKey = stripKey(shown);
+  const [onlyActivity] = shownActivities;
+  const chipText =
+    pinned && shownActivities.length === 0
+      ? t('fitness.restDay')
+      : pinned && shownActivities.length === 1 && onlyActivity
+        ? onlyActivity.name
+        : t('fitness.activitiesCount', { count: shownActivities.length });
+  const tone = dayPillTone(
+    onlyActivity ? getActivityCategory(onlyActivity.type) : undefined,
+    isDark
+  );
+  const chip = (
+    <View style={styles.chipRow}>
+      <View
+        testID="fitness-strip-chip"
+        style={[
+          styles.chip,
+          shownActivities.length > 0
+            ? { backgroundColor: tone.fill, borderColor: tone.border }
+            : styles.chipEmpty,
+        ]}
+      >
+        <Text
+          style={[
+            styles.chipText,
+            { color: shownActivities.length > 0 ? tone.ink : mutedTextColor },
+          ]}
+          numberOfLines={1}
+        >
+          {chipText}
+        </Text>
+      </View>
+      {shownKey.groups.map((group) => (
+        <Icon
+          key={group}
+          testID={`fitness-strip-key-${group}`}
+          name={sportFamilyIcon(group)}
+          size={iconSize.sm}
+          color={colorOf(group)}
+          accessibilityLabel={t(sportFamilyLabel(group))}
+        />
+      ))}
+    </View>
+  );
+
   return (
     <View style={styles.container}>
+      {pinned && pinned.activities.length > 0 ? (
+        <PressTarget
+          accessibilityRole="button"
+          accessibilityLabel={chipText}
+          hitSlop={CHIP_SLOP}
+          style={styles.chipFrame}
+          onPress={async () => {
+            if (await openDay(pinned.activities)) setHeldDate(null);
+          }}
+        >
+          {chip}
+          <Icon name="chevron-right" size={iconSize.md} color={mutedTextColor} />
+        </PressTarget>
+      ) : (
+        <View style={styles.chipFrame}>{chip}</View>
+      )}
       <ChartSurface reading={reading} testID="activity-dots-plot" showDataButton={false}>
         <View style={styles.plotRow}>
           <View testID="activity-dots-gutter" style={{ width: gutterWidth }} />
@@ -292,61 +381,45 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
           </GestureDetector>
         </View>
       </ChartSurface>
-
-      {key.groups.length > 0 || key.noLoad ? (
-        <View style={styles.keyRow}>
-          {key.groups.map((group) => (
-            <View key={group} testID={`fitness-strip-key-${group}`} style={styles.keyItem}>
-              <Icon
-                name={sportFamilyIcon(group)}
-                size={iconSize.sm}
-                color={colorOf(group)}
-                accessibilityLabel={t(sportFamilyLabel(group))}
-              />
-            </View>
-          ))}
-          {key.noLoad ? (
-            <View
-              testID="fitness-strip-key-noLoad"
-              accessible
-              accessibilityRole="image"
-              accessibilityLabel={t('fitness.noLoadKey')}
-              style={[styles.keySwatch, styles.keyOutline, { borderColor: mutedColor }]}
-            />
-          ) : null}
-        </View>
-      ) : null}
     </View>
   );
 });
 
-// The row the selected activity's pill sits in, which the pill reaches past
-// through slop to the tap target.
+// The chip row sits tight between the plots, so its tap target reaches past it through slop.
+const CHIP_HEIGHT = typography.captionBold.lineHeight + 2 * spacing.xs + 2 * stroke.one;
+const CHIP_SLOP = slopToMinTapTarget(CHIP_HEIGHT);
 
 const styles = StyleSheet.create({
   container: {},
-  keyRow: {
+  chipFrame: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    minHeight: CHIP_HEIGHT,
+    marginBottom: spacing.xs,
+  },
+  chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    columnGap: spacing.md,
+    columnGap: spacing.sm,
     rowGap: spacing.xs,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
+    flexShrink: 1,
   },
-  keyItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+  chip: {
+    flexShrink: 1,
+    paddingHorizontal: spacing.smPlus,
+    paddingVertical: spacing.xs,
+    borderRadius: layout.borderRadius,
+    borderWidth: stroke.one,
   },
-  keySwatch: {
-    width: spacing.sm,
-    height: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
+  // A rest day keeps the chip's box, so the row holds its height across a scrub.
+  chipEmpty: {
+    borderColor: 'transparent',
   },
-  // The no-load key draws as its marks do, an outline with no fill.
-  keyOutline: {
-    borderWidth: stroke.two,
+  chipText: {
+    ...typography.captionBold,
   },
   plotRow: {
     flexDirection: 'row',

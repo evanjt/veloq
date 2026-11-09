@@ -836,13 +836,11 @@
     "activitiesCount_one": "{{count}} Aktivität",
     "activitiesCount_other": "{{count}} Aktivitäte",
     "daysTrained": "Trainingstage",
-    "eftpChanged": "eFTP geändert",
     "fatigueATL": "Müedigkeit (ATL)",
     "fitnessCTL": "Fitnäss (CTL)",
     "loadUnavailable": "Nöd verfüegbar",
     "noData": "Kei Fitnessdate",
     "noDataCause": "Fitness, Müedigkeit und Form chömed us dine Wellness-Date uf intervals.icu, und für dä Zytruum isch nüt gspeicheret.",
-    "noLoadKey": "Keine Belastung",
     "restDay": "Ruehtag",
     "selectActivity": "Aktivität uswähle"
   },

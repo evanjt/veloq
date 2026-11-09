@@ -1,8 +1,19 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { Text } from 'react-native-paper';
 import { TIME_RANGES } from '@/shared/app/constants';
-import { ToggleButton } from '@/shared/ui';
-import { spacing } from '@/theme';
+import { PressTarget, selectedChipPaint } from '@/shared/ui';
+import * as haptics from '@/shared/ui/haptics';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  stroke,
+  typography,
+  controlHeight,
+  slopToMinTapTarget,
+} from '@/theme';
 import { type TimeRange } from '@/features/wellness';
 import { useTranslation } from 'react-i18next';
 
@@ -13,34 +24,77 @@ interface TimeRangeSelectorProps {
 }
 
 /**
- * Pill-button group for selecting a fitness time range (1W/1M/3M/6M/1Y).
+ * One segmented bar for the fitness time range (1W/1M/3M/6M/1Y). Grey chips
+ * floating on the page read as decoration, so the ranges share one bordered
+ * track the width of the column, the chosen one filled and the rest in body ink.
  * It carries no outer margin, so the row that holds it sets the spacing.
  */
 export const TimeRangeSelector = React.memo(function TimeRangeSelector({
   timeRange,
   onTimeRangeChange,
+  isDark,
 }: TimeRangeSelectorProps) {
   const { t } = useTranslation();
+  const palette = isDark ? darkColors : colors;
+  const chosen = selectedChipPaint(isDark);
   return (
-    <View testID="fitness-time-range-selector" style={styles.timeRangeContainer}>
-      {TIME_RANGES.map((range) => (
-        <ToggleButton
-          key={range.id}
-          testID={`fitness-range-${range.id}`}
-          label={t(range.labelKey as never)}
-          selected={timeRange === range.id}
-          onPress={() => onTimeRangeChange(range.id)}
-        />
-      ))}
+    <View
+      testID="fitness-time-range-selector"
+      style={[
+        styles.track,
+        { backgroundColor: palette.fillNeutral, borderColor: palette.controlBoundary },
+      ]}
+    >
+      {TIME_RANGES.map((range) => {
+        const selected = timeRange === range.id;
+        const label = t(range.labelKey as never);
+        return (
+          <PressTarget
+            key={range.id}
+            testID={`fitness-range-${range.id}`}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityState={{ selected }}
+            hitSlop={SEGMENT_SLOP}
+            onPress={() => {
+              if (selected) return;
+              haptics.selection();
+              onTimeRangeChange(range.id);
+            }}
+            style={[styles.segment, selected && { backgroundColor: chosen.fill }]}
+          >
+            <Text
+              style={[styles.label, { color: selected ? chosen.ink : palette.textPrimary }]}
+              numberOfLines={1}
+            >
+              {label}
+            </Text>
+          </PressTarget>
+        );
+      })}
     </View>
   );
 });
 
+const SEGMENT_SLOP = slopToMinTapTarget(controlHeight.chip);
+
 const styles = StyleSheet.create({
-  timeRangeContainer: {
+  track: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignSelf: 'stretch',
+    padding: spacing.xxs,
+    gap: spacing.xxs,
+    borderRadius: layout.borderRadius,
+    borderWidth: stroke.one,
+  },
+  segment: {
+    flex: 1,
+    minHeight: controlHeight.chip,
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
+    borderRadius: layout.borderRadiusSm,
+  },
+  label: {
+    ...typography.bodyCompactBold,
   },
 });

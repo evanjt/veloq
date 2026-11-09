@@ -137,8 +137,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   dotsSection: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
+    marginTop: spacing.xs,
+    paddingTop: spacing.xs,
     borderTopWidth: stroke.hairline,
     borderTopColor: opacity.overlay.medium,
   },

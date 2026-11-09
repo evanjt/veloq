@@ -6,7 +6,7 @@
  * only, and day strips stacked by sport name with the first one drawn on top.
  *
  * Expected behaviour: the readout is the legend, each value keyed and itself
- * the switch for its line, and the legend row names only the eFTP mark; the
+ * the switch for its line, and the eFTP mark is keyed only on a day it marks; the
  * form zones are named inside their bands and washed at the tint step; the
  * dates run once, under the form lane; a day stacks its families in their
  * fixed order from the bottom, in the family colours, and a day with no load
@@ -67,14 +67,21 @@ const MARKS: EftpChange[] = [
 const TALL = 400;
 
 describe('the fitness lane readout and legend', () => {
-  it('names only the eFTP mark in the legend row, and only when a mark is drawn', async () => {
-    const marked = await render(<FitnessChart data={DAYS} markers={MARKS} />);
-    const legend = marked.getByTestId('fitness-chart-legend');
-    expect(within(legend).getByTestId('fitness-legend-eftp')).toBeTruthy();
-    expect(legend).toHaveTextContent(i18n.t('fitness.eftpChanged'), { exact: true });
+  it('keys the eFTP mark only on a marked day, naming the change, with no legend row', async () => {
+    const resting = await render(<FitnessChart data={DAYS} markers={MARKS} />);
+    expect(resting.queryByTestId('fitness-chart-legend')).toBeNull();
+    expect(resting.queryByTestId('fitness-legend-eftp')).toBeNull();
 
-    const unmarked = await render(<FitnessChart data={DAYS} />);
-    expect(unmarked.queryByTestId('fitness-chart-legend')).toBeNull();
+    const marked = await render(
+      <FitnessChart data={DAYS} markers={MARKS} selectedDate="2026-04-02" />
+    );
+    expect(marked.getByTestId('fitness-legend-eftp')).toBeTruthy();
+    expect(marked.getByTestId('fitness-eftp-change')).toBeTruthy();
+
+    const unmarked = await render(
+      <FitnessChart data={DAYS} markers={MARKS} selectedDate="2026-04-01" />
+    );
+    expect(unmarked.queryByTestId('fitness-legend-eftp')).toBeNull();
   });
 
   it.each([

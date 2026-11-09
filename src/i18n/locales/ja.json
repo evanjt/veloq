@@ -851,13 +851,11 @@
     "activitiesCount_one": "{{count}}件のアクティビティ",
     "activitiesCount_other": "{{count}}件のアクティビティ",
     "daysTrained": "トレーニング日",
-    "eftpChanged": "eFTP 変更",
     "fatigueATL": "疲労 (ATL)",
     "fitnessCTL": "フィットネス (CTL)",
     "loadUnavailable": "利用不可",
     "noData": "フィットネスデータがありません",
     "noDataCause": "フィットネス、疲労、フォームは intervals.icu のウェルネスから取得しますが、この期間のデータは保存されていません。",
-    "noLoadKey": "負荷なし",
     "restDay": "休息日",
     "selectActivity": "アクティビティを選択"
   },

@@ -327,8 +327,9 @@ export const FitnessChart = React.memo(function FitnessChart({
             <Text testID="fitness-chart-day" style={[styles.dateText, isDark && styles.textLight]}>
               {header.isToday ? t('time.today') : formatShortDate(header.date)}
             </Text>
+            {/* The eFTP key shows only on a day the plot marks, naming the change. */}
             {markerChanges.length > 0 && (
-              <View style={[styles.keyedLabel, styles.markerRow]}>
+              <View style={[styles.keyedLabel, styles.markerRow]} testID="fitness-legend-eftp">
                 <View style={styles.markKey}>
                   <TriangleKey color={chartColors.ftp} />
                 </View>
@@ -430,7 +431,12 @@ export const FitnessChart = React.memo(function FitnessChart({
         </View>
 
         {/* Chart */}
-        <ChartSurface reading={reading} held={held} testID="fitness-chart-plot">
+        <ChartSurface
+          reading={reading}
+          held={held}
+          showDataButton={false}
+          testID="fitness-chart-plot"
+        >
           <View style={styles.plotRow}>
             <YAxisLabels
               ticks={yTicks}
@@ -501,18 +507,6 @@ export const FitnessChart = React.memo(function FitnessChart({
             </GestureDetector>
           </View>
         </ChartSurface>
-
-        {/* The legend names only what the readout cannot: the eFTP mark. */}
-        {markerIndices.length > 0 ? (
-          <View style={styles.legend} testID="fitness-chart-legend">
-            <View style={styles.keyedLabel} testID="fitness-legend-eftp">
-              <View style={styles.markKey}>
-                <TriangleKey color={chartColors.ftp} />
-              </View>
-              <Text style={styles.legendText}>{t('fitness.eftpChanged')}</Text>
-            </View>
-          </View>
-        ) : null}
       </View>
     </ChartErrorBoundary>
   );
@@ -611,16 +605,6 @@ const makeStyles = (palette: Palette) =>
     plotRow: {
       flex: 1,
       flexDirection: 'row',
-    },
-    legend: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      gap: spacing.md,
-      marginTop: spacing.xs,
-    },
-    legendText: {
-      ...typography.caption,
-      color: palette.textSecondary,
     },
     lineHidden: {
       opacity: opacity.dim,

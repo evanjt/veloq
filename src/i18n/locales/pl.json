@@ -913,13 +913,11 @@
     "activitiesCount_many": "{{count}} aktywności",
     "activitiesCount_other": "{{count}} aktywności",
     "daysTrained": "Dni treningowe",
-    "eftpChanged": "Zmiana eFTP",
     "fatigueATL": "Zmęczenie (ATL)",
     "fitnessCTL": "Kondycja (CTL)",
     "loadUnavailable": "Niedostępne",
     "noData": "Brak dostępnych danych kondycji",
     "noDataCause": "Forma, zmęczenie i świeżość pochodzą z Twoich danych o samopoczuciu w intervals.icu, a dla tego okresu nic nie zapisano.",
-    "noLoadKey": "Brak obciążenia",
     "restDay": "Dzień odpoczynku",
     "selectActivity": "Wybierz aktywność"
   },

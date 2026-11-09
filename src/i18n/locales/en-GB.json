@@ -851,13 +851,11 @@
     "activitiesCount_one": "{{count}} activity",
     "activitiesCount_other": "{{count}} activities",
     "daysTrained": "Days trained",
-    "eftpChanged": "eFTP changed",
     "fatigueATL": "Fatigue (ATL)",
     "fitnessCTL": "Fitness (CTL)",
     "loadUnavailable": "Unavailable",
     "noData": "No fitness data available",
     "noDataCause": "Fitness, fatigue and form come from your intervals.icu wellness, and none is stored for this range.",
-    "noLoadKey": "No load",
     "restDay": "Rest day",
     "selectActivity": "Select activity"
   },

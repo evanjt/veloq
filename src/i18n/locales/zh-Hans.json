@@ -851,13 +851,11 @@
     "activitiesCount_one": "{{count}} 个活动",
     "activitiesCount_other": "{{count}} 个活动",
     "daysTrained": "训练天数",
-    "eftpChanged": "eFTP 变化",
     "fatigueATL": "疲劳 (ATL)",
     "fitnessCTL": "体能 (CTL)",
     "loadUnavailable": "不可用",
     "noData": "无可用体能数据",
     "noDataCause": "体能、疲劳和状态来自你在 intervals.icu 的健康数据，此时间段没有保存任何数据。",
-    "noLoadKey": "无负荷",
     "restDay": "休息日",
     "selectActivity": "选择活动"
   },

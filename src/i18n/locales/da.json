@@ -851,13 +851,11 @@
     "activitiesCount_one": "{{count}} aktivitet",
     "activitiesCount_other": "{{count}} aktiviteter",
     "daysTrained": "Træningsdage",
-    "eftpChanged": "eFTP ændret",
     "fatigueATL": "Træthed (ATL)",
     "fitnessCTL": "Kondition (CTL)",
     "loadUnavailable": "Ikke tilgængelig",
     "noData": "Ingen fitnessdata tilgængelig",
     "noDataCause": "Form, træthed og balance kommer fra din wellness på intervals.icu, og der er ingen gemt for denne periode.",
-    "noLoadKey": "Ingen belastning",
     "restDay": "Hviledag",
     "selectActivity": "Vælg aktivitet"
   },

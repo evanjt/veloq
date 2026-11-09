@@ -872,13 +872,11 @@
     "activitiesCount_many": "{{count}} d'activités",
     "activitiesCount_other": "{{count}} activités",
     "daysTrained": "Jours d'entraînement",
-    "eftpChanged": "eFTP modifié",
     "fatigueATL": "Fatigue (ATL)",
     "fitnessCTL": "Forme physique (CTL)",
     "loadUnavailable": "Indisponible",
     "noData": "Aucune donnée de forme",
     "noDataCause": "La forme, la fatigue et la fraîcheur viennent de vos données de bien-être sur intervals.icu, et rien n'est enregistré pour cette période.",
-    "noLoadKey": "Sans charge",
     "restDay": "Jour de repos",
     "selectActivity": "Sélectionner l'activité"
   },

@@ -1,11 +1,10 @@
 /**
  * Scenario: the activity strip under the fitness plot sits above the form plot on one phone
- * screen, so it carries no title, no day-activity row, no load text, no gloss sentence and no
- * Show data link of its own.
+ * screen, so it carries no title, no load text, no gloss sentence and no Show data link.
  *
- * Expected behaviour: the strip is its marks and a legend of one icon per sport family, each icon
- * named for a screen reader and none printing text. The strip stays a labelled chart for a screen
- * reader, and a window of rest days has no legend.
+ * Expected behaviour: one chip counts the range's activities with an icon for each sport family
+ * beside it; a pinned day narrows the chip to its activity's name or count, or a rest day, and
+ * the icons to that day's sports. Each icon is named for a screen reader and prints no text.
  */
 
 import React from 'react';
@@ -64,23 +63,39 @@ describe('the activity strip', () => {
     expect(tree.queryByText(/metrics\.trainingLoad/)).toBeNull();
   });
 
-  it('keys each sport family and the no-load state as a named icon with no visible text', async () => {
+  it('counts the range in the chip and keys each loaded sport family as a named icon', async () => {
     const tree = await render(strip(null, MIXED));
 
+    expect(tree.getByTestId('fitness-strip-chip')).toHaveTextContent('fitness.activitiesCount');
     expect(tree.getByLabelText('sportFamilies.ride')).toBeTruthy();
     expect(tree.getByLabelText('sportFamilies.run')).toBeTruthy();
-    expect(tree.getByLabelText('fitness.noLoadKey')).toBeTruthy();
     expect(tree.queryByText(/sportFamilies\./)).toBeNull();
-    expect(tree.queryByText(/fitness\.noLoadKey/)).toBeNull();
     expect(tree.queryByLabelText('sportFamilies.foot')).toBeNull();
   });
 
-  it('keeps the legend through selecting and clearing a day', async () => {
+  it('narrows the chip and icons to a pinned day, and keeps that day once the scrub lets go', async () => {
     const tree = await render(strip('2026-03-10', MIXED));
-    expect(tree.getByTestId('fitness-strip-key-Run')).toBeTruthy();
+    expect(tree.getByTestId('fitness-strip-chip')).toHaveTextContent('Ride r1');
+    expect(tree.getByTestId('fitness-strip-key-Ride')).toBeTruthy();
+    expect(tree.queryByTestId('fitness-strip-key-Run')).toBeNull();
 
+    // Letting go clears the shared selection, and the chip stays on the day so it can be tapped.
     await tree.rerender(strip(null, MIXED));
-    expect(tree.getByTestId('fitness-strip-key-Run')).toBeTruthy();
+    expect(tree.getByTestId('fitness-strip-chip')).toHaveTextContent('Ride r1');
+    expect(tree.getByRole('button', { name: 'Ride r1' })).toBeTruthy();
+  });
+
+  it('widens to the range when the scrub lets go on a rest day', async () => {
+    const tree = await render(strip('2026-03-10', [MIXED[0]]));
+    await tree.rerender(strip('2026-03-11', [MIXED[0]]));
+    await tree.rerender(strip(null, [MIXED[0]]));
+    expect(tree.getByTestId('fitness-strip-chip')).toHaveTextContent('fitness.activitiesCount');
+  });
+
+  it('says rest day for a pinned day with no activity, and keys no sport', async () => {
+    const tree = await render(strip('2026-03-11', [MIXED[0]]));
+    expect(tree.getByTestId('fitness-strip-chip')).toHaveTextContent('fitness.restDay');
+    expect(tree.queryByTestId('fitness-strip-key-Ride')).toBeNull();
   });
 
   it('keys sports of one group as that group, once', async () => {

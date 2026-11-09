@@ -246,7 +246,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 
   return (
     <View style={styles.container}>
-      <ChartSurface reading={reading} style={styles.plot} held={held}>
+      <ChartSurface reading={reading} style={styles.plot} held={held} showDataButton={false}>
         <View style={styles.plotRow}>
           <YAxisLabels
             ticks={yTicks}

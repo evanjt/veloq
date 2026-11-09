@@ -163,9 +163,10 @@ describe('a chart can be read without seeing it', () => {
     expect(rows).toHaveLength(FITNESS_DAYS.length);
   });
 
-  it('opens the same sheet from the visible fitness button', async () => {
+  it('keeps the fitness sheet behind its action once the visible button is gone', async () => {
     await render(<FitnessChart data={FITNESS_DAYS} />);
-    expect(await openThroughButton()).toHaveLength(FITNESS_DAYS.length);
+    expect(screen.queryByRole('button', { name: 'Show data' })).toBeNull();
+    expect(await openThroughAction()).toHaveLength(FITNESS_DAYS.length);
   });
 
   it('speaks a curve chart and opens one row per plotted point', async () => {

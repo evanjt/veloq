@@ -851,13 +851,11 @@
     "activitiesCount_one": "{{count}} Aktivität",
     "activitiesCount_other": "{{count}} Aktivitäten",
     "daysTrained": "Trainingstage",
-    "eftpChanged": "eFTP geändert",
     "fatigueATL": "Ermüdung (ATL)",
     "fitnessCTL": "Fitness (CTL)",
     "loadUnavailable": "Nicht verfügbar",
     "noData": "Keine Fitnessdaten verfügbar",
     "noDataCause": "Fitness, Ermüdung und Form stammen aus deinen Wellness-Daten auf intervals.icu, und für diesen Zeitraum ist nichts gespeichert.",
-    "noLoadKey": "Keine Belastung",
     "restDay": "Ruhetag",
     "selectActivity": "Aktivität auswählen"
   },
