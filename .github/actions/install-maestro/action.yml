@@ -23,7 +23,7 @@ runs:
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
         else
           tmp=$(mktemp -d)
-          curl -fsSL -o "$tmp/maestro.zip" \
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o "$tmp/maestro.zip" \
             "https://github.com/mobile-dev-inc/Maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
           echo "${MAESTRO_SHA256}  $tmp/maestro.zip" | shasum -a 256 -c -
           unzip -q "$tmp/maestro.zip" -d "$tmp"
