@@ -17,30 +17,17 @@ import {
   useChartGestures,
   type SummaryDay,
 } from '@/shared/charts';
-import {
-  colors,
-  darkColors,
-  spacing,
-  layout,
-  stroke,
-  iconSize,
-  typography,
-  slopToMinTapTarget,
-} from '@/theme';
+import { colors, darkColors, spacing, iconSize, typography } from '@/theme';
 import { sortByDateId } from '@/shared/activity/activityUtils';
-import {
-  getActivityCategory,
-  sportFamilyIcon,
-  sportFamilyLabel,
-} from '@/shared/activity/sportCategories';
+import { sportFamilyIcon, sportFamilyLabel } from '@/shared/activity/sportCategories';
 import type { DayLoad } from 'veloqrs';
 import type { WellnessData } from '@/types';
 import { stripMarks, stripKey, markFills, portionGap } from '../lib/stripMarks';
 import { dayLoadReadout } from '../lib/dayLoadReadout';
-import { dayPillTone, groupColor } from '../lib/dayPillTone';
+import { groupColor } from '../lib/dayPillTone';
 import { formFromLoads } from '@/shared/math';
 import { formatShortDate } from '@/shared/format/format';
-import { Icon, PressTarget } from '@/shared/ui';
+import { Button, Icon } from '@/shared/ui';
 
 import { useOpenDayActivities, type DayActivity } from '@/features/activity/light';
 
@@ -275,62 +262,38 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       : pinned && shownActivities.length === 1 && onlyActivity
         ? onlyActivity.name
         : t('fitness.activitiesCount', { count: shownActivities.length });
-  const tone = dayPillTone(
-    onlyActivity ? getActivityCategory(onlyActivity.type) : undefined,
-    isDark
-  );
-  const chip = (
-    <View style={styles.chipRow}>
-      <View
-        testID="fitness-strip-chip"
-        style={[
-          styles.chip,
-          shownActivities.length > 0
-            ? { backgroundColor: tone.fill, borderColor: tone.border }
-            : styles.chipEmpty,
-        ]}
-      >
-        <Text
-          style={[
-            styles.chipText,
-            { color: shownActivities.length > 0 ? tone.ink : mutedTextColor },
-          ]}
-          numberOfLines={1}
-        >
-          {chipText}
-        </Text>
-      </View>
-      {shownKey.groups.map((group) => (
-        <Icon
-          key={group}
-          testID={`fitness-strip-key-${group}`}
-          name={sportFamilyIcon(group)}
-          size={iconSize.sm}
-          color={colorOf(group)}
-          accessibilityLabel={t(sportFamilyLabel(group))}
-        />
-      ))}
-    </View>
-  );
+  // A day with activities opens them from a button; the range total and a rest day only read.
+  const openable = pinned && pinned.activities.length > 0 ? pinned : undefined;
 
   return (
     <View style={styles.container}>
-      {pinned && pinned.activities.length > 0 ? (
-        <PressTarget
-          accessibilityRole="button"
-          accessibilityLabel={chipText}
-          hitSlop={CHIP_SLOP}
-          style={styles.chipFrame}
-          onPress={async () => {
-            if (await openDay(pinned.activities)) setHeldDate(null);
-          }}
-        >
-          {chip}
-          <Icon name="chevron-right" size={iconSize.md} color={mutedTextColor} />
-        </PressTarget>
-      ) : (
-        <View style={styles.chipFrame}>{chip}</View>
-      )}
+      <View style={styles.chipRow}>
+        {openable ? (
+          <Button
+            testID="fitness-strip-chip"
+            variant="secondary"
+            size="sm"
+            label={chipText}
+            onPress={async () => {
+              if (await openDay(openable.activities)) setHeldDate(null);
+            }}
+          />
+        ) : (
+          <Text testID="fitness-strip-chip" style={[styles.chipText, { color: mutedTextColor }]}>
+            {chipText}
+          </Text>
+        )}
+        {shownKey.groups.map((group) => (
+          <Icon
+            key={group}
+            testID={`fitness-strip-key-${group}`}
+            name={sportFamilyIcon(group)}
+            size={iconSize.sm}
+            color={colorOf(group)}
+            accessibilityLabel={t(sportFamilyLabel(group))}
+          />
+        ))}
+      </View>
       <ChartSurface reading={reading} testID="activity-dots-plot" showDataButton={false}>
         <View style={styles.plotRow}>
           <View testID="activity-dots-gutter" style={{ width: gutterWidth }} />
@@ -385,38 +348,15 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   );
 });
 
-// The chip row sits tight between the plots, so its tap target reaches past it through slop.
-const CHIP_HEIGHT = typography.captionBold.lineHeight + 2 * spacing.xs + 2 * stroke.one;
-const CHIP_SLOP = slopToMinTapTarget(CHIP_HEIGHT);
-
 const styles = StyleSheet.create({
   container: {},
-  chipFrame: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: spacing.xs,
-    minHeight: CHIP_HEIGHT,
-    marginBottom: spacing.xs,
-  },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     columnGap: spacing.sm,
     rowGap: spacing.xs,
-    flexShrink: 1,
-  },
-  chip: {
-    flexShrink: 1,
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-    borderWidth: stroke.one,
-  },
-  // A rest day keeps the chip's box, so the row holds its height across a scrub.
-  chipEmpty: {
-    borderColor: 'transparent',
+    marginBottom: spacing.xs,
   },
   chipText: {
     ...typography.captionBold,

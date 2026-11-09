@@ -360,6 +360,11 @@ export interface ToggleButtonProps {
    * neighbours by a key beside the row. Selected, it is the plain selected chip.
    */
   outlined?: boolean;
+  /**
+   * Unselected, the label takes the body ink rather than the secondary, for the options of a
+   * segmented bar that has to read as a live control rather than a row of quiet filters.
+   */
+  strongLabel?: boolean;
   /** What a tap does, when the label alone does not say it. Defaults to the label. */
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
@@ -393,6 +398,7 @@ export function ToggleButton({
   mark,
   count,
   outlined = false,
+  strongLabel = false,
   accessibilityLabel,
   style,
   testID,
@@ -400,7 +406,8 @@ export function ToggleButton({
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
   const selectedPaint = selectedChipPaint(isDark);
-  const labelInk = selected ? (accent?.ink ?? selectedPaint.ink) : palette.textSecondary;
+  const idleInk = strongLabel ? palette.textPrimary : palette.textSecondary;
+  const labelInk = selected ? (accent?.ink ?? selectedPaint.ink) : idleInk;
   const handlePress = selected
     ? onPress
     : () => {

@@ -1,19 +1,8 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { TIME_RANGES } from '@/shared/app/constants';
-import { PressTarget, selectedChipPaint } from '@/shared/ui';
-import * as haptics from '@/shared/ui/haptics';
-import {
-  colors,
-  darkColors,
-  spacing,
-  layout,
-  stroke,
-  typography,
-  controlHeight,
-  slopToMinTapTarget,
-} from '@/theme';
+import { ToggleButton } from '@/shared/ui';
+import { colors, darkColors, spacing, layout, stroke } from '@/theme';
 import { type TimeRange } from '@/features/wellness';
 import { useTranslation } from 'react-i18next';
 
@@ -36,7 +25,6 @@ export const TimeRangeSelector = React.memo(function TimeRangeSelector({
 }: TimeRangeSelectorProps) {
   const { t } = useTranslation();
   const palette = isDark ? darkColors : colors;
-  const chosen = selectedChipPaint(isDark);
   return (
     <View
       testID="fitness-time-range-selector"
@@ -45,38 +33,20 @@ export const TimeRangeSelector = React.memo(function TimeRangeSelector({
         { backgroundColor: palette.fillNeutral, borderColor: palette.controlBoundary },
       ]}
     >
-      {TIME_RANGES.map((range) => {
-        const selected = timeRange === range.id;
-        const label = t(range.labelKey as never);
-        return (
-          <PressTarget
-            key={range.id}
-            testID={`fitness-range-${range.id}`}
-            accessibilityRole="button"
-            accessibilityLabel={label}
-            accessibilityState={{ selected }}
-            hitSlop={SEGMENT_SLOP}
-            onPress={() => {
-              if (selected) return;
-              haptics.selection();
-              onTimeRangeChange(range.id);
-            }}
-            style={[styles.segment, selected && { backgroundColor: chosen.fill }]}
-          >
-            <Text
-              style={[styles.label, { color: selected ? chosen.ink : palette.textPrimary }]}
-              numberOfLines={1}
-            >
-              {label}
-            </Text>
-          </PressTarget>
-        );
-      })}
+      {TIME_RANGES.map((range) => (
+        <ToggleButton
+          key={range.id}
+          testID={`fitness-range-${range.id}`}
+          label={t(range.labelKey as never)}
+          selected={timeRange === range.id}
+          strongLabel
+          onPress={() => onTimeRangeChange(range.id)}
+          style={styles.segment}
+        />
+      ))}
     </View>
   );
 });
-
-const SEGMENT_SLOP = slopToMinTapTarget(controlHeight.chip);
 
 const styles = StyleSheet.create({
   track: {
@@ -89,12 +59,5 @@ const styles = StyleSheet.create({
   },
   segment: {
     flex: 1,
-    minHeight: controlHeight.chip,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: layout.borderRadiusSm,
-  },
-  label: {
-    ...typography.bodyCompactBold,
   },
 });
