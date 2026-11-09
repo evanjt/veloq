@@ -1,0 +1,1 @@
+Correções de bugs e melhorias. Monitores cardíacos e outros sensores reconectam com mais confiabilidade. Treinos interrompidos por uma falha do app não se perdem mais. O app funciona melhor sem sinal. Os mapas mostram bem as subidas, os ajustes ficaram mais fáceis de achar e o texto grande cabe melhor.

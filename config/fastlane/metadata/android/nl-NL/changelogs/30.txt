@@ -1,0 +1,1 @@
+Bugfixes en verbeteringen. Hartslagmeters en andere sensoren maken betrouwbaarder opnieuw verbinding. Ritten die door een crash stopten, gaan niet meer verloren. De app werkt beter zonder bereik. Kaarten tonen heuvels goed, instellingen zijn makkelijker te vinden en grote tekst past beter.

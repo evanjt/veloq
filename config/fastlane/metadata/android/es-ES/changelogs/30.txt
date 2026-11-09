@@ -1,0 +1,1 @@
+Corrección de errores y mejoras. Los pulsómetros y otros sensores se reconectan con más fiabilidad. Las salidas interrumpidas por un cierre inesperado ya no se pierden. La app funciona mejor sin cobertura. Los mapas muestran bien las subidas, los ajustes son más fáciles de encontrar y el texto grande encaja mejor.

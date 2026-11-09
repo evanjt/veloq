@@ -1,0 +1,1 @@
+Corrections de bugs et améliorations. Les ceintures cardio et autres capteurs se reconnectent plus sûrement. Les sorties interrompues par un plantage ne sont plus perdues. L'app fonctionne mieux sans réseau. Les cartes affichent bien le relief, les réglages sont plus faciles à trouver et les grands textes s'affichent mieux.

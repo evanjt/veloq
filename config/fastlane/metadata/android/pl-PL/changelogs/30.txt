@@ -1,0 +1,1 @@
+Poprawki błędów i ulepszenia. Pulsometry i inne czujniki łączą się ponownie niezawodniej. Treningi przerwane awarią aplikacji nie giną. Aplikacja lepiej działa bez zasięgu. Mapy poprawnie pokazują podjazdy, ustawienia łatwiej znaleźć, a duży tekst lepiej się mieści.

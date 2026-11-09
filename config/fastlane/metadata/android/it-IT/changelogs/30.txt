@@ -1,0 +1,1 @@
+Correzioni di bug e miglioramenti. Fasce cardio e altri sensori si riconnettono in modo più affidabile. Le uscite interrotte da un arresto anomalo non vanno più perse. L'app funziona meglio senza segnale. Le mappe mostrano bene le salite, le impostazioni sono più facili da trovare e il testo grande si legge meglio.

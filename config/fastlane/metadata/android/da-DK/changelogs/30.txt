@@ -1,0 +1,1 @@
+Fejlrettelser og forbedringer. Pulsmålere og andre sensorer genforbinder mere pålideligt. Ture afbrudt af et nedbrud går ikke længere tabt. Appen klarer sig bedre uden signal. Kort viser bakker korrekt, indstillinger er nemmere at finde, og stor tekst passer bedre.

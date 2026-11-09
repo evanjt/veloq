@@ -1,0 +1,1 @@
+Fehlerbehebungen und Verbesserungen. Pulsgurte und andere Sensoren verbinden sich zuverlässiger neu. Durch einen Absturz unterbrochene Fahrten gehen nicht mehr verloren. Die App kommt ohne Empfang besser zurecht. Karten zeigen Steigungen richtig, Einstellungen sind leichter zu finden, und große Schrift passt besser.

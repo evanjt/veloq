@@ -1,0 +1,1 @@
+Bug fixes and improvements. Heart rate and other sensors reconnect more reliably. Rides interrupted by a crash are no longer lost. The app copes better without signal. Maps show hills properly, settings are easier to find, and large text fits better.

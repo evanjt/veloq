@@ -1,0 +1,1 @@
+Correções de erros e melhorias. Cintas cardíacas e outros sensores voltam a ligar-se com mais fiabilidade. Treinos interrompidos por uma falha da app já não se perdem. A app funciona melhor sem rede. Os mapas mostram bem as subidas, as definições são mais fáceis de encontrar e o texto grande cabe melhor.
