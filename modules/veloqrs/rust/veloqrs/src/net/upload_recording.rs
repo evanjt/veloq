@@ -397,6 +397,9 @@ pub(crate) enum Verdict {
     PermissionBlocked,
     AuthExpired(String),
     Network(String),
+    /// The governor held the request back, or a 429 set a cooldown. The ride
+    /// did nothing wrong, so it waits without an attempt counted.
+    Deferred(String),
     Retriable(String),
     Rejected(String),
 }
@@ -418,6 +421,7 @@ pub(crate) fn classify(answer: &FfiCallOutcome) -> Verdict {
         (_, Some(403)) => Verdict::PermissionBlocked,
         (_, Some(401)) => Verdict::AuthExpired(detail()),
         (FfiCallKind::Network, _) => Verdict::Network(answer.message.clone()),
+        (FfiCallKind::RateLimited, None) => Verdict::Deferred(detail()),
         (_, None) => Verdict::Retriable(detail()),
         (_, Some(status)) if status >= 500 || status == 408 || status == 429 => {
             Verdict::Retriable(detail())
@@ -435,6 +439,9 @@ fn may_have_landed(answer: &FfiCallOutcome) -> bool {
     match (answer.kind, answer.status) {
         (FfiCallKind::Ok | FfiCallKind::OtherAthlete, _) => false,
         (_, Some(status)) => status >= 500 || status == 408,
+        // A deferral raised inside a cooldown, or a 429 that set one: the
+        // server refused it before acting.
+        (FfiCallKind::RateLimited, None) => false,
         (_, None) => true,
     }
 }
@@ -714,6 +721,15 @@ fn send_and_settle(
                 error: error.clone(),
             });
             FfiUploadResult::with(O::Network, error)
+        }
+        // The governor's cooldown is the athlete's account being rationed, not
+        // a fault in the ride: it waits with its attempts intact.
+        Verdict::Deferred(error) => {
+            outcome(UploadTransition::HeldForNetwork {
+                install: install_f,
+                error: error.clone(),
+            });
+            FfiUploadResult::with(O::Retriable, error)
         }
         Verdict::Retriable(error) => {
             outcome(UploadTransition::Failed {

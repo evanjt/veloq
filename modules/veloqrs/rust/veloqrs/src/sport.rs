@@ -304,7 +304,7 @@ pub fn from_fit(sport: Option<u8>, sub_sport: Option<u8>) -> &'static str {
     const INDOOR_ROWING: u8 = 14;
     const YOGA: u8 = 43;
     const PILATES: u8 = 44;
-    const HIIT: u8 = 62;
+    const HIIT: u8 = 70;
     let sub = sub_sport.unwrap_or(0);
     match sport {
         Some(1) => match sub {
@@ -428,6 +428,10 @@ mod tests {
             (Some(10), Some(20), "WeightTraining"),
             (Some(10), Some(0), "Workout"),
             (Some(4), Some(15), "Elliptical"),
+            (Some(10), Some(70), "HighIntensityIntervalTraining"),
+            (Some(4), Some(70), "HighIntensityIntervalTraining"),
+            (Some(10), Some(62), "Workout"),
+            (Some(4), Some(62), "Workout"),
             (Some(0), None, "Other"),
             (None, None, "Other"),
             (Some(200), None, "Other"),
@@ -437,7 +441,7 @@ mod tests {
         }
         for sport in 0..=u8::MAX {
             for sub in [
-                0, 3, 6, 8, 11, 14, 15, 16, 18, 20, 28, 37, 43, 44, 46, 47, 58, 62,
+                0, 3, 6, 8, 11, 14, 15, 16, 18, 20, 28, 37, 43, 44, 46, 47, 58, 62, 70,
             ] {
                 let mapped = from_fit(Some(sport), Some(sub));
                 assert!(

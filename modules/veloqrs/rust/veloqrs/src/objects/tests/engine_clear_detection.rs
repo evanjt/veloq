@@ -289,3 +289,47 @@ fn test_run_clear_all_does_not_restart_a_running_sync() {
         false,
     );
 }
+
+/// Scenario: a detection run holds the `section_detect` lease when Clear Cache
+/// cancels it. The run settles against the install it started on, which the
+/// clear has moved, so its release is refused.
+///
+/// Expected behaviour: the wipe gives the lease back itself, and the next
+/// start claims rather than answering Busy.
+#[test]
+fn test_run_clear_derived_gives_back_a_cancelled_detection_lease() {
+    let _serial = serial_global_state();
+    let dir = seeded_global_engine();
+    let path = dir.path().join("detection.db");
+    let install = crate::persistence::engine_install();
+    let (entered, resume) = pause_next_group_write(&path, install);
+    super::super::detection::claim_detect().expect("first claim");
+    let detection = with_persistent_engine(|engine| {
+        engine.detect_sections_background_applying(ApplyOn::Worker)
+    })
+    .expect("engine");
+    *SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|error| error.into_inner()) = Some(detection);
+    entered
+        .recv_timeout(Duration::from_secs(5))
+        .expect("group write reached");
+
+    crate::runtime::block_on(VeloqEngine.run_clear_derived()).unwrap();
+    let detection = SECTION_DETECTION_HANDLE
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .take()
+        .expect("detection");
+    resume.send(()).expect("release group write");
+    let (state, _) = detection.recv_state_with_cache_within(Some(Duration::from_secs(5)));
+    assert!(
+        !matches!(state, WorkerPoll::Running),
+        "detection did not finish"
+    );
+
+    assert!(
+        super::super::detection::claim_detect().is_ok(),
+        "detection must be startable after the clear"
+    );
+}

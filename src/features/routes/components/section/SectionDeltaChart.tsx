@@ -48,10 +48,9 @@ import {
   useMeasuredWidth,
   type SummarySeries,
 } from '@/shared/charts';
-import { chartStyles, spacing, stroke } from '@/theme';
+import { chartStyles, PERFORMANCE_PLOT_HEIGHT, spacing, stroke } from '@/theme';
 import type { FfiDirectionDeltas, FfiReferenceSource } from 'veloqrs';
 
-const CHART_HEIGHT = 160;
 const CHART_PADDING = { left: 4, right: 8, top: 12, bottom: 12 } as const;
 
 export interface SectionDeltaChartProps {
@@ -81,7 +80,7 @@ export function SectionDeltaChart({
   const reference = resolveReference(deltas, requestedReference);
   const shown = useMemo(() => deltasAgainst(deltas, reference), [deltas, reference]);
   const frame: DeltaFrame = useMemo(
-    () => ({ width: chartWidth, height: CHART_HEIGHT, padding: CHART_PADDING }),
+    () => ({ width: chartWidth, height: PERFORMANCE_PLOT_HEIGHT, padding: CHART_PADDING }),
     [chartWidth]
   );
   const plot = useMemo(
@@ -186,7 +185,12 @@ export function SectionDeltaChart({
             testID="section-delta-y-axis"
           />
           <GestureDetector gesture={gesture}>
-            <View style={styles.plot} onLayout={onLayout} {...accessibilityProps}>
+            <View
+              testID="section-delta-plot"
+              style={styles.plot}
+              onLayout={onLayout}
+              {...accessibilityProps}
+            >
               {chartWidth > 0 && (
                 <>
                   <Canvas style={StyleSheet.absoluteFill}>
@@ -243,7 +247,7 @@ export function SectionDeltaChart({
                         x={plot.xForDistance(scrub.distanceM)}
                         y={CHART_PADDING.top}
                         width={chartStroke.crosshair}
-                        height={CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom}
+                        height={PERFORMANCE_PLOT_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom}
                         color={chartColors.crosshair}
                       />
                     )}
@@ -313,7 +317,7 @@ const styles = StyleSheet.create({
   },
   plot: {
     flex: 1,
-    height: CHART_HEIGHT,
+    height: PERFORMANCE_PLOT_HEIGHT,
   },
   referenceName: {
     position: 'absolute',

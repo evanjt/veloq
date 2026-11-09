@@ -118,3 +118,29 @@ describe('useSectionCreation snap on a retraced track', () => {
     expect(result.current.endIndex).toBe(returnIndexBeside(40));
   });
 });
+
+describe('useSectionCreation end tap on the start', () => {
+  it('stays at selecting the end when the end tap lands on the start vertex', async () => {
+    const { result } = await renderCreation(outbound);
+
+    await tap(result, at(20 * SPACING_M, 0));
+    await tap(result, at(20 * SPACING_M + 2, 1));
+
+    expect(result.current.creationState).toBe('selectingEnd');
+    expect(result.current.startIndex).toBe(20);
+    expect(result.current.endIndex).toBeNull();
+    expect(result.current.sectionDistance).toBeNull();
+  });
+
+  it('completes on the next tap that lands past the start', async () => {
+    const { result } = await renderCreation(outbound);
+
+    await tap(result, at(20 * SPACING_M, 0));
+    await tap(result, at(20 * SPACING_M, 0));
+    await tap(result, at(40 * SPACING_M, 0));
+
+    expect(result.current.creationState).toBe('complete');
+    expect(result.current.startIndex).toBe(20);
+    expect(result.current.endIndex).toBe(40);
+  });
+});

@@ -14,6 +14,7 @@ import {
   gradientStepExpression,
 } from '@/features/maps/lib/gradientLineColor';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
+import { expectValidLineProgressStep } from '../../__shared__/lineProgressStep';
 
 const STYLES: MapStyleType[] = ['light', 'dark', 'satellite'];
 const token = (style: MapStyleType, step: string) =>
@@ -83,6 +84,15 @@ describe('gradientStepExpression', () => {
       'step',
       ['line-progress'],
       '#000001',
+      1,
+      '#000001',
     ]);
+  });
+
+  it('is a step MapLibre accepts for a line that never changes band', () => {
+    const stops = buildGradientLineStops([3, 4, 5], [0, 50, 100], 'light')!;
+    const expression = gradientStepExpression(stops);
+    expectValidLineProgressStep(expression);
+    expect(expression.slice(2)).toEqual([token('light', 'warm-1'), 1, token('light', 'warm-1')]);
   });
 });

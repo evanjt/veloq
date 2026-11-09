@@ -650,11 +650,15 @@ impl PersistentEngine {
 
             // Add the new reference activity with proper portion details (all laps)
             // (rematch only includes previously-associated activities). A ride
-            // attached by hand already holds the rows its relaxed cut gave it.
+            // attached by hand already holds the rows its relaxed cut gave it,
+            // and a ride that holds rows keeps them: the stored cut and the new
+            // line can start a pass a few points apart, which would stack a
+            // second row beside the one the rematch wrote.
             if !self
                 .forced_activity_ids(section_id)
                 .iter()
                 .any(|id| id == activity_id)
+                && !self.holds_section_rows(section_id, activity_id)
             {
                 let heartrate = self.load_heartrate_series(activity_id);
                 let power = self.load_power_series(activity_id);
@@ -796,15 +800,7 @@ impl PersistentEngine {
             Some(s) if !s.polyline.is_empty() => s.polyline.clone(),
             _ => return Ok(false),
         };
-        let existing: i64 = self
-            .db
-            .query_row(
-                "SELECT COUNT(*) FROM section_activities WHERE section_id = ? AND activity_id = ?",
-                params![section_id, activity_id],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
-        if existing > 0 {
+        if self.holds_section_rows(section_id, activity_id) {
             return Ok(true);
         }
 
@@ -974,6 +970,20 @@ impl PersistentEngine {
         Ok(())
     }
 
+    /// Whether a ride already holds junction rows for a section. A write that
+    /// finds them leaves them in place, so a pass cut at another start index
+    /// does not add a second row beside them.
+    pub(super) fn holds_section_rows(&self, section_id: &str, activity_id: &str) -> bool {
+        self.db
+            .query_row(
+                "SELECT COUNT(*) FROM section_activities WHERE section_id = ? AND activity_id = ?",
+                params![section_id, activity_id],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0)
+            > 0
+    }
+
     /// The rides attached to a section by hand.
     pub(super) fn forced_activity_ids(&self, section_id: &str) -> Vec<String> {
         self.forced_ids(
@@ -1104,14 +1114,18 @@ impl PersistentEngine {
         Ok((summary, scheduled))
     }
 
-    /// Junction-matching core of the attach tier: match one activity against
-    /// the existing catalogue and (re)write its junction rows with portions.
-    /// Never creates sections and never regroups - callers own the tail.
-    /// Returns (matched section count, inserted portion count).
+    /// Junction-matching core of the attach tier for an activity whose track
+    /// is the one its rows were cut from.
     fn attach_activity_junctions(&mut self, activity_id: &str) -> Result<(u32, u32), String> {
+        self.attach_junctions(activity_id, false)
+    }
+
+    /// The sections the activity's track passes, with the portions on each.
+    /// Empty when the track is too short or too far from every section.
+    fn matched_section_portions(&self, activity_id: &str) -> Vec<(String, Vec<SectionPortion>)> {
         let track = match self.get_gps_track(activity_id) {
             Some(t) if t.len() >= 3 => t,
-            _ => return Ok((0, 0)),
+            _ => return Vec::new(),
         };
 
         let sport_type = self.sport_of_activity(activity_id);
@@ -1122,16 +1136,15 @@ impl PersistentEngine {
         // bounds, so a section out of the track's reach is passed over here,
         // on one box for the track, rather than built and then refused.
         let Some(track_bounds) = tracematch::Bounds::from_points(&track) else {
-            return Ok((0, 0));
+            return Vec::new();
         };
         let config = &self.section_config;
 
         // Every section's passes up front: get_sections() borrows the
-        // in-memory Vec, and the insert loop below needs &mut self. The
+        // in-memory Vec, and the insert loop needs &mut self. The
         // matcher is detection's own, so the rows attach writes are the
         // rows a re-detect over the same pool would write.
-        let matched: Vec<(String, Vec<SectionPortion>)> = self
-            .get_sections()
+        self.get_sections()
             .iter()
             .filter(|section| {
                 // Mirror detection's partition, or attach builds a
@@ -1163,9 +1176,23 @@ impl PersistentEngine {
                 ))
             })
             .filter(|(_, portions)| !portions.is_empty())
-            .collect();
+            .collect()
+    }
 
-        if matched.is_empty() {
+    /// Match one activity against the existing catalogue and (re)write its
+    /// junction rows with portions. Never creates sections and never
+    /// regroups - callers own the tail. When the track changed, the attach
+    /// owns all of the activity's rows: those on any section the new track no
+    /// longer passes go too, since nothing else rebuilds a custom or accepted
+    /// section's rows. Returns (matched section count, inserted portion count).
+    fn attach_junctions(
+        &mut self,
+        activity_id: &str,
+        track_changed: bool,
+    ) -> Result<(u32, u32), String> {
+        let matched = self.matched_section_portions(activity_id);
+
+        if matched.is_empty() && !track_changed {
             return Ok((0, 0));
         }
 
@@ -1173,6 +1200,7 @@ impl PersistentEngine {
         // once here rather than once per row inside the insert.
         let heartrate = self.load_heartrate_series(activity_id);
         let power = self.load_power_series(activity_id);
+        let mut dropped: Vec<String> = Vec::new();
 
         // One transaction for the whole activity. Each statement below used to
         // autocommit with its own fsync, under the write lock every reader
@@ -1180,6 +1208,9 @@ impl PersistentEngine {
         let result = self.in_write_txn(|engine| {
             let mut matched_sections = 0;
             let mut inserted_portions = 0;
+            if track_changed {
+                dropped = engine.drop_rows_off_the_track(activity_id, &matched)?;
+            }
             for (section_id, portions) in &matched {
                 matched_sections += 1;
 
@@ -1214,7 +1245,7 @@ impl PersistentEngine {
 
             Ok((matched_sections, inserted_portions))
         });
-        for (section_id, _) in &matched {
+        for section_id in matched.iter().map(|(id, _)| id).chain(&dropped) {
             self.refresh_section_in_memory(section_id);
             self.invalidate_section_cache(section_id);
         }
@@ -1222,11 +1253,57 @@ impl PersistentEngine {
         result
     }
 
+    /// Delete the activity's rows from every section not in `matched`,
+    /// returning the sections that lost rows. A hand attachment is not
+    /// spared here: it is in `matched` while the relaxed bar still reaches
+    /// the track, and a track that left it has nothing to keep.
+    fn drop_rows_off_the_track(
+        &mut self,
+        activity_id: &str,
+        matched: &[(String, Vec<SectionPortion>)],
+    ) -> Result<Vec<String>, String> {
+        let held: Vec<String> = {
+            let mut stmt = self
+                .db
+                .prepare_cached(
+                    "SELECT DISTINCT section_id FROM section_activities WHERE activity_id = ?",
+                )
+                .map_err(|e| format!("Failed to list section_activities: {e}"))?;
+            let rows = stmt
+                .query_map(params![activity_id], |row| row.get::<_, String>(0))
+                .map_err(|e| format!("Failed to list section_activities: {e}"))?;
+            rows.collect::<Result<_, _>>()
+                .map_err(|e| format!("Failed to list section_activities: {e}"))?
+        };
+        let mut dropped = Vec::new();
+        for section_id in held {
+            if matched.iter().any(|(id, _)| *id == section_id) {
+                continue;
+            }
+            self.db
+                .prepare_cached(
+                    "DELETE FROM section_activities WHERE section_id = ? AND activity_id = ?",
+                )
+                .and_then(|mut stmt| stmt.execute(params![section_id, activity_id]))
+                .map_err(|e| format!("Failed to clear section_activities: {e}"))?;
+            dropped.push(section_id);
+        }
+        Ok(dropped)
+    }
+
     /// Per-add half of the attach tier: junction rows for one just-stored
     /// activity, errors logged (ingest must not abort on one bad track).
     /// Returns (matched sections, inserted portions).
     pub fn attach_stored_activity(&mut self, activity_id: &str) -> (u32, u32) {
-        match self.attach_activity_junctions(activity_id) {
+        self.attach_stored_activity_after(activity_id, false)
+    }
+
+    fn attach_stored_activity_after(
+        &mut self,
+        activity_id: &str,
+        track_changed: bool,
+    ) -> (u32, u32) {
+        match self.attach_junctions(activity_id, track_changed) {
             Ok(counts) => counts,
             Err(e) => {
                 log::warn!("veloqrs: [attach] {} failed: {}", activity_id, e);
@@ -1247,7 +1324,8 @@ impl PersistentEngine {
         {
             return 0;
         }
-        self.attach_stored_activity(activity_id).1
+        self.attach_stored_activity_after(activity_id, track_changed)
+            .1
     }
 
     fn activity_has_junction_rows(&self, activity_id: &str) -> bool {
@@ -1583,6 +1661,10 @@ fn attach_cuts() -> usize {
 #[cfg(test)]
 #[path = "tests/attach_reach.rs"]
 mod attach_reach;
+
+#[cfg(test)]
+#[path = "tests/changed_track_rows.rs"]
+mod changed_track_rows;
 
 #[cfg(test)]
 #[path = "tests/forced_matches.rs"]

@@ -141,6 +141,15 @@ describe('the recording session and the foreground service', () => {
     expect(useRecordingLiveStore.getState().backgroundTrackingFailed).toBe(true);
   });
 
+  it('still starts the service when the foreground watch is refused', async () => {
+    (Location.watchPositionAsync as jest.Mock).mockRejectedValueOnce(
+      new Error('LocationSettingsUnsatisfiedException')
+    );
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    await settle();
+    expect(Location.startLocationUpdatesAsync).toHaveBeenCalledTimes(1);
+  });
+
   it('says nothing when the service starts', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     await settle();

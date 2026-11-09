@@ -134,7 +134,9 @@ pub(crate) fn recompute_and_save_groups(
         return (existing_groups.to_vec(), GroupSave::Kept);
     }
 
-    let already_grouped: HashSet<&str> = existing_groups
+    let live: HashSet<&str> = signatures.iter().map(|s| s.activity_id.as_str()).collect();
+    let seed_groups = super::routes::groups_of_live_members(existing_groups, &live);
+    let already_grouped: HashSet<&str> = seed_groups
         .iter()
         .flat_map(|g| g.activity_ids.iter().map(|s| s.as_str()))
         .collect();
@@ -146,7 +148,7 @@ pub(crate) fn recompute_and_save_groups(
     let total = signatures.len();
     let chosen = super::routes::routes_keeping_representative(conn, existing_groups);
     let rule_changed = super::routes::groups_match_rule_changed(conn, match_config);
-    let use_incremental = !existing_groups.is_empty()
+    let use_incremental = !seed_groups.is_empty()
         && !new_sigs.is_empty()
         && (new_sigs.len() as f64) < (total as f64 * 0.9)
         && !rule_changed;
@@ -160,7 +162,7 @@ pub(crate) fn recompute_and_save_groups(
         );
         tracematch::group_incremental_with_matches(
             &new_sigs,
-            &super::routes::groups_keeping_chosen_representatives(existing_groups, &chosen),
+            &super::routes::groups_keeping_chosen_representatives(&seed_groups, &chosen),
             &existing_sigs,
             match_config,
         )

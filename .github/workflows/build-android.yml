@@ -330,9 +330,9 @@ jobs:
       # Saved directly after the build that produced it, not in a post step,
       # which runs only when every later step succeeds. The key names the Rust
       # inputs, the toolchain and the architecture selection.
+      # Runs on a cache hit too, so the release gate holds whatever the cache holds.
       - name: Setup signing
         id: signing
-        if: steps.apk-cache.outputs.cache-hit != 'true'
         env:
           VARIANT: ${{ inputs.variant }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -354,6 +354,11 @@ jobs:
             echo "is_signed=true" >> $GITHUB_OUTPUT
             echo "Signing configured (release key)"
           else
+            # A store build must never ship under the public debug key.
+            if [ "$VARIANT" = production ] && [ "$RELEASE_BUILD" = true ]; then
+              echo "::error::Android signing secrets are missing. A release build will not fall back to debug signing"
+              exit 1
+            fi
             echo "is_signed=false" >> $GITHUB_OUTPUT
             if [ "$VARIANT" = production ]; then
               echo "::notice::Android signing secrets not available. APK will use debug signing"
@@ -478,10 +483,10 @@ jobs:
           FILENAME: ${{ steps.version.outputs.filename }}
         run: |
           mkdir -p artifacts
-          # Only warn when signing actually ran this build but didn't find secrets.
-          # On cache hits the signing step is skipped, but the cached APK was signed
-          # correctly when it was first built, so the warning would be misleading.
-          if [ "$VARIANT" = production ] && [ "${{ steps.signing.outputs.is_signed }}" = "false" ]; then
+          # Only warn when this build was made here without the release key. On a
+          # cache hit nothing was built, and the cached APK's signing was decided
+          # when it was first built, so the warning would be misleading.
+          if [ "$VARIANT" = production ] && [ "${{ steps.apk-cache.outputs.cache-hit }}" != "true" ] && [ "${{ steps.signing.outputs.is_signed }}" = "false" ]; then
             echo "::warning::keystore.properties not found. APK uses debug signing"
           fi
           cp android/app/build/outputs/apk/release/app-release.apk "artifacts/$FILENAME.apk"

@@ -8,7 +8,8 @@ import { styles } from './ActivityMapView.styles';
 import { LOCATE_GLYPH } from '@/features/maps/lib/mapGlyphs';
 
 interface ActivityMapControlsProps {
-  mapStyle: MapStyleType;
+  /** The style a tap of the style toggle draws, which its glyph names. */
+  nextStyle: MapStyleType;
   onToggleStyle: () => void;
   hasGradientData: boolean;
   gradientActive: boolean;
@@ -31,7 +32,7 @@ interface ActivityMapControlsProps {
 }
 
 export function ActivityMapControls({
-  mapStyle,
+  nextStyle,
   onToggleStyle,
   hasGradientData,
   gradientActive,
@@ -66,7 +67,7 @@ export function ActivityMapControls({
         accessibilityLabel={t('maps.toggleStyle')}
         onPress={onToggleStyle}
       >
-        <MapControlButton.Glyph name={getStyleIcon(mapStyle)} />
+        <MapControlButton.Glyph name={getStyleIcon(nextStyle)} />
       </MapControlButton>
 
       {/* Gradient coloring toggle - only shown when gradient data is available */}

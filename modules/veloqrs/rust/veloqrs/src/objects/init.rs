@@ -131,6 +131,9 @@ mod tests {
     /// The statics are process-wide, so the cases that write them share one test.
     #[test]
     fn a_storage_shortfall_lasts_until_the_next_outcome_is_recorded() {
+        // Engine-opening tests record into the same statics under the serial lock,
+        // so this one holds it too or one of them can land between two of its reads.
+        let _serial = crate::test_globals::serial_global_state();
         assert!(!record_storage_shortfall(FfiStorageShortfall {
             needed_bytes: 5000.0,
             free_bytes: Some(120.0),

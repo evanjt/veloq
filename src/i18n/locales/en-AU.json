@@ -246,7 +246,6 @@
   "routes": {
     "duplicateNameMessage": "Pick a different name. Every route needs its own.",
     "gpsTrackNotDownloaded": "No GPS data yet. Have another go once it's come down.",
-    "invalidSectionRange": "That selection range doesn't work. Try picking a different portion.",
     "noFrequentSections": "No frequent sections just yet",
     "noMatchingRoutes": "Couldn't find any matching routes",
     "noRoutesYet": "No routes yet, mate",
@@ -255,7 +254,7 @@
     "referenceFailedMessage": "The route's reference couldn't be changed. Have another go.",
     "routesWithTwoPlus": "Routes with 2+ activities on similar paths will rock up here",
     "sectionCreationFailed": "Couldn't create the section. Have another go.",
-    "sectionsDescription": "Sections get picked up when you travel the same roads a few times, even on different routes",
+    "sectionsDescription": "Sections get picked up when you travel the same roads a few times, even on different routes.",
     "largeSectionPerformanceWarning": "Big sections can take a bit longer to process."
   },
   "sections": {

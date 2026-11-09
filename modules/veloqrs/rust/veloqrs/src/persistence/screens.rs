@@ -426,12 +426,13 @@ fn chronic_weeks(
 fn weekly_totals(
     p: &crate::FfiInsightsParams,
     current_week: &crate::FfiPeriodStats,
+    last_week: &crate::FfiPeriodStats,
     mut stats: impl FnMut(i64, i64) -> crate::FfiPeriodStats,
 ) -> Vec<crate::FfiWeeklyTotal> {
     let mut weeks = chronic_weeks(p.chronic_start as i64, p.prev_start as i64, &mut stats);
     weeks.push(crate::FfiWeeklyTotal {
         start: p.prev_start,
-        stats: stats(p.prev_start as i64, p.current_start as i64),
+        stats: last_week.clone(),
         partial: false,
     });
     if current_week.count > 0 {
@@ -476,12 +477,15 @@ fn period_comparison(
     })
 }
 
-/// Both comparisons the insights screen reads, from the three windows it is
-/// given. Each is present when it can be taken, since which of them the screen
-/// shows is the screen's own gate.
+/// Both comparisons the insights screen reads, from the windows it is given.
+/// The week-over-week comparison reads last week up to the same point as the
+/// current week, and the chronic comparison reads all of last week. Each is
+/// present when it can be taken, since which of them the screen shows is the
+/// screen's own gate.
 fn period_comparisons(
     current_week: &crate::FfiPeriodStats,
     previous_week: &crate::FfiPeriodStats,
+    last_week: &crate::FfiPeriodStats,
     chronic_week: &crate::FfiPeriodStats,
     (current_start, previous_start): (f64, f64),
 ) -> (
@@ -493,8 +497,8 @@ fn period_comparisons(
     } else {
         None
     };
-    let week_against_chronic = if previous_week.count > 0 {
-        period_comparison(previous_week, chronic_week, previous_start)
+    let week_against_chronic = if last_week.count > 0 {
+        period_comparison(last_week, chronic_week, previous_start)
     } else {
         None
     };
@@ -510,11 +514,16 @@ fn previous_week_end(p: &crate::FfiInsightsParams, current: &crate::FfiPeriodSta
 }
 
 /// A partial activity window cannot support a claim about the whole period.
+///
+/// The week-over-week comparison reads last week only up to the same point as
+/// the current week, so it needs that part covered. The chronic comparison
+/// judges all of last week, so it needs the whole of it covered.
 fn complete_period_comparisons(
     conn: &rusqlite::Connection,
     p: &crate::FfiInsightsParams,
     current: &crate::FfiPeriodStats,
     previous: &crate::FfiPeriodStats,
+    last_week: &crate::FfiPeriodStats,
     chronic: &crate::FfiPeriodStats,
 ) -> (
     Option<crate::FfiPeriodComparison>,
@@ -529,12 +538,18 @@ fn complete_period_comparisons(
         // The empty-current-week branch also needs proof of that emptiness.
         return (None, None);
     }
-    let (weekly, chronic_comparison) =
-        period_comparisons(current, previous, chronic, (p.current_start, p.prev_start));
+    let (weekly, chronic_comparison) = period_comparisons(
+        current,
+        previous,
+        last_week,
+        chronic,
+        (p.current_start, p.prev_start),
+    );
+    let last_week_complete = period_is_covered(conn, p.prev_start as i64, p.current_start as i64);
     let chronic_complete = period_is_covered(conn, p.chronic_start as i64, p.prev_start as i64);
     (
         weekly,
-        if chronic_complete {
+        if last_week_complete && chronic_complete {
             chronic_comparison
         } else {
             None
@@ -1192,9 +1207,9 @@ impl super::PersistentEngine {
     pub fn best_efforts_data(
         &self,
         days: i64,
-        now: i64,
+        clock: crate::widget_snapshot::Clock,
     ) -> rusqlite::Result<crate::FfiBestEffortsData> {
-        pooled::best_efforts_data(self.cold_connection(), days, now)
+        pooled::best_efforts_data(self.cold_connection(), days, clock)
     }
 
     /// Everything the fitness tab paints with that stays fixed while it is
@@ -2441,7 +2456,7 @@ pub mod pooled {
     pub fn best_efforts_data(
         conn: &Connection,
         days: i64,
-        now: i64,
+        clock: crate::widget_snapshot::Clock,
     ) -> rusqlite::Result<crate::FfiBestEffortsData> {
         use crate::persistence::curves::pooled::{pace_curve, power_curve};
 
@@ -2466,7 +2481,8 @@ pub mod pooled {
             });
         }
 
-        let since = (days > 0).then(|| now - days * 86_400);
+        // Activity dates hold the wall clock, so the window edge is taken from it too.
+        let since = (days > 0).then(|| clock.now_wall_seconds - days * 86_400);
         let climbing = super::CLIMB_SPORTS
             .iter()
             .map(|sport| super::climb_bests(conn, sport, since))
@@ -3077,6 +3093,8 @@ pub mod pooled {
             p.prev_start as i64,
             super::previous_week_end(p, &current_week),
         );
+        let last_week =
+            derivations::window_stats(conn, p.prev_start as i64, p.current_start as i64);
         let chronic_period =
             derivations::window_stats(conn, p.chronic_start as i64, p.prev_start as i64);
 
@@ -3304,7 +3322,7 @@ pub mod pooled {
         };
 
         let chronic_week_average = super::chronic_week_average(&chronic_period);
-        let weekly_totals = super::weekly_totals(p, &current_week, |from, to| {
+        let weekly_totals = super::weekly_totals(p, &current_week, &last_week, |from, to| {
             derivations::window_stats(conn, from, to)
         });
         let (week_over_week, week_against_chronic) = super::complete_period_comparisons(
@@ -3312,6 +3330,7 @@ pub mod pooled {
             p,
             &current_week,
             &previous_week,
+            &last_week,
             &chronic_week_average,
         );
         let form = crate::persistence::wellness::pooled::latest_form(
@@ -5546,6 +5565,86 @@ mod tests {
         assert_eq!(comparison.compared_start, last_week.start);
     }
 
+    /// Scenario: on a Tuesday with a ride already this week, last week is only
+    /// part way through when the card is read.
+    ///
+    /// Expected behaviour: last week against the chronic average judges the
+    /// whole of last week, so a part of it never reads as a week that fell
+    /// short. The week-over-week comparison still compares like for like.
+    #[test]
+    fn test_insights_in_progress_week_compares_the_whole_previous_week_to_chronic() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("directory");
+        let hour = 3_600i64;
+        let day = 86_400i64;
+        let mut p = coverage_params();
+        p.prev_end = p.prev_start + 3.0 * 3_600.0;
+        let engine = insights_engine(
+            dir.path().join("insights.db").to_str().unwrap(),
+            &[
+                ("chronic".into(), p.chronic_start as i64 + 7 * day, 800.0),
+                ("last-monday".into(), p.prev_start as i64 + hour, 400.0),
+                ("last-friday".into(), p.prev_start as i64 + 4 * day, 1600.0),
+                ("this-tuesday".into(), p.current_start as i64 + hour, 300.0),
+            ],
+        );
+
+        let data = pooled_insights_data(&engine, &p);
+        let weekly = data.week_over_week.expect("week over week");
+        let chronic = data
+            .week_against_chronic
+            .expect("last week against chronic");
+
+        assert_eq!(data.previous_week.total_tss, 400.0);
+        assert_eq!(weekly.previous, 400.0);
+        assert_eq!(weekly.ratio, -0.25);
+        assert_eq!(chronic.current, 2000.0);
+        assert_eq!(chronic.previous, 200.0);
+        assert_eq!(chronic.ratio, 9.0);
+        assert_eq!(chronic.compared_start, p.prev_start);
+    }
+
+    /// Scenario: the same in-progress week, with one ride of last week not yet
+    /// downloaded.
+    ///
+    /// Expected behaviour: the week-over-week comparison still stands, since
+    /// the part of last week it reads is complete, and the chronic comparison
+    /// is withheld, since the whole of last week is not.
+    #[test]
+    fn test_insights_in_progress_week_withholds_chronic_while_last_week_is_partial() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("directory");
+        let hour = 3_600i64;
+        let day = 86_400i64;
+        let mut p = coverage_params();
+        p.prev_end = p.prev_start + 3.0 * 3_600.0;
+        let engine = insights_engine(
+            dir.path().join("insights.db").to_str().unwrap(),
+            &[
+                ("chronic".into(), p.chronic_start as i64 + 7 * day, 800.0),
+                ("last-monday".into(), p.prev_start as i64 + hour, 400.0),
+                ("this-tuesday".into(), p.current_start as i64 + hour, 300.0),
+            ],
+        );
+        let friday = p.prev_start as i64 + 4 * day;
+        let local = chrono::DateTime::from_timestamp(friday, 0)
+            .expect("date")
+            .format("%Y-%m-%dT%H:%M:%S")
+            .to_string();
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_census (athlete_id, intervals_id, start_date_local, icu_sync_date) VALUES ('i1', 'owed', ?1, 'v1')",
+                rusqlite::params![local],
+            )
+            .expect("owed row");
+
+        let data = pooled_insights_data(&engine, &p);
+
+        assert!(data.week_over_week.is_some());
+        assert!(data.week_against_chronic.is_none());
+    }
+
     /// Scenario: on a Tuesday with a ride already this week, the card compares
     /// this week so far with the same point last week.
     ///
@@ -5809,6 +5908,7 @@ mod tests {
         let (week_over_week, week_against_chronic) = period_comparisons(
             &period(5, 7_200.0, 320.0),
             &period(4, 5_000.0, 250.0),
+            &period(4, 5_000.0, 250.0),
             &chronic_week_average(&period(12, 20_000.0, 1_000.0)),
             (2_000.0, 1_000.0),
         );
@@ -5827,6 +5927,7 @@ mod tests {
     fn a_week_with_no_activity_gets_no_comparison_but_the_one_before_it_still_does() {
         let (week_over_week, week_against_chronic) = period_comparisons(
             &period(0, 0.0, 0.0),
+            &period(4, 5_000.0, 250.0),
             &period(4, 5_000.0, 250.0),
             &chronic_week_average(&period(12, 20_000.0, 1_000.0)),
             (2_000.0, 1_000.0),

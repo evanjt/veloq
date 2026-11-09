@@ -9,6 +9,7 @@
 
 import type { FitnessPlace } from '@/shared/app/fitnessEntry';
 import { HISTORY_RANGE_PARAM } from '@/shared/app/historyRangeParam';
+import { parseSystemLink, RECORDING_ENTRY_SCREEN } from '@/shared/app/systemLink';
 
 export type PushPayloadShape = 'dataString' | 'body' | 'flat' | 'nested' | 'none';
 
@@ -201,7 +202,7 @@ const ENTRY_ROUTES: readonly RegExp[] = [
   /^(fitness|insights|map)$/,
   /^(activity|route|recordings)\/[^/]+$/,
   /^section\/((history|laps)\/)?[^/]+$/,
-  /^recording\/(?!review$)[^/]+$/,
+  RECORDING_ENTRY_SCREEN,
   /^(record|recordings|routes)$/,
   /^oauth\/callback$/,
   /^(settings|account|about|display-settings|cache-settings|summary-card-settings)$/,
@@ -234,8 +235,7 @@ export function openableSystemPath(
   signedIn: string | null | undefined,
   developer = false
 ): string | null {
-  const route = path.replace(/^[a-z][a-z0-9+.-]*:\/\/(?:[^/]*\/--\/)?/i, '').replace(/^\/+/, '');
-  const screen = route.replace(/[?#].*$/, '').replace(/\/+$/, '');
+  const { route, screen } = parseSystemLink(path);
   const retiredHealth = /^training\/?(?:\?([^#]*))?(?:#.*)?$/.exec(route);
   if (retiredHealth) {
     const query = new URLSearchParams(retiredHealth[1] ?? '');

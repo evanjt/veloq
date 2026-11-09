@@ -313,6 +313,24 @@ impl Drop for ClaimGuard {
     }
 }
 
+/// Give back every lease the running process holds, as [`Release::Deferred`]:
+/// a failure keeps its backoff, a row that only held the lease goes.
+///
+/// For a wipe that retires the jobs without waiting for them. Each settles
+/// against the install it started on, which the wipe moves, so its own release
+/// is refused and the lease would stay held until the next launch.
+pub(crate) fn release_held_leases_in(db: &rusqlite::Connection, generation: i64) -> SqlResult<()> {
+    db.execute(
+        "UPDATE job_attempts SET lease_gen = 0 WHERE lease_gen = ?",
+        params![generation],
+    )?;
+    db.execute(
+        "DELETE FROM job_attempts WHERE lease_gen = 0 AND attempts = 0",
+        [],
+    )?;
+    Ok(())
+}
+
 /// [`PersistentEngine::release_job`] on a connection of its own, for work that
 /// claimed through an engine it can no longer reach.
 pub(crate) fn release_job_in(

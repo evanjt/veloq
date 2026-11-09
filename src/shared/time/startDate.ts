@@ -97,6 +97,16 @@ export function wallClockSecondsToLocalDate(seconds: number): Date {
   );
 }
 
+/** Midnight of a local `Date`'s calendar day, as wall-clock seconds the engine stores. */
+export function localDayStartEpochSeconds(date: Date): number {
+  return Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 1000);
+}
+
+/** The last second of a local `Date`'s calendar day, so an inclusive window holds that day. */
+export function localDayEndEpochSeconds(date: Date): number {
+  return localDayStartEpochSeconds(date) + 86_399;
+}
+
 /**
  * A recorded start instant as the zoneless wall clock intervals.icu sends.
  * The components are read locally and the offset dropped.

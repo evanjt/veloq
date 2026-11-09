@@ -16,6 +16,7 @@ import {
 import {
   composeAccessibilityLabel,
   KeyDot,
+  printedStatValue,
   StatTile,
   useTextScaleColumns,
   PressTarget,
@@ -44,7 +45,11 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
   return (
     <PressTarget
       accessibilityRole="button"
-      accessibilityLabel={composeAccessibilityLabel(stat.title, stat.value, stat.context)}
+      accessibilityLabel={composeAccessibilityLabel(
+        stat.title,
+        printedStatValue(stat.value, stat.unit),
+        stat.context
+      )}
       onPress={() => onPress(stat)}
       style={[styles.statCard, { width }]}
     >

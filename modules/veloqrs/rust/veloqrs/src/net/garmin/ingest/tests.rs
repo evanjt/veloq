@@ -313,6 +313,29 @@ fn the_list_entry_fills_only_what_the_file_does_not_say() {
     assert!(body.get("calories").is_none());
 }
 
+/// Scenario: a multisport original holds a swim session and a run session.
+///
+/// Expected behaviour: one row typed Other, with the distance of both legs.
+#[test]
+fn a_multisport_original_is_typed_other_with_every_leg_totalled() {
+    let mut file = outdoor_ride();
+    file.sport = 5;
+    file.totals.distance = Some(1500.0);
+    file.legs = vec![crate::fit_synthetic::Leg {
+        sport: 1,
+        sub_sport: 0,
+        totals: crate::fit_synthetic::SessionTotals {
+            distance: Some(10_000.0),
+            ..Default::default()
+        },
+    }];
+    let prepared = prepare(&listed(GARMIN_ID), &file.to_fit()).unwrap();
+
+    let body: serde_json::Value = serde_json::from_str(&prepared.body.raw).unwrap();
+    assert_eq!(body["distance"], 11_500.0);
+    assert_eq!(body["type"], "Other");
+}
+
 fn every_file_under(dir: &std::path::Path, into: &mut Vec<PathBuf>) {
     for entry in std::fs::read_dir(dir).unwrap() {
         let path = entry.unwrap().path();

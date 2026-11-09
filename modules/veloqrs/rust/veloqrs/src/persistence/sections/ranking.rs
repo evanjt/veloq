@@ -200,7 +200,7 @@ impl PersistentEngine {
         self.ensure_named_overlay();
         let names = self.named_overlay_cached_names();
         let candidates = pooled::workout_candidates(&self.db, sport_type, limit, &names);
-        pooled::workout_sections(candidates, |id| {
+        pooled::workout_sections(candidates, Utc::now().timestamp(), |id| {
             self.get_section_performances_filtered(id, Some(sport_type))
         })
     }
@@ -233,6 +233,7 @@ fn banner_record(
 fn enrich_from_ranked(
     rs: crate::FfiRankedSection,
     perf: crate::SectionPerformanceResult,
+    now: i64,
 ) -> crate::FfiWorkoutSection {
     if perf.records.is_empty() {
         return crate::FfiWorkoutSection {
@@ -249,13 +250,16 @@ fn enrich_from_ranked(
 
     let banner = banner_record(&perf);
     let pr_time_secs = banner.map(|(r, _)| r.best_time);
-    let pr_days_ago = banner.map(|(r, _)| days_since_epoch(r.activity_date.0));
+    let pr_days_ago =
+        banner.map(|(r, _)| crate::calendar_days_between(r.activity_date.0, now) as i32);
     let previous_best_time_secs = banner.and_then(|(_, rival)| rival);
 
     let mut sorted: Vec<_> = perf.records.clone();
     sorted.sort_by_key(|b| std::cmp::Reverse(b.activity_date));
     let last_time_secs = sorted.first().map(|r| r.best_time);
-    let days_since_last = sorted.first().map(|r| days_since_epoch(r.activity_date.0));
+    let days_since_last = sorted
+        .first()
+        .map(|r| crate::calendar_days_between(r.activity_date.0, now) as i32);
 
     crate::FfiWorkoutSection {
         id: rs.section_id,
@@ -272,16 +276,20 @@ fn enrich_from_ranked(
 fn enrich_from_summary(
     summary: crate::SectionSummary,
     perf: crate::SectionPerformanceResult,
+    now: i64,
 ) -> crate::FfiWorkoutSection {
     let banner = banner_record(&perf);
     let pr_time_secs = banner.map(|(r, _)| r.best_time);
-    let pr_days_ago = banner.map(|(r, _)| days_since_epoch(r.activity_date.0));
+    let pr_days_ago =
+        banner.map(|(r, _)| crate::calendar_days_between(r.activity_date.0, now) as i32);
     let previous_best_time_secs = banner.and_then(|(_, rival)| rival);
 
     let mut sorted = perf.records.clone();
     sorted.sort_by_key(|b| std::cmp::Reverse(b.activity_date));
     let last_time_secs = sorted.first().map(|r| r.best_time);
-    let days_since_last = sorted.first().map(|r| days_since_epoch(r.activity_date.0));
+    let days_since_last = sorted
+        .first()
+        .map(|r| crate::calendar_days_between(r.activity_date.0, now) as i32);
 
     let times: Vec<f64> = sorted.iter().rev().map(|r| r.best_time).collect();
     let trend = Some(crate::trend::median_window_trend(&times, TREND_DEADBAND));
@@ -383,11 +391,6 @@ pub(crate) fn improvement_signal(times: &[f64]) -> ImprovementSignal {
 /// same near-zero score and stops the term ranking anything.
 pub(crate) fn recency_score(days_since_last: u32) -> f64 {
     (-f64::from(days_since_last) / 180.0).exp()
-}
-
-fn days_since_epoch(unix_seconds: i64) -> i32 {
-    let now = Utc::now().timestamp();
-    (((now - unix_seconds) / 86_400).max(0)) as i32
 }
 
 impl PersistentEngine {
@@ -635,6 +638,8 @@ mod recency_decay_tests {
 #[cfg(test)]
 mod workout_trend_encoding_tests {
     use super::{enrich_from_ranked, enrich_from_summary};
+
+    const NOW: i64 = 1_700_000_000;
 
     fn ranked(trend: i8) -> crate::FfiRankedSection {
         crate::FfiRankedSection {
@@ -905,7 +910,7 @@ mod workout_trend_encoding_tests {
             (1_700_300_000, 340.0, "reverse"),
         ]);
 
-        let row = enrich_from_summary(summary(), perf);
+        let row = enrich_from_summary(summary(), perf, NOW);
 
         assert_eq!(row.pr_time_secs, Some(550.0));
         assert_eq!(row.previous_best_time_secs, Some(570.0));
@@ -915,7 +920,7 @@ mod workout_trend_encoding_tests {
     fn a_lone_reverse_lap_gives_no_banner_pr() {
         let perf = out_and_back(&[(1_700_000_000, 340.0, "reverse")]);
 
-        let row = enrich_from_summary(summary(), perf);
+        let row = enrich_from_summary(summary(), perf, NOW);
 
         assert_eq!(row.pr_time_secs, None);
         assert_eq!(row.previous_best_time_secs, None);
@@ -931,7 +936,7 @@ mod workout_trend_encoding_tests {
             (1_700_300_000, 380.0, "reverse"),
         ]);
 
-        let row = enrich_from_summary(summary(), perf);
+        let row = enrich_from_summary(summary(), perf, NOW);
 
         assert_eq!(row.pr_time_secs, Some(380.0));
         assert_eq!(row.previous_best_time_secs, Some(400.0));
@@ -972,7 +977,7 @@ mod workout_trend_encoding_tests {
     /// since and name.
     #[test]
     fn both_paths_give_the_same_row_for_the_same_times() {
-        let now = chrono::Utc::now().timestamp();
+        let now = NOW;
         let times = [400.0, 400.0, 400.0, 380.0, 380.0, 380.0];
         let records: Vec<_> = times
             .iter()
@@ -985,7 +990,7 @@ mod workout_trend_encoding_tests {
         };
         let mut unnamed = summary();
         unnamed.name = None;
-        let fallback = enrich_from_summary(unnamed, perf());
+        let fallback = enrich_from_summary(unnamed, perf(), NOW);
 
         let mut rs = ranked(crate::trend::median_window_trend(
             &times,
@@ -993,7 +998,7 @@ mod workout_trend_encoding_tests {
         ));
         rs.section_name = String::new();
         rs.section_id = "sec_1".to_string();
-        let ranked_row = enrich_from_ranked(rs, perf());
+        let ranked_row = enrich_from_ranked(rs, perf(), NOW);
 
         assert_eq!(fallback.trend, ranked_row.trend);
         assert_eq!(fallback.trend, Some(1));
@@ -1016,7 +1021,7 @@ mod workout_trend_encoding_tests {
             records,
             ..empty_performances()
         };
-        assert_eq!(enrich_from_summary(summary(), perf).trend, Some(1));
+        assert_eq!(enrich_from_summary(summary(), perf, NOW).trend, Some(1));
     }
 
     /// Scenario: a ranked row with no records, ridden today.
@@ -1026,14 +1031,54 @@ mod workout_trend_encoding_tests {
     fn a_section_ridden_today_is_zero_days_since_on_the_ranked_path() {
         let mut rs = ranked(0);
         rs.days_since_last = 0;
-        let row = enrich_from_ranked(rs, empty_performances());
+        let row = enrich_from_ranked(rs, empty_performances(), NOW);
         assert_eq!(row.days_since_last, Some(0));
+    }
+
+    /// Scenario: a ride at 20:00 UTC on one day, read at 09:00 UTC the next,
+    /// thirteen hours later, on the ranked path and on the visit-count fallback.
+    ///
+    /// Expected behaviour: one day since on both paths, the count of UTC days
+    /// the rest of the ranking reads, not the hours elapsed.
+    #[test]
+    fn a_ride_on_the_previous_utc_day_is_one_day_since_on_both_paths() {
+        let ride = 1_699_992_000; // 2023-11-14 20:00 UTC
+        let view = 1_700_038_800; // 2023-11-15 09:00 UTC
+        let perf = || crate::SectionPerformanceResult {
+            records: vec![record(ride, 400.0)],
+            ..empty_performances()
+        };
+
+        let fallback = enrich_from_summary(summary(), perf(), view);
+        let ranked_row = enrich_from_ranked(ranked(0), perf(), view);
+
+        assert_eq!(fallback.days_since_last, Some(1));
+        assert_eq!(ranked_row.days_since_last, Some(1));
+    }
+
+    /// Scenario: a ride at 00:30 UTC, read at 09:00 UTC the same day.
+    ///
+    /// Expected behaviour: zero days since on both paths.
+    #[test]
+    fn a_ride_earlier_the_same_utc_day_is_zero_days_since_on_both_paths() {
+        let ride = 1_700_008_200; // 2023-11-15 00:30 UTC
+        let view = 1_700_038_800; // 2023-11-15 09:00 UTC
+        let perf = || crate::SectionPerformanceResult {
+            records: vec![record(ride, 400.0)],
+            ..empty_performances()
+        };
+
+        let fallback = enrich_from_summary(summary(), perf(), view);
+        let ranked_row = enrich_from_ranked(ranked(0), perf(), view);
+
+        assert_eq!(fallback.days_since_last, Some(0));
+        assert_eq!(ranked_row.days_since_last, Some(0));
     }
 
     #[test]
     fn a_ranked_verdict_reaches_the_wire_unchanged() {
         for verdict in [-1i8, 0, 1] {
-            let row = enrich_from_ranked(ranked(verdict), empty_performances());
+            let row = enrich_from_ranked(ranked(verdict), empty_performances(), NOW);
             assert_eq!(row.trend, Some(verdict));
         }
     }
@@ -1047,7 +1092,7 @@ mod workout_trend_encoding_tests {
             records,
             ..empty_performances()
         };
-        let row = enrich_from_summary(summary(), perf);
+        let row = enrich_from_summary(summary(), perf, NOW);
         assert_eq!(row.trend, Some(0));
     }
 
@@ -1066,7 +1111,7 @@ mod workout_trend_encoding_tests {
             records,
             ..empty_performances()
         };
-        assert_eq!(enrich_from_summary(summary(), perf).trend, Some(1));
+        assert_eq!(enrich_from_summary(summary(), perf, NOW).trend, Some(1));
     }
 
     /// Scenario: the chart's gold ring, the tooltip trophy and the section record
@@ -1255,7 +1300,7 @@ mod workout_trend_encoding_tests {
             records,
             ..empty_performances()
         };
-        assert_eq!(enrich_from_summary(summary(), perf).trend, Some(-1));
+        assert_eq!(enrich_from_summary(summary(), perf, NOW).trend, Some(-1));
     }
 }
 
@@ -1312,6 +1357,7 @@ pub(crate) mod pooled {
     /// through the reader's, and both give the same set.
     pub(crate) fn workout_sections(
         candidates: WorkoutCandidates,
+        now: i64,
         mut performances: impl FnMut(&str) -> crate::SectionPerformanceResult,
     ) -> Vec<crate::FfiWorkoutSection> {
         match candidates {
@@ -1319,7 +1365,7 @@ pub(crate) mod pooled {
                 .into_iter()
                 .map(|rs| {
                     let perf = performances(&rs.section_id);
-                    super::enrich_from_ranked(rs, perf)
+                    super::enrich_from_ranked(rs, perf, now)
                 })
                 .collect(),
             WorkoutCandidates::Summaries(summaries) => summaries
@@ -1329,7 +1375,7 @@ pub(crate) mod pooled {
                     if perf.records.is_empty() {
                         return None;
                     }
-                    Some(super::enrich_from_summary(summary, perf))
+                    Some(super::enrich_from_summary(summary, perf, now))
                 })
                 .collect(),
         }

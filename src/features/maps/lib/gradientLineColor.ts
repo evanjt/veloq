@@ -17,6 +17,7 @@
 import { mapPalette, type MapDivStep } from '@/theme';
 import type { MapStyleType } from '../components/mapStyles';
 import { divergingStep } from './divergingStep';
+import { lineProgressStep } from './lineProgressStep';
 
 /** A step of a base map's diverging ramp, from steep descent to steep climb. */
 export type GradeStep = MapDivStep;
@@ -42,12 +43,14 @@ export function gradeStepColour(percent: number, style: MapStyleType): string {
  * Runs of one colour fold into their first stop.
  */
 export function gradientStepExpression(stops: readonly (string | number)[]): unknown[] {
-  const expression: unknown[] = ['step', ['line-progress'], stops[1]];
+  const pairs: unknown[] = [];
+  let last: unknown = stops[1];
   for (let i = 2; i < stops.length; i += 2) {
-    if (stops[i + 1] === expression[expression.length - 1]) continue;
-    expression.push(stops[i], stops[i + 1]);
+    if (stops[i + 1] === last) continue;
+    pairs.push(stops[i], stops[i + 1]);
+    last = stops[i + 1];
   }
-  return expression;
+  return lineProgressStep(stops[1], pairs);
 }
 
 /**

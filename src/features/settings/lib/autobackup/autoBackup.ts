@@ -523,7 +523,10 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
     }
 
     writeOwedCarriers(owed);
-    if (!anyOwedPassing && (anyWritten || !anyFailed))
+    // A carrier that took the zip settles the schedule. The ones that failed
+    // passingly stay in the owed list and are retried alone, so the zip is not
+    // rewritten and re-sent to carriers that already hold it.
+    if (anyWritten || (!anyOwedPassing && !anyFailed))
       engine.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
     if (libraryMoved()) return NOTHING_WRITTEN;
     log.log(`Record backup complete: ${entry.sizeBytes} bytes`);

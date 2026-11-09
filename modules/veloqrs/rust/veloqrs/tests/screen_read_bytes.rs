@@ -513,7 +513,16 @@ fn reads() -> Vec<(&'static str, Shape, Read)> {
         }),
         ("best_efforts_data", Shape::Listing, |e, _| {
             measure(
-                || e.best_efforts_data(0, NOW).expect("best efforts"),
+                || {
+                    e.best_efforts_data(
+                        0,
+                        veloqrs::widget_snapshot::Clock {
+                            now_seconds: NOW,
+                            now_wall_seconds: NOW,
+                        },
+                    )
+                    .expect("best efforts")
+                },
                 best_efforts,
             )
         }),

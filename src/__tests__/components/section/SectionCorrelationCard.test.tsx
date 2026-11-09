@@ -10,6 +10,7 @@ import React from 'react';
 import { fireEvent, render, within } from '@testing-library/react-native';
 import { SectionCorrelationCard } from '@/features/routes/components/section/SectionCorrelationCard';
 import type { FfiCorrelation, FfiSectionCorrelation } from 'veloqrs';
+import { openExplainer } from '@/shared/app/explainer';
 
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
@@ -21,6 +22,10 @@ jest.mock('veloqrs', () =>
     },
   })
 );
+
+jest.mock('@/shared/app/explainer', () => ({
+  openExplainer: jest.fn(),
+}));
 
 jest.mock('react-native-iap', () => ({
   useIAP: () => ({}),
@@ -283,5 +288,31 @@ describe('SectionCorrelationCard', () => {
       'section-correlation-row-same-weight',
       'section-correlation-row-same-hrv',
     ]);
+  });
+
+  it('holds the statistics behind an info button on the title', async () => {
+    const { getByTestId, queryByText } = await render(
+      <SectionCorrelationCard
+        correlations={[row('same', 'hrv', mover(0.4321, 31, 0.1234, 0.6789))]}
+        floor={10}
+        isDark={false}
+      />
+    );
+    expect(queryByText('sections.correlationStatistics')).toBeNull();
+    await fireEvent.press(getByTestId('section-correlation-info'));
+    expect(openExplainer).toHaveBeenCalledWith(
+      expect.objectContaining({ body: 'sections.correlationStatistics' })
+    );
+  });
+
+  it('states the attempt floor the engine applied in the method line', async () => {
+    const { queryByText } = await render(
+      <SectionCorrelationCard
+        correlations={[row('same', 'hrv', mover(0.4321, 31, 0.1234, 0.6789))]}
+        floor={7}
+        isDark={false}
+      />
+    );
+    expect(queryByText('sections.correlationMethod|{"floor":7}')).toBeTruthy();
   });
 });

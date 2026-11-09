@@ -117,6 +117,44 @@ describe('connecting a Garmin key', () => {
   });
 });
 
+describe('a disconnect that lands while the key is being written', () => {
+  it('leaves no key in the keychain and does not enable the connector', async () => {
+    const { io, held } = keychain();
+    let finishWrite: () => void = () => {};
+    const write = io.write as jest.Mock;
+    write.mockImplementationOnce(
+      (key: string, value: string) =>
+        new Promise<void>((resolve) => {
+          finishWrite = () => {
+            held.set(key, value);
+            resolve();
+          };
+        })
+    );
+    const e = engine(GarminKeyStatus.Connected);
+    const setEnabled = jest.fn();
+    const connecting = connectGarminKey('abc', { io, engine: e, setEnabled });
+    await Promise.resolve();
+    await Promise.resolve();
+    await disconnectGarmin({ io, engine: e, removeSetting: jest.fn(), setEnabled: jest.fn() });
+    finishWrite();
+    const status = await connecting;
+    expect(held.size).toBe(0);
+    expect(setEnabled).not.toHaveBeenCalled();
+    expect(status).not.toBe(GarminKeyStatus.Connected);
+  });
+
+  it('still keeps the key when the disconnect came before the connect began', async () => {
+    const { io, held } = keychain();
+    const e = engine(GarminKeyStatus.Connected);
+    await disconnectGarmin({ io, engine: e, removeSetting: jest.fn(), setEnabled: jest.fn() });
+    expect(await connectGarminKey('abc', { io, engine: e, setEnabled: jest.fn() })).toBe(
+      GarminKeyStatus.Connected
+    );
+    expect([...held.values()]).toEqual(['abc']);
+  });
+});
+
 describe('disconnecting', () => {
   it('clears the keychain entry, the engine key and the device choices', async () => {
     const { io, held } = keychain({ [GARMIN_KEY_STORAGE_KEY]: 'abc' });

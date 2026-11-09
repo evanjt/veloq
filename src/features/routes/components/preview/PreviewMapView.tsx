@@ -302,10 +302,11 @@ export function PreviewMapView({
   const themeStyle: MapStyleType = isDark ? 'dark' : 'light';
   // Imagery is never kept offline, so the satellite choice draws the vector
   // basemap until the connection is back rather than a grey grid.
-  const { drawn: mapStyle, cycle: cycleStyle } = useMapStyleToggle(
-    chosenStyle ?? themeStyle,
-    setChosenStyle
-  );
+  const {
+    drawn: mapStyle,
+    next: nextStyle,
+    cycle: cycleStyle,
+  } = useMapStyleToggle(chosenStyle ?? themeStyle, setChosenStyle);
   const palette = mapPalette(mapStyle);
   const ranDiff = result !== null;
   const layers = useMemo(
@@ -365,7 +366,7 @@ export function PreviewMapView({
         testID="preview-map-style"
         accessibilityLabel={t('maps.toggleStyle')}
       >
-        <MapControlButton.Glyph name={getStyleIcon(mapStyle)} />
+        <MapControlButton.Glyph name={getStyleIcon(nextStyle)} />
       </MapControlButton>
       {/* One row that scrolls rather than wraps, so the key never stacks over the lines. */}
       <ScrollView

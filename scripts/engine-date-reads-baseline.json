@@ -1,0 +1,12 @@
+{
+  "src/app/sheets/merge-confirm.tsx": 2,
+  "src/features/activity/components/SectionInlinePlot.tsx": 1,
+  "src/features/insights/components/InsightSeriesChart.tsx": 1,
+  "src/features/insights/components/content/RouteInsightContent.tsx": 1,
+  "src/features/insights/components/content/SectionPRContent.tsx": 1,
+  "src/features/insights/generators/stalePr.ts": 1,
+  "src/features/routes/components/section/SectionDeltaChart.tsx": 1,
+  "src/features/routes/components/section/SectionEfficiencyCard.tsx": 1,
+  "src/features/routes/lib/departedRides.ts": 1,
+  "src/shared/app/seedDemoEngine.ts": 2
+}

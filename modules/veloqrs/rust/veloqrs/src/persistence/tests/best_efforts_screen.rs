@@ -18,6 +18,7 @@ use crate::persistence::{
     ELEVATION_SOURCE_CORRECTED, ELEVATION_SOURCE_DEVICE, ELEVATION_SOURCE_RECORDED,
     ELEVATION_SOURCE_UNKNOWN,
 };
+use crate::widget_snapshot::Clock;
 use crate::{FfiBestEffortKind, FfiBestEffortsData, FfiBestEffortsSport, FfiClimbBests};
 
 const NOW: i64 = 1_760_000_000;
@@ -74,6 +75,10 @@ fn hill_rep(rep_m: f64) -> impl Fn(u32) -> f64 {
 }
 
 fn climbed(engine: &mut PersistentEngine, id: &str, sport: &str, rep_m: f64, days_ago: i64) {
+    climbed_at(engine, id, sport, rep_m, NOW - days_ago * DAY);
+}
+
+fn climbed_at(engine: &mut PersistentEngine, id: &str, sport: &str, rep_m: f64, start: i64) {
     let rep = hill_rep(rep_m);
     let points: Vec<GpsPoint> = (0..POINTS)
         .map(|t| GpsPoint::with_elevation(46.0, 7.0 + f64::from(t) * 0.00003, rep(t)))
@@ -82,7 +87,7 @@ fn climbed(engine: &mut PersistentEngine, id: &str, sport: &str, rep_m: f64, day
         .add_activities_batch(vec![(id.to_string(), points, sport.to_string())])
         .unwrap();
     engine
-        .update_activity_metadata(id, Some(NOW - days_ago * DAY), Some(id), None, None)
+        .update_activity_metadata(id, Some(start), Some(id), None, None)
         .unwrap();
     let times: Vec<u32> = (0..POINTS).collect();
     engine.store_time_streams_flat(&[id.to_string()], &times, &[0]);
@@ -98,7 +103,15 @@ fn set_source(engine: &PersistentEngine, id: &str, source: u8) {
 }
 
 fn read(engine: &PersistentEngine, days: i64) -> FfiBestEffortsData {
-    best_efforts_data(&engine.db, days, NOW).unwrap()
+    best_efforts_data(&engine.db, days, clock_at(NOW)).unwrap()
+}
+
+/// A clock whose wall reading is the true instant, as on a UTC device.
+fn clock_at(now: i64) -> Clock {
+    Clock {
+        now_seconds: now,
+        now_wall_seconds: now,
+    }
 }
 
 fn sport<'a>(data: &'a FfiBestEffortsData, name: &str) -> &'a FfiBestEffortsSport {
@@ -412,6 +425,56 @@ fn activities_still_owed_rows_are_counted_within_the_period_and_family() {
     assert_eq!(climbing(&season, "Ride").owed, 0);
     assert_eq!(fifteen_seconds(climbing(&season, "Run")), (None, None));
     assert_eq!(climbing(&read(&engine, ALL_TIME), "Run").owed, 2);
+}
+
+/// Activity dates hold the local wall clock, so the window edge moves with
+/// the zone offset of the wall clock, not the true instant.
+const UTC_PLUS_TEN_S: i64 = 10 * 3600;
+
+#[test]
+fn the_climb_window_edge_follows_the_wall_clock_ahead_of_utc() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    let wall_now = NOW + UTC_PLUS_TEN_S;
+    let edge = wall_now - 30 * DAY;
+    climbed_at(&mut engine, "at-the-edge", "Run", 10.0, edge);
+    climbed_at(&mut engine, "five-hours-past", "Run", 60.0, edge - 5 * 3600);
+    let clock = Clock {
+        now_seconds: NOW,
+        now_wall_seconds: wall_now,
+    };
+
+    let data = best_efforts_data(&engine.db, 30, clock).unwrap();
+
+    assert_eq!(
+        fifteen_seconds(climbing(&data, "Run")).1.as_deref(),
+        Some("at-the-edge")
+    );
+}
+
+#[test]
+fn the_climb_window_edge_follows_the_wall_clock_behind_utc() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    let wall_now = NOW - 8 * 3600;
+    climbed_at(
+        &mut engine,
+        "twenty-nine-days-twenty-hours",
+        "Run",
+        10.0,
+        wall_now - 29 * DAY - 20 * 3600,
+    );
+    let clock = Clock {
+        now_seconds: NOW,
+        now_wall_seconds: wall_now,
+    };
+
+    let data = best_efforts_data(&engine.db, 30, clock).unwrap();
+
+    assert_eq!(
+        fifteen_seconds(climbing(&data, "Run")).1.as_deref(),
+        Some("twenty-nine-days-twenty-hours")
+    );
 }
 
 #[test]

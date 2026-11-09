@@ -17,6 +17,7 @@ import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { TrackStep, type PersistentEngineStats, detection } from 'veloqrs';
 import { ABSENT } from '@/shared/format/absent';
+import { formatEpochDayUtc } from '@/shared/format/format';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 
 const FORCE_SYNC_LABEL = 'Force Sync';
@@ -253,7 +254,7 @@ export function SyncDebugSection() {
 
   function formatDate(ts: number | null | undefined): string {
     if (ts == null) return ABSENT;
-    return new Date(Number(ts) * 1000).toLocaleDateString();
+    return formatEpochDayUtc(Number(ts));
   }
 
   return (

@@ -1408,6 +1408,16 @@ mod tests {
     }
 
     #[test]
+    fn a_string_number_in_one_activity_keeps_every_row_of_the_page() {
+        let page = r#"[{"id":"i1","distance":1000.0},{"id":"i2","distance":"NaN"},{"id":"i3","distance":3000.0}]"#;
+        let split: Vec<(ActivityRecord, String)> = split_page(page.as_bytes()).unwrap();
+        let ids: Vec<&str> = split.iter().map(|(record, _)| record.id.as_str()).collect();
+        assert_eq!(ids, ["i1", "i2", "i3"]);
+        assert_eq!(split[1].0.distance, None);
+        assert_eq!(split[2].0.distance, Some(3000.0));
+    }
+
+    #[test]
     fn a_wellness_page_stores_each_body_as_sent() {
         let page = r#"[{"restingHR":48,"id":"2026-05-01","ctl":50.0},{"id":"2026-05-02"}]"#;
         let split: Vec<(WellnessRecord, String)> = split_page(page.as_bytes()).unwrap();

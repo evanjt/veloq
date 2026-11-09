@@ -64,7 +64,16 @@ import {
   type ScatterMark,
 } from '@/features/routes/lib/scatterMarks';
 import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
-import { chartStyles, colors, darkColors, iconSize, opacity, spacing, typography } from '@/theme';
+import {
+  chartStyles,
+  colors,
+  darkColors,
+  iconSize,
+  opacity,
+  PERFORMANCE_PLOT_HEIGHT,
+  spacing,
+  typography,
+} from '@/theme';
 import type { FfiRecordProgressions, FfiScatterFocus, FfiSectionTrendCurves } from 'veloqrs';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import type {
@@ -74,7 +83,6 @@ import type {
 import { StatsRow } from './StatsRow';
 import { Icon } from '@/shared/ui/Icon';
 
-const CHART_HEIGHT = 220;
 const X_STRIP = typography.caption.lineHeight;
 /** Every mark round a point reaches as far as the reticle, so the plot is inset by it. */
 const PLOT_PADDING = {
@@ -299,7 +307,7 @@ export function SectionScatterChart({
   );
 
   const contentWidth = plotWidth - PLOT_PADDING.left - PLOT_PADDING.right;
-  const contentHeight = CHART_HEIGHT - PLOT_PADDING.top - PLOT_PADDING.bottom;
+  const contentHeight = PERFORMANCE_PLOT_HEIGHT - PLOT_PADDING.top - PLOT_PADDING.bottom;
 
   // A point past the range is drawn at the edge, so a tap reaches it there.
   const tapPoints = useMemo(
@@ -641,7 +649,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   plot: {
-    height: CHART_HEIGHT,
+    height: PERFORMANCE_PLOT_HEIGHT,
   },
   showDataRow: {
     flexDirection: 'row',

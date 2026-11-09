@@ -58,9 +58,11 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
 
     // Cluster and lineMetrics options are baked in at addSource time, so a
     // change to any of them means tearing the source down and rebuilding it.
+    // The raster tile list is not baked in: it is set on the live source, so a
+    // new tile URL does not tear down the layers that draw it.
     function _sourceSignature(spec) {
       if (spec.kind === 'raster') {
-        return 'raster:' + spec.tiles.join(',') + ':' + spec.tileSize;
+        return 'raster:' + spec.tileSize;
       }
       return 'geojson:' + (spec.cluster ? '1' : '0') + ':' + (spec.clusterRadius || 0) +
         ':' + (spec.clusterMaxZoom || 0) + ':' + (spec.lineMetrics ? '1' : '0') +
@@ -69,6 +71,7 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
 
     function _applySources(sources) {
       var map = window.map;
+      var rebuilt = [];
       Object.keys(sources).forEach(function(id) {
         var spec = sources[id];
         _cancelRedraw(id);
@@ -85,6 +88,7 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
             delete window._veloq.sourceDefs[id];
             return;
           }
+          var previous = window._veloq.sources[id];
           window._veloq.sources[id] = spec;
           var signature = _sourceSignature(spec);
           var existing = map.getSource(id);
@@ -97,17 +101,38 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
             });
             map.removeSource(id);
             existing = null;
+            rebuilt.push(id);
           }
           if (!existing) {
             map.addSource(id, _sourceDefinition(spec));
             window._veloq.sourceDefs[id] = signature;
           } else if (spec.kind !== 'raster') {
             existing.setData(spec.data);
+          } else if (previous.tiles.join(',') !== spec.tiles.join(',')) {
+            existing.setTiles(spec.tiles);
           }
         } catch (e) {
           window._rn_log('source ' + id + ': ' + e.message);
         }
       });
+      rebuilt.forEach(_restoreLayers);
+    }
+
+    // The layers a rebuilt source took down go back on, from their cached specs,
+    // in the order the page holds them. Any other layer is left as it is.
+    function _restoreLayers(sourceId) {
+      var cached = window._veloq.layers.map(function(id) {
+        return window._veloq.layerSpecs[id];
+      }).filter(Boolean);
+      for (var i = cached.length - 1; i >= 0; i--) {
+        var spec = cached[i];
+        if (spec.source !== sourceId || window.map.getLayer(spec.id)) continue;
+        try {
+          _addLayer(spec, _layerBefore(cached, i));
+        } catch (e) {
+          window._rn_log('layer ' + spec.id + ': ' + e.message);
+        }
+      }
     }
 
     // A line sent whole, or removed, makes any redraw still pending moot.
@@ -176,19 +201,29 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       return JSON.stringify(a) === JSON.stringify(b);
     }
 
+    // Keys of either object, so a key the next spec drops is visited too.
+    function _unionKeys(a, b) {
+      var seen = {};
+      Object.keys(a).concat(Object.keys(b)).forEach(function(key) { seen[key] = true; });
+      return Object.keys(seen);
+    }
+
+    // A key the spec no longer carries reads as undefined, and is cleared:
+    // paint with null, layout with undefined, which is how MapLibre resets each
+    // to its default.
     function _updateLayer(spec) {
       var map = window.map;
       var previous = window._veloq.layerSpecs[spec.id] || {};
       var paint = spec.paint || {};
       var previousPaint = previous.paint || {};
-      Object.keys(paint).forEach(function(key) {
+      _unionKeys(paint, previousPaint).forEach(function(key) {
         if (!_sameValue(paint[key], previousPaint[key])) {
-          map.setPaintProperty(spec.id, key, paint[key]);
+          map.setPaintProperty(spec.id, key, paint[key] === undefined ? null : paint[key]);
         }
       });
       var layout = spec.layout || {};
       var previousLayout = previous.layout || {};
-      Object.keys(layout).forEach(function(key) {
+      _unionKeys(layout, previousLayout).forEach(function(key) {
         if (!_sameValue(layout[key], previousLayout[key])) {
           map.setLayoutProperty(spec.id, key, layout[key]);
         }
@@ -199,6 +234,9 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       }
       if (!_sameValue(spec.filter, previous.filter)) {
         map.setFilter(spec.id, spec.filter || null);
+      }
+      if (!_sameValue(spec.minzoom, previous.minzoom)) {
+        map.setLayerZoomRange(spec.id, spec.minzoom === undefined ? 0 : spec.minzoom, 24);
       }
     }
 
@@ -221,27 +259,7 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
           if (map.getLayer(spec.id)) {
             _updateLayer(spec);
           } else {
-            var before;
-            if (spec.beforeId && map.getLayer(spec.beforeId)) {
-              before = spec.beforeId;
-            } else {
-              for (var j = i + 1; j < desired.length; j++) {
-                if (map.getLayer(desired[j].id)) { before = desired[j].id; break; }
-              }
-            }
-            var definition = {
-              id: spec.id,
-              type: spec.type,
-              source: spec.source,
-              paint: spec.paint || {},
-              layout: Object.assign(
-                { visibility: spec.visible === false ? 'none' : 'visible' },
-                spec.layout || {}
-              ),
-            };
-            if (spec.filter) definition.filter = spec.filter;
-            if (spec.minzoom !== undefined) definition.minzoom = spec.minzoom;
-            map.addLayer(definition, before);
+            _addLayer(spec, _layerBefore(desired, i));
           }
           window._veloq.layerSpecs[spec.id] = spec;
         } catch (e) {
@@ -249,6 +267,33 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
         }
       }
       window._veloq.layers = desired.map(function(spec) { return spec.id; });
+    }
+
+    function _addLayer(spec, before) {
+      var definition = {
+        id: spec.id,
+        type: spec.type,
+        source: spec.source,
+        paint: spec.paint || {},
+        layout: Object.assign(
+          { visibility: spec.visible === false ? 'none' : 'visible' },
+          spec.layout || {}
+        ),
+      };
+      if (spec.filter) definition.filter = spec.filter;
+      if (spec.minzoom !== undefined) definition.minzoom = spec.minzoom;
+      window.map.addLayer(definition, before);
+    }
+
+    // The layer a new one at list[i] goes under: its own beforeId when that is
+    // on the map, else the first later layer in the list that is.
+    function _layerBefore(list, i) {
+      var map = window.map;
+      if (list[i].beforeId && map.getLayer(list[i].beforeId)) return list[i].beforeId;
+      for (var j = i + 1; j < list.length; j++) {
+        if (map.getLayer(list[j].id)) return list[j].id;
+      }
+      return undefined;
     }
 
     function _applyImages(images, done) {

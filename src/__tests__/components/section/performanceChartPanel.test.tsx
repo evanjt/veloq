@@ -14,9 +14,15 @@ import { PerformanceChartPanel } from '@/features/routes/components/section/Perf
 import { AttemptHistogramChart } from '@/features/routes/components/section/AttemptHistogramChart';
 import { SectionPerformanceSection } from '@/features/routes/components/section/SectionPerformanceSection';
 import type { PerformanceDataPoint } from '@/types';
-import type { FfiAttemptHistogram, FfiAttemptHistograms } from 'veloqrs';
+import type {
+  FfiAttemptHistogram,
+  FfiAttemptHistograms,
+  FfiDirectionDeltas,
+  FfiSectionLapCurves,
+  FfiSplitSummary,
+} from 'veloqrs';
 import { DirectionSwitch, ToggleButton } from '@/shared/ui';
-import { colors, colourTokens } from '@/theme';
+import { colors, colourTokens, PERFORMANCE_PLOT_HEIGHT } from '@/theme';
 import { layoutViews } from '../../__shared__/layoutViews';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -351,6 +357,64 @@ describe('PerformanceChartPanel', () => {
     expect(tree.queryByTestId('scatter-legend')).toBeNull();
     expect(tree.queryAllByText('sections.legendPr')).toHaveLength(1);
     expect(tree.queryAllByText('sections.legendThisActivity')).toHaveLength(1);
+  });
+});
+
+/** One forward direction with a delta curve for each of two attempts, and a typical summary when asked. */
+function forwardCurves(withTypical: boolean): FfiSectionLapCurves {
+  const lap = (activityId: string, day: number) => ({
+    activityId,
+    startIndex: 0,
+    activityDate: 1_780_000_000 + day * 86_400,
+    deltaSecs: Float32Array.from([0, 1, 2]),
+    splitDeltaSecs: Float32Array.from([1, 1]),
+    endDeltaSecs: 2,
+  });
+  const splitSummary: FfiSplitSummary = {
+    medianSecs: Float32Array.from([1, 1]),
+    lowerQuartileSecs: Float32Array.from([NaN, NaN]),
+    upperQuartileSecs: Float32Array.from([NaN, NaN]),
+    laps: [2, 2],
+  };
+  const forward = {
+    referenceActivityId: 'act-0',
+    referenceSource: 0,
+    laps: [lap('act-0', 0), lap('act-1', 1)],
+    missing: [],
+    peakDeltaSecs: 2,
+    ...(withTypical ? { splitSummary } : {}),
+  } as unknown as FfiDirectionDeltas;
+  return { gridStepM: 50, splitStepM: 100, sectionLengthM: 400, forward };
+}
+
+describe('PerformanceChartPanel plot height', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('draws the over-time, spread and ahead-or-behind plots at one height, switch after switch', async () => {
+    const tree = await render(
+      panel({ curves: forwardCurves(false), highlightedActivityId: 'act-0' })
+    );
+    const heightOf = (testID: string) =>
+      StyleSheet.flatten(tree.getByTestId(testID).props.style).height;
+
+    const seen = [heightOf('section-scatter-chart')];
+    await fireEvent.press(tree.getByTestId('chart-plot-histogram'));
+    seen.push(heightOf('attempt-histogram-plot'));
+    await fireEvent.press(tree.getByTestId('chart-plot-delta'));
+    seen.push(heightOf('section-delta-plot'));
+    await fireEvent.press(tree.getByTestId('chart-plot-scatter'));
+    seen.push(heightOf('section-scatter-chart'));
+
+    expect(seen).toEqual(Array(4).fill(PERFORMANCE_PLOT_HEIGHT));
+  });
+
+  it('draws the typical attempt at the same height when no attempt is chosen', async () => {
+    const tree = await render(panel({ curves: forwardCurves(true) }));
+    await fireEvent.press(tree.getByTestId('chart-plot-delta'));
+
+    expect(
+      StyleSheet.flatten(tree.getByTestId('section-delta-summary-plot').props.style).height
+    ).toBe(PERFORMANCE_PLOT_HEIGHT);
   });
 });
 

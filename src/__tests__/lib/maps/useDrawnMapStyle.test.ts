@@ -4,8 +4,10 @@
  * Expected behaviour: the style a surface draws is the vector basemap while
  * offline and satellite again once online, with the chosen style untouched.
  */
-import { renderHook } from '@testing-library/react-native';
-import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
+import { useState } from 'react';
+import { act, renderHook } from '@testing-library/react-native';
+import type { MapStyleType } from '@/features/maps/components/mapStyles';
+import { useDrawnMapStyle, useMapStyleToggle } from '@/features/maps/hooks/useDrawnMapStyle';
 
 let mockOnline = true;
 let mockDark = false;
@@ -47,5 +49,56 @@ describe('useDrawnMapStyle', () => {
   it('leaves a vector choice alone offline', async () => {
     mockOnline = false;
     expect(await (await renderHook(() => useDrawnMapStyle('dark'))).result.current).toBe('dark');
+  });
+});
+
+function renderToggle(initial: MapStyleType) {
+  return renderHook(() => {
+    const [chosen, setChosen] = useState<MapStyleType>(initial);
+    return { chosen, ...useMapStyleToggle(chosen, setChosen) };
+  });
+}
+
+describe('useMapStyleToggle', () => {
+  beforeEach(() => {
+    mockOnline = true;
+    mockDark = false;
+  });
+
+  it('reaches light from dark offline in a dark theme', () => {
+    mockOnline = false;
+    mockDark = true;
+    const { result } = renderToggle('dark');
+    act(() => result.current.cycle());
+    expect(result.current.drawn).toBe('light');
+
+    act(() => result.current.cycle());
+    expect(result.current.drawn).toBe('dark');
+  });
+
+  it('offers the style a tap draws, skipping satellite offline', () => {
+    mockOnline = false;
+    mockDark = true;
+    const { result } = renderToggle('dark');
+    expect(result.current.next).toBe('light');
+  });
+
+  it('cycles light and dark offline in a light theme', () => {
+    mockOnline = false;
+    const { result } = renderToggle('satellite');
+    expect(result.current.drawn).toBe('light');
+    act(() => result.current.cycle());
+    expect(result.current.drawn).toBe('dark');
+    expect(result.current.next).toBe('light');
+  });
+
+  it('keeps satellite in the three step cycle online', () => {
+    const { result } = renderToggle('light');
+    expect(result.current.next).toBe('dark');
+    act(() => result.current.cycle());
+    expect(result.current.next).toBe('satellite');
+    act(() => result.current.cycle());
+    expect(result.current.drawn).toBe('satellite');
+    expect(result.current.next).toBe('light');
   });
 });

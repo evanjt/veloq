@@ -20,10 +20,18 @@ import { formatDistance, formatDurationDelta } from '@/shared/format/format';
 import { layoutSplitSummary, type DeltaFrame } from '@/features/routes/lib/deltaLayout';
 import { deltaColour } from '@/features/routes/lib/deltaColour';
 import { useChartColors, useChartGestures, useMeasuredWidth } from '@/shared/charts';
-import { chartStyles, colors, darkColors, layout, spacing, stroke, typography } from '@/theme';
+import {
+  chartStyles,
+  colors,
+  darkColors,
+  layout,
+  PERFORMANCE_PLOT_HEIGHT,
+  spacing,
+  stroke,
+  typography,
+} from '@/theme';
 import { FfiReferenceSource, type FfiSplitSummary } from 'veloqrs';
 
-const CHART_HEIGHT = 160;
 const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
 
 export interface SectionDeltaSummaryChartProps {
@@ -49,7 +57,7 @@ export function SectionDeltaSummaryChart({
   const chartColors = useChartColors();
 
   const frame: DeltaFrame = useMemo(
-    () => ({ width: chartWidth, height: CHART_HEIGHT, padding: CHART_PADDING }),
+    () => ({ width: chartWidth, height: PERFORMANCE_PLOT_HEIGHT, padding: CHART_PADDING }),
     [chartWidth]
   );
   const plot = useMemo(
@@ -115,6 +123,7 @@ export function SectionDeltaSummaryChart({
     <View testID="section-delta-summary-chart" style={styles.container}>
       <GestureDetector gesture={gesture}>
         <View
+          testID="section-delta-summary-plot"
           style={[styles.plot, chartStyles.plotDirection]}
           onLayout={onLayout}
           {...accessibilityProps}
@@ -165,7 +174,7 @@ export function SectionDeltaSummaryChart({
                     x={(scrubBar.left + scrubBar.right - stroke.one) / 2}
                     y={CHART_PADDING.top}
                     width={stroke.one}
-                    height={CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom}
+                    height={PERFORMANCE_PLOT_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom}
                     color={palette.textSecondary}
                   />
                 )}
@@ -192,7 +201,12 @@ export function SectionDeltaSummaryChart({
                     chartStyles.chartLabel,
                     styles.axisLabel,
                     isDark && chartStyles.chartLabelDark,
-                    { top: CHART_HEIGHT - CHART_PADDING.bottom - typography.caption.lineHeight },
+                    {
+                      top:
+                        PERFORMANCE_PLOT_HEIGHT -
+                        CHART_PADDING.bottom -
+                        typography.caption.lineHeight,
+                    },
                   ]}
                 >
                   {`-${formatDurationDelta(plot.extentSecs)}`}
@@ -254,7 +268,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   plot: {
-    height: CHART_HEIGHT,
+    height: PERFORMANCE_PLOT_HEIGHT,
   },
   yAxisOverlay: {
     ...StyleSheet.absoluteFill,

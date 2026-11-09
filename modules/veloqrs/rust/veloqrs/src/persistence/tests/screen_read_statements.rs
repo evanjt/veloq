@@ -271,7 +271,15 @@ fn reads(small: Ids, large: Ids) -> Vec<(&'static str, Read)> {
         ),
         (
             "best_efforts_data",
-            Box::new(|_, e| consume(e.best_efforts_data(0, NOW))),
+            Box::new(|_, e| {
+                consume(e.best_efforts_data(
+                    0,
+                    crate::widget_snapshot::Clock {
+                        now_seconds: NOW,
+                        now_wall_seconds: NOW,
+                    },
+                ))
+            }),
         ),
         (
             "fitness_screen_data",

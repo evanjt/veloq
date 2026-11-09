@@ -147,3 +147,37 @@ fn the_activity_fallback_leaves_out_virtual_rides() {
     assert_eq!(centres[0].source, "activities");
     assert!((centres[0].lat - 10.0).abs() < 1e-9);
 }
+
+/// Scenario: one area of four auto sections. The athlete removed one, a
+/// re-cut superseded one, and one was accepted into a custom section.
+///
+/// Expected behaviour: the area counts only the section the preview opens,
+/// and its visits alone.
+#[test]
+fn retired_and_accepted_sections_leave_the_area_count() {
+    let s = setup();
+    add_section(&s, "kept", "Ride", 10.0, 20.0, 5);
+    add_section(&s, "removed", "Ride", 10.001, 20.001, 7);
+    add_section(&s, "replaced", "Ride", 10.002, 20.002, 9);
+    add_section(&s, "accepted", "Ride", 10.003, 20.003, 11);
+    s.raw
+        .execute("UPDATE sections SET disabled = 1 WHERE id = 'removed'", [])
+        .expect("disable");
+    s.raw
+        .execute(
+            "UPDATE sections SET superseded_by = 'kept' WHERE id = 'replaced'",
+            [],
+        )
+        .expect("supersede");
+    s.raw
+        .execute(
+            "UPDATE sections SET is_user_defined = 1 WHERE id = 'accepted'",
+            [],
+        )
+        .expect("accept");
+
+    let centres = s.engine.preview_centres(10);
+    assert_eq!(centres.len(), 1, "{centres:?}");
+    assert_eq!(centres[0].section_count, 1);
+    assert_eq!(centres[0].visit_total, 5);
+}

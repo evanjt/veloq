@@ -72,7 +72,7 @@ export { DenseText, DENSE_TEXT_SCALE, denseExtent } from './DenseText';
 export { columnsAtTextScale, useLargeText, useTextScaleColumns } from './useLargeText';
 export { FIT_MIN_FONT_SCALE, FitText } from './FitText';
 export { NameText } from './NameText';
-export { StatTile } from './StatTile';
+export { StatTile, printedStatValue } from './StatTile';
 export type { StatTileDelta, StatTileLayout, StatTileProps, StatTileSize } from './StatTile';
 export { DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';

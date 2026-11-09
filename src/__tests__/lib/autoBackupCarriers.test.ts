@@ -109,6 +109,28 @@ describe('automatic backup carriers', () => {
     expect(getLastBackupFailure()).toMatchObject({ kind: 'auth', status: 401 });
   });
 
+  it('stamps the schedule once one carrier took the zip, so a passing failure on another does not rewrite it on the next trigger', async () => {
+    folderUpload.mockRejectedValue(new BackupTransferError('upload', 'server', 'timed out', 503));
+
+    await performBackup();
+    expect(mockSettings.get('__last_auto_backup')).toBeDefined();
+    expect(webdavUpload).toHaveBeenCalledTimes(1);
+
+    await performBackup();
+
+    expect(webdavUpload).toHaveBeenCalledTimes(1);
+    expect(folderUpload).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves the schedule due when no carrier took the zip', async () => {
+    webdavUpload.mockRejectedValue(new BackupTransferError('upload', 'server', 'timed out', 503));
+    folderUpload.mockRejectedValue(new BackupTransferError('upload', 'server', 'timed out', 503));
+
+    await performBackup();
+
+    expect(mockSettings.get('__last_auto_backup')).toBeUndefined();
+  });
+
   it('clears a carrier failure once that carrier writes again', async () => {
     webdavUpload.mockRejectedValueOnce(new BackupTransferError('upload', 'auth', 'rejected', 401));
     await performBackup(true);

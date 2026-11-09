@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { FfiCorrelation_Tags } from 'veloqrs';
 import type { FfiSectionCorrelation } from 'veloqrs';
 import { Badge, Card, Switch } from '@/shared/ui';
+import { InfoButton } from '@/features/settings';
 import { correlationReading, type CorrelationStrength } from '../../lib/correlationReading';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { formatDecimal } from '@/shared/format';
@@ -171,17 +172,24 @@ export function SectionCorrelationCard({
       accessibilityRole="summary"
       title={t('sections.correlationTitle')}
       titleAccessory={
-        <Badge
-          testID="section-correlation-experimental"
-          tone="neutral"
-          size="sm"
-          text={t('common.experimental')}
-          isDark={isDark}
-        />
+        <View style={styles.titleAccessory}>
+          <Badge
+            testID="section-correlation-experimental"
+            tone="neutral"
+            size="sm"
+            text={t('common.experimental')}
+            isDark={isDark}
+          />
+          <InfoButton
+            testID="section-correlation-info"
+            title={t('sections.correlationTitle')}
+            message={t('sections.correlationStatistics')}
+          />
+        </View>
       }
       style={{ gap: spacing.xs }}
     >
-      <Text style={mutedStyle}>{t('sections.correlationMethod')}</Text>
+      <Text style={mutedStyle}>{t('sections.correlationMethod', { floor })}</Text>
       <View style={styles.switchRow}>
         <Text style={mutedStyle}>{t('sections.correlationShowRaw')}</Text>
         <Switch
@@ -216,6 +224,11 @@ export function SectionCorrelationCard({
 }
 
 const styles = StyleSheet.create({
+  titleAccessory: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   rowGroup: {
     gap: spacing.xxs,
   },

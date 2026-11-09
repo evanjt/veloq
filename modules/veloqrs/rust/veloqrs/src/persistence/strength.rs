@@ -540,6 +540,80 @@ mod tests {
         assert_eq!(engine.get_unprocessed_strength_ids().unwrap(), vec!["lift"]);
     }
 
+    /// The three reads that say what is owed: the download queue of every
+    /// sport, the strength queue and the tab's count over a window that holds
+    /// every date the tests seed.
+    fn owed_reads(engine: &PersistentEngine) -> (Vec<String>, Vec<String>, u32) {
+        (
+            engine.owed_fit_ids().unwrap(),
+            engine.get_unprocessed_strength_ids().unwrap(),
+            pooled::unprocessed_strength_count_in_range(&engine.db, 0, 1_000).unwrap(),
+        )
+    }
+
+    /// Scenario: an athlete saves a manual or recorded strength session, or
+    /// imports one from a Garmin file, and no upload has stored an upstream id
+    /// for it.
+    ///
+    /// Expected behaviour: upstream has no activity to fetch, so none of the
+    /// three reads owes it, and the tab's count does not promise a download.
+    #[test]
+    fn a_device_or_file_key_that_no_upload_has_named_is_owed_nothing() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "local-recording-x", "WeightTraining", 200);
+        add_activity(&engine, "src-garmin-18342901776", "WeightTraining", 300);
+        add_activity(&engine, "local-pool", "Swim", 400);
+
+        assert_eq!(owed_reads(&engine), (vec![], vec![], 0));
+    }
+
+    #[test]
+    fn a_device_key_is_owed_once_an_upload_has_stored_its_upstream_id() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "local-recording-x", "WeightTraining", 200);
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_bodies (activity_id, date, raw, intervals_id)
+                 VALUES ('local-recording-x', 200, '{}', 'i42')",
+                [],
+            )
+            .unwrap();
+
+        let owed = vec!["local-recording-x".to_string()];
+        assert_eq!(owed_reads(&engine), (owed.clone(), owed, 1));
+    }
+
+    #[test]
+    fn a_device_key_whose_upstream_id_is_on_the_activity_row_is_owed() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "local-pool", "Swim", 200);
+        engine
+            .db
+            .execute(
+                "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng,
+                     intervals_id)
+                 VALUES ('local-pool', 'Swim', 0, 0, 0, 0, 'i43')",
+                [],
+            )
+            .unwrap();
+
+        assert_eq!(engine.owed_fit_ids().unwrap(), vec!["local-pool"]);
+    }
+
+    /// A key that names its own upstream activity, a server id or a demo key,
+    /// is owed with no stored id, so the exclusion of minted keys leaves it
+    /// alone.
+    #[test]
+    fn a_key_that_names_its_own_upstream_activity_is_owed_without_a_stored_id() {
+        let (_dir, engine) = engine();
+        add_activity(&engine, "i123", "WeightTraining", 200);
+        add_activity(&engine, "demo-x", "WeightTraining", 300);
+
+        let owed = vec!["demo-x".to_string(), "i123".to_string()];
+        assert_eq!(owed_reads(&engine), (owed.clone(), owed, 2));
+    }
+
     #[test]
     fn the_intake_follows_the_sport() {
         let (_dir, engine) = engine();
@@ -1020,15 +1094,18 @@ pub(crate) mod pooled {
         Ok(super::FitIntake::for_sport(sport.as_deref()))
     }
 
-    /// Every activity of a sport that reads its FIT file and has no recorded
-    /// outcome, newest first: the queue the background download drains.
+    /// Every activity of a sport that reads its FIT file, has no recorded
+    /// outcome and names an activity upstream, newest first: the queue the
+    /// background download drains.
     pub(crate) fn owed_fit_queue(conn: &Connection) -> SqlResult<Vec<String>> {
         let mut stmt = conn.prepare(&format!(
             "SELECT m.activity_id FROM activity_metrics m
              LEFT JOIN fit_file_status f ON f.activity_id = m.activity_id
              WHERE m.sport_type IN {} AND f.activity_id IS NULL
+               AND {}
              ORDER BY m.date DESC",
-            super::OWED_FIT_SPORTS
+            super::OWED_FIT_SPORTS,
+            crate::persistence::origin::NAMED_UPSTREAM_SQL,
         ))?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         rows.collect()
@@ -1117,29 +1194,35 @@ pub(crate) mod pooled {
     /// id back over the FFI to be filtered again. The sport is a column here, so
     /// both filters live in the one statement.
     pub(crate) fn unprocessed_strength_queue(conn: &Connection) -> SqlResult<Vec<String>> {
-        let mut stmt = conn.prepare(
+        let mut stmt = conn.prepare(&format!(
             "SELECT m.activity_id FROM activity_metrics m
              LEFT JOIN fit_file_status f ON f.activity_id = m.activity_id
              WHERE m.sport_type = 'WeightTraining' AND f.activity_id IS NULL
+               AND {}
              ORDER BY m.date DESC",
-        )?;
+            crate::persistence::origin::NAMED_UPSTREAM_SQL,
+        ))?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         Ok(rows.filter_map(|r| r.ok()).collect())
     }
 
     /// How many strength activities dated inside `[start_ts, end_ts]` have no
-    /// recorded FIT outcome. The same rows as the queue above, over the window
-    /// the period's sets are read from.
+    /// recorded FIT outcome and name an activity upstream. The same rows as the
+    /// queue above, over the window the period's sets are read from.
     pub(crate) fn unprocessed_strength_count_in_range(
         conn: &Connection,
         start_ts: i64,
         end_ts: i64,
     ) -> SqlResult<u32> {
         conn.query_row(
-            "SELECT COUNT(*) FROM activity_metrics m
-             LEFT JOIN fit_file_status f ON f.activity_id = m.activity_id
-             WHERE m.sport_type = 'WeightTraining' AND f.activity_id IS NULL
-               AND m.date >= ? AND m.date <= ?",
+            &format!(
+                "SELECT COUNT(*) FROM activity_metrics m
+                 LEFT JOIN fit_file_status f ON f.activity_id = m.activity_id
+                 WHERE m.sport_type = 'WeightTraining' AND f.activity_id IS NULL
+                   AND {}
+                   AND m.date >= ? AND m.date <= ?",
+                crate::persistence::origin::NAMED_UPSTREAM_SQL,
+            ),
             params![start_ts, end_ts],
             |row| row.get(0),
         )

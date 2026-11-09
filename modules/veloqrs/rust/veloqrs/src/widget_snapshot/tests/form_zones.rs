@@ -1,6 +1,7 @@
 use super::super::*;
 use crate::{
-    FfiWellnessSparklines, FfiWidgetSnapshotData, WidgetSummaryCardData, WidgetWellnessSummary,
+    FfiActivityMetrics, FfiWellnessSparklines, FfiWidgetSnapshotData, WidgetSummaryCardData,
+    WidgetWellnessSummary,
 };
 
 const NOW: i64 = 1_760_000_000;
@@ -69,6 +70,24 @@ fn stores_no_zone_for_the_headline_when_today_has_no_fitness_under_the_percentag
     };
 
     let s = snapshot(&gap, true);
+    assert_eq!(s.metrics.form.zone, None);
+    assert_eq!(s.display.form_zone, "");
+}
+
+#[test]
+fn stores_no_zone_for_form_when_activities_exist_before_any_wellness_has_synced() {
+    let before_wellness = FfiWidgetSnapshotData {
+        latest: Some(FfiActivityMetrics {
+            activity_id: "i1".to_string(),
+            date: NOW as f64,
+            sport_type: "Ride".to_string(),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    let s = snapshot(&before_wellness, false);
+    assert!(!s.empty_library);
     assert_eq!(s.metrics.form.zone, None);
     assert_eq!(s.display.form_zone, "");
 }

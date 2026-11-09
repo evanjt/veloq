@@ -348,5 +348,20 @@ describe('background location in a headless runtime', () => {
       expect(rt.useRecordingStore.getState().status).toBe('recording');
       await AsyncStorage.removeItem('veloq-recording-preferences');
     });
+
+    it('auto-pauses a ride restored by batches that arrive together', async () => {
+      const rt = freshRuntime();
+      rt.loadRecordingBackup.mockResolvedValue(backupAt('recording', 60));
+
+      await Promise.all([
+        rt.handleBackgroundLocations(batchAt(70, 2, 8)),
+        rt.handleBackgroundLocations(batchAt(72, 2, 8)),
+      ]);
+      expect(rt.loadRecordingBackup).toHaveBeenCalledTimes(1);
+
+      await rt.handleBackgroundLocations(batchAt(74, 8, 0));
+
+      expect(rt.useRecordingStore.getState().status).toBe('paused');
+    });
   });
 });

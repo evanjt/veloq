@@ -187,6 +187,18 @@ export async function forgetActivityMapOverrides(): Promise<void> {
   await removeSetting(ACTIVITY_OVERRIDES_KEY).catch(() => {});
 }
 
+/** Each mounted provider's way to read both stored keys again. */
+const preferenceReloaders = new Set<() => Promise<void>>();
+
+/**
+ * Read the stored preferences and overrides again into each mounted provider.
+ * A restore rewrites both keys, and a provider still holding the old values
+ * would write them back over the restored rows with its next change.
+ */
+export async function reloadMapPreferences(): Promise<void> {
+  await Promise.all([...preferenceReloaders].map((reload) => reload()));
+}
+
 export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState<MapPreferences>(DEFAULT_PREFERENCES);
   const [activityOverrides, setActivityOverrides] = useState<Record<string, ActivityMapOverride>>(
@@ -202,54 +214,63 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Load preferences on mount with migration support
-  useEffect(() => {
-    Promise.all([getSetting(STORAGE_KEY), getSetting(ACTIVITY_OVERRIDES_KEY)])
-      .then(([saved, savedOverrides]) => {
-        if (saved) {
-          try {
-            const raw = JSON.parse(saved);
-            const parsed = parseStoredPreferences(raw);
-            setPreferences(parsed ?? DEFAULT_PREFERENCES);
-          } catch {
-            // Invalid JSON
-          }
+  // Load on mount and again after a restore, with migration support
+  const loadStored = useCallback(async () => {
+    try {
+      const [saved, savedOverrides] = await Promise.all([
+        getSetting(STORAGE_KEY),
+        getSetting(ACTIVITY_OVERRIDES_KEY),
+      ]);
+      let nextPreferences = DEFAULT_PREFERENCES;
+      if (saved) {
+        try {
+          nextPreferences = parseStoredPreferences(JSON.parse(saved)) ?? DEFAULT_PREFERENCES;
+        } catch {
+          // Invalid JSON
         }
-        if (savedOverrides) {
-          try {
-            const parsed = JSON.parse(savedOverrides);
-            if (typeof parsed === 'object' && parsed !== null) {
-              // Validate entries
-              const valid: Record<string, ActivityMapOverride> = {};
-              for (const [key, val] of Object.entries(parsed)) {
-                if (typeof val !== 'object' || val === null) continue;
-                const entry = val as Record<string, unknown>;
-                const override: ActivityMapOverride = {};
-                if (
-                  typeof entry.style === 'string' &&
-                  VALID_MAP_STYLES.has(entry.style as MapStyleType)
-                ) {
-                  override.style = entry.style as MapStyleType;
-                }
-                if (typeof entry.terrain3D === 'boolean') {
-                  override.terrain3D = entry.terrain3D;
-                }
-                if (override.style !== undefined || override.terrain3D !== undefined) {
-                  valid[key] = override;
-                }
+      }
+      setPreferences(nextPreferences);
+      const valid: Record<string, ActivityMapOverride> = {};
+      if (savedOverrides) {
+        try {
+          const parsed = JSON.parse(savedOverrides);
+          if (typeof parsed === 'object' && parsed !== null) {
+            for (const [key, val] of Object.entries(parsed)) {
+              if (typeof val !== 'object' || val === null) continue;
+              const entry = val as Record<string, unknown>;
+              const override: ActivityMapOverride = {};
+              if (
+                typeof entry.style === 'string' &&
+                VALID_MAP_STYLES.has(entry.style as MapStyleType)
+              ) {
+                override.style = entry.style as MapStyleType;
               }
-              setActivityOverrides(valid);
+              if (typeof entry.terrain3D === 'boolean') {
+                override.terrain3D = entry.terrain3D;
+              }
+              if (override.style !== undefined || override.terrain3D !== undefined) {
+                valid[key] = override;
+              }
             }
-          } catch {
-            // Invalid JSON
           }
+        } catch {
+          // Invalid JSON
         }
-        setIsLoaded(true);
-      })
-      .catch(() => {
-        setIsLoaded(true);
-      });
+      }
+      setActivityOverrides(valid);
+    } catch {
+      // Storage unreadable: keep what is held
+    }
+    setIsLoaded(true);
   }, []);
+
+  useEffect(() => {
+    Promise.resolve().then(loadStored);
+    preferenceReloaders.add(loadStored);
+    return () => {
+      preferenceReloaders.delete(loadStored);
+    };
+  }, [loadStored]);
 
   // Save preferences to storage
   const savePreferences = useCallback(async (newPrefs: MapPreferences) => {

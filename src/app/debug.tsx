@@ -32,7 +32,7 @@ import {
   type DaysOfUse,
 } from '@/shared/app/SupportStore';
 import { overrideDaysOfUse, overrideSessionAsk, useDaysOfUse } from '@/features/settings';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatEpochDayUtc, formatLocalDate } from '@/shared/format/format';
 import { readTaskRuns, clearTaskRuns, type TaskRunEntry } from '@/features/insights';
 import { SyncDebugSection } from '@/features/routes';
 import { readSensorLinkReport } from '@/features/sensors';
@@ -68,9 +68,13 @@ function getMemoryStats(): { heapMB: string; allocMB: string; gcCount: number } 
   };
 }
 
+function formatRunTime(seconds: number): string {
+  return new Date(seconds * 1000).toLocaleTimeString(); // true-instant: a recorded run's clock time
+}
+
 function formatDate(ts: number | null | undefined): string {
   if (ts == null) return ABSENT;
-  return new Date(Number(ts) * 1000).toLocaleDateString();
+  return formatEpochDayUtc(Number(ts));
 }
 
 interface CollapsibleSectionProps {
@@ -336,9 +340,7 @@ function BackgroundNotificationsDebug({
           >
             <View style={styles.taskRunHeader}>
               <Text style={[styles.statValue, { color: textColor }]}>{run.outcome}</Text>
-              <Text style={[styles.statLabel, { color: mutedColor }]}>
-                {new Date(run.ts * 1000).toLocaleTimeString()}
-              </Text>
+              <Text style={[styles.statLabel, { color: mutedColor }]}>{formatRunTime(run.ts)}</Text>
             </View>
             <Text style={[styles.taskRunDetail, { color: mutedColor }]} numberOfLines={2}>
               {[run.activityId, run.detail].filter(Boolean).join(' · ')}
@@ -403,7 +405,7 @@ function RequestBudgetDebug({ isDark, dashboard }: { isDark: boolean; dashboard:
   const budget: FfiRequestBudget | undefined = dashboard.ok
     ? dashboard.value?.requestBudget
     : undefined;
-  const instant = (seconds: number) => new Date(seconds * 1000).toLocaleString();
+  const instant = (seconds: number) => new Date(seconds * 1000).toLocaleString(); // true-instant: a recorded moment shown in the device's clock
   const share = (used: number, allowance: number | undefined) =>
     allowance == null ? String(used) : `${used} / ${allowance}`;
 

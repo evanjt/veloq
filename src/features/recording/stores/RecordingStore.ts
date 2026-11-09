@@ -527,7 +527,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   setRawLocationFix: (fix) => {
     const { _lastRawFix } = get();
     let speed = reportedSpeed(fix.speed);
-    if (_lastRawFix) {
+    if (speed == null && _lastRawFix) {
       const dt = (fix.timestamp - _lastRawFix.timestamp) / 1000;
       if (dt <= 0) return;
       speed =

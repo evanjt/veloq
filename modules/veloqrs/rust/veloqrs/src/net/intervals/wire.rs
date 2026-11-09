@@ -11,7 +11,9 @@ use std::collections::BTreeMap;
 // ===========================================================================
 
 /// One activity as returned by the activities list / detail endpoints. Only the
-/// fields the app consumes are modelled; the rest are ignored by serde.
+/// fields the app consumes are modelled; the rest are ignored by serde. Every
+/// optional number reads leniently, so a figure sent as a string costs that
+/// figure and never the activity or the page it arrives on.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct ActivityRecord {
     pub id: String,
@@ -25,36 +27,36 @@ pub struct ActivityRecord {
     pub moving_time: Option<i64>,
     #[serde(default, deserialize_with = "whole_seconds")]
     pub elapsed_time: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub distance: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub total_elevation_gain: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub average_speed: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub max_speed: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub average_heartrate: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub max_heartrate: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub icu_average_watts: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub icu_pm_p_max: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub average_cadence: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub calories: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub icu_training_load: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub icu_ftp: Option<f64>,
     /// The accepted eFTP after this activity, and what this activity moved it
     /// by. intervals.icu marks the pair on its own plot, and only a non-zero
     /// delta is a change.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub icu_rolling_ftp: Option<f64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub icu_rolling_ftp_delta: Option<f64>,
     /// Power zone times, one entry per zone.
     #[serde(default, deserialize_with = "lenient")]
@@ -64,7 +66,7 @@ pub struct ActivityRecord {
     pub icu_hr_zone_times: Option<Vec<i64>>,
     #[serde(default)]
     pub has_weather: Option<bool>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "lenient")]
     pub average_weather_temp: Option<f64>,
     #[serde(default)]
     pub stream_types: Option<Vec<String>>,
@@ -197,12 +199,17 @@ where
 
 /// Read a duration in seconds that may arrive with a fraction. A recording
 /// saved on the device stores its measured duration, and refusing the float
-/// would drop the whole activity rather than round a second.
+/// would drop the whole activity rather than round a second. A string, such as
+/// the `-Infinity` a non-finite double is written as, reads as none: the
+/// duration costs itself, not the activity.
 fn whole_seconds<'de, D>(d: D) -> Result<Option<i64>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    Ok(Option::<f64>::deserialize(d)?.map(|secs| secs.round() as i64))
+    let value = Option::<serde_json::Value>::deserialize(d)?;
+    Ok(value
+        .and_then(|value| value.as_f64())
+        .map(|secs| secs.round() as i64))
 }
 
 /// The base field list the activities request asks for. Every name is a field
@@ -446,6 +453,58 @@ mod tests {
         assert_eq!(acts[0].icu_average_watts, Some(180.0)); // int coerced to f64
         assert_eq!(acts[0].stream_types.as_ref().unwrap().len(), 3);
         assert_eq!(acts[1].distance, Some(5000.0));
+    }
+
+    #[test]
+    fn a_string_number_costs_its_field_and_not_the_activity() {
+        let record: ActivityRecord = serde_json::from_value(json!({
+            "id": "a1",
+            "name": "Ride",
+            "distance": 30000.0,
+            "moving_time": "-Infinity",
+            "elapsed_time": "3600",
+            "average_speed": "Infinity",
+            "icu_pm_p_max": "NaN",
+        }))
+        .expect("the record parses");
+        assert_eq!(record.id, "a1");
+        assert_eq!(record.name.as_deref(), Some("Ride"));
+        assert_eq!(record.distance, Some(30000.0));
+        assert_eq!(record.moving_time, None);
+        assert_eq!(record.elapsed_time, None);
+        assert_eq!(record.average_speed, None);
+        assert_eq!(record.icu_pm_p_max, None);
+    }
+
+    #[test]
+    fn every_optional_number_reads_a_non_finite_string_as_none() {
+        let numbers = [
+            "distance",
+            "total_elevation_gain",
+            "average_speed",
+            "max_speed",
+            "average_heartrate",
+            "max_heartrate",
+            "icu_average_watts",
+            "icu_pm_p_max",
+            "average_cadence",
+            "calories",
+            "icu_training_load",
+            "icu_ftp",
+            "icu_rolling_ftp",
+            "icu_rolling_ftp_delta",
+            "average_weather_temp",
+            "moving_time",
+            "elapsed_time",
+        ];
+        for key in numbers {
+            for text in ["NaN", "Infinity", "-Infinity"] {
+                let record: ActivityRecord = serde_json::from_value(json!({"id": "a1", key: text}))
+                    .unwrap_or_else(|e| panic!("{key} as {text:?} fails the record: {e}"));
+                let written = serde_json::to_value(&record).expect("record serialises");
+                assert_eq!(written[key], json!(null), "{key} as {text:?} reads as none");
+            }
+        }
     }
 
     #[test]

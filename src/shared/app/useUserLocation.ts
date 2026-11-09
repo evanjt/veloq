@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 import type { LatLngShort } from '@/shared/geo/distance';
+import { requestForegroundFix } from './foregroundFix';
 import { askForegroundLocation, readLocationGrant } from './permissions';
 
 /**
@@ -44,7 +45,7 @@ export function forgetCachedLocation(): void {
  * trusted when it was itself taken inside the window, and the fix keeps the
  * time the OS took it rather than the time it was read.
  */
-async function fetchFix(): Promise<Fix> {
+async function fetchFix(): Promise<Fix | null> {
   const last = await Location.getLastKnownPositionAsync({ maxAge: LOCATION_TTL_MS });
   if (last) {
     const now = Date.now();
@@ -54,11 +55,10 @@ async function fetchFix(): Promise<Fix> {
     };
     if (!fixIsStale(held, now)) return held;
   }
-  const current = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Balanced,
-  });
+  const current = await requestForegroundFix(Location.Accuracy.Balanced);
+  if (current === null) return null;
   return {
-    value: { lat: current.coords.latitude, lng: current.coords.longitude },
+    value: { lat: current.latitude, lng: current.longitude },
     at: Date.now(),
   };
 }
@@ -90,8 +90,10 @@ export function useUserLocation(): {
 
       const fix = await fetchFix();
       if (!isCancelled()) {
-        cachedFix = fix;
-        setLocation(fix.value);
+        if (fix) {
+          cachedFix = fix;
+          setLocation(fix.value);
+        }
         setIsLoading(false);
       }
     } catch {
@@ -128,6 +130,7 @@ export function useUserLocation(): {
       if ((await askForegroundLocation()) !== 'granted') return null;
 
       const fix = await fetchFix();
+      if (fix === null) return null;
       cachedFix = fix;
       if (mountedRef.current) {
         setLocation(fix.value);

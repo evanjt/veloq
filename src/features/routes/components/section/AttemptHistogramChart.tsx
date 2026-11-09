@@ -17,7 +17,7 @@ import { useMetricSystem } from '@/shared/app';
 import { DenseText } from '@/shared/ui/DenseText';
 import { formatDuration } from '@/shared/format/format';
 import {
-  binsContain,
+  binIndexForTime,
   integerCountTicks,
   layoutHistogram,
 } from '@/features/routes/lib/histogramLayout';
@@ -39,11 +39,10 @@ import {
   useChartGestures,
   type ChartMarkKeyKind,
 } from '@/shared/charts';
-import { chartStyles, spacing } from '@/theme';
+import { chartStyles, PERFORMANCE_PLOT_HEIGHT, spacing } from '@/theme';
 import type { FfiAttemptHistogram } from 'veloqrs';
 import type { ActivityType } from '@/types';
 
-const CHART_HEIGHT = 120;
 const X_STRIP = Y_LABEL_BOX;
 /** Half a label line above the top tick and below the zero, so each label centres on its row. */
 const PLOT_PADDING = {
@@ -173,9 +172,12 @@ export function AttemptHistogramChart({
 
   // Whether a line is drawn does not depend on the box, so its key row is
   // decided before the canvas has measured.
-  const record = recordTime != null && binsContain(histogram, recordTime) ? recordTime : null;
+  const record =
+    recordTime != null && binIndexForTime(histogram, recordTime) !== null ? recordTime : null;
   const highlight =
-    highlightedTime != null && binsContain(histogram, highlightedTime) ? highlightedTime : null;
+    highlightedTime != null && binIndexForTime(histogram, highlightedTime) !== null
+      ? highlightedTime
+      : null;
 
   const scrubbed = scrubIndex >= 0 ? bins[scrubIndex] : undefined;
   const labelStyle = [chartStyles.chartLabel, isDark && chartStyles.chartLabelDark];
@@ -337,7 +339,7 @@ const styles = StyleSheet.create({
   },
   plot: {
     flex: 0,
-    height: CHART_HEIGHT,
+    height: PERFORMANCE_PLOT_HEIGHT,
   },
   row: {
     flex: 1,

@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -109,6 +109,73 @@ describe('Android release configuration', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('Android release signing', () => {
+  const steps = workflow('build-android').jobs.build.steps;
+  const signingStep = step(steps, 'Setup signing');
+  const script = signingStep.run ?? '';
+  const secrets = {
+    ANDROID_KEYSTORE_BASE64: 'c2VjcmV0',
+    ANDROID_KEYSTORE_PASSWORD: 'store-password',
+    ANDROID_KEY_ALIAS: 'release',
+    ANDROID_KEY_PASSWORD: 'key-password',
+  };
+
+  function runSigning(env: Record<string, string>) {
+    const dir = mkdtempSync(join(tmpdir(), 'veloq-signing-'));
+    const output = join(dir, 'output');
+    try {
+      const result = runScript(script, dir, {
+        ...Object.fromEntries(Object.keys(secrets).map((name) => [name, ''])),
+        GITHUB_OUTPUT: output,
+        ...env,
+      });
+      const outputs = existsSync(output) ? readFileSync(output, 'utf8') : '';
+      return { ...result, outputs };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it('refuses a production release build without the signing secrets', () => {
+    const result = runSigning({ RELEASE_BUILD: 'true', VARIANT: 'production' });
+    expect(result.status).not.toBe(0);
+    expect(result.stdout + result.stderr).toContain('signing secrets');
+  });
+
+  it.each(Object.keys(secrets))(
+    'refuses a production release build when %s is missing',
+    (missing) => {
+      const present = Object.fromEntries(
+        Object.entries(secrets).filter(([name]) => name !== missing)
+      );
+      const result = runSigning({ RELEASE_BUILD: 'true', VARIANT: 'production', ...present });
+      expect(result.status).not.toBe(0);
+    }
+  );
+
+  it('keeps the debug fallback for a pull request or main build', () => {
+    const result = runSigning({ RELEASE_BUILD: 'false', VARIANT: 'production' });
+    expect(result.status).toBe(0);
+    expect(result.outputs).toContain('is_signed=false');
+  });
+
+  it('keeps the debug fallback for a dev release build', () => {
+    const result = runSigning({ RELEASE_BUILD: 'true', VARIANT: 'dev' });
+    expect(result.status).toBe(0);
+    expect(result.outputs).toContain('is_signed=false');
+  });
+
+  it('signs a production release build when every secret is set', () => {
+    const result = runSigning({ RELEASE_BUILD: 'true', VARIANT: 'production', ...secrets });
+    expect(result.status).toBe(0);
+    expect(result.outputs).toContain('is_signed=true');
+  });
+
+  it('runs the signing gate on a cache hit too', () => {
+    expect(signingStep.if).toBeUndefined();
   });
 });
 

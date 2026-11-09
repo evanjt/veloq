@@ -5,6 +5,7 @@
 //! it, and it is never logged. Only the Garmin client reads it, and the client
 //! sends it to Garmin's token endpoint and nowhere else.
 
+use std::future::Future;
 use std::sync::{Arc, LazyLock, Mutex};
 
 use crate::net::garmin::{GarminClient, GarminError};
@@ -25,73 +26,106 @@ pub enum GarminKeyStatus {
     NoActivityAccess,
 }
 
-/// The client for the held key, if any.
+/// The client for the held key, if any, and how many times it has been
+/// cleared. A check reads the count when it starts and holds its key only if
+/// no clear has come in since, so a sign-out during the check is not undone.
 #[derive(Default)]
 pub(crate) struct GarminKeyHolder {
-    client: Mutex<Option<Arc<GarminClient>>>,
+    slot: Mutex<Slot>,
+}
+
+#[derive(Default)]
+struct Slot {
+    client: Option<Arc<GarminClient>>,
+    clears: u64,
 }
 
 impl GarminKeyHolder {
+    fn slot(&self) -> std::sync::MutexGuard<'_, Slot> {
+        self.slot.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     /// The client for the held key, for a caller that talks to Garmin with it.
     pub(crate) fn client(&self) -> Option<Arc<GarminClient>> {
-        self.client
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clone()
+        self.slot().client.clone()
     }
 
     pub(crate) fn hold(&self, client: GarminClient) {
-        *self.client.lock().unwrap_or_else(|e| e.into_inner()) = Some(Arc::new(client));
+        self.slot().client = Some(Arc::new(client));
     }
 
     /// Hold `client` unless one is held already, and say whether it was taken.
     /// The one held keeps the token it has exchanged.
     pub(crate) fn hold_if_absent(&self, client: impl FnOnce() -> GarminClient) -> bool {
-        let mut held = self.client.lock().unwrap_or_else(|e| e.into_inner());
-        if held.is_some() {
+        let mut slot = self.slot();
+        if slot.client.is_some() {
             return false;
         }
-        *held = Some(Arc::new(client()));
+        slot.client = Some(Arc::new(client()));
         true
     }
 
     pub(crate) fn clear(&self) {
-        *self.client.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        let mut slot = self.slot();
+        slot.client = None;
+        slot.clears += 1;
+    }
+
+    /// Hold `client` only if nothing has been cleared since `clears` was read,
+    /// and say whether it was taken. The check and the hold share one lock.
+    fn hold_unless_cleared_since(&self, clears: u64, client: GarminClient) -> bool {
+        let mut slot = self.slot();
+        if slot.clears != clears {
+            return false;
+        }
+        slot.client = Some(Arc::new(client));
+        true
     }
 
     /// Ask Garmin whether `pasted` is a key, and hold it only when it is.
     ///
     /// A key Garmin refuses replaces nothing: the key already held keeps
-    /// working until the athlete's new one is accepted.
-    pub(crate) async fn connect(
-        &self,
+    /// working until the athlete's new one is accepted. A clear that lands
+    /// while Garmin is answering holds nothing, and the answer is
+    /// `Unreachable`, so the caller keeps nothing either.
+    pub(crate) fn connect<'a, F>(
+        &'a self,
         pasted: &str,
-        make_client: impl FnOnce(String) -> GarminClient,
-    ) -> GarminKeyStatus {
-        let key = pasted.trim();
-        if key.is_empty() {
-            return GarminKeyStatus::Malformed;
-        }
-        let client = make_client(key.to_string());
-        match client.check_key(crate::net::garmin::dispatch()).await {
-            Ok(()) => match client
-                .check_activity_access(crate::net::garmin::dispatch())
-                .await
-            {
-                Ok(()) => {
-                    self.hold(client);
-                    GarminKeyStatus::Connected
-                }
-                Err(GarminError::KeyRejected)
-                | Err(GarminError::Net(NetError::Http { status: 403, .. })) => {
-                    GarminKeyStatus::NoActivityAccess
-                }
+        make_client: F,
+    ) -> impl Future<Output = GarminKeyStatus> + use<'a, F>
+    where
+        F: FnOnce(String) -> GarminClient,
+    {
+        let clears = self.slot().clears;
+        let key = pasted.trim().to_string();
+        async move {
+            if key.is_empty() {
+                return GarminKeyStatus::Malformed;
+            }
+            let client = make_client(key);
+            match client.check_key(crate::net::garmin::dispatch()).await {
+                Ok(()) => match client
+                    .check_activity_access(crate::net::garmin::dispatch())
+                    .await
+                {
+                    Ok(()) => {
+                        if self.hold_unless_cleared_since(clears, client) {
+                            GarminKeyStatus::Connected
+                        } else {
+                            GarminKeyStatus::Unreachable
+                        }
+                    }
+                    Err(GarminError::KeyRejected)
+                    | Err(GarminError::Net(NetError::Http { status: 403, .. })) => {
+                        GarminKeyStatus::NoActivityAccess
+                    }
+                    Err(GarminError::KeyMalformed) => GarminKeyStatus::Malformed,
+                    Err(GarminError::Net(_)) => GarminKeyStatus::Unreachable,
+                },
+                Err(GarminError::KeyRejected) => GarminKeyStatus::Rejected,
                 Err(GarminError::KeyMalformed) => GarminKeyStatus::Malformed,
                 Err(GarminError::Net(_)) => GarminKeyStatus::Unreachable,
-            },
-            Err(GarminError::KeyRejected) => GarminKeyStatus::Rejected,
-            Err(GarminError::KeyMalformed) => GarminKeyStatus::Malformed,
-            Err(GarminError::Net(_)) => GarminKeyStatus::Unreachable,
+            }
         }
     }
 }
@@ -101,8 +135,11 @@ pub(crate) static GARMIN_KEY: LazyLock<GarminKeyHolder> = LazyLock::new(Default:
 /// Validate a pasted key against Garmin and hold it on success.
 pub(crate) async fn connect_garmin(pasted: String) -> GarminKeyStatus {
     let (tx, rx) = tokio::sync::oneshot::channel();
+    // Asked for here, not when the spawned task first runs, so a clear that
+    // lands between the two cannot pass unnoticed.
+    let check = GARMIN_KEY.connect(&pasted, GarminClient::new);
     crate::runtime::spawn(async move {
-        let _ = tx.send(GARMIN_KEY.connect(&pasted, GarminClient::new).await);
+        let _ = tx.send(check.await);
     });
     rx.await.unwrap_or(GarminKeyStatus::Unreachable)
 }
@@ -306,5 +343,42 @@ mod tests {
         assert!(holder.client().is_some());
         holder.clear();
         assert!(holder.client().is_none());
+    }
+
+    #[test]
+    fn a_sign_out_during_the_check_holds_nothing_and_answers_other_than_connected() {
+        let server = MockServer::start();
+        let token_request = server.mock(|when, then| {
+            when.method(POST).path(TOKEN_PATH);
+            then.status(200)
+                .body(token())
+                .delay(std::time::Duration::from_millis(300));
+        });
+        mock_list(&server, 200);
+        let holder = GarminKeyHolder::default();
+        let check = holder.connect("k", maker(&server));
+        let sign_out = async {
+            while token_request.calls() == 0 {
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            }
+            holder.clear();
+        };
+        let (status, ()) = crate::runtime::block_on(futures::future::join(check, sign_out));
+        assert_eq!(status, GarminKeyStatus::Unreachable);
+        assert!(holder.client().is_none());
+    }
+
+    #[test]
+    fn a_key_checked_after_a_sign_out_is_held() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path(TOKEN_PATH);
+            then.status(200).body(token());
+        });
+        mock_list(&server, 200);
+        let holder = GarminKeyHolder::default();
+        holder.clear();
+        assert_eq!(connect(&holder, &server, "k"), GarminKeyStatus::Connected);
+        assert!(holder.client().is_some());
     }
 }

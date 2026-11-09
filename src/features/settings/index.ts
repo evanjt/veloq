@@ -102,5 +102,6 @@ export {
   presentActivityNotification,
 } from './lib/notificationService';
 export { GarminConnector } from './components/GarminConnector';
+export { InfoButton } from './components/InfoButton';
 export { restoreGarminKey, type GarminConnectorState } from './lib/garminConnector';
 export { useGarminConnectorState } from './hooks/useGarminConnectorState';

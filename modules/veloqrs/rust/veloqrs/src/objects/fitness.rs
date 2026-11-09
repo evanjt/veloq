@@ -91,15 +91,13 @@ impl FitnessManager {
     /// only committed rows.
     fn get_best_efforts_data(&self, days: f64) -> Result<crate::FfiBestEffortsData, VeloqError> {
         let days = crate::ffi_types::int_from_wire(days);
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs() as i64);
+        let clock = crate::widget_snapshot::Clock::now();
         with_reader(|conn| {
-            crate::persistence::screens::pooled::best_efforts_data(conn, days, now).map_err(|err| {
-                VeloqError::Database {
+            crate::persistence::screens::pooled::best_efforts_data(conn, days, clock).map_err(
+                |err| VeloqError::Database {
                     msg: format!("{}", err),
-                }
-            })
+                },
+            )
         })?
     }
 

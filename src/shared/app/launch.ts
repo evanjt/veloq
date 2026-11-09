@@ -37,6 +37,7 @@ import {
   resumeRecordImport,
   sweepIdleBackupFiles,
 } from '@/features/settings';
+import { migrateSettingsToSqlite } from '@/shared/storage/migrateSettingsToSqlite';
 import { initialiseI18n } from '@/i18n';
 import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
 import type { StartupArea } from '@/shared/ui/StartupErrorBanner';
@@ -216,6 +217,11 @@ export async function initialiseApp(): Promise<StartupArea[] | null> {
   // the database and its journal while no connection is open.
   await resolveRouteDbPath();
   await openEngine();
+  // Before any store reads: a store that finds its key absent writes defaults,
+  // and the repair then sees a row and skips the key.
+  await migrateSettingsToSqlite().catch((reason) => {
+    console.warn('[launch] settings migration failed:', errorMessage(reason));
+  });
   excludeDatabaseFromDeviceBackup();
   openBasemapStore();
   openTerrainPreviews();

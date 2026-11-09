@@ -343,9 +343,10 @@ export interface LaneReadout {
 
 /**
  * A lane's readout. Idle, a lane reads its stream's average, and elevation
- * reads the activity's gain with a `+`, each with a mark saying so. Scrubbed,
- * it reads the sample at `sample` with no mark, and the absent mark where the
- * stream has no sample there. Both format through `formatScrubValue`, so an
+ * reads the activity's gain with a `+`, each with a mark saying so, and the
+ * absent mark when the activity stores no gain. Scrubbed, it reads the sample
+ * at `sample` with no mark, and the absent mark where the stream has no sample
+ * there. Both format through `formatScrubValue`, so an
  * idle value and a scrub of the same value read alike.
  */
 export function laneReadout(
@@ -361,12 +362,11 @@ export function laneReadout(
     return { mark: null, value: isolateNumeric(formatScrubValue(config, raw, isMetric)), unit };
   }
   if (config.defaultMetric === 'gain') {
-    const gain = elevationGain != null && Number.isFinite(elevationGain) ? elevationGain : 0;
-    return {
-      mark: 'gain',
-      value: isolateNumeric(`+${formatScrubValue(config, gain, isMetric)}`),
-      unit,
-    };
+    const value =
+      elevationGain != null && Number.isFinite(elevationGain)
+        ? `+${formatScrubValue(config, elevationGain, isMetric)}`
+        : ABSENT;
+    return { mark: 'gain', value: isolateNumeric(value), unit };
   }
   const average = seriesAverage(config, rawData);
   return {

@@ -75,7 +75,9 @@ export function useGpsSessionEffect({
 
   // The switch turned off or back on during the ride, read on each return to
   // the app. Off is named at once. Back on clears that line and only that
-  // one, so the ride goes back to waiting for its fix.
+  // one, and asks the session for the watch again: a watch refused while the
+  // switch was off is not retried by anything else, since a refused start
+  // raises the system dialog again on every attempt.
   const servicesWereOff = useRef(false);
   useEffect(() => {
     if (!gpsSessionActive || services.enabled == null) return;
@@ -85,6 +87,7 @@ export function useGpsSessionEffect({
     } else if (servicesWereOff.current) {
       servicesWereOff.current = false;
       setGpsWarning(null);
+      void ensureLocationWatch().catch((e) => log.error('Failed to start location watch:', e));
     }
   }, [gpsSessionActive, services.enabled]); // eslint-disable-line react-hooks/exhaustive-deps -- Only the switch moving changes the line.
 

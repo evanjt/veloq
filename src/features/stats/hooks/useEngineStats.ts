@@ -18,7 +18,12 @@ import type {
 
 import { formatLocalDate, parseDayString } from '@/shared/format/format';
 import type { TrendGlyph } from '@/shared/format/trend';
-import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
+import {
+  localDayEndEpochSeconds,
+  localDayStartEpochSeconds,
+  localWallClockToEpochSeconds,
+  wallClockSecondsToLocalDate,
+} from '@/shared/time/startDate';
 import { heatmapLayout, type HeatmapLayout } from '../lib/heatmapGrid';
 import { seasonWindows, type SeasonWindows } from '../lib/periodWindows';
 
@@ -56,16 +61,6 @@ function totals(stats: {
   };
 }
 const NO_MONTHS: MonthTotals[] = [];
-
-/** Midnight of a local date, as the epoch seconds the engine stores. */
-export function localDayStart(date: Date): number {
-  return Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 1000);
-}
-
-/** The last instant of a local date, as epoch seconds. */
-export function localDayEnd(date: Date): number {
-  return localDayStart(date) + 86_399;
-}
 
 /**
  * The windows the fitness tab's calendar, weekly card and year comparison
@@ -109,8 +104,8 @@ export function calendarWindows(w: TrainingWindows, firstDay: string): TrainingW
  */
 export function trainingEngineWindows(w: TrainingWindows, now: Date): FitnessScreenWindows {
   const days = (start: Date, end: Date) => ({
-    startTs: localDayStart(start),
-    endTs: localDayEnd(end),
+    startTs: localDayStartEpochSeconds(start),
+    endTs: localDayEndEpochSeconds(end),
   });
   return {
     heatmapFirstDay: formatLocalDate(w.heatmap.first),
@@ -157,19 +152,6 @@ export interface SummaryComparison {
   previousCoverage: RangeCoverage;
 }
 
-/** An engine wall-clock second as the local `Date` it names. */
-function wallDate(seconds: number): Date {
-  const d = new Date(seconds * 1000);
-  return new Date(
-    d.getUTCFullYear(),
-    d.getUTCMonth(),
-    d.getUTCDate(),
-    d.getUTCHours(),
-    d.getUTCMinutes(),
-    d.getUTCSeconds()
-  );
-}
-
 function move(trend: StatTrend | undefined): StatMove | null {
   if (!trend) return null;
   return {
@@ -181,10 +163,10 @@ function move(trend: StatTrend | undefined): StatMove | null {
 
 function comparison(read: EngineSummaryComparison): SummaryComparison {
   return {
-    currentStart: wallDate(read.current.startTs),
-    currentEnd: wallDate(read.current.endTs),
-    previousStart: wallDate(read.previous.startTs),
-    previousEnd: wallDate(read.previous.endTs),
+    currentStart: wallClockSecondsToLocalDate(read.current.startTs),
+    currentEnd: wallClockSecondsToLocalDate(read.current.endTs),
+    previousStart: wallClockSecondsToLocalDate(read.previous.startTs),
+    previousEnd: wallClockSecondsToLocalDate(read.previous.endTs),
     current: totals(read.currentStats),
     previous: totals(read.previousStats),
     moves: {

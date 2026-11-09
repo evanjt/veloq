@@ -144,20 +144,28 @@ export async function readGarminConnectorState(deps: Deps = {}): Promise<GarminC
   return garminConnectorState({ enabled: enabled === 'true', keyKept: Boolean(values[0]) });
 }
 
+/** Counts disconnects, so a connect can tell that one landed while its key was being written. */
+let disconnects = 0;
+
 /**
  * Ask Garmin whether the pasted key works, and keep it only when it does.
  * A key Garmin refuses, or that could not be checked, is never written.
+ * A disconnect that lands while the key is being written removes the key
+ * again, so a sign-out is never outlived by the connect it overlapped; that
+ * connect answers Unreachable, as nothing was kept.
  */
 export async function connectGarminKey(pasted: string, deps: Deps = {}): Promise<GarminKeyStatus> {
   const key = pasted.trim();
   if (key === '') return GarminKeyStatus.Malformed;
+  const disconnectsBefore = disconnects;
   const status = await (deps.engine ?? engineKey).connectGarmin(key);
   if (status === GarminKeyStatus.Connected) {
-    await (deps.io ?? secureStoreIo).write(
-      GARMIN_KEY_STORAGE_KEY,
-      key,
-      CREDENTIAL_KEYCHAIN_OPTIONS
-    );
+    const io = deps.io ?? secureStoreIo;
+    await io.write(GARMIN_KEY_STORAGE_KEY, key, CREDENTIAL_KEYCHAIN_OPTIONS);
+    if (disconnects !== disconnectsBefore) {
+      await deleteCredential(io, GARMIN_KEY_STORAGE_KEY);
+      return GarminKeyStatus.Unreachable;
+    }
     await (deps.setEnabled ?? saveEnabled)(true);
     changed();
   }
@@ -186,6 +194,7 @@ export async function disconnectGarmin(
   deps: Deps & { removeSetting?: (key: string) => void | Promise<void> } = {}
 ): Promise<void> {
   const forget = deps.removeSetting ?? removeSetting;
+  disconnects += 1;
   const results = await Promise.allSettled([
     deleteCredential(deps.io ?? secureStoreIo, GARMIN_KEY_STORAGE_KEY),
     Promise.resolve().then(() => (deps.engine ?? engineKey).clearGarminKey()),

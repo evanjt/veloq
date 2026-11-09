@@ -12,6 +12,16 @@ const GRAVITY: f64 = 9.81;
 /// a pause or a dropout, and differencing across it would invent a climb rate.
 pub const MAX_STEP_S: u32 = 10;
 
+/// The steepest change in elevation one step may show, in metres per second
+/// of the step, up or down. A corrected-elevation track holds single samples
+/// that read tens of metres off their neighbours, and a window ending on one
+/// would stand as a climbing best of tens of thousands of metres an hour.
+/// 5 m/s was measured across 781 Ride and Run activities: it leaves every
+/// honest best unchanged at the 90th percentile of each window length and
+/// refuses every spike holder. A step at exactly the cap passes. A missing
+/// sample leaves the step untested, as the point rule already refuses it.
+pub const MAX_STEP_RISE_M_PER_S: f64 = 5.0;
+
 /// The window lengths stored for each climbing activity, in seconds.
 pub const CLIMB_WINDOWS_S: [u32; 6] = [15, 30, 60, 300, 600, 1200];
 
@@ -38,7 +48,8 @@ pub fn watts_per_kg_of_vam(vam: f64) -> f64 {
 /// A window is the shortest run of samples spanning at least its length. It
 /// gives `None` when the two slices differ in length, when the track is
 /// shorter than the window, or when every candidate holds a missing or
-/// non-finite elevation, a non-increasing time or a step over [`MAX_STEP_S`].
+/// non-finite elevation, a non-increasing time, a step over [`MAX_STEP_S`] or a step steeper than
+/// [`MAX_STEP_RISE_M_PER_S`].
 pub fn best_climb_windows(
     time: &[u32],
     elevation: &[Option<f64>],
@@ -53,7 +64,11 @@ pub fn best_climb_windows(
     for i in 0..n {
         bad_points[i + 1] = bad_points[i] + usize::from(!elevation[i].is_some_and(f64::is_finite));
         if i + 1 < n {
-            let ok = time[i + 1] > time[i] && time[i + 1] - time[i] <= MAX_STEP_S;
+            let mut ok = time[i + 1] > time[i] && time[i + 1] - time[i] <= MAX_STEP_S;
+            if let (true, Some(a), Some(b)) = (ok, elevation[i], elevation[i + 1]) {
+                let seconds = f64::from(time[i + 1] - time[i]);
+                ok = (b - a).abs() / seconds <= MAX_STEP_RISE_M_PER_S;
+            }
             bad_steps[i + 1] = bad_steps[i] + usize::from(!ok);
         }
     }
@@ -257,13 +272,13 @@ mod tests {
 
     #[test]
     fn a_valid_last_step_still_counts() {
-        // Flat to t=19, then a 15 m rise on the final one-second step.
+        // Flat to t=19, then a 5 m rise, the steepest a step may be, on the final step.
         let time = secs(21);
         let mut elev = track(|_| 100.0, 20);
-        elev.push(Some(115.0));
+        elev.push(Some(105.0));
         let best = best_climb_windows(&time, &elev, &[15])[0].unwrap();
         assert_eq!((best.start, best.end), (5, 20));
-        assert!((best.vam - 15.0 / 15.0 * 3600.0).abs() < 1e-9);
+        assert!((best.vam - 5.0 / 15.0 * 3600.0).abs() < 1e-9);
     }
 
     #[test]
@@ -272,5 +287,59 @@ mod tests {
         let elev: Vec<Option<f64>> = time.iter().map(|&t| Some(f64::from(t) * 0.1)).collect();
         let best = best_climb_windows(&time, &elev, &[15])[0].unwrap();
         assert!((best.vam - 360.0).abs() < 1e-9);
+    }
+
+    fn clean_climb(n: u32) -> Vec<Option<f64>> {
+        track(|t| 100.0 + 0.5 * f64::from(t), n)
+    }
+
+    #[test]
+    fn one_raised_sample_sets_no_best() {
+        let time = secs(240);
+        let mut elev = clean_climb(240);
+        elev[100] = elev[100].map(|e| e + 40.0);
+        let out = best_climb_windows(&time, &elev, &[15, 30, 60]);
+        for (best, w) in out.iter().zip([15u32, 30, 60]) {
+            let best = best.unwrap();
+            assert!((best.vam - 1800.0).abs() < 1e-9, "{w} s best {}", best.vam);
+            assert!(
+                best.end < 100 || best.start > 100,
+                "{w} s window holds the spike"
+            );
+        }
+    }
+
+    #[test]
+    fn a_step_at_the_start_does_not_set_the_best() {
+        let time = secs(60);
+        let elev = track(
+            |t| {
+                if t == 0 {
+                    100.0
+                } else {
+                    141.0 + 0.5 * f64::from(t)
+                }
+            },
+            60,
+        );
+        let best = best_climb_windows(&time, &elev, &[15])[0].unwrap();
+        assert!((best.vam - 1800.0).abs() < 1e-9);
+        assert!(best.start >= 1);
+    }
+
+    #[test]
+    fn a_step_at_exactly_the_cap_passes() {
+        let time = secs(30);
+        let elev = track(|t| MAX_STEP_RISE_M_PER_S * f64::from(t), 30);
+        let best = best_climb_windows(&time, &elev, &[15])[0].unwrap();
+        assert!((best.vam - MAX_STEP_RISE_M_PER_S * 3600.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn honest_one_metre_steps_over_three_seconds_are_unchanged() {
+        let time: Vec<u32> = (0..40).map(|i| i * 3).collect();
+        let elev = track(f64::from, 40);
+        let best = best_climb_windows(&time, &elev, &[15])[0].unwrap();
+        assert!((best.vam - 1200.0).abs() < 1e-6);
     }
 }

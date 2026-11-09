@@ -187,6 +187,16 @@ pub(crate) mod test_alloc {
     thread_local! {
         static ALLOCATIONS: Cell<usize> = const { Cell::new(0) };
         static BYTES: Cell<usize> = const { Cell::new(0) };
+        static LIVE: Cell<isize> = const { Cell::new(0) };
+        static PEAK: Cell<isize> = const { Cell::new(0) };
+    }
+
+    fn track_live(delta: isize) {
+        let _ = LIVE.try_with(|live| {
+            let now = live.get() + delta;
+            live.set(now);
+            let _ = PEAK.try_with(|peak| peak.set(peak.get().max(now)));
+        });
     }
 
     fn count(bytes: usize) {
@@ -199,23 +209,37 @@ pub(crate) mod test_alloc {
     unsafe impl GlobalAlloc for Counting {
         unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
             count(layout.size());
+            track_live(layout.size() as isize);
             unsafe { System.alloc(layout) }
         }
         unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
             count(layout.size());
+            track_live(layout.size() as isize);
             unsafe { System.alloc_zeroed(layout) }
         }
         unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+            track_live(-(layout.size() as isize));
             unsafe { System.dealloc(ptr, layout) }
         }
         unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
             count(new_size);
+            track_live(new_size as isize - layout.size() as isize);
             unsafe { System.realloc(ptr, layout, new_size) }
         }
     }
 
     #[global_allocator]
     static ALLOCATOR: Counting = Counting;
+
+    /// The most bytes `run` held live on this thread above what was live when
+    /// it started, with its answer. Memory freed on another thread is not
+    /// subtracted here, so work spread over threads reads high rather than low.
+    pub(crate) fn peak_live_during<T>(run: impl FnOnce() -> T) -> (T, usize) {
+        let start = LIVE.with(Cell::get);
+        PEAK.with(|peak| peak.set(start));
+        let answer = run();
+        (answer, (PEAK.with(Cell::get) - start).max(0) as usize)
+    }
 
     /// What `run` allocated on this thread: how many allocations, reallocations
     /// included, and how many bytes they asked for.

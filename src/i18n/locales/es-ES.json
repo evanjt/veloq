@@ -91,7 +91,6 @@
     "settingsAutoPauseWalkingAndOther": "Caminar y otros deportes"
   },
   "routes": {
-    "invalidSectionRange": "Rango de selección no válido. Por favor, intenta seleccionar una porción diferente.",
     "shareDetailsWithDeveloper": "Copiar detalles y compartir con el desarrollador si informas de un problema"
   },
   "settings": {

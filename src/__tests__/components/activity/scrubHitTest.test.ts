@@ -170,6 +170,25 @@ describe('findRowIndexAtPageY with per-row heights', () => {
     expect(findRowIndexAtPageY({ ...VARIED, pageY: 370, rowHeights: [62, 94] })).toBe(1);
   });
 
+  it('falls back to the uniform height when the measurements have a hole', () => {
+    // A row measured out of order (after a scrollToIndex or a fling) leaves a
+    // hole in the array. `every` skips holes, so the guard must test each index.
+    const sparse: number[] = [];
+    sparse[0] = 100;
+    sparse[2] = 100;
+    const base = {
+      firstRowTopY: 0,
+      rowHeight: 100,
+      scrollOffset: 0,
+      rowCount: 3,
+      rowHeights: sparse,
+    };
+    expect(findRowIndexAtPageY({ ...base, pageY: 50 })).toBe(0);
+    expect(findRowIndexAtPageY({ ...base, pageY: 150 })).toBe(1);
+    expect(findRowIndexAtPageY({ ...base, pageY: 250 })).toBe(2);
+    expect(findRowIndexAtPageY({ ...base, pageY: 300 })).toBeNull();
+  });
+
   it('never skips a row on a top-to-bottom sweep', () => {
     const visited = new Set<number>();
     let prev = -1;

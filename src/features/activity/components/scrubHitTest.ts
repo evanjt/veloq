@@ -28,6 +28,19 @@ export interface ScrubHitTestParams {
 }
 
 /**
+ * True when every index below `rowCount` holds a positive height. Each index is
+ * tested, because a sparse array (a row measured out of order) has holes that
+ * `every` skips.
+ */
+function allRowsMeasured(rowHeights: readonly number[], rowCount: number): boolean {
+  for (let i = 0; i < rowCount; i++) {
+    const height = rowHeights[i];
+    if (height === undefined || !(height > 0)) return false;
+  }
+  return true;
+}
+
+/**
  * Map a finger window-Y to a row index, or `null` if the finger is outside
  * the list. Zones are `[firstRowTopY + N*rowHeight, firstRowTopY + (N+1)*rowHeight)`
  * so a tap anywhere within a row's visible frame - top, middle, or bottom -
@@ -39,7 +52,7 @@ export function findRowIndexAtPageY(params: ScrubHitTestParams): number | null {
   const relY = pageY - firstRowTopY + scrollOffset;
   if (relY < 0) return null;
 
-  if (rowHeights?.length === rowCount && rowHeights.every((h) => h > 0)) {
+  if (rowHeights?.length === rowCount && allRowsMeasured(rowHeights, rowCount)) {
     let top = 0;
     for (let i = 0; i < rowCount; i++) {
       const bottom = top + rowHeights[i];

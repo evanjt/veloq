@@ -10,7 +10,7 @@
       "form": null,
       "hrv": null
     },
-    "formZone": "Grey zone",
+    "formZone": "",
     "impactLine": null,
     "metricLabels": {
       "fatigue": "Fatigue",
@@ -55,8 +55,7 @@
       "text": "-",
       "trendDir": "flat",
       "value": 0.0,
-      "verdict": "flat",
-      "zone": "greyZone"
+      "verdict": "flat"
     },
     "hrv": {
       "spoken": "HRV, no reading",

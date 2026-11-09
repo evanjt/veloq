@@ -403,6 +403,71 @@ pub(super) fn groups_owing_measurement(
         .collect()
 }
 
+/// What measuring one route's members cost, for the log lines.
+#[derive(Default)]
+struct GroupMeasurement {
+    tracks_loaded: usize,
+    points_loaded: usize,
+    pairs: usize,
+}
+
+/// One member's measured match against the representative: its id, the average
+/// minimum distance both ways, its length, and its direction.
+type MemberMeasurement = (String, f64, usize, Direction);
+
+/// Measures every member of one route other than `representative_id` against
+/// the representative. A route with no such member loads no track. Otherwise
+/// the representative is loaded and indexed once, each member is loaded on its
+/// own, and the pairs run in parallel. Everything loaded drops on return, so a
+/// regroup holds one route's tracks at a time rather than the library's.
+fn measure_group(
+    representative_id: &str,
+    members: &[String],
+    load_track: &impl Fn(&str) -> Option<Vec<GpsPoint>>,
+    match_config: &tracematch::MatchConfig,
+) -> (Vec<MemberMeasurement>, GroupMeasurement) {
+    use super::track_index::TrackIndex;
+    use rayon::prelude::*;
+
+    let mut stats = GroupMeasurement::default();
+    if members.iter().all(|id| id == representative_id) {
+        return (Vec::new(), stats);
+    }
+    let Some(rep_track) = load_track(representative_id).filter(|t| t.len() >= 2) else {
+        return (Vec::new(), stats);
+    };
+    stats.tracks_loaded += 1;
+    stats.points_loaded += rep_track.len();
+    let rep_index = TrackIndex::new(Arc::new(rep_track));
+
+    let mut loaded: Vec<(&String, Arc<Vec<GpsPoint>>)> = Vec::new();
+    for id in members.iter().filter(|id| *id != representative_id) {
+        if let Some(track) = load_track(id).filter(|t| t.len() >= 2) {
+            stats.tracks_loaded += 1;
+            stats.points_loaded += track.len();
+            loaded.push((id, Arc::new(track)));
+        }
+    }
+    stats.pairs = loaded.len();
+
+    let results = loaded
+        .par_iter()
+        .map(|(id, activity_track)| {
+            let rep_points = rep_index.points();
+            let amd_1_to_2 = rep_index.average_min_distance_from(activity_track);
+            let amd_2_to_1 =
+                TrackIndex::new(Arc::clone(activity_track)).average_min_distance_from(rep_points);
+            (
+                (*id).clone(),
+                (amd_1_to_2 + amd_2_to_1) / 2.0,
+                activity_track.len(),
+                endpoint_direction(activity_track, rep_points, match_config.endpoint_threshold),
+            )
+        })
+        .collect();
+    (results, stats)
+}
+
 /// Each member's match against its route's representative, measured on the
 /// stored tracks rather than the simplified signatures. `seed` carries any
 /// percentage already held. The direction is measured again against the
@@ -410,10 +475,11 @@ pub(super) fn groups_owing_measurement(
 /// representative it was measured against. Both regroup writers call this,
 /// so the foreground and the worker cannot measure differently.
 ///
-/// `scope` narrows the work to the groups it names, and no track of any other
-/// group is loaded; their percentages are returned as `seed` holds them.
-/// `representative_override` measures against a representative other than the
-/// stored one.
+/// Routes are measured one at a time, so the tracks held at once are one
+/// route's. `scope` narrows the work to the groups it names, and no track of
+/// any other group is loaded; their percentages are returned as `seed` holds
+/// them. `representative_override` measures against a representative other
+/// than the stored one.
 pub(super) fn measure_match_percentages(
     groups: &[RouteGroup],
     seed: &HashMap<String, Vec<ActivityMatchInfo>>,
@@ -422,9 +488,7 @@ pub(super) fn measure_match_percentages(
     scope: Option<&HashSet<String>>,
     representative_override: Option<&str>,
 ) -> HashMap<String, Vec<ActivityMatchInfo>> {
-    use super::track_index::TrackIndex;
     use crate::matching::amd_to_percentage;
-    use std::collections::HashMap;
     use std::time::Instant;
 
     let func_start = Instant::now();
@@ -437,53 +501,8 @@ pub(super) fn measure_match_percentages(
         groups.len()
     );
 
-    // First pass: collect all activity IDs and load tracks
-    // PERF: I/O bound - loads tracks SEQUENTIALLY from SQLite
-    let load_start = Instant::now();
-    let mut tracks: HashMap<String, Arc<Vec<GpsPoint>>> = HashMap::new();
     let mut calculated = seed.clone();
-    let mut total_points_loaded: usize = 0;
-
-    for group in groups.iter().filter(|g| in_scope(g)) {
-        let representative_id = representative_override.unwrap_or(&group.representative_id);
-        // Load representative track
-        if let Some(track) = load_track(representative_id)
-            && track.len() >= 2
-        {
-            total_points_loaded += track.len();
-            tracks.insert(representative_id.to_string(), Arc::new(track));
-        }
-
-        // Load all member tracks in this group (use group.activity_ids,
-        // not the seed, so this works even when the match
-        // map is empty - e.g. after the incremental grouping path)
-        for activity_id in &group.activity_ids {
-            if !tracks.contains_key(activity_id)
-                && let Some(track) = load_track(activity_id)
-                && track.len() >= 2
-            {
-                total_points_loaded += track.len();
-                tracks.insert(activity_id.clone(), Arc::new(track));
-            }
-        }
-    }
-    let load_ms = load_start.elapsed().as_millis();
-    log::info!(
-        "[RUST: PERF] Track loading: {} tracks, {} total points in {}ms (SEQUENTIAL I/O)",
-        tracks.len(),
-        total_points_loaded,
-        load_ms
-    );
-
-    // Second pass: recalculate match percentages using AMD. The
-    // representative is indexed once per group and each member once, so a
-    // pair costs a tree descent per point in each direction rather than a
-    // haversine against every point of the other track. The representative
-    // takes its self-match without AMD, and the pairs run in parallel.
-    let calc_start = Instant::now();
-
-    type WorkItem = (String, String, Arc<Vec<GpsPoint>>, Arc<TrackIndex>);
-    let mut work_items: Vec<WorkItem> = Vec::new();
+    let mut total = GroupMeasurement::default();
     let mut skipped_self = 0u32;
 
     for group in groups.iter().filter(|g| in_scope(g)) {
@@ -504,105 +523,59 @@ pub(super) fn measure_match_percentages(
                 });
             }
         }
-        let rep_track = match tracks.get(representative_id) {
-            Some(t) => t,
-            None => continue,
-        };
-        let mut rep_index: Option<Arc<TrackIndex>> = None;
 
-        for activity_id in &group.activity_ids {
-            if activity_id == representative_id {
-                continue;
+        let (results, stats) = measure_group(
+            representative_id,
+            &group.activity_ids,
+            &load_track,
+            match_config,
+        );
+        total.tracks_loaded += stats.tracks_loaded;
+        total.points_loaded += stats.points_loaded;
+        total.pairs += stats.pairs;
+
+        let matches = calculated.entry(group.group_id.clone()).or_default();
+        for (activity_id, avg_amd, activity_len, direction) in results {
+            let new_percentage = amd_to_percentage(
+                avg_amd,
+                match_config.perfect_threshold,
+                match_config.zero_threshold,
+            );
+            if let Some(match_info) = matches.iter_mut().find(|m| m.activity_id == activity_id) {
+                log::debug!(
+                    "veloqrs: recalc match % for {}: {:.1}% -> {:.1}% (AMD: {:.1}m, {} points)",
+                    activity_id,
+                    match_info.match_percentage,
+                    new_percentage,
+                    avg_amd,
+                    activity_len
+                );
+                match_info.match_percentage = new_percentage;
+                match_info.direction = direction_for_percentage(new_percentage, direction);
+            } else {
+                matches.push(ActivityMatchInfo {
+                    activity_id,
+                    match_percentage: new_percentage,
+                    direction: direction_for_percentage(new_percentage, direction),
+                });
             }
-
-            let activity_track = match tracks.get(activity_id) {
-                Some(t) => t,
-                None => continue,
-            };
-
-            let rep_index =
-                rep_index.get_or_insert_with(|| Arc::new(TrackIndex::new(Arc::clone(rep_track))));
-            work_items.push((
-                group.group_id.clone(),
-                activity_id.clone(),
-                Arc::clone(activity_track),
-                Arc::clone(rep_index),
-            ));
         }
     }
 
     log::info!(
-        "[RUST: PERF] AMD work: {} pairs to compute, {} self-comparisons skipped",
-        work_items.len(),
+        "[RUST: PERF] Track loading: {} tracks, {} total points",
+        total.tracks_loaded,
+        total.points_loaded
+    );
+    log::info!(
+        "[RUST: PERF] AMD work: {} pairs computed ({} AMD calls), {} self-comparisons skipped",
+        total.pairs,
+        total.pairs * 2,
         skipped_self
     );
-
-    // Parallel AMD calculation using rayon
-    use rayon::prelude::*;
-
-    let results: Vec<(String, String, f64, usize, usize, Direction)> = work_items
-        .par_iter()
-        .map(|(group_id, activity_id, activity_track, rep_index)| {
-            let rep_track = rep_index.points();
-            let amd_1_to_2 = rep_index.average_min_distance_from(activity_track);
-            let amd_2_to_1 =
-                TrackIndex::new(Arc::clone(activity_track)).average_min_distance_from(rep_track);
-            let avg_amd = (amd_1_to_2 + amd_2_to_1) / 2.0;
-            (
-                group_id.clone(),
-                activity_id.clone(),
-                avg_amd,
-                activity_track.len(),
-                rep_track.len(),
-                endpoint_direction(activity_track, rep_track, match_config.endpoint_threshold),
-            )
-        })
-        .collect();
-
-    let amd_calculations = (results.len() * 2) as u32;
-
-    // Apply results back to activity_matches (upsert: create entry if missing)
-    for (group_id, activity_id, avg_amd, activity_len, rep_len, direction) in results {
-        let new_percentage = amd_to_percentage(
-            avg_amd,
-            match_config.perfect_threshold,
-            match_config.zero_threshold,
-        );
-
-        let matches = calculated.entry(group_id).or_default();
-        if let Some(match_info) = matches.iter_mut().find(|m| m.activity_id == activity_id) {
-            log::debug!(
-                "veloqrs: recalc match % for {}: {:.1}% -> {:.1}% (AMD: {:.1}m, {} vs {} points)",
-                activity_id,
-                match_info.match_percentage,
-                new_percentage,
-                avg_amd,
-                activity_len,
-                rep_len
-            );
-            match_info.match_percentage = new_percentage;
-            match_info.direction = direction_for_percentage(new_percentage, direction);
-        } else {
-            matches.push(ActivityMatchInfo {
-                activity_id,
-                match_percentage: new_percentage,
-                direction: direction_for_percentage(new_percentage, direction),
-            });
-        }
-    }
-
-    let calc_ms = calc_start.elapsed().as_millis();
-    let total_ms = func_start.elapsed().as_millis();
     log::info!(
-        "[RUST: PERF] AMD calculations: {} calls in {}ms (PARALLEL with rayon)",
-        amd_calculations,
-        calc_ms
-    );
-    log::info!(
-        "[RUST: PERF] recalculate_match_percentages TOTAL: {}ms (load={}ms + calc={}ms)",
-        total_ms,
-        load_ms,
-        calc_ms
+        "[RUST: PERF] recalculate_match_percentages TOTAL: {}ms",
+        func_start.elapsed().as_millis()
     );
     calculated
 }
@@ -818,6 +791,32 @@ pub(super) fn groups_keeping_chosen_representatives(
                 group.representative_id.clear();
             }
             group
+        })
+        .collect()
+}
+
+/// The stored groups with every member that has no signature in the live pool
+/// taken out, and the groups that leaves empty dropped. An activity removed
+/// since the groups were written is still listed in them, and an incremental
+/// regroup seeds from every listed id: the removed ride would stay in its
+/// route, and stay its representative, until the next full regroup. A
+/// representative that left is cleared so the grouping picks another.
+pub(super) fn groups_of_live_members(
+    groups: &[RouteGroup],
+    live: &HashSet<&str>,
+) -> Vec<RouteGroup> {
+    groups
+        .iter()
+        .filter_map(|group| {
+            let mut group = group.clone();
+            group.activity_ids.retain(|id| live.contains(id.as_str()));
+            if group.activity_ids.is_empty() {
+                return None;
+            }
+            if !live.contains(group.representative_id.as_str()) {
+                group.representative_id.clear();
+            }
+            Some(group)
         })
         .collect()
 }
@@ -1515,8 +1514,9 @@ impl PersistentEngine {
         // without it (4s of 9s on a full resync).
         let group_start = Instant::now();
 
-        let already_grouped: std::collections::HashSet<&str> = self
-            .groups
+        let live: HashSet<&str> = arc_sigs.iter().map(|s| s.activity_id.as_str()).collect();
+        let seed_groups = groups_of_live_members(&self.groups, &live);
+        let already_grouped: std::collections::HashSet<&str> = seed_groups
             .iter()
             .flat_map(|g| g.activity_ids.iter().map(|s| s.as_str()))
             .collect();
@@ -1537,7 +1537,7 @@ impl PersistentEngine {
         // nearly everything is new - full is simpler in that fresh-import case.
         // A changed rule re-evaluates pairs the incremental path never looks at.
         let rule_changed = groups_match_rule_changed(&self.db, &self.match_config);
-        let use_incremental = !self.groups.is_empty()
+        let use_incremental = !seed_groups.is_empty()
             && new_count > 0
             && (new_count as f64) < (total as f64 * 0.9)
             && !rule_changed;
@@ -1562,7 +1562,7 @@ impl PersistentEngine {
             );
             tracematch::group_incremental_with_matches(
                 &new_sigs,
-                &groups_keeping_chosen_representatives(&self.groups, &chosen),
+                &groups_keeping_chosen_representatives(&seed_groups, &chosen),
                 &existing_sigs,
                 &self.match_config,
             )
@@ -3010,6 +3010,81 @@ mod tests {
                 .any(|group| group.activity_ids.contains(&"a2".to_string()))
         );
         assert!(!engine.groups_are_dirty());
+    }
+
+    fn loop_track() -> Vec<GpsPoint> {
+        (0..12)
+            .map(|i| GpsPoint::new(46.0 + f64::from(i) * 0.0005, 7.0))
+            .collect()
+    }
+
+    fn match_rows_naming(engine: &PersistentEngine, id: &str) -> i64 {
+        engine
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM activity_matches WHERE activity_id = ?",
+                [id],
+                |row| row.get(0),
+            )
+            .unwrap()
+    }
+
+    #[test]
+    fn an_incremental_regroup_drops_a_removed_member_from_its_route() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        for id in ["a1", "a2", "a3"] {
+            engine
+                .add_activity(id.to_string(), loop_track(), "Ride".to_string())
+                .unwrap();
+        }
+        assert_eq!(engine.get_groups().len(), 1);
+
+        engine.remove_activity("a2").unwrap();
+        engine
+            .add_activity("a4".to_string(), loop_track(), "Ride".to_string())
+            .unwrap();
+        let groups = engine.get_groups().to_vec();
+
+        assert_eq!(groups.len(), 1);
+        let mut members = groups[0].activity_ids.clone();
+        members.sort();
+        assert_eq!(members, vec!["a1", "a3", "a4"]);
+        let stored_count: i64 = engine
+            .db
+            .query_row(
+                "SELECT activity_count FROM route_groups WHERE id = ?",
+                [&groups[0].group_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stored_count, 3);
+        assert_eq!(match_rows_naming(&engine, "a2"), 0);
+    }
+
+    #[test]
+    fn an_incremental_regroup_picks_a_new_representative_when_the_removed_one_held_the_role() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        for id in ["a1", "a2", "a3"] {
+            engine
+                .add_activity(id.to_string(), loop_track(), "Ride".to_string())
+                .unwrap();
+        }
+        let removed = engine.get_groups()[0].representative_id.clone();
+
+        engine.remove_activity(&removed).unwrap();
+        engine
+            .add_activity("a4".to_string(), loop_track(), "Ride".to_string())
+            .unwrap();
+        let groups = engine.get_groups().to_vec();
+
+        assert_eq!(groups.len(), 1);
+        assert_ne!(groups[0].representative_id, removed);
+        assert!(
+            groups[0]
+                .activity_ids
+                .contains(&groups[0].representative_id)
+        );
+        assert_eq!(match_rows_naming(&engine, &removed), 0);
     }
 
     #[test]

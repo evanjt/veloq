@@ -48,6 +48,9 @@ mod migration_hr_zone_backfill;
 #[path = "../migration_drop_geocoding.rs"]
 mod migration_drop_geocoding;
 
+#[path = "../migration_climb_bests_spike_remeasure.rs"]
+mod migration_climb_bests_spike_remeasure;
+
 #[path = "../migration_job_runs.rs"]
 mod migration_job_runs;
 

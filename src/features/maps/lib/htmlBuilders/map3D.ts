@@ -641,8 +641,8 @@ ${visibleInsetScript()}
 
       // Click handler - posts map coordinates back to React Native
       map.on('click', function(e) {
-        // A finger covers about 30 px and a section line is a thin dash, so both
-        // queries take a box around the tap, as the 2D page does.
+        // A finger covers about 30 px and a section line is a thin dash, so every
+        // query takes a box around the tap, as the 2D page does.
         var hitR = ${SURFACE_HIT_TEST_RADIUS_PX};
         var hitBox = [[e.point.x - hitR, e.point.y - hitR], [e.point.x + hitR, e.point.y + hitR]];
         // Check if the click hit an activity point marker first (global map points)
@@ -676,7 +676,7 @@ ${visibleInsetScript()}
             return map.getLayer(id);
           });
           if (markerLayers.length > 0) {
-            var markerFeatures = map.queryRenderedFeatures(e.point, { layers: markerLayers });
+            var markerFeatures = map.queryRenderedFeatures(hitBox, { layers: markerLayers });
             if (markerFeatures && markerFeatures.length > 0) {
               var mProps = markerFeatures[0].properties;
               var markerSectionId = mProps && mProps.sectionId;

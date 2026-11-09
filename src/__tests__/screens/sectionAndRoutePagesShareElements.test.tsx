@@ -95,6 +95,7 @@ jest.mock('@/shared/ui/withScreenBoundary', () => ({
 jest.mock('@/features/settings', () => ({
   useDebugStore: (select: (state: { enabled: boolean }) => unknown) => select({ enabled: false }),
   useGpxExport: () => ({ exportGpx: jest.fn(), exporting: false }),
+  InfoButton: () => null,
 }));
 jest.mock('@/features/routes/components/RouteDetailMap', () => ({ RouteDetailMap: () => null }));
 

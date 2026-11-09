@@ -1435,9 +1435,50 @@ pub(crate) fn portion_coverage(
     if run <= 0.0 {
         return None;
     }
+    let closed = crate::persistence::haversine_distance_meters(
+        line[0].latitude,
+        line[0].longitude,
+        line[line.len() - 1].latitude,
+        line[line.len() - 1].longitude,
+    ) <= tracematch::sections::GROUND_TOL_M;
+    if closed {
+        return Some(closed_span(line, &cumulative, &track[start..end]));
+    }
     let first = progress_along(line, &cumulative, &track[start]);
     let last = progress_along(line, &cumulative, &track[end - 1]);
     Some((last - first).abs().clamp(0.0, 1.0))
+}
+
+/// The most fixes `closed_span` places along a traversal. Consecutive samples
+/// must lie less than half the line apart for a wrap to be told from a step
+/// back, which this many samples keeps for any traversal of up to 60 laps.
+const CLOSED_SPAN_SAMPLES: usize = 128;
+
+/// The share of a closed `line` that `fixes` ride round, direction ignored.
+/// The line's first and last vertex are one place, so progress is unwrapped:
+/// a step of more than half the line is the closing join crossed, not a jump.
+/// The net unwrapped progress is the ground covered, so a whole lap reads 1.0
+/// wherever it starts and whichever side of the join its ends snap to, and
+/// GPS jitter that steps forward and back cancels.
+fn closed_span(line: &[crate::GpsPoint], cumulative: &[f64], fixes: &[crate::GpsPoint]) -> f64 {
+    let samples = fixes.len().min(CLOSED_SPAN_SAMPLES);
+    let mut previous: Option<f64> = None;
+    let mut net = 0.0;
+    for k in 0..samples {
+        let at = k * (fixes.len() - 1) / (samples - 1).max(1);
+        let here = progress_along(line, cumulative, &fixes[at]);
+        if let Some(before) = previous {
+            let mut step = here - before;
+            if step > 0.5 {
+                step -= 1.0;
+            } else if step < -0.5 {
+                step += 1.0;
+            }
+            net += step;
+        }
+        previous = Some(here);
+    }
+    net.abs().clamp(0.0, 1.0)
 }
 
 /// Whether an attempt is ranked against the current activity: timed, over
@@ -2280,5 +2321,75 @@ mod tests {
         assert_eq!(count, 3);
         // 1 of 3 is slower, the tie is not
         assert!((percentile.unwrap() - 33.3333).abs() < 0.001);
+    }
+}
+
+#[cfg(test)]
+mod portion_coverage_tests {
+    use super::portion_coverage;
+    use crate::GpsPoint;
+
+    /// A square of about 400 m a side, sampled every ~10 m, as `n` fixes
+    /// starting `offset` fixes round from the south-west corner.
+    fn square(offset: usize, n: usize) -> Vec<GpsPoint> {
+        const SIDE: usize = 40;
+        const STEP: f64 = 0.0001;
+        (0..n)
+            .map(|k| {
+                let i = (offset + k) % (4 * SIDE);
+                let (side, t) = (i / SIDE, (i % SIDE) as f64 * STEP);
+                let full = SIDE as f64 * STEP;
+                let (dlat, dlng) = match side {
+                    0 => (0.0, t),
+                    1 => (t, full),
+                    2 => (full, full - t),
+                    _ => (full - t, 0.0),
+                };
+                GpsPoint {
+                    latitude: 46.2 + dlat,
+                    longitude: 7.3 + dlng,
+                    elevation: None,
+                }
+            })
+            .collect()
+    }
+
+    /// Scenario: a closed loop section ridden once round, starting at the
+    /// gate, starting mid-loop, and ending a metre short of or past the join.
+    ///
+    /// Expected behaviour: the whole lap reads as covering the loop however
+    /// the first and last fixes snap to the closing vertex.
+    #[test]
+    fn a_whole_lap_of_a_closed_loop_covers_it() {
+        let line = square(0, 161);
+        for (start, len) in [(0, 161), (0, 160), (37, 161), (37, 160), (101, 162)] {
+            let track = square(start, len);
+            let c = portion_coverage(&line, &track, 0, len as u32).unwrap();
+            assert!(c >= 0.9, "start {start} len {len}: coverage {c}");
+        }
+    }
+
+    #[test]
+    fn half_a_closed_loop_covers_about_half() {
+        let line = square(0, 161);
+        let track = square(37, 81);
+        let c = portion_coverage(&line, &track, 0, 81).unwrap();
+        assert!((c - 0.5).abs() < 0.05, "coverage {c}");
+    }
+
+    #[test]
+    fn a_lap_ridden_the_other_way_round_covers_the_loop() {
+        let line = square(0, 161);
+        let mut track = square(37, 161);
+        track.reverse();
+        let c = portion_coverage(&line, &track, 0, 161).unwrap();
+        assert!(c >= 0.9, "coverage {c}");
+    }
+
+    #[test]
+    fn an_open_line_still_reads_end_to_end() {
+        let line = square(0, 81);
+        let c = portion_coverage(&line, &line, 0, 81).unwrap();
+        assert!((c - 1.0).abs() < 1e-9, "coverage {c}");
     }
 }

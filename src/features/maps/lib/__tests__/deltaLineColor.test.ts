@@ -8,6 +8,7 @@
 
 import { deltaLineBands, lineBandExpression, noDataRanges, type LineBand } from '../deltaLineColor';
 import { colorWithOpacity, mapPalette } from '@/theme';
+import { expectValidLineProgressStep } from '../../../../__tests__/__shared__/lineProgressStep';
 
 const palette = mapPalette('light');
 const stepsOf = (bands: LineBand[] | null) => (bands ?? []).map((band) => band.step);
@@ -89,6 +90,22 @@ describe('lineBandExpression', () => {
       'step',
       ['line-progress'],
       dark.div['warm-2'],
+      1,
+      dark.div['warm-2'],
     ]);
+  });
+
+  it.each([
+    ['an attempt in one band everywhere', [0.5, -0.5, 0.2], 100, 300],
+    ['a section no longer than one split', [7], 100, 100],
+    ['a stretch with no data over the whole line', [NaN, NaN], 100, 200],
+  ])('is a step MapLibre accepts for %s', (_name, percents, splitStepM, sectionLengthM) => {
+    const bands = deltaLineBands(percents, splitStepM, sectionLengthM, 'forward')!;
+    expect(bands).toHaveLength(1);
+    const expression = lineBandExpression(bands, palette);
+    expectValidLineProgressStep(expression);
+    expect(expression[expression.length - 1]).toBe(
+      bands[0]!.step === null ? colorWithOpacity(palette.muted, 0) : palette.div[bands[0]!.step]
+    );
   });
 });

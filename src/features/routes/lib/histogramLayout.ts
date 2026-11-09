@@ -1,7 +1,8 @@
 /**
  * Pixel layout for the attempt histogram. The engine decides the bins; this
- * only places them: one bar per bin, capped and centred in its bin, where a
- * time falls on the x axis, and the integer count ticks from zero.
+ * only places them: one bar per bin, capped and centred in its bin, a time
+ * marked over the bar of the bin it falls in, and the integer count ticks
+ * from zero.
  */
 
 import { barWidthFor } from '@/shared/charts/chartMarks';
@@ -37,8 +38,10 @@ export interface HistogramLayout {
   baseline: number;
   /** Integer counts from zero to the tallest bar, each with its pixel row. */
   countTicks: HistogramCountTick[];
-  /** The pixel x of a time in seconds, or null outside the binned span. */
+  /** The pixel x of a time's bin centre, or null outside the binned span. */
   xForTime: (timeSecs: number) => number | null;
+  /** The index of the bin a time falls in, or null outside the binned span. */
+  binForTime: (timeSecs: number) => number | null;
 }
 
 /** At most this many count ticks, so a tall bar does not crowd the axis. */
@@ -54,19 +57,24 @@ export function integerCountTicks(maxCount: number): number[] {
   return ticks;
 }
 
-/** Whether a time in seconds falls inside the binned span, the last bin's end included. */
-export function binsContain(histogram: FfiAttemptHistogram, timeSecs: number): boolean {
-  const span = histogram.counts.length * histogram.binWidthSecs;
-  if (!Number.isFinite(timeSecs) || span <= 0) return false;
-  const fraction = (timeSecs - histogram.startSecs) / span;
-  return fraction >= 0 && fraction <= 1;
+/**
+ * The index of the bin a time in seconds falls in. A bin includes its left edge and the
+ * last bin includes the span's end; a time outside the span has no bin.
+ */
+export function binIndexForTime(histogram: FfiAttemptHistogram, timeSecs: number): number | null {
+  const { counts, startSecs, binWidthSecs } = histogram;
+  const span = counts.length * binWidthSecs;
+  if (!Number.isFinite(timeSecs) || span <= 0) return null;
+  const offset = timeSecs - startSecs;
+  if (offset < 0 || offset > span) return null;
+  return Math.min(counts.length - 1, Math.floor(offset / binWidthSecs));
 }
 
 export function layoutHistogram(
   histogram: FfiAttemptHistogram,
   frame: HistogramFrame
 ): HistogramLayout {
-  const { counts, startSecs, binWidthSecs } = histogram;
+  const { counts } = histogram;
   const { padding } = frame;
   const plotWidth = Math.max(0, frame.width - padding.left - padding.right);
   const plotHeight = Math.max(0, frame.height - padding.top - padding.bottom);
@@ -90,16 +98,16 @@ export function layoutHistogram(
     };
   });
 
-  const span = counts.length * binWidthSecs;
-  const xForTime = (timeSecs: number) =>
-    binsContain(histogram, timeSecs)
-      ? padding.left + ((timeSecs - startSecs) / span) * plotWidth
-      : null;
+  const binForTime = (timeSecs: number) => binIndexForTime(histogram, timeSecs);
+  const xForTime = (timeSecs: number) => {
+    const bin = binForTime(timeSecs);
+    return bin === null ? null : (bars[bin]?.centre ?? null);
+  };
 
   const countTicks = integerCountTicks(Math.max(...counts, 0)).map((count) => ({
     count,
     y: baseline - (count / maxCount) * plotHeight,
   }));
 
-  return { bars, baseline, countTicks, xForTime };
+  return { bars, baseline, countTicks, xForTime, binForTime };
 }

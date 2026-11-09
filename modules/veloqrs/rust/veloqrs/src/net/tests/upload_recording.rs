@@ -459,6 +459,30 @@ fn each_answer_moves_the_ride_by_its_own_transition() {
     );
 }
 
+/// Scenario: the governor defers every send of a ride because a cooldown is
+/// running, and the ride is tried six times.
+/// Expected behaviour: a deferral costs no attempt, so the ride stays pending
+/// with no retries counted, is not marked as maybe landed, and no look for it
+/// is made.
+#[test]
+fn a_deferred_send_costs_the_ride_no_attempt() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_deferred.db");
+    insert(&ride(&dir, "r1", 1_000));
+    let fake = Fake::answering(vec![answer(FfiCallKind::RateLimited, None, None); 6]);
+
+    for _ in 0..6 {
+        let result = upload_ride("r1", false, &fake, &now);
+        assert_eq!(result.outcome, FfiUploadOutcome::Retriable);
+    }
+
+    let r1 = row("r1");
+    assert_eq!(r1.upload_status, "pending");
+    assert_eq!(r1.retry_count, 0);
+    assert!(!in_doubt("r1"));
+    assert!(fake.looked().is_empty());
+}
+
 /// Scenario: another athlete signs in while the post is in flight, so the
 /// engine refuses to send it under their credential.
 /// Expected behaviour: the ride is held for its own athlete rather than

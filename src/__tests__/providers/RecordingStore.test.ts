@@ -877,4 +877,92 @@ describe('RecordingStore', () => {
       expect(streamTotals(streams)).toEqual(totals);
     });
   });
+
+  describe('setRawLocationFix()', () => {
+    const FIX_START = 1_700_000_000_000;
+
+    // Metres north of a fixed origin, so distance between fixes is exact.
+    function rawFix(
+      metresNorth: number,
+      secondsIn: number,
+      speed: number | null
+    ): RecordingGpsPoint {
+      return {
+        latitude: 47.5 + metresNorth / 111_320,
+        longitude: 8.5,
+        altitude: 400,
+        accuracy: 5,
+        speed,
+        heading: null,
+        timestamp: FIX_START + secondsIn * 1000,
+      };
+    }
+
+    beforeEach(() => {
+      useRecordingStore.getState().startRecording('Walk', 'gps');
+    });
+
+    it('publishes the speed the receiver reported over the distance between fixes', () => {
+      useRecordingStore.getState().setRawLocationFix(rawFix(0, 0, null));
+      useRecordingStore.getState().setRawLocationFix(rawFix(3, 1, 0));
+
+      expect(useRecordingStore.getState().rawSpeed?.value).toBe(0);
+    });
+
+    it('publishes a reported speed that differs from the distance between fixes', () => {
+      useRecordingStore.getState().setRawLocationFix(rawFix(0, 0, null));
+      useRecordingStore.getState().setRawLocationFix(rawFix(3, 1, 4.5));
+
+      expect(useRecordingStore.getState().rawSpeed?.value).toBe(4.5);
+    });
+
+    it('derives the speed from the previous fix when the receiver reports none', () => {
+      useRecordingStore.getState().setRawLocationFix(rawFix(0, 0, null));
+      useRecordingStore.getState().setRawLocationFix(rawFix(3, 1, null));
+
+      expect(useRecordingStore.getState().rawSpeed?.value).toBeCloseTo(3, 1);
+    });
+
+    it('derives the speed when iOS reports an undetermined speed of -1', () => {
+      useRecordingStore.getState().setRawLocationFix(rawFix(0, 0, null));
+      useRecordingStore.getState().setRawLocationFix(rawFix(3, 1, -1));
+
+      expect(useRecordingStore.getState().rawSpeed?.value).toBeCloseTo(3, 1);
+    });
+
+    it('takes the reported speed on the first fix, which has nothing to derive from', () => {
+      useRecordingStore.getState().setRawLocationFix(rawFix(0, 0, 2));
+
+      expect(useRecordingStore.getState().rawSpeed?.value).toBe(2);
+    });
+
+    it('leaves rawSpeed unset when the first fix reports no speed', () => {
+      useRecordingStore.getState().setRawLocationFix(rawFix(0, 0, null));
+
+      expect(useRecordingStore.getState().rawSpeed).toBeNull();
+    });
+
+    it('derives from the most recent fix, whichever source its speed came from', () => {
+      useRecordingStore.getState().setRawLocationFix(rawFix(0, 0, null));
+      useRecordingStore.getState().setRawLocationFix(rawFix(3, 1, 0));
+      useRecordingStore.getState().setRawLocationFix(rawFix(9, 2, null));
+
+      expect(useRecordingStore.getState().rawSpeed?.value).toBeCloseTo(6, 1);
+    });
+
+    it('publishes a reported speed on a fix with the same timestamp as the previous one', () => {
+      useRecordingStore.getState().setRawLocationFix(rawFix(0, 0, null));
+      useRecordingStore.getState().setRawLocationFix(rawFix(0, 0, 2));
+
+      expect(useRecordingStore.getState().rawSpeed?.value).toBe(2);
+    });
+
+    it('drops a fix with no reported speed and the same timestamp as the previous one', () => {
+      useRecordingStore.getState().setRawLocationFix(rawFix(0, 0, 1));
+      useRecordingStore.getState().setRawLocationFix(rawFix(3, 0, null));
+
+      expect(useRecordingStore.getState().rawSpeed?.value).toBe(1);
+      expect(useRecordingStore.getState()._lastRawFix?.latitude).toBe(rawFix(0, 0, null).latitude);
+    });
+  });
 });

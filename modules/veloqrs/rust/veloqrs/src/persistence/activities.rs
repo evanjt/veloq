@@ -2704,7 +2704,9 @@ impl PersistentEngine {
         // gone, and the restore state keeps the previous athlete's section
         // names and activity ids. The export home and the sync history are
         // the athlete's too, and the record zip carries every settings key, so
-        // left behind they would go out in the next athlete's backup.
+        // left behind they would go out in the next athlete's backup. The
+        // Garmin pull's checkpoints describe the originals this library holds,
+        // so left behind the next pull would skip the history it lacks.
         let library_keys = [
             super::cutover::CUTOVER_KEY,
             super::cutover::CUTOVER_DIFF_KEY,
@@ -2740,7 +2742,10 @@ impl PersistentEngine {
             crate::objects::sync::WELLNESS_ANSWERED_KEY,
         ];
         let mut stmt = tx.prepare("DELETE FROM settings WHERE key = ?")?;
-        for key in library_keys {
+        for key in library_keys
+            .into_iter()
+            .chain(crate::net::garmin::pull::SETTING_KEYS)
+        {
             stmt.execute(params![key])?;
         }
         drop(stmt);
@@ -2879,6 +2884,7 @@ impl PersistentEngine {
         let activities_kept: u32 =
             tx.query_row("SELECT COUNT(*) FROM activities", [], |row| row.get(0))?;
         tx.execute("DELETE FROM processed_activities", [])?;
+        super::attempts::release_held_leases_in(&tx, self.lease_generation()?)?;
         tx.commit()?;
 
         // A removed activity stays a phantom member of a carried section
@@ -5936,6 +5942,24 @@ mod tests {
         engine.db.commit_hook(Some(|| false)).unwrap();
         engine.clear().unwrap();
         assert!(!engine.has_activity("a1"));
+    }
+
+    #[test]
+    fn clear_forgets_garmin_pull_state() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        for key in crate::net::garmin::pull::SETTING_KEYS {
+            engine.set_setting(key, "1").unwrap();
+        }
+
+        engine.clear().unwrap();
+
+        for key in crate::net::garmin::pull::SETTING_KEYS {
+            assert_eq!(
+                engine.get_setting(key).unwrap(),
+                None,
+                "{key} survived the wipe"
+            );
+        }
     }
 
     fn bounds_at(lat: f64) -> Bounds {

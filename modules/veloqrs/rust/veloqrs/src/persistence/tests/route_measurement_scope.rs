@@ -262,6 +262,85 @@ fn an_empty_scope_loads_no_track() {
     assert_eq!(percentages(&measured), percentages(&seed));
 }
 
+fn long_line(offset: f64) -> Vec<GpsPoint> {
+    (0..2_000)
+        .map(|i| {
+            let step = f64::from(i) * 0.00001;
+            GpsPoint::new(40.0 + step + offset, 7.0 + step)
+        })
+        .collect()
+}
+
+fn loads_counting(
+    groups: &[RouteGroup],
+    scope: Option<&HashSet<String>>,
+    representative_override: Option<&str>,
+) -> (HashMap<String, Vec<ActivityMatchInfo>>, usize, usize) {
+    let loads = RefCell::new(0usize);
+    let (measured, peak) = crate::test_alloc::peak_live_during(|| {
+        measure_match_percentages(
+            groups,
+            &HashMap::new(),
+            &tracematch::MatchConfig::default(),
+            |id| {
+                *loads.borrow_mut() += 1;
+                let k: f64 = id
+                    .trim_start_matches(|c: char| !c.is_ascii_digit())
+                    .parse()
+                    .unwrap();
+                Some(long_line(k * 0.00002))
+            },
+            scope,
+            representative_override,
+        )
+    });
+    (measured, loads.into_inner(), peak)
+}
+
+fn many_groups(groups: usize, members: usize) -> Vec<RouteGroup> {
+    (0..groups)
+        .map(|g| {
+            let ids: Vec<String> = (0..members).map(|m| format!("m{}", g * 1000 + m)).collect();
+            let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
+            route(&format!("r_{g}"), ids[0], &ids)
+        })
+        .collect()
+}
+
+#[test]
+fn singleton_routes_load_no_track() {
+    let groups = many_groups(200, 1);
+    let (measured, loads, _) = loads_counting(&groups, None, None);
+    assert_eq!(loads, 0);
+    assert!(
+        measured
+            .values()
+            .all(|m| m.len() == 1 && m[0].match_percentage == 100.0)
+    );
+}
+
+#[test]
+fn a_full_scope_measurement_holds_one_route_of_tracks_at_a_time() {
+    let groups = many_groups(10, 10);
+    let (measured, loads, peak) = loads_counting(&groups, None, None);
+    assert_eq!(loads, 100);
+    let one_track = 2_000 * std::mem::size_of::<GpsPoint>();
+    assert!(
+        peak < 3 * 10 * one_track,
+        "peak {peak} bytes is not bounded by one route ({} bytes of tracks)",
+        10 * one_track
+    );
+    assert!(measured.values().all(|m| m.len() == 10));
+}
+
+#[test]
+fn an_overridden_representative_loads_only_its_route() {
+    let groups = many_groups(5, 4);
+    let scope = owed(&["r_2"]);
+    let (_, loads, _) = loads_counting(&groups, Some(&scope), Some("m2001"));
+    assert_eq!(loads, 4);
+}
+
 fn percentages(matches: &HashMap<String, Vec<ActivityMatchInfo>>) -> Vec<(String, String, f64)> {
     let mut rows: Vec<(String, String, f64)> = matches
         .iter()

@@ -65,6 +65,17 @@ pub(crate) struct Activity {
     /// The recording device as a `file_id` message holds it, the profile's
     /// manufacturer and product numbers. `None` writes no `file_id`.
     pub device: Option<(u16, u16)>,
+    /// Further session messages written after the first, which is how a
+    /// multisport recording holds its later legs.
+    pub legs: Vec<Leg>,
+}
+
+/// One further session message.
+#[derive(Debug, Clone)]
+pub(crate) struct Leg {
+    pub sport: u8,
+    pub sub_sport: u8,
+    pub totals: SessionTotals,
 }
 
 impl Activity {
@@ -135,37 +146,52 @@ impl Activity {
     }
 
     fn write_session(&self, out: &mut Vec<u8>) {
-        let t = &self.totals;
+        self.write_session_message(out, true, self.sport, self.sub_sport, &self.totals);
+        for leg in &self.legs {
+            self.write_session_message(out, false, leg.sport, leg.sub_sport, &leg.totals);
+        }
+    }
+
+    fn write_session_message(
+        &self,
+        out: &mut Vec<u8>,
+        define: bool,
+        sport: u8,
+        sub_sport: u8,
+        t: &SessionTotals,
+    ) {
         let end = self.samples.last().map_or(0, |s| i64::from(s.at));
-        definition(
-            out,
-            1,
-            18,
-            &[
-                (253, 4, BASE_UINT32),
-                (2, 4, BASE_UINT32),
-                (5, 1, BASE_ENUM),
-                (6, 1, BASE_ENUM),
-                (7, 4, BASE_UINT32),
-                (8, 4, BASE_UINT32),
-                (9, 4, BASE_UINT32),
-                (11, 2, BASE_UINT16),
-                (14, 2, BASE_UINT16),
-                (15, 2, BASE_UINT16),
-                (16, 1, BASE_UINT8),
-                (17, 1, BASE_UINT8),
-                (18, 1, BASE_UINT8),
-                (19, 1, BASE_UINT8),
-                (20, 2, BASE_UINT16),
-                (21, 2, BASE_UINT16),
-                (22, 2, BASE_UINT16),
-            ],
-        );
+        if define {
+            definition(
+                out,
+                1,
+                18,
+                &[
+                    (253, 4, BASE_UINT32),
+                    (2, 4, BASE_UINT32),
+                    (5, 1, BASE_ENUM),
+                    (6, 1, BASE_ENUM),
+                    (7, 4, BASE_UINT32),
+                    (8, 4, BASE_UINT32),
+                    (9, 4, BASE_UINT32),
+                    (11, 2, BASE_UINT16),
+                    (14, 2, BASE_UINT16),
+                    (15, 2, BASE_UINT16),
+                    (16, 1, BASE_UINT8),
+                    (17, 1, BASE_UINT8),
+                    (18, 1, BASE_UINT8),
+                    (19, 1, BASE_UINT8),
+                    (20, 2, BASE_UINT16),
+                    (21, 2, BASE_UINT16),
+                    (22, 2, BASE_UINT16),
+                ],
+            );
+        }
         out.push(1);
         out.extend_from_slice(&self.fit_time(end).to_le_bytes());
         out.extend_from_slice(&self.fit_time(0).to_le_bytes());
-        out.push(self.sport);
-        out.push(self.sub_sport);
+        out.push(sport);
+        out.push(sub_sport);
         out.extend_from_slice(&scaled_u32(t.elapsed_secs.map(|v| v * 1000.0)).to_le_bytes());
         out.extend_from_slice(&scaled_u32(t.timer_secs.map(|v| v * 1000.0)).to_le_bytes());
         out.extend_from_slice(&scaled_u32(t.distance.map(|v| v * 100.0)).to_le_bytes());
@@ -282,6 +308,7 @@ pub(crate) fn outdoor_ride() -> Activity {
         sub_sport: SUB_SPORT_GENERIC,
         samples,
         device: None,
+        legs: Vec::new(),
         totals: SessionTotals {
             elapsed_secs: Some(30.0),
             timer_secs: Some(28.0),

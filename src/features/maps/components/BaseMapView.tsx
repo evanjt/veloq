@@ -146,7 +146,11 @@ export function BaseMapView({
   const systemStyle: MapStyleType = isDark ? 'dark' : 'light';
 
   const [chosenStyle, setChosenStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
-  const { drawn: mapStyle, cycle: toggleStyle } = useMapStyleToggle(chosenStyle, setChosenStyle);
+  const {
+    drawn: mapStyle,
+    next: nextStyle,
+    cycle: toggleStyle,
+  } = useMapStyleToggle(chosenStyle, setChosenStyle);
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
   const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(() => {
@@ -353,7 +357,7 @@ export function BaseMapView({
           onPress={toggleStyle}
           accessibilityLabel={t('maps.toggleStyle')}
         >
-          <MapControlButton.Glyph name={getStyleIcon(mapStyle)} />
+          <MapControlButton.Glyph name={getStyleIcon(nextStyle)} />
         </MapControlButton>
       ) : null}
 

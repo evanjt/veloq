@@ -14,6 +14,7 @@
 import { colorWithOpacity, type MapDivStep, type MapPalette } from '@/theme';
 import { divergingStep } from './divergingStep';
 import type { MapLayerSpec } from './htmlBuilders';
+import { lineProgressStep } from './lineProgressStep';
 
 /** A run of the line, as fractions of its length, in one step or with no data. */
 export interface LineBand {
@@ -76,9 +77,9 @@ export function noDataRanges(bands: readonly LineBand[] | null): [number, number
 export function lineBandExpression(bands: readonly LineBand[], palette: MapPalette): unknown[] {
   const colour = (step: MapDivStep | null) =>
     step === null ? colorWithOpacity(palette.muted, 0) : palette.div[step];
-  const expression: unknown[] = ['step', ['line-progress'], colour(bands[0]?.step ?? null)];
-  for (const band of bands.slice(1)) expression.push(band.start, colour(band.step));
-  return expression;
+  const stops: unknown[] = [];
+  for (const band of bands.slice(1)) stops.push(band.start, colour(band.step));
+  return lineProgressStep(colour(bands[0]?.step ?? null), stops);
 }
 
 /** The source holding the stretches of the line with no data, cut by `cutLineByProgress`. */

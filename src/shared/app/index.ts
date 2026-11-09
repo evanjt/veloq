@@ -33,6 +33,7 @@ export { useMetricSystem } from './useMetricSystem';
 export { useCollapsibleSections, type UseCollapsibleSections } from './useCollapsibleSections';
 export { useAthlete } from './useAthlete';
 export { useUserLocation } from './useUserLocation';
+export { requestForegroundFix, FOREGROUND_FIX_DEADLINE_MS } from './foregroundFix';
 export { useCacheDays } from './useCacheDays';
 export { useOldestActivityDate } from './useOldestActivityDate';
 export { useDonation } from './useDonation';

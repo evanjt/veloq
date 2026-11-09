@@ -127,6 +127,17 @@ describe('the tracking warning is re-decided, not latched', () => {
     );
   });
 
+  it('keeps watching the service when the foreground watch is refused', async () => {
+    (Location.watchPositionAsync as jest.Mock).mockRejectedValueOnce(
+      new Error('LocationSettingsUnsatisfiedException')
+    );
+    mockLocationServiceRunning.mockResolvedValue(false);
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    await settle();
+    await tick();
+    expect(failed()).toBe(true);
+  });
+
   it('says nothing when it cannot tell, rather than guessing', async () => {
     mockLocationServiceRunning.mockResolvedValue(null);
     useRecordingStore.getState().startRecording('Ride', 'gps');

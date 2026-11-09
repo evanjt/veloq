@@ -675,7 +675,7 @@ fn is_null_safe_with_no_engine_data_and_never_emits_a_non_finite_number() {
             trend_dir: "flat",
             verdict: "flat",
             delta_vs_yesterday: None,
-            zone: Some("greyZone"),
+            zone: None,
             text: Some("-".to_string()),
             spoken: "metrics.form".to_string(),
         }

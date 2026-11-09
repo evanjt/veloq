@@ -142,7 +142,7 @@ describe('the map control columns draw one button', () => {
           onFitAll={jest.fn()}
         />
         <ActivityMapControls
-          mapStyle="light"
+          nextStyle="light"
           onToggleStyle={jest.fn()}
           hasGradientData={false}
           gradientActive={false}

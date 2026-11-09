@@ -190,7 +190,7 @@ it('stamps a carrier whose copy reads back the same, after fetching the id it wr
 });
 
 it.each<ReadBack>(['altered', 'truncated', 'throws'])(
-  'reports a copy that reads back %s as unverified, leaves it unstamped and owed',
+  'reports a copy that reads back %s as unverified, leaves it unstamped and owed, while the other carrier settles the schedule',
   async (readBack) => {
     webdav.readBack = readBack;
 
@@ -201,8 +201,8 @@ it.each<ReadBack>(['altered', 'truncated', 'throws'])(
     expect(getDestinationLastBackup('webdav')).toBeNull();
     expect(getDestinationLastBackup('folder')).toBe(RUN_AT);
     expect(owedCarriers()).toEqual(['webdav']);
-    // Owed, so the run is not the day's backup and the next trigger retries.
-    expect(getLastBackupTimestamp()).toBeNull();
+    // The folder took the zip, so the schedule is settled. The owed carrier is retried alone.
+    expect(getLastBackupTimestamp()).toBe(RUN_AT);
     // It passes on its own, so nothing stands on the settings screen.
     expect(getBackupFailures()).toEqual({});
     expect(cacheFiles()).toEqual([]);

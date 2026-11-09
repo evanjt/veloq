@@ -200,3 +200,52 @@ describe('useLocateUser', () => {
     expect(result.current.locationLoading).toBe(false);
   });
 });
+
+describe('foreground fix ceiling', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: 1_000_000 });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('stops loading at 15 s when the fix never settles, and leaves the map where it was', async () => {
+    getPosition.mockReturnValue(new Promise(() => {}));
+    const target = fakeTarget();
+    const { result } = await renderHook(() => useLocateUser());
+
+    await act(async () => {
+      void result.current.locate(target);
+    });
+    expect(result.current.locationLoading).toBe(true);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(15_500);
+    });
+    expect(result.current.locationLoading).toBe(false);
+    expect(result.current.userLocation).toBeNull();
+    expect(target.setCamera).not.toHaveBeenCalled();
+  });
+
+  it('drops a fix that arrives after the ceiling rather than moving the camera', async () => {
+    let resolveFix: (value: unknown) => void = () => {};
+    getPosition.mockReturnValue(new Promise((resolve) => (resolveFix = resolve)));
+    const target = fakeTarget();
+    const { result } = await renderHook(() => useLocateUser());
+
+    await act(async () => {
+      void result.current.locate(target);
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(15_500);
+    });
+    await act(async () => {
+      resolveFix({ coords: { longitude: 8, latitude: 47 } });
+    });
+
+    expect(target.setCamera).not.toHaveBeenCalled();
+    expect(result.current.locationLoading).toBe(false);
+    expect(result.current.userLocation).toBeNull();
+  });
+});

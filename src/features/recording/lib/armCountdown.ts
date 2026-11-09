@@ -8,6 +8,8 @@
  * own tap and begin on arrival. Every arrival from the system, a link in
  * another app or a web page, is rewritten to carry the quick-start mark too.
  */
+import { parseSystemLink, RECORDING_ENTRY_SCREEN } from '@/shared/app/systemLink';
+
 import type { RecordingMode, RecordingStatus } from '../types';
 
 /** The query parameter every one-tap surface deep-links with. */
@@ -40,14 +42,14 @@ export function planRecordingStart(entry: {
   return entry.from === QUICKSTART_ENTRY ? 'nothing' : 'start';
 }
 
-const RECORDING_PATH = /^((?:[a-z][a-z0-9+.-]*:\/\/|\/)recording\/[^/?#]+)(?:\?([^#]*))?(#.*)?$/i;
-
-/** Marks a system-supplied recording path as a quick start, replacing any `from` it carried. */
+/**
+ * Marks a system-supplied recording path as a quick start, replacing any `from` it carried.
+ * A path the router would not open as a recording entry is returned unchanged.
+ */
 export function armSystemRecordingPath(path: string): string {
-  const match = RECORDING_PATH.exec(path);
-  if (!match) return path;
-  const [, base, query = '', hash = ''] = match;
-  const kept = query.split('&').filter((pair) => pair !== '' && pair.split('=')[0] !== 'from');
+  const link = parseSystemLink(path);
+  if (!RECORDING_ENTRY_SCREEN.test(link.screen)) return path;
+  const kept = link.query.split('&').filter((pair) => pair !== '' && pair.split('=')[0] !== 'from');
   kept.push(`from=${QUICKSTART_ENTRY}`);
-  return `${base}?${kept.join('&')}${hash}`;
+  return `${link.head}${link.screen}?${kept.join('&')}${link.hash}`;
 }

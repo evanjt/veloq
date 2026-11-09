@@ -532,7 +532,7 @@ fn outcome_of(verdict: Verdict) -> FfiSwapResult {
         Verdict::AuthExpired(d) => FfiSwapResult::with(FfiSwapOutcome::AuthExpired, d),
         Verdict::Rejected(d) => FfiSwapResult::with(FfiSwapOutcome::Refused, d),
         Verdict::OtherAthlete => FfiSwapResult::bare(FfiSwapOutcome::Failed),
-        Verdict::Network(d) | Verdict::Retriable(d) => {
+        Verdict::Network(d) | Verdict::Deferred(d) | Verdict::Retriable(d) => {
             FfiSwapResult::with(FfiSwapOutcome::Failed, d)
         }
     }

@@ -123,8 +123,8 @@ fn a_pass_asked_while_one_runs_starts_once_when_it_ends() {
 fn a_reconnect_during_a_running_pass_waits_for_it_to_end() {
     let h = harness(FfiStartOutcome::Started);
     h.service.request(range("2024-01-01", "2024-03-31"));
-    h.service.finish(PassEnd::NetworkLost);
     h.service.request(range("2024-02-01", "2024-03-31"));
+    h.service.finish(PassEnd::NetworkLost);
 
     h.service.reconnected();
     assert_eq!(
@@ -380,4 +380,70 @@ fn a_pass_asked_while_one_is_held_is_held_with_it() {
     h.service.budget_lifted();
     assert_eq!(h.started().last(), Some(&range("2023-01-01", "2026-10-27")));
     assert_eq!(h.started().len(), 2);
+}
+
+/// Scenario: the connection dropped and returned while a pass downloaded, so
+/// the online edge came before the pass ended and nothing else will announce it.
+///
+/// Expected behaviour: a pass lost to the network while the device is online
+/// asks for a wake and starts again then, with no edge and no second ask.
+#[test]
+fn a_pass_lost_to_the_network_while_online_retries_on_a_wake() {
+    let (h, wakes) = waking_harness();
+    let asked = range("2024-01-01", "2024-03-31");
+
+    h.service.request(asked.clone());
+    h.service.reconnected();
+    h.service.finish(PassEnd::NetworkLost);
+
+    assert_eq!(wakes.lock().unwrap().len(), 1, "a retry is scheduled");
+    assert!(wakes.lock().unwrap()[0] > chrono::Utc::now());
+    assert_eq!(h.started().len(), 1, "the retry waits for its wake");
+
+    h.service.budget_lifted();
+
+    assert_eq!(h.started(), vec![asked.clone(), asked]);
+}
+
+#[test]
+fn a_pass_lost_to_the_network_while_offline_waits_for_the_edge_and_not_a_wake() {
+    let (h, wakes) = waking_harness();
+    h.service.request(range("2024-01-01", "2024-03-31"));
+    h.offline.store(true, Ordering::SeqCst);
+    h.service.finish(PassEnd::NetworkLost);
+
+    assert!(wakes.lock().unwrap().is_empty());
+    h.service.budget_lifted();
+    assert_eq!(h.started().len(), 1, "offline, a wake starts nothing");
+}
+
+#[test]
+fn repeated_losses_while_online_wait_longer_each_time_until_a_pass_settles() {
+    let (h, wakes) = waking_harness();
+    h.service.request(range("2024-01-01", "2024-03-31"));
+    let lose = |h: &Harness| {
+        let before = chrono::Utc::now();
+        h.service.finish(PassEnd::NetworkLost);
+        let at = *wakes.lock().unwrap().last().expect("a wake");
+        h.service.budget_lifted();
+        at - before
+    };
+    let first = lose(&h);
+    let second = lose(&h);
+    assert!(second > first);
+    h.service.finish(PassEnd::Settled);
+    h.service.request(range("2024-01-01", "2024-03-31"));
+    let after_settle = lose(&h);
+    assert!(after_settle < second);
+}
+
+#[test]
+fn a_pass_asked_while_a_lost_one_is_owed_to_a_retry_covers_both_ranges() {
+    let (h, _wakes) = waking_harness();
+    h.service.request(range("2024-02-01", "2024-03-31"));
+    h.service.finish(PassEnd::NetworkLost);
+
+    h.service.request(range("2024-03-01", "2024-05-31"));
+
+    assert_eq!(h.started().last(), Some(&range("2024-02-01", "2024-05-31")));
 }

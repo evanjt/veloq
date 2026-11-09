@@ -218,10 +218,11 @@ export const SectionMapView = memo(function SectionMapView({
     ? getStyleForActivity(validSportType)
     : preferences.defaultStyle;
   const [currentMapStyle, setCurrentMapStyle] = useState(preferredStyle);
-  const { drawn: drawnMapStyle, cycle: toggleMapStyle } = useMapStyleToggle(
-    currentMapStyle,
-    setCurrentMapStyle
-  );
+  const {
+    drawn: drawnMapStyle,
+    next: nextMapStyle,
+    cycle: toggleMapStyle,
+  } = useMapStyleToggle(currentMapStyle, setCurrentMapStyle);
   const activityColor = getActivityColor(validSportType ?? 'Other');
   const palette = mapPalette(drawnMapStyle);
   const surfaceRef = useRef<MapSurfaceRef>(null);
@@ -723,7 +724,7 @@ export const SectionMapView = memo(function SectionMapView({
                 accessibilityLabel={t('maps.toggleStyle')}
                 onPress={toggleMapStyle}
               >
-                <MapControlButton.Glyph name={getStyleIcon(drawnMapStyle)} />
+                <MapControlButton.Glyph name={getStyleIcon(nextMapStyle)} />
               </MapControlButton>
 
               {/* 3D toggle */}

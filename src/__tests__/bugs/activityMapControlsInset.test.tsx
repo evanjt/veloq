@@ -33,7 +33,7 @@ function renderControls(handlers: Partial<React.ComponentProps<typeof ActivityMa
     <SafeAreaProvider initialMetrics={METRICS}>
       <HeaderHeightContext.Provider value={HEADER_BOTTOM}>
         <ActivityMapControls
-          mapStyle="satellite"
+          nextStyle="satellite"
           onToggleStyle={jest.fn()}
           hasGradientData={true}
           gradientActive={false}

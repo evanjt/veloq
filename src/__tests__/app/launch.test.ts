@@ -17,6 +17,7 @@ import { exportRecordBackup } from '@/features/settings/lib/backup';
 import { inBackupSlot } from '@/features/settings/lib/backupSlot';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
 
+import { PREFERENCE_KEYS } from '@/shared/storage/migrateSettingsToSqlite';
 import { initialiseApp, retryStartupAreas } from '@/shared/app/launch';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useLanguageStore } from '@/shared/app/LanguageStore';
@@ -143,6 +144,8 @@ const MIGRATED_KEYS = [
   'veloq-usage',
   'veloq-tour-offer',
   'veloq-sections-changed-dismissed',
+  '__settings_missing_preferences_migrated',
+  'veloq-terrain-override-cleanup-done',
 ];
 
 /** Waits until the launch's resumed import has reloaded the stores, or gives up after a while. */
@@ -154,7 +157,7 @@ async function resumedImportSettled(): Promise<void> {
 }
 
 function migratedLibrary(): void {
-  for (const key of MIGRATED_KEYS) stored.set(key, '{}');
+  for (const key of [...MIGRATED_KEYS, ...PREFERENCE_KEYS]) stored.set(key, '{}');
   stored.set('veloq-language-preference', 'de-DE');
   stored.set('veloq-language-follows-system-checked', '1');
 }
@@ -234,7 +237,9 @@ describe('initialiseApp', () => {
 
     await initialiseApp();
 
-    expect(getItem.mock.calls.map(([key]) => key)).toEqual(['veloq-unit-preference']);
+    expect(new Set(getItem.mock.calls.map(([key]) => key))).toEqual(
+      new Set(['veloq-unit-preference'])
+    );
   });
 
   it('starts i18n on the saved language when the read comes from the engine', async () => {
@@ -254,7 +259,8 @@ describe('initialiseApp', () => {
     await initialiseApp();
 
     const tileReads = calls.filter((c) => c.name === 'getSetting' && c.key === 'veloq-tile-cache');
-    expect(tileReads).toHaveLength(1);
+    // The settings migration checks the key once and the store reads it once.
+    expect(tileReads).toHaveLength(2);
   });
 
   it('leaves the engine closed and reads storage when there are no credentials', async () => {

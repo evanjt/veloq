@@ -286,6 +286,7 @@
     "lint:foreign-converter": "node scripts/lint-foreign-converter-cursor.mjs",
     "lint:ffi-throw-type": "node scripts/lint-ffi-throw-type.mjs",
     "lint:absent-mark": "node scripts/lint-absent-mark.mjs",
+    "lint:engine-date-reads": "node scripts/lint-engine-date-reads.mjs",
     "lint:engine-read-empty": "node scripts/lint-engine-read-empty.mjs",
     "lint:ffi-bigint": "node scripts/lint-ffi-bigint.mjs",
     "lint:ffi-twin-records": "node scripts/lint-ffi-twin-records.mjs",

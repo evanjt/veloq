@@ -295,74 +295,62 @@ impl RouteIdentity {
         self.ordinal = self.ordinal.max(max_adopted_route_ordinal(&prior));
         let np = prior.len();
         let nc = new_groups.len();
-        let prior_members: Vec<BTreeSet<String>> = prior
+        let prior_members: Vec<BTreeSet<&str>> = prior
             .iter()
-            .map(|g| g.activity_ids.iter().cloned().collect())
+            .map(|g| g.activity_ids.iter().map(String::as_str).collect())
             .collect();
-        let new_members: Vec<BTreeSet<String>> = new_groups
+        let new_members: Vec<BTreeSet<&str>> = new_groups
             .iter()
-            .map(|g| g.activity_ids.iter().cloned().collect())
+            .map(|g| g.activity_ids.iter().map(String::as_str).collect())
             .collect();
 
-        // Jaccard overlap of every prior/candidate pair. Disjoint pairs score 0.
-        let mut jac = vec![vec![0.0_f64; nc]; np];
-        for i in 0..np {
-            for j in 0..nc {
-                let inter = prior_members[i].intersection(&new_members[j]).count();
-                if inter == 0 {
-                    continue;
-                }
-                let uni = prior_members[i].union(&new_members[j]).count();
-                jac[i][j] = inter as f64 / uni as f64;
+        // Jaccard overlap of the pairs that share a member, per candidate and per
+        // prior, each list in ascending index order.
+        let by_candidate = overlap_scores(&prior_members, &new_members);
+        let mut by_prior: Vec<Vec<(usize, f64)>> = vec![Vec::new(); np];
+        for (j, row) in by_candidate.iter().enumerate() {
+            for &(i, score) in row {
+                by_prior[i].push((j, score));
             }
         }
 
         // Each candidate nominates the SENIOR prior it best overlaps (merge rule):
         // more overlap, then earlier first_seen, then more members, then smaller id.
-        let cand_pick: Vec<Option<usize>> = (0..nc)
-            .map(|j| {
-                let mut best: Option<usize> = None;
-                for i in 0..np {
-                    if jac[i][j] <= 0.0 {
-                        continue;
-                    }
+        let cand_pick: Vec<Option<usize>> = by_candidate
+            .iter()
+            .map(|row| {
+                let mut best: Option<(usize, f64)> = None;
+                for &(i, score) in row {
                     let take = match best {
                         None => true,
-                        Some(b) => self.senior_prior_wins(jac[i][j], i, jac[b][j], b, &prior),
+                        Some((b, bscore)) => self.senior_prior_wins(score, i, bscore, b, &prior),
                     };
                     if take {
-                        best = Some(i);
+                        best = Some((i, score));
                     }
                 }
-                best
+                best.map(|(i, _)| i)
             })
             .collect();
 
         // Each prior nominates the candidate it best overlaps (split rule): more
         // overlap, then more members, then the smaller member set, then index.
-        let prior_pick: Vec<Option<usize>> = (0..np)
-            .map(|i| {
-                let mut best: Option<usize> = None;
-                for j in 0..nc {
-                    if jac[i][j] <= 0.0 {
-                        continue;
-                    }
+        let prior_pick: Vec<Option<usize>> = by_prior
+            .iter()
+            .map(|row| {
+                let mut best: Option<(usize, f64)> = None;
+                for &(j, score) in row {
                     let take = match best {
                         None => true,
-                        Some(b) => better_candidate(
-                            jac[i][j],
-                            &new_members[j],
-                            j,
-                            jac[i][b],
-                            &new_members[b],
-                            b,
-                        ),
+                        Some((b, bscore)) => {
+                            better_candidate(score, &new_members[j], j, bscore, &new_members[b], b)
+                        }
                     };
                     if take {
-                        best = Some(j);
+                        best = Some((j, score));
                     }
                 }
-                best
+                best.map(|(j, _)| j)
             })
             .collect();
 
@@ -386,7 +374,9 @@ impl RouteIdentity {
             let Some(i) = carrier_of[j] else { continue };
             let stable_id = prior[i].group_id.clone();
             let mut g = new_groups[j].clone();
-            if chosen.contains(&stable_id) && new_members[j].contains(&prior[i].representative_id) {
+            if chosen.contains(&stable_id)
+                && new_members[j].contains(prior[i].representative_id.as_str())
+            {
                 g.representative_id = prior[i].representative_id.clone();
             }
             id_map.insert(g.group_id.clone(), stable_id.clone());
@@ -453,15 +443,48 @@ impl RouteIdentity {
     }
 }
 
+/// Jaccard overlap of every prior/candidate pair that shares a member, listed
+/// per candidate in ascending prior index. A pair with no shared member is
+/// absent, so the work and the result are bounded by the shared memberships and
+/// not by the product of the two group counts.
+fn overlap_scores(
+    prior_members: &[BTreeSet<&str>],
+    new_members: &[BTreeSet<&str>],
+) -> Vec<Vec<(usize, f64)>> {
+    let mut owners: HashMap<&str, Vec<usize>> = HashMap::new();
+    for (i, members) in prior_members.iter().enumerate() {
+        for &id in members {
+            owners.entry(id).or_default().push(i);
+        }
+    }
+    new_members
+        .iter()
+        .map(|cand| {
+            let mut hits: BTreeMap<usize, usize> = BTreeMap::new();
+            for id in cand {
+                for &i in owners.get(id).into_iter().flatten() {
+                    *hits.entry(i).or_default() += 1;
+                }
+            }
+            hits.into_iter()
+                .map(|(i, inter)| {
+                    let uni = prior_members[i].len() + cand.len() - inter;
+                    (i, inter as f64 / uni as f64)
+                })
+                .collect()
+        })
+        .collect()
+}
+
 /// Whether candidate `(jac_j, mj)` at index `j` beats `(jac_b, mb)` at index `b`
 /// for a prior's split nomination: more overlap, then more members, then the
 /// smaller member set (lexicographic), then a smaller index. Total.
 fn better_candidate(
     jac_j: f64,
-    mj: &BTreeSet<String>,
+    mj: &BTreeSet<&str>,
     j: usize,
     jac_b: f64,
-    mb: &BTreeSet<String>,
+    mb: &BTreeSet<&str>,
     b: usize,
 ) -> bool {
     match jac_j.total_cmp(&jac_b) {
@@ -497,6 +520,69 @@ mod tests {
             best_pace: None,
             best_activity_id: None,
         }
+    }
+
+    fn id_sets<'a>(groups: &'a [Vec<&'a str>]) -> Vec<BTreeSet<&'a str>> {
+        groups.iter().map(|g| g.iter().copied().collect()).collect()
+    }
+
+    /// Disjoint singletons score no pairs: the result holds only the pairs that
+    /// share a member, never one entry per prior-by-candidate cell.
+    #[test]
+    fn overlap_scores_omit_disjoint_pairs() {
+        let ids: Vec<String> = (0..3000).map(|n| format!("a{n}")).collect();
+        let groups: Vec<Vec<&str>> = ids.iter().map(|s| vec![s.as_str()]).collect();
+        let sets = id_sets(&groups);
+        let scores = overlap_scores(&sets, &sets);
+        assert_eq!(scores.len(), 3000);
+        let pairs: usize = scores.iter().map(Vec::len).sum();
+        assert_eq!(pairs, 3000);
+        for (j, row) in scores.iter().enumerate() {
+            assert_eq!(row, &vec![(j, 1.0)]);
+        }
+    }
+
+    /// Two priors overlap one candidate and two candidates overlap one prior:
+    /// scores are Jaccard, listed per candidate in ascending prior index.
+    #[test]
+    fn overlap_scores_cover_merge_and_split() {
+        let priors = [vec!["a", "b"], vec!["c", "d"], vec!["e", "f", "g"]];
+        let cands = [vec!["a", "b", "c"], vec!["e", "f"], vec!["g", "x"]];
+        let scores = overlap_scores(&id_sets(&priors), &id_sets(&cands));
+        assert_eq!(scores[0], vec![(0, 2.0 / 3.0), (1, 1.0 / 4.0)]);
+        assert_eq!(scores[1], vec![(2, 2.0 / 3.0)]);
+        assert_eq!(scores[2], vec![(2, 1.0 / 4.0)]);
+    }
+
+    /// A merge and a split in one regroup resolve to the same ids the dense
+    /// scan gave: the senior prior carries the merge, the larger overlap the split.
+    #[test]
+    fn remap_resolves_merge_and_split_together() {
+        let mut identity = RouteIdentity {
+            first_seen: [
+                ("r_1".to_string(), 1u64),
+                ("r_2".to_string(), 2),
+                ("r_3".to_string(), 3),
+            ]
+            .into_iter()
+            .collect(),
+            ordinal: 3,
+        };
+        let prior = vec![
+            group("r_1", &["a", "b"]),
+            group("r_2", &["c", "d"]),
+            group("r_3", &["e", "f", "g"]),
+        ];
+        let new_groups = vec![
+            group("u1", &["a", "b", "c"]),
+            group("u2", &["e", "f"]),
+            group("u3", &["g", "x"]),
+        ];
+        let (out, map) = identity.remap(prior, new_groups, &HashSet::new());
+        assert_eq!(map["u1"], "r_1");
+        assert_eq!(map["u2"], "r_3");
+        assert_eq!(map["u3"], "r_4");
+        assert_eq!(out.len(), 3);
     }
 
     /// Crash between the group commit and the registry blob write: `route_groups`

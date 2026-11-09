@@ -69,6 +69,20 @@ function collection(features: GeoJSON.Feature[]): GeoJSON.FeatureCollection {
   return features.length === 0 ? EMPTY_FEATURE_COLLECTION : { type: 'FeatureCollection', features };
 }
 
+// Keyed on the buffer, so a knob answer that rebuilds the route list decodes
+// nothing again. The buffer is the route's own line and never changes.
+const decodedLines = new WeakMap<ArrayBuffer, LngLat[] | null>();
+
+function lineOf(encodedPolyline: ArrayBuffer): LngLat[] | null {
+  let line = decodedLines.get(encodedPolyline);
+  if (line === undefined) {
+    const points = decodeCoords(encodedPolyline);
+    line = points.length >= 2 ? points.map((p) => [p.longitude, p.latitude] as LngLat) : null;
+    decodedLines.set(encodedPolyline, line);
+  }
+  return line;
+}
+
 export function GroupingPreviewMap({
   routes,
   centre,
@@ -84,13 +98,8 @@ export function GroupingPreviewMap({
   const lines = useMemo(() => {
     const byId = new Map<string, LngLat[]>();
     for (const route of routes) {
-      const points = decodeCoords(route.encodedPolyline);
-      if (points.length >= 2) {
-        byId.set(
-          route.groupId,
-          points.map((p) => [p.longitude, p.latitude] as LngLat)
-        );
-      }
+      const line = lineOf(route.encodedPolyline);
+      if (line) byId.set(route.groupId, line);
     }
     return byId;
   }, [routes]);
@@ -151,11 +160,16 @@ export function GroupingPreviewMap({
     []
   );
 
-  // A knob move repaints the same routes and leaves the viewport alone. A new
-  // area, or the routes read for it landing, is what moves the camera.
+  // The framing is a new object on every answer, so the refit keys on its
+  // value. A knob move repaints the same routes and leaves the viewport alone.
+  // A new area, or the routes read for it landing, moves the camera.
+  const framingKey = framing ? `${framing.sw.join(',')};${framing.ne.join(',')}` : null;
+  const framedKey = useRef<string | null>(null);
   useEffect(() => {
-    if (framing) surfaceRef.current?.fitBounds(framing, spacing.lg, cameraMove.brisk);
-  }, [framing]);
+    if (!framing || framedKey.current === framingKey) return;
+    framedKey.current = framingKey;
+    surfaceRef.current?.fitBounds(framing, spacing.lg, cameraMove.brisk);
+  }, [framing, framingKey]);
 
   const area = useMemo(() => previewAreaOutline(centre), [centre]);
   const hasArea = area.features.length > 0;

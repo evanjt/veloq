@@ -20,16 +20,18 @@ export function useDrawnMapStyle(chosen: MapStyleType): MapStyleType {
 
 /**
  * The drawn style and the style toggle every map carries. The toggle steps on
- * from the style drawn, which is the one its icon names, so a tap always
- * changes the basemap on screen: offline with satellite chosen, stepping from
- * the choice would choose the theme's basemap that is already drawn. Where
- * the choice is kept, and for how long, stays with the caller.
+ * from the style drawn, so a tap always changes the basemap on screen, and it
+ * skips satellite while satellite cannot be drawn. `next` is the style a tap
+ * draws, so a toggle's glyph takes it through `getStyleIcon`. Where the choice
+ * is kept, and for how long, stays with the caller.
  */
 export function useMapStyleToggle(
   chosen: MapStyleType,
   choose: (next: MapStyleType) => void
-): { drawn: MapStyleType; cycle: () => void } {
+): { drawn: MapStyleType; next: MapStyleType; cycle: () => void } {
   const drawn = useDrawnMapStyle(chosen);
-  const cycle = useCallback(() => choose(getNextStyle(drawn)), [choose, drawn]);
-  return { drawn, cycle };
+  const isOnline = useIsOnline();
+  const next = useMemo(() => getNextStyle(drawn, { satellite: isOnline }), [drawn, isOnline]);
+  const cycle = useCallback(() => choose(next), [choose, next]);
+  return { drawn, next, cycle };
 }

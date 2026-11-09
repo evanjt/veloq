@@ -192,3 +192,29 @@ describe('location refused for good', () => {
     openSettings.mockRestore();
   });
 });
+
+describe('foreground fix ceiling', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: 1_000_000 });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('stops loading at 15 s after a stale last-known fix when the current fix never settles', async () => {
+    const yesterday = Date.now() - 24 * 60 * 60 * 1000;
+    (Location.getLastKnownPositionAsync as jest.Mock).mockResolvedValue(
+      fixAt(46.5, 6.6, yesterday)
+    );
+    (Location.getCurrentPositionAsync as jest.Mock).mockReturnValue(new Promise(() => {}));
+
+    const { result } = await renderHook(() => useUserLocation());
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(15_500);
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.location).toBeNull();
+  });
+});

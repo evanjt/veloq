@@ -76,6 +76,11 @@ function proportionalFigures(role: TextStyle): TextStyle {
   return rest;
 }
 
+/** The value as the tile prints it: the figure, then its unit after a space when there is one. */
+export function printedStatValue(value: string | number, unit?: string | undefined): string {
+  return unit ? `${value} ${unit}` : String(value);
+}
+
 function spokenDelta(delta: StatTileDelta): string {
   return composeAccessibilityLabel(delta.spoken, delta.text);
 }
@@ -100,7 +105,7 @@ export function StatTile({
   const styles = themedStyles(makeStyles, isDark);
   const isAction = onPress !== undefined && !disabled;
   const centred = align === 'center';
-  const printedValue = unit ? `${value} ${unit}` : String(value);
+  const printedValue = printedStatValue(value, unit);
   const spoken =
     accessibilityLabel ??
     composeAccessibilityLabel(label, printedValue, delta && spokenDelta(delta), caption);

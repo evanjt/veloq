@@ -1415,7 +1415,9 @@ impl PersistentEngine {
             .collect::<rusqlite::Result<_>>()?
         };
 
-        // Each member in order is tried, so a closest member with no stored
+        // Member rows and the located range are half-open: `end` is one past
+        // the last point. The section's own source columns are inclusive, so
+        // they store `end - 1`. Each member in order is tried, so a closest member with no stored
         // track or a slice past its end does not strand a section another
         // member can carry. A member's own slice wins; failing that, the line
         // the row holds is located in a member's track, which covers a member
@@ -1439,13 +1441,14 @@ impl PersistentEngine {
             .find_map(|(member_id, start, end, reversed)| {
                 let (_, track) = tracks.iter().find(|(id, _)| id == member_id)?;
                 let (lo, hi) = (*start as usize, *end as usize);
-                (lo <= hi && hi < track.len()).then(|| (member_id.clone(), *start, *end, *reversed))
+                (lo + 1 < hi && hi <= track.len())
+                    .then(|| (member_id.clone(), *start, *end, *reversed))
             });
         let located = || {
             let line = self.stored_section_polyline(section_id).ok()?;
             tracks.iter().find_map(|(member_id, track)| {
                 let (start, end, reversed) = geometry::locate_reference(track, &line)?;
-                Some((member_id.clone(), start, end - 1, reversed))
+                Some((member_id.clone(), start, end, reversed))
             })
         };
         let Some((new_id, start, end, reversed)) = from_slice.or_else(located) else {
@@ -1458,8 +1461,7 @@ impl PersistentEngine {
         else {
             return Ok(None);
         };
-        let Some(polyline) = geometry::slice(track, (new_id.as_str(), start, end + 1, reversed))
-        else {
+        let Some(polyline) = geometry::slice(track, (new_id.as_str(), start, end, reversed)) else {
             return Ok(None);
         };
 
@@ -1482,12 +1484,11 @@ impl PersistentEngine {
             )?;
         }
 
-        // The reference's end is half-open where the member's slice is inclusive.
         let version = self.record_section_geometry(
             section_id,
             &polyline,
             true,
-            Some((new_id.as_str(), start, end + 1, reversed)),
+            Some((new_id.as_str(), start, end, reversed)),
         )?;
 
         let bounds = tracematch::geo_utils::compute_bounds(&polyline);
@@ -1508,10 +1509,10 @@ impl PersistentEngine {
                 super::stamp_now(),
                 new_id,
                 start,
-                end,
+                end - 1,
                 new_id,
                 start,
-                end + 1,
+                end,
                 reversed,
                 bounds.min_lat,
                 bounds.max_lat,

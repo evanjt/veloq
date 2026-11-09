@@ -29,6 +29,8 @@ const DAYS: WellnessData[] = Array.from({ length: 30 }, (_, i) => ({
   weight: 72 + (i % 3) * 0.2,
 }));
 
+const WINDOW_COMMIT_MARK = 'wellness:window-commit';
+
 // The label and value columns the first row lays out either side of the sparkline column.
 const LABEL_SIDE = 93;
 const VALUE_SIDE = 63;
@@ -96,6 +98,32 @@ describe('wellness trends scrub', () => {
     expect(formatIn).not.toHaveBeenCalled();
     expect(sort).not.toHaveBeenCalled();
     expect(svg).toHaveBeenCalledTimes(5);
+  });
+
+  it('marks the commit of each smoothing window change, and of no scrub or mount', async () => {
+    const year = yearOfDays();
+    const built = capturePans();
+    const mark = jest.spyOn(performance, 'mark');
+    const commits = () => mark.mock.calls.filter(([name]) => name === WINDOW_COMMIT_MARK).length;
+
+    const tree = await render(
+      <WellnessTrendsChart data={year} timeRange="1y" smoothingWindow={7} />
+    );
+    await layout(tree);
+    expect(commits()).toBe(0);
+
+    await act(async () => {
+      tree.rerender(<WellnessTrendsChart data={year} timeRange="1y" smoothingWindow={21} />);
+    });
+    expect(commits()).toBe(1);
+
+    await scrub(scrubPan(built), 120, [160, 200]);
+    expect(commits()).toBe(1);
+
+    await act(async () => {
+      tree.rerender(<WellnessTrendsChart data={year} timeRange="1y" smoothingWindow={14} />);
+    });
+    expect(commits()).toBe(2);
   });
 });
 

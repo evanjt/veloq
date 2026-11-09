@@ -448,6 +448,84 @@ fn downloads_that_keep_failing_stop_the_pass() {
     assert_eq!(store.get(WATERMARK), None);
 }
 
+fn refuses_download(garmin: &Garmin, id: i64) -> httpmock::Mock<'_> {
+    garmin.server.mock(|when, then| {
+        when.method(GET)
+            .path(format!("/download-service/files/activity/{id}"));
+        then.status(404);
+    })
+}
+
+/// Scenario: a backfill month lists three rides and the middle one's download
+/// fails on every attempt in the first pass.
+///
+/// Expected behaviour: the checkpoint stays before that month, and once the
+/// download recovers the next pass stores the ride and moves on.
+#[test]
+fn a_month_with_a_failed_download_is_listed_again_by_the_next_pass() {
+    let garmin = Garmin::new();
+    garmin.lists("2026-09-25", "2026-10-25", &[]);
+    garmin.lists("2026-09-01", "2026-09-24", &[21, 22, 23]);
+    garmin.serves(21);
+    garmin.serves(23);
+    let mut failing = refuses_download(&garmin, 22);
+    garmin.lists_nothing_else();
+    let store = MemoryStore::default();
+
+    run(&garmin, &store, day(2026, 10, 25), &never()).unwrap();
+
+    assert_eq!(store.ingested(), vec![21, 23]);
+    assert_eq!(store.get(CURSOR).as_deref(), Some("2026-09-25"));
+
+    failing.delete();
+    garmin.serves(22);
+    run(&garmin, &store, day(2026, 10, 25), &never()).unwrap();
+
+    assert_eq!(store.ingested(), vec![21, 23, 22]);
+    assert!(store.get(CURSOR).unwrap().as_str() <= "2026-09-01");
+}
+
+/// Scenario: one ride in a backfill month never downloads.
+///
+/// Expected behaviour: it is tried on a bounded number of passes, then given
+/// up so the backfill moves past the month and is not stalled for good.
+#[test]
+fn a_ride_that_never_downloads_is_given_up_after_a_bounded_number_of_passes() {
+    let garmin = Garmin::new();
+    garmin.lists("2026-09-25", "2026-10-25", &[]);
+    garmin.lists("2026-09-01", "2026-09-24", &[31]);
+    let failing = refuses_download(&garmin, 31);
+    garmin.lists_nothing_else();
+    let store = MemoryStore::default();
+
+    for _ in 0..SKIPS_TO_GIVE_UP {
+        assert_eq!(
+            store.get(CURSOR).as_deref().unwrap_or("2026-09-25"),
+            "2026-09-25"
+        );
+        run(&garmin, &store, day(2026, 10, 25), &never()).unwrap();
+    }
+    assert_ne!(store.get(CURSOR).as_deref(), Some("2026-09-25"));
+    run(&garmin, &store, day(2026, 10, 25), &never()).unwrap();
+
+    failing.assert_calls(SKIPS_TO_GIVE_UP as usize);
+}
+
+/// Scenario: a ride in the forward window fails to store.
+///
+/// Expected behaviour: the watermark is not advanced past the window.
+#[test]
+fn a_forward_window_with_a_failed_download_keeps_its_watermark() {
+    let garmin = Garmin::new();
+    garmin.lists("2026-09-25", "2026-10-25", &[41]);
+    refuses_download(&garmin, 41);
+    let store = MemoryStore::with_backfill_done();
+
+    run(&garmin, &store, day(2026, 10, 25), &never()).unwrap();
+
+    assert_eq!(store.get(WATERMARK), None);
+}
+
 /// Scenario: a manual entry has no original to download.
 ///
 /// Expected behaviour: it is skipped without a request.

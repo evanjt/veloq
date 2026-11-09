@@ -204,7 +204,7 @@ pub fn holds_section_record<'a>(
 /// A lap timed on the ground always outranks an estimated one, so the
 /// estimated laps stand only in a direction that has no other. Every record
 /// figure reads this set, which is how an estimate can never take one.
-fn record_eligible_laps(
+pub(crate) fn record_eligible_laps(
     result: &crate::SectionPerformanceResult,
     reverse: bool,
 ) -> impl Iterator<Item = (&crate::SectionPerformanceRecord, &crate::SectionLap)> {

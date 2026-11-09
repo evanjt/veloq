@@ -211,7 +211,16 @@ export async function ensureLocationWatch(): Promise<boolean> {
   // The screen's own watch first. It is what the rider sees, it costs
   // milliseconds, and verifying the service can take seconds on the path where
   // it was refused, which is no reason to hold up the first fix.
-  if (appState === 'active') await startForegroundWatch();
+  // A refused watch does not stop the service. With the switch off the watch
+  // raises the system dialog, and declining it rejects the watch; the service
+  // is what keeps a pocketed ride recording.
+  if (appState === 'active') {
+    try {
+      await startForegroundWatch();
+    } catch (e) {
+      log.warn('Foreground location watch was refused, the service carries on:', e);
+    }
+  }
   await startForegroundService();
   armServiceWatch();
   return true;

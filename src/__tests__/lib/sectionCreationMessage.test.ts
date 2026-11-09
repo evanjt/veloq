@@ -1,9 +1,9 @@
 /**
  * Scenario: drawing a section fails, and the overlay tells the athlete why.
- * A missing track means waiting for the sync, a range too short means drawing
- * again, and anything else is a failure to retry.
+ * A missing track means waiting for the sync, and anything else is a failure
+ * to retry.
  *
- * Expected behaviour: each tagged reason maps to its own message, and an
+ * Expected behaviour: a tagged missing track maps to its own message, and an
  * untagged or foreign error reads as the general failure.
  */
 import { sectionCreationMessageKey } from '@/features/maps/lib/sectionCreationMessage';
@@ -15,10 +15,6 @@ function tagged(reason: string): Error {
 describe('sectionCreationMessageKey', () => {
   it('tells the athlete the track has not synced yet', () => {
     expect(sectionCreationMessageKey(tagged('noTrack'))).toBe('routes.gpsTrackNotDownloaded');
-  });
-
-  it('tells the athlete the range is too short', () => {
-    expect(sectionCreationMessageKey(tagged('tooFewPoints'))).toBe('routes.invalidSectionRange');
   });
 
   it('reads an unknown reason as the general failure', () => {

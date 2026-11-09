@@ -3,9 +3,9 @@
  * A section line there is a 2.4 px dashed stroke, so most taps missed it and
  * posted a bare map click.
  *
- * Expected behaviour: activity points and sections are both queried with a box
- * around the tap, sized by the one constant the 2D page uses, and a point still
- * wins over a section.
+ * Expected behaviour: activity points, section markers and sections are all
+ * queried with a box around the tap, sized by the one constant the 2D page uses,
+ * and a point still wins over a section.
  */
 
 import vm from 'vm';
@@ -107,7 +107,8 @@ function tap(features: Record<string, unknown[]>) {
         resize: () => {},
         queryRenderedFeatures: (geometry: unknown, opts: { layers: string[] }) => {
           queries.push({ geometry, layers: opts.layers });
-          return features[opts.layers[0]] ?? [];
+          // A single point covers less than a finger, so only a box query reaches a feature.
+          return Array.isArray(geometry) ? (features[opts.layers[0]] ?? []) : [];
         },
         getCenter: () => ({ lng: 7.448, lat: 46.949 }),
         getZoom: () => 12,
@@ -145,6 +146,15 @@ describe('the 3D page tap hit test', () => {
     const q = queries.find((x) => x.layers[0] === 'sections-layer');
     expect(q?.geometry).toEqual(box);
     expect(posted).toContainEqual({ type: 'sectionClick', sectionId: 's1' });
+  });
+
+  it('queries section markers with the box, so a tap beside a marker opens its section', () => {
+    const { queries, posted } = tap({
+      'section-marker-circle-3d': [{ properties: { sectionId: 's9' } }],
+    });
+    const q = queries.find((x) => x.layers[0] === 'section-marker-circle-3d');
+    expect(q?.geometry).toEqual(box);
+    expect(posted).toEqual([{ type: 'sectionClick', sectionId: 's9' }]);
   });
 
   it('queries activity points with a box and lets a point win over a section', () => {

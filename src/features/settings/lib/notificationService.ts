@@ -184,8 +184,14 @@ export function setupNotificationReceivedHandler(): Notifications.Subscription {
 
 // A single tap can surface through both `getLastNotificationResponseAsync`
 // (cold-start path) and `addNotificationResponseReceivedListener` (live path).
-// Track identifiers we've already routed for to avoid double-navigation.
+// A notification keeps its identifier when it is re-posted in place, so the
+// delivery date is part of the key: both paths see one delivery under one key,
+// and a later tap on the re-posted notification is a new key.
 const handledResponseIds = new Set<string>();
+
+function deliveryKey(response: Notifications.NotificationResponse): string {
+  return `${response.notification.request.identifier}:${response.notification.date}`;
+}
 
 /**
  * Route based on notification data, whether the tap happened while the app was
@@ -233,12 +239,12 @@ export function __resetHandledResponseIds(): void {
 /** Set up the notification response handler for deep linking. Call once at app startup. */
 export function setupNotificationResponseHandler(): Notifications.Subscription {
   return Notifications.addNotificationResponseReceivedListener((response) => {
-    const id = response.notification.request.identifier;
-    if (handledResponseIds.has(id)) {
-      log.log('Tap already handled via cold-start path:', id);
+    const key = deliveryKey(response);
+    if (handledResponseIds.has(key)) {
+      log.log('Tap already handled via cold-start path:', key);
       return;
     }
-    handledResponseIds.add(id);
+    handledResponseIds.add(key);
     const data = response.notification.request.content.data;
     log.log('Tap data:', JSON.stringify(data));
     // The athlete check reads the credential, which a tap can beat to memory.
@@ -257,9 +263,9 @@ export async function handleInitialNotificationResponse(): Promise<void> {
   try {
     const response = await Notifications.getLastNotificationResponseAsync();
     if (!response) return;
-    const id = response.notification.request.identifier;
-    if (handledResponseIds.has(id)) return;
-    handledResponseIds.add(id);
+    const key = deliveryKey(response);
+    if (handledResponseIds.has(key)) return;
+    handledResponseIds.add(key);
     const data = response.notification.request.content.data;
     log.log('Cold-start tap data:', JSON.stringify(data));
     await ensureCredentialsHydrated();

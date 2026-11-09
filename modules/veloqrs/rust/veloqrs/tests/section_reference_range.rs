@@ -382,3 +382,137 @@ fn re_pointing_an_auto_section_cuts_the_pass_and_writes_the_rep_triple() {
         rep_end - rep_start
     );
 }
+
+/// An auto section whose stored line is `line`, with no rows of its own.
+fn seed_auto_section(s: &Setup, line: &[GpsPoint]) {
+    let blob = veloqrs::persistence::codec::serialize_track_points(line);
+    s._raw
+        .execute(
+            "INSERT INTO sections
+                 (id, name, sport_type, section_type, polyline_blob, distance_meters,
+                  visit_count, created_at, source_activity_id, start_index, end_index,
+                  bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+             VALUES ('auto1', 'Auto 1', 'Ride', 'auto', ?, ?, 2, datetime('now'),
+                     'act_first', 0, 10, 0, 0, 0, 0)",
+            rusqlite::params![blob, tracematch::matching::calculate_route_distance(line)],
+        )
+        .expect("seed the auto section");
+}
+
+/// Writes one row for `activity_id` at `start..end`, as detection does.
+fn seed_row(s: &Setup, activity_id: &str, start: usize, end: usize) {
+    let track = s.engine.get_gps_track(activity_id).expect("track readable");
+    let distance = tracematch::matching::calculate_route_distance(&track[start..end]);
+    s._raw
+        .execute(
+            "INSERT INTO section_activities
+                 (section_id, activity_id, direction, start_index, end_index, distance_meters)
+             VALUES ('auto1', ?, 'same', ?, ?, ?)",
+            rusqlite::params![activity_id, start as i64, end as i64, distance],
+        )
+        .expect("seed the section row");
+}
+
+fn rows_for(s: &Setup, activity_id: &str) -> i64 {
+    s._raw
+        .query_row(
+            "SELECT COUNT(*) FROM section_activities WHERE section_id = 'auto1' AND activity_id = ?",
+            [activity_id],
+            |row| row.get(0),
+        )
+        .unwrap()
+}
+
+/// A ride that runs the same road twice. The second pass is sampled on a
+/// different phase, and a stretch far off the road lies between the passes.
+fn two_pass_ride() -> Vec<GpsPoint> {
+    let mut ride = track_from(46.0, 40, 7.0);
+    ride.extend((0..3).map(|k| GpsPoint::new(46.01 + k as f64 * 0.0001, 7.5)));
+    ride.extend(track_from(46.00032, 40, 7.0));
+    ride
+}
+
+/// Scenario: a ride the section already holds, with two passes of the stored
+/// line, is set as the reference. The second pass starts at a different index
+/// on the new line than on the stored one.
+/// Expected behaviour: the ride holds one row per pass of the new line.
+#[test]
+fn a_two_pass_reference_ride_holds_one_row_per_pass() {
+    let mut s = setup();
+    let stored = track_from(46.00513, 11, 7.0);
+    seed_auto_section(&s, &stored);
+    s.engine
+        .add_activity("act_b".to_string(), two_pass_ride(), "Ride".to_string())
+        .expect("add ride");
+    let track = s.engine.get_gps_track("act_b").expect("track readable");
+    let stored_passes = tracematch::track_portions(
+        "act_b",
+        &track,
+        &stored,
+        &tracematch::SectionConfig::default(),
+    );
+    assert_eq!(stored_passes.len(), 2, "fixture has two passes");
+    for pass in &stored_passes {
+        seed_row(
+            &s,
+            "act_b",
+            pass.start_index as usize,
+            pass.end_index as usize,
+        );
+    }
+
+    s.engine
+        .set_section_reference("auto1", "act_b")
+        .expect("re-point the section");
+
+    let line = s
+        .engine
+        .get_section("auto1")
+        .expect("section readable")
+        .polyline;
+    let expected = tracematch::PreparedLine::new(&line, &tracematch::SectionConfig::default())
+        .expect("new line matches")
+        .portions("act_b", &track)
+        .len() as i64;
+    assert_eq!(rows_for(&s, "act_b"), expected, "rows stacked on the pass");
+}
+
+/// Scenario: a stored line shorter than one sample step, so a pass of the ride
+/// is longer than three times it and the 3x guard keeps the stored line.
+/// Expected behaviour: the guard leaves a ride that already holds rows alone,
+/// so its rows are neither added to nor replaced.
+#[test]
+fn a_guarded_reference_keeps_the_rows_a_ride_holds() {
+    let mut s = setup();
+    let stored = vec![GpsPoint::new(46.00513, 7.0), GpsPoint::new(46.00524, 7.0)];
+    seed_auto_section(&s, &stored);
+    s.engine
+        .add_activity(
+            "act_b".to_string(),
+            track_from(46.0, 40, 7.0),
+            "Ride".to_string(),
+        )
+        .expect("add ride");
+    seed_row(&s, "act_b", 5, 9);
+
+    s.engine
+        .set_section_reference("auto1", "act_b")
+        .expect("re-point the section");
+
+    let (rep_start, polyline): (Option<i64>, Vec<GpsPoint>) = (
+        s._raw
+            .query_row(
+                "SELECT rep_start_index FROM sections WHERE id = 'auto1'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap(),
+        s.engine
+            .get_section("auto1")
+            .expect("section readable")
+            .polyline,
+    );
+    assert_eq!(rep_start, None, "the 3x guard did not keep the stored line");
+    assert_close(&polyline, &stored);
+    assert_eq!(rows_for(&s, "act_b"), 1, "rows stacked beside the held row");
+}

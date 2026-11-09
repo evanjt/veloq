@@ -547,19 +547,22 @@ export function statusBarStyleForMap(style: MapStyleType): 'light' | 'dark' {
   return isDarkStyle(style) ? 'light' : 'dark';
 }
 
-// Get the next style in the cycle
-export function getNextStyle(current: MapStyleType): MapStyleType {
+// Satellite is skipped while it cannot be drawn, so a tap always changes the basemap
+export function getNextStyle(
+  current: MapStyleType,
+  { satellite }: { satellite: boolean }
+): MapStyleType {
   if (current === 'light') return 'dark';
-  if (current === 'dark') return 'satellite';
+  if (current === 'dark') return satellite ? 'satellite' : 'light';
   return 'light';
 }
 
-// Get the icon name for the style toggle button (shows what you'll switch TO)
+// The toggle's glyph names the style a tap draws, so it takes that style
 export function getStyleIcon(
-  current: MapStyleType
+  target: MapStyleType
 ): 'weather-night' | 'satellite-variant' | 'weather-sunny' {
-  if (current === 'light') return 'weather-night';
-  if (current === 'dark') return 'satellite-variant';
+  if (target === 'dark') return 'weather-night';
+  if (target === 'satellite') return 'satellite-variant';
   return 'weather-sunny';
 }
 

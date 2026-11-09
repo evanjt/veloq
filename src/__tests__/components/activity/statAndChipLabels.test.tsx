@@ -50,6 +50,25 @@ describe('the stats grid card label', () => {
     );
   });
 
+  it('speaks the unit the value is printed with', () => {
+    const tree = render(
+      <StatCard
+        stat={{
+          title: 'Heart Rate',
+          value: '152',
+          unit: 'bpm',
+          context: '83% of max',
+          icon: 'heart-pulse',
+        }}
+        isDark={false}
+        onPress={() => {}}
+      />
+    );
+    expect(tree.getByRole('button').props.accessibilityLabel).toBe(
+      'Heart Rate, 152 bpm, 83% of max'
+    );
+  });
+
   it('speaks no empty context', () => {
     const tree = render(
       <StatCard

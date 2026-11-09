@@ -150,8 +150,17 @@ export function useSectionCreation({
         haptics.medium();
         return true;
       } else if (creationState === 'selectingEnd') {
+        // A section needs two points, so an end on the start's own vertex is
+        // not a selection: the tap is absorbed and the athlete picks again.
+        if (nearestIndex === startIndex) {
+          if (__DEV__) {
+            log.log('[useSectionCreation] Ignoring end tap on the start', { nearestIndex });
+          }
+          return true;
+        }
+
         // Ensure end is after start
-        if (nearestIndex <= (startIndex ?? 0)) {
+        if (nearestIndex < (startIndex ?? 0)) {
           if (__DEV__) {
             log.log('[useSectionCreation] Swapping start/end', { nearestIndex, startIndex });
           }

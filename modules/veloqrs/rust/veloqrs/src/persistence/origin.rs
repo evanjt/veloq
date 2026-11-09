@@ -150,6 +150,19 @@ pub fn intervals_upstream(key: &str, stored: Option<String>) -> Option<String> {
     }
 }
 
+/// The SQL form of [`intervals_upstream`] over an `activity_metrics m` row,
+/// for the reads that cannot call the function. The predicate holds when the
+/// row has a key that is not minted here, or when an upload stored an id for
+/// it on the activity or on its body. A minted key with neither names nothing
+/// upstream, so no download or count may treat it as owed.
+pub(crate) const NAMED_UPSTREAM_SQL: &str = "(
+    (m.activity_id NOT LIKE 'local-%' AND m.activity_id NOT LIKE 'src-%')
+    OR EXISTS (SELECT 1 FROM activities a
+               WHERE a.id = m.activity_id AND a.intervals_id IS NOT NULL)
+    OR EXISTS (SELECT 1 FROM activity_bodies ab
+               WHERE ab.activity_id = m.activity_id AND ab.intervals_id IS NOT NULL)
+)";
+
 /// The id a fetch names `key` by: the stored id, else the key.
 ///
 /// Reached only through queues whose SQL already leaves out a key minted

@@ -25,6 +25,7 @@ import { initialiseKnownSensors } from '@/features/sensors';
 import { initialiseRouteSettings } from '@/features/routes';
 import { initialiseDebugStore } from '@/features/settings/stores/DebugStore';
 import { initialiseNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
+import { reloadMapPreferences } from '@/features/settings/stores/MapPreferencesContext';
 import { initialiseNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
 import { initialiseSupportStore } from '@/shared/app/SupportStore';
 import { initialiseWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
@@ -370,6 +371,7 @@ const storeInitialisers = (): readonly (readonly [string, () => Promise<unknown>
   ['initialiseNotificationPreferences', initialiseNotificationPreferences],
   ['initialiseNotificationPrompt', initialiseNotificationPrompt],
   ['initialiseSupportStore', initialiseSupportStore],
+  ['reloadMapPreferences', reloadMapPreferences],
   ['reloadCameraOverrides', reloadCameraOverrides],
   ['reloadMapCameraState', reloadMapCameraState],
 ];

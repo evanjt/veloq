@@ -16,6 +16,7 @@ import * as Location from 'expo-location';
 import { useGpsSessionEffect } from '@/features/recording/hooks/useGpsSessionEffect';
 import { GPS_ALERT_MS, GPS_WARNING_MS } from '@/features/recording/lib/constants';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { ensureLocationWatch } from '@/features/recording/lib/recordingSession';
 
 jest.mock('expo-location', () => ({
   ...jest.requireActual('expo-location'),
@@ -103,6 +104,26 @@ describe('a ride on Android with location off', () => {
     await flush();
 
     expect(lastWarning()).toBe('recording.gpsServicesOffAndroid');
+  });
+
+  it('asks the session for the watch again once the switch is turned on', async () => {
+    await mountRide(true);
+    await flush();
+    expect(ensureLocationWatch).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(GPS_ALERT_MS);
+    });
+    await flush();
+    location.hasServicesEnabledAsync.mockResolvedValue(true);
+    await act(async () => {
+      alertButtons()
+        .find((b) => b.text === 'recording.gpsServicesTurnOn')
+        ?.onPress?.();
+    });
+    await flush();
+
+    expect(ensureLocationWatch).toHaveBeenCalledTimes(2);
   });
 
   it('offers to turn the switch on from the no-fix alert, and not the app settings', async () => {

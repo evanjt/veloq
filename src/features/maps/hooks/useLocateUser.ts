@@ -5,6 +5,7 @@
 import { useCallback, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 
+import { requestForegroundFix } from '@/shared/app/foregroundFix';
 import { askForegroundLocation } from '@/shared/app/permissions';
 import { cameraMove } from '@/theme';
 
@@ -54,10 +55,13 @@ export function useLocateUser(): UseLocateUserResult {
       if (fixIsFresh(lastFixRef.current, now)) {
         coords = lastFixRef.current.coords;
       } else {
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        coords = [location.coords.longitude, location.coords.latitude];
+        const fix = await requestForegroundFix(Location.Accuracy.Balanced);
+        if (fix === null) {
+          // The fix did not come in time: the map and the dot stay where they were.
+          setLocationLoading(false);
+          return;
+        }
+        coords = [fix.longitude, fix.latitude];
         lastFixRef.current = { coords, timestamp: now };
       }
 

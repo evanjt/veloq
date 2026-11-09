@@ -21,12 +21,12 @@ function confirmOf(locale: string): string {
 }
 
 describe('the use as reference confirm', () => {
-  it('names the line, the plot and the re-match in the source locale', () => {
+  it('names the line, the plot and the recalculated matches in the source locale', () => {
     const message = confirmOf('en-GB');
     expect(message).toMatch(/\bline\b/);
     // The plot is named as the section panel names the view.
-    expect(message).toMatch(/Ahead or behind view/);
-    expect(message).toMatch(/re-matched/);
+    expect(message).toMatch(/Ahead or behind/);
+    expect(message).toMatch(/recalculated/);
   });
 
   it.each(locales.filter((l) => !l.startsWith('en')))(

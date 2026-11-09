@@ -231,7 +231,8 @@ pub fn parse_fit_track(data: &[u8]) -> Result<Vec<crate::GpsPoint>, FitParseErro
 
 /// The track and the session totals a FIT file records, from one decode.
 ///
-/// The totals are the first session message's. A file with no session leaves
+/// The totals are every session message's, because the track is every
+/// session's. A file with no session leaves
 /// them unset rather than zero, so a caller keeps what it already had.
 pub fn parse_fit_recording(data: &[u8]) -> Result<FitRecording, FitParseError> {
     if data.is_empty() {
@@ -239,7 +240,6 @@ pub fn parse_fit_recording(data: &[u8]) -> Result<FitRecording, FitParseError> {
     }
     let records = decode(data)?;
     let mut recording = FitRecording::default();
-    let mut session_read = false;
     for record in &records {
         match record.kind() {
             fitparser::profile::MesgNum::Record => {
@@ -256,15 +256,13 @@ pub fn parse_fit_recording(data: &[u8]) -> Result<FitRecording, FitParseError> {
                     recording.track.push(crate::GpsPoint::new(lat, lng));
                 }
             }
-            fitparser::profile::MesgNum::Session if !session_read => {
-                session_read = true;
+            fitparser::profile::MesgNum::Session => {
+                let mut elapsed = None;
                 let mut max_speed = None;
                 let mut enhanced_max_speed = None;
                 for field in record.fields() {
                     match field.name() {
-                        "total_elapsed_time" => {
-                            recording.elapsed_seconds = finite_number(field.value())
-                        }
+                        "total_elapsed_time" => elapsed = finite_number(field.value()),
                         "max_speed" => max_speed = finite_number(field.value()),
                         "enhanced_max_speed" => enhanced_max_speed = finite_number(field.value()),
                         _ => {}
@@ -272,7 +270,8 @@ pub fn parse_fit_recording(data: &[u8]) -> Result<FitRecording, FitParseError> {
                 }
                 // The decoder widens a 16-bit speed into its enhanced field, so
                 // the enhanced one is the reading when both are present.
-                recording.max_speed = enhanced_max_speed.or(max_speed);
+                recording.elapsed_seconds = sum_of(recording.elapsed_seconds, elapsed);
+                recording.max_speed = max_of(recording.max_speed, enhanced_max_speed.or(max_speed));
             }
             _ => {}
         }
@@ -298,7 +297,7 @@ pub struct FitSample {
     pub power: Option<f64>,
 }
 
-/// The first session message's totals. A figure the device did not write is
+/// The session messages' totals combined. A figure the device did not write is
 /// `None`, never zero.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct FitTotals {
@@ -345,7 +344,12 @@ const MAX_UTC_OFFSET_SECS: i64 = 18 * 3600;
 
 /// The activity a FIT file records, from one decode.
 ///
-/// The totals are the first session message's, and a sensor the device had no
+/// The totals are every session message's, because the samples are: a
+/// multisport device writes one session per leg and keeps every record. Times,
+/// distance, ascent and calories add, maxima take the largest, and averages
+/// are weighted by each session's timer time. The sport is the sessions' own
+/// when they all agree and unset when they differ; the sub-sport and the start
+/// are the first session's. A sensor the device had no
 /// reading from at a second leaves that sample's field unset. A file with no
 /// start time, on its session or on any record, is an error: an activity with
 /// no date has no place in a library.
@@ -355,8 +359,7 @@ pub fn parse_fit_activity(data: &[u8]) -> Result<FitActivity, FitParseError> {
     }
     let records = decode(data)?;
     let mut activity = FitActivity::default();
-    let mut session_start = None;
-    let mut session_read = false;
+    let mut sessions = Vec::new();
     let mut clock = (None, None);
     for record in &records {
         match record.kind() {
@@ -365,10 +368,7 @@ pub fn parse_fit_activity(data: &[u8]) -> Result<FitActivity, FitParseError> {
                     activity.samples.push(sample);
                 }
             }
-            fitparser::profile::MesgNum::Session if !session_read => {
-                session_read = true;
-                session_start = read_session(record, &mut activity);
-            }
+            fitparser::profile::MesgNum::Session => sessions.push(read_session(record)),
             fitparser::profile::MesgNum::FileId if activity.device.is_none() => {
                 activity.device = device_of(record);
             }
@@ -386,6 +386,10 @@ pub fn parse_fit_activity(data: &[u8]) -> Result<FitActivity, FitParseError> {
             _ => {}
         }
     }
+    let session_start = sessions.first().and_then(|session| session.start);
+    activity.sport = common_sport(&sessions);
+    activity.sub_sport = sessions.first().and_then(|session| session.sub_sport);
+    activity.totals = combine_totals(&sessions);
     activity.start_unix = session_start
         .or_else(|| activity.samples.first().map(|s| s.timestamp))
         .ok_or_else(|| FitParseError::Decode("the file holds no start time".to_string()))?;
@@ -447,18 +451,26 @@ fn sample_of(record: &fitparser::FitDataRecord) -> Option<FitSample> {
     Some(sample)
 }
 
-/// The session's sport and totals into `activity`, answering its start.
-fn read_session(record: &fitparser::FitDataRecord, activity: &mut FitActivity) -> Option<i64> {
-    let totals = &mut activity.totals;
+/// One session message as it was written.
+#[derive(Debug, Default)]
+struct SessionReading {
+    start: Option<i64>,
+    sport: Option<u8>,
+    sub_sport: Option<u8>,
+    totals: FitTotals,
+}
+
+fn read_session(record: &fitparser::FitDataRecord) -> SessionReading {
+    let mut session = SessionReading::default();
+    let totals = &mut session.totals;
     let (mut max_speed, mut enhanced_max_speed) = (None, None);
     let (mut avg_speed, mut enhanced_avg_speed) = (None, None);
-    let mut start = None;
     for field in record.fields() {
         let value = field.value();
         match field.name() {
-            "start_time" => start = timestamp_of(value),
-            "sport" => activity.sport = enum_number(value),
-            "sub_sport" => activity.sub_sport = enum_number(value),
+            "start_time" => session.start = timestamp_of(value),
+            "sport" => session.sport = enum_number(value),
+            "sub_sport" => session.sub_sport = enum_number(value),
             "total_timer_time" => totals.moving_secs = finite_number(value),
             "total_elapsed_time" => totals.elapsed_secs = finite_number(value),
             "total_distance" => totals.distance = finite_number(value),
@@ -478,7 +490,82 @@ fn read_session(record: &fitparser::FitDataRecord, activity: &mut FitActivity) -
     }
     totals.avg_speed = enhanced_avg_speed.or(avg_speed);
     totals.max_speed = enhanced_max_speed.or(max_speed);
-    start
+    session
+}
+
+/// The sport every session shares, `None` when they differ or there are none.
+fn common_sport(sessions: &[SessionReading]) -> Option<u8> {
+    let first = sessions.first()?.sport;
+    sessions
+        .iter()
+        .all(|session| session.sport == first)
+        .then_some(first)
+        .flatten()
+}
+
+/// The sum of two readings, unset only when neither exists.
+fn sum_of(a: Option<f64>, b: Option<f64>) -> Option<f64> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a + b),
+        (a, b) => a.or(b),
+    }
+}
+
+/// The larger of two readings, unset only when neither exists.
+fn max_of(a: Option<f64>, b: Option<f64>) -> Option<f64> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a.max(b)),
+        (a, b) => a.or(b),
+    }
+}
+
+/// The mean of a figure over the sessions that carry it, weighted by timer
+/// time. Sessions with no timer time weigh equally when none has any.
+fn weighted_mean(
+    sessions: &[SessionReading],
+    figure: impl Fn(&FitTotals) -> Option<f64>,
+) -> Option<f64> {
+    let carried: Vec<(f64, f64)> = sessions
+        .iter()
+        .filter_map(|session| {
+            figure(&session.totals).map(|value| (value, session.totals.moving_secs.unwrap_or(0.0)))
+        })
+        .collect();
+    let weight: f64 = carried.iter().map(|(_, w)| w).sum();
+    if weight > 0.0 {
+        Some(carried.iter().map(|(v, w)| v * w).sum::<f64>() / weight)
+    } else if carried.is_empty() {
+        None
+    } else {
+        Some(carried.iter().map(|(v, _)| v).sum::<f64>() / carried.len() as f64)
+    }
+}
+
+fn combine_totals(sessions: &[SessionReading]) -> FitTotals {
+    let sum = |figure: fn(&FitTotals) -> Option<f64>| {
+        sessions
+            .iter()
+            .fold(None, |acc, s| sum_of(acc, figure(&s.totals)))
+    };
+    let max = |figure: fn(&FitTotals) -> Option<f64>| {
+        sessions
+            .iter()
+            .fold(None, |acc, s| max_of(acc, figure(&s.totals)))
+    };
+    FitTotals {
+        moving_secs: sum(|t| t.moving_secs),
+        elapsed_secs: sum(|t| t.elapsed_secs),
+        distance: sum(|t| t.distance),
+        ascent: sum(|t| t.ascent),
+        avg_speed: weighted_mean(sessions, |t| t.avg_speed),
+        max_speed: max(|t| t.max_speed),
+        avg_heart_rate: weighted_mean(sessions, |t| t.avg_heart_rate),
+        max_heart_rate: max(|t| t.max_heart_rate),
+        avg_cadence: weighted_mean(sessions, |t| t.avg_cadence),
+        avg_power: weighted_mean(sessions, |t| t.avg_power),
+        max_power: max(|t| t.max_power),
+        calories: sum(|t| t.calories),
+    }
 }
 
 fn timestamp_of(value: &fitparser::Value) -> Option<i64> {
@@ -1099,6 +1186,73 @@ pub(crate) mod tests {
         assert_eq!(recording.track.len(), 30);
         assert_eq!(recording.elapsed_seconds, Some(58.0));
         assert_eq!(recording.max_speed, Some(5.0));
+    }
+
+    fn leg(sport: u8, elapsed: f64, timer: f64, distance: f64) -> crate::fit_synthetic::Leg {
+        crate::fit_synthetic::Leg {
+            sport,
+            sub_sport: 0,
+            totals: crate::fit_synthetic::SessionTotals {
+                elapsed_secs: Some(elapsed),
+                timer_secs: Some(timer),
+                distance: Some(distance),
+                ascent: Some(40),
+                max_speed: Some(3.0),
+                max_heart_rate: Some(170),
+                avg_heart_rate: Some(150),
+                calories: Some(100),
+                ..Default::default()
+            },
+        }
+    }
+
+    /// Scenario: a device writes a multisport as one Session per leg, with
+    /// every Record kept.
+    ///
+    /// Expected behaviour: the totals are every session's, and the sport is
+    /// unset where the sessions differ.
+    #[test]
+    fn a_multisport_fit_totals_every_session_and_has_no_single_sport() {
+        let mut file = crate::fit_synthetic::outdoor_ride();
+        file.sport = 5;
+        file.totals = leg(5, 1800.0, 1700.0, 1500.0).totals;
+        file.totals.max_speed = Some(1.5);
+        file.totals.max_heart_rate = Some(160);
+        file.totals.avg_heart_rate = Some(130);
+        file.legs = vec![leg(1, 3000.0, 2900.0, 10_000.0)];
+        let data = file.to_fit();
+
+        let activity = super::parse_fit_activity(&data).unwrap();
+        assert_eq!(activity.sport, None);
+        assert_eq!(activity.totals.distance, Some(11_500.0));
+        assert_eq!(activity.totals.elapsed_secs, Some(4800.0));
+        assert_eq!(activity.totals.moving_secs, Some(4600.0));
+        assert_eq!(activity.totals.ascent, Some(80.0));
+        assert_eq!(activity.totals.calories, Some(200.0));
+        assert_eq!(activity.totals.max_speed, Some(3.0));
+        assert_eq!(activity.totals.max_heart_rate, Some(170.0));
+        let weighted = (130.0 * 1700.0 + 150.0 * 2900.0) / 4600.0;
+        let avg = activity.totals.avg_heart_rate.unwrap();
+        assert!((avg - weighted).abs() < 0.01, "{avg} vs {weighted}");
+        assert_eq!(activity.totals.avg_power, None);
+
+        let recording = super::parse_fit_recording(&data).unwrap();
+        assert_eq!(recording.elapsed_seconds, Some(4800.0));
+        assert_eq!(recording.max_speed, Some(3.0));
+    }
+
+    /// Scenario: a device splits one run into two sessions.
+    ///
+    /// Expected behaviour: it stays a run, with the summed distance.
+    #[test]
+    fn two_sessions_of_one_sport_keep_that_sport() {
+        let mut file = crate::fit_synthetic::outdoor_ride();
+        file.sport = 1;
+        file.totals = leg(1, 1000.0, 900.0, 3000.0).totals;
+        file.legs = vec![leg(1, 2000.0, 1900.0, 5000.0)];
+        let activity = super::parse_fit_activity(&file.to_fit()).unwrap();
+        assert_eq!(activity.sport, Some(1));
+        assert_eq!(activity.totals.distance, Some(8000.0));
     }
 
     #[test]

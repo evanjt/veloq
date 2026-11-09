@@ -33,6 +33,20 @@ describe('a lane readout', () => {
     });
   });
 
+  it('reads a zero gain at rest as a signed zero, not the absent mark', () => {
+    expect(laneReadout(CHART_CONFIGS.elevation, altitude, null, true, 0).value).toBe('+0');
+  });
+
+  it('reads the absent mark as the gain when the activity has no stored gain', () => {
+    for (const gain of [null, undefined, NaN]) {
+      expect(laneReadout(CHART_CONFIGS.elevation, altitude, null, true, gain)).toEqual({
+        mark: 'gain',
+        value: ABSENT,
+        unit: 'm',
+      });
+    }
+  });
+
   it('converts the gain for an imperial athlete', () => {
     expect(laneReadout(CHART_CONFIGS.elevation, altitude, null, false, 40)).toEqual({
       mark: 'gain',

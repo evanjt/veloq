@@ -79,6 +79,9 @@ struct PassState {
     owed_to_budget: Option<PassRange>,
     /// When that hold lifts.
     held_until: Option<DateTime<Utc>>,
+    /// How many passes in a row ended on the network while the device was
+    /// online, which sets how long the next retry waits.
+    lost_online: u32,
 }
 
 impl PassState {
@@ -99,6 +102,17 @@ fn owe_into(slot: &mut Option<PassRange>, range: PassRange) {
         Some(earlier) => earlier.widened(range),
         None => range,
     });
+}
+
+/// How long the first retry waits after a pass is lost to the network while
+/// the device is online. Each further loss in a row doubles it, up to the cap.
+const RETRY_BASE: chrono::Duration = chrono::Duration::seconds(15);
+const RETRY_CAP: chrono::Duration = chrono::Duration::minutes(5);
+
+/// How long to wait before retrying after `losses` online losses in a row.
+fn retry_delay(losses: u32) -> chrono::Duration {
+    let doublings = losses.saturating_sub(1).min(10);
+    (RETRY_BASE * 2_i32.pow(doublings)).min(RETRY_CAP)
 }
 
 /// How a pass ended, which decides what starts it again.
@@ -153,7 +167,7 @@ impl GpsPassService {
     /// holds one back and this one starts with it; `Offline` means it starts
     /// when the connection returns.
     pub(crate) fn request(&self, range: PassRange) -> PassStart {
-        let taken = {
+        let (range, taken) = {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
             if inner.running.is_some() {
                 owe_into(&mut inner.owed, range);
@@ -169,7 +183,14 @@ impl GpsPassService {
                 owe_into(&mut inner.owed_to_reconnect, range);
                 return PassStart::refused(FfiStartOutcome::Offline);
             }
-            inner.take_slot(range.clone())
+            // The ask starts now, so a pass the connection cost joins it
+            // rather than waiting for an edge that may not come.
+            let range = match inner.owed_to_reconnect.take() {
+                Some(lost) => lost.widened(range),
+                None => range,
+            };
+            let taken = inner.take_slot(range.clone());
+            (range, taken)
         };
         self.begin(range, taken)
     }
@@ -214,14 +235,26 @@ impl GpsPassService {
     /// The running pass ended. One the connection cost is owed again on the
     /// online edge, and one the budget held back when the hold lifts, which
     /// asks for a wake then.
+    ///
+    /// One the connection cost while the device reads as online has no edge
+    /// coming, so it also asks for a wake after a delay that doubles with each
+    /// loss in a row.
     pub(crate) fn finish(&self, end: PassEnd) {
         let wake = {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
             let ended = inner.running.take();
+            if !matches!(end, PassEnd::NetworkLost) {
+                inner.lost_online = 0;
+            }
             match (ended, end) {
                 (Some(ended), PassEnd::NetworkLost) => {
                     owe_into(&mut inner.owed_to_reconnect, ended.range);
-                    None
+                    if (self.offline)() {
+                        None
+                    } else {
+                        inner.lost_online += 1;
+                        Some(Utc::now() + retry_delay(inner.lost_online))
+                    }
                 }
                 (Some(ended), PassEnd::HeldUntil(until)) => {
                     owe_into(&mut inner.owed_to_budget, ended.range);
@@ -237,14 +270,20 @@ impl GpsPassService {
         self.start_owed();
     }
 
-    /// The hold on a held pass has lifted: it joins the owed pass and starts
-    /// when the slot is free. One that comes too early is held again by the
+    /// A wake came: the hold on a held pass has lifted, or a retry is due. Each
+    /// joins the owed pass and starts when the slot is free; a retry waits for
+    /// the connection while the device is offline. One that comes too early is held again by the
     /// budget, which asks for the next wake.
     pub(crate) fn budget_lifted(&self) {
         {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
             inner.held_until = None;
             if let Some(range) = inner.owed_to_budget.take() {
+                owe_into(&mut inner.owed, range);
+            }
+            if !(self.offline)()
+                && let Some(range) = inner.owed_to_reconnect.take()
+            {
                 owe_into(&mut inner.owed, range);
             }
         }

@@ -56,7 +56,7 @@ fn engine_with_section(
         .find(|(id, _, _, _)| id == &anchor)
         .expect("the anchor is a member");
     let polyline = engine.get_gps_track(anchor).expect("anchor track")
-        [*a_start as usize..=*a_end as usize]
+        [*a_start as usize..*a_end as usize]
         .to_vec();
     let blob = veloqrs::persistence::codec::serialize_track_points(&polyline);
 
@@ -75,10 +75,10 @@ fn engine_with_section(
                 members.len() as u32,
                 anchor,
                 a_start,
-                a_end,
+                a_end - 1,
                 anchor,
                 a_start,
-                a_end + 1
+                a_end
             ],
         )
         .expect("seed the section");
@@ -124,7 +124,7 @@ fn the_reference_moves_to_the_member_whose_pass_is_closest_in_length() {
     assert_eq!(moved.as_deref(), Some("close"));
     let (activity, start, end) = anchor_of(&conn(&dir));
     assert_eq!(activity.as_deref(), Some("close"));
-    assert_eq!((start, end), (Some(12), Some(42)));
+    assert_eq!((start, end), (Some(12), Some(41)));
 }
 
 /// Deterministic and reproducible: two members equally close break on the id.
@@ -214,7 +214,7 @@ fn the_line_becomes_the_new_members_own_slice_and_the_old_one_is_kept() {
         .reanchor_section_reference("s1", "gone", None)
         .expect("re-anchor");
 
-    let expected = engine.get_gps_track("close").expect("track")[12..=42].to_vec();
+    let expected = engine.get_gps_track("close").expect("track")[12..42].to_vec();
     let stored = engine.get_section("s1").expect("section").polyline;
     assert_eq!(stored.len(), expected.len());
     assert_eq!(stored.first(), expected.first());
@@ -244,7 +244,8 @@ fn reference_of(conn: &Connection) -> (Option<String>, Option<u32>, Option<u32>,
 }
 
 /// The reference triple is what the line rebuilds from, so it moves with the
-/// anchor, and its end is half-open where the anchor's is inclusive.
+/// anchor, and its end is half-open where the anchor's is inclusive. Member
+/// rows are half-open, so the stored end is the member's end as written.
 #[test]
 fn the_reference_triple_follows_the_new_anchor_half_open() {
     let dir = TempDir::new().expect("tempdir");
@@ -263,7 +264,7 @@ fn the_reference_triple_follows_the_new_anchor_half_open() {
         (
             Some("close".to_string()),
             Some(12),
-            Some(43),
+            Some(42),
             Some("exact".to_string())
         )
     );
@@ -279,8 +280,8 @@ fn the_outgoing_line_survives_the_delete_and_the_new_version_reverts_whole() {
         "gone",
         &[("gone", 10, 40, 1000.0), ("close", 12, 42, 1000.0)],
     );
-    let old_line = engine.get_gps_track("gone").expect("track")[10..=40].to_vec();
-    let new_line = engine.get_gps_track("close").expect("track")[12..=42].to_vec();
+    let old_line = engine.get_gps_track("gone").expect("track")[10..40].to_vec();
+    let new_line = engine.get_gps_track("close").expect("track")[12..42].to_vec();
 
     engine
         .reanchor_section_reference("s1", "gone", None)
@@ -298,7 +299,7 @@ fn the_outgoing_line_survives_the_delete_and_the_new_version_reverts_whole() {
     engine
         .revert_section_to_version("s1", newest)
         .expect("revert to the re-anchor version");
-    assert_eq!(reference_of(&conn(&dir)).2, Some(43));
+    assert_eq!(reference_of(&conn(&dir)).2, Some(42));
     let reverted = engine.get_section("s1").expect("section").polyline;
     assert_eq!(reverted, new_line);
 
@@ -395,7 +396,7 @@ fn engine_with_uploaded_twin(
             .execute(
                 "INSERT INTO section_activities
                      (section_id, activity_id, start_index, end_index, distance_meters, excluded)
-                 VALUES ('s1', ?, 10, 40, 1000.0, 0)",
+                 VALUES ('s1', ?, 10, 41, 1000.0, 0)",
                 params![id],
             )
             .expect("seed a member");
@@ -541,4 +542,27 @@ fn an_upload_answer_keeps_the_saved_ride_when_nothing_else_can_carry_the_line() 
     );
     assert_eq!(anchor_of(&db).0.as_deref(), Some(provisional.as_str()));
     assert!(engine.get_gps_track(&provisional).is_some());
+}
+
+/// A member whose pass runs to the last point of its stream is a usable
+/// candidate: its half-open end equals the stream length.
+#[test]
+fn a_pass_that_runs_to_the_last_point_can_carry_the_line() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = engine_with_section(
+        &dir,
+        "gone",
+        &[("gone", 10, 40, 1000.0), ("tail", 30, 60, 1000.0)],
+    );
+
+    let moved = engine
+        .reanchor_section_reference("s1", "gone", None)
+        .expect("re-anchor");
+
+    assert_eq!(moved.as_deref(), Some("tail"));
+    assert_eq!(reference_of(&conn(&dir)).2, Some(60));
+    assert_eq!(
+        engine.get_section("s1").expect("section").polyline.len(),
+        30
+    );
 }

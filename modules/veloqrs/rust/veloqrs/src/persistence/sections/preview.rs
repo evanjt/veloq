@@ -1349,12 +1349,17 @@ pub(crate) mod pooled {
         let mut source = "sections";
         let names = crate::persistence::sections::named::pooled::overlay_names(conn);
 
-        if let Ok(mut stmt) = conn.prepare(
+        // The same members the run's catalogue offers: visible rows, not the
+        // athlete's accepted sections (the run drops those from its list).
+        if let Ok(mut stmt) = conn.prepare(&format!(
             "SELECT id, bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng, visit_count,
                     sport_type
-             FROM sections WHERE section_type = 'auto' AND bounds_min_lat IS NOT NULL
+             FROM sections
+             WHERE section_type = 'auto' AND bounds_min_lat IS NOT NULL
+               AND {} AND is_user_defined = 0
              ORDER BY id",
-        ) {
+            crate::persistence::sections::queries::pooled::VISIBLE_FILTER,
+        )) {
             let rows = stmt.query_map([], |row| {
                 Ok((
                     row.get::<_, String>(0)?,

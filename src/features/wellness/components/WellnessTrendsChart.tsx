@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 import { RangeCoverage } from 'veloqrs';
@@ -54,6 +54,7 @@ import type { TimeRange } from '../hooks';
 import { wellnessRowDomain, wellnessRowMarker, wellnessRowReading, wellnessRowStats } from '../lib';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { formatDecimal } from '@/shared/format';
+import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 
 interface WellnessTrendsChartProps {
   data?: WellnessData[] | undefined;
@@ -83,6 +84,8 @@ function splitSleepDuration(hours: number): { hours: number; minutes: number } {
 }
 
 const SPARKLINE_PADDING = { left: 4, right: 4, top: 8, bottom: 8 } as const;
+
+const WINDOW_COMMIT_MARK = 'wellness:window-commit';
 
 interface MetricConfig {
   key: string;
@@ -180,6 +183,16 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     () => getEffectiveWindow(smoothingWindow, timeRange),
     [smoothingWindow, timeRange]
   );
+
+  // A window change runs the five smoothing passes below. The mark sits on the commit that
+  // shows them, so a debug frame capture can attribute the change. Dev builds only: the mark
+  // is absent from release. The first window is not a change, and a scrub leaves it unmoved.
+  const committedWindow = useRef(effectiveWindow);
+  useLayoutEffect(() => {
+    if (committedWindow.current === effectiveWindow) return;
+    committedWindow.current = effectiveWindow;
+    if (PERF_DEBUG) performance.mark(WINDOW_COMMIT_MARK);
+  }, [effectiveWindow]);
 
   // The rows in date order and each metric's unsmoothed points. Neither depends on the
   // smoothing window, so changing the window sorts nothing and re-reads no row.

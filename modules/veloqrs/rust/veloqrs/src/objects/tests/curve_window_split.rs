@@ -22,11 +22,19 @@ use crate::persistence::PersistentEngine;
 use crate::persistence::bodies::CurveKind;
 use crate::persistence::curves::pooled::{pace_curve, power_curve};
 use crate::persistence::screens::pooled::best_efforts_data;
+use crate::widget_snapshot::Clock;
 
 /// What a single-window request returns for a window with no data.
 const EMPTY_WINDOW: &str = r#"{"list":[],"activities":{}}"#;
 
 const NOW: i64 = 1_760_000_000;
+
+fn clock_at(now: i64) -> Clock {
+    Clock {
+        now_seconds: now,
+        now_wall_seconds: now,
+    }
+}
 
 struct Key {
     fixture: &'static str,
@@ -167,11 +175,11 @@ fn best_efforts_read_the_same_from_one_answer_as_from_seven() {
         assert_eq!(
             format!(
                 "{:?}",
-                best_efforts_data(&single.db, days, NOW).expect("read")
+                best_efforts_data(&single.db, days, clock_at(NOW)).expect("read")
             ),
             format!(
                 "{:?}",
-                best_efforts_data(&split.db, days, NOW).expect("read")
+                best_efforts_data(&split.db, days, clock_at(NOW)).expect("read")
             ),
             "{days} days"
         );

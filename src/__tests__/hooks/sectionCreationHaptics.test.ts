@@ -174,7 +174,7 @@ describe('submitSectionCreation', () => {
   });
 
   it('fires nothing and sets the error state when the create rejects', async () => {
-    const failure = Object.assign(new Error('engine said no'), { reason: 'tooFewPoints' });
+    const failure = new Error('engine said no');
     const { setters, createSection } = setup(jest.fn().mockRejectedValue(failure));
 
     await submitSectionCreation({
@@ -189,7 +189,7 @@ describe('submitSectionCreation', () => {
     expect(setters.setMode).not.toHaveBeenCalled();
     expect(setters.setState).toHaveBeenLastCalledWith('error');
     expect(setters.setError).toHaveBeenLastCalledWith({
-      message: 't:routes.invalidSectionRange',
+      message: 't:routes.sectionCreationFailed',
       technicalDetails: 'engine said no',
       activityId: 'a1',
       indices: { start: 2, end: 9 },

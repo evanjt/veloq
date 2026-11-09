@@ -241,8 +241,8 @@ describe('the two tap entry points', () => {
     signIn(ATHLETE);
   });
 
-  const response = (identifier: string, data: unknown) => ({
-    notification: { request: { identifier, content: { data } } },
+  const response = (identifier: string, data: unknown, date = 0) => ({
+    notification: { date, request: { identifier, content: { data } } },
   });
 
   it('agree on a wrapped payload, whichever one sees it first', async () => {
@@ -292,6 +292,35 @@ describe('the two tap entry points', () => {
     await settle();
 
     expect(router.push).toHaveBeenCalledWith('/activity/i999');
+  });
+
+  it('routes each tap on a notification re-posted under the same identifier', async () => {
+    setupNotificationResponseHandler();
+    const listener = (Notifications.addNotificationResponseReceivedListener as jest.Mock).mock
+      .calls[0][0];
+    const data = { dataString: JSON.stringify(TAP) };
+
+    listener(response('activity-i999', data, 1_000));
+    await settle();
+    listener(response('activity-i999', data, 2_000));
+    await settle();
+
+    expect(router.push).toHaveBeenCalledTimes(2);
+  });
+
+  it('routes a live tap on a re-posted notification after its cold-start tap', async () => {
+    (Notifications.getLastNotificationResponseAsync as jest.Mock).mockResolvedValue(
+      response('activity-i999', { dataString: JSON.stringify(TAP) }, 1_000)
+    );
+    await handleInitialNotificationResponse();
+
+    setupNotificationResponseHandler();
+    const listener = (Notifications.addNotificationResponseReceivedListener as jest.Mock).mock
+      .calls[0][0];
+    listener(response('activity-i999', { dataString: JSON.stringify(TAP) }, 2_000));
+    await settle();
+
+    expect(router.push).toHaveBeenCalledTimes(2);
   });
 
   /** A launch whose credential is still in the keychain, not yet in memory. */

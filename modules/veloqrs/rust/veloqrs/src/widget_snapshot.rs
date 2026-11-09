@@ -744,11 +744,13 @@ pub fn compose(
             .iter()
             .all(|s| s.is_empty());
     let impact = compose_impact(ctx, clock, fitness, fatigue, form, latest.as_ref(), w);
-    let today_zone = form_zone(
-        f64::from(form.last().copied().unwrap_or(0)),
-        Some(f64::from(fitness.last().copied().unwrap_or(0))),
-        as_percent,
-    );
+    let today_zone = form.last().and_then(|&tsb| {
+        form_zone(
+            f64::from(tsb),
+            fitness.last().map(|&f| f64::from(f)),
+            as_percent,
+        )
+    });
     let form_history = form_history(sp, as_percent);
     let chart_labels = chart_labels(
         ctx,
@@ -1091,7 +1093,7 @@ fn form_metric(as_percent: bool, w: Option<&WidgetWellnessSummary>) -> MetricVal
     let today = finite(w.and_then(|w| w.fitness).unwrap_or(0.0));
     MetricValue {
         delta_vs_yesterday: w.and_then(|w| form_change(w, as_percent)),
-        zone: form_zone(value, Some(today), as_percent),
+        zone: reading.and_then(|_| form_zone(value, Some(today), as_percent)),
         text: Some(match reading {
             None => TEXT_NONE.to_string(),
             Some(_) => form_text(value, today, as_percent),

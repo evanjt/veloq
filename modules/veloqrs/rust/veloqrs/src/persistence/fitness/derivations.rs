@@ -511,18 +511,24 @@ pub(crate) mod pooled {
             }
             debug_assert_eq!(history_times.len(), history_ids.len());
 
-            // An estimated time stands for a record only where no lap was timed
-            // on the ground, the tier the section screen and the ledger apply.
-            let timed_stands = history_estimated.iter().any(|estimated| !estimated);
-            let stands = |estimated: bool| !timed_stands || !estimated;
-            let rivals: Vec<f64> = history_times
+            // The laps that may stand for a record here: timed on the ground when
+            // any is, else the estimated ones, the same tier every record surface
+            // applies. A traversal's own row is among them, so an estimate of
+            // this activity stands only where the tier keeps estimates.
+            let laps: Vec<(&str, f64, bool)> = history_ids
                 .iter()
-                .zip(&history_ids)
-                .zip(&history_estimated)
-                .filter(|((_, id), estimated)| id.as_str() != activity_id && stands(**estimated))
-                .map(|((t, _), _)| *t)
+                .map(String::as_str)
+                .zip(history_times.iter().copied())
+                .zip(history_estimated.iter().copied())
+                .map(|((id, time), estimated)| (id, time, estimated))
                 .collect();
-            let eligible = trav.complete && stands(trav.estimated);
+            let standing = crate::persistence::records::standing_tier(laps, |lap| lap.2);
+            let rivals: Vec<f64> = standing
+                .iter()
+                .filter(|(id, _, _)| *id != activity_id)
+                .map(|(_, time, _)| *time)
+                .collect();
+            let eligible = trav.complete && (!trav.estimated || standing.iter().any(|lap| lap.2));
             let rank = if eligible {
                 crate::persistence::records::podium_place(trav.lap_time, &rivals)
             } else {
@@ -534,13 +540,7 @@ pub(crate) mod pooled {
                 && crate::persistence::records::holds_section_record(
                     trav.lap_time,
                     activity_id,
-                    history_ids
-                        .iter()
-                        .map(String::as_str)
-                        .zip(history_times.iter().copied())
-                        .zip(&history_estimated)
-                        .filter(|(_, estimated)| stands(**estimated))
-                        .map(|(lap, _)| lap),
+                    standing.iter().map(|(id, time, _)| (*id, *time)),
                 );
 
             encounters.push(FfiSectionEncounter {
@@ -2024,42 +2024,35 @@ pub(crate) fn calendar_from(
 
     let mut all_perfs: Vec<DirPerf> = Vec::new();
 
-    for record in &perf_result.records {
-        // The laps the record builder would let stand: never a `partial`
-        // overlap, never one covering too little of the section.
-        let eligible = record.laps.iter().filter(|lap| {
-            !lap.excluded
-                && lap.direction != "partial"
-                && lap.time.is_finite()
-                && lap.time > 0.0
-                && lap.counts_for_record(section_distance)
-        });
-        let mut forward: Option<DirPerf> = None;
-        let mut reverse: Option<DirPerf> = None;
-        for lap in eligible {
-            let is_reverse = lap.direction == "reverse";
-            let slot = if is_reverse {
-                &mut reverse
-            } else {
-                &mut forward
-            };
-            let perf = slot.get_or_insert_with(|| DirPerf {
-                activity_id: record.activity_id.clone(),
-                activity_name: record.activity_name.clone(),
-                activity_date: record.activity_date.0,
-                best_time: f64::MAX,
-                best_pace: 0.0,
-                is_reverse,
-                laps: 0,
-            });
+    // The laps the record judgement lets stand in each direction, timed when
+    // the direction has any and estimated only when it has none. Each record's
+    // laps in one direction are contiguous in that set, so one entry per
+    // outing and direction falls out of a single pass.
+    for reverse in [false, true] {
+        let mut outing: Option<&crate::SectionPerformanceRecord> = None;
+        for (record, lap) in crate::persistence::records::record_eligible_laps(perf_result, reverse)
+        {
+            if !outing.is_some_and(|open| std::ptr::eq(open, record)) {
+                outing = Some(record);
+                all_perfs.push(DirPerf {
+                    activity_id: record.activity_id.clone(),
+                    activity_name: record.activity_name.clone(),
+                    activity_date: record.activity_date.0,
+                    best_time: f64::MAX,
+                    best_pace: 0.0,
+                    is_reverse: reverse,
+                    laps: 0,
+                });
+            }
+            let perf = all_perfs
+                .last_mut()
+                .expect("an outing entry was pushed for this lap");
             perf.laps += 1;
             if lap.time < perf.best_time {
                 perf.best_time = lap.time;
                 perf.best_pace = lap.pace;
             }
         }
-        all_perfs.extend(forward);
-        all_perfs.extend(reverse);
     }
 
     if all_perfs.is_empty() {
@@ -3097,6 +3090,84 @@ mod tests {
             )])
             .is_none()
         );
+    }
+
+    /// Scenario: one direction holds timed traversals at 100 s in March and
+    /// 102 s in April, and an older estimated one at 96 s in June.
+    ///
+    /// Expected behaviour: the estimate stands for no calendar figure while a
+    /// timed lap stands in its direction, so the year best is the timed 100 s,
+    /// the same time and outing the section's trophy carries, and June has no
+    /// entry.
+    #[test]
+    fn a_calendar_best_is_never_an_estimate_beside_a_timed_lap() {
+        let april = MARCH + 31 * 86_400;
+        let june = MARCH + 92 * 86_400;
+        let summary = calendar(vec![
+            record(
+                "timed",
+                MARCH,
+                vec![lap("timed", "same", 100.0, 2_000.0, 1.0)],
+            ),
+            record(
+                "rival",
+                april,
+                vec![lap("rival", "same", 102.0, 2_000.0, 1.0)],
+            ),
+            record(
+                "estimate",
+                june,
+                vec![crate::SectionLap {
+                    estimated: true,
+                    ..lap("estimate", "same", 96.0, 2_000.0, 1.0)
+                }],
+            ),
+        ])
+        .expect("a calendar");
+
+        let year = &summary.years[0];
+        assert_eq!(year.forward.as_ref().map(|f| f.best_time), Some(100.0));
+        assert_eq!(
+            summary.forward_pr.as_ref().map(|f| f.best_time),
+            Some(100.0)
+        );
+        assert_eq!(
+            summary
+                .forward_pr
+                .as_ref()
+                .map(|f| f.best_activity_id.as_str()),
+            Some("timed")
+        );
+        assert_eq!(
+            year.months.iter().map(|m| m.month).collect::<Vec<_>>(),
+            vec![3, 4],
+            "the estimate-only June has no entry"
+        );
+    }
+
+    /// Scenario: a reverse direction holds only an estimated lap, beside a
+    /// forward direction with a timed one on the same outing.
+    ///
+    /// Expected behaviour: the estimate is the calendar's best in its own
+    /// direction, since the timed-first tier ranks laps within one direction.
+    #[test]
+    fn an_estimated_only_direction_keeps_its_calendar_best() {
+        let summary = calendar(vec![record(
+            "oab",
+            MARCH,
+            vec![
+                crate::SectionLap {
+                    estimated: true,
+                    ..lap("oab", "reverse", 96.0, 2_000.0, 1.0)
+                },
+                lap("oab", "same", 360.0, 2_000.0, 1.0),
+            ],
+        )])
+        .expect("a calendar");
+
+        let month = &summary.years[0].months[0];
+        assert_eq!(month.reverse.as_ref().map(|f| f.best_time), Some(96.0));
+        assert_eq!(month.forward.as_ref().map(|f| f.best_time), Some(360.0));
     }
 
     /// Scenario: a 1 km section with three full efforts carrying heart rate,

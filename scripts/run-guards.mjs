@@ -499,6 +499,13 @@ const GUARDS = [
     catches: 'a missing value printed as its own hyphen, which a screen reader announces as minus',
   },
   {
+    name: 'lint:engine-date-reads',
+    kind: 'correctness',
+    cmd: node('lint-engine-date-reads.mjs'),
+    catches:
+      'an engine wall-clock date read as a true instant, which prints the neighbouring day outside UTC',
+  },
+  {
     name: 'lint:engine-read-empty',
     kind: 'correctness',
     cmd: node('lint-engine-read-empty.mjs'),

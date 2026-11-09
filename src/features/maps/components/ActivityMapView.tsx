@@ -237,7 +237,11 @@ export const ActivityMapView = memo(function ActivityMapView({
     setUserOverride(true);
     setMapStyle(next);
   }, []);
-  const { drawn: mapStyle, cycle: toggleMapStyle } = useMapStyleToggle(chosenStyle, chooseStyle);
+  const {
+    drawn: mapStyle,
+    next: nextMapStyle,
+    cycle: toggleMapStyle,
+  } = useMapStyleToggle(chosenStyle, chooseStyle);
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
   const [is3DReady, setIs3DReady] = useState(false);
@@ -1071,7 +1075,7 @@ export const ActivityMapView = memo(function ActivityMapView({
       {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
       {showStyleToggle && !isFullscreen ? (
         <ActivityMapControls
-          mapStyle={mapStyle}
+          nextStyle={nextMapStyle}
           onToggleStyle={toggleMapStyle}
           hasGradientData={hasGradientData}
           gradientActive={gradientActive}

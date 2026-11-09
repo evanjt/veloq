@@ -1,8 +1,8 @@
 /**
  * Scenario: the histogram plot places the engine's bins and marks on a pixel frame.
  * Expected behaviour: bar heights keep the counts' ratio, a bar is at most 24 px wide and
- * centred in its bin with a gap to the next, a time maps to its bin's span, a time outside
- * the bins has no mark, and count ticks are whole numbers from zero at the baseline.
+ * centred in its bin with a gap to the next, a time marks the centre of its bin's bar, a time
+ * outside the bins has no mark, and count ticks are whole numbers from zero at the baseline.
  */
 
 import type { FfiAttemptHistogram } from 'veloqrs';
@@ -84,13 +84,41 @@ describe('layoutHistogram', () => {
     expect(x).toBeLessThan(bars[0].binRight);
   });
 
-  it('closes the last bin and refuses a time outside the bins', () => {
-    const { xForTime } = layoutHistogram(histogram([3, 2]), FRAME);
+  it('marks a time over the bar of its bin when the bars are narrower than the bins', () => {
+    const frame = {
+      width: 260,
+      height: 120,
+      padding: { left: 10, right: 10, top: 10, bottom: 10 },
+    };
+    const hist = { ...histogram([1, 2, 3, 4]), startSecs: 100, binWidthSecs: 10 };
+    const { bars, xForTime } = layoutHistogram(hist, frame);
+    const bar = bars[3];
 
-    expect(xForTime(360)).toBe(210);
+    expect(bar.width).toBeLessThan(bar.binRight - bar.binLeft);
+    const x = xForTime(130.5)!;
+    expect(x).toBeGreaterThanOrEqual(bar.x);
+    expect(x).toBeLessThanOrEqual(bar.x + bar.width);
+  });
+
+  it('marks the centre of the bin a time falls in, the last bin closed at the span end', () => {
+    const { bars, xForTime } = layoutHistogram(histogram([3, 2]), FRAME);
+
+    expect(xForTime(360)).toBe(bars[1].centre);
     expect(xForTime(299)).toBeNull();
     expect(xForTime(361)).toBeNull();
     expect(xForTime(NaN)).toBeNull();
+  });
+
+  it('assigns a time on a bin edge to the bin it opens, and the span end to the last bin', () => {
+    const hist = { ...histogram([1, 2, 3, 4]), startSecs: 100, binWidthSecs: 10 };
+    const { binForTime } = layoutHistogram(hist, FRAME);
+
+    expect(binForTime(100)).toBe(0);
+    expect(binForTime(130)).toBe(3);
+    expect(binForTime(130.5)).toBe(3);
+    expect(binForTime(140)).toBe(3);
+    expect(binForTime(99.9)).toBeNull();
+    expect(binForTime(140.1)).toBeNull();
   });
 
   it('survives a single bin and an empty one', () => {

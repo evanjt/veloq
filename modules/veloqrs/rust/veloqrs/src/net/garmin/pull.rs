@@ -20,7 +20,7 @@ use super::wire::ListedActivity;
 use super::{GarminClient, GarminError, dispatch};
 use crate::net::transport::NetError;
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
 
@@ -36,8 +36,19 @@ pub(crate) const BACKFILL_DONE: &str = "veloq-garmin-backfill-done";
 /// Rides this device has stored from Garmin's originals.
 pub(crate) const STORED: &str = "veloq-garmin-pulled";
 
+/// Rides whose original did not download or store, each with the passes that
+/// have found it so: `id=passes,id=passes`.
+pub(crate) const SKIPPED: &str = "veloq-garmin-pull-skipped";
+
 /// The settings rows a pass keeps, which a record backup leaves out.
-pub(crate) const SETTING_KEYS: [&str; 5] = [WATERMARK, CURSOR, EMPTY_MONTHS, BACKFILL_DONE, STORED];
+pub(crate) const SETTING_KEYS: [&str; 6] = [
+    WATERMARK,
+    CURSOR,
+    EMPTY_MONTHS,
+    BACKFILL_DONE,
+    STORED,
+    SKIPPED,
+];
 
 /// Days a pass looks back from its watermark.
 const OVERLAP_DAYS: i64 = 2;
@@ -51,6 +62,10 @@ const EMPTY_MONTHS_TO_STOP: u32 = 12;
 /// Downloads that fail one after another before the pass stops: Garmin is
 /// answering errors, and every further ride would only add to them.
 const FAILURES_TO_STOP: u32 = 5;
+
+/// Passes that find a ride's original unobtainable before it is given up. A
+/// file that never decodes would otherwise hold the checkpoints for good.
+const SKIPS_TO_GIVE_UP: u32 = 3;
 
 /// The longest one sleep in a hold runs, so a stop is heard within it.
 const WAIT_STEP: std::time::Duration = std::time::Duration::from_secs(30);
@@ -290,15 +305,47 @@ fn halt_of(e: &GarminError) -> Option<Halt> {
     }
 }
 
+fn read_skipped(store: &dyn PullStore) -> HashMap<i64, u32> {
+    store
+        .setting(SKIPPED)
+        .unwrap_or_default()
+        .split(',')
+        .filter_map(|pair| {
+            let (id, passes) = pair.split_once('=')?;
+            Some((id.parse().ok()?, passes.parse().ok()?))
+        })
+        .collect()
+}
+
+fn write_skipped(store: &dyn PullStore, skipped: &HashMap<i64, u32>) {
+    let mut pairs: Vec<_> = skipped.iter().collect();
+    pairs.sort();
+    let text: Vec<String> = pairs
+        .iter()
+        .map(|(id, passes)| format!("{id}={passes}"))
+        .collect();
+    store.set_setting(SKIPPED, &text.join(","));
+}
+
+/// What a window walked.
+struct Window {
+    /// Rides Garmin listed.
+    listed: usize,
+    /// Whether every ride in it is stored, held, or given up. A window that is
+    /// not settled owes a ride, so the checkpoint stays before it.
+    settled: bool,
+}
+
 /// List `from` to `to` and store the original of each ride not yet held
-/// complete. Returns how many rides Garmin listed.
+/// complete. A ride whose original does not download or store is recorded and
+/// tried again by later passes, up to [`SKIPS_TO_GIVE_UP`] of them.
 async fn pull_window(
     client: &GarminClient,
     store: &dyn PullStore,
     from: NaiveDate,
     to: NaiveDate,
     cancel: &AtomicBool,
-) -> Result<usize, Halt> {
+) -> Result<Window, Halt> {
     let day = |d: NaiveDate| d.format("%Y-%m-%d").to_string();
     let listed = match client
         .list_activities(&day(from), &day(to), dispatch())
@@ -311,15 +358,27 @@ async fn pull_window(
     let held = store.completed(&ids);
     let mut stored = 0u32;
     let mut failures = 0u32;
-    let mut outcome = Ok(listed.len());
+    let mut skipped = read_skipped(store);
+    let before = skipped.clone();
+    let mut settled = true;
+    let mut outcome = Ok(());
     for ride in &listed {
         if cancel.load(Ordering::SeqCst) {
             outcome = Err(Halt::Cancelled);
             break;
         }
         if ride.manual_activity == Some(true) || held.contains(&ride.activity_id) {
+            skipped.remove(&ride.activity_id);
             continue;
         }
+        let passes = skipped.get(&ride.activity_id).copied().unwrap_or(0);
+        if passes >= SKIPS_TO_GIVE_UP {
+            continue;
+        }
+        let mut skip = |settled: &mut bool| {
+            skipped.insert(ride.activity_id, passes + 1);
+            *settled &= passes + 1 >= SKIPS_TO_GIVE_UP;
+        };
         let fit = match client.download_original(ride.activity_id, dispatch()).await {
             Ok(fit) => fit,
             Err(e) => {
@@ -329,6 +388,7 @@ async fn pull_window(
                 }
                 log::warn!("veloqrs: [garmin] an original did not download: {e}");
                 failures += 1;
+                skip(&mut settled);
                 if failures >= FAILURES_TO_STOP {
                     outcome = Err(Halt::Unreachable);
                     break;
@@ -340,14 +400,24 @@ async fn pull_window(
             Ok(Ingested::Stored { .. }) => {
                 stored += 1;
                 failures = 0;
+                skipped.remove(&ride.activity_id);
             }
-            Ok(Ingested::AlreadyStored) => failures = 0,
+            Ok(Ingested::AlreadyStored) => {
+                failures = 0;
+                skipped.remove(&ride.activity_id);
+            }
             Err(IngestError::NoFilesRoot | IngestError::EngineClosed) => {
                 outcome = Err(Halt::Unstorable);
                 break;
             }
-            Err(e) => log::warn!("veloqrs: [garmin] an original did not store: {e}"),
+            Err(e) => {
+                log::warn!("veloqrs: [garmin] an original did not store: {e}");
+                skip(&mut settled);
+            }
         }
+    }
+    if skipped != before {
+        write_skipped(store, &skipped);
     }
     if stored > 0 {
         let before: u32 = store
@@ -356,11 +426,15 @@ async fn pull_window(
             .unwrap_or(0);
         store.set_setting(STORED, &(before + stored).to_string());
     }
-    outcome
+    outcome.map(|()| Window {
+        listed: listed.len(),
+        settled,
+    })
 }
 
 /// One pass: the days since the watermark, then the backfill as far as it
-/// goes. `Ok` is everything walked; a `Halt` leaves the checkpoints where they
+/// goes. `Ok` is everything walked, or stopped short at a window that still
+/// owes a ride; a `Halt` leaves the checkpoints where they
 /// are, and the next pass goes on from them.
 pub(crate) async fn run_pass(
     client: &GarminClient,
@@ -375,8 +449,10 @@ pub(crate) async fn run_pass(
     if date_setting(store, CURSOR).is_none() {
         set_date(store, CURSOR, from);
     }
-    pull_window(client, store, from, today, cancel).await?;
-    set_date(store, WATERMARK, today);
+    let recent = pull_window(client, store, from, today, cancel).await?;
+    if recent.settled {
+        set_date(store, WATERMARK, today);
+    }
     backfill(client, store, cancel).await
 }
 
@@ -399,8 +475,11 @@ async fn backfill(
             store.set_setting(BACKFILL_DONE, "1");
             break;
         }
-        let listed = pull_window(client, store, start, end, cancel).await?;
-        let empty = if listed == 0 {
+        let window = pull_window(client, store, start, end, cancel).await?;
+        if !window.settled {
+            return Ok(());
+        }
+        let empty = if window.listed == 0 {
             store
                 .setting(EMPTY_MONTHS)
                 .and_then(|n| n.parse().ok())

@@ -770,7 +770,7 @@ impl SectionManager {
             use crate::persistence::sections::ranking::pooled as ranking;
             let names = named::pooled::overlay_names(conn);
             let candidates = ranking::workout_candidates(conn, &sport_type, limit, &names);
-            ranking::workout_sections(candidates, |id| {
+            ranking::workout_sections(candidates, chrono::Utc::now().timestamp(), |id| {
                 crate::persistence::fitness::performances::pooled::cached_section_performances(
                     conn,
                     id,

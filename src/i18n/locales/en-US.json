@@ -114,9 +114,6 @@
       "sectionPageTip": "Scroll down the section page for the trend, the spread of your times and the line colored by where time was won or lost."
     }
   },
-  "sectionHistory": {
-    "kind_reference_reanchored": "Redrawn from another ride, the one it came from left intervals.icu"
-  },
   "sections": {
     "aerobicEfficiencyDetail": "{{efforts}} matched efforts, modeled change of {{hrChange}} bpm at average pace"
   },

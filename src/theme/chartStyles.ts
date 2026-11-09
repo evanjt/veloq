@@ -2,6 +2,13 @@ import { StyleSheet } from 'react-native';
 import { colors, darkColors } from './colors';
 import { typography } from './typography';
 
+/**
+ * The height every view of a section or route performance panel draws its plot at: over time,
+ * spread and ahead or behind. The densest of them, over time, sets it, so the panel's plot keeps
+ * the same height when the view changes.
+ */
+export const PERFORMANCE_PLOT_HEIGHT = 220;
+
 /** The one chart text role: a 12px caption in tabular figures, never below it. */
 const chartText = {
   ...typography.caption,

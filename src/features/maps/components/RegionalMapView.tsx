@@ -141,7 +141,11 @@ export function RegionalMapView({
     },
     [setGlobalMapStyle]
   );
-  const { drawn: mapStyle, cycle: toggleStyle } = useMapStyleToggle(chosenStyle, chooseStyle);
+  const {
+    drawn: mapStyle,
+    next: nextStyle,
+    cycle: toggleStyle,
+  } = useMapStyleToggle(chosenStyle, chooseStyle);
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const {
     showActivities,
@@ -618,7 +622,7 @@ export function RegionalMapView({
         onPress={toggleStyle}
         accessibilityLabel={t('maps.toggleStyle')}
       >
-        <MapControlButton.Glyph name={getStyleIcon(mapStyle)} />
+        <MapControlButton.Glyph name={getStyleIcon(nextStyle)} />
       </MapControlButton>
       {/* The control column, one rung below the style toggle. */}
       <MapControlStack

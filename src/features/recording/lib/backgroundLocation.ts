@@ -39,6 +39,10 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // batches that follow the restoring one inside the same runtime.
 let restoredFromBackup = false;
 
+// The restore in flight. Batches delivered together share it, so none of them
+// starts a second restore that could overwrite the flag the first one set.
+let restoring: Promise<void> | null = null;
+
 // The detector this runtime built for itself, when no session runs to own one.
 let headlessDetector: AutoPauseDetector | null = null;
 
@@ -94,15 +98,34 @@ async function restoreSessionFromBackup(): Promise<boolean> {
   return true;
 }
 
+/**
+ * The only writer of `restoredFromBackup`. A batch that arrives during a
+ * restore awaits that restore. Starting another one would find the store
+ * already recording, return false, and overwrite the true the first set.
+ */
+function restoreIfIdle(): Promise<void> {
+  if (restoredFromBackup || useRecordingStore.getState().status !== 'idle') {
+    return Promise.resolve();
+  }
+  if (!restoring) {
+    restoring = restoreSessionFromBackup()
+      .then((restored) => {
+        restoredFromBackup = restored;
+      })
+      .finally(() => {
+        restoring = null;
+      });
+  }
+  return restoring;
+}
+
 export async function handleBackgroundLocations(
   locations: Location.LocationObject[]
 ): Promise<void> {
   if (!locations || locations.length === 0) return;
 
   const store = useRecordingStore;
-  if (store.getState().status === 'idle' && !restoredFromBackup) {
-    restoredFromBackup = await restoreSessionFromBackup();
-  }
+  await restoreIfIdle();
 
   const { status } = store.getState();
   if (status !== 'recording' && status !== 'paused') return;
