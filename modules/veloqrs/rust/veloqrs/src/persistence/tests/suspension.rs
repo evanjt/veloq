@@ -544,11 +544,13 @@ fn suspension_pauses_a_bulk_export_with_no_read_left_open() {
         .unwrap();
 
     let interrupted = tmp.path().join("interrupted.zip");
-    let handle = engine.bulk_export_background(
-        BulkExportFormat::Gpx,
-        interrupted.to_str().unwrap(),
-        Default::default(),
-    );
+    let handle = engine
+        .bulk_export_background(
+            BulkExportFormat::Gpx,
+            interrupted.to_str().unwrap(),
+            Default::default(),
+        )
+        .expect("export starts");
     let progress = handle.progress_handle();
     wait_for_visited(&progress, 20);
 

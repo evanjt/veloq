@@ -108,7 +108,6 @@ export function generateSectionTrendInsights(
         ...(history ? { history } : {}),
       },
       methodology: {
-        name: t('insights.methodology.sectionTrendName'),
         description: t('insights.methodology.sectionTrend'),
       },
     }),

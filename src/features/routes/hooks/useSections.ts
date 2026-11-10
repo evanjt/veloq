@@ -22,10 +22,6 @@ export interface UseSectionsResult {
   sections: FrequentSection[];
   /** Total section count */
   count: number;
-  /** Loading state */
-  isLoading: boolean;
-  /** Error state */
-  error: Error | null;
 }
 
 /**
@@ -47,7 +43,5 @@ export function useSections(options: UseSectionsOptions = {}): UseSectionsResult
   return {
     sections: unified,
     count: unified.length,
-    isLoading: false,
-    error: null,
   };
 }

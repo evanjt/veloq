@@ -2,7 +2,7 @@ use super::*;
 use httpmock::prelude::*;
 
 /// Owe `ids` to the global library, as a restore whose pins name them does.
-fn owe(ids: &[&str]) {
+pub(super) fn owe(ids: &[&str]) {
     let entries: Vec<_> = ids
         .iter()
         .map(|id| {

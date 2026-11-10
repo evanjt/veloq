@@ -141,11 +141,6 @@ function buildStrengthBalanceInsight(
       formula: t('insights.strengthBalance.formula'),
       algorithmDescription: t('insights.strengthBalance.algorithm'),
     },
-    methodology: {
-      name: t('insights.strengthBalance.methodologyName'),
-      description: t('insights.strengthBalance.methodologyDescription'),
-      formula: t('insights.strengthBalance.ratioFormula'),
-    },
   };
 }
 
@@ -297,10 +292,6 @@ function buildStrengthProgressionInsight(
       formula: t('insights.strengthProgression.formula'),
       algorithmDescription: t('insights.strengthProgression.algorithm'),
     },
-    methodology: {
-      name: t('insights.strengthProgression.methodologyName'),
-      description: t('insights.strengthProgression.methodologyDescription'),
-    },
   };
 }
 
@@ -365,10 +356,6 @@ function buildStrengthSnapshotInsight(
       ],
       formula: t('insights.strengthSnapshot.formula'),
       algorithmDescription: t('insights.strengthSnapshot.algorithm'),
-    },
-    methodology: {
-      name: t('strength.snapshot'),
-      description: t('insights.strengthSnapshot.methodologyDescription'),
     },
   };
 }

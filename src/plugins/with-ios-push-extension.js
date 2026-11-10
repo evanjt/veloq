@@ -74,7 +74,16 @@ function copyDir(src, dest) {
 function writePushExtensionFiles(projectRoot, platformProjectRoot) {
   const dest = path.join(platformProjectRoot, TARGET);
   copyDir(path.join(projectRoot, SOURCE_DIR), dest);
-  writePushExtensionCatalogue(dest);
+  writePushExtensionStrings(platformProjectRoot);
+}
+
+/**
+ * The extension's string catalogue, the one file of its generated output that
+ * carries translated text. An iOS build writes it again before it runs, see
+ * `writeWidgetStrings`. `bundles` defaults to the locale bundles.
+ */
+function writePushExtensionStrings(platformProjectRoot, bundles) {
+  writePushExtensionCatalogue(path.join(platformProjectRoot, TARGET), bundles);
 }
 
 function withPushExtensionFiles(config) {
@@ -173,3 +182,4 @@ module.exports.copyDir = copyDir;
 module.exports.configurePushExtensionProject = configurePushExtensionProject;
 module.exports.pushSwiftFiles = pushSwiftFiles;
 module.exports.writePushExtensionFiles = writePushExtensionFiles;
+module.exports.writePushExtensionStrings = writePushExtensionStrings;

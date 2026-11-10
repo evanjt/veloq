@@ -221,7 +221,7 @@
     "gpsWeakWarning": "GPS signal's weak, so the recording might be a bit off",
     "hrInvalid": "Pop in a valid heart rate (30-250).",
     "notesPlaceholder": "How'd it feel?",
-    "resumePreviousMessage": "A recording that started {{startTime}} got cut off with {{duration}} of moving time. Discarding deletes it permanently.",
+    "resumePreviousMessage": "A recording that started {{startTime}} got cut off after {{duration}} of moving time. Discarding deletes it permanently.",
     "savedQueued": "Activity saved. It'll upload by itself once you're back online.",
     "savedQueuedAuth": "Activity saved. It'll upload once you sign in again.",
     "savedLocally": "Activity saved on this device. Upload it whenever you like from My recordings.",
@@ -301,7 +301,7 @@
     "streamBackfillRefusedNotReady": "The engine's still opening. Try again in a tick.",
     "streamBackfillRefusedBusy": "A download's already running.",
     "streamBackfillRefusedFailed": "The download couldn't get going.",
-    "tileCacheLimitHint": "Bump it up for better offline and local browsing",
+    "tileCacheLimitHint": "Bump it up to keep more map tiles for offline and local browsing.",
     "elevationBackfillRunning": "Adding elevation to your activity tracks",
     "elevationBackfillComplete": "Every activity track has elevation now, too easy",
     "elevationBackfillPartial": "Some activity tracks still need elevation. They'll get another go later.",
@@ -340,8 +340,7 @@
     "calendarOlderOwed_other": "{{count}} older activities from this year haven't come down yet"
   },
   "statsScreen": {
-    "noEffortData": "No best effort data yet",
-    "thresholdInputsMissing": "No LTHR in your intervals.icu run settings, and no pace curve in yet"
+    "noEffortData": "No best effort data yet"
   },
   "refresh": {
     "busy": "Refreshes once this sync is done.",
@@ -355,7 +354,6 @@
     "trendHint": "Wellness from intervals.icu (HRV, resting HR, sleep, sleep score, weight) turns up here once it's logged."
   },
   "strength": {
-    "noWorkouts": "No gym sessions in the last {{period}}",
     "exerciseActivitiesFailed": "Couldn't load the workouts for this exercise."
   },
   "support": {
@@ -378,8 +376,7 @@
     "dormant": "No section covers this ground at the moment"
   },
   "backgroundJobs": {
-    "statePartial": "Done, a few to retry",
-    "statePaused": "Paused till the app's next opened"
+    "statePartial": "Done, a few to retry"
   },
   "systemSurfaces": {
     "toSeeTraining": "to check out your training",

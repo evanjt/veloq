@@ -287,7 +287,7 @@ impl PersistentEngine {
     pub fn bulk_export_gpx(&self, dest_path: &str) -> Result<BulkExportResult, String> {
         export_gpx(
             &self.db,
-            PrivacyTrim::from_settings(self),
+            PrivacyTrim::from_settings(self)?,
             dest_path,
             &BulkExportProgress::default(),
         )
@@ -301,7 +301,7 @@ impl PersistentEngine {
     pub fn bulk_export_geojson(&self, dest_path: &str) -> Result<BulkExportResult, String> {
         export_geojson(
             &self.db,
-            PrivacyTrim::from_settings(self),
+            PrivacyTrim::from_settings(self)?,
             dest_path,
             &BulkExportProgress::default(),
         )
@@ -350,32 +350,35 @@ fn gpx_file_from_points(
 }
 
 /// The GPX file for one shared track with the configured export privacy trim
-/// applied, or `None` when the trim leaves too little to be a track.
+/// applied, or `None` when the trim leaves too little to be a track. An
+/// unreadable trim is an error, and no file is made.
 pub(crate) fn single_gpx_file_from(
     conn: &rusqlite::Connection,
     name: &str,
     sport: Option<&str>,
     time: Option<&str>,
     points: &[GpsPoint],
-) -> Option<GpxFile> {
+) -> Result<Option<GpxFile>, String> {
     let finite: Vec<GpsPoint> = points
         .iter()
         .filter(|p| is_finite_point(p))
         .cloned()
         .collect();
     if finite.is_empty() {
-        return None;
+        return Ok(None);
     }
-    let trim = PrivacyTrim::from_connection(conn);
+    let trim = PrivacyTrim::from_connection(conn)?;
     let stamp = ExportStamp::now(trim.as_ref());
-    let (kept, shortened) = trim_for_export(trim.as_ref(), finite)?;
-    Some(gpx_file_from_points(
+    let Some((kept, shortened)) = trim_for_export(trim.as_ref(), finite) else {
+        return Ok(None);
+    };
+    Ok(Some(gpx_file_from_points(
         name,
         sport,
         time,
         &kept,
         &stamp.for_track(shortened),
-    ))
+    )))
 }
 
 /// Generate GPX 1.1 XML for a single activity. A missing sport is written as
@@ -773,15 +776,17 @@ impl PersistentEngine {
     ///
     /// `progress` is the run's own counters and stop latch, made by the caller
     /// so a stop asked for before the worker starts still reaches it.
+    ///
+    /// An unreadable trim answers an error before any thread starts.
     pub fn bulk_export_background(
         &self,
         format: BulkExportFormat,
         dest_path: &str,
         progress: Arc<BulkExportProgress>,
-    ) -> super::BulkExportHandle {
+    ) -> Result<super::BulkExportHandle, String> {
         let db_path = self.db_path.clone();
         let dest_path = dest_path.to_string();
-        let trim = PrivacyTrim::from_settings(self);
+        let trim = PrivacyTrim::from_settings(self)?;
         let worker_progress = Arc::clone(&progress);
         let (tx, rx) = std::sync::mpsc::channel();
 
@@ -798,10 +803,10 @@ impl PersistentEngine {
             tx.send(result).ok();
         });
 
-        super::BulkExportHandle {
+        Ok(super::BulkExportHandle {
             receiver: rx,
             progress,
-        }
+        })
     }
 }
 
@@ -845,37 +850,52 @@ impl PrivacyTrim {
     /// The trim the athlete has configured, or none. Both halves are needed:
     /// a radius with no home cannot trim anything, and a home with no radius
     /// is not a request to.
-    pub fn from_settings(engine: &PersistentEngine) -> Option<Self> {
-        Self::from_reader(|key| {
-            engine
-                .get_setting(key)
-                .ok()
-                .flatten()
-                .and_then(|v| v.parse::<f64>().ok())
-        })
+    ///
+    /// An unreadable setting is an error, not no trim: the export it would
+    /// have trimmed is refused rather than written with the door in it.
+    pub fn from_settings(engine: &PersistentEngine) -> Result<Option<Self>, String> {
+        Self::from_reader(|key| engine.get_setting(key))
     }
 
     /// The same trim, read through a connection, for a single export that
     /// takes no engine lock.
-    pub fn from_connection(conn: &rusqlite::Connection) -> Option<Self> {
-        Self::from_reader(|key| {
-            super::settings::setting_from(conn, key)
-                .ok()
-                .flatten()
-                .and_then(|v| v.parse::<f64>().ok())
-        })
+    pub fn from_connection(conn: &rusqlite::Connection) -> Result<Option<Self>, String> {
+        Self::from_reader(|key| super::settings::setting_from(conn, key))
     }
 
-    fn from_reader(read: impl Fn(&str) -> Option<f64>) -> Option<Self> {
-        let radius_m = read(super::settings_keys::EXPORT_PRIVACY_RADIUS_M)?;
+    /// Reads the radius, then the home when the radius asks for a trim. A row
+    /// that is absent, or a radius of zero, is no trim and reads no further.
+    fn from_reader(
+        read: impl Fn(&str) -> SqlResult<Option<String>>,
+    ) -> Result<Option<Self>, String> {
+        let number = |key: &str| -> Result<Option<f64>, String> {
+            let stored = read(key)
+                .map_err(|e| format!("Failed to read the export privacy settings: {}", e))?;
+            let Some(raw) = stored else {
+                return Ok(None);
+            };
+            raw.parse::<f64>().map(Some).map_err(|_| {
+                "The export privacy settings hold a value that is not a number".to_string()
+            })
+        };
+        let Some(radius_m) = number(super::settings_keys::EXPORT_PRIVACY_RADIUS_M)? else {
+            return Ok(None);
+        };
         if radius_m <= 0.0 {
-            return None;
+            return Ok(None);
         }
-        Some(Self {
-            home_lat: read(super::settings_keys::EXPORT_HOME_LAT)?,
-            home_lng: read(super::settings_keys::EXPORT_HOME_LNG)?,
+        let (home_lat, home_lng) = (
+            number(super::settings_keys::EXPORT_HOME_LAT)?,
+            number(super::settings_keys::EXPORT_HOME_LNG)?,
+        );
+        let (Some(home_lat), Some(home_lng)) = (home_lat, home_lng) else {
+            return Ok(None);
+        };
+        Ok(Some(Self {
+            home_lat,
+            home_lng,
             radius_m,
-        })
+        }))
     }
 
     /// The track as it should be exported, or `None` when trimming leaves too
@@ -1131,6 +1151,94 @@ mod privacy_trim_tests {
     #[test]
     fn an_empty_track_stays_empty_rather_than_failing() {
         assert_eq!(trim(100.0).apply(&[]).unwrap().len(), 0);
+    }
+
+    const RADIUS_KEY: &str = super::super::settings_keys::EXPORT_PRIVACY_RADIUS_M;
+    const HOME_LAT_KEY: &str = super::super::settings_keys::EXPORT_HOME_LAT;
+    const HOME_LNG_KEY: &str = super::super::settings_keys::EXPORT_HOME_LNG;
+
+    /// Settings as the reader sees them: `stored` holds the rows, and `failing`
+    /// names a key whose read errors the way an unreadable row does.
+    fn settings<'a>(
+        stored: &'a [(&'a str, &'a str)],
+        failing: Option<&'a str>,
+    ) -> impl Fn(&str) -> SqlResult<Option<String>> + 'a {
+        move |key| {
+            if failing == Some(key) {
+                return Err(rusqlite::Error::InvalidQuery);
+            }
+            Ok(stored
+                .iter()
+                .find(|(stored_key, _)| *stored_key == key)
+                .map(|(_, value)| value.to_string()))
+        }
+    }
+
+    const HOME_AND_RADIUS: [(&str, &str); 3] = [
+        (HOME_LAT_KEY, "46.2333"),
+        (HOME_LNG_KEY, "7.36"),
+        (RADIUS_KEY, "200"),
+    ];
+
+    #[test]
+    fn a_failed_read_of_the_radius_fails_the_export() {
+        let trim = PrivacyTrim::from_reader(settings(&HOME_AND_RADIUS, Some(RADIUS_KEY)));
+        assert!(trim.is_err());
+    }
+
+    #[test]
+    fn a_failed_read_of_either_home_key_fails_the_export() {
+        for failing in [HOME_LAT_KEY, HOME_LNG_KEY] {
+            let trim = PrivacyTrim::from_reader(settings(&HOME_AND_RADIUS, Some(failing)));
+            assert!(trim.is_err(), "{failing}");
+        }
+    }
+
+    #[test]
+    fn a_missing_trim_is_no_trim_and_not_an_error() {
+        let trim = PrivacyTrim::from_reader(settings(&[], None));
+        assert!(matches!(trim, Ok(None)));
+    }
+
+    #[test]
+    fn a_radius_of_zero_is_no_trim_whatever_the_home_reads_as() {
+        let stored = [(RADIUS_KEY, "0")];
+        let trim = PrivacyTrim::from_reader(settings(&stored, Some(HOME_LAT_KEY)));
+        assert!(matches!(trim, Ok(None)));
+    }
+
+    #[test]
+    fn a_radius_with_no_home_is_no_trim() {
+        let stored = [(RADIUS_KEY, "200")];
+        let trim = PrivacyTrim::from_reader(settings(&stored, None));
+        assert!(matches!(trim, Ok(None)));
+    }
+
+    #[test]
+    fn a_stored_radius_that_is_not_a_number_fails_the_export() {
+        let stored = [
+            (HOME_LAT_KEY, "46.2333"),
+            (HOME_LNG_KEY, "7.36"),
+            (RADIUS_KEY, "two hundred"),
+        ];
+        let trim = PrivacyTrim::from_reader(settings(&stored, None));
+        assert!(trim.is_err());
+    }
+
+    #[test]
+    fn a_complete_trim_is_read_as_stored() {
+        let trim = PrivacyTrim::from_reader(settings(&HOME_AND_RADIUS, None))
+            .expect("read")
+            .expect("trim");
+        assert_eq!(trim.radius_m, 200.0);
+        assert_eq!(trim.home_lat, 46.2333);
+        assert_eq!(trim.home_lng, 7.36);
+    }
+
+    #[test]
+    fn an_unreadable_settings_table_fails_the_export_rather_than_exporting_untrimmed() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        assert!(PrivacyTrim::from_connection(&conn).is_err());
     }
 }
 
@@ -2367,7 +2475,7 @@ mod bulk_export_tests {
         let gpx_progress = BulkExportProgress::default();
         let gpx = export_gpx(
             &engine.db,
-            PrivacyTrim::from_settings(&engine),
+            PrivacyTrim::from_settings(&engine).expect("trim"),
             dir.path().join("export.zip").to_str().unwrap(),
             &gpx_progress,
         )
@@ -2375,7 +2483,7 @@ mod bulk_export_tests {
         let json_progress = BulkExportProgress::default();
         let json = export_geojson(
             &engine.db,
-            PrivacyTrim::from_settings(&engine),
+            PrivacyTrim::from_settings(&engine).expect("trim"),
             dir.path().join("export.geojson").to_str().unwrap(),
             &json_progress,
         )
@@ -2429,7 +2537,8 @@ mod bulk_export_tests {
             Some("2026-09-22T07:00:00"),
             &with_gap,
         )
-        .expect("single file");
+        .expect("single file")
+        .expect("a track");
         let dest = dir.path().join("export.zip");
         engine
             .bulk_export_gpx(dest.to_str().unwrap())
@@ -2717,7 +2826,7 @@ mod bulk_export_tests {
 
         let result = export_gpx(
             &engine.db,
-            PrivacyTrim::from_settings(&engine),
+            PrivacyTrim::from_settings(&engine).expect("trim"),
             dest.to_str().unwrap(),
             &progress,
         )

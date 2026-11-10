@@ -103,6 +103,19 @@ describe('the pre-commit guard', () => {
     expect(output).toContain('git add');
   });
 
+  it('refuses git commit -a, and does not describe it as a pathspec commit', () => {
+    const root = checkout();
+
+    const { status, output } = runGuard(root, join(root, '.husky', 'pre-commit'), {
+      GIT_INDEX_FILE: join(root, '.git', 'index.lock'),
+    });
+
+    expect(status).toBe(1);
+    expect(output).toContain('git commit -a');
+    expect(output).not.toContain('pathspec');
+    expect(output).toContain('git add <paths> && git commit');
+  });
+
   it('passes a relative GIT_INDEX_FILE, which is still the real index', () => {
     const root = checkout();
 

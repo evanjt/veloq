@@ -244,6 +244,64 @@ describe('background location in a headless runtime', () => {
     expect(rt.useRecordingStore.getState().status).toBe('idle');
   });
 
+  describe('after the restored ride has ended', () => {
+    // Set on the runtime's own module, after `freshRuntime` has reset the registry.
+    // With the app in the background, a batch persists itself on the throttle.
+    function appInBackground() {
+      const { AppState } = require('react-native');
+      Object.defineProperty(AppState, 'currentState', { value: 'background', configurable: true });
+    }
+
+    // Fixes a second, stamped from a ride's own start rather than the restored one's.
+    function fixesFrom(rideStart: number, seconds: number[]) {
+      return seconds.map((second) => ({
+        coords: {
+          latitude: 47.5,
+          longitude: 8.5,
+          altitude: 400,
+          accuracy: 5,
+          speed: 0,
+          heading: null,
+        },
+        timestamp: rideStart + second * 1000,
+      }));
+    }
+
+    it('throttles the backup of a ride started after the restored one', async () => {
+      const rt = freshRuntime();
+      appInBackground();
+      // A write that did not land does not start the throttle, so the save has to succeed.
+      rt.saveRecordingBackup.mockResolvedValue(true);
+      rt.loadRecordingBackup.mockResolvedValue(backupAt('recording', 60));
+      await rt.handleBackgroundLocations(locationsFrom([70], [100]));
+
+      rt.useRecordingStore.getState().reset();
+      rt.useRecordingStore.getState().startRecording('Ride', 'gps');
+      const rideStart = rt.useRecordingStore.getState().startTime as number;
+      rt.saveRecordingBackup.mockClear();
+
+      await rt.handleBackgroundLocations(fixesFrom(rideStart, [1]));
+      await rt.handleBackgroundLocations(fixesFrom(rideStart, [2]));
+
+      expect(rt.saveRecordingBackup).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops the headless auto-pause detector with the restored ride', async () => {
+      const rt = freshRuntime();
+      const { autoPauseDetector } = require('@/features/recording/lib/manualPause');
+      rt.loadRecordingBackup.mockResolvedValue(backupAt('recording', 60));
+      await rt.handleBackgroundLocations(locationsFrom([70], [100]));
+      expect(autoPauseDetector()).not.toBeNull();
+
+      rt.useRecordingStore.getState().reset();
+      rt.useRecordingStore.getState().startRecording('Ride', 'gps');
+      const rideStart = rt.useRecordingStore.getState().startTime as number;
+      await rt.handleBackgroundLocations(fixesFrom(rideStart, [1]));
+
+      expect(autoPauseDetector()).toBeNull();
+    });
+  });
+
   describe('auto-pause across a headless restore', () => {
     // One fix a second at a steady speed, the way the service batches them.
     function batchAt(fromSecond: number, count: number, metresPerSecond: number) {

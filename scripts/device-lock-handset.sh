@@ -35,7 +35,9 @@ max_age="${VELOQ_DEVICE_LOCK_MAX_AGE:-14400}"
 wait_for="${VELOQ_DEVICE_LOCK_WAIT:-0}"
 mine="host=$host pid=$$ item=$item since=$(date +%s)"
 
-handset() { adb -s "$VELOQ_DEVICE_SERIAL" shell "$@" 2>&1 | tr -d '\r'; }
+# `adb shell` reads stdin unless `-n` is given, so the caller's input is kept
+# from it here and handed to the command below.
+handset() { adb -s "$VELOQ_DEVICE_SERIAL" shell "$@" </dev/null 2>&1 | tr -d '\r'; }
 
 field() { printf '%s\n' "$2" | tr ' ' '\n' | sed -n "s/^$1=//p" | head -1; }
 
@@ -92,8 +94,13 @@ release() {
   return 0
 }
 
-"$@" &
+# An asynchronous command gets /dev/null for its input when job control is off,
+# so the caller's input is handed down on a descriptor of its own. A closed
+# input cannot be duplicated, and the command then gets /dev/null as before.
+if (exec 3<&0) 2>/dev/null; then exec 3<&0; else exec 3</dev/null; fi
+"$@" <&3 3<&- &
 child=$!
+exec 3<&-
 trap 'kill -TERM "$child" 2>/dev/null' INT TERM HUP
 status=0
 wait "$child" || status=$?

@@ -378,6 +378,14 @@ export function ActivityDetailCard({
       {!inSheet && !isStrength && (
         <ActivitySummaryStrip activity={activity} isMetric={isMetric} isDark={isDark} />
       )}
+      {detailReadFailed ? (
+        <ActivityDetailReadFailed
+          variant="inline"
+          testID="activity-detail-read-failed"
+          error={detailError}
+          onRetry={refreshDetail}
+        />
+      ) : null}
       {detail?.heldBack ? (
         <ActivityHeldBackNotice activityId={id} heldBack={detail.heldBack} />
       ) : null}
@@ -489,6 +497,7 @@ export function ActivityDetailCard({
           </ScrollView>
         ) : null}
 
+        {/* The tabs take their pages by position, so the Routes and Sections pages each need one. */}
         {hasGpsData && detailReadFailed ? (
           <ActivityDetailReadFailed error={detailError} onRetry={refreshDetail} />
         ) : null}

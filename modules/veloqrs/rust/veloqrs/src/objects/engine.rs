@@ -757,11 +757,10 @@ impl VeloqEngine {
             std::sync::Arc::new(crate::persistence::export::BulkExportProgress::default());
         let run = RunSlot::open(&BULK_EXPORT_RUN, std::sync::Arc::clone(&progress));
         let (install, handle) = with_engine(|e| {
-            (
-                crate::persistence::engine_install(),
-                e.bulk_export_background(format, &dest_path, progress),
-            )
-        })?;
+            e.bulk_export_background(format, &dest_path, progress)
+                .map(|handle| (crate::persistence::engine_install(), handle))
+        })?
+        .map_err(job_error)?;
 
         crate::runtime::ASYNC_RUNTIME
             .spawn_blocking(move || {

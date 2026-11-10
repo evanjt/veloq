@@ -456,7 +456,9 @@ pub fn notification_for(
 // The ladder
 // ============================================================================
 
-/// Seconds this activity's section PR improved on another outing in its direction.
+/// Whole seconds this activity's section PR improved on another outing in its
+/// direction, rounded to the nearest second. A win under half a second rounds
+/// to zero, which the caller treats as no delta.
 fn section_pr_delta(
     result: &crate::types::SectionPerformanceResult,
     activity_id: &str,
@@ -473,7 +475,7 @@ fn section_pr_delta(
         }
         if crate::persistence::records::is_section_record_pr(result, best) {
             return crate::persistence::records::section_record_rival(result, best)
-                .map(|time| (time - best.best_time) as u32);
+                .map(|time| (time - best.best_time).round() as u32);
         }
     }
     None
@@ -654,7 +656,7 @@ fn section_prs_from(
             let name = section.name.clone().unwrap_or_default();
             prs.first_named = !name.is_empty();
             prs.first_name = name;
-            prs.first_improvement_seconds = Some(improvement);
+            prs.first_improvement_seconds = Some(improvement).filter(|s| *s > 0);
         }
     }
     prs

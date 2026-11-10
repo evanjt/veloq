@@ -421,7 +421,6 @@ describe('the first send of a large source', () => {
       routeGeoJSON,
       overlayGeoJSON: empty,
       consolidatedPortionsGeoJSON: empty,
-      sectionBoundariesGeoJSON: empty,
       sectionMarkersGeoJSON: empty,
       highlightGeoJSON: {
         type: 'Feature',

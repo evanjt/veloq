@@ -10,7 +10,7 @@
 //! Each of them asks the governor before it sends anything, so a restart that
 //! comes too early is deferred again rather than sent.
 
-use std::sync::{Condvar, Mutex};
+use std::sync::{Condvar, Mutex, MutexGuard};
 
 use chrono::{DateTime, Utc};
 
@@ -52,28 +52,43 @@ impl Due {
     }
 }
 
+/// The schedule, and the flag that says a thread is serving it.
 struct Sleeper {
     due: Mutex<Due>,
     wake: Condvar,
 }
 
-static SLEEPER: Sleeper = Sleeper {
-    due: Mutex::new(Due {
-        at: None,
-        running: false,
-    }),
-    wake: Condvar::new(),
-};
+impl Sleeper {
+    const fn new() -> Self {
+        Self {
+            due: Mutex::new(Due {
+                at: None,
+                running: false,
+            }),
+            wake: Condvar::new(),
+        }
+    }
 
-/// Resume the owed work at `at`, or earlier when a probe ends the cooldown.
-pub fn resume_at(at: DateTime<Utc>) {
-    let spawn = {
-        let mut due = SLEEPER.due.lock().unwrap_or_else(|e| e.into_inner());
+    fn lock(&self) -> MutexGuard<'_, Due> {
+        self.due.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Ask for a wake at `at`. Returns whether the caller must start the
+    /// sleeper thread, which is the case when none is running.
+    fn ask(&self, at: DateTime<Utc>) -> bool {
+        let mut due = self.lock();
         due.schedule(at);
         let spawn = !due.running;
         due.running = true;
         spawn
-    };
+    }
+}
+
+static SLEEPER: Sleeper = Sleeper::new();
+
+/// Resume the owed work at `at`, or earlier when a probe ends the cooldown.
+pub fn resume_at(at: DateTime<Utc>) {
+    let spawn = SLEEPER.ask(at);
     SLEEPER.wake.notify_all();
     if spawn {
         spawn_sleeper();
@@ -167,44 +182,71 @@ pub fn retry_downloads_with(hold: Option<DownloadsHold>, start: impl FnOnce()) -
 /// A request answered inside a cooldown and ended it, so whatever was waiting
 /// for the cooldown can go now.
 pub fn cooldown_cleared() {
-    let moved = SLEEPER
-        .due
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .bring_forward(Utc::now());
+    let moved = SLEEPER.lock().bring_forward(Utc::now());
     if moved {
         SLEEPER.wake.notify_all();
     }
 }
 
-/// The sleeper's thread: wait for the due time, resume, and end once nothing
-/// is pending. The flag is cleared under the same lock that reads the empty
-/// schedule, so a wake asked for meanwhile either finds it running or starts
-/// another.
+/// Holds the sleeper thread's claim on the schedule. However the thread body
+/// leaves, by a return or by an unwind out of a resume, the drop clears the
+/// flag under the lock, unless a wake was asked for meanwhile. That wake is
+/// handed to a new sleeper, which inherits the claim and keeps the flag set.
+struct Running<'a, R: Fn()> {
+    sleeper: &'a Sleeper,
+    respawn: R,
+}
+
+impl<R: Fn()> Drop for Running<'_, R> {
+    fn drop(&mut self) {
+        let mut due = self.sleeper.lock();
+        if due.at.is_none() {
+            due.running = false;
+            return;
+        }
+        drop(due);
+        (self.respawn)();
+    }
+}
+
+/// The sleeper's body: wait for the due time, resume, and end once nothing is
+/// pending. The claim is released by [`Running`] on every way out, so a wake
+/// asked for meanwhile either finds the flag set or is served by a new sleeper.
+fn sleep_until_idle(sleeper: &Sleeper, mut resume: impl FnMut(), respawn: impl Fn()) {
+    let _claim = Running { sleeper, respawn };
+    let mut due = sleeper.lock();
+    loop {
+        let now = Utc::now();
+        if due.take_due(now) {
+            drop(due);
+            resume();
+            due = sleeper.lock();
+            continue;
+        }
+        let Some(at) = due.at else {
+            return;
+        };
+        let wait = (at - now).to_std().unwrap_or_default();
+        due = sleeper
+            .wake
+            .wait_timeout(due, wait)
+            .unwrap_or_else(|e| e.into_inner())
+            .0;
+    }
+}
+
+/// Start the sleeper's thread. A refused thread is logged and the claim given
+/// back, so the next wake asks again. It does not panic into the caller, which
+/// may be unwinding already when a [`Running`] hands the wake on.
 #[cfg(not(test))]
 fn spawn_sleeper() {
-    crate::threads::spawn_background("veloq-resume", || {
-        let mut due = SLEEPER.due.lock().unwrap_or_else(|e| e.into_inner());
-        loop {
-            let now = Utc::now();
-            if due.take_due(now) {
-                drop(due);
-                resume_owed_work();
-                due = SLEEPER.due.lock().unwrap_or_else(|e| e.into_inner());
-                continue;
-            }
-            let Some(at) = due.at else {
-                due.running = false;
-                return;
-            };
-            let wait = (at - now).to_std().unwrap_or_default();
-            due = SLEEPER
-                .wake
-                .wait_timeout(due, wait)
-                .unwrap_or_else(|e| e.into_inner())
-                .0;
-        }
+    let started = crate::threads::try_spawn_background("veloq-resume", || {
+        sleep_until_idle(&SLEEPER, resume_owed_work, spawn_sleeper);
     });
+    if let Err(err) = started {
+        log::warn!("[Resume] could not start the resume sleeper, the next wake asks again: {err}");
+        SLEEPER.lock().running = false;
+    }
 }
 
 /// The crate's tests share one process, and a sleeper that started the
@@ -212,11 +254,7 @@ fn spawn_sleeper() {
 /// is tested on its own instead.
 #[cfg(test)]
 fn spawn_sleeper() {
-    SLEEPER
-        .due
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .running = false;
+    SLEEPER.lock().running = false;
 }
 
 /// Restart everything a refusal stopped. Each start refuses on its own terms
@@ -236,6 +274,7 @@ fn resume_owed_work() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
 
     fn at(s: &str) -> DateTime<Utc> {
         s.parse().expect("instant")
@@ -248,6 +287,76 @@ mod tests {
         due.schedule(at("2026-03-04T10:10:00Z"));
         due.schedule(at("2026-03-04T11:00:00Z"));
         assert_eq!(due.at, Some(at("2026-03-04T10:10:00Z")));
+    }
+
+    /// Expected behaviour: a resume that panics does not leave the sleeper
+    /// claimed, so the next refusal starts one again.
+    #[test]
+    fn a_panicking_resume_releases_the_sleeper() {
+        let sleeper = Sleeper::new();
+        assert!(sleeper.ask(at("2026-03-04T10:00:00Z")));
+        let handed_on = Cell::new(0);
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            sleep_until_idle(
+                &sleeper,
+                || panic!("the resume failed"),
+                || handed_on.set(handed_on.get() + 1),
+            );
+        }));
+        assert!(outcome.is_err());
+        assert_eq!(handed_on.get(), 0, "nothing was asked for meanwhile");
+        assert!(
+            sleeper.ask(at("2026-03-04T11:00:00Z")),
+            "a sleeper that unwound is still claimed, so the next refusal's wake is served by no one"
+        );
+    }
+
+    /// Expected behaviour: a wake asked for while a resume is running is not
+    /// lost when that resume panics. It is handed to a new sleeper, which keeps
+    /// the claim.
+    #[test]
+    fn a_wake_asked_during_a_panicking_resume_is_handed_on() {
+        let sleeper = Sleeper::new();
+        assert!(sleeper.ask(at("2026-03-04T10:00:00Z")));
+        let asked_during = Cell::new(true);
+        let handed_on = Cell::new(0);
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            sleep_until_idle(
+                &sleeper,
+                || {
+                    asked_during.set(sleeper.ask(at("2026-03-04T11:00:00Z")));
+                    panic!("the resume failed");
+                },
+                || handed_on.set(handed_on.get() + 1),
+            );
+        }));
+        assert!(outcome.is_err());
+        assert!(
+            !asked_during.get(),
+            "a claimed sleeper is not asked to start another"
+        );
+        assert_eq!(handed_on.get(), 1, "the pending wake starts a new sleeper");
+        let due = sleeper.lock();
+        assert_eq!(due.at, Some(at("2026-03-04T11:00:00Z")));
+        assert!(due.running, "the new sleeper inherits the claim");
+    }
+
+    /// Expected behaviour: a resume that returns releases the claim once the
+    /// schedule is empty, and hands nothing on.
+    #[test]
+    fn a_resume_that_returns_releases_the_sleeper() {
+        let sleeper = Sleeper::new();
+        assert!(sleeper.ask(at("2026-03-04T10:00:00Z")));
+        let resumed = Cell::new(0);
+        let handed_on = Cell::new(0);
+        sleep_until_idle(
+            &sleeper,
+            || resumed.set(resumed.get() + 1),
+            || handed_on.set(handed_on.get() + 1),
+        );
+        assert_eq!(resumed.get(), 1);
+        assert_eq!(handed_on.get(), 0);
+        assert!(!sleeper.lock().running);
     }
 
     #[test]

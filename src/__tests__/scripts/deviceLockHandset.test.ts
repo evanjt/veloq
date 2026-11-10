@@ -13,6 +13,7 @@ import path from 'path';
 const projectRoot = path.join(__dirname, '../../..');
 const wrapper = path.join(projectRoot, 'scripts/with-device-lock.sh');
 const shell = path.join(projectRoot, 'scripts/device-lock-shell.sh');
+const handsetLock = path.join(projectRoot, 'scripts/device-lock-handset.sh');
 
 /** The shell's clock: the suite's own `Date` is frozen. */
 const nowSeconds = () => Number(spawnSync('date', ['+%s'], { encoding: 'utf8' }).stdout.trim());
@@ -32,7 +33,7 @@ function fakeHandset() {
 [ "$1" = "-s" ] && shift 2
 case "$1" in
   devices) printf 'List of devices attached\\n${SERIAL}\\tdevice\\n'; exit 0 ;;
-  shell) shift; cmd=$(printf '%s' "$*" | sed "s#/data/local/tmp#${handset}#g"); exec sh -c "$cmd" ;;
+  shell) shift; cat >/dev/null; cmd=$(printf '%s' "$*" | sed "s#/data/local/tmp#${handset}#g"); exec sh -c "$cmd" ;;
 esac
 exit 0
 `,
@@ -58,6 +59,49 @@ exit 0
 }
 
 describe('the lock held on the handset', () => {
+  /**
+   * Scenario: a caller pipes its input into the wrapper, which runs the command
+   * asynchronously. `adb shell` also reads stdin unless `-n` is given, so the
+   * lock's own calls to the handset must not take the input before the command
+   * starts.
+   *
+   * Expected behaviour: the wrapped command reads the piped input unchanged.
+   */
+  it('hands its piped input down to the wrapped command', () => {
+    const { host } = fakeHandset();
+    const run = spawnSync(handsetLock, ['cat'], {
+      encoding: 'utf8',
+      input: 'hi',
+      env: host('alpha', { VELOQ_DEVICE_SERIAL: SERIAL }),
+      timeout: 10000,
+    });
+    expect(run.status).toBe(0);
+    expect(run.stdout).toBe('hi');
+  });
+
+  it('runs the wrapped command when its own input is closed', () => {
+    const { host } = fakeHandset();
+    const run = spawnSync('sh', ['-c', `${handsetLock} echo ran <&-`], {
+      encoding: 'utf8',
+      env: host('alpha', { VELOQ_DEVICE_SERIAL: SERIAL }),
+      timeout: 10000,
+    });
+    expect(run.status).toBe(0);
+    expect(run.stdout).toBe('ran\n');
+  });
+
+  it('runs a wrapped shell that reads its commands from the piped input', () => {
+    const { host } = fakeHandset();
+    const run = spawnSync(handsetLock, ['sh'], {
+      encoding: 'utf8',
+      input: 'echo one\n',
+      env: host('alpha', { VELOQ_DEVICE_SERIAL: SERIAL }),
+      timeout: 10000,
+    });
+    expect(run.status).toBe(0);
+    expect(run.stdout).toBe('one\n');
+  });
+
   it('refuses a second host while the first holds, naming the holder', async () => {
     const { host, lockDir } = fakeHandset();
     const ready = path.join(path.dirname(lockDir), 'ready');

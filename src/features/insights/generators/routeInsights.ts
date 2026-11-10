@@ -1,5 +1,5 @@
 import type { FfiRouteInsight } from 'veloqrs';
-import type { DataPoint, Insight, SupportingRoute, TFunc } from '../types';
+import type { DataPoint, Insight, InsightMethodology, SupportingRoute, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom } from '../lib/config';
 import { sectionWithSport } from '../lib/cardSport';
@@ -87,8 +87,7 @@ export function generateRouteInsights(
     sourceTimestamp: now - Math.min(...rows.map((r) => r.daysSinceLast)) * TIME.DAY,
     repetitionCount: thinnest,
   };
-  const methodology = {
-    name: t('insights.methodology.routeName'),
+  const methodology: InsightMethodology = {
     description: t('insights.methodology.route'),
   };
 

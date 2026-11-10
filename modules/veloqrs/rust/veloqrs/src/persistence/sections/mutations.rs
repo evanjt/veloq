@@ -1909,7 +1909,7 @@ mod tests {
         engine.load_sections().unwrap();
         let custom = drawn_section(&mut engine).unwrap();
 
-        engine.save_sections().unwrap();
+        engine.save_sections_with_events(&[]).unwrap();
 
         for id in ["s0", "s1"] {
             let superseded_by: Option<String> = engine
@@ -1964,7 +1964,7 @@ mod tests {
 
         engine.clear_routes_and_sections().unwrap();
         engine.sections.extend(detected);
-        engine.save_sections().unwrap();
+        engine.save_sections_with_events(&[]).unwrap();
 
         for id in ["s0", "s1"] {
             assert_eq!(superseded_by(&engine, id), Some(custom.clone()));
@@ -1973,7 +1973,7 @@ mod tests {
         }
 
         engine.delete_section(&custom).unwrap();
-        engine.save_sections().unwrap();
+        engine.save_sections_with_events(&[]).unwrap();
         for id in ["s0", "s1"] {
             assert_eq!(superseded_by(&engine, id), None);
         }
@@ -1999,9 +1999,9 @@ mod tests {
         assert_eq!(detected.len(), 2);
 
         engine.sections.retain(|s| s.is_user_defined);
-        engine.save_sections().unwrap();
+        engine.save_sections_with_events(&[]).unwrap();
         engine.sections.extend(detected);
-        engine.save_sections().unwrap();
+        engine.save_sections_with_events(&[]).unwrap();
 
         for id in ["s0", "s1"] {
             assert_eq!(superseded_by(&engine, id), Some(custom.clone()));
@@ -2030,7 +2030,7 @@ mod tests {
         engine.clear_routes_and_sections().unwrap();
         engine.delete_section(&custom).unwrap();
         engine.sections.extend(detected);
-        engine.save_sections().unwrap();
+        engine.save_sections_with_events(&[]).unwrap();
 
         assert_eq!(superseded_by(&engine, "s0"), None);
         assert!(engine.get_section_summaries().iter().any(|s| s.id == "s0"));
@@ -2062,7 +2062,7 @@ mod tests {
         std::sync::Arc::make_mut(engine.sections.iter_mut().find(|s| s.id == "s0").unwrap())
             .enrichment
             .is_lift = true;
-        engine.save_sections().unwrap();
+        engine.save_sections_with_events(&[]).unwrap();
         assert!(
             !engine
                 .get_sections()
@@ -2094,7 +2094,7 @@ mod tests {
         std::sync::Arc::make_mut(engine.sections.iter_mut().find(|s| s.id == "s0").unwrap())
             .enrichment
             .is_lift = true;
-        engine.save_sections().unwrap();
+        engine.save_sections_with_events(&[]).unwrap();
         engine
             .db
             .execute_batch(

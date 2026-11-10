@@ -44,7 +44,6 @@ export interface InsightAlternative {
 }
 
 export interface InsightMethodology {
-  name: string;
   description: string;
   formula?: string;
 }

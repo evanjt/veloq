@@ -45,7 +45,7 @@ enum InsightKind: String, AppEnum {
 struct SelectInsightKindsIntent: WidgetConfigurationIntent {
   static var title: LocalizedStringResource = "Kinds"
   static var description = IntentDescription(
-    "Choose which kinds of insight the widget lists. Choosing none lists every kind.")
+    "Choose the kinds of insight to list. None chosen lists them all.")
 
   /// Empty lists every kind.
   @Parameter(title: "Kinds", default: [])

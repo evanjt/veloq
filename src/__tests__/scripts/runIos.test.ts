@@ -81,6 +81,7 @@ describe('iOS identity and compile mode are separate arguments', () => {
     expect(calls).toEqual([
       'APP_VARIANT=dev node scripts/check-toolchain.mjs --platform ios',
       'APP_VARIANT=dev node scripts/prepare-native.mjs --platform ios',
+      'APP_VARIANT=dev node scripts/sync-ios-strings.mjs',
       'APP_VARIANT=dev node scripts/build-record.js snapshot ios Debug',
       'APP_VARIANT=dev npx expo run:ios',
     ]);
@@ -93,6 +94,7 @@ describe('iOS identity and compile mode are separate arguments', () => {
     expect(calls).toEqual([
       'APP_VARIANT=dev node scripts/check-toolchain.mjs --platform ios',
       'APP_VARIANT=dev node scripts/prepare-native.mjs --platform ios',
+      'APP_VARIANT=dev node scripts/sync-ios-strings.mjs',
       'APP_VARIANT=dev node scripts/build-record.js snapshot ios Release',
       'APP_VARIANT=dev npx expo run:ios --configuration Release --device generic',
       'APP_VARIANT=dev node scripts/build-record.js write-ios Release',

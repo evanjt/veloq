@@ -93,7 +93,6 @@ export function generateSectionPRInsights(
           ],
         },
         methodology: {
-          name: t('insights.methodology.prDetectionName'),
           description: t('insights.methodology.prDetection'),
         },
         meta: {

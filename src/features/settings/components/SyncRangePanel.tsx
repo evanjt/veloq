@@ -198,9 +198,6 @@ export function SyncRangePanel() {
             {limitLines ? (
               <>
                 <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
-                  {limitLines.shared}
-                </Text>
-                <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
                   {limitLines.today}
                 </Text>
                 <Text

@@ -58,11 +58,10 @@ describe('stalePROpportunityToInsight', () => {
     expect(insight.supportingData!.formula).toContain('+10%');
   });
 
-  it('includes methodology', () => {
+  it('includes methodology, and only the description the sheet draws', () => {
     const insight = stalePROpportunityToInsight(opportunity, mockT);
-    expect(insight.methodology!.name).toBe(
-      'insights.methodology.stalePrCrossRefName {metric: insights.stalePr.metricCyclingEftp}'
-    );
+    expect(Object.keys(insight.methodology!)).toEqual(['description']);
+    expect(insight.methodology!.description).toContain('insights.stalePr.methodology');
   });
 
   it('includes fitness values in body', () => {
@@ -105,9 +104,6 @@ describe('stalePROpportunityToInsight', () => {
       unit: '/km',
     };
     const insight = stalePROpportunityToInsight(paceOpportunity, mockT);
-    expect(insight.methodology!.name).toBe(
-      'insights.methodology.stalePrCrossRefName {metric: insights.stalePr.metricRunningCriticalSpeed}'
-    );
     expect(insight.body).toContain('insights.stalePr.metricRunningCriticalSpeed');
     expect(insight.body).not.toContain('metricCyclingEftp');
   });

@@ -152,7 +152,6 @@ export function GarminConnector() {
     <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
       <View style={styles.content}>
         <Text style={[styles.text, secondary]}>{t('garmin.intro')}</Text>
-        <Text style={[styles.text, secondary]}>{t('garmin.privacy')}</Text>
         <ExternalLinkRow
           url={GARMIN_FORUM_THREAD}
           label={t('garmin.readMore')}
@@ -198,6 +197,7 @@ export function GarminConnector() {
             autoCorrect={false}
             testID="garmin-key-input"
           />
+          <Text style={[styles.text, secondary]}>{t('garmin.privacy')}</Text>
           {status !== null && status !== GarminKeyStatus.Connected ? (
             <StatusLine tone="error" message={t(STATUS_KEY[status])}>
               <Text style={{ color: palette.textPrimary }}>{t(STATUS_KEY[status])}</Text>

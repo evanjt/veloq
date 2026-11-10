@@ -166,9 +166,6 @@ fn every_visible_auto_section_shares_its_identity_row() {
         "the identity row drops the lift flag"
     );
 
-    engine.recalculate_section_polyline(&renamed);
-    assert_shared(&engine, "recalculate a line");
-
     let leaving = row_payload(&engine, &renamed)
         .expect("the row")
         .activity_ids[0]

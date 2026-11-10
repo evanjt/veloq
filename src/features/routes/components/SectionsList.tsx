@@ -104,6 +104,8 @@ interface SectionsListProps {
   /** Sections the ledger retired, which gates the link to the retired screen */
   retiredSectionCount?: number | undefined;
   /** The page read failed: shown with a retry, never as an empty library */
+  /** The engine page has not answered yet: show the skeleton, not the empty state. */
+  isLoading?: boolean;
   loadError?: unknown;
   /** Reads the page again after a failure */
   onRetry?: (() => void) | undefined;
@@ -232,6 +234,7 @@ export const SectionsList = memo(function SectionsList({
   customSectionCount,
   removedSectionCount,
   retiredSectionCount = 0,
+  isLoading = false,
   loadError,
   onRetry,
   emptyReason = null,
@@ -262,11 +265,9 @@ export const SectionsList = memo(function SectionsList({
     });
   }, [batchSections]);
 
-  const {
-    sections: unifiedSections,
-    count: totalCount,
-    isLoading,
-  } = useSections({ preloadedEngineSections });
+  const { sections: unifiedSections, count: totalCount } = useSections({
+    preloadedEngineSections,
+  });
 
   const { removeSection } = useSectionCommands();
   const { rescan, isScanning, refusal: rescanRefusal } = useSectionRescan();
@@ -311,11 +312,9 @@ export const SectionsList = memo(function SectionsList({
     [hiddenFilters, onHiddenFiltersChange]
   );
 
-  const isReady = !isLoading;
-
   useEffect(() => {
-    if (isReady) completeFlowAfterFrame(FLOW_ADD_ONE);
-  }, [isReady, unifiedSections]);
+    if (!isLoading) completeFlowAfterFrame(FLOW_ADD_ONE);
+  }, [isLoading, unifiedSections]);
 
   // Note: Activity traces are no longer pre-loaded to reduce memory usage
   // Each row draws the polyline its page carries
@@ -340,9 +339,17 @@ export const SectionsList = memo(function SectionsList({
       confirmLabel: t('sections.acceptAllSections'),
       cancelLabel: t('common.cancel'),
       onConfirm: () => {
-        // A failure is said as one, never as a count of none accepted.
+        // A null is a write that never ran, so it is said as a failure and never as a count.
         try {
-          setAcceptAllResult(getEngine()?.acceptAllSections() ?? 0);
+          const count = getEngine()?.acceptAllSections() ?? null;
+          if (count === null) {
+            inform({
+              title: t('sections.acceptAllFailedTitle'),
+              message: t('engine.failure.database'),
+            });
+            return;
+          }
+          setAcceptAllResult(count);
         } catch (error) {
           inform({
             title: t('sections.acceptAllFailedTitle'),
@@ -364,7 +371,7 @@ export const SectionsList = memo(function SectionsList({
       return <ErrorState error={loadError} onRetry={onRetry} testID="sections-load-failure" />;
     }
 
-    if (!isReady) {
+    if (isLoading) {
       return (
         <View style={styles.skeletonList}>
           <ListSkeleton rows={5} />

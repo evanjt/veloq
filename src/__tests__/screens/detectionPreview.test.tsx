@@ -1760,7 +1760,7 @@ describe('the preview against a catalogue that has not caught up', () => {
     const { getByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(getByTestId('preview-stale-catalogue')).toHaveTextContent(
-      /has not seen 118 of your activities yet/
+      /118 activities are not analysed yet/
     );
   });
 

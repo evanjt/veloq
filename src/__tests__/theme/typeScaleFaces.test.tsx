@@ -155,7 +155,7 @@ describe('surfaces drawing through the scale', () => {
     const { MethodologySection } = require('@/features/insights/components/MethodologySection');
     const insight = {
       id: 'formula-probe',
-      methodology: { name: 'Probe', description: 'Probe', formula: 'k = a / b' },
+      methodology: { description: 'Probe', formula: 'k = a / b' },
     } as unknown as Insight;
     await render(<MethodologySection insight={insight} />);
     await fireEvent.press(screen.getByTestId('methodology-toggle'));

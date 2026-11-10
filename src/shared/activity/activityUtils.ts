@@ -28,6 +28,7 @@ const ACTIVITY_ICONS = {
   Ride: 'bike',
   VirtualRide: 'bike',
   EBikeRide: 'bike-fast',
+  EMountainBikeRide: 'bike-fast',
   MountainBikeRide: 'bike',
   GravelRide: 'bike',
   TrackRide: 'bike',

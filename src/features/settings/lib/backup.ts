@@ -148,6 +148,15 @@ export function hasPendingRecordExport(): boolean {
 }
 
 /**
+ * Release a lapsed record export when the library it was writing is wiped. Its
+ * file belongs to the athlete who left, so nothing is offered to the next. A
+ * write still running ends unshared, because its `lapsed` flag is already set.
+ */
+export function forgetPendingRecordExport(): void {
+  pendingExport = null;
+}
+
+/**
  * Settles when the lapsed write ends, either way, or at once when none is
  * owed. It never rejects and claims nothing: the reader that is still there
  * afterwards takes the file with `resumePendingRecordExport`.

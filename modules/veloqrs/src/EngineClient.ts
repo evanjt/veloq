@@ -1399,7 +1399,7 @@ class EngineClient implements DelegateHost {
 
   acceptSection = (sectionId: string): boolean => sectionDelegates.acceptSection(this, sectionId);
 
-  acceptAllSections = (): number => sectionDelegates.acceptAllSections(this);
+  acceptAllSections = (): number | null => sectionDelegates.acceptAllSections(this);
 
   /**
    * Whether a subscription can ever fire.

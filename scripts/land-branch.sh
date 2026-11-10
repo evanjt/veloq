@@ -347,10 +347,19 @@ while [ "$attempt" -le "$ATTEMPTS" ]; do
   refuse_merge_in_progress
   report_stranded_index
 
+  # A refusal with the target still on the head the candidate was built on is not
+  # a lost race: the same refusal comes back on every attempt. git has already
+  # named the files it would overwrite, so say what the refusal means and stop.
+  head=$(git -C "$CHECKOUT" rev-parse HEAD)
+  if [ "$head" = "$base" ]; then
+    echo "land-branch: git refused the fast-forward and $TARGET has not moved, so this is not a lost race." >&2
+    echo "land-branch: clear what git named above, then land again. Nothing was landed." >&2
+    exit 1
+  fi
+
   # The target moved under the gate. What lands has to be what was gated, so
   # the new head is merged in and that candidate gated from it in turn.
   attempt=$((attempt + 1))
-  head=$(git -C "$CHECKOUT" rev-parse HEAD)
   if ! git -C "$LANDING" merge-base --is-ancestor "$head" HEAD; then
     if ! merge_into_landing "$head" "Merge $TARGET into the landing tree"; then
       echo "land-branch: $TARGET has moved into conflict with $BRANCH, resolve it on the branch" >&2

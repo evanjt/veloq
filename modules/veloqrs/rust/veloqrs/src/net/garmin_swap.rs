@@ -337,6 +337,12 @@ pub(crate) fn stub_verdict(
     }
 }
 
+/// Whether the athlete has edited the activity's intervals, as the activity's
+/// JSON says. `None` when the JSON carries no such flag.
+fn intervals_edited(value: &serde_json::Value) -> Option<bool> {
+    value.get("icu_intervals_edited").and_then(|v| v.as_bool())
+}
+
 fn import_of(activity_json: &str) -> Option<Import> {
     let value: serde_json::Value = serde_json::from_str(activity_json).ok()?;
     let garmin_id = garmin_id_of(
@@ -349,10 +355,7 @@ fn import_of(activity_json: &str) -> Option<Import> {
     Some(Import {
         garmin_id,
         held_back,
-        intervals_edited: value
-            .get("icu_intervals_edited")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
+        intervals_edited: intervals_edited(&value).unwrap_or(false),
         analysed: value
             .get("analyzed")
             .and_then(|v| v.as_str())
@@ -736,6 +739,16 @@ fn swap(link: &dyn SwapLink, id: &str) -> FfiSwapResult {
     result
 }
 
+/// Whether the athlete has edited the activity's intervals, read from the
+/// activity as intervals.icu serves it now. `Err` when that cannot be read:
+/// a replacement sent without the answer would regenerate the edits away.
+fn edited_now(link: &dyn SwapLink, id: &str) -> Result<bool, String> {
+    let json = link.activity_json(id).map_err(|e| e.message)?;
+    let value: serde_json::Value = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+    intervals_edited(&value)
+        .ok_or_else(|| "the activity does not say whether its intervals were edited".to_string())
+}
+
 /// Put the earlier file back into the activity `id`.
 pub(crate) fn undo(link: &dyn SwapLink, id: &str) -> FfiSwapResult {
     let Some(kept) = previous_file(link, id).filter(|p| p.is_file()) else {
@@ -744,12 +757,12 @@ pub(crate) fn undo(link: &dyn SwapLink, id: &str) -> FfiSwapResult {
     let Ok(earlier) = std::fs::read(&kept) else {
         return failed("the earlier file could not be read from the device");
     };
-    let edited = link
-        .activity_json(id)
-        .ok()
-        .and_then(|json| serde_json::from_str::<serde_json::Value>(&json).ok())
-        .and_then(|v| v.get("icu_intervals_edited").and_then(|e| e.as_bool()))
-        .unwrap_or(false);
+    let edited = match edited_now(link, id) {
+        Ok(edited) => edited,
+        Err(reason) => {
+            return failed(format!("the undo was not sent: {reason}"));
+        }
+    };
     let result = post_and_verify(link, id, &earlier, edited, FfiSwapOutcome::Restored);
     forget_comparison(link, id);
     if result.outcome == FfiSwapOutcome::Restored {

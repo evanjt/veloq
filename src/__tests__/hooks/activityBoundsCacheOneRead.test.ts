@@ -11,6 +11,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useActivityBoundsCache } from '@/features/activity/hooks/useActivityBoundsCache';
+import { atUtcOffsetAsync } from '../__shared__/fixedOffsetDate';
 
 const mockEngine = {
   getStats: jest.fn(),
@@ -99,5 +100,44 @@ describe('useActivityBoundsCache', () => {
     const { result } = await renderHook(() => useActivityBoundsCache());
 
     await waitFor(() => expect(result.current.cacheStats.totalActivities).toBe(490));
+  });
+});
+
+/**
+ * Scenario: the engine stamps each activity date as the athlete's wall clock read as UTC, and
+ * the stored range is shown in Settings.
+ *
+ * Expected behaviour: each edge of the range reads the day the engine stamped, in a zone west
+ * of Greenwich and in one east of it, so the range ends and starts on the athlete's own days.
+ */
+describe('useActivityBoundsCache stored range edges', () => {
+  async function rangeAt(offsetHours: number, oldestDate: number, newestDate: number) {
+    mockEngine.getStats.mockReturnValue({ activityCount: 2, oldestDate, newestDate });
+    return atUtcOffsetAsync(offsetHours, async () => {
+      const { result } = renderHook(() => useActivityBoundsCache());
+      await waitFor(() => expect(result.current.cacheStats.totalActivities).toBe(2));
+      const { oldestDate, newestDate } = result.current.cacheStats;
+      return { oldest: oldestDate, newest: newestDate };
+    });
+  }
+
+  it('reads the newest ride at 02:00 on 5 Nov as 5 Nov west of Greenwich', async () => {
+    const newest = Date.UTC(2026, 10, 5, 2, 0, 0) / 1000;
+    const oldest = Date.UTC(2026, 0, 3, 7, 0, 0) / 1000;
+
+    await expect(rangeAt(-8, oldest, newest)).resolves.toEqual({
+      oldest: '2026-01-03',
+      newest: '2026-11-05',
+    });
+  });
+
+  it('reads an evening oldest ride as its own day east of Greenwich', async () => {
+    const oldest = Date.UTC(2026, 0, 3, 20, 0, 0) / 1000;
+    const newest = Date.UTC(2026, 10, 5, 15, 0, 0) / 1000;
+
+    await expect(rangeAt(10, oldest, newest)).resolves.toEqual({
+      oldest: '2026-01-03',
+      newest: '2026-11-05',
+    });
   });
 });

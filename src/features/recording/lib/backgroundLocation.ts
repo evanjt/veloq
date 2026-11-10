@@ -34,17 +34,33 @@ const SERVICE_CHECK_RETRIES = 6;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// True once this runtime has rehydrated a session from disk. A headless
-// runtime is torn down with the batch, so the flag is only ever set for the
-// batches that follow the restoring one inside the same runtime.
-let restoredFromBackup = false;
+// The start time of the ride this runtime rehydrated from disk, or null. The
+// runtime can outlive the batch that restored it, and a later ride can start in
+// it, so the restore lasts only while the store holds that ride. See
+// `restoredRideHeld`.
+let restoredRideStart: number | null = null;
 
 // The restore in flight. Batches delivered together share it, so none of them
-// starts a second restore that could overwrite the flag the first one set.
+// starts a second restore that could overwrite the ride the first one set.
 let restoring: Promise<void> | null = null;
 
 // The detector this runtime built for itself, when no session runs to own one.
 let headlessDetector: AutoPauseDetector | null = null;
+
+/**
+ * Whether the store still holds the ride this runtime restored. A reset to idle
+ * clears the store's start time, and a session that starts later brings its own,
+ * so either ends the restore. The detector this runtime built goes with it, and
+ * a later ride is persisted and evaluated like any other.
+ */
+function restoredRideHeld(): boolean {
+  if (restoredRideStart === null) return false;
+  if (useRecordingStore.getState().startTime === restoredRideStart) return true;
+  restoredRideStart = null;
+  if (headlessDetector && autoPauseDetector() === headlessDetector) setAutoPauseDetector(null);
+  headlessDetector = null;
+  return false;
+}
 
 /**
  * A headless runtime renders no screen, so no session starts to evaluate
@@ -52,7 +68,7 @@ let headlessDetector: AutoPauseDetector | null = null;
  * of its own, seeded from the same state, and this one then stands down.
  */
 function batchDrivesAutoPause(): boolean {
-  if (!restoredFromBackup) return false;
+  if (!restoredRideHeld()) return false;
   if (!autoPauseDetector()) {
     headlessDetector = buildAutoPauseDetector();
     setAutoPauseDetector(headlessDetector);
@@ -69,14 +85,14 @@ function batchDrivesAutoPause(): boolean {
  * timestamps. A paused session reopens its pause at the last save, so the gap
  * is credited when it resumes or stops.
  */
-async function restoreSessionFromBackup(): Promise<boolean> {
+async function restoreSessionFromBackup(): Promise<number | null> {
   await ensureCredentialsHydrated();
   const backup = await loadRecordingBackup();
-  if (!backup) return false;
+  if (!backup) return null;
   const auth = useAuthStore.getState();
   if (!auth.isAuthenticated || !backup.athleteId || backup.athleteId !== auth.athleteId)
-    return false;
-  if (backup.status !== 'recording' && backup.status !== 'paused') return false;
+    return null;
+  if (backup.status !== 'recording' && backup.status !== 'paused') return null;
 
   // Auto-pause reads the rider's preferences, and a fresh runtime has only the
   // defaults until they are loaded.
@@ -86,7 +102,7 @@ async function restoreSessionFromBackup(): Promise<boolean> {
   }
 
   // A foreground launch may have started or restored a session during the load.
-  if (useRecordingStore.getState().status !== 'idle') return false;
+  if (useRecordingStore.getState().status !== 'idle') return null;
 
   const { restoreRecordingBackup } = require('./restoreRecordingBackup');
   restoreRecordingBackup(backup, { headless: true });
@@ -95,22 +111,22 @@ async function restoreSessionFromBackup(): Promise<boolean> {
   // runtime does, and a session started later shares it.
   installRecordingNotificationActions();
   log.log('Restored a recording from its backup in a headless runtime');
-  return true;
+  return backup.startTime;
 }
 
 /**
- * The only writer of `restoredFromBackup`. A batch that arrives during a
+ * The only writer of `restoredRideStart`. A batch that arrives during a
  * restore awaits that restore. Starting another one would find the store
- * already recording, return false, and overwrite the true the first set.
+ * already recording, return null, and overwrite the ride the first one set.
  */
 function restoreIfIdle(): Promise<void> {
-  if (restoredFromBackup || useRecordingStore.getState().status !== 'idle') {
+  if (restoredRideHeld() || useRecordingStore.getState().status !== 'idle') {
     return Promise.resolve();
   }
   if (!restoring) {
     restoring = restoreSessionFromBackup()
-      .then((restored) => {
-        restoredFromBackup = restored;
+      .then((startTime) => {
+        restoredRideStart = startTime;
       })
       .finally(() => {
         restoring = null;
@@ -157,7 +173,7 @@ export async function handleBackgroundLocations(
   // live runtime out of the foreground has its timers paused, so its batches
   // persist once an interval of fixes has passed.
   const newestFix = locations.reduce((newest, l) => Math.max(newest, l.timestamp), 0);
-  if (restoredFromBackup) await writeRideBackup(newestFix);
+  if (restoredRideHeld()) await writeRideBackup(newestFix);
   else if (AppState.currentState !== 'active') await writeRideBackupIfDue(newestFix);
 
   // The notification is the ride's only surface while the app is backgrounded,

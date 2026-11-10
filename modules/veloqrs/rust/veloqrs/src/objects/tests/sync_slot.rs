@@ -474,6 +474,87 @@ fn a_return_from_the_background_starts_the_default_sync() {
     assert_eq!(*runs.lock().unwrap(), vec![full(), full()]);
 }
 
+/// Scenario: the default sync is running for the signed-in athlete when the
+/// athlete returns to the app.
+///
+/// Expected behaviour: the run in flight already fetches what the return asks
+/// for, so nothing is owed behind it and its finish starts no second default
+/// sync.
+#[test]
+fn a_return_during_a_default_sync_owes_nothing_behind_it() {
+    let _serial = crate::test_globals::serial_global_state();
+    let (svc, runs) = recording_runs();
+    svc.claim_slot().expect("the slot is free");
+
+    svc.foregrounded();
+    svc.finish(SyncState::Idle, None, true);
+
+    assert!(runs.lock().unwrap().is_empty());
+}
+
+/// Scenario: a window is running when the athlete returns to the app. A window
+/// fetches only its own range, so the default sync is not covered by it.
+///
+/// Expected behaviour: the return owes the default sync, which starts when the
+/// window's finish frees the slot.
+#[test]
+fn a_return_during_a_window_owes_the_default_sync_behind_it() {
+    let _serial = crate::test_globals::serial_global_state();
+    let (svc, runs) = recording_runs();
+    svc.claim_slot_for(window(OLDEST, NEWEST))
+        .expect("the slot is free");
+
+    svc.foregrounded();
+    assert!(
+        runs.lock().unwrap().is_empty(),
+        "held while the window runs"
+    );
+
+    svc.finish(SyncState::Idle, None, true);
+    assert_eq!(*runs.lock().unwrap(), vec![full()]);
+}
+
+/// Scenario: a default sync failed on the network in the background and is
+/// owed to the connection. The resume sleeper starts a new default sync before
+/// any online edge, and the athlete returns while it runs.
+///
+/// Expected behaviour: the running default sync fetches what the failed one
+/// left owed, so the return does not owe it a second time and the finish
+/// starts nothing.
+#[test]
+fn a_return_during_a_default_sync_drops_the_run_a_failure_left_owed() {
+    let _serial = crate::test_globals::serial_global_state();
+    let (svc, runs) = recording_runs();
+    svc.claim_slot().expect("the slot is free");
+    svc.finish(SyncState::Idle, failure(FfiSyncErrorReason::Network), false);
+    svc.claim_slot().expect("the slot is free");
+
+    svc.foregrounded();
+    svc.finish(SyncState::Idle, None, true);
+
+    assert!(runs.lock().unwrap().is_empty());
+}
+
+/// Scenario: the same failed default sync is owed to the connection, and the
+/// default sync that replaced it is running when the online edge arrives.
+///
+/// Expected behaviour: the edge does not move the owed default sync onto the
+/// slot, because the run in flight already fetches it, so the finish starts
+/// nothing.
+#[test]
+fn an_online_edge_during_a_default_sync_drops_the_run_a_failure_left_owed() {
+    let _serial = crate::test_globals::serial_global_state();
+    let (svc, runs) = recording_runs();
+    svc.claim_slot().expect("the slot is free");
+    svc.finish(SyncState::Idle, failure(FfiSyncErrorReason::Network), false);
+    svc.claim_slot().expect("the slot is free");
+
+    svc.reconnected();
+    svc.finish(SyncState::Idle, None, true);
+
+    assert!(runs.lock().unwrap().is_empty());
+}
+
 /// A run that settled with an error is asked again by the next return, which
 /// is the retry the service holds now rather than a screen's hook.
 #[test]
@@ -719,4 +800,87 @@ fn a_failure_no_short_wait_cures_leaves_no_retry_pending() {
         svc.finish(SyncState::Idle, failure(reason), false);
         assert_eq!(svc.snapshot().retry_at_ms, None, "{reason:?}");
     }
+}
+
+fn service_signed_in_as(server: &MockServer, secret: &str) -> SyncService {
+    let svc = SyncService::new();
+    *svc.base_url.lock().unwrap() = server.base_url();
+    svc.set_credentials(AuthKind::ApiKey, secret.into(), "i1".into());
+    svc
+}
+
+/// Scenario: a request built on a token that a later sign-in replaced is
+/// refused, and the refusal is confirmed on the same old token.
+///
+/// Expected behaviour: the new credential is not parked and the slot is free.
+#[test]
+fn a_rejection_on_a_replaced_token_leaves_the_new_credential_standing() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET).path("/athlete/i1");
+        then.status(401);
+    });
+    let svc = service_signed_in_as(&server, "old");
+    let stale = svc.build_session().unwrap();
+    svc.set_credentials(AuthKind::ApiKey, "new".into(), "i1".into());
+
+    crate::runtime::block_on(svc.park_if_rejected(&stale));
+
+    assert_ne!(svc.snapshot().state, SyncState::AuthExpired);
+    assert!(svc.claim_slot().is_ok());
+}
+
+#[test]
+fn a_rejection_on_the_held_token_still_parks() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET).path("/athlete/i1");
+        then.status(401);
+    });
+    let svc = service_signed_in_as(&server, "held");
+    let session = svc.build_session().unwrap();
+
+    crate::runtime::block_on(svc.park_if_rejected(&session));
+
+    assert_eq!(svc.snapshot().state, SyncState::AuthExpired);
+    assert_eq!(svc.claim_slot(), Err(FfiStartOutcome::NotConfigured));
+}
+
+#[test]
+fn a_rejection_on_a_cleared_token_does_not_park() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET).path("/athlete/i1");
+        then.status(401);
+    });
+    let svc = service_signed_in_as(&server, "old");
+    let stale = svc.build_session().unwrap();
+    svc.clear_credentials();
+
+    crate::runtime::block_on(svc.park_if_rejected(&stale));
+
+    assert_ne!(svc.snapshot().state, SyncState::AuthExpired);
+}
+
+/// Scenario: a run is parked, the athlete signs in again and a new run claims
+/// the slot, then the first run's task reaches its own finish.
+///
+/// Expected behaviour: the new run keeps the slot.
+#[test]
+fn a_parked_runs_late_finish_leaves_the_next_runs_slot_held() {
+    let server = MockServer::start();
+    let svc = service_signed_in_as(&server, "old");
+    let first = svc.try_start().expect("first run claims the slot");
+    svc.park_auth_expired_now();
+    svc.set_credentials(AuthKind::ApiKey, "new".into(), "i1".into());
+    let second = svc.try_start().expect("second run claims the slot");
+
+    svc.finish_run(&first, SyncState::Idle, None, true);
+
+    assert_eq!(svc.snapshot().state, SyncState::Syncing);
+    assert_eq!(svc.claim_slot(), Err(FfiStartOutcome::Busy));
+
+    svc.finish_run(&second, SyncState::Idle, None, true);
+    assert_eq!(svc.snapshot().state, SyncState::Idle);
+    assert!(svc.claim_slot().is_ok());
 }

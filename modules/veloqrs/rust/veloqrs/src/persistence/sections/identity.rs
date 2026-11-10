@@ -982,7 +982,7 @@ impl PersistentEngine {
     }
 
     /// The whole section registry as a version-tagged serde blob, or None if
-    /// serialisation fails. Written INSIDE the `save_sections` transaction (via
+    /// serialisation fails. Written INSIDE the `save_sections_with_events` transaction (via
     /// `write_identity_state`) so the registry and the catalogue it describes
     /// commit atomically, a crash cannot leave the blob ahead of the DB. The
     /// leading byte is [`SECTION_IDENTITY_BLOB_VERSION`]; a mismatch on restore
@@ -2878,7 +2878,7 @@ fn arrival_portions<'a>(
 /// only those. Never removes a member and never adopts the batch's
 /// re-clustered set, so a carried section is monotone across an add, the
 /// property the strict single-add gates assert. New laps bump `visit_count` in
-/// step with the junction rows `save_sections` will write. The payload is
+/// step with the junction rows `save_sections_with_events` will write. The payload is
 /// copied only when an arrival joins it, so a carry that gains nothing stays
 /// the allocation the visible catalogue shares.
 fn fold_new_activities(
@@ -2913,7 +2913,7 @@ fn fold_new_activities(
 /// stays out: the member-loss guard has already held the adoption back as a
 /// debounced re-cut, and a re-cut that fires is the cut's verdict holding.
 /// Portions are computed against the NEW geometry so the junction rows
-/// `save_sections` writes stay coherent; a member whose track genuinely left
+/// `save_sections_with_events` writes stay coherent; a member whose track genuinely left
 /// the adopted ground stays dropped.
 fn graft_prior_members(
     conn: &Connection,

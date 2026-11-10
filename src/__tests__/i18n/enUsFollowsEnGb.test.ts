@@ -35,7 +35,6 @@ const SPELLING = [
   'insights.efficiencyTrend.subtitle',
   'insights.line.efficiency',
   'insights.noInsightsHint',
-  'insights.strengthSnapshot.methodologyDescription',
   'licenses.footer',
   'licenses.intro',
   'licenses.sectionSpecialLicenses',
@@ -127,7 +126,6 @@ describe('en-US follows en-GB', () => {
   // and this test held it there.
   it('the FTP copy says what the generator reports, in both', () => {
     for (const bundle of [gb, us]) {
-      expect(bundle.get('insights.methodology.ftpEstimationName')).toBe('eFTP changes');
       expect(bundle.get('insights.methodology.ftpEstimation')).toContain('30 days earlier');
       expect(bundle.get('insights.methodology.ftpEstimation')).not.toContain('FTP setting over');
     }

@@ -43,8 +43,8 @@ pub(crate) struct Imported {
 pub(crate) trait AutoStore {
     fn setting(&self, key: &str) -> Option<String>;
     fn set_setting(&self, key: &str, value: &str);
-    /// Garmin imports, newest first, that intervals.icu created recently.
-    fn recent_imports(&self) -> Vec<Imported>;
+    /// Garmin imports whose time falls from `earliest` to `now`, newest first.
+    fn recent_imports(&self, earliest: DateTime<Utc>, now: DateTime<Utc>) -> Vec<Imported>;
 }
 
 /// The moment a switch value says it was turned on, `None` when it is off.
@@ -97,7 +97,7 @@ pub(crate) fn run(
     };
     let earliest = since.max(now - Duration::hours(WINDOW_HOURS));
     let in_window: Vec<String> = store
-        .recent_imports()
+        .recent_imports(earliest, now)
         .into_iter()
         .filter(|i| created_at(&i.when).is_some_and(|t| t >= earliest && t <= now))
         .map(|i| i.id)
@@ -156,31 +156,48 @@ impl AutoStore for InstallStore {
         }
     }
 
-    fn recent_imports(&self) -> Vec<Imported> {
-        crate::objects::error::with_reader(recent_imports_in)
+    fn recent_imports(&self, earliest: DateTime<Utc>, now: DateTime<Utc>) -> Vec<Imported> {
+        crate::objects::error::with_reader(|conn| recent_imports_in(conn, earliest, now))
             .ok()
             .and_then(Result::ok)
             .unwrap_or_default()
     }
 }
 
-/// The Garmin imports in `conn`, newest first. A ride with no `created` time
-/// is dated by its start instead, so a stub that carries none is still caught.
-pub(crate) fn recent_imports_in(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<Imported>> {
+/// The Garmin imports in `conn` whose time falls from `earliest` to `now`,
+/// newest first. A ride with no `created` time is dated by its start instead,
+/// so a stub that carries none is still caught.
+///
+/// The source and the window are applied in SQL before any rows are read, and
+/// there is no row limit: a limit taken before the filter lets other rows
+/// newer than the ride push it out of the result.
+pub(crate) fn recent_imports_in(
+    conn: &rusqlite::Connection,
+    earliest: DateTime<Utc>,
+    now: DateTime<Utc>,
+) -> rusqlite::Result<Vec<Imported>> {
     let mut stmt = conn.prepare(
         "SELECT c.intervals_id, COALESCE(c.created, c.start_date_local), b.raw
          FROM activity_census c
          JOIN activity_bodies b ON b.activity_id = c.intervals_id
-         WHERE COALESCE(c.created, c.start_date_local) IS NOT NULL
-         ORDER BY COALESCE(c.created, c.start_date_local) DESC LIMIT 200",
+         WHERE json_valid(b.raw)
+           AND json_extract(b.raw, '$.source') = 'GARMIN_CONNECT'
+           AND julianday(COALESCE(c.created, c.start_date_local)) BETWEEN julianday(?1) AND julianday(?2)
+         ORDER BY julianday(COALESCE(c.created, c.start_date_local)) DESC",
     )?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    })?;
+    let rows = stmt.query_map(
+        rusqlite::params![
+            earliest.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+        ],
+        |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        },
+    )?;
     Ok(rows
         .filter_map(Result::ok)
         .filter(|(_, _, raw)| crate::net::garmin::pull::body_is_from_garmin(raw))

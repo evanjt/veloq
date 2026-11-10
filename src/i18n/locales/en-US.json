@@ -47,9 +47,6 @@
       "subtitle": "Modeled {{hrChange}} bpm at average pace over {{efforts}} efforts",
       "body": "Over {{efforts}} efforts on {{name}}, heart rate times pace has improved. At your average pace that is a modeled {{hrChange}} bpm; your heart rate itself may not have changed."
     },
-    "strengthSnapshot": {
-      "methodologyDescription": "Summarizes strength volume across the most recent 4 weeks: workout count, total sets, and number of tracked muscle groups."
-    },
     "line": {
       "efficiency": "Modeled HR {{change}} at average pace on {{name}}"
     }
@@ -88,8 +85,8 @@
     "unitsMetricHint": "Distances in kilometers, elevation in meters, temperature in Celsius",
     "previewRunning_one": "Analyzing {{count}} activity in this area",
     "previewRunning_other": "Analyzing {{count}} activities in this area",
-    "previewStaleCatalogue_one": "The live catalog has not seen {{count}} of your activities yet, so sections shown as gone or new may only be detection catching up",
-    "previewStaleCatalogue_other": "The live catalog has not seen {{count}} of your activities yet, so sections shown as gone or new may only be detection catching up",
+    "previewStaleCatalogue_one": "{{count}} activity is not analyzed yet. Sections marked gone or new may change once it is.",
+    "previewStaleCatalogue_other": "{{count}} activities are not analyzed yet. Sections marked gone or new may change once they are.",
     "previewPoolCost_one": "{{count}} activity analyzed in {{duration}}",
     "previewPoolCost_other": "{{count}} activities analyzed in {{duration}}",
     "previewKeepWarning": "Keeping re-analyzes your whole library. Sections outside this area can change too."
@@ -138,7 +135,7 @@
   },
   "experimental": {
     "climbingBests": {
-      "blurb": "Calculated by Veloq on your phone from intervals.icu's elevation data. intervals.icu does not provide climbing bests itself. For each window, from 15 seconds to 20 minutes, Veloq finds your fastest climb rate in meters per hour (VAM) and converts it to W/kg, the power needed to lift your body weight alone. Only activities with intervals.icu's corrected elevation count."
+      "blurb": "Your fastest climb rate for each window, from 15 seconds to 20 minutes, in meters per hour (VAM) and as W/kg, the power needed to lift your body weight alone. Veloq calculates this on your phone from intervals.icu's elevation data. intervals.icu does not provide climbing bests itself. Only activities with corrected elevation count."
     }
   }
 }

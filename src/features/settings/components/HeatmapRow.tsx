@@ -68,7 +68,10 @@ export function HeatmapRow() {
                 defaultValue: 'Using {{size}} of device storage',
                 size: formatFileSize(size),
               })
-            : t('settings.heatmapDescription', 'Uses device storage. Disable to save space.')
+            : t(
+                'settings.heatmapDescription',
+                'Keeps the heatmap on this device and uses storage for it. Turn it off to free that space.'
+              )
         }
         value={enabled}
         onValueChange={handleToggle}

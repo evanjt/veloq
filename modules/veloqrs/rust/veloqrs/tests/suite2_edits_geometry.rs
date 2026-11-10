@@ -1,7 +1,7 @@
 //! Suite #2, geometry & metadata edit survival + side effects.
 //!
 //! The believability core beyond accept/hide (the accept and hide tests): when a user
-//! renames, re-references, trims, resets, or recalculates a section, the edit
+//! renames, re-references, trims or resets a section, the edit
 //! must survive later resyncs and must not corrupt geometry or the performance
 //! view. These behaviours live in the persistence layer.
 //!
@@ -13,8 +13,6 @@
 //! - reset_section_bounds is the complete reset: it restores the original
 //!   geometry, clears the backup, and leaves the row deletable so the resync
 //!   wipe-rebuild proceeds.
-//! - recalculate_section_polyline keeps the remnant on real corridor, and is
-//!   idempotent.
 //! - reset_section_reference restores the replaced geometry as well as clearing
 //!   the backup, so it is a complete reset.
 //! - A geometry edit invalidates the performance cache, so
@@ -183,38 +181,6 @@ fn reset_bounds_restores_the_original_geometry() {
     );
 }
 
-/// recalculate_section_polyline re-cuts a section's line from one member's own
-/// track, so whatever survives must lie on real corridor:
-/// nearly every point within tolerance of ONE contributing activity's track. A
-/// red here is a recalculated section drawn across ground nobody travelled.
-#[test]
-fn recalculate_polyline_stays_on_real_corridor() {
-    let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine();
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
-    let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
-    let one_act = engine
-        .get_gps_track(before.activity_ids.iter().next().unwrap())
-        .expect("a contributing activity's track");
-
-    engine
-        .recalculate_section_polyline(&id)
-        .expect("recalculate_section_polyline");
-    let after = engine.get_section(&id).expect("get_section after recalc");
-
-    assert!(
-        after.polyline.len() >= 2,
-        "recalculate collapsed the section to {} point(s)",
-        after.polyline.len()
-    );
-    let cov = coverage(&after.polyline, &one_act, 50.0);
-    assert!(
-        cov >= 0.9,
-        "recalculated polyline is only {:.0}% covered by a contributing activity, it drifted off the corridor",
-        cov * 100.0,
-    );
-}
-
 /// Touch one unrelated activity's metrics purely for the invalidate_perf_cache
 /// side effect, so the next perf read is recomputed rather than served stale.
 fn force_perf_invalidation(engine: &mut PersistentEngine, activity_id: &str) {
@@ -355,39 +321,6 @@ fn gate_reset_reference_fully_resets_like_reset_bounds() {
         "reset_section_reference did not restore original geometry: {:.0}m vs original {:.0}m",
         reset.distance_meters,
         before.distance_meters,
-    );
-}
-
-/// recalculate_section_polyline must be idempotent: recomputing a section's
-/// consensus a second time, with no new activities, must not move it.
-///
-/// Measured on the length rather than the point count, which is the field the
-/// recalc still reports: `polyline_point_count` was cut from
-/// `FfiSectionRecalcResult` with the twenty other slots no reader wanted, and
-/// this assertion was left reading a field that no longer existed, which
-/// stopped the whole synthetic suite from building.
-///
-/// It converges: measured 2026-09-13 on the battery arm, both recalcs answer
-/// 251.5 m, a drift of nought. The tolerance is a centimetre rather than
-/// equality because the length is a sum of floats, and it is deliberately far
-/// tighter than the two-point slack the point count carried: a consensus that
-/// lands somewhere else moves the length by metres.
-#[test]
-fn gate_recalculate_polyline_is_idempotent() {
-    let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine();
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
-    let (id, _f) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
-
-    let first = engine.recalculate_section_polyline(&id).expect("recalc #1");
-    let second = engine.recalculate_section_polyline(&id).expect("recalc #2");
-
-    let drift = (first.distance_meters - second.distance_meters).abs();
-    assert!(
-        drift <= 0.01,
-        "recalculate drifted by {drift:.1} m on a no-op re-run ({:.1} -> {:.1})",
-        first.distance_meters,
-        second.distance_meters,
     );
 }
 

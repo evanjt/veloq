@@ -687,7 +687,9 @@ pub enum Replacement {
 ///
 /// `keep_intervals` keeps intervals the athlete edited and
 /// `keep_custom_fields` keeps their custom field values; both are sent
-/// explicitly. A 200 whose `activity` is null says the file was unchanged.
+/// explicitly. A 200 whose `activity` is null says the file was unchanged. A 200
+/// that is empty, is not JSON or has no `activity` field says nothing about
+/// whether the file landed, so it is a decode error and not `Unchanged`.
 pub async fn replace_activity_file(
     t: &Transport,
     activity_id: &str,
@@ -715,9 +717,15 @@ pub async fn replace_activity_file(
             UPLOAD_TIMEOUT,
         )
         .await?;
-    let answer: serde_json::Value = serde_json::from_slice(&body).unwrap_or_default();
+    let answer: serde_json::Value =
+        serde_json::from_slice(&body).map_err(|e| NetError::Decode(e.to_string()))?;
     Ok(match answer.get("activity") {
-        None | Some(serde_json::Value::Null) => Replacement::Unchanged,
+        Some(serde_json::Value::Null) => Replacement::Unchanged,
+        None => {
+            return Err(NetError::Decode(
+                "the replacement answer carries no activity field".into(),
+            ));
+        }
         Some(activity) => Replacement::Replaced(
             created_activity_id(activity.to_string().as_bytes())
                 .unwrap_or_else(|| activity_id.to_string()),
@@ -1556,6 +1564,48 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(got, Replacement::Unchanged);
+    }
+
+    #[test]
+    fn a_replacement_answered_with_an_unreadable_body_is_not_unchanged() {
+        for (label, body) in [("empty", ""), ("html", "<html>bad gateway</html>")] {
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(POST).path("/activity/i77/file");
+                then.status(200).body(body);
+            });
+            let (_file, path) = staged_fit();
+            let t = fast_transport(server.base_url());
+            let got = crate::runtime::block_on(replace_activity_file(
+                &t,
+                "i77",
+                &path,
+                "g.fit",
+                false,
+                Lane::Interactive,
+            ));
+            assert!(matches!(got, Err(NetError::Decode(_))), "{label}: {got:?}");
+        }
+    }
+
+    #[test]
+    fn a_replacement_answer_without_an_activity_field_is_not_unchanged() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path("/activity/i77/file");
+            then.status(200).json_body(json!({}));
+        });
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url());
+        let got = crate::runtime::block_on(replace_activity_file(
+            &t,
+            "i77",
+            &path,
+            "g.fit",
+            false,
+            Lane::Interactive,
+        ));
+        assert!(matches!(got, Err(NetError::Decode(_))), "{got:?}");
     }
 
     #[test]

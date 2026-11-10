@@ -61,7 +61,9 @@ export const KEEP_DIR = '.native-keep';
  * Android widget sources are left out because `sync-android-widgets.mjs`
  * copies them into the project before every build. The translations behind
  * the native strings are left out because they change with most releases and
- * each regeneration costs a full native build.
+ * each regeneration costs a full native build; `sync-ios-strings.mjs` rewrites
+ * the iOS catalogues and sample before every iOS build, as the Android strings
+ * are rewritten by `sync-android-widgets.mjs`.
  */
 export const CONFIGURATION = [
   'app.json',

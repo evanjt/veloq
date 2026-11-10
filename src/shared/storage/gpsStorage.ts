@@ -329,6 +329,8 @@ async function clearBasemapTiles(): Promise<void> {
  *   login screen offers to whoever opens an empty library, the restore
  *   copies in the cache, and a backup held on the login screen for the next
  *   sign-in
+ * - A record export still writing when its foreground wait ran out, which
+ *   would otherwise be offered to the next athlete when the write ends
  * - The derived-data clear's rollback copy of the library, which a clear
  *   killed part way leaves beside the database
  * - The quarantined copy of a database that would not open, which launch
@@ -385,6 +387,8 @@ export async function wipeLibrary(): Promise<void> {
 
   const { forgetPendingBulkExport } = require('@/features/settings/lib/bulkExport');
   forgetPendingBulkExport();
+  const { forgetPendingRecordExport } = require('@/features/settings/lib/backup');
+  forgetPendingRecordExport();
   const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');
   const { clearWebdavConfig } = require('@/features/settings/lib/autobackup/webdavConfig');
   const { forgetBackupCarrier } = require('@/features/settings/lib/autobackup/autoBackup');

@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
+import { debug } from '@/shared/debug/debug';
 import { permissionOutcome, type PermissionOutcome } from './outcome';
+
+const log = debug.create('Permissions');
 
 /** The notification permission as the system holds it now. */
 export async function readNotificationPermission(): Promise<PermissionOutcome> {
@@ -13,12 +16,18 @@ export async function readNotificationPermission(): Promise<PermissionOutcome> {
  * Raise the notification dialog when the system will still show it, and
  * answer with the outcome after. A granted or blocked permission is returned
  * as it stands, so a call never spends one of Android's two dialogs for
- * nothing.
+ * nothing. A rejected read or request answers blocked: the system gave no
+ * answer to show, and the settings page is the way forward from there.
  */
 export async function requestNotificationPermissionOutcome(): Promise<PermissionOutcome> {
-  const current = await readNotificationPermission();
-  if (current !== 'askable') return current;
-  return permissionOutcome(await Notifications.requestPermissionsAsync());
+  try {
+    const current = await readNotificationPermission();
+    if (current !== 'askable') return current;
+    return permissionOutcome(await Notifications.requestPermissionsAsync());
+  } catch (error) {
+    log.warn('the notification permission could not be read or requested', error);
+    return 'blocked';
+  }
 }
 
 /**

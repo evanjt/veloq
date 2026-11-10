@@ -46,7 +46,6 @@ function activitySources(route: GeoJSON.Feature | GeoJSON.FeatureCollection | st
     routeGeoJSON: route,
     overlayGeoJSON: EMPTY,
     consolidatedPortionsGeoJSON: EMPTY,
-    sectionBoundariesGeoJSON: EMPTY,
     sectionMarkersGeoJSON: EMPTY,
     highlightGeoJSON: {
       type: 'Feature',

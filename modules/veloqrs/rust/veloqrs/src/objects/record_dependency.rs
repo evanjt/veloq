@@ -2,8 +2,9 @@
 //!
 //! A restore persists the ids it still needs, and every sync works that list
 //! as its own step, so an import made offline, or killed part way, carries on
-//! at the next sync. A 404 is final and leaves the list; any other failure
-//! keeps the id owed for the next pass.
+//! at the next sync. A 404 and a record with no start date this app can read
+//! are final and leave the list; any other failure keeps the id owed for the
+//! next pass.
 
 use crate::net::Source;
 use crate::net::record_dependency_fetch::{FetchedRecordActivity, fetch_one_record_activity};
@@ -17,8 +18,10 @@ use crate::net::intervals::activity_metrics_row;
 /// The sync step: fetch every owed activity, then retry the records waiting
 /// on them. Any failure but a rejected credential keeps its id owed for the
 /// next sync and is not the sync's failure: one old activity the server keeps
-/// failing on must not mark every sync after it failed. A 401 is returned, so
-/// the sync's credential latch sees it.
+/// failing on must not mark every sync after it failed, nor hold back the ids
+/// after it in the list. A failed store is a failed fetch for this purpose,
+/// since the store is the same kind of per-activity work. A 401 is returned,
+/// so the sync's credential latch sees it.
 pub(crate) async fn fetch_owed_record_activities(
     install: u64,
     source: &impl Source,
@@ -75,12 +78,18 @@ pub(crate) async fn fetch_owed_record_activities(
         }
         match fetch_one_record_activity(source, &activity_id).await {
             Ok(FetchedRecordActivity::Missing) => {
-                crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
-                    engine.mark_record_activity_unavailable(&activity_id)
-                })
+                let marked_id = activity_id.clone();
+                let marked = crate::persistence::with_persistent_engine_blocking_for(
+                    install,
+                    move |engine| engine.mark_record_activity_unavailable(&marked_id),
+                )
                 .await
-                .ok_or(NetError::EngineClosed)?
-                .map_err(NetError::Storage)?;
+                .ok_or(NetError::EngineClosed)?;
+                if let Err(error) = marked {
+                    log::warn!(
+                        "[Record restore] activity {activity_id} not marked unavailable, kept owed: {error}"
+                    );
+                }
             }
             Ok(found) => {
                 if !still_signed_in(athlete_id) {
@@ -91,10 +100,15 @@ pub(crate) async fn fetch_owed_record_activities(
                     move |engine| store_record_dependency(engine, found),
                 )
                 .await
-                .ok_or(NetError::EngineClosed)?
-                .map_err(NetError::Storage)?;
-                if stored {
-                    fetched += 1;
+                .ok_or(NetError::EngineClosed)?;
+                match stored {
+                    Ok(true) => fetched += 1,
+                    Ok(false) => {}
+                    Err(error) => {
+                        log::warn!(
+                            "[Record restore] activity {activity_id} not stored, kept owed: {error}"
+                        );
+                    }
                 }
             }
             // Not an activity upstream has lost: the credential was refused,
@@ -135,7 +149,10 @@ pub(crate) async fn fetch_owed_record_activities(
     Ok(())
 }
 
-/// Store a fetched dependency as an ordinary library activity.
+/// Store a fetched dependency as an ordinary library activity. Returns whether
+/// it was stored. A record with no start date this app can read is never
+/// stored, and its id is marked unavailable: the same fetch would read the
+/// same record, so keeping it owed would ask for it on every sync.
 pub(crate) fn store_record_dependency(
     engine: &mut PersistentEngine,
     fetched: FetchedRecordActivity,
@@ -149,8 +166,14 @@ pub(crate) fn store_record_dependency(
     else {
         return Ok(false);
     };
-    let date = start_date_to_timestamp(record.start_date_local.as_deref())
-        .ok_or_else(|| format!("activity {} has no usable start date", record.id))?;
+    let Some(date) = start_date_to_timestamp(record.start_date_local.as_deref()) else {
+        engine.mark_record_activity_unavailable(&record.id)?;
+        log::warn!(
+            "[Record restore] activity {} has no usable start date, marked unavailable",
+            record.id
+        );
+        return Ok(false);
+    };
     let sport = crate::sport::sport_or_unknown(record.activity_type.as_deref()).to_string();
     let source = crate::persistence::elevation_source_of(&points, series);
     engine
@@ -255,6 +278,35 @@ mod tests {
                 "rep_end_index": 10, "point_count": 80, "polyline_json": null}})
     }
 
+    #[test]
+    fn test_ride_stored_without_its_metrics_stays_owed() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("half.db").to_str().unwrap()).unwrap();
+        let points: Vec<GpsPoint> = (0..80)
+            .map(|i| GpsPoint::new(46.2 + f64::from(i) * 0.00009, 7.36 + f64::from(i) * 0.00011))
+            .collect();
+        engine
+            .restore_record_json(
+                &json!({"version": 1, "entries": [owed_pin("half-ride")]}).to_string(),
+            )
+            .unwrap();
+        assert_eq!(engine.owed_record_activities().unwrap(), ["half-ride"]);
+
+        // The store was interrupted after the track write, before the metrics.
+        engine
+            .add_activity("half-ride".to_string(), points, "Ride".to_string())
+            .unwrap();
+        assert_eq!(engine.owed_record_activities().unwrap(), ["half-ride"]);
+
+        let row = crate::ActivityMetrics {
+            activity_id: "half-ride".to_string(),
+            ..Default::default()
+        };
+        engine.set_activity_metrics(vec![row]).unwrap();
+        assert!(engine.owed_record_activities().unwrap().is_empty());
+    }
+
     fn mock_found<'a>(server: &'a MockServer, id: &str, points: &[GpsPoint]) -> httpmock::Mock<'a> {
         server.mock(|when, then| {
             when.method(GET)
@@ -351,6 +403,157 @@ mod tests {
         // Delivered on the announce thread: drained under the serial lock so
         // the next test's observer does not hear this one's notices.
         crate::objects::observer::flush();
+    }
+
+    /// Scenario: a restored record needs two old activities. Upstream returns
+    /// the first with no start date this app can read, and the second is an
+    /// ordinary activity.
+    ///
+    /// Expected behaviour: the undated activity is marked unavailable, the
+    /// step succeeds, and the activity after it in the owed list is stored.
+    #[test]
+    fn test_owed_fetch_moves_past_an_undated_activity() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _dir = crate::test_globals::init_global_engine("owed-undated.db");
+        crate::objects::sync::set_credentials_from_native("api_key", "test", "i1")
+            .expect("credential");
+        let points: Vec<GpsPoint> = (0..80)
+            .map(|i| GpsPoint::new(46.2 + f64::from(i) * 0.00009, 7.36 + f64::from(i) * 0.00011))
+            .collect();
+        let payload = json!({"version": 1, "entries":
+            [owed_pin("a-undated-ride"), owed_pin("b-valid-ride")]});
+        crate::persistence::with_persistent_engine(|engine| {
+            engine.restore_record_json(&payload.to_string()).unwrap();
+        })
+        .unwrap();
+        let install = crate::persistence::engine_install();
+        let governor = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a-undated-ride");
+            then.status(200)
+                .json_body(json!({"id": "a-undated-ride", "type": "Ride"}));
+        });
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/activity/a-undated-ride/streams.json");
+            then.status(200).json_body(json!([{
+                "type": "latlng",
+                "data": points.iter().map(|p| p.latitude).collect::<Vec<_>>(),
+                "data2": points.iter().map(|p| p.longitude).collect::<Vec<_>>()
+            }]));
+        });
+        mock_found(&server, "b-valid-ride", &points);
+        let transport =
+            Transport::with_governor(server.base_url(), AuthMethod::ApiKey("test"), governor)
+                .unwrap();
+        let outcome = crate::runtime::block_on(super::fetch_owed_record_activities(
+            install,
+            &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
+            &|| false,
+            &|_, _| {},
+        ));
+        assert!(
+            outcome.is_ok(),
+            "one undated activity is not the sync's failure: {outcome:?}"
+        );
+        crate::persistence::with_persistent_engine(|engine| {
+            assert!(engine.owed_record_activities().unwrap().is_empty());
+            assert!(engine.has_activity("b-valid-ride"));
+            assert!(!engine.has_activity("a-undated-ride"));
+        })
+        .unwrap();
+        crate::objects::sync::clear_test_credentials();
+        crate::objects::observer::flush();
+    }
+
+    /// Scenario: the store refuses one fetched activity, because a write
+    /// fails, and the activity after it stores.
+    ///
+    /// Expected behaviour: the refused id stays owed for the next sync, the
+    /// step succeeds, and the id after it is stored.
+    #[test]
+    fn test_owed_fetch_keeps_a_refused_store_owed_and_moves_on() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _dir = crate::test_globals::init_global_engine("owed-refused.db");
+        crate::objects::sync::set_credentials_from_native("api_key", "test", "i1")
+            .expect("credential");
+        let points: Vec<GpsPoint> = (0..80)
+            .map(|i| GpsPoint::new(46.2 + f64::from(i) * 0.00009, 7.36 + f64::from(i) * 0.00011))
+            .collect();
+        let payload = json!({"version": 1, "entries":
+            [owed_pin("a-refused-ride"), owed_pin("b-valid-ride")]});
+        crate::persistence::with_persistent_engine(|engine| {
+            engine.restore_record_json(&payload.to_string()).unwrap();
+            engine
+                .db
+                .execute_batch(
+                    "CREATE TRIGGER refuse_a_store BEFORE INSERT ON activities
+                     WHEN NEW.id = 'a-refused-ride'
+                     BEGIN SELECT RAISE(ABORT, 'injected write failure'); END;",
+                )
+                .unwrap();
+        })
+        .unwrap();
+        let install = crate::persistence::engine_install();
+        let governor = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+
+        let server = MockServer::start();
+        mock_found(&server, "a-refused-ride", &points);
+        mock_found(&server, "b-valid-ride", &points);
+        let transport =
+            Transport::with_governor(server.base_url(), AuthMethod::ApiKey("test"), governor)
+                .unwrap();
+        let outcome = crate::runtime::block_on(super::fetch_owed_record_activities(
+            install,
+            &crate::net::intervals::IntervalsSession::new(transport.clone(), "i1"),
+            &|| false,
+            &|_, _| {},
+        ));
+        assert!(
+            outcome.is_ok(),
+            "one refused store is not the sync's failure: {outcome:?}"
+        );
+        crate::persistence::with_persistent_engine(|engine| {
+            assert_eq!(engine.owed_record_activities().unwrap(), ["a-refused-ride"]);
+            assert!(engine.has_activity("b-valid-ride"));
+            assert!(!engine.has_activity("a-refused-ride"));
+            engine
+                .db
+                .execute_batch("DROP TRIGGER refuse_a_store")
+                .unwrap();
+        })
+        .unwrap();
+        crate::objects::sync::clear_test_credentials();
+        crate::objects::observer::flush();
+    }
+
+    /// Scenario: a fetched activity names no start date this app can read.
+    ///
+    /// Expected behaviour: nothing is stored and the call reports that, rather
+    /// than failing the walk.
+    #[test]
+    fn test_store_record_dependency_declines_an_undated_activity() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("undated.db").to_str().unwrap()).unwrap();
+        let record: crate::net::intervals::wire::ActivityRecord = serde_json::from_value(json!({
+            "id": "undated-ride", "type": "Ride"
+        }))
+        .unwrap();
+        let points: Vec<GpsPoint> = (0..20)
+            .map(|i| GpsPoint::new(46.2 + f64::from(i) * 0.0001, 7.36))
+            .collect();
+        let fetched = crate::net::record_dependency_fetch::FetchedRecordActivity::Found {
+            record: Box::new(record),
+            body: "{}".to_string(),
+            points,
+            series: crate::persistence::ElevationSeries::Device,
+        };
+
+        assert!(!store_record_dependency(&mut engine, fetched).unwrap());
+        assert!(!engine.has_activity("undated-ride"));
     }
 
     /// Scenario: an earlier build left history waiting that no section can

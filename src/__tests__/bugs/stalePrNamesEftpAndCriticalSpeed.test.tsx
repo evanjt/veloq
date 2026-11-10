@@ -66,7 +66,6 @@ function cardText(insight: Insight): string[] {
     insight.body ?? '',
     ...(data?.dataPoints ?? []).map((dp) => `${dp.label} ${dp.value}`),
     data?.formula ?? '',
-    insight.methodology?.name ?? '',
   ];
 }
 

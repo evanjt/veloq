@@ -1,4 +1,4 @@
-use super::error::{VeloqError, with_engine, with_reader};
+use super::error::{VeloqError, engine_refused, with_engine, with_reader};
 use std::sync::Arc;
 
 /// One key and the value to store under it.
@@ -20,7 +20,7 @@ fn with_settings_writer<T>(
     write: impl FnOnce(&rusqlite::Connection) -> rusqlite::Result<T>,
 ) -> Result<T, VeloqError> {
     crate::persistence::settings_conn::with_settings_conn(write)
-        .ok_or(VeloqError::NotInitialized)?
+        .ok_or_else(engine_refused)?
         .map_err(|error| VeloqError::Database {
             msg: format!("{}", error),
         })
@@ -166,7 +166,8 @@ impl SettingsManager {
                 time.as_deref(),
                 &points,
             )
-        })
+            .map_err(|msg| VeloqError::Database { msg })
+        })?
     }
 
     /// The current engine install, moved by every wipe, restore and reopen.
@@ -278,6 +279,9 @@ mod settings_screen_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::persistence::suspension::{
+        entered_background, prepare_for_suspension, resume_after_suspension,
+    };
     use crate::test_globals::{init_global_engine, serial_global_state};
 
     #[test]
@@ -619,6 +623,37 @@ mod tests {
             settings.stream_store_bytes(),
             Err(VeloqError::NotInitialized)
         ));
+    }
+
+    #[test]
+    fn a_settings_write_refused_by_a_suspension_reports_suspended() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("settings_suspended.db");
+        entered_background();
+        assert!(prepare_for_suspension(std::time::Duration::from_secs(10)));
+        let settings = SettingsManager::new();
+
+        let refused = settings.set_setting("during_suspension".into(), "written".into());
+        assert!(
+            matches!(refused, Err(VeloqError::Suspended)),
+            "expected the suspended refusal, got {refused:?}"
+        );
+        assert_eq!(
+            settings.get_setting("during_suspension".into()).unwrap(),
+            None
+        );
+
+        resume_after_suspension();
+        settings
+            .set_setting("after_resume".into(), "written".into())
+            .expect("a resumed engine takes settings writes");
+        assert_eq!(
+            settings
+                .get_setting("after_resume".into())
+                .unwrap()
+                .as_deref(),
+            Some("written")
+        );
     }
 }
 

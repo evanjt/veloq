@@ -40,7 +40,6 @@ it('draws only the PR sections on the charts tab', async () => {
   const { result } = await renderHook(() => useLayers('charts', null));
 
   expect(sectionIds(result.current.consolidatedPortionsGeoJSON)).toEqual(['pr']);
-  expect(sectionIds(result.current.sectionBoundariesGeoJSON)).toEqual(['pr']);
   expect(sectionIds(result.current.sectionMarkersGeoJSON)).toEqual(['pr']);
 });
 
@@ -60,7 +59,6 @@ it('keeps every section source across a scrub on the charts tab', async () => {
   for (const index of [1, 2, 3]) await rerender({ index });
 
   expect(result.current.consolidatedPortionsGeoJSON).toBe(first.consolidatedPortionsGeoJSON);
-  expect(result.current.sectionBoundariesGeoJSON).toBe(first.sectionBoundariesGeoJSON);
   expect(result.current.sectionMarkersGeoJSON).toBe(first.sectionMarkersGeoJSON);
   expect(result.current.highlightPoint).not.toBe(first.highlightPoint);
 });

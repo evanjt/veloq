@@ -171,7 +171,6 @@ export function generateEfficiencyTrendInsights(
         ],
       },
       methodology: {
-        name: t('insights.methodology.efficiencyName'),
         description: t('insights.methodology.efficiencyDescription'),
         formula: t('insights.methodology.efficiencyFormula', { quantity, unit }),
       },

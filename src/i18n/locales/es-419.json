@@ -98,8 +98,7 @@
   },
   "insights": {
     "methodology": {
-      "periodComparisonRestDay": "Compara la semana pasada con tu promedio de 4 semanas cuando la semana actual aún no tiene actividades.",
-      "fitnessPrName": "Referencia cruzada condición física-PR"
+      "periodComparisonRestDay": "Compara la semana pasada con tu promedio de 4 semanas cuando la semana actual aún no tiene actividades."
     },
     "data": {
       "fourWeekAvgTss": "Promedio de 4 semanas",

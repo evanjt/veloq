@@ -43,6 +43,13 @@ const GUARDS = [
     catches: 'an unreviewed dependency install script leaving native package binaries absent',
   },
   {
+    name: 'check:script-modes',
+    kind: 'correctness',
+    cmd: node('check-script-modes.mjs'),
+    catches:
+      'a shell script in scripts/ that starts with a shebang and is tracked without the executable bit, so running it by path fails with Permission denied on every checkout',
+  },
+  {
     name: 'check:garmin-key-sites',
     kind: 'correctness',
     cmd: node('check-garmin-key-sites.mjs'),

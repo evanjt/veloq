@@ -54,7 +54,6 @@ it('gives the fullscreen terrain layer the portions and matched route the inline
     portions: layers.consolidatedPortionsGeoJSON,
     matchedRoute: layers.overlayGeoJSON,
     markers: layers.sectionMarkersGeoJSON,
-    boundaries: layers.sectionBoundariesGeoJSON,
   });
   const fullscreen = buildActivity3DCollections({
     portions: layers.consolidatedPortionsGeoJSON,
@@ -66,7 +65,6 @@ it('gives the fullscreen terrain layer the portions and matched route the inline
   expect(fullscreen.routesGeoJSON).toEqual(inline.routesGeoJSON);
   expect(fullscreen.tracesGeoJSON?.features.length).toBeGreaterThan(0);
   expect(fullscreen.routesGeoJSON?.features.length).toBe(1);
-  expect(fullscreen.sectionBoundariesGeoJSON).toBeUndefined();
 });
 
 it('marks the fullscreen PR markers as PR, so the terrain page draws and taps them as trophies', async () => {
@@ -90,11 +88,9 @@ it('leaves out the collections that hold nothing', () => {
     portions: empty,
     matchedRoute: empty,
     markers: empty,
-    boundaries: empty,
   });
 
   expect(collections.tracesGeoJSON).toBeUndefined();
   expect(collections.sectionMarkersGeoJSON).toBeUndefined();
-  expect(collections.sectionBoundariesGeoJSON).toBeUndefined();
   expect(collections.routesGeoJSON).toEqual(empty);
 });

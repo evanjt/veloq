@@ -21,7 +21,12 @@ describe('dailyLimitLines', () => {
 
     expect(lines.today).toBe('settings.dailyLimitToday:{"used":120,"limit":650}');
     expect(lines.reset).toBe('settings.dailyLimitResets:{"time":"clock@1000"}');
-    expect(lines.shared).toBe('settings.dailyLimitShared');
+  });
+
+  it('prints only the counts and the reset, with no shared-limit line', () => {
+    const lines = dailyLimitLines({ used: 120, perDay: 650, resetsAtMs: 1_000 }, t, clock)!;
+
+    expect(Object.keys(lines).sort()).toEqual(['reset', 'today']);
   });
 
   it('shows a day with nothing drawn as zero, not as absent', () => {

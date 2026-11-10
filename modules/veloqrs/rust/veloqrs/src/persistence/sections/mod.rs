@@ -894,75 +894,6 @@ impl PersistentEngine {
         Ok(())
     }
 
-    /// Re-cut a single section's line from one member's own track. Cheap,
-    /// user-initiated alternative to a corpus-wide detection rerun. Returns
-    /// the new line's length, or None if the section doesn't exist / is
-    /// user-defined / no member's track covers it.
-    pub fn recalculate_section_polyline(
-        &mut self,
-        section_id: &str,
-    ) -> Option<crate::FfiSectionRecalcResult> {
-        let idx = self.sections.iter().position(|s| s.id == section_id)?;
-        let section = Arc::clone(&self.sections[idx]);
-        if section.is_user_defined || section.activity_ids.is_empty() {
-            return None;
-        }
-
-        // A line sliced from one activity recalculates by re-slicing that
-        // range: the same input gives the same line, so a second call is a
-        // no-op.
-        if let Some(reference) = section_reference(&section)
-            && let Some(track) = self.load_gps_track_from_db(reference.0)
-            && let Some(polyline) = geometry::slice(&track, reference)
-        {
-            let distance = tracematch::matching::calculate_route_distance(&polyline);
-            let result = crate::FfiSectionRecalcResult {
-                section_id: section.id.clone(),
-                distance_meters: distance,
-            };
-            let unchanged = section.polyline == polyline;
-            drop(section);
-            if !unchanged {
-                self.edit_sections([idx], |_, section| {
-                    section.polyline = polyline.clone();
-                    section.distance_meters = distance;
-                });
-            }
-            if !unchanged && let Err(err) = self.save_sections() {
-                log::warn!(
-                    "veloqrs: [recalculate_section_polyline] save_sections failed: {}",
-                    err
-                );
-            }
-            return Some(result);
-        }
-
-        // No triple: the line is an average no activity rode. Cut it from one
-        // member's own track instead, located by geometry. A row no member
-        // covers keeps the line it has.
-        let (activity_id, range, reversed, polyline) = self.slice_of_member_track(&section)?;
-        let distance = tracematch::matching::calculate_route_distance(&polyline);
-        let result = crate::FfiSectionRecalcResult {
-            section_id: section.id.clone(),
-            distance_meters: distance,
-        };
-        drop(section);
-        self.edit_sections([idx], |_, section| {
-            section.representative_activity_id = activity_id.clone();
-            section.representative_range = Some(range);
-            section.representative_reversed = reversed;
-            section.polyline = polyline.clone();
-            section.distance_meters = distance;
-        });
-        if let Err(err) = self.save_sections() {
-            log::warn!(
-                "veloqrs: [recalculate_section_polyline] save_sections failed: {}",
-                err
-            );
-        }
-        Some(result)
-    }
-
     /// The section's line as a slice of one member's stored track, found by
     /// matching the current line against each member (the representative
     /// first), read the way the line runs. `None` when no member's track
@@ -1219,7 +1150,9 @@ impl PersistentEngine {
 
     /// Refresh a section in memory from the database. Auto and custom
     /// sections are both cached in `self.sections`, so this applies to any
-    /// row. Call it after modifying a section's polyline or activity list.
+    /// row. A disabled row is dropped from memory instead, as `load_sections`
+    /// leaves it out. Call it after modifying a section's polyline or activity
+    /// list.
     pub fn refresh_section_in_memory(&mut self, section_id: &str) {
         type SectionRow = (
             String,
@@ -1245,6 +1178,7 @@ impl PersistentEngine {
             Option<u32>,
             Option<u32>,
             bool,
+            bool,
         );
         let section_data: Option<SectionRow> = {
             // Cached: the attach loop refreshes one section per match and the
@@ -1255,7 +1189,7 @@ impl PersistentEngine {
                         point_density_json, scale, version, is_user_defined, stability,
                         created_at, updated_at, polyline_blob, point_density_blob,
                         elevation_gain_m, avg_grade_percent,
-                        rep_start_index, rep_end_index, rep_reversed
+                        rep_start_index, rep_end_index, rep_reversed, disabled
                  FROM sections WHERE id = ?",
             ) {
                 Ok(s) => s,
@@ -1287,6 +1221,7 @@ impl PersistentEngine {
                     row.get::<_, Option<u32>>(20)?,     // rep_start_index
                     row.get::<_, Option<u32>>(21)?,     // rep_end_index
                     row.get::<_, bool>(22)?,            // rep_reversed
+                    row.get::<_, bool>(23)?,            // disabled
                 ))
             })
             .ok()
@@ -1316,14 +1251,22 @@ impl PersistentEngine {
             rep_start_index,
             rep_end_index,
             rep_reversed,
+            disabled,
         ) = match section_data {
             Some(data) => data,
             None => return, // Section not found
         };
 
+        // load_sections holds only the rows with disabled = 0, so a removed
+        // section leaves memory here and comes back only through enable_section.
+        if disabled {
+            self.remove_section_from_memory(section_id);
+            return;
+        }
+
         // Both auto and custom sections are cached in memory now: the in-memory
         // matcher (index_new_activity) scans get_sections(), so a custom section
-        // must be there for a new activity to join it. save_sections skips
+        // must be there for a new activity to join it. save_sections_with_events skips
         // user-defined rows, so caching custom here cannot round-trip into an
         // 'auto' re-insert.
 
@@ -1397,7 +1340,7 @@ impl PersistentEngine {
             representative_range: rep_start_index.zip(rep_end_index),
             representative_reversed: rep_reversed,
             activity_ids,
-            // From the junction table: `save_sections` writes junction rows
+            // From the junction table: `save_sections_with_events` writes junction rows
             // FROM this field, so a blank here turns the next save into a
             // wipe of the section's traversals.
             activity_portions: self.get_section_portions(section_id),
@@ -1706,18 +1649,9 @@ impl PersistentEngine {
         codec::decode_series(&blob)
     }
 
-    pub(super) fn save_sections(&mut self) -> SqlResult<()> {
-        self.apply_lift_intents_to_memory()?;
-        self.anchor_unranged_sections();
-        let skipped = self.write_catalogue(&[], false)?;
-        self.drop_unwritten(&skipped);
-        self.refresh_superseded_ids();
-        Ok(())
-    }
-
-    /// [`save_sections`](Self::save_sections) plus the lifecycle events the
-    /// identity apply fired this step: geometry versions and history rows land
-    /// in the SAME transaction as the catalogue and the registry blob, so a
+    /// Save the catalogue plus the lifecycle events the identity apply fired
+    /// this step: geometry versions and history rows land in the SAME
+    /// transaction as the catalogue and the registry blob, so a
     /// rolled-back save leaves no orphan narrative behind.
     pub(super) fn save_sections_with_events(
         &mut self,
@@ -1776,7 +1710,7 @@ impl PersistentEngine {
         for idx in refused.into_iter().rev() {
             let section = self.sections.remove(idx);
             log::warn!(
-                "veloqrs: [save_sections] dropping new section {}: no member track covers its line",
+                "veloqrs: [save_sections_with_events] dropping new section {}: no member track covers its line",
                 section.id
             );
         }
@@ -2091,7 +2025,7 @@ impl PersistentEngine {
                 .collect();
             if surviving.is_empty() && !pinned.contains(&section.id) {
                 log::warn!(
-                    "veloqrs: [save_sections] skipping section {} - {} activity_ids, {} \
+                    "veloqrs: [save_sections_with_events] skipping section {} - {} activity_ids, {} \
                      portions, none of them pooled",
                     section.id,
                     section.activity_ids.len(),

@@ -13,7 +13,7 @@ import { relative, resolve } from 'path';
 import { EDITION, parseStagedList, stagedRustFiles } from './lib/rustFmtGate';
 
 function staged(): string[] {
-  const raw = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACM', '-z'], {
+  const raw = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'], {
     encoding: 'utf-8',
   });
   return stagedRustFiles(parseStagedList(raw));

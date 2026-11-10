@@ -239,7 +239,6 @@ function writeWidgetFiles(projectRoot, platformProjectRoot, projectName) {
   pruneRemoved(src, dest);
   copyWidgetFonts(projectRoot, dest);
   writeWidgetBundles(dest);
-  writeWidgetSample(projectRoot, dest);
 
   // The shared files land in both target directories: the extension reads
   // its copy beside the widget sources, the app reads its own.
@@ -252,7 +251,21 @@ function writeWidgetFiles(projectRoot, platformProjectRoot, projectName) {
   for (const name of SHARED_WIDGET_FILES) {
     fs.copyFileSync(path.join(shared, name), path.join(dest, name));
   }
-  writeIosCatalogues({ widgetDir: dest, appDir });
+  writeWidgetStrings(projectRoot, platformProjectRoot, projectName);
+}
+
+/**
+ * The files under `ios/` that carry translated text or the sample: the string
+ * catalogues the widget and the app read, and the widget's sample. Prebuild
+ * writes them with the sources, and an iOS build writes them again before it
+ * runs, because a translation edit does not change the configuration a
+ * generation is checked against. `bundles` defaults to the locale bundles.
+ */
+function writeWidgetStrings(projectRoot, platformProjectRoot, projectName, bundles) {
+  const dest = path.join(platformProjectRoot, TARGET);
+  const appDir = path.join(platformProjectRoot, projectName);
+  writeWidgetSample(projectRoot, dest);
+  writeIosCatalogues({ widgetDir: dest, appDir }, bundles);
 }
 
 function withWidgetFiles(config) {
@@ -656,6 +669,7 @@ module.exports = function withIosWidget(config) {
 module.exports.applyWidgetBuildSettings = applyWidgetBuildSettings;
 module.exports.writeWidgetBundles = writeWidgetBundles;
 module.exports.writeWidgetFiles = writeWidgetFiles;
+module.exports.writeWidgetStrings = writeWidgetStrings;
 module.exports.copySharedLiveActivitySources = copySharedLiveActivitySources;
 module.exports.LIVE_ACTIVITY_SHARED_FILES = LIVE_ACTIVITY_SHARED_FILES;
 module.exports.widgetSwiftFiles = widgetSwiftFiles;

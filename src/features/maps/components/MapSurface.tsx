@@ -177,6 +177,8 @@ export interface MapSurfaceProps {
    */
   released?: boolean | undefined;
   onMapReady?: (() => void) | undefined;
+  /** The page lost its map (renderer death or release) and will report ready again after its reload. */
+  onMapLost?: (() => void) | undefined;
   /** The page cannot render a basemap. Fires once per failure, with the reason. */
   onMapFailed?: ((reason: string) => void) | undefined;
   onPress?: ((event: MapPressEvent) => void) | undefined;
@@ -230,6 +232,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     pitchEnabled = false,
     released = false,
     onMapReady,
+    onMapLost,
     onMapFailed,
     onPress,
     onRegionIsChanging,
@@ -262,6 +265,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   // Callbacks live in refs so the bridge handler map stays stable.
   const callbacksRef = useRef({
     onMapReady,
+    onMapLost,
     onMapFailed,
     onPress,
     onRegionIsChanging,
@@ -271,6 +275,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   });
   callbacksRef.current = {
     onMapReady,
+    onMapLost,
     onMapFailed,
     onPress,
     onRegionIsChanging,
@@ -512,6 +517,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
 
   const forgetPage = useCallback(() => {
     readyRef.current = false;
+    callbacksRef.current.onMapLost?.();
     tileGateRef.current.settled();
     patcherRef.current.forget();
     pendingRef.current.abandon();
@@ -556,6 +562,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     const surface: ReleasableSurface = {
       release: (source) => {
         readyRef.current = false;
+        callbacksRef.current.onMapLost?.();
         pendingRef.current.abandon();
         if (source === 'javascript') inject(buildReleaseMapScript());
       },

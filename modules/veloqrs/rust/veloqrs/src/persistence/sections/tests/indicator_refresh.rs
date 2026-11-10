@@ -89,7 +89,7 @@ fn detected_line() -> tracematch::FrequentSection {
 
 /// A library of the source ride and the three timed rides, with the line as
 /// an auto section first when `detected`, and badges computed from scratch.
-fn library(detected: bool) -> PersistentEngine {
+pub(super) fn library(detected: bool) -> PersistentEngine {
     let mut engine = PersistentEngine::in_memory().unwrap();
     engine
         .add_activity("source".into(), line(), "Ride".into())

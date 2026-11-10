@@ -90,8 +90,6 @@ interface Map3DWebViewProps {
   sectionsGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** GeoJSON for traces layer */
   tracesGeoJSON?: GeoJSON.FeatureCollection | undefined;
-  /** GeoJSON for section boundary ticks (perpendicular start/end markers) */
-  sectionBoundariesGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** Trim overlay for a section being edited: the kept line, the extension line
    *  and the trimmed end points, tagged by `properties.kind`. Empty restores the
    *  full line. */
@@ -226,7 +224,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       sectionMarkersGeoJSON,
       pointMarkersGeoJSON,
       spiderLinesGeoJSON,
-      sectionBoundariesGeoJSON,
       sectionTrimGeoJSON,
       highlightedTraceGeoJSON,
       highlightCoordinate,
@@ -283,7 +280,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const sectionMarkersGeoJSONRef = useRef(sectionMarkersGeoJSON);
     const pointMarkersGeoJSONRef = useRef(pointMarkersGeoJSON);
     const spiderLinesGeoJSONRef = useRef(spiderLinesGeoJSON);
-    const sectionBoundariesGeoJSONRef = useRef(sectionBoundariesGeoJSON);
     const sectionTrimGeoJSONRef = useRef(sectionTrimGeoJSON);
     const highlightedTraceGeoJSONRef = useRef(highlightedTraceGeoJSON);
     const highlightedSectionIdRef = useRef(highlightedSectionId);
@@ -365,7 +361,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       sectionMarkersGeoJSONRef.current = sectionMarkersGeoJSON;
       pointMarkersGeoJSONRef.current = pointMarkersGeoJSON;
       spiderLinesGeoJSONRef.current = spiderLinesGeoJSON;
-      sectionBoundariesGeoJSONRef.current = sectionBoundariesGeoJSON;
       sectionTrimGeoJSONRef.current = sectionTrimGeoJSON;
       highlightedTraceGeoJSONRef.current = highlightedTraceGeoJSON;
       highlightedSectionIdRef.current = highlightedSectionId;
@@ -376,7 +371,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       sectionMarkersGeoJSON,
       pointMarkersGeoJSON,
       spiderLinesGeoJSON,
-      sectionBoundariesGeoJSON,
       sectionTrimGeoJSON,
       highlightedTraceGeoJSON,
       highlightedSectionId,
@@ -405,7 +399,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         sectionMarkersGeoJSON: sectionMarkersGeoJSONRef.current,
         pointMarkersGeoJSON: pointMarkersGeoJSONRef.current,
         spiderLinesGeoJSON: spiderLinesGeoJSONRef.current,
-        sectionBoundariesGeoJSON: sectionBoundariesGeoJSONRef.current,
         sectionTrimGeoJSON: sectionTrimGeoJSONRef.current,
         highlightedTraceGeoJSON: highlightedTraceGeoJSONRef.current,
         highlightedSectionId: highlightedSectionIdRef.current,
@@ -467,7 +460,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       sectionMarkersGeoJSON,
       pointMarkersGeoJSON,
       spiderLinesGeoJSON,
-      sectionBoundariesGeoJSON,
       sectionTrimGeoJSON,
       highlightedTraceGeoJSON,
       highlightedSectionId,

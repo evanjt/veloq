@@ -145,6 +145,60 @@ describe('calculateTerrainCamera', () => {
     });
   });
 
+  describe('bearing is measured on the ground, not in raw degrees', () => {
+    const METRES_PER_DEG_LAT = 111320;
+
+    // Straight track from (lng 10, lat 60) running eastM metres east and northM metres north,
+    // with altitude rising linearly along it. Degrees of longitude are converted with cos(lat).
+    function groundTrack(
+      eastM: number,
+      northM: number,
+      startLat: number,
+      n = 20
+    ): { coords: [number, number][]; altitude: number[] } {
+      const coords: [number, number][] = [];
+      const altitude: number[] = [];
+      const metresPerDegLng = METRES_PER_DEG_LAT * Math.cos((startLat * Math.PI) / 180);
+      for (let i = 0; i < n; i++) {
+        const t = i / (n - 1);
+        coords.push([
+          10 + (t * eastM) / metresPerDegLng,
+          startLat + (t * northM) / METRES_PER_DEG_LAT,
+        ]);
+        altitude.push(500 + t * 400);
+      }
+      return { coords, altitude };
+    }
+
+    function angularError(bearing: number, target: number): number {
+      return Math.abs(((bearing - target + 540) % 360) - 180);
+    }
+
+    it.each([-60, 0, 47, 60])(
+      'a climb rising due north-east on the ground reads 45 degrees at latitude %d',
+      (lat) => {
+        const { coords, altitude } = groundTrack(2000, 2000, lat);
+        const result = calculateTerrainCamera(coords, altitude);
+        expect(result.hasInterestingTerrain).toBe(true);
+        expect(angularError(result.camera.bearing, 45)).toBeLessThan(3);
+      }
+    );
+
+    it('a climb rising due north-west on the ground reads 315 degrees at latitude 60', () => {
+      const { coords, altitude } = groundTrack(-2000, 2000, 60);
+      const result = calculateTerrainCamera(coords, altitude);
+      expect(angularError(result.camera.bearing, 315)).toBeLessThan(3);
+    });
+
+    it('the no-altitude fallback is perpendicular to the ground route direction at latitude 60', () => {
+      // North-east route, so the perpendicular is south-east
+      const { coords } = groundTrack(2000, 2000, 60);
+      const result = calculateTerrainCamera(coords);
+      expect(result.hasInterestingTerrain).toBe(false);
+      expect(angularError(result.camera.bearing, 135)).toBeLessThan(3);
+    });
+  });
+
   describe('center', () => {
     it('stays on the bounds midpoint when the high ground lies north', () => {
       // Route goes north, altitude increases to the north

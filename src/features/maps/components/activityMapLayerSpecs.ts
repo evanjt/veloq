@@ -50,7 +50,6 @@ export interface ActivitySourceInput {
   routeGeoJSON: MapGeoJSONData;
   overlayGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
   consolidatedPortionsGeoJSON: GeoJSON.FeatureCollection;
-  sectionBoundariesGeoJSON: GeoJSON.FeatureCollection;
   sectionMarkersGeoJSON: GeoJSON.FeatureCollection;
   highlightGeoJSON: GeoJSON.Feature<GeoJSON.Point>;
   endpointsGeoJSON: GeoJSON.FeatureCollection;
@@ -102,7 +101,6 @@ export function buildActivitySources(input: ActivitySourceInput): Record<string,
     // draws from it unchanged. Two would send and tile the whole track twice.
     route: geojsonSource(input.routeGeoJSON, true),
     portions: geojsonSource(input.consolidatedPortionsGeoJSON),
-    'section-boundaries': geojsonSource(input.sectionBoundariesGeoJSON),
     'section-markers': geojsonSource(input.sectionMarkersGeoJSON),
     'section-creation-line': geojsonSource(input.sectionCreationLine),
     'section-creation-markers': geojsonSource(input.sectionCreationMarkers),
@@ -174,7 +172,6 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
   // drawn in the muted colour at full opacity, which holds its contrast on
   // every base where a fainter subject colour would not.
   const routeColour = highlighted ? palette.muted : palette.route;
-  const layer = palette.layer;
   const portionColor = sectionPortionColour(palette);
 
   return [
@@ -247,24 +244,6 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'line-dasharray': [...SECTION_LINE_DASH],
         'line-opacity': hasSectionOverlays ? 1 : 0,
       },
-    },
-    {
-      id: 'section-boundary-casing',
-      type: 'line',
-      source: 'section-boundaries',
-      layout: { 'line-cap': 'round' },
-      paint: {
-        'line-color': layer.boundaryCasing,
-        'line-width': 6,
-        'line-opacity': 0.45,
-      },
-    },
-    {
-      id: 'section-boundary-line',
-      type: 'line',
-      source: 'section-boundaries',
-      layout: { 'line-cap': 'round' },
-      paint: { 'line-color': palette.casing, 'line-width': 3.5 },
     },
     ...buildEndpointLayers(palette),
     {
@@ -475,15 +454,12 @@ export interface Activity3DCollectionInput {
   portions: GeoJSON.FeatureCollection;
   matchedRoute: GeoJSON.FeatureCollection | GeoJSON.Feature;
   markers: GeoJSON.FeatureCollection;
-  /** Boundary ticks, which only the inline map draws. */
-  boundaries?: GeoJSON.FeatureCollection | undefined;
 }
 
 export interface Activity3DCollections {
   tracesGeoJSON: GeoJSON.FeatureCollection | undefined;
   routesGeoJSON: GeoJSON.FeatureCollection;
   sectionMarkersGeoJSON: GeoJSON.FeatureCollection | undefined;
-  sectionBoundariesGeoJSON: GeoJSON.FeatureCollection | undefined;
 }
 
 function unlessEmpty(
@@ -495,15 +471,13 @@ function unlessEmpty(
 /**
  * The activity's overlays as the 3D page takes them. The inline map and the
  * fullscreen one both build through here, so the portions and the matched
- * route draw the same in either; they differ in the markers they pass and in
- * the boundary ticks only the inline map draws. The page takes the matched
+ * route draw the same in either; they differ in the markers they pass. The page takes the matched
  * route as a collection where the flat map reads a single feature.
  */
 export function buildActivity3DCollections({
   portions,
   matchedRoute,
   markers,
-  boundaries,
 }: Activity3DCollectionInput): Activity3DCollections {
   return {
     tracesGeoJSON: unlessEmpty(portions),
@@ -512,6 +486,5 @@ export function buildActivity3DCollections({
         ? { type: 'FeatureCollection', features: [matchedRoute] }
         : matchedRoute,
     sectionMarkersGeoJSON: unlessEmpty(markers),
-    sectionBoundariesGeoJSON: unlessEmpty(boundaries),
   };
 }

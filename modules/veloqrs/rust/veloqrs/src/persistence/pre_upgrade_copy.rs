@@ -131,6 +131,21 @@ fn copy_holds_version(path: &str, version: i32) -> bool {
         .is_ok_and(|verdict| verdict == "ok")
 }
 
+/// The `PRAGMA user_version` of the live connection when it is past
+/// `old_version`, `None` otherwise or when it cannot be read.
+///
+/// Version 0 is no record at all, a file from before version tracking. Its
+/// `user_version` counts migrations on no scale the record shares, so there is
+/// nothing to compare it with.
+fn applied_past(conn: &Connection, old_version: i32) -> Option<i32> {
+    if old_version == 0 {
+        return None;
+    }
+    conn.query_row("PRAGMA user_version", [], |row| row.get::<_, i32>(0))
+        .ok()
+        .filter(|applied| *applied > old_version)
+}
+
 fn take_on(
     conn: &Connection,
     old_version: i32,
@@ -168,6 +183,17 @@ fn take_on(
             old_version
         );
         remove_copy(&dest);
+    }
+    // A library already past the old version ran that migration in an earlier
+    // attempt which died before stamping `schema_info`. Its old shape is gone,
+    // so a copy taken now would hold the new shape under the old version's name.
+    if let Some(applied) = applied_past(conn, old_version) {
+        log::warn!(
+            "veloqrs: [Schema] Pre-upgrade copy skipped: the library already holds user_version {}, past {}, so its old shape is gone",
+            applied,
+            old_version
+        );
+        return None;
     }
     // A copy the volume cannot hold is not started, so it never fills the
     // volume partway through and leaves a partial file behind.
@@ -398,6 +424,43 @@ mod tests {
         let taken = take_on(&conn, 12, |_| None);
 
         assert_eq!(taken, Some(copy_path(&path, 12)));
+    }
+
+    #[test]
+    fn no_copy_is_taken_from_a_library_already_past_the_old_version() {
+        let dir = TempDir::new().unwrap();
+        let (path, conn) = library_beside(&dir);
+        conn.pragma_update(None, "user_version", 13).unwrap();
+
+        let taken = take_on(&conn, 12, |_| Some(u64::MAX));
+
+        assert_eq!(taken, None);
+        assert!(!Path::new(&copy_path(&path, 12)).exists());
+    }
+
+    #[test]
+    fn a_whole_copy_from_an_earlier_attempt_is_kept_once_the_library_has_moved_on() {
+        let dir = TempDir::new().unwrap();
+        let (path, conn) = library_beside(&dir);
+        let first = take_on(&conn, 12, |_| Some(u64::MAX));
+        conn.pragma_update(None, "user_version", 13).unwrap();
+
+        let second = take_on(&conn, 12, |_| Some(u64::MAX));
+
+        assert_eq!(first, Some(copy_path(&path, 12)));
+        assert_eq!(second, Some(copy_path(&path, 12)));
+        assert!(copy_holds_version(&copy_path(&path, 12), 12));
+    }
+
+    #[test]
+    fn a_file_with_no_version_record_is_copied_whatever_its_user_version() {
+        let dir = TempDir::new().unwrap();
+        let (path, conn) = library_beside(&dir);
+        conn.pragma_update(None, "user_version", 1).unwrap();
+
+        let taken = take_on(&conn, 0, |_| Some(u64::MAX));
+
+        assert_eq!(taken, Some(copy_path(&path, 0)));
     }
 
     #[test]

@@ -424,6 +424,11 @@ struct SyncInner {
     /// for by another athlete is not mistaken for one the run covers.
     running_for: Option<String>,
     cancel: bool,
+    /// The last run token handed out, so no two claims share one.
+    run_seq: u64,
+    /// The token of the run holding the slot, 0 when none does. A run's
+    /// terminal transition counts only while its token is this one.
+    run_token: u64,
     /// A credential the profile confirmed as rejected. Set by the park and
     /// cleared only by a credential change, so the running sync's own
     /// terminal transition cannot write `Idle` over it and nothing new
@@ -448,6 +453,24 @@ impl SyncInner {
     /// Keep `run` owed to the slot, once.
     fn owe(&mut self, run: OwedRun) {
         owe_into(&mut self.owed, run);
+    }
+
+    /// Keep `run` owed to the slot, once, unless the run in flight already
+    /// fetches what it asks for.
+    fn owe_unless_covered(&mut self, run: OwedRun) {
+        if !self.running_covers(&run.request, &run.athlete_id) {
+            self.owe(run);
+        }
+    }
+
+    /// Whether the run in flight already fetches what `request` for
+    /// `athlete_id` would. Only a default sync is covered, and only by a
+    /// default sync for the same athlete, which fetches what it would have. A
+    /// window fetches its own range alone, so it is never covered.
+    fn running_covers(&self, request: &SyncRequest, athlete_id: &str) -> bool {
+        matches!(request, SyncRequest::Full { .. })
+            && matches!(self.running, Some(SyncRequest::Full { .. }))
+            && self.running_for.as_deref() == Some(athlete_id)
     }
 }
 
@@ -549,6 +572,8 @@ impl Default for SyncInner {
             running: None,
             running_for: None,
             cancel: false,
+            run_seq: 0,
+            run_token: 0,
             auth_expired: false,
             resume: None,
             owed: Vec::new(),
@@ -563,6 +588,10 @@ impl Default for SyncInner {
 pub struct SyncService {
     inner: Mutex<SyncInner>,
     creds: Mutex<Option<Credentials>>,
+    /// Bumped each time the held credential is set or cleared, inside the
+    /// credentials lock. A session carries the value it was built under, so
+    /// a refusal on a replaced token is told from one on the held token.
+    generation: AtomicU64,
     base_url: Mutex<String>,
     /// Starts a default sync the slot refused, once it frees.
     start_full: Box<dyn Fn(bool) -> FfiStartOutcome + Send + Sync>,
@@ -596,6 +625,7 @@ impl SyncService {
         SyncService {
             inner: Mutex::new(SyncInner::default()),
             creds: Mutex::new(None),
+            generation: AtomicU64::new(0),
             base_url: Mutex::new(crate::net::LIVE_BASE_URL.to_string()),
             start_full: Box::new(start_full),
             start_window: Box::new(start_window),
@@ -610,6 +640,7 @@ impl SyncService {
                 secret,
                 athlete_id,
             });
+            self.generation.fetch_add(1, Ordering::SeqCst);
         }
         // A credential the athlete just gave is not the one that was
         // rejected, so the park is released here and nowhere else.
@@ -620,6 +651,7 @@ impl SyncService {
         {
             let mut g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
             *g = None;
+            self.generation.fetch_add(1, Ordering::SeqCst);
         }
         // A sign-out leaves nothing to be rejected, and the next sign-in must
         // not find the park still standing.
@@ -671,7 +703,16 @@ impl SyncService {
             .clone();
         let transport = Transport::new(base, creds.method.auth_method(&creds.secret))
             .map_err(|e| SyncFailure::new(FfiSyncErrorReason::NotConfigured, e))?;
-        Ok(live_source(transport, creds.athlete_id.clone()))
+        Ok(live_source(transport, creds.athlete_id.clone())
+            .built_under(self.generation.load(Ordering::SeqCst)))
+    }
+
+    /// Whether the credential `source` was built under is still the held one.
+    /// A source bound to none counts as current.
+    fn holds_generation(&self, source: &impl Source) -> bool {
+        source
+            .credential_generation()
+            .is_none_or(|g| g == self.generation.load(Ordering::SeqCst))
     }
 
     /// Atomically claim the running slot and move to `Syncing`. Returns false if a
@@ -691,14 +732,20 @@ impl SyncService {
         self.claim_slot_for(SyncRequest::Full { force: false })
     }
 
-    /// Claim the slot for `request`, or name why not.
+    #[cfg(test)]
+    fn claim_slot_for(&self, request: SyncRequest) -> Result<(), FfiStartOutcome> {
+        self.claim_run_for(request).map(|_| ())
+    }
+
+    /// Claim the slot for `request` and return the token of the run that now
+    /// holds it, or name why not.
     ///
     /// A run refused because the slot is held is kept owed under the same
     /// lock, so the finish that frees the slot cannot pass between the
     /// refusal and the record and leave it unasked. The one refusal not kept
     /// is a default sync behind a default sync for the same athlete, which
     /// fetches what it would have.
-    fn claim_slot_for(&self, request: SyncRequest) -> Result<(), FfiStartOutcome> {
+    fn claim_run_for(&self, request: SyncRequest) -> Result<u64, FfiStartOutcome> {
         let athlete_id = self.athlete_id();
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         if inner.auth_expired {
@@ -706,20 +753,18 @@ impl SyncService {
         }
         if inner.running.is_some() {
             if let Some(athlete_id) = athlete_id {
-                let covered = matches!(request, SyncRequest::Full { .. })
-                    && matches!(inner.running, Some(SyncRequest::Full { .. }))
-                    && inner.running_for.as_deref() == Some(athlete_id.as_str());
-                if !covered {
-                    inner.owe(OwedRun {
-                        athlete_id,
-                        request,
-                    });
-                }
+                inner.owe_unless_covered(OwedRun {
+                    athlete_id,
+                    request,
+                });
             }
             return Err(FfiStartOutcome::Busy);
         }
         inner.running = Some(request);
         inner.running_for = athlete_id;
+        inner.run_seq += 1;
+        inner.run_token = inner.run_seq;
+        let token = inner.run_token;
         inner.install = Some(crate::persistence::engine_install());
         inner.cancel = false;
         inner.state = SyncState::Syncing;
@@ -730,7 +775,7 @@ impl SyncService {
         inner.last_error_reason = None;
         inner.retry_at = None;
         inner.deferred_until = None;
-        Ok(())
+        Ok(token)
     }
 
     /// Claim the slot and build the transport, naming why when either refuses.
@@ -746,9 +791,9 @@ impl SyncService {
     }
 
     fn try_start_for(&self, request: SyncRequest) -> Result<LiveSource, FfiStartOutcome> {
-        self.claim_slot_for(request)?;
+        let token = self.claim_run_for(request)?;
         match self.build_session() {
-            Ok(session) => Ok(session),
+            Ok(session) => Ok(session.for_run(token)),
             Err(e) => {
                 self.finish(SyncState::Idle, Some(e), false);
                 Err(FfiStartOutcome::NotConfigured)
@@ -806,10 +851,37 @@ impl SyncService {
     /// Terminal transition for a finished job. The one place a job ends, so it
     /// is the one place the settle is announced.
     pub fn finish(&self, state: SyncState, failure: Option<SyncFailure>, success: bool) {
+        self.finish_for(None, state, failure, success);
+    }
+
+    /// The terminal transition of the run `source` was claimed for. A run that
+    /// was ended or replaced since leaves the slot to whoever holds it now.
+    fn finish_run(
+        &self,
+        source: &impl Source,
+        state: SyncState,
+        failure: Option<SyncFailure>,
+        success: bool,
+    ) {
+        self.finish_for(source.run_token(), state, failure, success);
+    }
+
+    fn finish_for(
+        &self,
+        run: Option<u64>,
+        state: SyncState,
+        failure: Option<SyncFailure>,
+        success: bool,
+    ) {
         let stamp;
         let mut retry_at = None;
         let resume = {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            if run.is_some_and(|token| token != inner.run_token) {
+                log::info!("[Sync] a run that was already ended or replaced finished; ignored");
+                return;
+            }
+            inner.run_token = 0;
             let install = inner.install.take();
             let resume = inner.resume.take();
             // A park outlives whatever was running when it landed. Without
@@ -898,7 +970,8 @@ impl SyncService {
     }
 
     /// The connection came back: the runs a failure left owed to it join the
-    /// runs owed to the slot, and start as it frees.
+    /// runs owed to the slot, unless the run in flight already fetches them,
+    /// and start as it frees.
     ///
     /// The one place a failed sync or window is asked again. A screen that
     /// wanted the window asks nothing on the edge itself.
@@ -909,7 +982,7 @@ impl SyncService {
                 return;
             }
             for run in std::mem::take(&mut inner.owed_to_reconnect) {
-                inner.owe(run);
+                inner.owe_unless_covered(run);
             }
         }
         self.start_owed_runs();
@@ -947,11 +1020,12 @@ impl SyncService {
             }
             // A phone that never read as offline gives no online edge, so the
             // runs a transient failure left owed to the connection are owed
-            // to the return as well. The default sync joins them, once.
+            // to the return as well. The default sync joins them, once, unless
+            // the run in flight already fetches it.
             for run in std::mem::take(&mut inner.owed_to_reconnect) {
-                inner.owe(run);
+                inner.owe_unless_covered(run);
             }
-            inner.owe(OwedRun {
+            inner.owe_unless_covered(OwedRun {
                 athlete_id: self.athlete_id().unwrap_or_default(),
                 request: SyncRequest::Full { force: false },
             });
@@ -1037,7 +1111,7 @@ impl SyncService {
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
                 .deferred_until = Some(*until);
-            self.finish(SyncState::Idle, earlier, false);
+            self.finish_run(source, SyncState::Idle, earlier, false);
             crate::net::resume::resume_at(*until);
             return;
         }
@@ -1053,7 +1127,8 @@ impl SyncService {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .retry_at = retry_at;
-        self.finish(
+        self.finish_run(
+            source,
             SyncState::Idle,
             Some(SyncFailure::new(
                 failure.reason,
@@ -1073,15 +1148,52 @@ impl SyncService {
     /// mid-step reaches its own `finish` afterwards, and that call used to
     /// overwrite `AuthExpired` with `Idle`.
     pub fn park_auth_expired_now(&self) {
+        self.park_for(None);
+    }
+
+    fn park_for(&self, run: Option<u64>) {
         {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            if run.is_some_and(|token| token != inner.run_token) {
+                return;
+            }
             inner.auth_expired = true;
         }
-        self.finish(
+        self.finish_for(
+            run,
             SyncState::AuthExpired,
             Some(SyncFailure::unauthorized()),
             false,
         );
+    }
+
+    /// Park the service on a credential `source` confirmed as rejected, when
+    /// that is still the credential held. A refusal on a token that a later
+    /// sign-in replaced says nothing about the new one.
+    pub async fn park_if_rejected(&self, source: &impl Source) {
+        if !source.confirm_rejected().await {
+            log::info!("[Sync] a 401 was not confirmed by the profile, the session stands");
+        } else if !self.holds_generation(source) {
+            log::info!("[Sync] a 401 on a replaced credential, the new session stands");
+        } else {
+            self.park_auth_expired_now();
+        }
+    }
+
+    /// End the run `source` was claimed for on a 401: parked when the held
+    /// credential is confirmed rejected, a failed run otherwise.
+    async fn end_unauthorized(&self, source: &impl Source) {
+        let run = source.run_token();
+        if source.confirm_rejected().await && self.holds_generation(source) {
+            self.park_for(run);
+        } else {
+            self.finish_for(
+                run,
+                SyncState::Idle,
+                Some(SyncFailure::from(&NetError::Unauthorized)),
+                false,
+            );
+        }
     }
 
     /// Release the park. Only a credential change does this.
@@ -1275,11 +1387,7 @@ async fn credential_is_rejected(transport: &Transport, athlete_id: &str) -> bool
 /// An unconfirmed 401 leaves the state alone and the caller reports its own
 /// error, so a single refusal never signs anybody out.
 pub async fn park_auth_expired(source: &impl Source) {
-    if source.confirm_rejected().await {
-        SYNC_SERVICE.park_auth_expired_now();
-    } else {
-        log::info!("[Sync] a 401 was not confirmed by the profile, the session stands");
-    }
+    SYNC_SERVICE.park_if_rejected(source).await;
 }
 
 /// Releases the running slot when a sync task unwinds.
@@ -1511,6 +1619,11 @@ pub(crate) const TIME_STREAM_CONCURRENCY: usize = 25;
 /// about to be cleared. Signing out is not a failure, so the pass ends `Ok`
 /// and the job key releases rather than backing off against whoever signs in
 /// next.
+///
+/// A refusal ends the walk after the chunk it arrived in and is returned. A
+/// per-activity 404 is skipped. Any other failure does not stop the walk, and
+/// the first one is returned once the walk is over, so the caller backs the key
+/// off instead of releasing it as done.
 async fn drain_time_streams_with<S, F, Fut, St, StFut>(
     missing: Vec<String>,
     mut still_signed_in: S,
@@ -1524,6 +1637,7 @@ where
     St: FnMut(String, Vec<u32>) -> StFut,
     StFut: std::future::Future<Output = ()>,
 {
+    let mut first_failure = None;
     for chunk in missing.chunks(TIME_STREAM_CONCURRENCY) {
         if !still_signed_in() {
             log::info!("[Sync] abandoning a time-stream pass, the athlete has signed out");
@@ -1538,6 +1652,7 @@ where
         }))
         .await;
         let mut unauthorized = false;
+        let mut refusal = None;
         for (activity_id, result) in fetched {
             match result {
                 // An empty answer is stored too, as a zero-length row. This lane
@@ -1551,16 +1666,36 @@ where
                 // One refusal speaks for the chunk: what already came back is
                 // kept and nothing further is asked for.
                 Err(NetError::Unauthorized) => unauthorized = true,
+                Err(e) if e.is_refusal() => {
+                    log::info!("[Sync] time stream {} held back: {}", activity_id, e);
+                    refusal.get_or_insert(e);
+                }
+                // Upstream has no stream for this activity, so there is nothing
+                // to be owed and nothing failed.
+                Err(NetError::Http { status: 404, .. }) => {
+                    log::warn!("[Sync] time stream {} not found upstream", activity_id);
+                }
                 // One activity without streams must not stop the batch; the
-                // section list would stay stuck on "loading".
-                Err(e) => log::warn!("[Sync] time stream {} failed: {}", activity_id, e),
+                // section list would stay stuck on "loading". The first such
+                // failure is returned once the walk is over, so the key backs
+                // off rather than releasing as done.
+                Err(e) => {
+                    log::warn!("[Sync] time stream {} failed: {}", activity_id, e);
+                    first_failure.get_or_insert(e);
+                }
             }
         }
         if unauthorized {
             return Err(NetError::Unauthorized);
         }
+        if let Some(e) = refusal {
+            return Err(e);
+        }
     }
-    Ok(())
+    match first_failure {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
 }
 
 /// Record a fetched body that had no engine to be written to.
@@ -2437,7 +2572,7 @@ pub(crate) async fn perform_sync_from<S: Source>(
 ) {
     let athlete_id = source.account();
     if svc.is_cancelled() || !svc.still_signed_in(athlete_id) {
-        svc.finish(SyncState::Idle, None, false);
+        svc.finish_run(source, SyncState::Idle, None, false);
         return;
     }
     svc.begin_steps(SYNC_STEPS);
@@ -2453,7 +2588,7 @@ pub(crate) async fn perform_sync_from<S: Source>(
     macro_rules! step {
         ($step:expr, $body:expr) => {{
             if svc.is_cancelled() || !svc.still_signed_in(athlete_id) {
-                svc.finish(SyncState::Idle, last_error, false);
+                svc.finish_run(source, SyncState::Idle, last_error, false);
                 return;
             }
             svc.begin_step($step);
@@ -2470,15 +2605,7 @@ pub(crate) async fn perform_sync_from<S: Source>(
                 // `sync_now` rather than letting it spend a round trip on a
                 // credential already known to be dead.
                 Err(NetError::Unauthorized) => {
-                    if source.confirm_rejected().await {
-                        svc.park_auth_expired_now();
-                    } else {
-                        svc.finish(
-                            SyncState::Idle,
-                            Some(SyncFailure::from(&NetError::Unauthorized)),
-                            false,
-                        );
-                    }
+                    svc.end_unauthorized(source).await;
                     return;
                 }
                 // A refusal speaks for every step after it, so the run ends
@@ -2617,15 +2744,23 @@ pub(crate) async fn perform_sync_from<S: Source>(
         .await
     );
 
-    let success = last_error.is_none();
+    // The last step returns Ok when it is cut short: a cancel ends its walk
+    // and a sign-out ends it before the next request. The step guards only
+    // read these before they start, so a run is judged here, once it has
+    // finished, for the athlete it began for.
+    let interrupted = cancelled() || !svc.still_signed_in(athlete_id);
+    let success = last_error.is_none() && !interrupted;
     crate::persistence::sections::conditioning::condition_pending_for_install(install);
-    svc.finish(SyncState::Idle, last_error, success);
+    svc.finish_run(source, SyncState::Idle, last_error, success);
     if success {
         crate::net::stream_backfill::autostart_stream_backfill();
     }
     // Garmin is its own service: a sync that intervals.icu refused is no
-    // reason to leave Garmin's rides unpulled.
-    crate::net::garmin::pull::start(install);
+    // reason to leave Garmin's rides unpulled. A cut short run is different,
+    // since the athlete it was for is being cleared or has changed.
+    if !interrupted {
+        crate::net::garmin::pull::start(install);
+    }
     if success {
         crate::net::garmin_auto_swap::start(install);
     }
@@ -2660,7 +2795,7 @@ pub(crate) async fn perform_window_sync_from<S: Source>(
 ) {
     let athlete_id = source.account();
     if svc.is_cancelled() || !svc.still_signed_in(athlete_id) {
-        svc.finish(SyncState::Idle, None, false);
+        svc.finish_run(source, SyncState::Idle, None, false);
         return;
     }
     svc.begin_steps(1);
@@ -2688,25 +2823,17 @@ pub(crate) async fn perform_window_sync_from<S: Source>(
     match sync_activity_windows(install, source, &windows, ASKED_WINDOW, &cancelled).await {
         Ok(()) if !svc.is_cancelled() => {
             svc.complete_step();
-            svc.finish(SyncState::Idle, None, true);
+            svc.finish_run(source, SyncState::Idle, None, true);
         }
-        Ok(()) => svc.finish(SyncState::Idle, None, false),
+        Ok(()) => svc.finish_run(source, SyncState::Idle, None, false),
         Err(NetError::Unauthorized) => {
             // Latched, for the same reason the step loop latches: one confirmed
             // rejection is the answer for every caller until the credential
             // changes.
-            if source.confirm_rejected().await {
-                svc.park_auth_expired_now();
-            } else {
-                svc.finish(
-                    SyncState::Idle,
-                    Some(SyncFailure::from(&NetError::Unauthorized)),
-                    false,
-                );
-            }
+            svc.end_unauthorized(source).await;
         }
         Err(e) if e.is_refusal() => svc.finish_refused(source, FfiSyncStep::Activities, &e, None),
-        Err(e) => svc.finish(SyncState::Idle, Some(SyncFailure::from(&e)), false),
+        Err(e) => svc.finish_run(source, SyncState::Idle, Some(SyncFailure::from(&e)), false),
     }
 }
 
@@ -5476,7 +5603,10 @@ mod tests {
                 stored.into_inner(),
                 vec!["a0".to_string(), "a2".to_string()]
             );
-            assert!(outcome.is_ok());
+            assert!(
+                matches!(outcome, Err(NetError::Http { status: 500, .. })),
+                "{outcome:?}"
+            );
         }
 
         #[test]
@@ -5496,6 +5626,114 @@ mod tests {
             .unwrap();
 
             assert_eq!(stored.into_inner(), vec![("a0".to_string(), vec![])]);
+        }
+
+        #[test]
+        fn a_refusal_stops_the_walk_after_its_chunk_and_is_returned() {
+            let fetched = RefCell::new(Vec::new());
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(TIME_STREAM_CONCURRENCY * 2),
+                || true,
+                |activity_id| {
+                    fetched.borrow_mut().push(activity_id);
+                    async {
+                        Err(NetError::Deferred {
+                            until: chrono::DateTime::UNIX_EPOCH,
+                        })
+                    }
+                },
+                |_id, _times| async {},
+            ));
+
+            assert!(
+                matches!(outcome, Err(NetError::Deferred { .. })),
+                "{outcome:?}"
+            );
+            assert_eq!(
+                fetched.into_inner().len(),
+                TIME_STREAM_CONCURRENCY,
+                "the chunk after the refusal is not asked"
+            );
+        }
+
+        #[test]
+        fn a_refusal_keeps_what_its_chunk_already_brought_back() {
+            let stored = RefCell::new(Vec::new());
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(3),
+                || true,
+                |activity_id| async move {
+                    if activity_id == "a1" {
+                        Err(NetError::RateLimited)
+                    } else {
+                        Ok(vec![1u32])
+                    }
+                },
+                |activity_id, _times| {
+                    stored.borrow_mut().push(activity_id);
+                    async {}
+                },
+            ));
+
+            assert_eq!(
+                stored.into_inner(),
+                vec!["a0".to_string(), "a2".to_string()]
+            );
+            assert!(matches!(outcome, Err(NetError::RateLimited)), "{outcome:?}");
+        }
+
+        #[test]
+        fn a_server_error_on_every_id_is_returned_and_stores_nothing() {
+            let stored = RefCell::new(Vec::new());
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(TIME_STREAM_CONCURRENCY + 5),
+                || true,
+                |_id| async {
+                    Err(NetError::Http {
+                        status: 503,
+                        body: String::new(),
+                    })
+                },
+                |activity_id, _times| {
+                    stored.borrow_mut().push(activity_id);
+                    async {}
+                },
+            ));
+
+            assert!(stored.into_inner().is_empty());
+            assert!(
+                matches!(outcome, Err(NetError::Http { status: 503, .. })),
+                "{outcome:?}"
+            );
+        }
+
+        #[test]
+        fn a_not_found_on_one_id_is_skipped_and_the_pass_is_ok() {
+            let stored = RefCell::new(Vec::new());
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(3),
+                || true,
+                |activity_id| async move {
+                    if activity_id == "a1" {
+                        Err(NetError::Http {
+                            status: 404,
+                            body: String::new(),
+                        })
+                    } else {
+                        Ok(vec![1u32])
+                    }
+                },
+                |activity_id, _times| {
+                    stored.borrow_mut().push(activity_id);
+                    async {}
+                },
+            ));
+
+            assert_eq!(
+                stored.into_inner(),
+                vec!["a0".to_string(), "a2".to_string()]
+            );
+            assert!(outcome.is_ok(), "{outcome:?}");
         }
     }
 

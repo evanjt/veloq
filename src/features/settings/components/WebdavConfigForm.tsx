@@ -49,6 +49,10 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
   // in-memory cache `initWebdavConfig` filled at startup, so this is a property
   // read and not a SecureStore round trip.
   const [storedWebdav] = useState(getWebdavConfig);
+  // Whether credentials are stored, held as state because a successful store sets
+  // no other state, so a read of the cache at render would not run again until
+  // something else re-rendered the form.
+  const [webdavStored, setWebdavStored] = useState(storedWebdav !== null);
   const [webdavUrl, setWebdavUrl] = useState(storedWebdav?.url ?? '');
   const [webdavUser, setWebdavUser] = useState(storedWebdav?.username ?? '');
   const [webdavPass, setWebdavPass] = useState(storedWebdav?.password ?? '');
@@ -118,6 +122,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
           t('backup.webdavSaveFailed', 'Could not save the server details on this device')
         );
       }
+      setWebdavStored(true);
       // Refresh the offer list since WebDAV is now configured
       onConfigChange();
       return { kind: 'stored' };
@@ -166,6 +171,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
 
   const handleRemoveWebdav = useCallback(async () => {
     await clearWebdavConfig();
+    setWebdavStored(false);
     setWebdavUrl('');
     setWebdavUser('');
     setWebdavPass('');
@@ -294,7 +300,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
           autoComplete="current-password"
         />
         <View style={styles.testRow}>
-          {getWebdavConfig() && (
+          {webdavStored ? (
             <Button
               testID="backup-remove-webdav"
               label={t('common.remove')}
@@ -302,7 +308,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
               size="sm"
               onPress={handleRemoveWebdav}
             />
-          )}
+          ) : null}
           <Button
             label={t('backup.testConnection')}
             variant="primary"

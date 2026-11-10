@@ -2,9 +2,9 @@
  * Scenario: the athlete opens the sync settings while the backfill has drawn
  * part of its daily allowance.
  *
- * Expected behaviour: the panel says the limit is shared and shows today's
- * figure with the reset time, both from the engine, and says nothing about a
- * limit where the engine reports none.
+ * Expected behaviour: the panel shows today's figure with the reset time, both
+ * from the engine, and prints nothing about a limit where the engine reports
+ * none.
  */
 
 import React from 'react';
@@ -64,11 +64,11 @@ describe('the sync range panel daily limit', () => {
     mockLimit = null;
   });
 
-  it('shows the shared limit, today’s figure and the reset while downloads are owed', async () => {
+  it('shows today’s figure and the reset while downloads are owed, with no shared-limit line', async () => {
     mockLimit = { used: 120, perDay: 650, resetsAtMs: Date.UTC(2026, 9, 31, 1, 0) };
     const view = await render(<SyncRangePanel />);
 
-    expect(view.getByText('settings.dailyLimitShared')).toBeTruthy();
+    expect(view.queryByText('settings.dailyLimitShared')).toBeNull();
     expect(view.getByText('settings.dailyLimitToday:{"used":120,"limit":650}')).toBeTruthy();
     expect(view.getByText(/^settings\.dailyLimitResets:/)).toBeTruthy();
   });

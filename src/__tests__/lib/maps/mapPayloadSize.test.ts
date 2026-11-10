@@ -119,7 +119,6 @@ function activitySpecs(route: GeoJSON.FeatureCollection, gradientActive: boolean
     routeGeoJSON: route,
     overlayGeoJSON: EMPTY,
     consolidatedPortionsGeoJSON: EMPTY,
-    sectionBoundariesGeoJSON: EMPTY,
     sectionMarkersGeoJSON: EMPTY,
     highlightGeoJSON: {
       type: 'Feature',

@@ -766,7 +766,7 @@ mod tests {
         let path = dir.path().join("read_cache.db");
         let writer = Connection::open(&path).unwrap();
         writer
-            .execute_batch("CREATE TABLE sports (name TEXT); INSERT INTO sports VALUES ('Ride')")
+            .execute_batch("PRAGMA journal_mode = WAL; CREATE TABLE sports (name TEXT); INSERT INTO sports VALUES ('Ride')")
             .unwrap();
         let path = path.to_str().unwrap().to_string();
         read_pool::bind(&path);

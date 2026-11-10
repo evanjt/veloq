@@ -30,7 +30,7 @@ function RecordingUploadScreenContent() {
               title={t('recording.autoUpload', 'Auto-upload')}
               description={t(
                 'recording.autoUploadDescription',
-                'Upload recordings to intervals.icu automatically when you save them. Off keeps them on this device until you upload from My recordings.'
+                'Uploads recordings to intervals.icu when you save them. When off, they stay on this device until you upload them.'
               )}
               value={autoUploadEnabled}
               onValueChange={handleToggleAutoUpload}

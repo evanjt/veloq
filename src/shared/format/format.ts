@@ -99,7 +99,9 @@ export function distanceParts(
   if (!Number.isFinite(meters) || meters < 0) return null;
 
   if (isMetric) {
-    if (meters < 1000) return { value: Math.round(meters), unit: 'm', decimals: 0 };
+    // The unit is chosen from the rounded metres, so the figure never prints as "1,000 m".
+    const wholeMeters = Math.round(meters);
+    if (wholeMeters < 1000) return { value: wholeMeters, unit: 'm', decimals: 0 };
     return { value: roundTo(meters / 1000, 1), unit: 'km', decimals: 1 };
   }
   const miles = (meters / 1000) * KM_TO_MI;
@@ -673,6 +675,23 @@ export function formatDateTime(instant: string | number): string {
 }
 
 /**
+ * A clock time with no seconds, in the given locale and the system's 12 or
+ * 24-hour setting. The option set for a clock time is held here, so the setting
+ * is applied in one place.
+ *
+ * ```ts
+ * formatClockAt(new Date(2026, 2, 10, 19, 5), 'en-US'); // "7:05 PM" or "19:05"
+ * ```
+ */
+export function formatClockAt(date: Date, locale: string): string {
+  return formatDateIn(
+    date,
+    { hour: 'numeric', minute: '2-digit', hourCycle: systemHourCycle() },
+    locale
+  );
+}
+
+/**
  * The clock time of a local date-time such as `start_date_local`, in the
  * device's locale. A string that is not a date prints the absent mark.
  *
@@ -683,7 +702,7 @@ export function formatDateTime(instant: string | number): string {
 export function formatClockTime(dateString: string): string {
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return ABSENT;
-  return formatDateIn(date, { hour: 'numeric', minute: '2-digit' }, getIntlLocale());
+  return formatClockAt(date, getIntlLocale());
 }
 
 /**
@@ -693,17 +712,7 @@ export function formatClockTime(dateString: string): string {
 export function formatClockOrDate(epochMs: number, now: Date = new Date()): string {
   const date = new Date(epochMs);
   const locale = getIntlLocale();
-  if (date.toDateString() === now.toDateString()) {
-    return formatDateIn(
-      date,
-      {
-        hour: 'numeric',
-        minute: '2-digit',
-        hourCycle: systemHourCycle(),
-      },
-      locale
-    );
-  }
+  if (date.toDateString() === now.toDateString()) return formatClockAt(date, locale);
   return formatDateIn(date, { month: 'short', day: 'numeric' }, locale);
 }
 
@@ -1055,9 +1064,10 @@ export function getSunday(date: Date): Date {
  */
 export function formatFileSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
-  if (bytes < 1000) return `${formatDecimal(bytes, 0)} B`;
-  if (bytes < 1000 ** 2) return `${formatDecimal(bytes / 1000, 1)} KB`;
-  if (bytes < 1000 ** 3) return `${formatDecimal(bytes / 1000 ** 2, 1)} MB`;
+  // The unit is chosen from the figure as it prints: 999,960 bytes is 1.0 MB, not 1,000.0 KB.
+  if (Math.round(bytes) < 1000) return `${formatDecimal(bytes, 0)} B`;
+  if (roundTo(bytes / 1000, 1) < 1000) return `${formatDecimal(bytes / 1000, 1)} KB`;
+  if (roundTo(bytes / 1000 ** 2, 1) < 1000) return `${formatDecimal(bytes / 1000 ** 2, 1)} MB`;
   return `${formatDecimal(bytes / 1000 ** 3, 1)} GB`;
 }
 

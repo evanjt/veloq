@@ -594,3 +594,115 @@ describe('counting sections around a rescan', () => {
     ).resolves.not.toThrow();
   });
 });
+
+/**
+ * Scenario: the screen regains focus while a run is live, and that run is the
+ * hook's own rescan or one started elsewhere. Each focus used to start another
+ * follow of the same run, and the follows shared one adoption flag.
+ * Expected behaviour: one follow watches a run at a time, so the progress is
+ * read once per tick, and a run this hook did not start publishes no before and
+ * after even when focus returns twice.
+ */
+describe('one follow per run', () => {
+  let announcers: Set<() => void>;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    announcers = new Set();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function engineAnnouncing(overrides: Record<string, unknown> = {}) {
+    return engineWith({
+      subscribe: jest.fn((event: string, listener: () => void) => {
+        if (event === 'detectionApplied') announcers.add(listener);
+        return () => announcers.delete(listener);
+      }),
+      ...overrides,
+    });
+  }
+
+  function announce() {
+    for (const listener of [...announcers]) listener();
+  }
+
+  it('reads progress once per tick when focus returns during the hook own rescan', async () => {
+    const engine = engineAnnouncing({
+      pollSectionDetection: jest.fn(() => 'running'),
+      getSectionDetectionProgress: jest.fn(() => ({
+        phase: 'analyzing',
+        completed: 3,
+        total: 10,
+        percent: 30,
+      })),
+    });
+    mockedGetEngine.mockReturnValue(engine as never);
+
+    const { result } = await renderHook(() => useSectionRescan());
+    await act(() => {
+      result.current.rescan();
+    });
+    await act(() => {
+      focusCallback?.();
+    });
+
+    const readsBeforeTick = engine.getSectionDetectionProgress.mock.calls.length;
+    await act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(engine.getSectionDetectionProgress.mock.calls.length - readsBeforeTick).toBe(1);
+
+    engine.pollSectionDetection.mockReturnValue('complete');
+    await act(async () => {
+      announce();
+    });
+
+    expect(result.current.isScanning).toBe(false);
+    expect(result.current.result).toEqual({ before: 7, after: 7 });
+  });
+
+  it('publishes no before and after for an external run when focus returns twice', async () => {
+    const engine = engineAnnouncing({ pollSectionDetection: jest.fn(() => 'idle') });
+    mockedGetEngine.mockReturnValue(engine as never);
+
+    const { result } = await renderHook(() => useSectionRescan());
+    await act(() => {
+      result.current.rescan();
+    });
+    engine.pollSectionDetection.mockReturnValue('complete');
+    await act(async () => {
+      announce();
+    });
+    expect(result.current.result).toEqual({ before: 7, after: 7 });
+
+    act(() => {
+      result.current.clearResult();
+    });
+    engine.getSectionCount.mockReturnValue(9);
+    engine.pollSectionDetection.mockReturnValue('running');
+    engine.getSectionDetectionProgress.mockReturnValue({
+      phase: 'analyzing',
+      completed: 1,
+      total: 10,
+      percent: 10,
+    } as never);
+    await act(() => {
+      focusCallback?.();
+    });
+    await act(() => {
+      focusCallback?.();
+    });
+
+    engine.pollSectionDetection.mockReturnValue('complete');
+    await act(async () => {
+      announce();
+    });
+
+    expect(result.current.isScanning).toBe(false);
+    expect(result.current.result).toBeNull();
+  });
+});

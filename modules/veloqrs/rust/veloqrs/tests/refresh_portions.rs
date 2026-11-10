@@ -1,5 +1,5 @@
 //! The in-memory section refresh must carry the junction table's
-//! traversals, because `save_sections` writes junction rows FROM the
+//! traversals, because the catalogue save writes junction rows FROM the
 //! in-memory portions. A refresh that blanks them turns the next save
 //! into a wipe of every traversal, lap, and PR the section holds.
 
@@ -55,12 +55,12 @@ fn junction_rows(engine: &mut PersistentEngine, section_id: &str) -> usize {
 }
 
 #[test]
-fn a_recalculate_after_an_exclude_keeps_every_traversal() {
+fn a_save_after_an_exclude_keeps_every_traversal() {
     let dir = TempDir::new().unwrap();
     let mut engine = detected_engine(&dir);
     let ids = auto_ids(&mut engine);
     assert!(ids.len() >= 2, "need two auto sections, got {}", ids.len());
-    let (edited, recalced) = (&ids[0], &ids[1]);
+    let edited = &ids[0];
 
     let member = engine
         .get_section_by_id(edited)
@@ -72,12 +72,14 @@ fn a_recalculate_after_an_exclude_keeps_every_traversal() {
     let rows_before = junction_rows(&mut engine, edited);
     assert!(rows_before > 0);
 
-    // The exclude refreshes `edited` in memory; recalculating a DIFFERENT
-    // section then saves the whole catalogue from memory.
+    // The exclude refreshes `edited` in memory; a detect apply then saves
+    // the whole catalogue from memory.
     engine
         .exclude_activity_from_section(edited, &member)
         .unwrap();
-    engine.recalculate_section_polyline(recalced);
+    let handle = engine.detect_sections_background();
+    let (sections, _) = handle.recv().expect("the detect ran");
+    engine.apply_sections(sections).unwrap();
 
     let rows_after = junction_rows(&mut engine, edited);
     assert!(

@@ -7,6 +7,5 @@
   "src/features/insights/generators/stalePr.ts": 1,
   "src/features/routes/components/section/SectionDeltaChart.tsx": 1,
   "src/features/routes/components/section/SectionEfficiencyCard.tsx": 1,
-  "src/features/routes/lib/departedRides.ts": 1,
   "src/shared/app/seedDemoEngine.ts": 2
 }

@@ -74,18 +74,22 @@ export function useSectionRescan(): SectionRescanState {
   const [stillRunning, setStillRunning] = useState(false);
   const isMountedRef = useRef(true);
   const [refusal, setRefusal] = useState<StartVerdict | null>(null);
+  // The live follow's cancel, so one run is watched by one follow at a time.
   const followRef = useRef<(() => void) | null>(null);
   const beforeCountRef = useRef<number | null>(null);
-  // A run this hook did not start has no honest "before" to report, so the
-  // poll shows its progress and publishes no result when it settles.
-  const adoptedRef = useRef(false);
 
   // Rust announces the end on `detectionApplied`, so the terminal status is
   // read once, there. The timer that remains reads progress alone: it never
   // drains the worker's channel, so a tick cannot consume the completion.
-  const startPolling = useCallback(() => {
+  //
+  // `adopted` belongs to this follow: a run this hook did not start has no
+  // honest "before" to report, so its poll shows progress and publishes no
+  // result when it settles. A follow started before this one is cancelled
+  // first, and a superseded follow that settles late publishes nothing.
+  const startPolling = useCallback((adopted: boolean) => {
     const engine = getEngine();
     if (!engine) return;
+    followRef.current?.();
     setIsScanning(true);
     setResult(null);
     setFailed(false);
@@ -108,7 +112,7 @@ export function useSectionRescan(): SectionRescanState {
     followRef.current = follow.cancel;
 
     void follow.settled.then((outcome) => {
-      if (outcome === 'abandoned') return;
+      if (outcome === 'abandoned' || followRef.current !== follow.cancel) return;
       followRef.current = null;
       setIsScanning(false);
       setProgress(null);
@@ -128,20 +132,19 @@ export function useSectionRescan(): SectionRescanState {
         setFailed(true);
         return;
       }
-      if (!adoptedRef.current) {
+      if (!adopted) {
         const before = beforeCountRef.current;
         const after = getSectionCount();
         if (before !== null && after !== null) setResult({ before, after });
       }
-      adoptedRef.current = false;
     });
   }, []);
 
   /** Record the verdict, and keep a started run free of a stale refusal. */
   const adopt = useCallback(
-    (outcome: StartVerdict) => {
+    (outcome: StartVerdict, adopted: boolean) => {
       setRefusal(hasStarted(outcome) ? null : outcome);
-      if (hasStarted(outcome)) startPolling();
+      if (hasStarted(outcome)) startPolling(adopted);
       return outcome;
     },
     [startPolling]
@@ -149,18 +152,16 @@ export function useSectionRescan(): SectionRescanState {
 
   const rescan = useCallback(() => {
     const engine = getEngine();
-    if (!engine) return adopt(StartOutcome.NotReady);
+    if (!engine) return adopt(StartOutcome.NotReady, false);
     beforeCountRef.current = getSectionCount();
-    adoptedRef.current = false;
-    return adopt(detection.startSectionDetection());
+    return adopt(detection.startSectionDetection(), false);
   }, [adopt]);
 
   const forceRescan = useCallback(() => {
     const engine = getEngine();
-    if (!engine) return adopt(StartOutcome.NotReady);
+    if (!engine) return adopt(StartOutcome.NotReady, false);
     beforeCountRef.current = getSectionCount();
-    adoptedRef.current = false;
-    return adopt(detection.forceRedetectSections());
+    return adopt(detection.forceRedetectSections(), false);
   }, [adopt]);
 
   const cancelScan = useCallback(() => {
@@ -179,6 +180,8 @@ export function useSectionRescan(): SectionRescanState {
   // A detect started elsewhere, by another screen or by the preview's Keep,
   // is invisible unless whoever shows next picks it up. Adopt it on every
   // focus, since a screen under the preview does not remount when Keep pops back.
+  // A run already followed keeps the follow it has, so a rescan this hook
+  // started still reports its own before and after when focus returns.
   useFocusEffect(
     useCallback(() => {
       const engine = getEngine();
@@ -191,10 +194,7 @@ export function useSectionRescan(): SectionRescanState {
       } catch {
         running = false;
       }
-      if (running) {
-        adoptedRef.current = true;
-        startPolling();
-      }
+      if (running && !followRef.current) startPolling(true);
     }, [startPolling])
   );
 

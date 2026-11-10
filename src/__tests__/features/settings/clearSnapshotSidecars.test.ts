@@ -76,4 +76,17 @@ describe('clear rollback', () => {
     expect(deleted).not.toContain(`file://${DB}-wal`);
     expect(FileSystem.copyAsync).not.toHaveBeenCalled();
   });
+
+  it('keeps a committed clear when deleting its rollback copy fails', async () => {
+    (FileSystem.deleteAsync as jest.Mock).mockRejectedValueOnce(new Error('I/O error'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(withDatabaseSnapshot(engine(), DB, async () => 'cleared')).resolves.toBe(
+      'cleared'
+    );
+
+    expect(FileSystem.copyAsync).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('rollback copy'), expect.any(Error));
+    warn.mockRestore();
+  });
 });

@@ -75,7 +75,6 @@ describe('matched route overlay', () => {
       routeGeoJSON: EMPTY_COLLECTION,
       overlayGeoJSON: EMPTY_COLLECTION,
       consolidatedPortionsGeoJSON: EMPTY_COLLECTION,
-      sectionBoundariesGeoJSON: EMPTY_COLLECTION,
       sectionMarkersGeoJSON: EMPTY_COLLECTION,
       highlightGeoJSON: {
         type: 'Feature',

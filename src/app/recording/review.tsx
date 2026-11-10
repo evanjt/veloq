@@ -230,10 +230,7 @@ function ReviewScreenContent() {
   const handleDiscard = useCallback(() => {
     confirmAction({
       title: t('recording.discardConfirmTitle', 'Discard this recording?'),
-      message: t(
-        'recording.discardConfirmMessage',
-        'It has not been saved, and it cannot be recovered once discarded.'
-      ),
+      message: t('recording.discardConfirmMessage', 'Not saved. Discarding it cannot be undone.'),
       confirmLabel: t('recording.discard', 'Discard'),
       cancelLabel: t('common.cancel', 'Cancel'),
       destructive: true,

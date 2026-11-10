@@ -72,7 +72,7 @@ describe('the fitness milestone sheet', () => {
   async function method(insight: Insight): Promise<string> {
     const view = await render(<MethodologySection insight={insight} />);
     await fireEvent.press(view.getByTestId('methodology-toggle'));
-    return `${insight.methodology?.name} ${textOf(view.toJSON()).join(' ')}`;
+    return textOf(view.toJSON()).join(' ');
   }
 
   function milestones() {

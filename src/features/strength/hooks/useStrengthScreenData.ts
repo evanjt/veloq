@@ -23,19 +23,18 @@ import { demoStrengthSets } from '../demo';
 import type { StrengthPeriod, StrengthScreenData } from '../types';
 
 /**
- * Seed synthetic strength sets for demo activities once per session. The
- * Strength tab queries aggregate summaries directly (not per-activity) so
- * the demo-mode seed path in useExerciseSets doesn't cover this entry
- * point. Idempotent - bulk_insert_exercise_sets uses INSERT OR REPLACE.
+ * Seed synthetic strength sets for demo activities that have none in the
+ * engine. The Strength tab queries aggregate summaries directly (not
+ * per-activity) so the demo-mode seed path in useExerciseSets doesn't cover
+ * this entry point. The engine is the only record of whether a set exists, so
+ * this asks it for each activity on every call rather than latching: a library
+ * wipe clears the sets, and the next demo session must put them back.
+ * Idempotent - bulk_insert_exercise_sets uses INSERT OR REPLACE.
+ * Returns whether anything was written, so a caller knows if there is news to announce.
  */
-let demoStrengthSeedAttempted = false;
-
-/** Whether anything was written, so a caller knows if there is news to announce. */
 function ensureDemoStrengthSeeded(): boolean {
-  if (demoStrengthSeedAttempted) return false;
   if (!useAuthStore.getState().isDemoMode) return false;
   if (!isEngineReady()) return false;
-  demoStrengthSeedAttempted = true;
   let wrote = false;
   try {
     for (const [activityId, sets] of Object.entries(demoStrengthSets)) {
@@ -157,8 +156,8 @@ export function useStrengthTabState(): StrengthTabState {
   // the seed announces on `fitParsed`, and the subscription above brings the
   // real answer. `bulk_insert_exercise_sets` notifies for exactly this reason
   // and says so in `objects/strength.rs`, so nothing has to be wired up
-  // by hand. Non-demo sessions, and every mount after the first in a process,
-  // do nothing at all.
+  // by hand. Non-demo sessions do nothing at all; a demo mount whose sets are
+  // already in the engine reads them and writes nothing.
   useEffect(() => {
     if (!engine) return;
     ensureDemoStrengthSeeded();

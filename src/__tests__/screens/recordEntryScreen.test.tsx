@@ -622,7 +622,7 @@ describe('the paired sensors and the fix before Start', () => {
     expect(navigateTo).toHaveBeenCalledWith('/sensor-settings');
   });
 
-  it('says what to turn on when a paired heart rate sensor is linked and silent', async () => {
+  it('says what to turn on when a paired heart rate sensor is connected and silent', async () => {
     useSensorStore.setState({
       knownSensors: [STRAP],
       connections: { [STRAP.id]: { status: 'noData', name: STRAP.name, kinds: STRAP.kinds } },
@@ -630,7 +630,7 @@ describe('the paired sensors and the fix before Start', () => {
     await render(<RecordScreen />);
 
     expect(screen.getByTestId('entry-sensor-status-strap-1')).toHaveTextContent(
-      'Linked, not sending heart rate. Turn on heart rate broadcast on the device.'
+      'Connected, but not sending heart rate. Turn on heart rate broadcast on the device.'
     );
     expect(screen.queryByText(/Connected, no data/)).toBeNull();
   });
@@ -691,7 +691,7 @@ describe('the paired sensors and the fix before Start', () => {
     );
     expect(screen.getByTestId('entry-sensor-signal-strap-1')).toBeTruthy();
     expect(screen.getByTestId('entry-sensor-status-meter-1')).toHaveTextContent(
-      'Linked, not sending power. Turn on power broadcast on the device.'
+      'Connected, but not sending power. Turn on power broadcast on the device.'
     );
   });
 

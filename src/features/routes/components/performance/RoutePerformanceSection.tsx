@@ -27,6 +27,7 @@ import {
   spacing,
   typography,
   stroke,
+  themePalette,
 } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { PerformanceChartPanel } from '@/features/routes/components/section';
@@ -168,7 +169,7 @@ export function RoutePerformanceSection({
                     <Icon
                       name="trophy"
                       size={iconSize.xs}
-                      color={colors.achievement}
+                      color={themePalette(isDark).achievement}
                       style={{ marginLeft: spacing.xxs }}
                     />
                   ) : null}

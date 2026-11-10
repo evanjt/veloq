@@ -39,6 +39,17 @@ if [ -n "${GIT_INDEX_FILE:-}" ]; then
   git_dir="$(cd "$(git rev-parse --git-dir)" && pwd -P)"
   index_dir="$(cd "$(dirname "$GIT_INDEX_FILE")" && pwd -P)"
   index_name="$(basename "$GIT_INDEX_FILE")"
+  # `git commit -a` runs the hook against the real index's lock file, and
+  # would stage every tracked edit in this checkout, other sessions' included.
+  if [ "$index_dir" = "$git_dir" ] && [ "$index_name" = "index.lock" ]; then
+    echo "Refusing to commit: git commit -a is not allowed in this checkout." >&2
+    echo >&2
+    echo "-a stages every tracked edit here, including other sessions' edits." >&2
+    echo "Stage the paths this change touches and commit them without -a:" >&2
+    echo >&2
+    echo "  git add <paths> && git commit -m '...'" >&2
+    exit 1
+  fi
   if [ "$index_dir" != "$git_dir" ] || [ "$index_name" != "index" ]; then
     echo "Refusing to commit: this commit is not using the repository's index." >&2
     echo >&2

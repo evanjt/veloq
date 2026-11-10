@@ -2860,7 +2860,7 @@ const FfiConverterTypeFfiSectionEncounter = (() => {
 export type FfiActivityIndicator = {
   activityId: string;
   /**
-   * "section_pr", "route_pr", "section_trend", "route_trend"
+   * "section_pr", "section_trend", "route_trend"
    */
   indicatorType: string;
   /**
@@ -23412,56 +23412,6 @@ const FfiConverterTypeFfiSectionPerformanceData = (() => {
         FfiConverterTypeFfiRecordProgressions.allocationSize(
           value.recordProgression,
         )
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * Tier 5.5: result of a user-initiated section polyline recalc.
- */
-export type FfiSectionRecalcResult = {
-  sectionId: string;
-  distanceMeters: number;
-};
-
-/**
- * Generated factory for {@link FfiSectionRecalcResult} record objects.
- */
-export const FfiSectionRecalcResult = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<
-      FfiSectionRecalcResult,
-      ReturnType<typeof defaults>
-    >(defaults);
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () =>
-      Object.freeze(defaults()) as Partial<FfiSectionRecalcResult>,
-  });
-})();
-
-const FfiConverterTypeFfiSectionRecalcResult = (() => {
-  type TypeName = FfiSectionRecalcResult;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        sectionId: FfiConverterString.readFromCursor(c),
-        distanceMeters: FfiConverterFloat64.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.sectionId, c);
-      FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.sectionId) +
-        FfiConverterFloat64.allocationSize(value.distanceMeters)
       );
     }
   }
@@ -45403,7 +45353,6 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionPerformanceRecord,
     FfiConverterTypeFfiSectionPerformanceResult,
     FfiConverterTypeFfiSectionPortion,
-    FfiConverterTypeFfiSectionRecalcResult,
     FfiConverterTypeFfiSectionReferenceInfo,
     FfiConverterTypeFfiSectionRetirement,
     FfiConverterTypeFfiSectionSort,

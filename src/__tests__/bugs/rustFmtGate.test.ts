@@ -23,6 +23,12 @@ const roots: string[] = [];
 const CLEAN = 'pub fn tidy() -> u32 {\n    1\n}\n';
 const UNFORMATTED = 'pub fn  untidy( )->u32{\n1\n}\n';
 
+/** Enough formatted code that a rename with an edit stays above git's 50% similarity. */
+const FORMATTED_BODY = Array.from(
+  { length: 20 },
+  (_, i) => `pub fn part_${i}() -> u32 {\n    ${i}\n}\n`
+).join('\n');
+
 /** A repository shaped like this one, with `files` staged. */
 function repoWith(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), 'rustfmt-gate-'));
@@ -132,6 +138,22 @@ describe('the gate itself', () => {
     expect(readFileSync(record, 'utf-8').trim()).toBe(
       realpathSync(join(root, 'modules/veloqrs/rust'))
     );
+  });
+
+  it('refuses a renamed Rust file that was also edited unformatted', () => {
+    if (!rustfmtPresent) return;
+    const root = repoWith({ [`${CRATE}/before.rs`]: FORMATTED_BODY });
+    runGit(['commit', '-qm', 'base'], root);
+    runGit(['mv', `${CRATE}/before.rs`, `${CRATE}/after.rs`], root);
+    writeFileSync(join(root, `${CRATE}/after.rs`), `${FORMATTED_BODY}${UNFORMATTED}`);
+    runGit(['add', '-A'], root);
+
+    expect(runGit(['diff', '--cached', '--name-status', '-M'], root)).toMatch(/^R\d+\t/);
+
+    const { status, output } = runGate(root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('after.rs');
   });
 
   it('runs without the workspace or the tracematch submodule present', () => {

@@ -52,12 +52,15 @@ export function NotificationSection() {
 
   const turnOnWithPermission = useCallback(async () => {
     setToggling(true);
-    const outcome = await requestPermission();
-    if (outcome === 'granted') {
-      setEnabled(true);
+    try {
+      const outcome = await requestPermission();
+      if (outcome === 'granted') {
+        setEnabled(true);
+      }
+      setBlocked(outcome === 'blocked');
+    } finally {
+      setToggling(false);
     }
-    setBlocked(outcome === 'blocked');
-    setToggling(false);
   }, [requestPermission, setEnabled]);
 
   const handlePrivacyAccept = useCallback(async () => {

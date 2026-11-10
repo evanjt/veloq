@@ -42,7 +42,6 @@ export interface UpdateLayersParams {
   pointMarkersGeoJSON?: FeatureCollection | undefined;
   /** Legs from a fanned-out stack of starts back to where they share a spot. */
   spiderLinesGeoJSON?: FeatureCollection | undefined;
-  sectionBoundariesGeoJSON?: FeatureCollection | undefined;
   /** Trimmed line, extension line and trimmed end points, tagged by `kind`. */
   sectionTrimGeoJSON?: FeatureCollection | undefined;
   highlightedTraceGeoJSON?: FeatureCollection | undefined;
@@ -57,7 +56,6 @@ export const LAYER_KEYS = [
   'sectionMarkersGeoJSON',
   'pointMarkersGeoJSON',
   'spiderLinesGeoJSON',
-  'sectionBoundariesGeoJSON',
   'sectionTrimGeoJSON',
   'highlightedTraceGeoJSON',
   'highlightedSectionId',
@@ -155,7 +153,6 @@ export function buildUpdateLayersScript(
   const sectionMarkersJSON = literal('sectionMarkersGeoJSON');
   const pointMarkersJSON = literal('pointMarkersGeoJSON');
   const spiderLinesJSON = literal('spiderLinesGeoJSON');
-  const boundariesJSON = literal('sectionBoundariesGeoJSON');
   const trimJSON = literal('sectionTrimGeoJSON');
   const highlightedTraceJSON = literal('highlightedTraceGeoJSON');
   const highlightIdJSON = literal('highlightedSectionId');
@@ -200,7 +197,6 @@ export function buildUpdateLayersScript(
             const sectionMarkersData = ${sectionMarkersJSON};
             const pointMarkersData = ${pointMarkersJSON};
             const spiderLinesData = ${spiderLinesJSON};
-            const sectionBoundariesData = ${boundariesJSON};
             const sectionTrimData = ${trimJSON};
             const highlightedTraceData = ${highlightedTraceJSON};
             const highlightedSectionId = ${highlightIdJSON};
@@ -283,39 +279,6 @@ export function buildUpdateLayersScript(
             } catch (e) { console.warn('traces-layer paint update failed:', e); }
 
             addLine(veloqLine('highlightedTrace'), highlightedTraceData);
-
-            // Section boundary ticks - perpendicular marks at each portion's start/end.
-            // Drawn above traces so boundaries are visible through any overlap.
-            if (sectionBoundariesData !== undefined) try {
-              var boundariesSrcExists = !!window.map.getSource('section-boundaries-source');
-              var hasBoundaries = sectionBoundariesData && sectionBoundariesData.features && sectionBoundariesData.features.length > 0;
-              if (boundariesSrcExists) {
-                if (hasBoundaries) {
-                  window.map.getSource('section-boundaries-source').setData(sectionBoundariesData);
-                  window.map.setLayoutProperty('section-boundaries-casing-3d', 'visibility', 'visible');
-                  window.map.setLayoutProperty('section-boundaries-line-3d', 'visibility', 'visible');
-                } else {
-                  window.map.setLayoutProperty('section-boundaries-casing-3d', 'visibility', 'none');
-                  window.map.setLayoutProperty('section-boundaries-line-3d', 'visibility', 'none');
-                }
-              } else if (hasBoundaries) {
-                window.map.addSource('section-boundaries-source', { type: 'geojson', data: sectionBoundariesData });
-                window.map.addLayer({
-                  id: 'section-boundaries-casing-3d',
-                  type: 'line',
-                  source: 'section-boundaries-source',
-                  layout: { 'line-cap': 'round' },
-                  paint: { 'line-color': ${jsLiteral(palette.layer.boundaryCasing)}, 'line-width': 6, 'line-opacity': 0.45 },
-                });
-                window.map.addLayer({
-                  id: 'section-boundaries-line-3d',
-                  type: 'line',
-                  source: 'section-boundaries-source',
-                  layout: { 'line-cap': 'round' },
-                  paint: { 'line-color': ${jsLiteral(palette.casing)}, 'line-width': 3.5 },
-                });
-              }
-            } catch (e) { console.warn('section-boundaries layer error:', e); }
 
             // Section trim: the full line dims, the kept portion and the extension draw
             // over it, and the end points move to the trimmed positions. An empty

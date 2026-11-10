@@ -1,6 +1,8 @@
 import type { FfiGarminPull } from 'veloqrs';
 import { FfiGarminHalt, FfiGarminPullPhase } from 'veloqrs';
 
+import { formatClockAt } from '@/shared/format/format';
+
 /** The pull's status as a catalogue key and the time it names. */
 export interface GarminPullLine {
   key:
@@ -31,7 +33,7 @@ export function garminPullLine(pull: FfiGarminPull, locale: string): GarminPullL
       const until = pull.resumeAt === undefined ? null : new Date(pull.resumeAt);
       return {
         key: 'garmin.pullPaused',
-        time: until ? until.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' }) : '',
+        time: until ? formatClockAt(until, locale) : '',
       };
     }
     case FfiGarminPullPhase.Done:

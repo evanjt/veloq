@@ -11,7 +11,9 @@
 import { AppState, type AppStateStatus } from 'react-native';
 import { getCalendars } from 'expo-localization';
 
-import { formatClockOrDate, formatDateTime } from '@/shared/format/format';
+import { FfiGarminPullPhase, type FfiGarminPull } from 'veloqrs';
+import { formatClockOrDate, formatClockTime, formatDateTime } from '@/shared/format/format';
+import { garminPullLine } from '@/features/settings/lib/garminPullLine';
 
 let mockLanguage = 'en-US';
 jest.mock('@/i18n', () => ({
@@ -98,6 +100,27 @@ describe('clock times follow the system 12 or 24-hour setting', () => {
     expect(formatClockOrDate(evening.getTime(), evening)).toBe('7:30 PM');
     foreground();
     expect(formatClockOrDate(evening.getTime(), evening)).toBe('19:30');
+  });
+
+  it('prints a clock time from a local date-time string in the system setting', () => {
+    setSystemClock(true);
+    foreground();
+    expect(formatClockTime('2026-03-10T19:05:00')).toBe('19:05');
+    setSystemClock(false);
+    foreground();
+    expect(formatClockTime('2026-03-10T16:30:00')).toBe('4:30 PM');
+  });
+
+  it('prints the Garmin resume time in the system setting', () => {
+    const pausedUntil = (resumeAt: number): FfiGarminPull =>
+      ({ phase: FfiGarminPullPhase.Paused, resumeAt }) as FfiGarminPull;
+
+    setSystemClock(true);
+    foreground();
+    expect(garminPullLine(pausedUntil(evening.getTime()), 'en-US').time).toBe('19:30');
+    setSystemClock(false);
+    foreground();
+    expect(garminPullLine(pausedUntil(evening.getTime()), 'en-US').time).toBe('7:30 PM');
   });
 
   it('formats an epoch instant the same as its ISO string', () => {

@@ -14,7 +14,7 @@ import { engineErrorTag } from '@/shared/native/engineError';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import { useLastSyncSuccessAt } from '@/shared/native/useSyncStatus';
 import { withDatabaseSnapshot } from '@/features/settings';
-import { formatLocalDate } from '@/shared/format/format';
+import { epochDayKeyUtc } from '@/shared/format/format';
 import { runDerivedClear } from '@/shared/native/engineClears';
 import { detection } from 'veloqrs';
 
@@ -70,8 +70,8 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   }>(() => {
     if (initialStats?.oldestDate && initialStats?.newestDate) {
       return {
-        oldest: formatLocalDate(new Date(Number(initialStats.oldestDate) * 1000)),
-        newest: formatLocalDate(new Date(Number(initialStats.newestDate) * 1000)),
+        oldest: epochDayKeyUtc(Number(initialStats.oldestDate)),
+        newest: epochDayKeyUtc(Number(initialStats.newestDate)),
       };
     }
     return { oldest: null, newest: null };
@@ -130,8 +130,8 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       setActivityCount(stats?.activityCount ?? 0);
       if (stats?.oldestDate && stats?.newestDate) {
         setEngineDateRange({
-          oldest: formatLocalDate(new Date(Number(stats.oldestDate) * 1000)),
-          newest: formatLocalDate(new Date(Number(stats.newestDate) * 1000)),
+          oldest: epochDayKeyUtc(Number(stats.oldestDate)),
+          newest: epochDayKeyUtc(Number(stats.newestDate)),
         });
       } else {
         setEngineDateRange({ oldest: null, newest: null });

@@ -214,13 +214,20 @@ impl GpsPassService {
                 // while no pass is downloading.
                 super::observer::notify(super::observer::Announcement::SyncProgress);
             }
-        } else {
-            if ours.is_some() {
-                inner.running = None;
-            }
-            if started.outcome == FfiStartOutcome::Offline {
-                owe_into(&mut inner.owed_to_reconnect, range);
-            }
+            return started;
+        }
+        let freed = ours.is_some();
+        if freed {
+            inner.running = None;
+        }
+        if started.outcome == FfiStartOutcome::Offline {
+            owe_into(&mut inner.owed_to_reconnect, range);
+        }
+        drop(inner);
+        // A pass asked for while this start was in flight was parked in `owed`
+        // behind the slot, and nothing else starts it once the slot is free.
+        if freed {
+            self.start_owed();
         }
         started
     }

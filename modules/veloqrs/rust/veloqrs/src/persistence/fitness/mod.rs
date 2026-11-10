@@ -153,6 +153,20 @@ impl PersistentEngine {
                 // stored curves holding this activity's efforts, and the new
                 // type's arrival never refetches them. Within a family the
                 // arrival already does.
+                let resolved_before = self
+                    .db
+                    .query_row(
+                        &format!(
+                            "SELECT {} FROM activities a
+                             LEFT JOIN activity_metrics am ON am.activity_id = a.id
+                             WHERE a.id = ?",
+                            crate::persistence::records::activity_sport_sql()
+                        ),
+                        [&m.activity_id],
+                        |row| row.get::<_, Option<String>>(0),
+                    )
+                    .optional()?
+                    .flatten();
                 let old_sport = self
                     .db
                     .query_row(
@@ -208,6 +222,12 @@ impl PersistentEngine {
                     hr_zones[5],
                     hr_zones[6],
                 ])?;
+
+                // The climb rows are kept per sport family, so a retype that
+                // moves the resolved sport measures the activity again.
+                if resolved_before.is_some_and(|before| before != m.sport_type) {
+                    crate::persistence::climb_bests::refresh(&self.db, &m.activity_id)?;
+                }
 
                 // Counted rather than discarded. A metrics row that updates no
                 // activity means the two tables disagree about which ids exist,

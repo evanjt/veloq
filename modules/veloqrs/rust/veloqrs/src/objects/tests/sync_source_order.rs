@@ -32,6 +32,15 @@ enum DuringCensus {
     SignOut,
 }
 
+/// What the fake does on each detail request made during the record activity
+/// walk, the sync's last step, before it answers.
+#[derive(Clone, Copy, PartialEq)]
+enum DuringLastStep {
+    Nothing,
+    Cancel,
+    SwitchAthlete,
+}
+
 struct FakeSource<'a> {
     svc: &'a SyncService,
     profile: serde_json::Value,
@@ -40,6 +49,7 @@ struct FakeSource<'a> {
     refuse: Option<&'static str>,
     rejected: bool,
     during_census: DuringCensus,
+    during_last_step: DuringLastStep,
     transport: Transport,
     calls: Mutex<Vec<Call>>,
 }
@@ -54,6 +64,7 @@ impl<'a> FakeSource<'a> {
             refuse: None,
             rejected: false,
             during_census: DuringCensus::Nothing,
+            during_last_step: DuringLastStep::Nothing,
             transport: crate::net::recording_source::unreachable_transport(),
             calls: Mutex::new(Vec::new()),
         }
@@ -198,8 +209,20 @@ impl Source for FakeSource<'_> {
     }
 
     async fn activity_body(&self, upstream: &str, dispatch: Dispatch) -> Result<String, NetError> {
+        if self.svc.snapshot().step == Some(FfiSyncStep::RecordActivities) {
+            match self.during_last_step {
+                DuringLastStep::Nothing => {}
+                DuringLastStep::Cancel => self.svc.request_cancel(),
+                DuringLastStep::SwitchAthlete => {
+                    self.svc
+                        .set_credentials(AuthKind::ApiKey, "secret".into(), "i2".into());
+                }
+            }
+        }
         self.note("activity_body", &[upstream], Some(dispatch))?;
-        Ok(detail_body().to_string())
+        let mut body = detail_body();
+        body["id"] = json!(upstream);
+        Ok(body.to_string())
     }
 
     async fn activity_bodies_in_bulk(
@@ -612,4 +635,83 @@ fn a_sign_out_inside_the_census_asks_nothing_after_it() {
     run(&svc, &source);
 
     assert_eq!(source.methods().last(), Some(&"census"));
+}
+
+/// The last step of a sync is the record activity walk, which owes one
+/// activity here. The walk asks the process-wide service whether the athlete is
+/// still signed in, not the service the test drives, so the athlete is signed
+/// in there as well.
+fn sign_in_and_owe_one_record_activity() {
+    SYNC_SERVICE.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+    super::record_dependency_auth::owe(&["old-1"]);
+}
+
+/// Scenario: a cancel lands inside the last step, the record activity walk,
+/// which then ends without an error.
+///
+/// Expected behaviour: the run settles unsuccessfully, so the last clean sync
+/// time is not written.
+#[test]
+fn a_cancel_inside_the_last_step_is_not_a_clean_sync() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _engine = crate::test_globals::init_global_engine("sync_source_cancel_last.db");
+    sign_in_and_owe_one_record_activity();
+    let svc = signed_in();
+    let mut source = FakeSource::new(&svc);
+    source.during_last_step = DuringLastStep::Cancel;
+
+    run(&svc, &source);
+
+    assert_eq!(source.methods().last(), Some(&"streams"));
+    let s = svc.snapshot();
+    assert_eq!(s.state, SyncState::Idle);
+    assert_eq!(s.last_error, None, "a cancel is not a failure");
+    assert_eq!(
+        s.last_success_at, None,
+        "a cut short run stamped a clean sync"
+    );
+    clear_test_credentials();
+}
+
+/// Scenario: a second athlete signs in inside the last step, which the walk
+/// does not treat as a cancel.
+///
+/// Expected behaviour: the run is not a clean sync for the athlete it began
+/// for, so it stamps nothing.
+#[test]
+fn a_switch_of_athlete_inside_the_last_step_is_not_a_clean_sync() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _engine = crate::test_globals::init_global_engine("sync_source_switch_last.db");
+    sign_in_and_owe_one_record_activity();
+    let svc = signed_in();
+    let mut source = FakeSource::new(&svc);
+    source.during_last_step = DuringLastStep::SwitchAthlete;
+
+    run(&svc, &source);
+
+    assert_eq!(source.methods().last(), Some(&"streams"));
+    let s = svc.snapshot();
+    assert_eq!(s.last_error, None);
+    assert_eq!(s.last_success_at, None, "a run for another athlete stamped");
+    clear_test_credentials();
+}
+
+/// Expected behaviour: the same walk with nothing interrupting it settles
+/// clean and stamps the time, so the two tests above fail for the interruption
+/// and not for a run that never gets that far.
+#[test]
+fn an_uninterrupted_last_step_is_a_clean_sync() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _engine = crate::test_globals::init_global_engine("sync_source_clean_last.db");
+    sign_in_and_owe_one_record_activity();
+    let svc = signed_in();
+    let source = FakeSource::new(&svc);
+
+    run(&svc, &source);
+
+    assert_eq!(source.methods().last(), Some(&"streams"));
+    let s = svc.snapshot();
+    assert_eq!(s.last_error, None);
+    assert!(s.last_success_at.is_some(), "a clean run stamped nothing");
+    clear_test_credentials();
 }

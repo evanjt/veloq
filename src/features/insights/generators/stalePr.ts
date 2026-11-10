@@ -385,7 +385,6 @@ export function stalePROpportunityToInsight(
       algorithmDescription: methodologyText(t),
     },
     methodology: {
-      name: t('insights.methodology.stalePrCrossRefName', { metric: metricLabel }),
       description: methodologyText(t),
     },
   };
@@ -487,7 +486,6 @@ export function generateStalePRInsights(
         algorithmDescription: methodologyText(t),
       },
       methodology: {
-        name: t('insights.methodology.fitnessPrName'),
         description: methodologyText(t),
       },
     },

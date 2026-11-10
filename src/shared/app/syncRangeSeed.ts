@@ -1,4 +1,4 @@
-import { formatLocalDate } from '@/shared/format/format';
+import { epochDayKeyUtc } from '@/shared/format/format';
 
 interface LaunchWindowStats {
   newestDate?: number | bigint;
@@ -15,9 +15,6 @@ export function seedSyncRange(
   initialiseRange: (oldest: string, newest: string) => void
 ): boolean {
   if (!stats?.newestDate || !stats.activityWindowOldest) return false;
-  initialiseRange(
-    stats.activityWindowOldest,
-    formatLocalDate(new Date(Number(stats.newestDate) * 1000))
-  );
+  initialiseRange(stats.activityWindowOldest, epochDayKeyUtc(Number(stats.newestDate)));
   return true;
 }

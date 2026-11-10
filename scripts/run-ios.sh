@@ -30,6 +30,9 @@ export APP_VARIANT
 scripts/lib/ios-disk-preflight.sh
 node scripts/check-toolchain.mjs --platform ios
 node scripts/prepare-native.mjs --platform ios
+# A translation edit does not change the hash prepare-native checks, so the catalogues are
+# rewritten here, as sync-android-widgets.mjs rewrites the Android strings before each build.
+node scripts/sync-ios-strings.mjs
 node scripts/build-record.js snapshot ios "$configuration"
 if [ "$configuration" = Debug ]; then
   exec npx expo run:ios

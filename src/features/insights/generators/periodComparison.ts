@@ -132,7 +132,6 @@ export function generatePeriodComparisonInsights(
   const downKey = useTss ? 'insights.weeklyLoadDown' : 'insights.weeklyVolumeDown';
 
   const comparisonMethodology: InsightMethodology = {
-    name: t('insights.methodology.periodComparisonName'),
     description: t('insights.methodology.periodComparison'),
   };
   const caption = t('insights.caption.thisWeekAgainstLast', {
@@ -329,7 +328,6 @@ function generateLastWeekVsAverageInsight(
         change: chronicChange,
       },
       methodology: {
-        name: t('insights.methodology.periodComparisonName'),
         description: t('insights.methodology.periodComparisonRestDay'),
       },
     }),

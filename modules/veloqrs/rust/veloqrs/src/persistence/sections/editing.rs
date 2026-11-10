@@ -1522,15 +1522,6 @@ impl PersistentEngine {
             ],
         )?;
 
-        // A detected section carries only the representative triple, so the
-        // move has to reach it or the row keeps naming the deleted stream.
-        self.db.execute(
-            "UPDATE sections SET
-                 representative_activity_id = ?, rep_start_index = ?, rep_end_index = ?
-             WHERE id = ? AND representative_activity_id = ?",
-            params![new_id, start, end, section_id, vanished_activity_id],
-        )?;
-
         let details = serde_json::json!({
             "from": vanished_activity_id,
             "to": new_id,
@@ -2006,3 +1997,7 @@ mod tests {
 #[cfg(test)]
 #[path = "tests/indicator_refresh.rs"]
 mod indicator_refresh;
+
+#[cfg(test)]
+#[path = "tests/disabled_memory.rs"]
+mod disabled_memory;

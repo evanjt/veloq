@@ -85,14 +85,6 @@ fn engine_with_sections() -> PersistentEngine {
 }
 
 #[test]
-fn save_sections_drops_the_section_it_skipped_from_memory() {
-    let mut engine = engine_with_sections();
-    engine.save_sections().unwrap();
-    assert_eq!(stored_ids(&engine), vec!["s_kept"]);
-    assert_eq!(memory_ids(&engine), stored_ids(&engine));
-}
-
-#[test]
 fn save_sections_with_events_drops_the_section_it_skipped_from_memory() {
     let mut engine = engine_with_sections();
     engine.save_sections_with_events(&[]).unwrap();
@@ -103,8 +95,8 @@ fn save_sections_with_events_drops_the_section_it_skipped_from_memory() {
 #[test]
 fn a_second_save_keeps_the_section_that_is_pooled() {
     let mut engine = engine_with_sections();
-    engine.save_sections().unwrap();
-    engine.save_sections().unwrap();
+    engine.save_sections_with_events(&[]).unwrap();
+    engine.save_sections_with_events(&[]).unwrap();
     assert_eq!(memory_ids(&engine), vec!["s_kept"]);
     assert_eq!(stored_ids(&engine), vec!["s_kept"]);
 }

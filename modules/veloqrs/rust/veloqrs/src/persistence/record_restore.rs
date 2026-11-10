@@ -496,11 +496,16 @@ impl PersistentEngine {
     }
 
     /// Activities restored records still need fetched, owed until one lands
-    /// or the server answers 404 for it.
+    /// or the server answers 404 for it. A ride is settled once its metrics
+    /// row exists, the last write of the store, so one interrupted after its
+    /// track was written is still owed and is stored again whole.
     pub fn owed_record_activities(&self) -> Result<Vec<String>, String> {
         Ok(id_set_from_conn(&self.db, OWED_KEY)?
             .into_iter()
-            .filter(|id| names_upstream_activity(id) && !self.has_activity(id))
+            .filter(|id| {
+                names_upstream_activity(id)
+                    && !(self.has_activity(id) && self.activity_metrics.contains_key(id))
+            })
             .collect())
     }
 

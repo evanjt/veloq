@@ -8,17 +8,16 @@ export interface DailyLimit {
   resetsAtMs: number;
 }
 
-/** The three lines the range panel prints under its progress bar. */
+/** The two lines the range panel prints under its progress bar. */
 export interface DailyLimitLines {
-  shared: string;
   today: string;
   reset: string;
 }
 
 /**
- * The shared-limit line and today's figure with its reset time. The figure and
- * the reset come from the engine's governor, so they move when the allowance
- * does. Null where the governor reports no daily limit.
+ * Today's figure with its reset time. The figure and the reset come from the
+ * engine's governor, so they move when the allowance does. Null where the
+ * governor reports no daily limit.
  */
 export function dailyLimitLines(
   limit: DailyLimit | null | undefined,
@@ -27,7 +26,6 @@ export function dailyLimitLines(
 ): DailyLimitLines | null {
   if (!limit) return null;
   return {
-    shared: t('settings.dailyLimitShared'),
     today: t('settings.dailyLimitToday', { used: limit.used, limit: limit.perDay }),
     reset: t('settings.dailyLimitResets', { time: formatReset(limit.resetsAtMs) }),
   };

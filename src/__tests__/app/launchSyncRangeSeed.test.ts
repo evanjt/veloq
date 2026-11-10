@@ -7,6 +7,7 @@
  */
 
 import { seedSyncRange } from '@/shared/app/syncRangeSeed';
+import { atUtcOffset } from '../__shared__/fixedOffsetDate';
 
 const stats = (over: Record<string, unknown> = {}) => ({
   oldestDate: Date.UTC(2022, 9, 6) / 1000,
@@ -29,6 +30,13 @@ describe('seedSyncRange', () => {
     expect(seedSyncRange(stats({ newestDate: undefined }) as never, initialiseRange)).toBe(false);
     expect(seedSyncRange(undefined, initialiseRange)).toBe(false);
     expect(initialiseRange).not.toHaveBeenCalled();
+  });
+
+  it('reads the newest stored day as the wall clock the engine stamped, west of Greenwich', () => {
+    const initialiseRange = jest.fn();
+    const newestDate = Date.UTC(2026, 10, 5, 2, 0, 0) / 1000;
+    atUtcOffset(-8, () => seedSyncRange(stats({ newestDate }) as never, initialiseRange));
+    expect(initialiseRange.mock.calls[0][1]).toBe('2026-11-05');
   });
 
   it('follows a window the athlete widened', () => {

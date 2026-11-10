@@ -290,3 +290,41 @@ fn a_detect_owing_a_recompute_still_steps() {
         "a detect owing a recompute left the registry where it was"
     );
 }
+
+/// Scenario: a catalogue stands over three tracks, then credentials are held
+/// so every one of them is owed its elevation, and a recompute is owed. The
+/// detect cannot short-circuit, so it reaches the worker with an empty pool.
+/// Expected behaviour: the detect keeps the standing catalogue.
+#[test]
+fn a_wholly_owed_library_keeps_its_catalogue_through_a_detect() {
+    let _serial = crate::test_globals::serial_global_state();
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine =
+        PersistentEngine::new(dir.path().join("owed.db").to_str().unwrap()).expect("engine");
+    store(&mut engine, "orchard-1", day(1), orchard());
+    store(&mut engine, "orchard-2", day(2), orchard());
+    store(&mut engine, "orchard-3", day(3), orchard());
+    ingest(
+        &mut engine,
+        vec![cut(orchard(), &["orchard-1", "orchard-2", "orchard-3"])],
+    );
+    let standing = visible_ids(&engine);
+    assert!(!standing.is_empty(), "the orchard forms a section");
+
+    let _creds = crate::objects::test_credentials();
+    assert!(engine.detect_pool_ids().is_empty());
+    let digest = super::super::section_config_digest(&engine.section_config);
+    engine
+        .db
+        .execute(
+            "INSERT OR REPLACE INTO evidence_cache (id, config_digest, folded_ids, cache, updated_at, dirty_clusters)
+             VALUES (1, ?1, x'00', x'00', 0, 1)",
+            params![digest],
+        )
+        .expect("owe a recompute");
+    engine.mark_evidence_cache_unrestored();
+
+    redetect(&mut engine);
+
+    assert_eq!(visible_ids(&engine), standing);
+}

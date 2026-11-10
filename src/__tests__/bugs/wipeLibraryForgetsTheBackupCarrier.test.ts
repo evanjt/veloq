@@ -7,7 +7,8 @@
  * key queued offline. A derived-data clear was killed part way, leaving its
  * rollback copy of the library beside the database, and a restore was killed
  * part way, leaving its copy in the cache, and a launch moved a corrupt database
- * aside as a quarantined copy. The library then goes to athlete B through any of the
+ * aside as a quarantined copy, and a record export was still writing when its
+ * foreground wait ran out. The library then goes to athlete B through any of the
  * three wipes, Sign out and delete data, Clear & Sync, or the launch wipe, and
  * all three run `wipeLibrary`.
  *
@@ -45,7 +46,14 @@ import {
 } from '@/features/settings/stores/NotificationPreferencesStore';
 import { unregisterPushToken } from '@/features/settings/lib/pushTokenRegistration';
 import { shareFile } from '@/features/settings/lib/shareFile';
-import { exportRecordBackup, restoreRecordBackup } from '@/features/settings/lib/backup';
+import {
+  FOREGROUND_BACKUP_TIMEOUT_MS,
+  exportRecordBackup,
+  hasPendingRecordExport,
+  resumePendingRecordExport,
+  restoreRecordBackup,
+} from '@/features/settings/lib/backup';
+import { inBackupSlot } from '@/features/settings/lib/backupSlot';
 import { checkBackupFile } from '@/features/settings/lib/checkedRestore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { writeWidgetSnapshot } from '@/features/home/lib/widgetBridge';
@@ -409,6 +417,36 @@ describe('the wipe every hand-off takes', () => {
 
     expect(BACKUP_FILES.filter((uri) => mockFiles.has(uri))).toEqual([]);
     expect(await localBackend.listBackups()).toEqual([]);
+  });
+
+  it('forgets a record export still writing at the foreground ceiling, so the next athlete is offered none of it', async () => {
+    await seedAthleteA();
+    let finishWrite: () => void = () => {};
+    const heldSlot = inBackupSlot(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWrite = resolve;
+        })
+    );
+
+    jest.useFakeTimers();
+    try {
+      const lapsing = exportRecordBackup();
+      await jest.advanceTimersByTimeAsync(FOREGROUND_BACKUP_TIMEOUT_MS + 2_000);
+      expect(await lapsing).toBe('still-running');
+      expect(hasPendingRecordExport()).toBe(true);
+
+      await wipeLibrary();
+      expect(hasPendingRecordExport()).toBe(false);
+
+      finishWrite();
+      await heldSlot;
+      await jest.advanceTimersByTimeAsync(1_000);
+
+      await expect(resumePendingRecordExport()).resolves.toBe('nothing-pending');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('leaves nothing of the previous athlete in the cache', async () => {

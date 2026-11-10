@@ -254,6 +254,52 @@ fn a_pass_that_ends_before_its_start_returns_does_not_name_its_run() {
     assert_eq!(service.running_run(), None);
 }
 
+/// Scenario: a second range is asked for while the start of the first is still
+/// reading its candidates, and that start then finds nothing owed and answers
+/// `NotOwed`.
+///
+/// Expected behaviour: the range asked for in that window is started once the
+/// refused start frees the slot, with no later ask to reach it.
+#[test]
+fn a_pass_asked_during_a_refused_start_starts_when_the_slot_frees() {
+    let service_slot: Arc<OnceLock<Weak<GpsPassService>>> = Arc::new(OnceLock::new());
+    let reaches_service = Arc::clone(&service_slot);
+    let started: Started = Arc::new(Mutex::new(Vec::new()));
+    let record = Arc::clone(&started);
+    let calls = AtomicU64::new(0);
+    let during = range("2023-06-01", "2023-12-31");
+    let asked_during = during.clone();
+    let service = Arc::new(GpsPassService::new(
+        move |asked: &PassRange| {
+            record.lock().unwrap().push(asked.clone());
+            let call = calls.fetch_add(1, Ordering::SeqCst) + 1;
+            if call > 1 {
+                return PassStart {
+                    outcome: FfiStartOutcome::Started,
+                    run: call,
+                    total: 1,
+                };
+            }
+            if let Some(service) = reaches_service.get().and_then(Weak::upgrade) {
+                let refused = service.request(asked_during.clone());
+                assert_eq!(refused.outcome, FfiStartOutcome::Busy);
+            }
+            PassStart::refused(FfiStartOutcome::NotOwed)
+        },
+        || false,
+    ));
+    service_slot.set(Arc::downgrade(&service)).ok();
+
+    let first = range("2024-01-01", "2024-03-31");
+    assert_eq!(
+        service.request(first.clone()).outcome,
+        FfiStartOutcome::NotOwed
+    );
+
+    assert_eq!(*started.lock().unwrap(), vec![first, during]);
+    assert_eq!(service.running_run(), Some(2));
+}
+
 #[test]
 fn the_head_ids_come_first_in_their_own_order() {
     let ordered = head_first(

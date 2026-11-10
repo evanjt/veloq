@@ -22,6 +22,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 use super::codec::{self, TrackRead};
+use super::records::activity_sport_sql;
 use super::{PersistentEngine, with_persistent_engine_for};
 use crate::metrics::vertical_power::{CLIMB_WINDOWS_S, ClimbBest, best_climb_windows};
 use crate::objects::start::FfiStartOutcome;
@@ -90,7 +91,12 @@ pub(crate) fn refresh(conn: &Connection, activity_id: &str) -> SqlResult<()> {
 fn measure(conn: &Connection, activity_id: &str) -> SqlResult<Vec<ClimbBest>> {
     let Some(sport) = conn
         .query_row(
-            "SELECT sport_type FROM activities WHERE id = ?1",
+            &format!(
+                "SELECT {} FROM activities a
+                 LEFT JOIN activity_metrics am ON am.activity_id = a.id
+                 WHERE a.id = ?1",
+                activity_sport_sql()
+            ),
             params![activity_id],
             |row| row.get::<_, String>(0),
         )
@@ -151,9 +157,11 @@ fn owed_from_sql() -> String {
         "FROM activities a
          JOIN gps_tracks g ON g.activity_id = a.id
          JOIN time_streams t ON t.activity_id = a.id AND t.point_count = g.point_count
-         WHERE a.sport_type NOT IN ({})
+         LEFT JOIN activity_metrics am ON am.activity_id = a.id
+         WHERE {sport} NOT IN ({})
            AND NOT EXISTS (SELECT 1 FROM activity_climb_bests b WHERE b.activity_id = a.id)",
-        sql_list(UNPOWERED_ELEVATION_EXCLUDED)
+        sql_list(UNPOWERED_ELEVATION_EXCLUDED),
+        sport = activity_sport_sql()
     )
 }
 
@@ -178,8 +186,9 @@ pub(crate) fn owed_count(conn: &Connection) -> SqlResult<u64> {
 /// rows, or of every date when `since` is empty.
 pub(crate) fn owed_among(conn: &Connection, sports: &[&str], since: Option<i64>) -> SqlResult<u64> {
     let sql = format!(
-        "SELECT COUNT(*) {} AND a.sport_type IN ({}) AND (?1 IS NULL OR a.start_date >= ?1)",
+        "SELECT COUNT(*) {} AND {} IN ({}) AND (?1 IS NULL OR a.start_date >= ?1)",
         owed_from_sql(),
+        activity_sport_sql(),
         sql_list(sports)
     );
     conn.prepare_cached(&sql)?

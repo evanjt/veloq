@@ -720,6 +720,47 @@ describe('a checkout carrying a stranded merge', () => {
 });
 
 /**
+ * A fast-forward git refuses over another session's unsaved files is not a
+ * lost ref race: the target has not moved, so the same refusal repeats on every
+ * attempt. The lander used to repeat it for about seventeen minutes and then
+ * blame the target moving.
+ */
+describe('a fast-forward refused over another session’s unsaved files', () => {
+  it('is named once, with git’s own message, and nothing is retried', () => {
+    const fx = checkoutWithBranch();
+    branchCarries(fx, 'base.txt', 'the branch edits base\n');
+    write(fx.root, 'base.txt', 'another session edits base\n');
+    const before = head(fx.root);
+
+    const { status, output } = land(fx, 'audit/thing', { VELOQ_LAND_ATTEMPTS: '40' });
+
+    expect(status).toBe(1);
+    expect(output.match(/would be overwritten/g)).toHaveLength(1);
+    expect(output).toContain('base.txt');
+    expect(output).toMatch(/has not moved/);
+    expect(output).not.toContain('moved under every attempt');
+    expect(head(fx.root)).toBe(before);
+    expect(readFileSync(join(fx.root, 'base.txt'), 'utf8')).toBe('another session edits base\n');
+    expect(existsSync(fx.reservation)).toBe(false);
+  });
+
+  it('is named once when the unsaved file is an untracked one the branch adds', () => {
+    const fx = checkoutWithBranch();
+    write(fx.root, 'landed.txt', 'another session wrote this\n');
+    const before = head(fx.root);
+
+    const { status, output } = land(fx, 'audit/thing', { VELOQ_LAND_ATTEMPTS: '40' });
+
+    expect(status).toBe(1);
+    expect(output.match(/would be overwritten/g)).toHaveLength(1);
+    expect(output).toContain('landed.txt');
+    expect(output).not.toContain('moved under every attempt');
+    expect(head(fx.root)).toBe(before);
+    expect(readFileSync(join(fx.root, 'landed.txt'), 'utf8')).toBe('another session wrote this\n');
+  });
+});
+
+/**
  * Another session's plain `git merge` stopped on a conflict leaves `MERGE_HEAD`
  * in the checkout, and git refuses every merge until it is concluded. The
  * script retried for about seventeen minutes, then blamed the target moving,

@@ -57,7 +57,7 @@ const APPLE_STRINGS = [
   { key: 'to see your training', path: 'systemSurfaces.toSeeTraining' },
   { key: 'Record', path: 'systemSurfaces.record' },
   { key: 'Start recording an activity.', path: 'systemSurfaces.recordDescription' },
-  { key: 'Your summary card from the app at a glance.', path: 'systemSurfaces.summaryDescription' },
+  { key: 'Your summary card from the app.', path: 'systemSurfaces.summaryDescription' },
   { key: 'Latest Activity', path: 'systemSurfaces.latestActivity' },
   {
     key: 'Your most recent activity with its route.',
@@ -104,7 +104,7 @@ const APPLE_STRINGS = [
   { key: '+{{rest}} more', path: 'systemSurfaces.insightsMore' },
   { key: 'Kinds', path: 'systemSurfaces.insightKinds' },
   {
-    key: 'Choose which kinds of insight the widget lists. Choosing none lists every kind.',
+    key: 'Choose the kinds of insight to list. None chosen lists them all.',
     path: 'systemSurfaces.insightKindsDescription',
   },
   { key: 'Section PRs', path: 'systemSurfaces.insightKind.sectionPr' },

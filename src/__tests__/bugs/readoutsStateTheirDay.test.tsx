@@ -182,7 +182,7 @@ describe('the method fold on an insight sheet that prints times', () => {
       title: 'Quarry Climb',
       timestamp: 0,
       isNew: false,
-      methodology: { name: 'Method', description: 'How the card was found.' },
+      methodology: { description: 'How the card was found.' },
     } as Insight;
   }
 

@@ -146,7 +146,6 @@ describe('activityMapSpecs', () => {
     routeGeoJSON: track,
     overlayGeoJSON: EMPTY_FEATURE_COLLECTION,
     consolidatedPortionsGeoJSON: EMPTY_FEATURE_COLLECTION,
-    sectionBoundariesGeoJSON: EMPTY_FEATURE_COLLECTION,
     sectionMarkersGeoJSON: EMPTY_FEATURE_COLLECTION,
     highlightGeoJSON: {
       type: 'Feature',

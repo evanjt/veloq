@@ -75,7 +75,7 @@ describe('the ranking factors group on an insight sheet', () => {
       insight(
         {
           category: 'section_trend',
-          methodology: { name: 'Trend', description: 'Tracks median performance.' },
+          methodology: { description: 'Tracks median performance.' },
         },
         ranking()
       )
@@ -87,7 +87,7 @@ describe('the ranking factors group on an insight sheet', () => {
   it('shows on a non-trend insight with methodology text', async () => {
     await sheet(
       insight(
-        { category: 'section_pr', methodology: { name: 'PR', description: 'Compares times.' } },
+        { category: 'section_pr', methodology: { description: 'Compares times.' } },
         ranking()
       )
     );
@@ -95,9 +95,7 @@ describe('the ranking factors group on an insight sheet', () => {
   });
 
   it('shows no group without a ranking', async () => {
-    await sheet(
-      insight({ category: 'section_pr', methodology: { name: 'PR', description: 'Compares.' } })
-    );
+    await sheet(insight({ category: 'section_pr', methodology: { description: 'Compares.' } }));
     expect(screen.queryByTestId('ranking-factors')).toBeNull();
   });
 

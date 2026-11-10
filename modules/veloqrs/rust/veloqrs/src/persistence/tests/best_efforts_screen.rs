@@ -912,3 +912,69 @@ fn a_power_body_without_per_kilogram_series_leaves_watts_per_kg_empty() {
             .all(|e| e.watts_per_kg.is_none() && e.wkg_activity_id.is_none())
     );
 }
+
+fn retype(engine: &mut PersistentEngine, id: &str, sport: &str) {
+    engine
+        .set_activity_metrics(vec![crate::ActivityMetrics {
+            activity_id: id.to_string(),
+            date: NOW - 10 * DAY,
+            sport_type: sport.to_string(),
+            ..Default::default()
+        }])
+        .unwrap();
+}
+
+#[test]
+fn a_ride_retyped_to_a_run_counts_in_the_run_climb_and_leaves_the_ride_climb() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    climbed(&mut engine, "moved", "Ride", 10.0, 10);
+    climbed(&mut engine, "stays", "Ride", 5.0, 20);
+    assert_eq!(
+        fifteen_seconds(climbing(&read(&engine, SEASON), "Ride"))
+            .1
+            .as_deref(),
+        Some("moved")
+    );
+
+    retype(&mut engine, "moved", "Run");
+
+    let data = read(&engine, SEASON);
+    assert_eq!(
+        fifteen_seconds(climbing(&data, "Ride")).1.as_deref(),
+        Some("stays")
+    );
+    assert_eq!(
+        fifteen_seconds(climbing(&data, "Run")).1.as_deref(),
+        Some("moved")
+    );
+}
+
+#[test]
+fn a_ride_retyped_to_a_virtual_ride_holds_no_climb_rows() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    climbed(&mut engine, "moved", "Ride", 10.0, 10);
+
+    retype(&mut engine, "moved", "VirtualRide");
+
+    let data = read(&engine, SEASON);
+    assert_eq!(fifteen_seconds(climbing(&data, "Ride")).1, None);
+    assert_eq!(climbing(&data, "Ride").owed, 0);
+}
+
+#[test]
+fn an_unmeasured_ride_retyped_to_a_run_is_owed_to_the_run_family() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    climbed(&mut engine, "moved", "Ride", 10.0, 10);
+    retype(&mut engine, "moved", "Run");
+    engine
+        .db
+        .execute("DELETE FROM activity_climb_bests", [])
+        .unwrap();
+
+    let data = read(&engine, SEASON);
+    assert_eq!(climbing(&data, "Run").owed, 1);
+    assert_eq!(climbing(&data, "Ride").owed, 0);
+}

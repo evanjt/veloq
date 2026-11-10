@@ -54,12 +54,16 @@ struct Fake {
     answer: RefCell<FfiCallOutcome>,
     /// A replace answers ok but leaves the held file as it was.
     drops: bool,
+    /// The file lands on intervals.icu though the answer does not say so.
+    lands_unannounced: bool,
     sent: RefCell<Vec<(Vec<u8>, bool)>>,
     kept_when_sent: RefCell<Vec<bool>>,
     file_reads: RefCell<u32>,
     json_reads: RefCell<u32>,
     /// intervals.icu refuses the file, as it does for a stub it will not serve.
     file_refused: bool,
+    /// The activity's JSON cannot be read, as on a flaky connection.
+    json_refused: bool,
     kept_originals: RefCell<Vec<(i64, Vec<u8>)>>,
     keep_answer: Result<(), String>,
     rereads: RefCell<u32>,
@@ -77,11 +81,13 @@ impl Fake {
             original: Ok(original),
             answer: RefCell::new(ok(Some("i500"))),
             drops: false,
+            lands_unannounced: false,
             sent: RefCell::new(Vec::new()),
             kept_when_sent: RefCell::new(Vec::new()),
             file_reads: RefCell::new(0),
             json_reads: RefCell::new(0),
             file_refused: false,
+            json_refused: false,
             kept_originals: RefCell::new(Vec::new()),
             keep_answer: Ok(()),
             rereads: RefCell::new(0),
@@ -108,6 +114,9 @@ impl SwapLink for Fake {
 
     fn activity_json(&self, _id: &str) -> Result<String, FfiCallOutcome> {
         *self.json_reads.borrow_mut() += 1;
+        if self.json_refused {
+            return Err(http(503));
+        }
         Ok(self.json.clone())
     }
 
@@ -144,7 +153,9 @@ impl SwapLink for Fake {
         let bytes = std::fs::read(path).expect("the staged file exists when sent");
         self.sent.borrow_mut().push((bytes.clone(), keep));
         let answer = self.answer.borrow().clone();
-        if answer.kind == FfiCallKind::Ok && !self.drops && answer.id.is_some() {
+        if !self.drops
+            && ((answer.kind == FfiCallKind::Ok && answer.id.is_some()) || self.lands_unannounced)
+        {
             *self.held.borrow_mut() = bytes;
         }
         answer
@@ -339,6 +350,40 @@ fn a_request_that_failed_in_transport_is_checked_before_it_is_called_failed() {
 }
 
 #[test]
+fn an_unreadable_answer_to_a_file_that_landed_is_checked_and_reported_replaced() {
+    let mut link = Fake::new(full(), thin());
+    link.lands_unannounced = true;
+    *link.answer.borrow_mut() = FfiCallOutcome {
+        kind: FfiCallKind::Internal,
+        id: None,
+        status: None,
+        detail: None,
+        message: "decode error: EOF while parsing a value".into(),
+    };
+
+    let result = replace(&link, "i500");
+
+    assert_eq!(result.outcome, FfiSwapOutcome::Replaced, "{result:?}");
+    assert_eq!(*link.held.borrow(), full());
+}
+
+#[test]
+fn an_unreadable_answer_to_a_file_that_did_not_land_is_failed() {
+    let link = Fake::new(full(), thin());
+    *link.answer.borrow_mut() = FfiCallOutcome {
+        kind: FfiCallKind::Internal,
+        id: None,
+        status: None,
+        detail: None,
+        message: "decode error: EOF while parsing a value".into(),
+    };
+
+    let result = replace(&link, "i500");
+
+    assert_eq!(result.outcome, FfiSwapOutcome::Failed, "{result:?}");
+}
+
+#[test]
 fn undo_puts_the_earlier_file_back_byte_for_byte_and_forgets_it() {
     let link = Fake::new(full(), thin());
     replace(&link, "i500");
@@ -368,6 +413,49 @@ fn a_failed_undo_keeps_the_earlier_file() {
 
     assert_eq!(undo(&link, "i500").outcome, FfiSwapOutcome::Failed);
     assert!(link.kept_path("i500").is_file());
+}
+
+#[test]
+fn an_undo_whose_activity_cannot_be_read_sends_nothing_and_keeps_the_earlier_file() {
+    let mut link = Fake::new(full(), thin());
+    link.json = import_json(true, "a");
+    replace(&link, "i500");
+    link.json_refused = true;
+
+    let result = undo(&link, "i500");
+
+    assert_eq!(result.outcome, FfiSwapOutcome::Failed, "{result:?}");
+    assert_eq!(link.sent.borrow().len(), 1);
+    assert_eq!(*link.held.borrow(), full());
+    assert!(link.kept_path("i500").is_file());
+}
+
+#[test]
+fn an_undo_whose_activity_does_not_say_whether_its_intervals_were_edited_sends_nothing() {
+    let mut link = Fake::new(full(), thin());
+    replace(&link, "i500");
+    link.json = serde_json::json!({
+        "id": "i500",
+        "source": "GARMIN_CONNECT",
+        "external_id": GARMIN_ID.to_string(),
+    })
+    .to_string();
+
+    let result = undo(&link, "i500");
+
+    assert_eq!(result.outcome, FfiSwapOutcome::Failed, "{result:?}");
+    assert_eq!(link.sent.borrow().len(), 1);
+    assert!(link.kept_path("i500").is_file());
+}
+
+#[test]
+fn an_undo_keeps_the_athletes_edited_intervals() {
+    let mut link = Fake::new(full(), thin());
+    link.json = import_json(true, "a");
+    replace(&link, "i500");
+
+    assert_eq!(undo(&link, "i500").outcome, FfiSwapOutcome::Restored);
+    assert_eq!(*link.sent.borrow().last().unwrap(), (thin(), true));
 }
 
 #[test]

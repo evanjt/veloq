@@ -74,7 +74,7 @@ impl AutoStore for Store {
     fn set_setting(&self, key: &str, value: &str) {
         self.settings.borrow_mut().insert(key.into(), value.into());
     }
-    fn recent_imports(&self) -> Vec<Imported> {
+    fn recent_imports(&self, _earliest: DateTime<Utc>, _now: DateTime<Utc>) -> Vec<Imported> {
         self.imports.clone()
     }
 }
@@ -250,7 +250,7 @@ fn a_stub_with_no_created_time_is_swapped_by_its_start_within_the_window() {
         ("manual", None, Some("2026-10-26T10:30:00"), MANUAL_BODY),
     ]);
     let mut store = Store::new(Some("2026-10-20T00:00:00Z"), vec![]);
-    store.imports = recent_imports_in(&conn).unwrap();
+    store.imports = recent_imports_in(&conn, at("2026-10-24T12:00:00Z"), at(NOW)).unwrap();
 
     assert_eq!(run_with(&store, &[]), ["stub"]);
 }
@@ -267,7 +267,11 @@ fn the_install_store_keeps_settings_and_lists_no_imports_from_an_empty_library()
     assert_eq!(store.setting("garmin_auto_probe"), None);
     store.set_setting("garmin_auto_probe", "on");
     assert_eq!(store.setting("garmin_auto_probe").as_deref(), Some("on"));
-    assert!(store.recent_imports().is_empty());
+    assert!(
+        store
+            .recent_imports(at("2026-10-25T12:00:00Z"), at(NOW))
+            .is_empty()
+    );
 }
 
 /// Expected behaviour: a pass whose switch is off starts nothing and leaves
@@ -280,4 +284,99 @@ fn a_pass_with_the_switch_off_does_not_start() {
     start(crate::persistence::engine_install());
 
     assert!(!ACTIVE.load(Ordering::SeqCst));
+}
+
+/// Scenario: a bulk import from another source stamps more rows newer than a
+/// Garmin ride that intervals.icu imported inside the window.
+/// Expected behaviour: the Garmin ride is still found, because the import
+/// lookup filters by source before it limits the rows.
+#[test]
+fn a_garmin_import_is_found_behind_two_hundred_newer_rows_of_another_source() {
+    let conn = census(&[(
+        "garmin-ride",
+        Some("2026-10-26T09:00:00Z"),
+        None,
+        GARMIN_BODY,
+    )]);
+    for i in 0..250 {
+        conn.execute(
+            "INSERT INTO activity_census (intervals_id, start_date_local, created) VALUES (?1, NULL, ?2)",
+            rusqlite::params![format!("bulk-{i}"), format!("2026-10-26T10:{:02}:{:02}Z", i / 60, i % 60)],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO activity_bodies (activity_id, raw) VALUES (?1, ?2)",
+            rusqlite::params![format!("bulk-{i}"), MANUAL_BODY],
+        )
+        .unwrap();
+    }
+
+    let ids: Vec<String> = recent_imports_in(&conn, at("2026-10-25T12:00:00Z"), at(NOW))
+        .unwrap()
+        .into_iter()
+        .map(|i| i.id)
+        .collect();
+
+    assert!(ids.contains(&"garmin-ride".to_string()));
+}
+
+/// Scenario: a bulk Garmin import stamps more Garmin rides newer than a Garmin
+/// ride that is still inside the window.
+/// Expected behaviour: every Garmin import in the window is returned, so the
+/// older one is not dropped by a row limit.
+#[test]
+fn a_garmin_import_is_found_behind_two_hundred_newer_garmin_imports() {
+    let conn = census(&[(
+        "garmin-ride",
+        Some("2026-10-26T09:00:00Z"),
+        None,
+        GARMIN_BODY,
+    )]);
+    for i in 0..250 {
+        conn.execute(
+            "INSERT INTO activity_census (intervals_id, start_date_local, created) VALUES (?1, NULL, ?2)",
+            rusqlite::params![format!("bulk-{i}"), format!("2026-10-26T10:{:02}:{:02}Z", i / 60, i % 60)],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO activity_bodies (activity_id, raw) VALUES (?1, ?2)",
+            rusqlite::params![format!("bulk-{i}"), GARMIN_BODY],
+        )
+        .unwrap();
+    }
+
+    let ids: Vec<String> = recent_imports_in(&conn, at("2026-10-25T12:00:00Z"), at(NOW))
+        .unwrap()
+        .into_iter()
+        .map(|i| i.id)
+        .collect();
+
+    assert!(ids.contains(&"garmin-ride".to_string()));
+}
+
+/// Scenario: intervals.icu writes `created` with an offset for one ride and in
+/// UTC for another, and the first sits just before the window's start once the
+/// offset is applied.
+/// Expected behaviour: the window is judged on the instant, so only the ride at
+/// or after its start is returned, and the text of the two stamps is not compared.
+#[test]
+fn the_window_is_judged_on_the_instant_across_offset_and_utc_stamps() {
+    let conn = census(&[
+        (
+            "outside",
+            Some("2026-10-24T13:00:00+02:00"),
+            None,
+            GARMIN_BODY,
+        ),
+        ("edge", Some("2026-10-24T14:00:00+02:00"), None, GARMIN_BODY),
+        ("utc", Some("2026-10-26T11:00:00"), None, GARMIN_BODY),
+    ]);
+
+    let ids: Vec<String> = recent_imports_in(&conn, at("2026-10-24T12:00:00Z"), at(NOW))
+        .unwrap()
+        .into_iter()
+        .map(|i| i.id)
+        .collect();
+
+    assert_eq!(ids, ["utc", "edge"]);
 }

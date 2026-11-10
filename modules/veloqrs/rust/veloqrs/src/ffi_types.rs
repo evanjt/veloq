@@ -1296,14 +1296,6 @@ impl From<crate::SectionPerformanceResult> for FfiSectionPerformanceResult {
     }
 }
 
-/// Tier 5.5: result of a user-initiated section polyline recalc.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiSectionRecalcResult {
-    pub section_id: String,
-    pub distance_meters: f64,
-}
-
 /// Route performance result for FFI.
 /// Complete performance data for a route group across all activities.
 /// Replaces the JSON-returning `persistent_engine_get_route_performances_json()`.
@@ -4714,7 +4706,7 @@ pub struct FfiActivityRouteHighlight {
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiActivityIndicator {
     pub activity_id: String,
-    /// "section_pr", "route_pr", "section_trend", "route_trend"
+    /// "section_pr", "section_trend", "route_trend"
     pub indicator_type: String,
     /// section_id or route_id
     pub target_id: String,

@@ -29,6 +29,21 @@ pub trait Source: Send + Sync {
     /// The transport the requests go out on, drawing on the process governor.
     fn transport(&self) -> &Transport;
 
+    /// The generation of the held credential this source's token was taken
+    /// from, or `None` for a source not bound to one.
+    ///
+    /// A refusal on a token that is no longer the held one says nothing about
+    /// the credential held now.
+    fn credential_generation(&self) -> Option<u64> {
+        None
+    }
+
+    /// The sync run this source was claimed for, or `None` when it serves no
+    /// run. A run that has been replaced ends without touching its successor.
+    fn run_token(&self) -> Option<u64> {
+        None
+    }
+
     /// Whether the source refuses the credential when asked again.
     ///
     /// One 401 is not evidence, so the caller asks this before it signs the

@@ -76,15 +76,9 @@ export async function withDatabaseSnapshot<T>(
   const snapshotPath = `${dbPath}${SNAPSHOT_SUFFIX}`;
   await writeClearSnapshot(engine, snapshotPath);
 
+  let result: T;
   try {
-    const result = await work();
-    // `work` can return while a wipe is still running on its Rust thread. That
-    // is safe to outlive: each wipe is one SQLite transaction, so a late
-    // failure or a kill rolls it back whole and the copy would restore nothing
-    // the database does not already hold. Work that spans several commits
-    // must not return before they settle.
-    await FileSystem.deleteAsync(`file://${snapshotPath}`, { idempotent: true });
-    return result;
+    result = await work();
   } catch (error) {
     // The engine holds the file the copy is about to overwrite, and
     // `initWithPath` no-ops on an engine that is already open.
@@ -99,7 +93,7 @@ export async function withDatabaseSnapshot<T>(
         from: `file://${snapshotPath}`,
         to: `file://${dbPath}`,
       });
-      await FileSystem.deleteAsync(`file://${snapshotPath}`, { idempotent: true });
+      await deleteClearSnapshot(dbPath);
     } catch {
       // A rollback that cannot copy leaves the snapshot for manual recovery.
     }
@@ -110,4 +104,18 @@ export async function withDatabaseSnapshot<T>(
     }
     throw error;
   }
+
+  // `work` can return while a wipe is still running on its Rust thread. That
+  // is safe to outlive: each wipe is one SQLite transaction, so a late
+  // failure or a kill rolls it back whole and the copy would restore nothing
+  // the database does not already hold. Work that spans several commits
+  // must not return before they settle.
+  //
+  // The clear has committed by here, so a failure to delete the copy is not a
+  // failed clear and must not roll it back. The copy stays beside the database
+  // until the next clear overwrites it.
+  await deleteClearSnapshot(dbPath).catch((error: unknown) => {
+    console.warn('[clear] could not delete the rollback copy after a clear:', error);
+  });
+  return result;
 }

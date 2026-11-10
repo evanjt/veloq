@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
 import type { FfiDepartedRide } from 'veloqrs';
 import { formatShortDate } from '@/shared/format';
+import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import { inform } from '@/shared/ui/dialog';
 
 /**
@@ -11,7 +12,7 @@ export function departedRideLines(rides: readonly FfiDepartedRide[], t: TFunctio
   return rides.map((ride) =>
     t('sections.rideLeft', {
       name: ride.name,
-      date: formatShortDate(new Date(ride.date * 1000)),
+      date: formatShortDate(wallClockSecondsToLocalDate(ride.date)),
     })
   );
 }

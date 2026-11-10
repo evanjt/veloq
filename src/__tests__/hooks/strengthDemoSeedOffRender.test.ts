@@ -74,15 +74,11 @@ function engine(): void {
 const writes = () => trace.filter((c) => c === 'write').length;
 
 /**
- * The seed latches once per process by design, and the latch is module state.
- * `jest.isolateModules` would give each case its own copy and its own React
- * with it, which leaves the hook with a null dispatcher, so the cases share one
- * module and are written not to need a reset instead.
- *
- * The non-demo case runs first because it leaves the latch alone:
- * `ensureDemoStrengthSeeded` returns on the demo check before setting it. The
- * demo lifecycle then runs as one ordered case, because the first mount is the
- * only one that can seed.
+ * The cases share one module, because `jest.isolateModules` would give each
+ * case its own React and leave the hook with a null dispatcher. Each case
+ * starts from an empty engine through `beforeEach`, so no case depends on what
+ * an earlier one seeded. The demo lifecycle runs as one ordered case, so its
+ * wipe step follows the seed it has just made.
  */
 describe('the demo strength seed', () => {
   beforeEach(() => engine());
@@ -97,7 +93,7 @@ describe('the demo strength seed', () => {
     expect(writes()).toBe(0);
   });
 
-  it('reads before it writes, lands the seed, shows the tab, and seeds once', async () => {
+  it('reads before it writes, lands the seed, shows the tab, and reseeds after a wipe', async () => {
     mockIsDemoMode = true;
     const { result, rerender } = await renderHook(() => useStrengthTabState());
 
@@ -114,9 +110,16 @@ describe('the demo strength seed', () => {
     await rerender({});
     expect(result.current).toBe('ready');
 
-    // And it is once per process, not once per mount.
+    // A mount after the seed finds the sets in the engine and writes nothing.
     const before = writes();
     await renderHook(() => useStrengthTabState());
     expect(writes()).toBe(before);
+
+    // A library wipe clears the demo sets, as a sign-in to a real account does.
+    // The next demo mount in the same process reseeds them.
+    seeded.clear();
+    const wiped = writes();
+    await renderHook(() => useStrengthTabState());
+    expect(writes()).toBe(wiped + 1);
   });
 });

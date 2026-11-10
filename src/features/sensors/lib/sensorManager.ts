@@ -685,11 +685,36 @@ function isTimeout(error: unknown): boolean {
   return (error as { errorCode?: number } | null)?.errorCode === BleErrorCode.OperationTimedOut;
 }
 
-async function connectAndSubscribe(
+/**
+ * The connect running for each sensor, with the generation it started in. A
+ * second connect to a device that is connecting makes the platform cancel the
+ * first, so a request for a sensor with one in flight joins it. A teardown
+ * moves the generation on, and a request after that starts its own.
+ */
+const pendingConnects = new Map<string, { generation: number; done: Promise<void> }>();
+
+function connectAndSubscribe(
   sensor: KnownSensor,
   attempt: number,
   mode: ConnectMode = 'direct',
-  { freshTable = false }: { freshTable?: boolean } = {}
+  options: { freshTable?: boolean } = {}
+): Promise<void> {
+  const generation = connectGenerations.get(sensor.id) ?? 0;
+  const inFlight = pendingConnects.get(sensor.id);
+  if (inFlight && inFlight.generation === generation) return inFlight.done;
+
+  const done = runConnect(sensor, attempt, mode, options).finally(() => {
+    if (pendingConnects.get(sensor.id)?.done === done) pendingConnects.delete(sensor.id);
+  });
+  pendingConnects.set(sensor.id, { generation, done });
+  return done;
+}
+
+async function runConnect(
+  sensor: KnownSensor,
+  attempt: number,
+  mode: ConnectMode,
+  { freshTable = false }: { freshTable?: boolean }
 ): Promise<void> {
   const ble = getBle();
   if (!ble) return;

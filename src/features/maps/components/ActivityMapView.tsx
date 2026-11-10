@@ -325,7 +325,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     overlayHasData,
     sectionOverlaysGeoJSON,
     consolidatedPortionsGeoJSON,
-    sectionBoundariesGeoJSON,
     sectionMarkersGeoJSON,
     fullscreenPRMarkersGeoJSON,
     routeCoords,
@@ -351,9 +350,8 @@ export const ActivityMapView = memo(function ActivityMapView({
         portions: consolidatedPortionsGeoJSON,
         matchedRoute: overlayGeoJSON,
         markers: sectionMarkersGeoJSON,
-        boundaries: sectionBoundariesGeoJSON,
       }),
-    [consolidatedPortionsGeoJSON, overlayGeoJSON, sectionMarkersGeoJSON, sectionBoundariesGeoJSON]
+    [consolidatedPortionsGeoJSON, overlayGeoJSON, sectionMarkersGeoJSON]
   );
 
   // "Color by gradient" toggle - session-local, per-activity.
@@ -754,7 +752,6 @@ export const ActivityMapView = memo(function ActivityMapView({
       routeGeoJSON,
       overlayGeoJSON,
       consolidatedPortionsGeoJSON,
-      sectionBoundariesGeoJSON,
       sectionMarkersGeoJSON,
       highlightGeoJSON: throttledHighlight,
       endpointsGeoJSON,
@@ -766,7 +763,6 @@ export const ActivityMapView = memo(function ActivityMapView({
       routeGeoJSON,
       overlayGeoJSON,
       consolidatedPortionsGeoJSON,
-      sectionBoundariesGeoJSON,
       sectionMarkersGeoJSON,
       throttledHighlight,
       endpointsGeoJSON,

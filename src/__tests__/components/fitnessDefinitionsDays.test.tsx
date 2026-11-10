@@ -25,8 +25,8 @@ describe('the fitness definitions', () => {
       <FitnessDefinitionsCard fitnessDays={28} fatigueDays={5} />
     );
 
-    expect(queryByText(/a 28-day exponentially weighted/)).toBeTruthy();
-    expect(queryByText(/a 5-day exponentially weighted/)).toBeTruthy();
+    expect(queryByText(/averaged over a 28-day window/)).toBeTruthy();
+    expect(queryByText(/averaged over a 5-day window/)).toBeTruthy();
     expect(queryByText(/42-day/)).toBeNull();
     expect(queryByText(/7-day/)).toBeNull();
   });
@@ -36,8 +36,8 @@ describe('the fitness definitions', () => {
       <FitnessDefinitionsCard fitnessDays={42} fatigueDays={7} />
     );
 
-    expect(queryByText(/a 42-day exponentially weighted/)).toBeTruthy();
-    expect(queryByText(/a 7-day exponentially weighted/)).toBeTruthy();
+    expect(queryByText(/averaged over a 42-day window/)).toBeTruthy();
+    expect(queryByText(/averaged over a 7-day window/)).toBeTruthy();
   });
 
   it('states no days when the read gave none', async () => {
@@ -45,7 +45,7 @@ describe('the fitness definitions', () => {
       <FitnessDefinitionsCard fitnessDays={null} fatigueDays={null} />
     );
 
-    expect(queryByText(/exponentially weighted/)).toBeNull();
+    expect(queryByText(/weighted to recent days/)).toBeNull();
     expect(queryByText(/\{\{/)).toBeNull();
     expect(queryByText(/fitness minus fatigue/)).toBeTruthy();
   });

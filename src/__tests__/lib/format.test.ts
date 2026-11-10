@@ -8,6 +8,7 @@
  */
 
 import {
+  distanceParts,
   formatAxisDate,
   formatDateOrDash,
   formatDistance,
@@ -50,6 +51,17 @@ describe('formatDistance', () => {
     expect(formatDistance(500)).toBe('500 m');
     expect(formatDistance(1000)).toBe('1.0 km');
     expect(formatDistance(42195)).toBe('42.2 km');
+  });
+});
+
+describe('formatDistance unit boundary', () => {
+  it('chooses the unit from the value as it prints', () => {
+    expect(formatDistance(999.6)).toBe('1.0 km');
+    expect(formatDistance(999.4)).toBe('999 m');
+  });
+
+  it('gives the spoken form the same unit and value', () => {
+    expect(distanceParts(999.6, true)).toEqual({ value: 1, unit: 'km', decimals: 1 });
   });
 });
 
@@ -323,6 +335,17 @@ describe('formatFileSize units', () => {
     [143_000_000, '143.0 MB'],
     [2_300_000_000, '2.3 GB'],
   ])('formats %p in decimal units as %p', (bytes, expected) => {
+    expect(formatFileSize(bytes)).toBe(expected);
+  });
+});
+
+describe('formatFileSize unit boundary', () => {
+  it.each([
+    [999.6, '1.0 KB'],
+    [999_940, '999.9 KB'],
+    [999_960, '1.0 MB'],
+    [999_999_999, '1.0 GB'],
+  ])('chooses the unit from the value as it prints: %p is %p', (bytes, expected) => {
     expect(formatFileSize(bytes)).toBe(expected);
   });
 });

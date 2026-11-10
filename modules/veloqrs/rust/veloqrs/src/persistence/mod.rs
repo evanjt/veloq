@@ -4347,6 +4347,10 @@ mod preview_elevation;
 mod nearby_routes_tests;
 
 #[cfg(test)]
+#[path = "tests/nearby_routes_cost.rs"]
+mod nearby_routes_cost;
+
+#[cfg(test)]
 #[path = "tests/production_index_plans.rs"]
 mod production_index_plans;
 
@@ -5268,7 +5272,7 @@ mod tests {
     /// in `section_activities` immediately after `apply_sections()` - no lazy
     /// backfill trip on the first `get_section_performances()` call.
     ///
-    /// `save_sections()` runs the lap backfill, which times each portion
+    /// `save_sections_with_events()` runs the lap backfill, which times each portion
     /// between the section's gates from the stored track and stream. A stream
     /// that arrives after detection is timed when it lands.
     #[test]
@@ -5349,12 +5353,12 @@ mod tests {
         for (activity_id, lap_time, lap_pace) in &rows {
             assert!(
                 lap_time.is_some(),
-                "lap_time should be populated during save_sections for {}",
+                "lap_time should be populated during save_sections_with_events for {}",
                 activity_id
             );
             assert!(
                 lap_pace.is_some(),
-                "lap_pace should be populated during save_sections for {}",
+                "lap_pace should be populated during save_sections_with_events for {}",
                 activity_id
             );
             // Points 0 to 49 on a 1-second-cadence stream = 49s.

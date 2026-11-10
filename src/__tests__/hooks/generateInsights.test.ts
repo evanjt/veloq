@@ -1609,4 +1609,73 @@ describe('consolidateInsights', () => {
     expect(getLastInsightOutcome()?.consolidated).toBeNull();
     expect(getLastInsightOutcome()?.consolidationDropped).toEqual([]);
   });
+
+  // ============================================================
+  // GENERATOR ISOLATION
+  // ============================================================
+
+  describe('generator isolation', () => {
+    // The getter is defined after the spread, so it runs when the generator
+    // reads the field, inside its isolation, rather than while the input is built.
+    const inputWithUnreadableHrv = (): InsightInputData => {
+      const input: InsightInputData = {
+        ...EMPTY_INPUT,
+        recentPRs: [
+          {
+            sectionId: 's1',
+            sectionName: 'Hill Climb',
+            bestTime: 300,
+            daysAgo: 1,
+            traversalCount: 12,
+          },
+        ],
+      };
+      Object.defineProperty(input, 'hrvTrend', {
+        get(): HrvTrend | null {
+          throw new Error('hrv field arrived in an unexpected shape');
+        },
+      });
+      return input;
+    };
+
+    const withNodeEnv = <T>(nodeEnv: 'development' | 'production', run: () => T): T => {
+      const previous = process.env.NODE_ENV;
+      process.env.NODE_ENV = nodeEnv;
+      try {
+        return run();
+      } finally {
+        process.env.NODE_ENV = previous;
+      }
+    };
+
+    beforeEach(() => {
+      jest.mocked(console.error).mockClear();
+    });
+
+    it.each(['development', 'production'] as const)(
+      'logs a throwing generator under NODE_ENV %s and keeps the other categories',
+      (nodeEnv) => {
+        const result = withNodeEnv(nodeEnv, () =>
+          generateInsights(inputWithUnreadableHrv(), mockT)
+        );
+
+        expect(result.find((i) => i.category === 'section_pr')).toBeDefined();
+        expect(result.find((i) => i.category === 'hrv_trend')).toBeUndefined();
+        expect(console.error).toHaveBeenCalledTimes(1);
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining('[insights/hrvTrend]'),
+          expect.any(Error)
+        );
+      }
+    );
+
+    it('logs again on a second generation that throws again', () => {
+      withNodeEnv('production', () => {
+        generateInsights(inputWithUnreadableHrv(), mockT);
+        generateInsights(inputWithUnreadableHrv(), mockT);
+      });
+
+      expect(console.error).toHaveBeenCalledTimes(2);
+    });
+  });
 });

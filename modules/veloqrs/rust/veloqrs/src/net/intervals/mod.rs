@@ -21,6 +21,11 @@ pub(crate) const BASE_URL: &str = "https://intervals.icu/api/v1";
 pub struct IntervalsSession {
     transport: Transport,
     athlete_id: String,
+    /// The credential generation the transport was built under, when the
+    /// service built it.
+    generation: Option<u64>,
+    /// The run the service claimed this session for, when it did.
+    run: Option<u64>,
 }
 
 impl IntervalsSession {
@@ -28,7 +33,21 @@ impl IntervalsSession {
         Self {
             transport,
             athlete_id: athlete_id.into(),
+            generation: None,
+            run: None,
         }
+    }
+
+    /// Record the credential generation this session's token belongs to.
+    pub(crate) fn built_under(mut self, generation: u64) -> Self {
+        self.generation = Some(generation);
+        self
+    }
+
+    /// Record the run the sync service claimed this session for.
+    pub(crate) fn for_run(mut self, run: u64) -> Self {
+        self.run = Some(run);
+        self
     }
 
     pub fn into_parts(self) -> (Transport, String) {
@@ -43,6 +62,14 @@ impl Source for IntervalsSession {
 
     fn transport(&self) -> &Transport {
         &self.transport
+    }
+
+    fn credential_generation(&self) -> Option<u64> {
+        self.generation
+    }
+
+    fn run_token(&self) -> Option<u64> {
+        self.run
     }
 
     /// Asks the profile, an endpoint a live credential always answers.

@@ -170,7 +170,6 @@ function addPaceMilestoneInsight(
         dataPoints: [current, previous, paceChange],
       },
       methodology: {
-        name: t('insights.methodology.criticalSpeedName'),
         description: t('insights.methodology.criticalSpeedDescription'),
       },
     })
@@ -269,7 +268,6 @@ export function generateFitnessMilestoneInsights(
             dataPoints: [currentFtp, previousFtp, ftpChange],
           },
           methodology: {
-            name: t('insights.methodology.ftpEstimationName'),
             description: t('insights.methodology.ftpEstimation'),
           },
         })

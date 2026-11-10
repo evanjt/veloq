@@ -7,6 +7,7 @@
 //! it is relieving. The same inheritance is what makes a bare `thread::spawn`
 //! for a long pass invisible.
 
+use std::io;
 use std::sync::Once;
 use std::thread::{Builder, JoinHandle};
 
@@ -72,6 +73,20 @@ where
     F: FnOnce() -> T + Send + 'static,
     T: Send + 'static,
 {
+    try_spawn_named(name, work)
+        .unwrap_or_else(|err| panic!("veloqrs: [threads] could not spawn {name}: {err}"))
+}
+
+/// Spawn a worker like [`spawn_named`], and return the refusal instead of
+/// panicking.
+///
+/// For a caller that may already be unwinding, where a second panic would
+/// abort the process rather than unwind it.
+pub fn try_spawn_named<F, T>(name: &str, work: F) -> io::Result<JoinHandle<T>>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
     debug_assert!(
         name.len() <= MAX_THREAD_NAME_BYTES,
         "veloqrs: [threads] {name} is {} bytes and Linux truncates thread names to {MAX_THREAD_NAME_BYTES}",
@@ -79,13 +94,10 @@ where
     );
     // `Builder::spawn` fails only where `thread::spawn` panics, when the OS
     // refuses the thread, so this is the call it replaces and not a new risk.
-    Builder::new()
-        .name(name.to_string())
-        .spawn(move || {
-            crate::persistence::suspension::mark_engine_thread();
-            work()
-        })
-        .unwrap_or_else(|err| panic!("veloqrs: [threads] could not spawn {name}: {err}"))
+    Builder::new().name(name.to_string()).spawn(move || {
+        crate::persistence::suspension::mark_engine_thread();
+        work()
+    })
 }
 
 /// Spawn a worker nobody is waiting on, named and run at background priority.
@@ -98,6 +110,19 @@ where
     T: Send + 'static,
 {
     spawn_named(name, move || {
+        lower_background_priority();
+        work()
+    })
+}
+
+/// Spawn a worker like [`spawn_background`], and return the refusal instead of
+/// panicking. See [`try_spawn_named`].
+pub fn try_spawn_background<F, T>(name: &str, work: F) -> io::Result<JoinHandle<T>>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    try_spawn_named(name, move || {
         lower_background_priority();
         work()
     })

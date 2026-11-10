@@ -472,6 +472,7 @@ function InsightsScreenContent() {
           customSectionCount={customSectionCount}
           removedSectionCount={routesData?.removedCount ?? 0}
           retiredSectionCount={routesData?.ledgerRetiredCount ?? 0}
+          isLoading={!routesData && !routesLoadError}
           loadError={routesLoadError}
           onRetry={retryRoutesRead}
           emptyReason={routesData?.sectionEmptyReason}
@@ -481,7 +482,7 @@ function InsightsScreenContent() {
       </View>
     ),
     [
-      routesData?.sections,
+      routesData,
       loadMoreSections,
       hasMoreSections,
       totalSections,
@@ -491,12 +492,6 @@ function InsightsScreenContent() {
       sectionSearch,
       sectionHidden,
       sectionSport,
-      routesData?.availableSportTypes,
-      routesData?.unacceptedAutoCount,
-      routesData?.acceptedAutoCount,
-      routesData?.removedCount,
-      routesData?.ledgerRetiredCount,
-      routesData?.sectionEmptyReason,
       customSectionCount,
       handleSectionSortChange,
       clearSectionFilters,

@@ -29,7 +29,6 @@ function activitySources(userLocation: [number, number] | null) {
     routeGeoJSON: EMPTY,
     overlayGeoJSON: EMPTY,
     consolidatedPortionsGeoJSON: EMPTY,
-    sectionBoundariesGeoJSON: EMPTY,
     sectionMarkersGeoJSON: EMPTY,
     highlightGeoJSON: {
       type: 'Feature',

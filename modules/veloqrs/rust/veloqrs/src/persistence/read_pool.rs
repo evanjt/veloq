@@ -127,7 +127,8 @@ pub(crate) fn binding() -> Option<(u64, String)> {
 }
 
 /// Run `f` against a connection of this thread's own, with no engine lock
-/// taken anywhere on the path.
+/// taken anywhere on the path. The closure reads one snapshot: the whole call
+/// runs inside a single read transaction.
 ///
 /// `None` means the pool has no database: the engine is not initialised, or
 /// the open failed, and there is nothing truthful to answer with. The
@@ -142,8 +143,22 @@ where
     let conn = take()?;
     let previous = READER_GENERATION.with(|slot| slot.replace(Some(generation)));
     let _scope = ReaderScope(previous);
+    // A deferred transaction pins one WAL snapshot at the first statement, so
+    // every statement of the closure reads the same commit. If it cannot
+    // begin, the connection is dropped rather than read torn.
+    if let Err(e) = conn.execute_batch("BEGIN DEFERRED") {
+        log::warn!("veloqrs: [ReadPool] begin snapshot: {e:?}");
+        return None;
+    }
     let out = f(&conn);
-    give_back(conn, generation);
+    // A read-only transaction holds no write, so the rollback only releases
+    // the snapshot. If it fails the connection is not parked, because it
+    // would keep the old snapshot (and block WAL checkpoints) for the next
+    // caller.
+    match conn.execute_batch("ROLLBACK") {
+        Ok(()) => give_back(conn, generation),
+        Err(e) => log::warn!("veloqrs: [ReadPool] end snapshot: {e:?}"),
+    }
     Some(out)
 }
 
@@ -259,6 +274,43 @@ mod tests {
         })
         .expect("bound");
         assert_eq!(after, 2, "the commit must be visible to the next read");
+
+        close();
+    }
+
+    /// Scenario: a write commits between two statements of one screen read.
+    ///
+    /// Expected behaviour: both statements see the same snapshot, and the
+    /// commit is visible to the next read.
+    #[test]
+    fn one_read_sees_one_snapshot_across_a_commit() {
+        let _serial = crate::test_globals::serial_global_state();
+        let (_dir, writer) = bound_pool("snapshot.db");
+        writer
+            .execute("INSERT INTO names (id) VALUES ('first')", [])
+            .expect("insert");
+
+        let (before, after) = with_read_conn(|conn| {
+            let count = || -> i64 {
+                conn.query_row("SELECT COUNT(*) FROM names", [], |row| row.get(0))
+                    .expect("count")
+            };
+            let before = count();
+            writer
+                .execute("INSERT INTO names (id) VALUES ('second')", [])
+                .expect("commit between statements");
+            (before, count())
+        })
+        .expect("bound");
+        assert_eq!(before, 1);
+        assert_eq!(after, 1, "a commit mid-read must not tear the snapshot");
+
+        let next: i64 = with_read_conn(|conn| {
+            conn.query_row("SELECT COUNT(*) FROM names", [], |row| row.get(0))
+                .expect("count")
+        })
+        .expect("bound");
+        assert_eq!(next, 2, "the next read sees the commit");
 
         close();
     }

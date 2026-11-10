@@ -154,8 +154,9 @@ export function MapSurfaceSlot({
     [subject, live, publish, withdraw, handle]
   );
 
-  // The surface is ready once its page has loaded, and stays so for every subject after; a view
-  // that publishes onto a ready surface is told at once, since no load is coming for it.
+  // The surface is ready once its page has loaded, and stays so for every subject after until the
+  // page loses its map; a view that publishes onto a ready surface is told at once, since no load
+  // is coming for it. After a loss the next owner waits for the page's own ready.
   const surfaceReady = useRef(false);
   const toldReady = useRef<object | null>(null);
   const handleMapReady = useCallback(() => {
@@ -163,6 +164,11 @@ export function MapSurfaceSlot({
     const current = stateRef.current.current;
     toldReady.current = current?.owner ?? null;
     current?.props.onMapReady?.();
+  }, []);
+
+  const handleMapLost = useCallback(() => {
+    surfaceReady.current = false;
+    toldReady.current = null;
   }, []);
 
   const shownSubject = useRef<string | null>(null);
@@ -205,6 +211,7 @@ export function MapSurfaceSlot({
               layers={state.current ? props.layers : NO_LAYERS}
               interactiveLayers={state.current ? props.interactiveLayers : undefined}
               onMapReady={handleMapReady}
+              onMapLost={handleMapLost}
               onRegionDidChange={handleRegionDidChange}
             />
           </View>

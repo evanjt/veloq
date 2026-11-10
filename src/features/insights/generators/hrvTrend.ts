@@ -145,7 +145,6 @@ export function generateHrvTrendInsight(
         ),
       },
       methodology: {
-        name: t('insights.methodology.hrvName'),
         description: t('insights.methodology.hrvDescription'),
       },
     }),

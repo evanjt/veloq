@@ -5,6 +5,7 @@ import { DEFAULT_ZONE_NAME_KEYS } from '@/shared/app/zoneNameKeys';
 import { type PrimarySport } from '@/features/fitness/stores';
 import { trailingDaysWindow } from '@/features/fitness/lib/weekWindow';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { formatLocalDate } from '@/shared/format/format';
 
 interface UseZoneDistributionOptions {
   type: 'power' | 'hr';
@@ -58,7 +59,9 @@ export function useZoneDistribution({
   days,
 }: UseZoneDistributionOptions): ZoneDistribution[] | undefined {
   const { t } = useTranslation();
-  const readActivities = useEngineRead(['activities']);
+  // The trailing window ends today, so a new local day is a new read.
+  const day = formatLocalDate(new Date());
+  const readActivities = useEngineRead(['activities'], [day]);
 
   return useMemo(() => {
     if (!sport) return undefined;

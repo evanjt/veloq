@@ -90,7 +90,7 @@
       "last30": {
         "activityCount": 0,
         "bodyLabel": null,
-        "emptyText": "No gym sessions in the last 1 month",
+        "emptyText": "No strength workouts in the last 1 month",
         "label": "1 month",
         "maxWeightedSets": 0.0,
         "muscles": [],

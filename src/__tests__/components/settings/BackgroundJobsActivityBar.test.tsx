@@ -161,7 +161,7 @@ describe('BackgroundJobsActivityBar', () => {
     const tree = await render(<BackgroundJobsActivityBar />);
 
     expect(tree.getByTestId('background-job-streamBackfill-detail').props.children).toBe(
-      "1400 activities · At least 3 days to finish, on intervals.icu's daily limit"
+      "1400 activities · At least 3 days to finish, because of intervals.icu's daily limit"
     );
   });
 
@@ -183,7 +183,7 @@ describe('BackgroundJobsActivityBar', () => {
     const tree = await render(<BackgroundJobsActivityBar />);
 
     expect(tree.getByTestId('background-job-cutover-detail').props.children).toBe(
-      'Older activities joining: 412 of 1,840'
+      'Adding older activities: 412 of 1,840'
     );
     expect(tree.queryByTestId('background-jobs-activity-toggle')).toBeNull();
   });

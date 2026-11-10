@@ -123,13 +123,18 @@ export async function setWebdavConfig(
   _webdavCache = { url, username, password, plainLan };
 }
 
-/** Clear WebDAV config from SecureStore and cache. */
+/**
+ * Clear WebDAV config from SecureStore and cache. The cache goes first, so a
+ * failed keychain delete cannot leave the config readable. Every key is still
+ * attempted, and the first failure is thrown once all of them have settled.
+ */
 export async function clearWebdavConfig(): Promise<void> {
-  await Promise.all([
-    SecureStore.deleteItemAsync(WEBDAV_URL_KEY),
-    SecureStore.deleteItemAsync(WEBDAV_USERNAME_KEY),
-    SecureStore.deleteItemAsync(WEBDAV_PASSWORD_KEY),
-    SecureStore.deleteItemAsync(WEBDAV_PLAIN_LAN_KEY),
-  ]);
   _webdavCache = null;
+  const results = await Promise.allSettled(
+    [WEBDAV_URL_KEY, WEBDAV_USERNAME_KEY, WEBDAV_PASSWORD_KEY, WEBDAV_PLAIN_LAN_KEY].map((key) =>
+      Promise.resolve().then(() => SecureStore.deleteItemAsync(key))
+    )
+  );
+  const failed = results.find((result) => result.status === 'rejected');
+  if (failed) throw failed.reason;
 }

@@ -13,7 +13,9 @@ const NO_LOADS: DayLoad[] = [];
  * A scrub reads this array and calls nothing.
  */
 export function useDailyActivityLoads(days: number, enabled = true): DayLoad[] {
-  const read = useEngineRead(['activities']);
+  // The window is measured back from today, so a new local day is a new read.
+  const day = formatLocalDate(new Date());
+  const read = useEngineRead(['activities'], [day]);
 
   return useMemo(() => {
     if (!enabled) return NO_LOADS;

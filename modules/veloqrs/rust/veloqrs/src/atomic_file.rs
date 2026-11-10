@@ -24,12 +24,63 @@ pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> io::Result<()> {
         path.extension().and_then(|e| e.to_str()).unwrap_or(""),
         ticket
     ));
-    std::fs::write(&temp, bytes)?;
-    match std::fs::rename(&temp, path) {
-        Ok(()) => Ok(()),
-        Err(e) => {
-            let _ = std::fs::remove_file(&temp);
-            Err(e)
-        }
+    install_through(path, &temp, bytes, |temp, bytes| {
+        std::fs::write(temp, bytes)
+    })
+}
+
+/// The write-then-rename of [`write_atomically`], with the step that fills the
+/// temp file passed in, so a test can make that step fail partway. A failure
+/// at either step removes the temp file, because a write that ran out of space
+/// has already put a partial file on disk.
+fn install_through(
+    path: &Path,
+    temp: &Path,
+    bytes: &[u8],
+    write: impl FnOnce(&Path, &[u8]) -> io::Result<()>,
+) -> io::Result<()> {
+    let result = write(temp, bytes).and_then(|()| std::fs::rename(temp, path));
+    if result.is_err() {
+        let _ = std::fs::remove_file(temp);
+    }
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn failed_write_removes_partial_temp_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("5.png");
+        let temp = dir.path().join("5.png.0.tmp");
+        std::fs::write(&path, b"previous").unwrap();
+
+        let err = install_through(&path, &temp, b"replacement", |temp, bytes| {
+            std::fs::write(temp, &bytes[..4])?;
+            Err(io::Error::new(io::ErrorKind::StorageFull, "no space left"))
+        })
+        .unwrap_err();
+
+        assert_eq!(err.kind(), io::ErrorKind::StorageFull);
+        assert!(!temp.exists(), "partial temp file left behind");
+        assert_eq!(std::fs::read(&path).unwrap(), b"previous");
+    }
+
+    #[test]
+    fn successive_writes_replace_the_file_and_leave_no_temp_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("index.bin");
+
+        write_atomically(&path, b"first").unwrap();
+        write_atomically(&path, b"second").unwrap();
+
+        assert_eq!(std::fs::read(&path).unwrap(), b"second");
+        let leftovers = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter(|entry| entry.as_ref().unwrap().file_name() != "index.bin")
+            .count();
+        assert_eq!(leftovers, 0);
     }
 }

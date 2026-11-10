@@ -169,13 +169,7 @@ function safeRun<T>(label: string, fn: () => T[], fallback: T[] = []): T[] {
   try {
     return fn();
   } catch (err) {
-    if (
-      typeof process !== 'undefined' &&
-      process.env &&
-      (process.env.VELOQ_INSIGHTS_DEBUG || process.env.NODE_ENV === 'test')
-    ) {
-      console.warn(`[insights/${label}] generator failed; isolating:`, err);
-    }
+    console.error(`[insights/${label}] generator failed; its cards are omitted:`, err);
     return fallback;
   }
 }

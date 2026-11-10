@@ -229,8 +229,13 @@ export function acceptSection(host: DelegateHost, sectionId: string): boolean {
   }
 }
 
-export function acceptAllSections(host: DelegateHost): number {
-  if (!host.ready) return 0;
+/**
+ * Accepts every auto section and answers how many the engine accepted, or null
+ * when the engine is not open and nothing was written. A null is not a count,
+ * so a caller cannot show "0 accepted" for a write that never ran.
+ */
+export function acceptAllSections(host: DelegateHost): number | null {
+  if (!host.ready) return null;
   const count = host.timed('acceptAllSections', () => host.engine.sections().acceptAll());
   host.notify('sections');
   return count;

@@ -1107,7 +1107,8 @@ fn every_rung_with_a_delta_keeps_it_in_every_locale() {
 
 /// The pooled reader uses committed rows and the athlete's section names.
 mod pooled_highlight {
-    use crate::notifications::{resolve_highlight_pooled, section_prs_from};
+    use super::english;
+    use crate::notifications::{notification_for, resolve_highlight_pooled, section_prs_from};
     use crate::persistence::PersistentEngine;
     use crate::test_globals::serial_global_state;
     use rusqlite::params;
@@ -1288,6 +1289,47 @@ mod pooled_highlight {
         let prs = section_prs_from(&sections, "a2", |id| engine.get_section_performances(id));
         assert_eq!(prs.count, 1);
         assert_eq!(prs.first_improvement_seconds, Some(1));
+    }
+
+    #[test]
+    fn test_section_notification_sub_second_pr_counts_without_a_delta() {
+        let _serial = serial_global_state();
+        let tmp = TempDir::new().unwrap();
+        let mut engine = engine_with_a_section_pr(&tmp);
+        let old_time = engine.get_section_performances("s0").records[0].best_time;
+        add_section_outing(&mut engine, "a2", "same", old_time - 0.4);
+        let sections = engine.get_sections_for_activity("a2");
+        let prs = section_prs_from(&sections, "a2", |id| engine.get_section_performances(id));
+        assert_eq!(prs.count, 1, "a sub-second win is still a PR");
+        assert_eq!(prs.first_improvement_seconds, None);
+    }
+
+    #[test]
+    fn test_section_notification_sub_second_pr_reads_as_plain_pr() {
+        let _serial = serial_global_state();
+        let tmp = TempDir::new().unwrap();
+        let mut engine = engine_with_a_section_pr(&tmp);
+        let old_time = engine.get_section_performances("s0").records[0].best_time;
+        add_section_outing(&mut engine, "a2", "same", old_time - 0.4);
+        let sections = engine.get_sections_for_activity("a2");
+        let prs = section_prs_from(&sections, "a2", |id| engine.get_section_performances(id));
+        let highlight = crate::notifications::pick_highlight(None, &prs, true, None);
+        let body = notification_for(&highlight, "Morning Ride", &english()).body;
+        assert!(body.starts_with("PR on Climb 1"), "{body}");
+        assert!(!body.contains("faster"), "{body}");
+        assert!(!body.contains("0 s"), "{body}");
+    }
+
+    #[test]
+    fn test_section_notification_gap_rounds_to_whole_seconds() {
+        let _serial = serial_global_state();
+        let tmp = TempDir::new().unwrap();
+        let mut engine = engine_with_a_section_pr(&tmp);
+        let old_time = engine.get_section_performances("s0").records[0].best_time;
+        add_section_outing(&mut engine, "a2", "same", old_time - 1.9);
+        let sections = engine.get_sections_for_activity("a2");
+        let prs = section_prs_from(&sections, "a2", |id| engine.get_section_performances(id));
+        assert_eq!(prs.first_improvement_seconds, Some(2));
     }
 
     #[test]

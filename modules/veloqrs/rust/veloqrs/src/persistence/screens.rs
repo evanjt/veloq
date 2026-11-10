@@ -1412,10 +1412,12 @@ fn climb_bests(
         "SELECT b.window_s, MAX(b.vam), b.activity_id
          FROM activity_climb_bests b
          JOIN activities a ON a.id = b.activity_id
+         LEFT JOIN activity_metrics am ON am.activity_id = a.id
          JOIN gps_tracks g ON g.activity_id = b.activity_id
-         WHERE a.sport_type IN ({}) AND (?1 IS NULL OR a.start_date >= ?1)
+         WHERE {} IN ({}) AND (?1 IS NULL OR a.start_date >= ?1)
            AND g.elevation_source = {} AND b.window_s != {}
          GROUP BY b.window_s",
+        crate::persistence::records::activity_sport_sql(),
         crate::sport::sql_list(&family),
         crate::persistence::ELEVATION_SOURCE_CORRECTED,
         crate::persistence::climb_bests::NO_WINDOW_S
@@ -1426,9 +1428,11 @@ fn climb_bests(
         "SELECT COUNT(DISTINCT b.activity_id)
          FROM activity_climb_bests b
          JOIN activities a ON a.id = b.activity_id
+         LEFT JOIN activity_metrics am ON am.activity_id = a.id
          LEFT JOIN gps_tracks g ON g.activity_id = b.activity_id
-         WHERE a.sport_type IN ({}) AND (?1 IS NULL OR a.start_date >= ?1)
+         WHERE {} IN ({}) AND (?1 IS NULL OR a.start_date >= ?1)
            AND COALESCE(g.elevation_source, {}) != {} AND b.window_s != {}",
+        crate::persistence::records::activity_sport_sql(),
         crate::sport::sql_list(&family),
         crate::persistence::ELEVATION_SOURCE_UNKNOWN,
         crate::persistence::ELEVATION_SOURCE_CORRECTED,
@@ -2727,9 +2731,7 @@ pub mod pooled {
         indicators: &[crate::FfiActivityIndicator],
     ) -> bool {
         route_highlights.iter().any(|r| r.is_pr)
-            || indicators
-                .iter()
-                .any(|i| i.indicator_type == "section_pr" || i.indicator_type == "route_pr")
+            || indicators.iter().any(|i| i.indicator_type == "section_pr")
     }
 
     /// Everything the route detail screen paints with that one sport and one
@@ -8547,5 +8549,39 @@ mod tests {
                 .activity_window_oldest,
             default
         );
+    }
+
+    #[test]
+    fn an_activity_holds_a_record_by_a_section_pr_or_a_route_highlight_only() {
+        use super::pooled::holds_a_record;
+
+        let indicator = |indicator_type: &str| crate::FfiActivityIndicator {
+            activity_id: "a1".into(),
+            indicator_type: indicator_type.into(),
+            target_id: "s1".into(),
+            target_name: "Climb".into(),
+            direction: "same".into(),
+            lap_time: 120.0,
+            trend: 0,
+        };
+        let highlight = |is_pr: bool| crate::FfiActivityRouteHighlight {
+            activity_id: "a1".into(),
+            route_id: "r1".into(),
+            route_name: "Loop".into(),
+            is_pr,
+            trend: 0,
+            time_delta_seconds: None,
+            pr_improvement_seconds: None,
+        };
+
+        assert!(!holds_a_record(&[], &[]));
+        assert!(!holds_a_record(&[highlight(false)], &[]));
+        assert!(!holds_a_record(&[], &[indicator("section_trend")]));
+        assert!(holds_a_record(&[], &[indicator("section_pr")]));
+        assert!(holds_a_record(&[highlight(true)], &[]));
+        assert!(holds_a_record(
+            &[highlight(false)],
+            &[indicator("section_trend"), indicator("section_pr")]
+        ));
     }
 }

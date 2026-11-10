@@ -151,7 +151,7 @@ struct VeloqConfigurableWidget: Widget {
         .snapshotLocale(entry.snapshot)
     }
     .configurationDisplayName("Summary")
-    .description("Your summary card from the app at a glance.")
+    .description("Your summary card from the app.")
     .supportedFamilies([.systemLarge, .systemMedium, .systemSmall])
   }
 }

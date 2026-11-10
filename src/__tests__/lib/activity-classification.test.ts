@@ -7,7 +7,7 @@ import {
   isSwimmingActivity,
   measuresPower,
 } from '@/shared/activity/activityUtils';
-import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
+import { ACTIVITY_TYPES, SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 import { activityTypeColors } from '@/theme/colors';
 import type { ActivityType } from '@/types';
 
@@ -41,6 +41,13 @@ describe('icon & color lookup', () => {
 
   it('falls back to heart-pulse for an unmapped activity type', () => {
     expect(getActivityIcon('SomeUnknownActivity')).toBe('heart-pulse');
+  });
+
+  it('gives every generated sport except Other an icon of its own', () => {
+    const withFallbackIcon = ACTIVITY_TYPES.filter(
+      (type) => type !== 'Other' && getActivityIcon(type) === 'heart-pulse'
+    );
+    expect(withFallbackIcon).toEqual([]);
   });
 });
 

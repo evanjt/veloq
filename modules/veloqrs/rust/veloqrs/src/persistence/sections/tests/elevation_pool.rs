@@ -105,3 +105,37 @@ fn a_library_wholly_owed_has_an_empty_pool() {
     assert!(engine.detect_pool_ids().is_empty());
     assert!(!engine.processed_activity_ids.contains("b1"));
 }
+
+/// Scenario: credentials held and every track owed its elevation, so the pool
+/// is empty and no track is read.
+/// Expected behaviour: the detect answers with an empty catalogue, does not
+/// report aborted, and records no abandoned pool.
+#[test]
+fn a_wholly_owed_library_detects_without_abandoning_the_pool() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _creds = crate::objects::test_credentials();
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine =
+        PersistentEngine::new(dir.path().join("owed.db").to_str().unwrap()).expect("engine");
+    store(&mut engine, "b1", 46.0, ELEVATION_STATE_UNKNOWN);
+    store(&mut engine, "b2", 46.1, ELEVATION_STATE_UNKNOWN);
+
+    let handle = engine.detect_sections_background();
+    let progress = handle.progress.clone();
+    let (sections, processed) = handle
+        .recv()
+        .expect("the detect answers rather than abandoning the pool");
+
+    assert_ne!(progress.get_phase(), "aborted");
+    assert!(sections.is_empty());
+    assert!(processed.is_empty());
+    let abandoned: Option<String> = engine
+        .db
+        .query_row(
+            "SELECT value FROM schema_info WHERE key = ?",
+            [super::ABANDONED_POOL_KEY],
+            |row| row.get(0),
+        )
+        .ok();
+    assert_eq!(abandoned, None);
+}

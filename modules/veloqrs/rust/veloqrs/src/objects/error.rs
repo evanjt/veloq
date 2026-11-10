@@ -35,6 +35,19 @@ pub enum VeloqError {
     Cancelled,
 }
 
+/// The answer for a call the engine gate refused and gave no engine for.
+///
+/// `Suspended` while the engine is suspended, since the app left the
+/// foreground, and `NotInitialized` otherwise. [`with_engine`] and the settings
+/// writer both answer through here, so the two cannot drift apart.
+pub(crate) fn engine_refused() -> VeloqError {
+    if crate::persistence::suspension::is_suspended() {
+        VeloqError::Suspended
+    } else {
+        VeloqError::NotInitialized
+    }
+}
+
 /// Execute a closure with a **write lock** on the persistent engine.
 ///
 /// Use for a mutation, and for a read that needs engine memory: the in-memory
@@ -51,15 +64,8 @@ pub fn with_engine<F, R>(f: F) -> Result<R, VeloqError>
 where
     F: FnOnce(&mut crate::persistence::PersistentEngine) -> R,
 {
-    crate::persistence::with_persistent_engine_at(std::panic::Location::caller(), f).ok_or_else(
-        || {
-            if crate::persistence::suspension::is_suspended() {
-                VeloqError::Suspended
-            } else {
-                VeloqError::NotInitialized
-            }
-        },
-    )
+    crate::persistence::with_persistent_engine_at(std::panic::Location::caller(), f)
+        .ok_or_else(engine_refused)
 }
 
 /// Execute a closure against a read-only connection, with **no engine lock**.

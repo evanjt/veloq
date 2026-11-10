@@ -59,13 +59,16 @@ export function NotificationsCard() {
   // disclosure is one tap away here and the tap that turns on is the consent.
   const enable = useCallback(async () => {
     setEnabling(true);
-    const outcome = await requestNotificationPermission();
-    if (outcome === 'granted') {
-      acceptPrivacy();
-      setEnabled(true);
+    try {
+      const outcome = await requestNotificationPermission();
+      if (outcome === 'granted') {
+        acceptPrivacy();
+        setEnabled(true);
+      }
+      setBlocked(outcome === 'blocked');
+    } finally {
+      setEnabling(false);
     }
-    setBlocked(outcome === 'blocked');
-    setEnabling(false);
   }, [acceptPrivacy, setEnabled]);
 
   if (!eligible || !holdsAsk) return null;

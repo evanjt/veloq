@@ -32,6 +32,15 @@ export const SMART_3D_MIN_RELIEF_M = 30;
 const MEDIUM_ELEVATION = 100;
 const MOUNTAINOUS_ELEVATION = 400;
 
+/**
+ * Ground length of one degree of longitude, as a fraction of one degree of latitude,
+ * at a latitude. Bearings are taken over ground distances, so a longitude offset is
+ * scaled by this before it is compared with a latitude offset.
+ */
+function groundLngScale(lat: number): number {
+  return Math.cos((lat * Math.PI) / 180);
+}
+
 /** Bounds midpoint + seed zoom for a route, shared by the 3D and flat cameras. */
 function computeBoundsAndZoom(coordinates: [number, number][]): {
   centerLng: number;
@@ -133,7 +142,7 @@ export function calculateTerrainCamera(
   // Fallback: perpendicular to route direction
   const start = coordinates[0];
   const end = coordinates[coordinates.length - 1];
-  const dLng = end[0] - start[0];
+  const dLng = (end[0] - start[0]) * groundLngScale(centerLat);
   const dLat = end[1] - start[1];
   const routeBearing = (Math.atan2(dLng, dLat) * 180) / Math.PI;
   const bearing = (routeBearing + 90 + 360) % 360;
@@ -179,9 +188,9 @@ export function calculateFlatCamera(coordinates: [number, number][]): TerrainCam
  * Compute elevation-aware bearing and pitch from altitude data.
  *
  * Uses an elevation gradient vector: for each GPS point, compute a vector
- * from center to that point weighted by (altitude - mean). The sum points
- * toward high terrain. Camera bearing faces that direction so MapLibre
- * positions the camera on the low side.
+ * from center to that point weighted by (altitude - mean), with longitude
+ * scaled to ground distance. The sum points toward high terrain. Camera
+ * bearing faces that direction so MapLibre positions the camera on the low side.
  * Returns bearing, pitch and elevation range, or null if altitude data is insufficient.
  */
 function computeElevationCamera(
@@ -218,7 +227,8 @@ function computeElevationCamera(
 
   const meanAlt = altSum / validCount;
 
-  // Compute elevation gradient vector
+  // Compute elevation gradient vector over ground distances
+  const lngScale = groundLngScale(centerLat);
   let gradLng = 0;
   let gradLat = 0;
 
@@ -228,7 +238,7 @@ function computeElevationCamera(
     if (!isFinite(alt) || !isFinite(lng) || !isFinite(lat)) continue;
 
     const weight = alt - meanAlt;
-    gradLng += (lng - centerLng) * weight;
+    gradLng += (lng - centerLng) * lngScale * weight;
     gradLat += (lat - centerLat) * weight;
   }
 

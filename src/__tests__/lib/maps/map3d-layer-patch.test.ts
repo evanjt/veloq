@@ -102,7 +102,6 @@ describe('buildUpdateLayersScript', () => {
     // nor hidden.
     expect(script).toContain('if (data === undefined) return;');
     expect(script).toContain('if (sectionMarkersData === undefined) return;');
-    expect(script).toContain('if (sectionBoundariesData !== undefined)');
     expect(script).toContain('if (pointMarkersData !== undefined)');
   });
 

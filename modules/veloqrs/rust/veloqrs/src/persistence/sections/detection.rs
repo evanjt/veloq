@@ -1160,6 +1160,10 @@ impl PersistentEngine {
         )
         .unwrap_or_else(|| activity_ids.clone());
         let narrowed_pool = ids_to_load.len() < activity_ids.len();
+        // Every track is held back for its elevation, so the pool is empty by
+        // choice and not because the store lost a row. `detect_pool_ids` only
+        // returns nothing from a library with metadata when every track is owed.
+        let held_back = activity_ids.is_empty() && !self.activity_metadata.is_empty();
         // A narrowed pool that loads nothing echoes the last batch, which the
         // worker copies out of this shared handle only if it gets that far.
         let raw_at_spawn = if narrowed_pool {
@@ -1353,8 +1357,12 @@ impl PersistentEngine {
             // leaves the poll reporting Died, which clears the handle and
             // leaves the stored catalogue exactly as it stands.
             let library_readable = activity_ids.len() - corrupt_tracks.len();
+            // A pool held back whole for its elevation reads no rows. The count
+            // below covers the whole table, which still holds the owed rows, so
+            // it cannot equal what the pool read and is not a check on it.
             let empty_pool_verified = if tracks.is_empty() {
                 narrowed_pool
+                    || held_back
                     || conn
                         .query_row("SELECT COUNT(*) FROM gps_tracks", [], |row| {
                             row.get::<_, i64>(0)
@@ -1396,7 +1404,10 @@ impl PersistentEngine {
 
             if tracks.is_empty() {
                 log::info!("veloqrs: [SectionDetection] No tracks loaded, skipping detection");
-                let sections = match (narrowed_pool, raw_at_spawn) {
+                // A held-back pool keeps the stored catalogue, as a narrowed
+                // pool that loads nothing does: the owed tracks were never
+                // judged, so nothing says the catalogue should go.
+                let sections = match (narrowed_pool || held_back, raw_at_spawn) {
                     (false, _) => Vec::new(),
                     (true, Some(raw)) => raw.to_vec(),
                     (true, None) => existing_sections,
@@ -1630,7 +1641,7 @@ impl PersistentEngine {
     /// (`apply_sections_finalize`) so callers that want the UI interactive
     /// can return after `_save` and do the tail on a background thread.
     ///
-    /// If `save_sections` fails the prior in-memory state is restored -
+    /// If `save_sections_with_events` fails the prior in-memory state is restored -
     /// the rollback contract is unchanged from the monolithic
     /// `apply_sections`.
     pub fn apply_sections_save(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
@@ -1716,14 +1727,14 @@ impl PersistentEngine {
         // user-defined sections (custom + accepted) already held in memory across
         // the apply so get_sections() keeps mirroring the full visible catalogue -
         // the in-memory matcher must keep seeing custom sections after a detect.
-        // save_sections skips them (durable rows), so this touches only the view.
+        // save_sections_with_events skips them (durable rows), so this touches only the view.
         for s in &self.sections {
             if s.is_user_defined && !visible.iter().any(|v| v.id == s.id) {
                 visible.push(s.clone());
             }
         }
         let old_sections = std::mem::replace(&mut self.sections, visible);
-        // Make the trial registry live BEFORE the save: `save_sections` writes its
+        // Make the trial registry live BEFORE the save: `save_sections_with_events` writes its
         // blob inside the same transaction as the catalogue, so the two
         // commit atomically and a crash cannot leave the registry ahead of the DB.
         let old_identity = std::mem::replace(&mut self.identity, trial_identity);

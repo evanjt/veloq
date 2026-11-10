@@ -210,7 +210,7 @@ describe('ElevationBackfillStatus explanation', () => {
     const [{ title, body }] = mockOpenExplainer.mock.calls[0];
     expect(title).toBe(enAU.settings.elevationBackfillWhyTitle);
     expect(body).toBe(
-      'The improved section algorithm and lift detection read elevation that earlier versions never fetched. Veloq downloads it once for your existing activities, then detects sections again with the new algorithm.'
+      'Improved section detection and lift detection need elevation that older versions never downloaded. Veloq downloads it once for your activities, then detects sections again.'
     );
     alertSpy.mockRestore();
   });
@@ -225,7 +225,7 @@ describe('ElevationBackfillStatus explanation', () => {
       const explainer = tree.getByTestId('elevation-backfill-explainer').props.children as string;
       const body = mockOpenExplainer.mock.calls.at(-1)[0].body as string;
       expect(explainer).not.toContain('Improved section detection');
-      expect(body).not.toContain('The improved section algorithm');
+      expect(body).not.toContain('Improved section detection');
       expect(explainer.trim().length).toBeGreaterThan(0);
       expect(body.trim().length).toBeGreaterThan(0);
     }
