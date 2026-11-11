@@ -28,7 +28,18 @@ const TYPES_FILE = 'src/i18n/types.ts';
 const REFERENCE = 'en-GB';
 const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
 // Words ending in s after a value that are not plural nouns.
-const NOT_PLURAL = new Set(['is', 'was', 'has', 'does', 'as', 'its', 'vs', 'this', 'thus']);
+const NOT_PLURAL = new Set([
+  'is',
+  'was',
+  'has',
+  'does',
+  'as',
+  'its',
+  'vs',
+  'this',
+  'thus',
+  'overlaps',
+]);
 // The counts a screen interpolates are whole numbers well inside this range.
 const COUNT_RANGE = 10000;
 

@@ -17,6 +17,7 @@ import {
   FfiDetectionHold_Tags,
   type FfiCatalogueEmptyReason,
 } from 'veloqrs';
+import { formatPercent } from '@/shared/format';
 import { EmptyState } from '@/shared/ui';
 import { navigateTo } from '@/shared/app/navigation';
 import { openHistoryRange } from '@/shared/app/historyRange';
@@ -66,7 +67,7 @@ function emptyCopy(reason: FfiCatalogueEmptyReason, kind: CatalogueKind, t: TFun
         title: t('routes.emptyRunningTitle') as string,
         description: t('routes.emptyRunning', {
           phase: t(phaseKey),
-          percent: reason.inner.percent,
+          percent: formatPercent(reason.inner.percent, 0),
         }) as string,
       };
     }

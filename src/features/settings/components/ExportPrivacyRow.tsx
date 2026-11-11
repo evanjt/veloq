@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { formatElevation } from '@/shared/format/format';
+import { formatPercent } from '@/shared/format';
 import { HomeRadiusMap, type LngLat } from '@/features/maps';
 import { getEngine } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
@@ -209,9 +210,9 @@ export function ExportPrivacyRow() {
           <Text style={[styles.hint, styles.suggestionText]}>
             {t('settings.exportPrivacySuggested', {
               defaultValue:
-                'Most of your rides start near one place, {{count}} of them. {{share}}% of all ride ends.',
+                'Most of your rides start near one place, {{count}} of them. {{share}} of all ride ends.',
               count: suggestion.activityCount,
-              share: endpointSharePercent(suggestion.endpointShare),
+              share: formatPercent(endpointSharePercent(suggestion.endpointShare), 0),
             })}
           </Text>
           <Button

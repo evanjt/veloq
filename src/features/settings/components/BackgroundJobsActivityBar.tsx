@@ -11,6 +11,7 @@ import { summariseBackgroundJobs } from '../lib/backgroundJobsSummary';
 import { Icon } from '@/shared/ui/Icon';
 import { getPhaseDisplayKey } from '@/features/routes';
 import { formatClockOrDate } from '@/shared/format/format';
+import { formatPercent } from '@/shared/format';
 import {
   useBackgroundJobs,
   type BackgroundJob,
@@ -110,7 +111,7 @@ function useDetail(job: BackgroundJob): string {
       return job.percent === null
         ? phaseName
         : `${phaseName} · ${t('backgroundJobs.progressPercent', {
-            percent: Math.round(job.percent),
+            percent: formatPercent(job.percent, 0),
           })}`;
     }
     if (job.id === 'cutover' && job.phase) {

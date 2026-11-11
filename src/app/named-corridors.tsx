@@ -29,6 +29,7 @@ import {
   ledgerDate,
 } from '@/features/routes';
 import { formatFullDate } from '@/shared/format/format';
+import { formatPercent } from '@/shared/format';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { navigateTo } from '@/shared/app/navigation';
@@ -63,7 +64,7 @@ function NamedCorridorsScreenContent() {
   const onSection = (corridor: NamedCorridor) =>
     t('namedCorridors.onSection', {
       name: sectionNames[corridor.sectionId ?? ''] ?? corridor.sectionId,
-      percent: Math.round(corridor.coverage * 100),
+      percent: formatPercent(corridor.coverage * 100, 0),
     });
 
   const confirmRemove = (corridor: NamedCorridor) => {

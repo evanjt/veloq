@@ -360,7 +360,7 @@ describe('generateInsights', () => {
         mockT
       );
       const vol = result.find((i) => i.id === 'period_comparison-volume');
-      expect(vol!.title).toContain('percent: 60');
+      expect(vol!.title).toContain('percent: +60%');
       expect(vol!.supportingData!.comparisonData!.change.value).toBe('+60%');
     });
 

@@ -13,6 +13,7 @@ import { SheetTrackDrawing } from './SheetTrackDrawing';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatEpochDayUtc } from '@/shared/format/format';
+import { formatPercent } from '@/shared/format';
 import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import { prRecordOf } from '@/features/insights/lib/directionBests';
 import { insightGraphicColour } from '@/features/insights/lib/insightCategory';
@@ -118,7 +119,9 @@ export const SectionPRContent = React.memo(function SectionPRContent({
             {percentileFaster != null && percentileFaster > 0 ? (
               <View style={[styles.contextChip, isDark && styles.contextChipDark]}>
                 <Text style={[styles.contextText, isDark && styles.contextTextDark]}>
-                  {t('insights.sectionPrSheet.fasterThan', { percent: percentileFaster })}
+                  {t('insights.sectionPrSheet.fasterThan', {
+                    percent: formatPercent(percentileFaster, 0),
+                  })}
                 </Text>
               </View>
             ) : null}

@@ -86,7 +86,7 @@ export function GroupingParamPanel({
   };
 
   const matchLabel = t('settings.groupingMatchShare', {
-    percent: params.minMatchPercentage,
+    percent: formatPercent(params.minMatchPercentage, 0),
   });
   const endsApart = formatDistance(params.endpointThreshold, isMetric);
   const endsLabel = t('settings.groupingEndsApart', { distance: endsApart });

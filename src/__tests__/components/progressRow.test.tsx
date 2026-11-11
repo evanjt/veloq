@@ -86,7 +86,7 @@ describe('ProgressRow', () => {
 
     expect(announce.mock.calls.map(([message]) => message)).toEqual(
       [0, 25, 50, 75, 100].map(
-        (percent) => `common.progressAnnouncement:{"label":"Writing tiles","percent":${percent}}`
+        (percent) => `common.progressAnnouncement:{"label":"Writing tiles","percent":"${percent}%"}`
       )
     );
   });

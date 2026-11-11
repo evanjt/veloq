@@ -151,7 +151,7 @@ describe('a card grades nothing the data source does not', () => {
         intensity,
       });
       expect(stat?.context).toBe(
-        `activity.stats.intensityContext:${JSON.stringify({ percent: intensity })}`
+        `activity.stats.intensityContext:${JSON.stringify({ percent: `${intensity}%` })}`
       );
     }
   );

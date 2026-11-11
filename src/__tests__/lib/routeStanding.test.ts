@@ -144,7 +144,7 @@ describe('formatRouteStanding', () => {
         },
         t
       )
-    ).toBe('routes.standingRankPercentile|{"rank":5,"total":20,"gap":"1:35","percent":75}');
+    ).toBe('routes.standingRankPercentile|{"rank":5,"total":20,"gap":"1:35","percent":"75%"}');
   });
 
   it('falls back to rank and gap when the percentile is missing', () => {

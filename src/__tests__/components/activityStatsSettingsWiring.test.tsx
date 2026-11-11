@@ -80,7 +80,7 @@ describe('InsightfulStats', () => {
     const { getByText } = await render(
       <InsightfulStats activity={ride} maxHR={185} maxHrSource={MaxHrSource.SportSettings} />
     );
-    expect(getByText('activity.stats.percentOfMaxHR:{"percent":81}')).toBeTruthy();
+    expect(getByText('activity.stats.percentOfMaxHR:{"percent":"81%"}')).toBeTruthy();
   });
 
   it('leaves the percent of max HR out until the screen read answers', async () => {
@@ -134,15 +134,15 @@ describe('the heart rate card over a default max HR', () => {
 
   it('states a percent of the athlete own max HR as their own', async () => {
     const card = await heartRateCard(205, MaxHrSource.SportSettings);
-    expect(card.context).toBe('activity.stats.percentOfMaxHR:{"percent":83}');
+    expect(card.context).toBe('activity.stats.percentOfMaxHR:{"percent":"83%"}');
     expect((await heartRateCard(185, MaxHrSource.ActivityZones)).context).toBe(
-      'activity.stats.percentOfMaxHR:{"percent":92}'
+      'activity.stats.percentOfMaxHR:{"percent":"92%"}'
     );
   });
 
   it('names the default and grades nothing against it', async () => {
     const card = await heartRateCard(190, MaxHrSource.Default);
-    expect(card.context).toBe('activity.stats.percentOfDefaultMaxHR:{"percent":89,"value":190}');
+    expect(card.context).toBe('activity.stats.percentOfDefaultMaxHR:{"percent":"89%","value":190}');
     expect(card.stream).toBe('heartrate');
     expect(card.details).toContainEqual({
       label: 'activity.stats.percentOfDefaultMaxHRLabel:{"value":190}',
@@ -167,7 +167,7 @@ describe('HRZonesChart', () => {
     const card = await render(
       <InsightfulStats activity={ride} maxHR={185} maxHrSource={MaxHrSource.SportSettings} />
     );
-    expect(card.getByText('activity.stats.percentOfMaxHR:{"percent":81}')).toBeTruthy();
+    expect(card.getByText('activity.stats.percentOfMaxHR:{"percent":"81%"}')).toBeTruthy();
   });
 
   it('names the activity own zones as the source of its max', async () => {

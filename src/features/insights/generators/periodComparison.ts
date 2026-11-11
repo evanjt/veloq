@@ -23,7 +23,7 @@ import {
   verdictRung,
   type TrendMetric,
 } from '@/shared/format/trend';
-import { formatSignedPercent } from '@/shared/format';
+import { formatPercent, formatSignedPercent, formatSignedPercentage } from '@/shared/format';
 
 /** A week against the week before it. */
 const WEEK_OVER_WEEK_DAYS = 14;
@@ -205,7 +205,7 @@ export function generatePeriodComparisonInsights(
         priority: 2,
         icon,
         iconTone,
-        title: t(upKey, { percent }),
+        title: t(upKey, { percent: formatSignedPercentage(percent, 0) }),
         subtitle: caption,
         line,
         body,
@@ -228,7 +228,7 @@ export function generatePeriodComparisonInsights(
         priority: 2,
         icon,
         iconTone,
-        title: t(downKey, { percent }),
+        title: t(downKey, { percent: formatPercent(percent, 0) }),
         subtitle: caption,
         line,
         body,
@@ -288,7 +288,7 @@ function generateLastWeekVsAverageInsight(
       priority: 2,
       icon: trendIcon(metric, trend.direction),
       iconTone: verdictRung(trend.verdict),
-      title: t('insights.weeklyLoad.title', { percent, direction }),
+      title: t('insights.weeklyLoad.title', { percent: formatPercent(percent, 0), direction }),
       subtitle: t('insights.caption.lastWeekAgainstAverage', {
         current: captionValue(comparison.current, useTss),
         previous: captionValue(comparison.previous, useTss),

@@ -382,7 +382,7 @@ describe('the export privacy row', () => {
     const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-home')).toBeTruthy());
-    expect(JSON.stringify(tree.toJSON())).toContain('\\"share\\":24');
+    expect(JSON.stringify(tree.toJSON())).toContain('\\"share\\":\\"24%\\"');
   });
 
   it('never rounds a non-zero share down to zero', () => {

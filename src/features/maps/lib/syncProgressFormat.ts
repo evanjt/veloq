@@ -3,6 +3,7 @@
  * Single source of truth for how GPS/route/bounds progress is rendered.
  */
 
+import { formatPercent } from '@/shared/format';
 import type { TFunction } from 'i18next';
 import { TrackStep, type TrackStage } from 'veloqrs';
 
@@ -21,7 +22,9 @@ export interface SyncDisplayInfo {
  * before there is progress to show.
  */
 export function progressLine(stage: string, percent: number, t: TFunction): string {
-  return percent > 0 ? (t('cache.stageProgress', { stage, percent }) as string) : stage;
+  return percent > 0
+    ? (t('cache.stageProgress', { stage, percent: formatPercent(percent, 0) }) as string)
+    : stage;
 }
 
 /** How each step of the track work is drawn: its icon and the key naming it. */

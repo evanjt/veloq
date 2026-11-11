@@ -33,7 +33,7 @@ describe('formatTrackStage', () => {
     expect(result.countText).toBe('5/10');
     expect(result.indeterminate).toBe(false);
     expect(result.text).toBe(
-      'cache.stageProgress:{"stage":"routesScreen.downloadingGps","percent":50}'
+      'cache.stageProgress:{"stage":"routesScreen.downloadingGps","percent":"50%"}'
     );
   });
 
