@@ -76,8 +76,12 @@ function fixture(worker: string): string {
   return root;
 }
 
-function guard(root: string, modules = MODULES): { status: number; output: string } {
-  const run = spawnSync('node', [GUARD, '--root', root, '--modules', modules], {
+function guard(
+  root: string,
+  modules = MODULES,
+  extra: string[] = []
+): { status: number; output: string } {
+  const run = spawnSync('node', [GUARD, '--root', root, '--modules', modules, ...extra], {
     cwd: root,
     env: gitFreeEnv(),
     encoding: 'utf8',
@@ -120,5 +124,16 @@ describe('the OAuth proxy typecheck guard', () => {
     const result = guard(fixture(CLEAN), empty);
     expect(result.status).not.toBe(0);
     expect(result.output).toContain('npm --prefix oauth-proxy ci');
+  });
+
+  it('typechecks the link relay when asked for it, not the proxy', () => {
+    const root = fixture(CLEAN);
+    put(root, 'link-relay/tsconfig.json', TSCONFIG);
+    put(root, 'link-relay/src/worker.ts', BROKEN);
+    runGit(['add', '-A'], root);
+    expect(guard(root).status).toBe(0);
+    const relay = guard(root, MODULES, ['--package', 'link-relay']);
+    expect(relay.status).not.toBe(0);
+    expect(relay.output).toMatch(/link-relay\/src\/worker\.ts\(\d+,\d+\): error TS2345/);
   });
 });

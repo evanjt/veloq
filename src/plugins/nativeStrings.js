@@ -170,6 +170,7 @@ const INFO_PLIST_STRINGS = [
   { key: 'NSMicrophoneUsageDescription', path: 'permissions.microphone' },
   { key: 'NSFaceIDUsageDescription', path: 'permissions.faceId' },
   { key: 'NSMotionUsageDescription', path: 'permissions.motion' },
+  { key: 'NSLocalNetworkUsageDescription', path: 'permissions.localNetwork' },
 ];
 
 /** The Android resources, by name, and the bundle path each reads. */

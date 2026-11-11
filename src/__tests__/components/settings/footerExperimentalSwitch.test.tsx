@@ -80,6 +80,17 @@ describe('the experimental row in the settings footer', () => {
 });
 
 describe('the experimental page', () => {
+  it('opens with a note above the first switch that the features are unfinished previews', async () => {
+    const screen = await renderPage();
+
+    expect(screen.getByText('t(experimental.previewNote)')).toBeTruthy();
+    const tree = JSON.stringify(screen.toJSON());
+    expect(tree.indexOf('experimental-preview-note')).toBeGreaterThanOrEqual(0);
+    expect(tree.indexOf('experimental-preview-note')).toBeLessThan(
+      tree.indexOf(`experimental-switch-${EXPERIMENTAL_FEATURES[0].key}`)
+    );
+  });
+
   it('lists every feature with its blurb and its switch', async () => {
     const screen = await renderPage();
 

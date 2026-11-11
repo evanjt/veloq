@@ -7,7 +7,7 @@ import { useTheme } from '@/shared/app';
 import { CurveChart, type FurtherSeries } from '@/shared/charts';
 import { CardHeader } from '@/shared/ui/CardHeader';
 import type { AccessibleAction } from '@/shared/ui/accessibleActions';
-import { formatShortDate } from '@/shared/format/format';
+import { formatEpochDayUtc } from '@/shared/format/format';
 import { chartStyles, colors, darkColors, layout, spacing, typography } from '@/theme';
 import { seriesChartModel, type SeriesDatum, type SeriesSample } from '../lib/seriesChart';
 
@@ -62,7 +62,8 @@ interface InsightSeriesChartProps {
   xRange?: { from: number; to: number } | undefined;
 }
 
-const formatDate = (epochSeconds: number) => formatShortDate(new Date(epochSeconds * 1000));
+/** Engine dates are wall-clock stamps stored as UTC, so the day is read in UTC. */
+const formatDate = formatEpochDayUtc;
 
 const NO_OTHERS: readonly InsightFurtherSeries[] = [];
 

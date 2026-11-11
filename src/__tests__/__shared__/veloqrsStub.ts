@@ -589,6 +589,20 @@ export const detection = {
   forceRedetectSections: jest.fn(),
 };
 
+/** The remote link delegates: nothing linked, nothing connected. */
+export const remote = {
+  listLinkedDevices: jest.fn(() => []),
+  removeLinkedDevice: jest.fn(() => false),
+  linkedRooms: jest.fn(() => []),
+  acceptOffer: jest.fn(),
+  disconnectAll: jest.fn(),
+  connectedCount: jest.fn(() => 0),
+  beginPairing: jest.fn(),
+  pairingRequest: jest.fn(() => null),
+  confirmPairing: jest.fn(() => false),
+  cancelPairing: jest.fn(),
+};
+
 /** The section delegates a screen test feeds its own answer through `withOverrides`. */
 export const sections = {
   getRetiredMapData: jest.fn(),
@@ -746,6 +760,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     routes,
     detection,
     sections,
+    remote,
     preview,
     routeGroupingPreview,
     previewClient,

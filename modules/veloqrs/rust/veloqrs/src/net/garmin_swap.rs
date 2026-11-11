@@ -43,7 +43,8 @@ pub enum FfiSwapState {
 
 /// What a feed card says about a stub, an activity intervals.icu holds but
 /// does not serve. The one judge for the card, beside [`state`] for the page.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiStubVerdict {
     /// intervals.icu serves the activity.

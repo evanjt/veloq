@@ -21,6 +21,7 @@ import { SectionPerformanceTimeline } from '@/features/insights/components/conte
 import type { Insight, InsightSupportingData } from '@/features/insights/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import { formatDuration, formatShortDate } from '@/shared/format/format';
+import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -168,7 +169,7 @@ function record(id: string, day: number, bestTime: number): SectionPerformanceRe
   return {
     activityId: id,
     activityName: id,
-    activityDate: new Date((START + day * DAY) * 1000),
+    activityDate: wallClockSecondsToLocalDate(START + day * DAY),
     laps: [],
     lapCount: 1,
     bestTime,

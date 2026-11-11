@@ -3142,7 +3142,8 @@
     "camera": "Veloq使用相机扫描Nextcloud应用密码的二维码。",
     "microphone": "Veloq不会录制声音。相机仅用于扫描二维码。",
     "faceId": "Veloq不使用面容ID。",
-    "motion": "Veloq不读取运动数据。"
+    "motion": "Veloq不读取运动数据。",
+    "localNetwork": "Veloq 会连接同一网络中已关联的浏览器，以便在其中显示你的活动。"
   },
   "permissionNotice": {
     "notificationsOff": "Veloq 的通知已关闭。请在设置中开启。",
@@ -3239,6 +3240,7 @@
   },
   "experimental": {
     "title": "实验性功能",
+    "previewNote": "这些是早期预览版，尚未完成。开启其中任一功能，即表示你接受其数据可能会在未来的更新中被清除。",
     "open": "打开",
     "noExample": "你的资料库中暂时没有可展示此功能的内容。",
     "efficiencyTrends": {
@@ -3256,6 +3258,36 @@
     "climbingBests": {
       "title": "爬坡最佳成绩",
       "blurb": "每个时长窗口（从15秒到20分钟）内你的最快爬升速率，以每小时米数（VAM）表示，并换算为 W/kg（仅提起自身体重所需的功率）。Veloq 在你的手机上根据 intervals.icu 的海拔数据计算。intervals.icu 本身不提供爬坡最佳成绩。只统计经过校正海拔的活动。"
+    },
+    "remoteLink": {
+      "title": "已关联的设备",
+      "blurb": "在 Veloq 打开期间，可在同一 Wi-Fi 下电脑的浏览器中浏览这部手机上的活动。扫描二维码即可关联浏览器，并在设置中管理。你的数据直接从手机发送到浏览器。"
     }
+  },
+  "remoteLink": {
+    "title": "已关联的设备",
+    "intro": "当这部手机上的 Veloq 处于打开状态时，已关联的电脑可以在浏览器中浏览此资料库。你的数据直接从手机发送到浏览器。",
+    "none": "无",
+    "linkedCount_one": "已关联 {{count}} 台",
+    "linkedCount_other": "已关联 {{count}} 台",
+    "empty": "尚未关联任何设备。",
+    "link": "关联设备",
+    "lastSeen": "上次连接：{{date}}",
+    "neverSeen": "尚未连接",
+    "remove": "移除",
+    "removeTitle": "移除 {{name}}？",
+    "removeMessage": "它将无法再连接到这部手机。若要再次使用，请重新关联。",
+    "scanTitle": "扫描关联码",
+    "scanInstructions": "在电脑上打开 veloq.fit/connect，然后扫描显示的二维码。",
+    "invalidCode": "关联码无效或已过期",
+    "waiting": "正在等待浏览器…",
+    "confirmTitle": "关联 {{name}}？",
+    "confirmMessage": "只要这部手机上的 Veloq 处于打开状态，它就能浏览你的活动。你可以随时在设置中将其移除。",
+    "confirm": "关联",
+    "decline": "拒绝",
+    "expired": "浏览器未能及时连接。请在页面上生成新的二维码，然后重新扫描。",
+    "connected_one": "已连接 {{count}} 个浏览器",
+    "connected_other": "已连接 {{count}} 个浏览器",
+    "disconnect": "断开连接"
   }
 }

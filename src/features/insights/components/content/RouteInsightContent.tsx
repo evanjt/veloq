@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
-import { formatDuration, formatShortDate } from '@/shared/format/format';
+import { formatDuration, formatEpochDayUtc } from '@/shared/format/format';
 import { Sparkline, type SparklinePoint } from '@/shared/charts';
 import { brand, colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type { Insight, SupportingRoute } from '@/types';
@@ -29,7 +29,7 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
   const points = useMemo<SparklinePoint[]>(
     () =>
       (route.recentEfforts ?? []).map((p) => ({
-        label: formatShortDate(new Date(p.date * 1000)),
+        label: formatEpochDayUtc(p.date),
         key: String(p.date),
         value: p.value,
         date: p.date,

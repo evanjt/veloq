@@ -71,6 +71,13 @@ const GUARDS = [
       'stale generated bindings after a Rust signature or doc comment changes its UniFFI checksum',
   },
   {
+    name: 'check:apple-crypto',
+    kind: 'build',
+    cmd: node('check-apple-crypto.mjs'),
+    catches:
+      'an Apple build carrying its own copy of a DTLS cipher for the remote link, or its own SHA-256 and HMAC for the pairing proof',
+  },
+  {
     name: 'check:tracematch-docs',
     kind: 'build',
     cmd: node('check-tracematch-docs.mjs'),
@@ -185,6 +192,26 @@ const GUARDS = [
     cmd: node('check-oauth-proxy-types.mjs'),
     catches:
       'a type error in the OAuth proxy, its own package that no other local gate typechecks, which fails CI on the next push',
+  },
+  {
+    name: 'check:link-relay-types',
+    kind: 'correctness',
+    cmd: node('check-oauth-proxy-types.mjs', '--package', 'link-relay'),
+    catches: 'a type error in the link relay, its own package that no other local gate typechecks',
+  },
+  {
+    name: 'check:connect-page-local',
+    kind: 'correctness',
+    cmd: node('check-connect-page-local.mjs'),
+    catches:
+      'a third-party script or style added to the connect page, which could read the link to the phone and every activity it shows',
+  },
+  {
+    name: 'check:link-relay-unlogged',
+    kind: 'correctness',
+    cmd: node('check-link-relay-unlogged.mjs'),
+    catches:
+      'request logging switched on for the link relay, or a logging call in it, which would keep who connected and when',
   },
   {
     name: 'config:sports:check',

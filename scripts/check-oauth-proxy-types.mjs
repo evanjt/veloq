@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Typecheck the OAuth proxy as the index holds it.
+// Typecheck a Cloudflare Worker package (the OAuth proxy by default, the
+// link relay with `--package link-relay`) as the index holds it.
 //
 // The proxy is its own package with its own tsconfig and install, so neither the
 // root `tsc` nor any other gate reads it, and a type error in it reached main
@@ -12,7 +13,10 @@
 // none of its own. With neither, it fails and names the install, because a
 // typecheck that skips when it cannot run is the gap it closes.
 //
-// Usage: node scripts/check-oauth-proxy-types.mjs [--root <repo>] [--modules <node_modules>]
+// The relay has the same compiler and Workers types as the proxy, so it falls
+// back to the proxy's install when it has none of its own.
+//
+// Usage: node scripts/check-oauth-proxy-types.mjs [--root <repo>] [--modules <node_modules>] [--package <dir>]
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -21,10 +25,10 @@ import { dirname, join, resolve } from 'node:path';
 
 import { gitFreeEnv, indexedSources } from './lib/indexedSources.mjs';
 
-const PROXY = 'oauth-proxy';
-
 const argv = process.argv.slice(2);
 const flag = (name) => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
+const INSTALL = 'oauth-proxy';
+const PROXY = flag('--package') ?? INSTALL;
 const root = resolve(flag('--root') ?? process.cwd());
 
 function mainCheckout(tree) {
@@ -48,7 +52,9 @@ function mainCheckout(tree) {
 function proxyModules() {
   if (flag('--modules')) return [resolve(flag('--modules'))];
   const main = mainCheckout(root);
-  return [join(root, PROXY, 'node_modules'), ...(main ? [join(main, PROXY, 'node_modules')] : [])];
+  const packages = [...new Set([PROXY, INSTALL])];
+  const trees = [root, ...(main ? [main] : [])];
+  return trees.flatMap((tree) => packages.map((pkg) => join(tree, pkg, 'node_modules')));
 }
 
 const candidates = proxyModules();

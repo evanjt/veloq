@@ -84,6 +84,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   experimental: { titleKey: 'experimental.title', largeTitle: true },
   'garmin-connector': { titleKey: 'garmin.title', largeTitle: true },
   licenses: { titleKey: 'licenses.title', largeTitle: true },
+  'linked-devices': { titleKey: 'remoteLink.title', largeTitle: true },
   'map-settings': { titleKey: 'settings.maps', largeTitle: true },
   'named-corridors': { titleKey: 'namedCorridors.title', largeTitle: true },
   'notification-settings': { titleKey: 'notifications.settings.title', largeTitle: true },

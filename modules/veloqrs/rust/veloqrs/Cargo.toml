@@ -43,6 +43,12 @@ postcard = { version = "1", features = ["alloc"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart", "stream", "gzip", "http2"], default-features = false }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "fs", "net", "io-util", "time"] }
 tokio-util = { version = "0.7", features = ["io"] }
+# WebRTC for the remote link, sans-IO so the engine drives its own sockets. Its
+# DTLS ciphers are chosen per platform in the target tables below.
+# The pairing proof is an HMAC over both certificates under the QR secret; its
+# hash and MAC come from `remote::digest`, and `subtle` compares a proof in
+# constant time on every target.
+subtle = "2.6"
 futures = "0.3"
 base64 = "0.23"
 
@@ -65,6 +71,20 @@ png = "0.18"
 crc32fast = "1.5"
 rstar = "0.12"
 zip = { version = "9", default-features = false, features = ["deflate"] }
+
+# The remote link's DTLS ciphers and the pairing's SHA-256 and HMAC: Apple targets
+# take them from the operating system (CryptoKit and the Security framework for the
+# ciphers, CommonCrypto for the hash and MAC). The rest carry the pure Rust ones,
+# because there is no OpenSSL to cross-compile for Android. The macOS host is also
+# an Apple target, so `cargo test` on a Mac exercises the Apple providers and Linux
+# CI the Rust ones.
+[target.'cfg(target_vendor = "apple")'.dependencies]
+str0m = { version = "0.25", default-features = false, features = ["apple-crypto"] }
+
+[target.'cfg(not(target_vendor = "apple"))'.dependencies]
+str0m = { version = "0.25", default-features = false, features = ["rust-crypto"] }
+hmac = "0.13"
+sha2 = "0.11"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

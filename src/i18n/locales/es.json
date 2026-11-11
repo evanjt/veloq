@@ -3235,7 +3235,8 @@
     "camera": "Veloq usa la cámara para escanear el código QR de una contraseña de aplicación de Nextcloud.",
     "microphone": "Veloq no graba sonido. La cámara solo se usa para escanear códigos QR.",
     "faceId": "Veloq no usa Face ID.",
-    "motion": "Veloq no lee datos de movimiento."
+    "motion": "Veloq no lee datos de movimiento.",
+    "localNetwork": "Veloq se conecta a un navegador que hayas vinculado en la misma red para mostrar ahí tus actividades."
   },
   "permissionNotice": {
     "notificationsOff": "Las notificaciones están desactivadas para Veloq. Actívalas en Ajustes.",
@@ -3334,6 +3335,7 @@
   },
   "experimental": {
     "title": "Funciones experimentales",
+    "previewNote": "Son versiones preliminares y todavía no están terminadas. Al activar una, aceptas que sus datos se puedan borrar en una actualización futura.",
     "open": "Abrir",
     "noExample": "Nada en tu biblioteca lo muestra todavía.",
     "efficiencyTrends": {
@@ -3351,6 +3353,36 @@
     "climbingBests": {
       "title": "Mejores marcas de subida",
       "blurb": "Tu mayor velocidad de ascenso en cada ventana, de 15 segundos a 20 minutos, en metros por hora (VAM) y en W/kg, la potencia necesaria para elevar solo el peso de tu cuerpo. Veloq lo calcula en tu teléfono a partir de los datos de altitud de intervals.icu. intervals.icu no ofrece por sí mismo las mejores marcas de subida. Solo cuentan las actividades con elevación corregida."
+    },
+    "remoteLink": {
+      "title": "Dispositivos vinculados",
+      "blurb": "Explora las actividades de este teléfono en el navegador de un ordenador conectado a la misma wifi mientras Veloq esté abierto. Vincula el navegador escaneando un código y gestiónalo en Ajustes. Tus datos van directamente del teléfono al navegador."
     }
+  },
+  "remoteLink": {
+    "title": "Dispositivos vinculados",
+    "intro": "Un ordenador vinculado puede explorar esta biblioteca en su navegador mientras Veloq esté abierto en este teléfono. Tus datos van directamente del teléfono al navegador.",
+    "none": "Ninguno",
+    "linkedCount_one": "{{count}} vinculado",
+    "linkedCount_other": "{{count}} vinculados",
+    "empty": "Aún no hay dispositivos vinculados.",
+    "link": "Vincular un dispositivo",
+    "lastSeen": "Última conexión: {{date}}",
+    "neverSeen": "Aún sin conectar",
+    "remove": "Quitar",
+    "removeTitle": "¿Quitar {{name}}?",
+    "removeMessage": "Ya no podrá conectarse a este teléfono. Para volver a usarlo, vincúlalo de nuevo.",
+    "scanTitle": "Escanear código de vinculación",
+    "scanInstructions": "En tu ordenador, abre veloq.fit/connect y escanea el código que aparece.",
+    "invalidCode": "No es un código de vinculación válido o ha caducado",
+    "waiting": "Esperando al navegador…",
+    "confirmTitle": "¿Vincular {{name}}?",
+    "confirmMessage": "Podrá explorar tus actividades siempre que Veloq esté abierto en este teléfono. Puedes quitarlo en Ajustes cuando quieras.",
+    "confirm": "Vincular",
+    "decline": "Rechazar",
+    "expired": "El navegador no se conectó a tiempo. Genera un código nuevo en la página y vuelve a escanearlo.",
+    "connected_one": "Hay un navegador conectado",
+    "connected_other": "Hay {{count}} navegadores conectados",
+    "disconnect": "Desconectar"
   }
 }

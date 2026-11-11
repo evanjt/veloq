@@ -134,6 +134,8 @@ module.exports = [
       'src/features/maps/assets/*.generated.ts',
       // The vendored map renderer, written by scripts/fetch-maplibre-renderer.mjs.
       'modules/veloqrs/assets/basemap/renderer/**',
+      // The connect page's QR encoder, vendored unchanged from its npm build.
+      'docs/connect/qr.js',
       'coverage/**',
       'dist/**',
       '.expo/**',
@@ -561,6 +563,12 @@ module.exports = [
     // `__DEV__` to guard on and no bundle to keep the lines out of.
     files: ['oauth-proxy/**'],
     rules: { 'no-console': 'off' },
+  },
+  {
+    // The link relay keeps no records, so `no-console` stays on here. The
+    // Workers runtime provides `cloudflare:` modules, which no install holds.
+    files: ['link-relay/**'],
+    rules: { 'import/no-unresolved': ['error', { ignore: ['^cloudflare:'] }] },
   },
   {
     // The FFI timing line is the one place a `debug` logger cannot go: this

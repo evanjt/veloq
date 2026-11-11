@@ -14,6 +14,9 @@ pub use ffi_types::*;
 
 // Persistence layer with SQLite storage
 pub mod persistence;
+
+/// The remote link: a linked browser reading the library over WebRTC.
+pub mod remote;
 pub use persistence::sections::{EvidenceRow, encode_evidence_row};
 pub use persistence::{
     CacheUpdate, ExportPrivacyPreview, FitOutcome, GroupSummary, PERSISTENT_ENGINE,

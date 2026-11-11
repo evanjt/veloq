@@ -20,6 +20,7 @@ import {
 } from './topBanner';
 
 import { useNetwork } from './NetworkContext';
+import { useRemoteLinkStatus } from './remoteLinkStatus';
 import { stackHeaderOptions, type SheetWindow } from './screenHeaders';
 import { useTheme } from './useTheme';
 
@@ -48,6 +49,7 @@ export function TopSafeAreaProvider({
   const { lastError, retryAtMs } = useSyncHealth();
   const syncPaused = (retryAtMs ?? null) !== null;
   const engineInitFailed = useEngineStatus((s) => s.initFailed);
+  const remoteConnected = useRemoteLinkStatus((s) => s.connected > 0);
   const value = useMemo(() => {
     const activeBanner = pickTopBanner({
       startupErrorShown,
@@ -58,6 +60,7 @@ export function TopSafeAreaProvider({
       lastError: lastError ?? null,
       syncPaused,
       engineInitFailed,
+      remoteConnected,
     });
 
     // Sync banner is now an overlay - doesn't affect layout or safe area
@@ -83,6 +86,7 @@ export function TopSafeAreaProvider({
     lastError,
     syncPaused,
     engineInitFailed,
+    remoteConnected,
     insets.top,
   ]);
 

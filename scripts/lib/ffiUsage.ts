@@ -358,6 +358,7 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   // manager on the Rust side, so TypeScript holds the handle and never
   // constructs one. There is no call to find and nothing to wire up.
   'ActivityManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
+  'RemoteManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'BasemapManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'DetectionManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'FitnessManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',

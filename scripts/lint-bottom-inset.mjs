@@ -18,7 +18,7 @@ const OWNERS = new Map([
   // Covers the whole screen, the tab bar included, and keeps its own floor.
   ['src/features/maps/components/SectionCreationOverlay.tsx', 'a full-screen overlay'],
   // A full-screen camera modal above every navigator.
-  ['src/features/settings/components/NextcloudQrScanner.tsx', 'a full-screen modal'],
+  ['src/features/settings/components/QrScanner.tsx', 'a full-screen modal'],
 ]);
 
 const PADDING = /\b(?:paddingBottom\s*:|bottomPadding\s*=)[^,;}\n]*\binsets\.bottom\b/g;

@@ -3008,7 +3008,8 @@
     "camera": "Veloq bruucht d Kamera zum de QR-Code vomene Nextcloud-App-Passwort scanne.",
     "microphone": "Veloq nimmt kei Ton uf. D Kamera wird nur zum QR-Codes scanne bruucht.",
     "faceId": "Veloq bruucht Face ID nöd.",
-    "motion": "Veloq liist kei Bewegigsdate."
+    "motion": "Veloq liist kei Bewegigsdate.",
+    "localNetwork": "Veloq verbindet sich mit emne verchnüpfte Browser im gliiche Netzwerk, zum det dini Aktivitäte aazeige."
   },
   "permissionNotice": {
     "notificationsOff": "Benachrichtigunge sind für Veloq us. Schalt sie i de Iistellige ii.",
@@ -3102,5 +3103,34 @@
       "reverseIm": "Lagen rückwärts",
       "unknown": "Unbekannte Schwimmart"
     }
+  },
+  "experimental": {
+    "previewNote": "Das sind frühe Vorschauen und noch nicht fertig. Wenn du eine davon einschaltest, akzeptierst du, dass ihre Daten bei einem künftigen Update gelöscht werden können."
+  },
+  "remoteLink": {
+    "title": "Verchnüpfti Grät",
+    "intro": "En verchnüpfte Computer cha die Bibliothek im Browser aaluege, solang Veloq uf dem Handy offe isch. Dini Date gönd diräkt vom Handy zum Browser.",
+    "none": "Kei",
+    "linkedCount_one": "{{count}} verchnüpft",
+    "linkedCount_other": "{{count}} verchnüpft",
+    "empty": "No kei Grät verchnüpft.",
+    "link": "Grät verchnüpfe",
+    "lastSeen": "Zletscht verbunde: {{date}}",
+    "neverSeen": "No nöd verbunde",
+    "remove": "Entferne",
+    "removeTitle": "{{name}} entferne?",
+    "removeMessage": "Es cha sich nümme mit dem Handy verbinde. Zum es wieder bruuche, verchnüpf es nomal.",
+    "scanTitle": "Verchnüpfigscode scanne",
+    "scanInstructions": "Mach uf dim Computer veloq.fit/connect uf und scann de Code wo erschiint.",
+    "invalidCode": "Kein gültige Verchnüpfigscode oder abgloffe",
+    "waiting": "Warte uf de Browser…",
+    "confirmTitle": "{{name}} verchnüpfe?",
+    "confirmMessage": "Es cha dini Aktivitäte aaluege, sobald Veloq uf dem Handy offe isch. Du chasch es jederziit i de Iistellige entferne.",
+    "confirm": "Verchnüpfe",
+    "decline": "Ablehne",
+    "expired": "De Browser het sich nöd rächtziitig verbunde. Mach uf de Siite en neue Code und scann en nomal.",
+    "connected_one": "En Browser isch verbunde",
+    "connected_other": "{{count}} Browser sind verbunde",
+    "disconnect": "Trenne"
   }
 }

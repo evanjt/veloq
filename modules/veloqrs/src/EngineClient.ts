@@ -950,7 +950,6 @@ class EngineClient implements DelegateHost {
   getZoneDistribution = (sportType: string, zoneType: string, startTs: number, endTs: number) =>
     fitnessDelegates.getZoneDistribution(this, sportType, zoneType, startTs, endTs);
 
-
   /** The activities that moved the accepted eFTP, oldest first. */
 
   /**

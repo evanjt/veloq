@@ -28,6 +28,7 @@ import { sectionWithSport } from '../lib/cardSport';
 import { markedActivity, sparkline } from '../lib/sparkline';
 import { sectionPairKey } from '../lib/sectionIdentity';
 import { TIME } from '@/shared/app/time';
+import { localWallClockToEpochSeconds, wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import { formatDecimal, formatSignedPercentage } from '@/shared/format';
 import { printedValue } from '../lib/printedValue';
 
@@ -217,7 +218,8 @@ function sheetSection(
   const metric = metricLabelFor(opportunity, t);
   const efforts = opportunity.recentEfforts ?? [];
   const fitness = opportunity.fitnessHistory ?? [];
-  const now = Math.floor(nowMs / 1000);
+  // Effort dates are wall-clock stamps stored as UTC, so the range ends at the wall clock's now.
+  const now = localWallClockToEpochSeconds(new Date(nowMs));
   const prDate = opportunity.prDate ?? efforts[0]?.date ?? now;
   const dates = [prDate, ...efforts.map((p) => p.date), ...fitness.map((p) => p.date)];
   const lastVisit = efforts.at(-1)?.date;
@@ -239,7 +241,7 @@ function sheetSection(
     visited: visitedText(opportunity, t),
     traversalCount: opportunity.traversalCount,
     summary: t('insights.stalePr.sheetSummary', {
-      date: formatFullDate(new Date(prDate * 1000)),
+      date: formatFullDate(wallClockSecondsToLocalDate(prDate)),
       metric,
       previous: fitnessText(opportunity, opportunity.previousValue, isMetric),
       current: fitnessText(opportunity, opportunity.currentValue, isMetric),

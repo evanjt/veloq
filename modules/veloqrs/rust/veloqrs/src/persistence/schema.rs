@@ -10,7 +10,7 @@ use super::{PersistentEngine, codec, sections};
 /// pass and read by the post-migration hooks. `PRAGMA user_version` is the
 /// other record, the one `rusqlite_migration` skips on, and it ends one for
 /// one with the migration list. Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 85;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 86;
 
 /// The migration that drops the cutover archive tables, counted from one. The
 /// open carries their rows into the ledger before it runs.
@@ -319,6 +319,7 @@ impl PersistentEngine {
             include_str!("../migrations/m20261109_173229_coverage_empty.sql"),
             include_str!("../migrations/m20261111_010347_heatmap_hidden_activities.sql"),
             include_str!("../migrations/m20261111_041706_pace_history_window_prune.sql"),
+            include_str!("../migrations/m20261111_120000_linked_devices.sql"),
         ]
     }
 

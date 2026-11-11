@@ -1,27 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { AppState, View, StyleSheet, Text } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  colorWithOpacity,
-  colourTokens,
-  darkColors,
-  iconSize,
-  ink,
-  layout,
-  opacity,
-  spacing,
-  typography,
-  stroke,
-} from '@/theme';
-import { permissionOutcome } from '@/shared/app/permissions';
-import { Button, IconButton, PermissionNotice } from '@/shared/ui';
-import { Icon } from '@/shared/ui/Icon';
 import { parseNextcloudLogin, type NextcloudLogin } from '../lib/autobackup/nextcloudLogin';
-
-/** How long a code that is not a login stays named before the camera reads again. */
-const MISMATCH_PAUSE_MS = 1000;
+import { QrScanner } from './QrScanner';
 
 interface NextcloudQrScannerProps {
   /** Called once, with the first code that reads as a Nextcloud login. */
@@ -37,235 +17,23 @@ export function NextcloudQrScanner({
   onEnterDetails,
 }: NextcloudQrScannerProps) {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
-  const [permission, requestPermission, getPermission] = useCameraPermissions();
-  const [scanned, setScanned] = useState(false);
-  const [mismatch, setMismatch] = useState(false);
-  const [torchOn, setTorchOn] = useState(false);
-  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    },
-    []
-  );
-
-  // A sheet of codes, or a Wi-Fi code beside the login, is read before the one
-  // wanted, so a code that is not a login is named and the camera reads on.
-  const handleCode = (data: string) => {
-    setScanned(true);
+  const read = (data: string) => {
     const login = parseNextcloudLogin(data);
-    if (login) {
-      onScanned(login);
-      return;
-    }
-    setMismatch(true);
-    resumeTimer.current = setTimeout(() => {
-      resumeTimer.current = null;
-      setMismatch(false);
-      setScanned(false);
-    }, MISMATCH_PAUSE_MS);
+    if (login) onScanned(login);
+    return login !== null;
   };
-
-  // Coming back from system settings is where a blocked camera gets allowed,
-  // so the viewfinder opens then rather than on the next visit.
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void getPermission();
-    });
-    return () => sub.remove();
-  }, [getPermission]);
-
-  if (!permission) {
-    return <View style={styles.container} />;
-  }
-
-  const outcome = permissionOutcome(permission);
-  if (outcome !== 'granted') {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        <Icon name="camera-off" size={iconSize.xxl} color={chrome.hint} />
-        <PermissionNotice
-          testID="nextcloud-scanner-camera"
-          outcome={outcome}
-          icon="camera-outline"
-          reason={
-            outcome === 'blocked'
-              ? t('permissionNotice.cameraOff')
-              : t('backup.cameraPermissionNeeded', 'Camera access is required to scan QR codes')
-          }
-          onAllow={() => void requestPermission()}
-        />
-        <Button
-          label={t('backup.enterDetailsInstead')}
-          onPress={onEnterDetails}
-          variant="secondary"
-        />
-        <Button label={t('common.cancel')} onPress={onClose} variant="ghost" />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <CameraView
-        style={StyleSheet.absoluteFill}
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        enableTorch={torchOn}
-        onBarcodeScanned={scanned ? undefined : ({ data }) => handleCode(data)}
-      />
-
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <IconButton accessibilityLabel={t('common.close')} onPress={onClose}>
-          <Icon name="close" size={iconSize.lg} color={chrome.text} />
-        </IconButton>
-        <Text style={styles.headerTitle}>{t('backup.scanQrTitle', 'Scan Nextcloud QR code')}</Text>
-        <IconButton
-          accessibilityLabel={torchOn ? t('backup.torchOff') : t('backup.torchOn')}
-          accessibilityState={{ checked: torchOn }}
-          onPress={() => setTorchOn((on) => !on)}
-        >
-          <Icon
-            name={torchOn ? 'flashlight-off' : 'flashlight'}
-            size={iconSize.lg}
-            color={chrome.text}
-          />
-        </IconButton>
-      </View>
-
-      {/* Instructions */}
-      <View style={[styles.instructions, { paddingBottom: insets.bottom + spacing.lg }]}>
-        <Text style={styles.instructionText}>
-          {t(
-            'backup.scanQrInstructions',
-            'In Nextcloud, go to Settings → Security → Create new app password, then scan the QR code shown.'
-          )}
-        </Text>
-      </View>
-
-      {/* Viewfinder overlay */}
-      <View style={styles.viewfinder}>
-        <View style={[styles.corner, styles.cornerTL]} />
-        <View style={[styles.corner, styles.cornerTR]} />
-        <View style={[styles.corner, styles.cornerBL]} />
-        <View style={[styles.corner, styles.cornerBR]} />
-        {mismatch ? (
-          <View style={styles.mismatch} accessibilityLiveRegion="polite">
-            <Text style={styles.mismatchText} accessibilityRole="alert">
-              {t('backup.invalidQrCode', 'Not a valid Nextcloud QR code')}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-    </View>
+    <QrScanner
+      read={read}
+      title={t('backup.scanQrTitle', 'Scan Nextcloud QR code')}
+      instructions={t(
+        'backup.scanQrInstructions',
+        'In Nextcloud, go to Settings → Security → Create new app password, then scan the QR code shown.'
+      )}
+      mismatch={t('backup.invalidQrCode', 'Not a valid Nextcloud QR code')}
+      onClose={onClose}
+      onEnterDetails={onEnterDetails}
+      testID="nextcloud-scanner-camera"
+    />
   );
 }
-
-const CORNER_SIZE = 24;
-
-// The scanner draws over the camera feed, or over black while the camera is
-// refused or starting, so its chrome is fixed rather than following the theme.
-const chrome = {
-  ground: ink.black,
-  strip: colourTokens.dark.scrim,
-  text: darkColors.textOnFill,
-  hint: colorWithOpacity(darkColors.textOnFill, opacity.pressed),
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: chrome.ground,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-    gap: spacing.md,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    backgroundColor: chrome.strip,
-  },
-  headerTitle: {
-    ...typography.cardTitle,
-    color: chrome.text,
-  },
-  instructions: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: chrome.strip,
-    padding: spacing.lg,
-  },
-  instructionText: {
-    ...typography.bodySmall,
-    color: chrome.text,
-    textAlign: 'center',
-  },
-  mismatch: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    padding: spacing.sm,
-  },
-  mismatchText: {
-    ...typography.bodySmall,
-    color: chrome.text,
-    textAlign: 'center',
-    backgroundColor: chrome.strip,
-    borderRadius: layout.borderRadiusSm,
-    overflow: 'hidden',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  viewfinder: {
-    position: 'absolute',
-    top: '30%',
-    left: '15%',
-    width: '70%',
-    height: '30%',
-  },
-  corner: {
-    position: 'absolute',
-    width: CORNER_SIZE,
-    height: CORNER_SIZE,
-  },
-  cornerTL: {
-    top: 0,
-    left: 0,
-    borderTopWidth: stroke.three,
-    borderLeftWidth: stroke.three,
-    borderColor: chrome.text,
-  },
-  cornerTR: {
-    top: 0,
-    right: 0,
-    borderTopWidth: stroke.three,
-    borderRightWidth: stroke.three,
-    borderColor: chrome.text,
-  },
-  cornerBL: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: stroke.three,
-    borderLeftWidth: stroke.three,
-    borderColor: chrome.text,
-  },
-  cornerBR: {
-    bottom: 0,
-    right: 0,
-    borderBottomWidth: stroke.three,
-    borderRightWidth: stroke.three,
-    borderColor: chrome.text,
-  },
-});

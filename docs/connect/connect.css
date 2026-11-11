@@ -1,0 +1,140 @@
+:root {
+  --primary: #2f6699;
+  --bg: #fafafa;
+  --text: #1a1a1a;
+  --text-muted: #666666;
+  --card: #ffffff;
+  --border: #e0e0e0;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121212;
+    --text: #ffffff;
+    --text-muted: #aaaaaa;
+    --card: #1e1e1e;
+    --border: #333333;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 1100px;
+  padding: 24px 16px;
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+h1 {
+  margin: 0;
+  color: var(--primary);
+}
+
+#status,
+.notice,
+footer {
+  color: var(--text-muted);
+}
+
+section {
+  margin-top: 24px;
+}
+
+#code {
+  display: block;
+  width: 360px;
+  max-width: 100%;
+  image-rendering: pixelated;
+  background: #ffffff;
+  border-radius: 8px;
+}
+
+#library {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+}
+
+@media (max-width: 720px) {
+  #library {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+#feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#feed button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+#feed button[aria-current='true'] {
+  border-color: var(--primary);
+}
+
+#feed .meta {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  margin-top: 4px;
+}
+
+#detail {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+#detail dt {
+  color: var(--text-muted);
+}
+
+#detail dd {
+  margin: 0;
+}
+
+footer {
+  margin-top: 32px;
+  font-size: 0.9em;
+}
+
+footer button {
+  font: inherit;
+  color: var(--primary);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}

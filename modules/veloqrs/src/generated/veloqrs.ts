@@ -14824,6 +14824,71 @@ const FfiConverterTypeFfiInsightsParams = (() => {
   return new FFIConverter();
 })();
 
+/**
+ * A browser linked to this phone.
+ */
+export type FfiLinkedDevice = {
+  id: string;
+  /**
+   * What the browser called itself when it was linked.
+   */
+  name: string;
+  /**
+   * Unix seconds when it was linked.
+   */
+  createdAt: number;
+  /**
+   * Unix seconds of its last connection, none before the first.
+   */
+  lastSeenAt?: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkedDevice} record objects.
+ */
+export const FfiLinkedDevice = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkedDevice, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkedDevice>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkedDevice = (() => {
+  type TypeName = FfiLinkedDevice;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        createdAt: FfiConverterFloat64.readFromCursor(c),
+        lastSeenAt: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterFloat64.writeIntoCursor(value.createdAt, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.lastSeenAt, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterFloat64.allocationSize(value.createdAt) +
+        FfiConverterOptionalFloat64.allocationSize(value.lastSeenAt)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
 export type FfiMapCategoryCount = {
   family: FfiSportFamily;
   count: number;
@@ -34518,6 +34583,381 @@ const FfiConverterTypeRecordingManager = new FfiConverterObject(
   uniffiTypeRecordingManagerObjectFactory,
 );
 
+export interface RemoteManagerLike {
+  /**
+   * Answer a linked browser's connection offer and serve its requests.
+   * Refused for a browser that is not linked. Returns the answer, as the
+   * JSON the browser sets as its remote description.
+   */
+  acceptOffer(offer: string) /*throws*/ : string;
+  /**
+   * Open a pairing from the QR code a browser shows. Returns the room the
+   * browser waits in. Refused for a code that is malformed, expired or
+   * already used.
+   */
+  beginPairing(qr: string) /*throws*/ : string;
+  /**
+   * Close the open pairing, ending its connection if it was not linked.
+   */
+  cancelPairing(): void;
+  /**
+   * The athlete's answer to the pairing prompt. Accepting links the
+   * browser; declining ends its connection. Returns whether one was linked.
+   */
+  confirmPairing(accept: boolean) /*throws*/ : boolean;
+  /**
+   * How many linked browsers are connected now, for the connected badge.
+   */
+  connectedCount(): number;
+  /**
+   * End every linked browser's connection.
+   */
+  disconnectAll(): void;
+  /**
+   * The relay rooms the phone waits in while open, one for each linked
+   * browser. Empty when none is linked, so the app never reaches the relay.
+   */
+  linkedRooms() /*throws*/ : Array<string>;
+  /**
+   * Every linked browser, most recently linked first.
+   */
+  listLinkedDevices() /*throws*/ : Array<FfiLinkedDevice>;
+  /**
+   * The name a proved browser gave itself, while it waits for the athlete
+   * to accept or decline it. None when nothing is waiting.
+   */
+  pairingRequest(): string | undefined;
+  /**
+   * Unlink a browser so it can never reconnect, and end its connection
+   * if it has one. Written on the connection no engine lock stands in
+   * front of: an unlink is a tap, and must not wait behind a sync batch.
+   * Returns whether one was removed.
+   */
+  removeLinkedDevice(id: string) /*throws*/ : boolean;
+}
+/**
+ * @deprecated Use `RemoteManagerLike` instead.
+ */
+export type RemoteManagerInterface = RemoteManagerLike;
+
+export class RemoteManager
+  extends UniffiAbstractObject
+  implements RemoteManagerLike
+{
+  readonly [uniffiTypeNameSymbol] = "RemoteManager";
+  readonly [destructorGuardSymbol]: UniffiGcObject;
+  readonly [pointerLiteralSymbol]: UniffiHandle;
+  constructor() {
+    super();
+    const pointer = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_remotemanager_new(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeRemoteManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Answer a linked browser's connection offer and serve its requests.
+   * Refused for a browser that is not linked. Returns the answer, as the
+   * JSON the browser sets as its remote description.
+   */
+  acceptOffer(offer: string): string /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_remotemanager_accept_offer(
+          uniffiTypeRemoteManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(offer, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterString.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * Open a pairing from the QR code a browser shows. Returns the room the
+   * browser waits in. Refused for a code that is malformed, expired or
+   * already used.
+   */
+  beginPairing(qr: string): string /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_remotemanager_begin_pairing(
+          uniffiTypeRemoteManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(qr, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterString.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * Close the open pairing, ending its connection if it was not linked.
+   */
+  cancelPairing(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_remotemanager_cancel_pairing(
+          uniffiTypeRemoteManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  /**
+   * The athlete's answer to the pairing prompt. Accepting links the
+   * browser; declining ends its connection. Returns whether one was linked.
+   */
+  confirmPairing(accept: boolean): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_remotemanager_confirm_pairing(
+            uniffiTypeRemoteManagerObjectFactory.clonePointer(this),
+            FfiConverterBool.lower(accept, nativeModule().rustbuffer_alloc),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
+  }
+
+  /**
+   * How many linked browsers are connected now, for the connected badge.
+   */
+  connectedCount(): number {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_remotemanager_connected_count(
+            uniffiTypeRemoteManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
+  }
+
+  /**
+   * End every linked browser's connection.
+   */
+  disconnectAll(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_remotemanager_disconnect_all(
+          uniffiTypeRemoteManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  /**
+   * The relay rooms the phone waits in while open, one for each linked
+   * browser. Empty when none is linked, so the app never reaches the relay.
+   */
+  linkedRooms(): Array<string> /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_remotemanager_linked_rooms(
+          uniffiTypeRemoteManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterSequenceString.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * Every linked browser, most recently linked first.
+   */
+  listLinkedDevices(): Array<FfiLinkedDevice> /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_remotemanager_list_linked_devices(
+          uniffiTypeRemoteManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterSequenceTypeFfiLinkedDevice.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The name a proved browser gave itself, while it waits for the athlete
+   * to accept or decline it. None when nothing is waiting.
+   */
+  pairingRequest(): string | undefined {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_remotemanager_pairing_request(
+          uniffiTypeRemoteManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterOptionalString.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * Unlink a browser so it can never reconnect, and end its connection
+   * if it has one. Written on the connection no engine lock stands in
+   * front of: an unlink is a tap, and must not wait behind a sync batch.
+   * Returns whether one was removed.
+   */
+  removeLinkedDevice(id: string): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_remotemanager_remove_linked_device(
+            uniffiTypeRemoteManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(id, nativeModule().rustbuffer_alloc),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
+  }
+
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer = uniffiTypeRemoteManagerObjectFactory.pointer(this);
+      uniffiTypeRemoteManagerObjectFactory.freePointer(pointer);
+      uniffiTypeRemoteManagerObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj_: any): obj_ is RemoteManager {
+    return uniffiTypeRemoteManagerObjectFactory.isConcreteType(obj_);
+  }
+}
+
+const uniffiTypeRemoteManagerObjectFactory: UniffiObjectFactory<RemoteManagerLike> =
+  (() => {
+    return {
+      create(pointer: UniffiHandle): RemoteManagerLike {
+        const instance = Object.create(RemoteManager.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "RemoteManager";
+        return instance;
+      },
+
+      bless(p: UniffiHandle): UniffiGcObject {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_remotemanager_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr_: UniffiGcObject) {
+        ptr_.markDestroyed();
+      },
+
+      pointer(obj_: RemoteManagerLike): UniffiHandle {
+        if ((obj_ as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj_ as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj_: RemoteManagerLike): UniffiHandle {
+        const pointer = this.pointer(obj_);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_clone_remotemanager(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UniffiHandle): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_free_remotemanager(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj_: any): obj_ is RemoteManagerLike {
+        return (
+          obj_[destructorGuardSymbol] &&
+          obj_[uniffiTypeNameSymbol] === "RemoteManager"
+        );
+      },
+    };
+  })();
+const FfiConverterTypeRemoteManager = new FfiConverterObject(
+  uniffiTypeRemoteManagerObjectFactory,
+);
+
 /**
  * What the grouping knob would do, before it is applied.
  *
@@ -39688,6 +40128,7 @@ export interface VeloqEngineLike {
     hard: boolean,
     asyncOpts_?: { signal: AbortSignal },
   ): Promise<void>;
+  remote(): RemoteManagerLike;
   /**
    * Apply record JSON off the JS thread, including converted legacy records.
    */
@@ -40396,6 +40837,20 @@ export class VeloqEngine
       }
       throw __error;
     }
+  }
+
+  remote(): RemoteManagerLike {
+    return FfiConverterTypeRemoteManager.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_remote(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
   }
 
   /**
@@ -41990,6 +42445,11 @@ const FfiConverterSequenceTypeFfiRecordingEntry = new FfiConverterArray(
   FfiConverterTypeFfiRecordingEntry,
 );
 
+// FfiConverter for Array<FfiLinkedDevice>
+const FfiConverterSequenceTypeFfiLinkedDevice = new FfiConverterArray(
+  FfiConverterTypeFfiLinkedDevice,
+);
+
 // FfiConverter for Array<FfiNearbyRoute>
 const FfiConverterSequenceTypeFfiNearbyRoute = new FfiConverterArray(
   FfiConverterTypeFfiNearbyRoute,
@@ -43294,6 +43754,94 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_remotemanager_new() !==
+    45091
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_constructor_remotemanager_new",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_remotemanager_accept_offer() !==
+    30071
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_remotemanager_accept_offer",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_remotemanager_begin_pairing() !==
+    34760
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_remotemanager_begin_pairing",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_remotemanager_cancel_pairing() !==
+    23165
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_remotemanager_cancel_pairing",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_remotemanager_confirm_pairing() !==
+    40933
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_remotemanager_confirm_pairing",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_remotemanager_connected_count() !==
+    30077
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_remotemanager_connected_count",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_remotemanager_disconnect_all() !==
+    18326
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_remotemanager_disconnect_all",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_remotemanager_linked_rooms() !==
+    55733
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_remotemanager_linked_rooms",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_remotemanager_list_linked_devices() !==
+    19654
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_remotemanager_list_linked_devices",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_remotemanager_pairing_request() !==
+    11920
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_remotemanager_pairing_request",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_remotemanager_remove_linked_device() !==
+    10496
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_remotemanager_remove_linked_device",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_routegroupingpreview_new() !==
     36096
   ) {
@@ -44470,6 +45018,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_remote() !==
+    24556
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_remote",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_restore_record_json() !==
     56949
   ) {
@@ -44731,6 +45287,7 @@ export default Object.freeze({
     FfiConverterTypeFfiLapDelta,
     FfiConverterTypeFfiLapDeltaMissing,
     FfiConverterTypeFfiLapDeltaMissingReason,
+    FfiConverterTypeFfiLinkedDevice,
     FfiConverterTypeFfiLoadDot,
     FfiConverterTypeFfiLoadMetric,
     FfiConverterTypeFfiMapCategoryCount,
@@ -44918,6 +45475,7 @@ export default Object.freeze({
     FfiConverterTypeRecordScope,
     FfiConverterTypeRecordShortcut,
     FfiConverterTypeRecordingManager,
+    FfiConverterTypeRemoteManager,
     FfiConverterTypeRouteGroupingPreview,
     FfiConverterTypeRouteManager,
     FfiConverterTypeRunOutcome,

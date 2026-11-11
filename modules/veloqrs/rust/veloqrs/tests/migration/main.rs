@@ -30,6 +30,9 @@ mod migration_from_released_v12;
 #[path = "../migration_route_numbers.rs"]
 mod migration_route_numbers;
 
+#[path = "../migration_linked_devices.rs"]
+mod migration_linked_devices;
+
 #[path = "../migration_pre_upgrade_copy.rs"]
 mod migration_pre_upgrade_copy;
 

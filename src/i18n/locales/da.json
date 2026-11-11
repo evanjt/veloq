@@ -3142,7 +3142,8 @@
     "camera": "Veloq bruger kameraet til at scanne QR-koden for en Nextcloud-appadgangskode.",
     "microphone": "Veloq optager ikke lyd. Kameraet bruges kun til at scanne QR-koder.",
     "faceId": "Veloq bruger ikke Face ID.",
-    "motion": "Veloq læser ikke bevægelsesdata."
+    "motion": "Veloq læser ikke bevægelsesdata.",
+    "localNetwork": "Veloq forbinder til en tilknyttet browser på samme netværk for at vise dine aktiviteter der."
   },
   "permissionNotice": {
     "notificationsOff": "Notifikationer er slået fra for Veloq. Slå dem til i Indstillinger.",
@@ -3239,6 +3240,7 @@
   },
   "experimental": {
     "title": "Eksperimentelle funktioner",
+    "previewNote": "Dette er tidlige forhåndsvisninger, som ikke er færdige. Når du slår en af dem til, accepterer du, at dens data kan blive ryddet ved en fremtidig opdatering.",
     "open": "Åbn",
     "noExample": "Intet i dit bibliotek viser det endnu.",
     "efficiencyTrends": {
@@ -3256,6 +3258,36 @@
     "climbingBests": {
       "title": "Bedste stigninger",
       "blurb": "Din hurtigste stigningshastighed for hvert tidsvindue, fra 15 sekunder til 20 minutter, i meter i timen (VAM) og som W/kg, den effekt der skal til for at løfte din egen kropsvægt alene. Veloq beregner det på din telefon ud fra intervals.icu's højdedata. intervals.icu leverer ikke selv bedste stigninger. Kun aktiviteter med korrigeret højde tæller."
+    },
+    "remoteLink": {
+      "title": "Tilknyttede enheder",
+      "blurb": "Gennemse telefonens aktiviteter i browseren på en computer på samme wi-fi, mens Veloq er åben. Tilknyt browseren ved at scanne en kode, og administrer den under Indstillinger. Dine data går direkte fra telefonen til browseren."
     }
+  },
+  "remoteLink": {
+    "title": "Tilknyttede enheder",
+    "intro": "En tilknyttet computer kan gennemse dette bibliotek i sin browser, mens Veloq er åben på denne telefon. Dine data går direkte fra telefonen til browseren.",
+    "none": "Ingen",
+    "linkedCount_one": "{{count}} tilknyttet",
+    "linkedCount_other": "{{count}} tilknyttet",
+    "empty": "Ingen enheder tilknyttet endnu.",
+    "link": "Tilknyt en enhed",
+    "lastSeen": "Sidst forbundet {{date}}",
+    "neverSeen": "Ikke forbundet endnu",
+    "remove": "Fjern",
+    "removeTitle": "Fjern {{name}}?",
+    "removeMessage": "Den kan ikke længere forbinde til denne telefon. Tilknyt den igen for at bruge den igen.",
+    "scanTitle": "Scan tilknytningskode",
+    "scanInstructions": "Åbn veloq.fit/connect på din computer, og scan den viste kode.",
+    "invalidCode": "Ikke en gyldig tilknytningskode, eller den er udløbet",
+    "waiting": "Venter på browseren…",
+    "confirmTitle": "Tilknyt {{name}}?",
+    "confirmMessage": "Den kan gennemse dine aktiviteter, når Veloq er åben på denne telefon. Du kan altid fjerne den under Indstillinger.",
+    "confirm": "Tilknyt",
+    "decline": "Afvis",
+    "expired": "Browseren forbandt ikke i tide. Lav en ny kode på siden, og scan den igen.",
+    "connected_one": "En browser er forbundet",
+    "connected_other": "{{count}} browsere er forbundet",
+    "disconnect": "Afbryd"
   }
 }

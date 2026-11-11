@@ -3142,7 +3142,8 @@
     "camera": "Veloq uses the camera to scan the QR code of a Nextcloud app password.",
     "microphone": "Veloq does not record sound. The camera is used only to scan QR codes.",
     "faceId": "Veloq does not use Face ID.",
-    "motion": "Veloq does not read motion data."
+    "motion": "Veloq does not read motion data.",
+    "localNetwork": "Veloq connects to a browser you have linked on the same network, so it can show your activities there."
   },
   "permissionNotice": {
     "notificationsOff": "Notifications are off for Veloq. Turn them on in Settings.",
@@ -3239,6 +3240,7 @@
   },
   "experimental": {
     "title": "Experimental features",
+    "previewNote": "These are early previews and aren't finished. By turning one on, you accept that its data may be cleared in a future update.",
     "open": "Open",
     "noExample": "Nothing in your library shows this yet.",
     "efficiencyTrends": {
@@ -3256,6 +3258,36 @@
     "climbingBests": {
       "title": "Climbing bests",
       "blurb": "Your fastest climb rate for each window, from 15 seconds to 20 minutes, in metres per hour (VAM) and as W/kg, the power needed to lift your body weight alone. Veloq calculates this on your phone from intervals.icu's elevation data. intervals.icu does not provide climbing bests itself. Only activities with corrected elevation count."
+    },
+    "remoteLink": {
+      "title": "Linked devices",
+      "blurb": "Browse this phone's activities in a web browser on a computer on the same Wi-Fi, while Veloq is open. Pair the browser by scanning a code, then manage it under Settings. Your data goes straight from the phone to the browser."
     }
+  },
+  "remoteLink": {
+    "title": "Linked devices",
+    "intro": "A linked computer can browse this library in its web browser while Veloq is open on this phone. Your data goes straight from the phone to the browser.",
+    "none": "None",
+    "linkedCount_one": "{{count}} linked",
+    "linkedCount_other": "{{count}} linked",
+    "empty": "No devices linked yet.",
+    "link": "Link a device",
+    "lastSeen": "Last connected {{date}}",
+    "neverSeen": "Not connected yet",
+    "remove": "Remove",
+    "removeTitle": "Remove {{name}}?",
+    "removeMessage": "It can no longer connect to this phone. To use it again, link it again.",
+    "scanTitle": "Scan link code",
+    "scanInstructions": "On your computer, open veloq.fit/connect and scan the code it shows.",
+    "invalidCode": "Not a valid link code, or it has expired",
+    "waiting": "Waiting for the browser…",
+    "confirmTitle": "Link {{name}}?",
+    "confirmMessage": "It can browse your activities whenever Veloq is open on this phone. You can remove it in Settings at any time.",
+    "confirm": "Link",
+    "decline": "Decline",
+    "expired": "The browser didn't connect in time. Make a new code on the page and scan it again.",
+    "connected_one": "A browser is connected",
+    "connected_other": "{{count}} browsers are connected",
+    "disconnect": "Disconnect"
   }
 }

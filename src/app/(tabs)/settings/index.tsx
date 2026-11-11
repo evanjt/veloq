@@ -44,6 +44,7 @@ import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
 import { useThemePreferenceStore } from '@/shared/app/ThemeProvider';
 import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { navigateTo } from '@/shared/app/navigation';
+import { useRemoteLinkStatus } from '@/shared/app/remoteLinkStatus';
 import { useOpenHistoryRangeFromLink } from '@/shared/app/historyRange';
 import { SCREEN_HEADERS, headerTitleOf } from '@/shared/app/screenHeaders';
 import { formatFileSize, getIntlLocale } from '@/shared/format/format';
@@ -249,6 +250,12 @@ function SettingsScreenContent() {
       ? new Date(lastBackupTimestamp).toLocaleDateString(getIntlLocale())
       : t('backup.lastBackupNever');
 
+  // Linked devices is experimental, so its row shows only while its switch is on.
+  const remoteLinkOn = useExperimental('remoteLink');
+  const linkedCount = useRemoteLinkStatus((s) => s.linked);
+  const linkedSubtitle =
+    linkedCount === 0 ? t('remoteLink.none') : t('remoteLink.linkedCount', { count: linkedCount });
+
   // Subtitle: Cache
   const [totalCacheSize, setTotalCacheSize] = useState(0);
   useEffect(() => {
@@ -354,6 +361,14 @@ function SettingsScreenContent() {
               subtitle={lastBackupText}
               testID="settings-nav-backup"
             />
+            {remoteLinkOn ? (
+              <SpokeRow
+                route="linked-devices"
+                icon="laptop"
+                subtitle={linkedSubtitle}
+                testID="settings-nav-linked-devices"
+              />
+            ) : null}
             <SpokeRow
               route="cache-settings"
               icon="database-outline"

@@ -563,6 +563,10 @@ impl VeloqEngine {
         Arc::new(super::recordings::RecordingManager { _private: () })
     }
 
+    fn remote(&self) -> Arc<super::remote::RemoteManager> {
+        Arc::new(super::remote::RemoteManager { _private: () })
+    }
+
     fn sync(&self) -> Arc<super::sync::SyncManager> {
         Arc::new(super::sync::SyncManager { _private: () })
     }

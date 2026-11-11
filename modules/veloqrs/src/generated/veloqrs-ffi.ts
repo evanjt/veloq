@@ -235,6 +235,14 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_clone_remotemanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_remotemanager(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_clone_routegroupingpreview(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1018,6 +1026,53 @@ interface NativeModuleInterface {
     filesRoot: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_remotemanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_accept_offer(
+    uniffiSelf: bigint,
+    offer: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_begin_pairing(
+    uniffiSelf: bigint,
+    qr: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_cancel_pairing(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_confirm_pairing(
+    uniffiSelf: bigint,
+    accept: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_connected_count(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_disconnect_all(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_linked_rooms(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_list_linked_devices(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_pairing_request(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_remove_linked_device(
+    uniffiSelf: bigint,
+    id: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_constructor_routegroupingpreview_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
@@ -1741,6 +1796,10 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     hard: number,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_remote(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_restore_record_json(
     uniffiSelf: bigint,
     json: Uint8Array,
@@ -1954,6 +2013,17 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_unuploaded_visible_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_upload_recording(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_wake_upload_schedule(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_remotemanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_accept_offer(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_begin_pairing(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_cancel_pairing(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_confirm_pairing(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_connected_count(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_disconnect_all(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_linked_rooms(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_list_linked_devices(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_pairing_request(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_remove_linked_device(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_routegroupingpreview_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_run(): number;
@@ -2101,6 +2171,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_recordings(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_release_memory(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_remote(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_restore_record_json(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_restore_record_zip(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_routes(): number;
@@ -2149,6 +2220,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_recordingmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiGcObject;
+  ubrn_uniffi_internal_fn_method_remotemanager_ffi__bless_pointer(
     pointer: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiGcObject;

@@ -86,6 +86,7 @@ const OBJECT_SOURCE_FILES: Record<string, string> = {
   BasemapManager: 'basemap.rs',
   SyncManager: 'sync.rs',
   RecordingManager: 'recordings.rs',
+  RemoteManager: 'remote.rs',
   RouteGroupingPreview: 'preview.rs',
   SectionPreview: 'preview.rs',
 };

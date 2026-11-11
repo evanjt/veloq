@@ -31,7 +31,9 @@
 //!   costs this library its id stability, so a same-device salvage copies it
 //!   like a record. An id names nothing in another library, so a backup does
 //!   not carry it, and a restored library rebuilds its own from the sections
-//!   it places.
+//!   it places. The browsers linked to the library are held the same way:
+//!   trust given to this library, salvaged on the device, gone with a
+//!   sign-out, never in a backup.
 //! - `Meta` is the store's own version and configuration.
 //! - `Device` is what this handset holds and no account does: rows naming
 //!   files on its own filesystem. It is the athlete's own, like `Record`, but
@@ -284,6 +286,17 @@ static TABLES: &[Table] = &[
         "route_line_layer",
         Derived,
         "every route's line encoded for the map, rebuilt by every group write",
+    ),
+    t(
+        "linked_devices",
+        Identity,
+        "browsers trusted to read this library, pinned by their certificates; a sign-out \
+         unlinks them and a backup never carries them",
+    ),
+    t(
+        "remote_identity",
+        Device,
+        "this phone's own certificate, which linked browsers pinned",
     ),
     t(
         "recordings",

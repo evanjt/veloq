@@ -38,6 +38,8 @@ const ALLOWLIST = {
     'its File and Directory classes extend classes the native module defines, which are undefined outside a native runtime',
   '@react-native-async-storage/async-storage':
     'reads its native module on import, and the package ships a complete Jest mock',
+  'cloudflare:workers':
+    'a Workers runtime module that resolves only inside workerd, so Jest has no actual module to spread',
 };
 
 const SHARED = /(^|\/)__shared__\//;

@@ -2697,7 +2697,8 @@ impl PersistentEngine {
              DELETE FROM section_list_counts;
              DELETE FROM retired_ground_lines;
              DELETE FROM retired_ground_pairs;
-             DELETE FROM route_group_sizes;",
+             DELETE FROM route_group_sizes;
+             DELETE FROM linked_devices;",
         )?;
 
         // Settings survive `clear()` on purpose, but detector, owner and record

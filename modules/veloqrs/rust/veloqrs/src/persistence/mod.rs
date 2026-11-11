@@ -86,6 +86,7 @@ pub use export::{
 pub(crate) mod fitness;
 pub(crate) mod indicators;
 pub mod job_runs;
+pub mod linked_devices;
 pub mod memory;
 pub mod open_run;
 pub(crate) use memory::release_connection_memory;

@@ -3446,7 +3446,8 @@
     "camera": "Veloq używa aparatu do skanowania kodu QR hasła aplikacji Nextcloud.",
     "microphone": "Veloq nie nagrywa dźwięku. Aparat służy wyłącznie do skanowania kodów QR.",
     "faceId": "Veloq nie korzysta z Face ID.",
-    "motion": "Veloq nie odczytuje danych o ruchu."
+    "motion": "Veloq nie odczytuje danych o ruchu.",
+    "localNetwork": "Veloq łączy się z połączoną przeglądarką w tej samej sieci, aby pokazać w niej Twoje aktywności."
   },
   "permissionNotice": {
     "notificationsOff": "Powiadomienia są wyłączone dla Veloq. Włącz je w Ustawieniach.",
@@ -3547,6 +3548,7 @@
   },
   "experimental": {
     "title": "Funkcje eksperymentalne",
+    "previewNote": "To wczesne podglądy, które nie są jeszcze gotowe. Włączając jedną z nich, akceptujesz, że jej dane mogą zostać usunięte w przyszłej aktualizacji.",
     "open": "Otwórz",
     "noExample": "Nic w Twojej bibliotece jeszcze tego nie pokazuje.",
     "efficiencyTrends": {
@@ -3564,6 +3566,40 @@
     "climbingBests": {
       "title": "Najlepsze wyniki na podjazdach",
       "blurb": "Twoja najszybsza prędkość wspinaczki w każdym przedziale, od 15 sekund do 20 minut, w metrach na godzinę (VAM) i jako W/kg, moc potrzebna do uniesienia samego ciężaru ciała. Veloq oblicza to na Twoim telefonie na podstawie danych o wysokości z intervals.icu. intervals.icu samo nie udostępnia najlepszych wyników wspinaczki. Liczą się tylko aktywności ze skorygowaną wysokością."
+    },
+    "remoteLink": {
+      "title": "Połączone urządzenia",
+      "blurb": "Przeglądaj aktywności z tego telefonu w przeglądarce komputera w tej samej sieci Wi-Fi, gdy Veloq jest otwarty. Połącz przeglądarkę, skanując kod, i zarządzaj nią w Ustawieniach. Twoje dane trafiają prosto z telefonu do przeglądarki."
     }
+  },
+  "remoteLink": {
+    "title": "Połączone urządzenia",
+    "intro": "Połączony komputer może przeglądać tę bibliotekę w przeglądarce, gdy Veloq jest otwarty na tym telefonie. Twoje dane trafiają prosto z telefonu do przeglądarki.",
+    "none": "Brak",
+    "linkedCount_one": "{{count}} połączone",
+    "linkedCount_few": "{{count}} połączone",
+    "linkedCount_many": "{{count}} połączonych",
+    "linkedCount_other": "{{count}} połączonych",
+    "empty": "Brak połączonych urządzeń.",
+    "link": "Połącz urządzenie",
+    "lastSeen": "Ostatnie połączenie: {{date}}",
+    "neverSeen": "Jeszcze nie połączono",
+    "remove": "Usuń",
+    "removeTitle": "Usunąć {{name}}?",
+    "removeMessage": "Nie będzie mogło już łączyć się z tym telefonem. Aby znów go używać, połącz je ponownie.",
+    "scanTitle": "Zeskanuj kod połączenia",
+    "scanInstructions": "Na komputerze otwórz veloq.fit/connect i zeskanuj wyświetlony kod.",
+    "invalidCode": "Nieprawidłowy lub wygasły kod połączenia",
+    "waiting": "Czekam na przeglądarkę…",
+    "confirmTitle": "Połączyć {{name}}?",
+    "confirmMessage": "Będzie mogło przeglądać Twoje aktywności, gdy Veloq jest otwarty na tym telefonie. W każdej chwili możesz je usunąć w Ustawieniach.",
+    "confirm": "Połącz",
+    "decline": "Odrzuć",
+    "expired": "Przeglądarka nie połączyła się na czas. Utwórz nowy kod na stronie i zeskanuj go ponownie.",
+    "connected_one": "Połączona jest przeglądarka",
+    "connected_few": "Połączone są {{count}} przeglądarki",
+    "connected_many": "Połączonych jest {{count}} przeglądarek",
+    "connected_other": "Połączonych jest {{count}} przeglądarek",
+    "disconnect": "Rozłącz"
   }
 }

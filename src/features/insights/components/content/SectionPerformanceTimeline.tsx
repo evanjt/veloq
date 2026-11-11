@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { formatDuration, safeGetTime } from '@/shared/format/format';
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import { spacing, opacity, ink, layout, colorWithOpacity, themePalette } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { SectionPerformanceRecord } from '@/features/routes';
@@ -49,7 +50,11 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
   }, [records, bests]);
 
   const samples = useMemo(
-    () => sorted.map((e) => ({ value: e.time, date: safeGetTime(e.record.activityDate) / 1000 })),
+    () =>
+      sorted.map((e) => ({
+        value: e.time,
+        date: localWallClockToEpochSeconds(e.record.activityDate),
+      })),
     [sorted]
   );
 

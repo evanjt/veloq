@@ -13,7 +13,8 @@
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 /// The fault a sync last met readying one activity.
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 #[uniffi(name = "FfiActivitySyncFailure")]
 pub struct ActivitySyncFailure {
     /// What went wrong, as the engine words it.

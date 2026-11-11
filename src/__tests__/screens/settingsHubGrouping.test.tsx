@@ -19,7 +19,7 @@ import { spacing } from '@/theme';
 
 const mockNavigateTo = jest.fn();
 let mockGarminState: 'connected' | 'keyNeeded' | 'off' | null = null;
-let mockGarminExperimental = true;
+let mockExperimental: Record<string, boolean> = {};
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
   navigateTo: (...a: unknown[]) => mockNavigateTo(...a),
@@ -70,7 +70,7 @@ jest.mock('@/features/settings', () => ({
   ).useNotificationPreferences,
   useLastBackupTimestamp: () => null,
   useGarminConnectorState: () => mockGarminState,
-  useExperimental: () => mockGarminExperimental,
+  useExperimental: (key: string) => mockExperimental[key] === true,
   useAutoBackupEnabled: () => true,
   BackgroundJobsHeaderItem: jest.requireActual(
     '@/features/settings/components/BackgroundJobsHeaderItem'
@@ -128,7 +128,7 @@ function inRenderOrder(tree: unknown): string[] {
 describe('Settings hub grouping', () => {
   beforeEach(() => {
     mockGarminState = null;
-    mockGarminExperimental = true;
+    mockExperimental = { garminUpdate: true };
   });
 
   it('has no Data sources row; the connected accounts live with the account card', async () => {
@@ -153,7 +153,7 @@ describe('Settings hub grouping', () => {
 
   it('names only the sign-in while the Garmin experimental switch is off', async () => {
     mockGarminState = 'connected';
-    mockGarminExperimental = false;
+    mockExperimental = {};
     useAuthStore.setState({ authMethod: 'oauth' });
     const screen = await render(<SettingsScreen />);
     const texts = screen.getByTestId('settings-account-row').findAllByType(Text);
@@ -186,6 +186,21 @@ describe('Settings hub grouping', () => {
       'settings-group-keeps',
       'settings-nav-detection',
       'settings-nav-backup',
+      'settings-nav-cache',
+    ]);
+  });
+
+  it('lists linked devices under Library & backup only while its switch is on', async () => {
+    const off = await render(<SettingsScreen />);
+    expect(off.queryByTestId('settings-nav-linked-devices')).toBeNull();
+    await off.unmount();
+
+    mockExperimental = { garminUpdate: true, remoteLink: true };
+    const on = await render(<SettingsScreen />);
+    expect(inRenderOrder(on.toJSON()).slice(-4)).toEqual([
+      'settings-nav-detection',
+      'settings-nav-backup',
+      'settings-nav-linked-devices',
       'settings-nav-cache',
     ]);
   });

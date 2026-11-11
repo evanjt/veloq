@@ -3142,7 +3142,8 @@
     "camera": "Veloq gebruikt de camera om de QR-code van een Nextcloud-app-wachtwoord te scannen.",
     "microphone": "Veloq neemt geen geluid op. De camera wordt alleen gebruikt om QR-codes te scannen.",
     "faceId": "Veloq gebruikt Face ID niet.",
-    "motion": "Veloq leest geen bewegingsgegevens."
+    "motion": "Veloq leest geen bewegingsgegevens.",
+    "localNetwork": "Veloq maakt verbinding met een gekoppelde browser op hetzelfde netwerk om daar je activiteiten te tonen."
   },
   "permissionNotice": {
     "notificationsOff": "Meldingen staan uit voor Veloq. Zet ze aan in Instellingen.",
@@ -3239,6 +3240,7 @@
   },
   "experimental": {
     "title": "Experimentele functies",
+    "previewNote": "Dit zijn vroege previews die nog niet af zijn. Door er een aan te zetten, accepteer je dat de gegevens ervan bij een toekomstige update gewist kunnen worden.",
     "open": "Openen",
     "noExample": "Niets in je bibliotheek laat dit al zien.",
     "efficiencyTrends": {
@@ -3256,6 +3258,36 @@
     "climbingBests": {
       "title": "Beste klimprestaties",
       "blurb": "Je snelste klimsnelheid per tijdvenster, van 15 seconden tot 20 minuten, in meter per uur (VAM) en als W/kg, het vermogen dat nodig is om alleen je lichaamsgewicht te tillen. Veloq berekent dit op je telefoon uit de hoogtegegevens van intervals.icu. intervals.icu levert zelf geen beste klimprestaties. Alleen activiteiten met gecorrigeerde hoogte tellen mee."
+    },
+    "remoteLink": {
+      "title": "Gekoppelde apparaten",
+      "blurb": "Bekijk de activiteiten van deze telefoon in de browser van een computer op hetzelfde wifi-netwerk, zolang Veloq open is. Koppel de browser door een code te scannen en beheer hem in Instellingen. Je gegevens gaan rechtstreeks van de telefoon naar de browser."
     }
+  },
+  "remoteLink": {
+    "title": "Gekoppelde apparaten",
+    "intro": "Een gekoppelde computer kan deze bibliotheek in de browser bekijken zolang Veloq op deze telefoon open is. Je gegevens gaan rechtstreeks van de telefoon naar de browser.",
+    "none": "Geen",
+    "linkedCount_one": "{{count}} gekoppeld",
+    "linkedCount_other": "{{count}} gekoppeld",
+    "empty": "Nog geen apparaten gekoppeld.",
+    "link": "Apparaat koppelen",
+    "lastSeen": "Laatst verbonden: {{date}}",
+    "neverSeen": "Nog niet verbonden",
+    "remove": "Verwijderen",
+    "removeTitle": "{{name}} verwijderen?",
+    "removeMessage": "Het kan geen verbinding meer maken met deze telefoon. Koppel het opnieuw om het weer te gebruiken.",
+    "scanTitle": "Koppelcode scannen",
+    "scanInstructions": "Open op je computer veloq.fit/connect en scan de code die verschijnt.",
+    "invalidCode": "Geen geldige koppelcode, of verlopen",
+    "waiting": "Wachten op de browser…",
+    "confirmTitle": "{{name}} koppelen?",
+    "confirmMessage": "Het kan je activiteiten bekijken wanneer Veloq op deze telefoon open is. Je kunt het altijd verwijderen in Instellingen.",
+    "confirm": "Koppelen",
+    "decline": "Weigeren",
+    "expired": "De browser maakte niet op tijd verbinding. Maak een nieuwe code op de pagina en scan die opnieuw.",
+    "connected_one": "Er is een browser verbonden",
+    "connected_other": "Er zijn {{count}} browsers verbonden",
+    "disconnect": "Verbinding verbreken"
   }
 }

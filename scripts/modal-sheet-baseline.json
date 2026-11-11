@@ -4,6 +4,7 @@
   "src/features/maps/components/ActivityMapView.tsx": "full-screen takeover: the map fills the screen",
   "src/features/routes/components/RouteMapView.tsx": "full-screen takeover: the map fills the screen",
   "src/features/routes/components/SectionMapView.tsx": "full-screen takeover: the map fills the screen",
+  "src/features/settings/components/LinkedDevices.tsx": "full-screen takeover: the QR camera",
   "src/features/settings/components/WebdavConfigForm.tsx": "full-screen takeover: the QR camera",
   "src/features/settings/components/whatsNew/WhatsNewModal.tsx": "centred tour card over every screen, opened by the store on launch rather than by a route, not a sheet"
 }

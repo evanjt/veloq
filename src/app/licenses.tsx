@@ -287,6 +287,22 @@ const LICENSE_DATA: LicenseSection[] = [
         description: 'Garmin FIT file parsing.',
       },
       {
+        name: 'str0m',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/algesten/str0m',
+        description: 'WebRTC for the link to a browser.',
+      },
+      {
+        name: 'hmac',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/RustCrypto/MACs',
+      },
+      {
+        name: 'sha2',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/RustCrypto/hashes',
+      },
+      {
         name: 'chrono',
         license: 'MIT OR Apache-2.0',
         repository: 'https://github.com/chronotope/chrono',

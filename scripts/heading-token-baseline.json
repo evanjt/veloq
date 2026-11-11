@@ -8,7 +8,7 @@
   "src/features/recording/components/WorkoutGuide.tsx": 1,
   "src/features/routes/components/preview/PreviewSectionPopover.tsx": 1,
   "src/features/routes/components/section/SectionLapList.tsx": 1,
-  "src/features/settings/components/NextcloudQrScanner.tsx": 1,
+  "src/features/settings/components/QrScanner.tsx": 1,
   "src/features/settings/components/ProfileAccountSection.tsx": 2,
   "src/features/strength/components/StrengthActivityCard.tsx": 1
 }

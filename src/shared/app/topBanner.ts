@@ -31,9 +31,11 @@ export interface TopBannerState {
   /** Whether the engine has paused the sync until a time it resumes at on its own. */
   syncPaused: boolean;
   engineInitFailed: boolean;
+  /** Whether a linked browser is connected to the phone now. */
+  remoteConnected: boolean;
 }
 
-export type TopBanner = 'startupError' | 'demo' | 'syncError' | 'engineInit' | null;
+export type TopBanner = 'startupError' | 'demo' | 'syncError' | 'engineInit' | 'remoteLink' | null;
 
 export type ShownBanner = Exclude<TopBanner, null>;
 
@@ -55,6 +57,7 @@ export function pickTopBanner(state: TopBannerState): TopBanner {
   }
   if (state.engineInitFailed) return 'engineInit';
   if (state.isDemoMode && !state.hideDemoBanner) return 'demo';
+  if (state.remoteConnected) return 'remoteLink';
   return null;
 }
 

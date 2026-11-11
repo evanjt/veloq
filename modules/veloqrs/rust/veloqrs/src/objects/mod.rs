@@ -16,6 +16,7 @@ pub mod preview;
 pub mod quarantine;
 mod record_dependency;
 mod recordings;
+mod remote;
 mod routes;
 pub mod run;
 pub mod sections;

@@ -17,11 +17,20 @@ function state(overrides: Partial<TopBannerState> = {}): TopBannerState {
     lastError: null,
     syncPaused: false,
     engineInitFailed: false,
+    remoteConnected: false,
     ...overrides,
   };
 }
 
 describe('pickTopBanner', () => {
+  it('claims the slot for a connected browser only when nothing else does', () => {
+    expect(pickTopBanner(state({ remoteConnected: true }))).toBe('remoteLink');
+    expect(pickTopBanner(state({ remoteConnected: true, isDemoMode: true }))).toBe('demo');
+    expect(pickTopBanner(state({ remoteConnected: true, lastError: 'HTTP 503' }))).toBe(
+      'syncError'
+    );
+  });
+
   it('claims the slot for a startup error whether or not the device is offline', () => {
     expect(pickTopBanner(state({ startupErrorShown: true }))).toBe('startupError');
     expect(pickTopBanner(state({ startupErrorShown: true, offlineBannerShown: true }))).toBe(

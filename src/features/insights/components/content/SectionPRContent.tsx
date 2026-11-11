@@ -12,7 +12,7 @@ import { ErrorState } from '@/shared/ui/ErrorState';
 import { SheetTrackDrawing } from './SheetTrackDrawing';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
-import { formatDuration, formatShortDate } from '@/shared/format/format';
+import { formatDuration, formatEpochDayUtc } from '@/shared/format/format';
 import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import { prRecordOf } from '@/features/insights/lib/directionBests';
 import { insightGraphicColour } from '@/features/insights/lib/insightCategory';
@@ -51,9 +51,7 @@ export const SectionPRContent = React.memo(function SectionPRContent({
   const delta = prData?.deltaSeconds;
   const deltaFormatted = delta != null && delta > 0 ? formatDuration(delta) : null;
   const previousBestDate =
-    prData?.previousBestDate != null
-      ? formatShortDate(new Date(prData.previousBestDate * 1000))
-      : undefined;
+    prData?.previousBestDate != null ? formatEpochDayUtc(prData.previousBestDate) : undefined;
   const previousBestTimeFormatted =
     prData?.previousBestTime != null ? formatDuration(prData.previousBestTime) : null;
   const percentileFaster = prData?.percentileFaster;

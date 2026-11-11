@@ -25,7 +25,7 @@ const buildDirectories = new Set([
 // Tracked directories no build reads: hooks, end-to-end flows, prose and the
 // OAuth proxy, which deploys on its own. `check-build-inputs.mjs` refuses a
 // tracked top-level directory in neither list.
-const excludedDirectories = new Set(['.husky', '.maestro', 'docs', 'oauth-proxy']);
+const excludedDirectories = new Set(['.husky', '.maestro', 'docs', 'link-relay', 'oauth-proxy']);
 
 // Directories split by platform, whose other platform's half a profile skips.
 const platformDirectories = ['widget', 'push'];

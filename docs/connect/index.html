@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src wss://auth.veloq.fit; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Veloq Connect</title>
+    <link rel="icon" type="image/png" href="../icon.png" />
+    <link rel="stylesheet" href="connect.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>Veloq</h1>
+      <p id="status" role="status" aria-live="polite">Starting…</p>
+    </header>
+
+    <main>
+      <section id="pair" hidden>
+        <h2>Link this browser</h2>
+        <ol>
+          <li>Open Veloq on your phone.</li>
+          <li>Go to Settings, then Linked devices, then Link a device.</li>
+          <li>Scan this code.</li>
+        </ol>
+        <canvas id="code" width="360" height="360" aria-label="Link code"></canvas>
+        <p id="pair-notice" class="notice" hidden></p>
+      </section>
+
+      <section id="waiting" hidden>
+        <h2>Waiting for your phone</h2>
+        <p>Open Veloq on your phone, on the same Wi-Fi as this computer. This page connects on its own.</p>
+      </section>
+
+      <section id="library" hidden>
+        <div id="list-pane">
+          <h2>Activities</h2>
+          <ul id="feed"></ul>
+        </div>
+        <div id="detail-pane">
+          <h2 id="detail-title">Pick an activity</h2>
+          <dl id="detail"></dl>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Your data goes straight from your phone to this page and is kept only while it is open.</p>
+      <button id="forget" type="button" hidden>Unlink this browser</button>
+    </footer>
+  </body>
+</html>

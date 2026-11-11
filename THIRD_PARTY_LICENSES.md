@@ -393,6 +393,9 @@ This register lists every direct app and engine dependency. The in-app Third-par
 | base64 | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
 | thiserror | MIT OR Apache-2.0 | https://github.com/dtolnay/thiserror |
 | fitparser | MIT | https://github.com/stadelmanma/fitparse-rs |
+| str0m | MIT OR Apache-2.0 | https://github.com/algesten/str0m |
+| hmac | MIT OR Apache-2.0 | https://github.com/RustCrypto/MACs |
+| sha2 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | log | MIT OR Apache-2.0 | https://github.com/rust-lang/log |
 | libc | MIT OR Apache-2.0 | https://github.com/rust-lang/libc |
 | serde | MIT OR Apache-2.0 | https://github.com/serde-rs/serde |

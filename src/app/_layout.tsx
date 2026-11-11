@@ -98,6 +98,9 @@ import {
   setupNotificationResponseHandler,
   handleInitialNotificationResponse,
   restoreGarminKey,
+  remoteLink,
+  RemoteLinkBanner,
+  useExperimental,
 } from '@/features/settings';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
@@ -431,9 +434,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background') {
         handleAppBackground();
+        remoteLink.background();
       }
       if (state === 'active') {
         onAppForeground();
+        remoteLink.foreground();
         const today = formatLocalDate(new Date());
         if (today !== lastForegroundDateRef.current) {
           lastForegroundDateRef.current = today;
@@ -647,6 +652,20 @@ export default function RootLayout() {
   // leaving that screen mid-ride no longer stops the GPS.
   useEffect(() => installRecordingSession(), []);
 
+  // The app opens in front, so the linked rooms are joined once the engine can
+  // list them; later foregrounds join them from the app-state listener.
+  const engineReadyNonce = useEngineStatus((s) => s.readyNonce);
+  useEffect(() => {
+    if (engineReadyNonce === 0 || AppState.currentState !== 'active') return;
+    remoteLink.foreground();
+  }, [engineReadyNonce]);
+
+  // Turning the remote link's switch on or off joins or leaves its rooms at once.
+  const remoteLinkOn = useExperimental('remoteLink');
+  useEffect(() => {
+    remoteLink.refresh();
+  }, [remoteLinkOn]);
+
   // Re-register push token on app open (refreshes TTL on server)
   // Also retry any failed unregister from a previous session
   useEffect(() => {
@@ -682,6 +701,7 @@ export default function RootLayout() {
                     <EngineInitBanner />
                     <GlobalDataSync />
                     <DemoBanner />
+                    <RemoteLinkBanner />
                     <LibraryRebuiltNotice />
                     <WhatsNewModal />
                     <BottomPillStack

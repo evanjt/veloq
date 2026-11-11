@@ -29,7 +29,7 @@
   "src/features/settings/components/BulkExportProgress.tsx",
   "src/features/settings/components/CacheManagementPanel.tsx",
   "src/features/settings/components/DisplaySettings.tsx",
-  "src/features/settings/components/NextcloudQrScanner.tsx",
+  "src/features/settings/components/QrScanner.tsx",
   "src/features/settings/components/ProfileAccountSection.tsx",
   "src/features/settings/components/RestoreOfferCard.tsx",
   "src/features/settings/components/SettingsNavRow.tsx",

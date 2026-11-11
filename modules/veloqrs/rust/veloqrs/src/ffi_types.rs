@@ -2128,7 +2128,8 @@ pub struct FfiActivityBodiesQuery {
 ///
 /// Built from the body rather than `activity_metrics`, which files a body
 /// with no sport as a ride and keeps heart rate and power as whole numbers.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiFeedCard {
     /// The row key the body is stored under. A route or a fetch names the
     /// activity by this, never by the body's own `id`, which for an uploaded
@@ -2177,7 +2178,8 @@ pub struct FfiFeedCard {
 
 /// One page of feed cards, newest first, with the count of everything the
 /// query matched.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiFeedCardsPage {
     pub cards: Vec<FfiFeedCard>,
     /// Every stored activity the query matched, not only this page.
@@ -2747,7 +2749,8 @@ pub struct FfiPoolStrokeTotal {
 
 /// The summary intervals.icu stored with an activity. Each field is `None`
 /// when the activity carries no positive value for it.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivitySummary {
     /// Moving time in seconds
     pub moving_time: Option<f64>,
@@ -2765,7 +2768,8 @@ pub struct FfiActivitySummary {
 }
 
 /// The unit a sport's cadence is shown in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiCadenceUnit {
     /// Crank revolutions a minute, and the stored cycles of a sport no list names.
     Rpm,
