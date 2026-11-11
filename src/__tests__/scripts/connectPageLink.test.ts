@@ -209,6 +209,54 @@ describe('the connect page state machine', () => {
     expect(step(connected(), { type: 'relayClosed' })).toEqual({ state: connected(), effects: [] });
   });
 
+  it('starts over when the phone leaves the room before the connection opens', () => {
+    const inviting: State = {
+      name: 'inviting',
+      invitation: { room: 'room-0123456789abcdefghij', secret: SEVENS, exp: 2000 },
+      attempt: 0,
+    };
+    const fromInviting = step(inviting, { type: 'bye' });
+    expect(fromInviting.state).toEqual({ name: 'unpaired' });
+    expect(doing(fromInviting)).toEqual(['hangUp', 'invite']);
+
+    const fromWaiting = step({ name: 'waiting', phone: PHONE, attempt: 1 }, { type: 'bye' });
+    expect(fromWaiting.state).toEqual({ name: 'waiting', phone: PHONE, attempt: 2 });
+    expect(doing(fromWaiting)).toEqual(['hangUp', 'retry']);
+
+    const connecting: State = { name: 'connecting', phone: PHONE, attempt: 0 };
+    const fromConnecting = step(connecting, { type: 'bye' });
+    expect(fromConnecting.state).toEqual({ name: 'waiting', phone: PHONE, attempt: 1 });
+    expect(doing(fromConnecting)).toEqual(['hangUp', 'retry']);
+  });
+
+  it('keeps a confirmation waiting when the phone leaves the room after accepting', () => {
+    const confirming: State = {
+      name: 'confirming',
+      invitation: { room: 'room-0123456789abcdefghij', secret: SEVENS, exp: 2000 },
+      phone: PHONE,
+    };
+    const left = step(confirming, { type: 'bye' });
+    expect(left).toEqual({ state: confirming, effects: [] });
+    expect(doing(step(left.state, { type: 'status', value: 'waiting' }))).toEqual(['pollStatus']);
+
+    const confirmed = step(left.state, { type: 'status', value: 'confirmed' });
+    expect(confirmed.state.name).toBe('connected');
+    expect(confirmed.effects).toEqual([{ do: 'remember', phone: PHONE }, { do: 'fetchFeed' }]);
+  });
+
+  it('keeps a proof waiting when the phone leaves the room before the proof is sent', () => {
+    const proving: State = {
+      name: 'proving',
+      invitation: { room: 'room-0123456789abcdefghij', secret: SEVENS, exp: 2000 },
+      phone: PHONE,
+    };
+    expect(step(proving, { type: 'bye' })).toEqual({ state: proving, effects: [] });
+  });
+
+  it('ignores the relay leaving once the phone is connected directly', () => {
+    expect(step(connected(), { type: 'bye' })).toEqual({ state: connected(), effects: [] });
+  });
+
   it('makes a new code when the open one runs out before the phone joins', () => {
     const inviting: State = {
       name: 'inviting',

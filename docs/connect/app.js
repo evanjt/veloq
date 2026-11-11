@@ -202,8 +202,8 @@ async function join(/** @type {string} */ room) {
     else if (message.type === 'answer' && peer) {
       await peer.setRemoteDescription(message);
       if (mine === session) dispatch({ type: 'answered', fingerprint: answerFingerprint(message.sdp) });
-    } else if (message.type === 'bye' && state.name !== 'connected') {
-      dispatch({ type: 'drop' });
+    } else if (message.type === 'bye') {
+      dispatch({ type: 'bye' });
     }
   };
   opened.onclose = () => {

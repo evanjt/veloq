@@ -159,6 +159,7 @@ export function retryDelay(/** @type {number} */ attempt) {
  *   | { type: 'feed', rows: unknown[] }
  *   | { type: 'detail', summary: unknown }
  *   | { type: 'drop' }
+ *   | { type: 'bye' }
  *   | { type: 'relayClosed' }
  *   | { type: 'expired' }
  *   | { type: 'forget' }
@@ -179,6 +180,9 @@ export function retryDelay(/** @type {number} */ attempt) {
 
 /** @param {State} state @param {Effect[]} [effects] */
 const to = (state, effects = []) => ({ state, effects });
+
+/** The states before the data channel opens, where the relay is the only route. */
+const SETUP_STATES = new Set(['inviting', 'waiting', 'connecting']);
 
 /**
  * Start pairing again, after a refusal or with nothing paired.
@@ -206,6 +210,13 @@ export function step(state, event) {
   }
   if (event.type === 'forget') {
     return to({ name: 'unpaired' }, [{ do: 'hangUp' }, { do: 'forget' }, { do: 'invite' }]);
+  }
+  if (event.type === 'bye') {
+    // The relay reports the phone leaving its room. Until the data channel opens
+    // the room is the only route to the phone, so a bye there is a drop. After
+    // that the relay has no say: a real loss arrives as the channel closing or
+    // the peer connection failing.
+    return SETUP_STATES.has(state.name) ? step(state, { type: 'drop' }) : to(state);
   }
 
   switch (state.name) {
