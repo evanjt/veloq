@@ -12,7 +12,7 @@
       "fitnessCTL": "Condición física (CTL)",
       "fitnessImpact": "Impacto en la condición física",
       "maxLabel": "Max",
-      "percentOfMaxHR": "{{percent}}% de FC max",
+      "percentOfMaxHR": "{{percent}} de FC max",
       "percentOfMaxHRLabel": "% de FC Max",
       "fitnessThatDay": "Condición física ese día (CTL)"
     }
@@ -105,7 +105,7 @@
       "sevenDayAvg": "Promedio de 7 días"
     },
     "weeklyLoad": {
-      "title": "Carga de entrenamiento {{percent}}% {{direction}} del promedio"
+      "title": "Carga de entrenamiento {{percent}} {{direction}} del promedio"
     },
     "aboutRanking": "Las tarjetas se ordenan por lo recientes que son, cuánto se salen de lo habitual, cuánto han cambiado y con qué frecuencia repetís el tramo."
   },

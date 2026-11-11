@@ -112,7 +112,10 @@
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "activity.garminSwap.compare.start": "Danish word or phrase with the same spelling.",
     "sections.sportFilter": "Danish word or phrase with the same spelling.",
-    "navigation.offline": "Established Danish loanword or technical term."
+    "navigation.offline": "Established Danish loanword or technical term.",
+    "cache.stageProgress": "A stage and its percentage, no words to translate.",
+    "common.progressAnnouncement": "Numeric percentage template.",
+    "backgroundJobs.progressPercent": "Numeric percentage template."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -214,7 +217,10 @@
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "activity.garminSwap.compare.start": "German word or phrase with the same spelling.",
     "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language.",
-    "navigation.offline": "Established Swiss German loanword or technical term."
+    "navigation.offline": "Established Swiss German loanword or technical term.",
+    "cache.stageProgress": "A stage and its percentage, no words to translate.",
+    "common.progressAnnouncement": "Numeric percentage template.",
+    "backgroundJobs.progressPercent": "Numeric percentage template."
   },
   "de-DE": {
     "backup.entryAppVersion": "German word or phrase with the same spelling.",
@@ -342,7 +348,10 @@
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "activity.garminSwap.compare.start": "German word or phrase with the same spelling.",
     "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language.",
-    "navigation.offline": "Established German loanword or technical term."
+    "navigation.offline": "Established German loanword or technical term.",
+    "cache.stageProgress": "A stage and its percentage, no words to translate.",
+    "common.progressAnnouncement": "Numeric percentage template.",
+    "backgroundJobs.progressPercent": "Numeric percentage template."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -425,7 +434,8 @@
     "common.experimental": "Spanish word or phrase with the same spelling.",
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
-    "activity.garminSwap.compare.intervals": "Product name, kept as written."
+    "activity.garminSwap.compare.intervals": "Product name, kept as written.",
+    "common.progressAnnouncement": "Numeric percentage template."
   },
   "es-ES": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -513,7 +523,8 @@
     "common.experimental": "Spanish word or phrase with the same spelling.",
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
-    "activity.garminSwap.compare.intervals": "Product name, kept as written."
+    "activity.garminSwap.compare.intervals": "Product name, kept as written.",
+    "common.progressAnnouncement": "Numeric percentage template."
   },
   "es": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -594,7 +605,8 @@
     "common.experimental": "Spanish word or phrase with the same spelling.",
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
-    "activity.garminSwap.compare.intervals": "Product name, kept as written."
+    "activity.garminSwap.compare.intervals": "Product name, kept as written.",
+    "common.progressAnnouncement": "Numeric percentage template."
   },
   "fr": {
     "backup.entryAppVersion": "French word or phrase with the same spelling.",
@@ -741,7 +753,10 @@
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "sections.sportFilter": "French word or phrase with the same spelling.",
     "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language.",
-    "bestEffortsScreen.checkpoint.mile": "The unit is written Mile in French."
+    "bestEffortsScreen.checkpoint.mile": "The unit is written Mile in French.",
+    "cache.stageProgress": "A stage and its percentage, no words to translate.",
+    "common.progressAnnouncement": "Numeric percentage template.",
+    "backgroundJobs.progressPercent": "Numeric percentage template."
   },
   "it": {
     "activity.stats.maxLabel": "Abbreviation of the Italian label with the same spelling.",

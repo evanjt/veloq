@@ -214,7 +214,7 @@ function buildStrengthProgressionInsight(
       progression.changePct == null
         ? t('strength.last4Weeks')
         : t('insights.strengthProgression.vsEarlier', {
-            change: `${progression.changePct > 0 ? '+' : ''}${Math.round(progression.changePct)}`,
+            change: formatSignedPercentage(progression.changePct, 0),
           }),
     // A rise from zero has no percentage, so its sentence names the new signal.
     line:

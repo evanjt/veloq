@@ -10,7 +10,7 @@
       "bpmDrop": "{{value}} lpm de bajada",
       "decoupling": "Desacoplamiento",
       "maxLabel": "Max",
-      "percentOfMaxHR": "{{percent}}% de FC max",
+      "percentOfMaxHR": "{{percent}} de FC max",
       "percentOfMaxHRLabel": "% de FC Max"
     }
   },

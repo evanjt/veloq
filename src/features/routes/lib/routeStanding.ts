@@ -7,6 +7,7 @@
 
 import type { TFunction } from 'i18next';
 import { formatDurationDelta } from '@/shared/format/format';
+import { formatPercent } from '@/shared/format';
 
 /** Attempts on the route with a percentile worth showing. */
 const PERCENTILE_MIN_ATTEMPTS = 5;
@@ -53,7 +54,7 @@ export function formatRouteStanding(standing: RouteStanding, t: TFunction): stri
       rank: currentRank,
       total: attemptCount,
       gap,
-      percent: Math.round(percentileRank),
+      percent: formatPercent(percentileRank, 0),
     }) as string;
   }
   return t('routes.standingRank', { rank: currentRank, total: attemptCount, gap }) as string;

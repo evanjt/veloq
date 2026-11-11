@@ -124,7 +124,7 @@ export function useActivityStats({
         context:
           held || intensity == null
             ? undefined
-            : t('activity.stats.intensityContext', { percent: Math.round(intensity) }),
+            : t('activity.stats.intensityContext', { percent: formatPercent(intensity, 0) }),
         explanation: t(METRIC_EXPLANATION_KEYS['Training Load'] as never),
         details: [
           held
@@ -251,8 +251,11 @@ export function useActivityStats({
           hrPercent === null
             ? undefined
             : ownMax
-              ? t('activity.stats.percentOfMaxHR', { percent: hrPercent })
-              : t('activity.stats.percentOfDefaultMaxHR', { percent: hrPercent, value: maxHR }),
+              ? t('activity.stats.percentOfMaxHR', { percent: formatPercent(hrPercent, 0) })
+              : t('activity.stats.percentOfDefaultMaxHR', {
+                  percent: formatPercent(hrPercent, 0),
+                  value: maxHR,
+                }),
         explanation: t(METRIC_EXPLANATION_KEYS['Heart Rate'] as never),
         details: [
           {

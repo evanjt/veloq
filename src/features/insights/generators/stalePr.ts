@@ -29,7 +29,7 @@ import { markedActivity, sparkline } from '../lib/sparkline';
 import { sectionPairKey } from '../lib/sectionIdentity';
 import { TIME } from '@/shared/app/time';
 import { localWallClockToEpochSeconds, wallClockSecondsToLocalDate } from '@/shared/time/startDate';
-import { formatDecimal, formatSignedPercentage } from '@/shared/format';
+import { formatDecimal, formatPercent, formatSignedPercentage } from '@/shared/format';
 import { printedValue } from '../lib/printedValue';
 
 /**
@@ -180,7 +180,7 @@ function visitedText(opportunity: StalePROpportunity, t: TFunc): string {
 function effortText(opportunity: StalePROpportunity, t: TFunc, isMetric: boolean) {
   const share = opportunity.prSharePercent;
   if (share == null || !Number.isFinite(share)) return undefined;
-  const percent = formatDecimal(share, 0);
+  const percent = formatPercent(share, 0);
   if (opportunity.fitnessMetric === 'power') {
     if (opportunity.prPower == null) return undefined;
     return t('insights.stalePr.sheetEffortPower', {
@@ -266,7 +266,7 @@ function methodologyText(t: TFunc): string {
   return t('insights.stalePr.methodology', {
     visits: INSIGHTS_CONFIG.repetition.stale_pr_min_lifetime,
     days: minAgeDaysFor('stale_pr'),
-    gain: INSIGHTS_CONFIG.thresholds.staleMinGainPercent,
+    gain: formatPercent(INSIGHTS_CONFIG.thresholds.staleMinGainPercent, 0),
     max: INSIGHTS_CONFIG.thresholds.staleMaxOpportunities,
   });
 }

@@ -85,4 +85,12 @@ describe('the percentages on the stat cards under de-DE', () => {
     const card = stats.find((stat) => stat.title === 'activity.stats.newGround');
     expect(card?.value).toBe(formatPercent(87));
   });
+
+  it('hands the max heart rate context a formatted percentage and the template adds no sign', async () => {
+    const stats = await statsOf(175);
+    const heartRate = stats.find((stat) => stat.title === 'activity.heartRate');
+    expect(heartRate?.context).toBe(
+      `activity.stats.percentOfMaxHR:${JSON.stringify({ percent: formatPercent(86, 0) })}`
+    );
+  });
 });

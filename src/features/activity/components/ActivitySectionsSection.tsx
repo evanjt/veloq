@@ -45,6 +45,7 @@ import {
 } from '@/features/activity/lib/groupSectionEncounters';
 import { useOpenDetail } from '@/shared/app/MapSheetCards';
 import { formatDistance } from '@/shared/format/format';
+import { formatPercent } from '@/shared/format';
 import { colors, darkColors, duration, spacing, typography } from '@/theme';
 import { debug } from '@/shared/debug/debug';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
@@ -598,7 +599,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       const position = t('sections.startsAt', {
         distance: formatDistance(match.startDistanceMeters, isMetric),
       });
-      const qualityText = quality < 90 ? t('sections.matchQuality', { quality }) : null;
+      const qualityText =
+        quality < 90 ? t('sections.matchQuality', { quality: formatPercent(quality, 0) }) : null;
       // The row is one element: the arrow is spoken as the reverse word, then
       // the meta line it draws.
       const spokenName = composeAccessibilityLabel(

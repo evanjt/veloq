@@ -8,6 +8,7 @@
  * times a second would otherwise be spoken on every tick, or not at all.
  */
 
+import { formatPercent } from '@/shared/format';
 import React, { useEffect, useRef } from 'react';
 import {
   AccessibilityInfo,
@@ -94,7 +95,7 @@ function useMilestoneAnnouncement(label: string, done: number, total: number, en
     if (!enabled || milestone === null || milestone === spoken.current) return;
     spoken.current = milestone;
     AccessibilityInfo.announceForAccessibility(
-      t('common.progressAnnouncement', { label, percent: milestone }) as string
+      t('common.progressAnnouncement', { label, percent: formatPercent(milestone, 0) }) as string
     );
   }, [enabled, label, milestone, t]);
 }
