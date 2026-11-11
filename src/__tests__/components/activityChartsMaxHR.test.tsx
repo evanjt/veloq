@@ -103,6 +103,8 @@ it('gives the zones chart and the stat card the one max HR the screen read resol
       onPointSelect={() => {}}
       onInteractionChange={() => {}}
       onExportGpx={() => {}}
+      heatmapHidden={false}
+      onToggleHeatmapHidden={() => {}}
     />
   );
 

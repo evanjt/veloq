@@ -451,17 +451,6 @@ export const CLIENT_UNREACHED_ALLOWED: Record<string, string> = {
     'no production caller; the stream history row reads it from its screen data instead',
   streamStoreBytes:
     'no production caller; the stream history row reads it from its screen data instead',
-
-  // No caller and no reason recorded yet beyond that: each is to be deleted or
-  // wired, and listed here so the check can hold every new one.
-  getMapSections: 'no production caller; not yet deleted or wired',
-  getAllSectionNames: 'no production caller; not yet deleted or wired',
-  getSectionHistory: 'no production caller; not yet deleted or wired',
-  getPinnedSectionVersion: 'no production caller; not yet deleted or wired',
-  getSectionReferenceInfo: 'no production caller; not yet deleted or wired',
-  getAvailableSportTypes: 'no production caller; not yet deleted or wired',
-  getWellnessLatestDate: 'no production caller; not yet deleted or wired',
-  suggestExportHome: 'no production caller; not yet deleted or wired',
 };
 
 /**

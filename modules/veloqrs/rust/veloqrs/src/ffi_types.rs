@@ -2654,6 +2654,20 @@ pub struct FfiActivityDetailData {
     pub held_back: Option<crate::persistence::activity_held_back::ActivityHeldBack>,
     /// Where the activity's data was filled from, so the screen can say so.
     pub provenance: crate::persistence::origin::ActivityProvenance,
+    /// Whether the athlete hid this activity from the heatmap. It stays in
+    /// every list, statistic and section and on its own map.
+    pub heatmap_hidden: bool,
+}
+
+/// An activity the athlete hid from the heatmap, as the list that shows it
+/// again names it.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiHeatmapHiddenActivity {
+    pub activity_id: String,
+    pub name: String,
+    pub sport_type: String,
+    /// Unix timestamp (seconds since epoch)
+    pub date: f64,
 }
 
 /// Where a pool swim's lengths stand, read from its FIT file. The

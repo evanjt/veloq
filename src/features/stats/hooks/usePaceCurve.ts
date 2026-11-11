@@ -1,12 +1,9 @@
-import { useEffect, useRef } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
 import { paceCurveOf } from '@/features/stats/lib/curveRecords';
-import { paceSnapshotDate } from '@/features/stats/lib/paceSnapshot';
-import { PACE_SNAPSHOT_WINDOW_DAYS } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { RangeCoverage } from 'veloqrs';
 import type { PaceCurve } from '@/types';
@@ -72,32 +69,6 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
     bodyStatus: body.status,
     retryBody: body.retry,
   };
-
-  // The engine stores the sync window's snapshot with the curve body.
-  const lastSnapshotted = useRef<string | null>(null);
-  const endDate = result.data?.endDate;
-  useEffect(() => {
-    const cs = result.data?.criticalSpeed;
-    if (cs == null || cs <= 0) return;
-    if (days === PACE_SNAPSHOT_WINDOW_DAYS && (sport === 'Run' || sport === 'Swim')) return;
-    const key = `${sport}:${cs}`;
-    if (lastSnapshotted.current === key) return;
-    lastSnapshotted.current = key;
-    const engine = getEngine();
-    if (!engine) return;
-    // Under the range the screen is showing. The trend reads the sync's window
-    // and leaves these alone: a year curve's critical speed is the athlete's
-    // best year, which is a different fact from the last six weeks and not an
-    // improvement on it.
-    engine.savePaceSnapshot(
-      sport,
-      cs,
-      days,
-      result.data?.dPrime,
-      result.data?.r2,
-      paceSnapshotDate(endDate)
-    );
-  }, [result.data?.criticalSpeed, sport, days, result.data?.dPrime, result.data?.r2, endDate]);
 
   return result;
 }

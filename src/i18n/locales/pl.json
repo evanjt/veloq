@@ -203,6 +203,8 @@
     }
   },
   "activityDetail": {
+    "hideFromHeatmap": "Ukryj na mapie ciepła",
+    "showOnHeatmap": "Pokaż na mapie ciepła",
     "lineKeyActivity": "Ta aktywność",
     "lineKeyRoute": "Dopasowana trasa",
     "failedToLoad": "Nie udało się wczytać aktywności",
@@ -2353,6 +2355,9 @@
     "heatmapGeneration": "Mapa ciepła",
     "heatmapDescription": "Mapa cieplna jest przechowywana na tym urządzeniu i zajmuje na nie miejsce. Wyłącz ją, aby zwolnić to miejsce.",
     "heatmapStorageUsed": "Używa {{size}} pamięci urządzenia",
+    "heatmapHiddenTitle": "Ukryte na mapie ciepła",
+    "heatmapHiddenShow": "Pokaż",
+    "heatmapHiddenShowLabel": "Pokaż {{name}} na mapie ciepła",
     "reanalyzeSections": "Ponownie przeanalizuj sekcje",
     "reanalyzeWarning": "Spowoduje to zastąpienie wszystkich niezaakceptowanych sekcji wykrytych automatycznie. Zaakceptowane (przypięte) sekcje zostaną zachowane.",
     "rescanFailed": "Nie udało się ukończyć ponownego skanowania. Niektórych śladów nie można odczytać.",

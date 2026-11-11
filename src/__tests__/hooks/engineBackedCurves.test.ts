@@ -29,7 +29,6 @@ const engine = {
   getPaceCurve: jest.fn(),
   syncPowerCurve: jest.fn(),
   syncPaceCurve: jest.fn(),
-  savePaceSnapshot: jest.fn(),
   getWeeklySummaries: jest.fn(),
   subscribe: jest.fn(() => () => {}),
   getBodiesStored: jest.fn(() => 0),
@@ -149,7 +148,6 @@ describe('usePaceCurve', () => {
     });
 
     await waitFor(() => expect(result.current.data?.criticalSpeed).toBe(3.4));
-    expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
   });
 
   it('keys the request on the gap flag', async () => {
@@ -167,46 +165,6 @@ describe('usePaceCurve', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
-    expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
-  });
-
-  it('snapshots critical speed once the curve is stored', async () => {
-    engine.getPaceCurve.mockReturnValue(paceCurve({ criticalSpeed: 3.4 }));
-
-    await renderHook(() => usePaceCurve({ sport: 'Run', days: 365 }), { wrapper });
-
-    await waitFor(() =>
-      expect(engine.savePaceSnapshot).toHaveBeenCalledWith(
-        'Run',
-        3.4,
-        // The range the screen is showing, not the sync's. The pace milestone
-        // compares one window, so a year curve's critical speed has to arrive
-        // labelled as one rather than sitting where the sync's would.
-        365,
-        undefined,
-        undefined,
-        expect.any(Number)
-      )
-    );
-  });
-
-  /// A curve fetched weeks ago is still the reading it was, so opening the app
-  /// must not date it to today: the row is keyed on the date, and a new date
-  /// is a new point on the Lactate Threshold trend.
-  it('dates the snapshot from the curve, not from the day it was read', async () => {
-    engine.getPaceCurve.mockReturnValue(
-      paceCurve({
-        criticalSpeed: 3.4,
-        startDate: '2026-06-27T00:00:00',
-        endDate: '2026-08-08T00:00:00',
-      })
-    );
-
-    await renderHook(() => usePaceCurve({ sport: 'Run', days: 365 }), { wrapper });
-
-    await waitFor(() => expect(engine.savePaceSnapshot).toHaveBeenCalled());
-    const stampedAt = engine.savePaceSnapshot.mock.calls[0][5];
-    expect(stampedAt).toBe(Math.floor(new Date(2026, 7, 8).getTime() / 1000));
   });
 });
 

@@ -16,6 +16,9 @@ use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
 use veloqrs::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE;
 
+mod export_support;
+use export_support::BulkExport;
+
 /// Not framed postcard, not unframed postcard, not an rmp array header: no
 /// container claims it, so every decode path must report it as unreadable.
 const UNDECODABLE: &[u8] = &[0x7f, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07];

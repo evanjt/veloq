@@ -74,10 +74,8 @@ function announceSync(nowSyncing: boolean) {
 
 const engine = {
   triggerRefresh: jest.fn(),
-  getAvailableSportTypes: jest.fn((): string[] => []),
   getPaceCurve: jest.fn((): { criticalSpeed: number; endDate: string } | null => null),
   syncPaceCurve: jest.fn(),
-  savePaceSnapshot: jest.fn(),
   getSyncStatus: jest.fn(() => ({ state: syncing ? SyncState.Syncing : SyncState.Idle })),
   subscribe: jest.fn((_channel: string, listener: () => void) => {
     syncListeners.push(listener);
@@ -100,7 +98,6 @@ beforeEach(() => {
   mockUseRouteDataSync.mockReturnValue({ progress: { status: 'idle' } } as ReturnType<
     typeof useRouteDataSync
   >);
-  engine.getAvailableSportTypes.mockReturnValue([]);
   engine.getPaceCurve.mockReturnValue(null);
   mockUseRouteDataSync.mockReturnValue({
     progress: { status: 'idle' },
@@ -141,17 +138,15 @@ describe('GlobalDataSync', () => {
   it.each([
     [['TrailRun'], 'Run'],
     [['OpenWaterSwim'], 'Swim'],
-  ])('leaves the %s variant library curve for %s to Rust', async (sportTypes) => {
+  ])('leaves the %s variant library curve for %s to Rust', async () => {
     mockUseRouteDataSync.mockReturnValue({ progress: { status: 'complete' } } as ReturnType<
       typeof useRouteDataSync
     >);
-    engine.getAvailableSportTypes.mockReturnValue(sportTypes);
     engine.getPaceCurve.mockReturnValue({ criticalSpeed: 3.5, endDate: '2026-08-20' });
 
     await renderSyncTree();
 
     expect(mockUseRouteDataSync).toHaveBeenCalled();
-    expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
   });
 
@@ -159,26 +154,22 @@ describe('GlobalDataSync', () => {
     mockUseRouteDataSync.mockReturnValue({ progress: { status: 'complete' } } as ReturnType<
       typeof useRouteDataSync
     >);
-    engine.getAvailableSportTypes.mockReturnValue(['Run', 'TrailRun', 'Swim', 'OpenWaterSwim']);
     engine.getPaceCurve.mockReturnValue({ criticalSpeed: 3.5, endDate: '2026-08-20' });
 
     await renderSyncTree();
 
     expect(mockUseRouteDataSync).toHaveBeenCalled();
-    expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
   });
 
   it('leaves a missing curve request to Rust', async () => {
     mockUseRouteDataSync.mockReturnValue({ progress: { status: 'complete' } } as ReturnType<
       typeof useRouteDataSync
     >);
-    engine.getAvailableSportTypes.mockReturnValue(['Run']);
 
     await renderSyncTree();
 
     expect(mockUseRouteDataSync).toHaveBeenCalled();
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
-    expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
   });
 
   it('requests no curves in JavaScript when the library and curve store are empty', async () => {
@@ -189,7 +180,6 @@ describe('GlobalDataSync', () => {
     await renderSyncTree();
 
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
-    expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
   });
 
   it('expires an accepted window when the mounted sync tree sees no pickup', async () => {
@@ -221,12 +211,9 @@ describe('GlobalDataSync', () => {
     mockUseRouteDataSync.mockReturnValue({
       progress: { status: 'complete' },
     } as unknown as ReturnType<typeof useRouteDataSync>);
-    engine.getAvailableSportTypes.mockReturnValue(['Run']);
     engine.getPaceCurve.mockReturnValue({ criticalSpeed: 4.2, endDate: '2026-08-20' });
 
     await renderSyncTree();
-
-    expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
   });
 
   it('keeps the widened range running while the engine still holds the slot', async () => {

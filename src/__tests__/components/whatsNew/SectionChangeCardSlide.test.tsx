@@ -19,21 +19,10 @@ jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 
-const ALL_BUT_DEVICE = {
-  deterministic: true,
-  sameResultDripOrBatch: true,
-  ledger: true,
-  revert: true,
-  retired: true,
-  pinnedSurvive: true,
-  sameOnEveryDevice: false,
-};
-
 describe('SectionChangeCardSlide', () => {
   it('draws no claim rows and no elevation line, whatever the engine supports', async () => {
     (getEngine as jest.Mock).mockReturnValue({
       subscribe: () => () => {},
-      getChangeCardSupport: () => ALL_BUT_DEVICE,
     });
     const { getByTestId, queryByTestId, queryByText } = await render(<SectionChangeCardSlide />);
     expect(getByTestId('change-card')).toBeTruthy();
@@ -62,7 +51,6 @@ describe('SectionChangeCardSlide', () => {
     function engineWith(progress: unknown, diff: unknown, retired = 0) {
       (getEngine as jest.Mock).mockReturnValue({
         subscribe: () => () => {},
-        getChangeCardSupport: () => ALL_BUT_DEVICE,
         getRoutesStatusData: () =>
           routesStatus({ cutover: progress as { phase: string; running: boolean } }),
         getCutoverDiff: () => diff,

@@ -30,7 +30,7 @@ const mockSettings = {
   setSetting: jest.fn(),
   setSettings: jest.fn(() => 2),
 };
-const mockFitness = { savePaceSnapshot: jest.fn(), upsertWellness: jest.fn() };
+const mockFitness = { upsertWellness: jest.fn() };
 const mockActivities = {
   setCurveBody: jest.fn(),
   setTimeStreams: jest.fn(),
@@ -146,26 +146,18 @@ describe('writes made before the engine opens', () => {
     mockSettings.setAthleteProfile.mockImplementation(() => order.push('athleteProfile'));
     mockSettings.setSportSettings.mockImplementation(() => order.push('sportSettings'));
     mockSettings.setSetting.mockImplementation(() => order.push('setting'));
-    mockFitness.savePaceSnapshot.mockImplementation(() => order.push('paceSnapshot'));
     mockActivities.setCurveBody.mockImplementation(() => order.push('curveBody'));
 
     client.setAthleteProfile('{"id":"demo"}');
     client.setSportSettings('{"Ride":{}}');
     client.setSetting('units', 'metric');
-    client.savePaceSnapshot('Run', 4.2, 42, 120, 0.98);
     client.setCurveBody('power', 'Ride', 90, false, '{}');
 
     expect(order).toEqual([]);
 
     client.initWithPath(DB);
 
-    expect(order).toEqual([
-      'athleteProfile',
-      'sportSettings',
-      'setting',
-      'paceSnapshot',
-      'curveBody',
-    ]);
+    expect(order).toEqual(['athleteProfile', 'sportSettings', 'setting', 'curveBody']);
   });
 
   it('replays time streams written before init and skips empty batches', () => {
@@ -212,25 +204,6 @@ describe('writes made before the engine opens', () => {
     client.initWithPath(DB);
 
     expect(mockFitness.upsertWellness.mock.calls).toEqual([[[first]], [[second]]]);
-  });
-
-  it('stamps a dateless pace snapshot with the write time, not the replay time', () => {
-    jest.useFakeTimers();
-    try {
-      const client = closedClient();
-      jest.setSystemTime(new Date('2026-01-01T00:00:00Z'));
-      const writtenAt = Math.floor(Date.now() / 1000);
-
-      client.savePaceSnapshot('Run', 4.2, 42);
-
-      jest.setSystemTime(new Date('2026-01-02T00:00:00Z'));
-      client.initWithPath(DB);
-
-      expect(mockFitness.savePaceSnapshot).toHaveBeenCalledTimes(1);
-      expect(mockFitness.savePaceSnapshot.mock.calls[0][4]).toBe(writtenAt);
-    } finally {
-      jest.useRealTimers();
-    }
   });
 
   it('writes straight through and holds nothing once the engine is open', () => {

@@ -48,6 +48,16 @@ export function logScreenRender(screenName: string): () => void {
 }
 
 /**
+ * Stamp a commit with a performance mark and log it as one `[COMMIT]` line. A handset run
+ * greps logcat for the line beside the frame capture's timestamps. Debug builds only.
+ */
+export function logCommitMark(name: string, detail: string): void {
+  if (!PERF_DEBUG) return;
+  performance.mark(name);
+  console.log(`⏱ [COMMIT] ${name} ${detail} at ${performance.now().toFixed(1)}ms`);
+}
+
+/**
  * Log Hermes JS heap stats for memory pressure investigation.
  * Usage: logMemory('FitnessScreen:mount');
  */

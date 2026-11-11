@@ -25,7 +25,6 @@ const engine = {
   setIntervalBody: jest.fn(),
   setCurveBody: jest.fn(),
   replaceCalendarEvents: jest.fn(),
-  savePaceSnapshot: jest.fn(),
   triggerRefresh: jest.fn(),
   announceBodyStored: jest.fn(),
 };
@@ -185,7 +184,6 @@ describe('seedDemoEngine', () => {
         kind === 'pace' && sport === 'Run' && days === PACE_SNAPSHOT_WINDOW_DAYS && !gap
     );
     expect(JSON.parse(call[4]).list[0].end_date_local).toBeDefined();
-    expect(engine.savePaceSnapshot).not.toHaveBeenCalled();
   });
 
   it('wakes engine-derived readers once seeding is done', () => {

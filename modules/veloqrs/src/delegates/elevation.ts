@@ -7,14 +7,12 @@
  */
 
 import {
-  startElevationBackfill as ffiStartElevationBackfill,
   pauseElevationBackfill as ffiPauseElevationBackfill,
   resumeElevationBackfill as ffiResumeElevationBackfill,
   retryDownloadsNow as ffiRetryDownloadsNow,
   getElevationBackfillRemaining as ffiGetElevationBackfillRemaining,
   type ElevationBackfillProgress,
   type FfiRetryNow,
-  FfiStartOutcome,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
@@ -37,21 +35,6 @@ export const ELEVATION_PHASES = [
 export type ElevationBackfillPhase = (typeof ELEVATION_PHASES)[number];
 
 export type { ElevationBackfillProgress };
-
-/**
- * Ask Rust to start the backfill. Safe to call on every launch: the verdict
- * names the refusal, so `NotOwed`, which is the job finished, is not read as
- * the same failure as being offline or having no credential yet.
- */
-export function startElevationBackfill(host: DelegateHost): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
-  try {
-    return host.timed('startElevationBackfill', () => ffiStartElevationBackfill());
-  } catch (e) {
-    console.error('[Engine] startElevationBackfill threw:', e);
-    return FfiStartOutcome.Failed;
-  }
-}
 
 /**
  * Pause the backfill for the rest of this process. The pass in flight ends at

@@ -159,16 +159,64 @@ pub fn last_push() -> Option<(bool, Duration)> {
     state().map(|(online, at)| (online, at.elapsed().unwrap_or(Duration::ZERO)))
 }
 
+/// How long a response from outside the elevation pass vouches for the link.
+pub const LINK_PROOF_WINDOW: Duration = Duration::from_secs(15 * 60);
+
+static LINK_PROOF: Mutex<Option<SystemTime>> = Mutex::new(None);
+
+/// Record a successful response from intervals.icu to a request that is not
+/// the stream ask the elevation pass makes.
+///
+/// The pushed state cannot tell a working link from a service that is down
+/// while the device is online. An answer to some other request can: the same
+/// outage that fails the stream ask fails that one too.
+pub fn note_link_proof() {
+    note_link_proof_at(SystemTime::now());
+}
+
+/// [`note_link_proof`] with the moment handed in, so the window is testable.
+pub fn note_link_proof_at(at: SystemTime) {
+    *LINK_PROOF.lock().unwrap_or_else(|e| e.into_inner()) = Some(at);
+}
+
+/// Whether a response to a request outside the elevation pass arrived inside
+/// [`LINK_PROOF_WINDOW`]. A stamp ahead of the clock reads as no proof.
+pub fn has_link_proof() -> bool {
+    LINK_PROOF
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .is_some_and(|at| at.elapsed().is_ok_and(|age| age < LINK_PROOF_WINDOW))
+}
+
 /// Forget everything pushed, returning the process to its never-pushed state.
 #[cfg(test)]
 pub fn reset() {
     *state() = None;
+    *LINK_PROOF.lock().unwrap_or_else(|e| e.into_inner()) = None;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_globals::serial_global_state;
+
+    #[test]
+    fn a_link_proof_holds_for_its_window_only() {
+        let _serial = serial_global_state();
+        reset();
+        assert!(!has_link_proof(), "nothing answered yet");
+
+        note_link_proof();
+        assert!(has_link_proof());
+
+        note_link_proof_at(SystemTime::now() - LINK_PROOF_WINDOW);
+        assert!(!has_link_proof(), "an old answer vouches for nothing");
+
+        note_link_proof_at(SystemTime::now() + Duration::from_secs(60));
+        assert!(!has_link_proof(), "a stamp ahead of the clock is no proof");
+
+        reset();
+    }
 
     #[test]
     fn nothing_pushed_reads_as_try() {

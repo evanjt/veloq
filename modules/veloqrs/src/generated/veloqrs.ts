@@ -209,25 +209,6 @@ export async function convertLegacyDatabaseToRecordBackup(
 }
 
 /**
- * Which claims the change card may make on this build.
- */
-export function getChangeCardSupport(): FfiChangeCardSupport {
-  const __rb: Uint8Array = uniffiCaller.rustCall(
-    /*caller:*/ (callStatus) => {
-      return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_change_card_support(
-        callStatus,
-      );
-    },
-    /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-  );
-  try {
-    return FfiConverterTypeFfiChangeCardSupport.lift(__rb);
-  } finally {
-    nativeModule().rustbuffer_free(__rb);
-  }
-}
-
-/**
  * The stored cutover diff, if any.
  *
  * It is persisted as JSON in a settings row, so it is parsed here rather than
@@ -496,47 +477,6 @@ export function setNetworkOnline(online: boolean, foregrounded: boolean): void {
 }
 
 /**
- * Start the cutover on a background thread, returning the start verdict.
- */
-export function startDetectorCutover(): FfiStartOutcome {
-  const __rb: Uint8Array = uniffiCaller.rustCall(
-    /*caller:*/ (callStatus) => {
-      return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_detector_cutover(
-        callStatus,
-      );
-    },
-    /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-  );
-  try {
-    return FfiConverterTypeFfiStartOutcome.lift(__rb);
-  } finally {
-    nativeModule().rustbuffer_free(__rb);
-  }
-}
-
-/**
- * Start the elevation backfill on a background thread.
- *
- * The verdict names the refusal, so an empty queue reads as the job finished
- * rather than as a failure to start. Safe to call on every launch.
- */
-export function startElevationBackfill(): FfiStartOutcome {
-  const __rb: Uint8Array = uniffiCaller.rustCall(
-    /*caller:*/ (callStatus) => {
-      return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_elevation_backfill(
-        callStatus,
-      );
-    },
-    /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-  );
-  try {
-    return FfiConverterTypeFfiStartOutcome.lift(__rb);
-  } finally {
-    nativeModule().rustbuffer_free(__rb);
-  }
-}
-
-/**
  * Open the library on a thread of its own and return at once, for a launch
  * that has an upgrade to run. A file with none (absent, empty or already on
  * this build's schema) answers `NotOwed` and starts nothing: the caller opens
@@ -588,28 +528,6 @@ export function startGpsPass(
   );
   try {
     return FfiConverterTypeFfiGpsPassStart.lift(__rb);
-  } finally {
-    nativeModule().rustbuffer_free(__rb);
-  }
-}
-
-/**
- * Start the stream backfill on a background thread.
- *
- * Unlike the elevation backfill this is not fired at launch: it is tens of
- * megabytes on whatever connection the phone has, so a screen starts it.
- */
-export function startStreamBackfill(): FfiStartOutcome {
-  const __rb: Uint8Array = uniffiCaller.rustCall(
-    /*caller:*/ (callStatus) => {
-      return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_stream_backfill(
-        callStatus,
-      );
-    },
-    /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-  );
-  try {
-    return FfiConverterTypeFfiStartOutcome.lift(__rb);
   } finally {
     nativeModule().rustbuffer_free(__rb);
   }
@@ -4717,6 +4635,11 @@ export type FfiActivityDetailData = {
    * Where the activity's data was filled from, so the screen can say so.
    */
   provenance: FfiActivityProvenance;
+  /**
+   * Whether the athlete hid this activity from the heatmap. It stays in
+   * every list, statistic and section and on its own map.
+   */
+  heatmapHidden: boolean;
 };
 
 /**
@@ -4774,6 +4697,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
           FfiConverterOptionalTypeFfiActivitySyncFailure.readFromCursor(c),
         heldBack: FfiConverterOptionalTypeFfiActivityHeldBack.readFromCursor(c),
         provenance: FfiConverterTypeFfiActivityProvenance.readFromCursor(c),
+        heatmapHidden: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -4840,6 +4764,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         value.provenance,
         c,
       );
+      FfiConverterBool.writeIntoCursor(value.heatmapHidden, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -4890,7 +4815,8 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         FfiConverterOptionalTypeFfiActivityHeldBack.allocationSize(
           value.heldBack,
         ) +
-        FfiConverterTypeFfiActivityProvenance.allocationSize(value.provenance)
+        FfiConverterTypeFfiActivityProvenance.allocationSize(value.provenance) +
+        FfiConverterBool.allocationSize(value.heatmapHidden)
       );
     }
   }
@@ -12668,6 +12594,68 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
         FfiConverterSequenceString.allocationSize(value.sportTypes)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * An activity the athlete hid from the heatmap, as the list that shows it
+ * again names it.
+ */
+export type FfiHeatmapHiddenActivity = {
+  activityId: string;
+  name: string;
+  sportType: string;
+  /**
+   * Unix timestamp (seconds since epoch)
+   */
+  date: number;
+};
+
+/**
+ * Generated factory for {@link FfiHeatmapHiddenActivity} record objects.
+ */
+export const FfiHeatmapHiddenActivity = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiHeatmapHiddenActivity,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiHeatmapHiddenActivity>,
+  });
+})();
+
+const FfiConverterTypeFfiHeatmapHiddenActivity = (() => {
+  type TypeName = FfiHeatmapHiddenActivity;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityId: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        sportType: FfiConverterString.readFromCursor(c),
+        date: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterString.writeIntoCursor(value.sportType, c);
+      FfiConverterFloat64.writeIntoCursor(value.date, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterFloat64.allocationSize(value.date)
       );
     }
   }
@@ -32461,7 +32449,6 @@ export interface FitnessManagerLike {
   getActivityIntervals(
     activityId: string,
   ) /*throws*/ : FfiActivityIntervals | undefined;
-  getAvailableSportTypes() /*throws*/ : Array<string>;
   /**
    * Everything the Best Efforts screen paints with over the last `days`
    * days, or all time when `days` is 0. Off the engine lock, since it reads
@@ -32570,12 +32557,6 @@ export interface FitnessManagerLike {
    */
   getWellnessDays(oldest: string, newest: string) /*throws*/ : FfiWellnessDays;
   /**
-   * The newest stored wellness date, or `None` when nothing has synced.
-   * A scalar the insights panel dates its dropped form cards from, so the
-   * rows themselves never cross the FFI to be quoted as today's figures.
-   */
-  getWellnessLatestDate() /*throws*/ : string | undefined;
-  /**
    * Sparkline arrays (fitness/fatigue/form/hrv/rhr) over the trailing
    * `days` window. Returns `None` until wellness has been synced at
    * least once. Replaces the 5 parallel useMemo passes in
@@ -32590,22 +32571,6 @@ export interface FitnessManagerLike {
     startTs: number,
     endTs: number,
   ) /*throws*/ : FfiZoneDistribution;
-  /**
-   * Record one critical-speed snapshot under the window it was read over.
-   *
-   * `window_days` is the range the curve behind it covered. It is part of
-   * the key and the trend compares one window only, so a screen showing the
-   * year range no longer overwrites, or is compared with, the sync's
-   * six-week reading.
-   */
-  savePaceSnapshot(
-    sportType: string,
-    criticalSpeed: number,
-    dPrime: number | undefined,
-    r2: number | undefined,
-    date: number,
-    windowDays: number,
-  ) /*throws*/ : void;
   /**
    * Store the widget context, so a push handler with no JavaScript can
    * compose the snapshot the app would. Answers whether anything was
@@ -32725,26 +32690,6 @@ export class FitnessManager
     );
     try {
       return FfiConverterOptionalTypeFfiActivityIntervals.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  getAvailableSportTypes(): Array<string> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_available_sport_types(
-          uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceString.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -33111,31 +33056,6 @@ export class FitnessManager
   }
 
   /**
-   * The newest stored wellness date, or `None` when nothing has synced.
-   * A scalar the insights panel dates its dropped form cards from, so the
-   * rows themselves never cross the FFI to be quoted as today's figures.
-   */
-  getWellnessLatestDate(): string | undefined /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_latest_date(
-          uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterOptionalString.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  /**
    * Sparkline arrays (fitness/fatigue/form/hrv/rhr) over the trailing
    * `days` window. Returns `None` until wellness has been synced at
    * least once. Replaces the 5 parallel useMemo passes in
@@ -33191,54 +33111,6 @@ export class FitnessManager
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
-  }
-
-  /**
-   * Record one critical-speed snapshot under the window it was read over.
-   *
-   * `window_days` is the range the curve behind it covered. It is part of
-   * the key and the trend compares one window only, so a screen showing the
-   * year range no longer overwrites, or is compared with, the sync's
-   * six-week reading.
-   */
-  savePaceSnapshot(
-    sportType: string,
-    criticalSpeed: number,
-    dPrime: number | undefined,
-    r2: number | undefined,
-    date: number,
-    windowDays: number,
-  ): void /*throws*/ {
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
-          uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(sportType, nativeModule().rustbuffer_alloc),
-          FfiConverterFloat64.lower(
-            criticalSpeed,
-            nativeModule().rustbuffer_alloc,
-          ),
-          FfiConverterOptionalFloat64.lower(
-            dPrime,
-            nativeModule().rustbuffer_alloc,
-          ),
-          FfiConverterOptionalFloat64.lower(
-            r2,
-            nativeModule().rustbuffer_alloc,
-          ),
-          FfiConverterFloat64.lower(date, nativeModule().rustbuffer_alloc),
-          FfiConverterFloat64.lower(
-            windowDays,
-            nativeModule().rustbuffer_alloc,
-          ),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
   }
 
   /**
@@ -33412,9 +33284,22 @@ export interface HeatmapManagerLike {
    */
   getProgress() /*throws*/ : Array<number>;
   /**
+   * The activities hidden from the heatmap, newest first. Takes no engine
+   * lock.
+   */
+  hiddenActivities() /*throws*/ : Array<FfiHeatmapHiddenActivity>;
+  /**
    * Poll tile generation progress: "idle" | "running" | "complete"
    */
   poll() /*throws*/ : string;
+  /**
+   * Hide an activity from the heatmap, or show it again.
+   *
+   * The tiles the activity reaches are redrawn without it, or with it
+   * again, by the sweep and the pass behind it. The activity stays in every
+   * list, statistic and section.
+   */
+  setActivityHidden(activityId: string, hidden: boolean) /*throws*/ : void;
   /**
    * Draw the ground the athlete is looking at before the rest of the sweep.
    *
@@ -33582,6 +33467,30 @@ export class HeatmapManager
   }
 
   /**
+   * The activities hidden from the heatmap, newest first. Takes no engine
+   * lock.
+   */
+  hiddenActivities(): Array<FfiHeatmapHiddenActivity> /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_hidden_activities(
+          uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterSequenceTypeFfiHeatmapHiddenActivity.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
    * Poll tile generation progress: "idle" | "running" | "complete"
    */
   poll(): string /*throws*/ {
@@ -33602,6 +33511,30 @@ export class HeatmapManager
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
+  }
+
+  /**
+   * Hide an activity from the heatmap, or show it again.
+   *
+   * The tiles the activity reaches are redrawn without it, or with it
+   * again, by the sweep and the pass behind it. The activity stays in every
+   * list, statistic and section.
+   */
+  setActivityHidden(activityId: string, hidden: boolean): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_activity_hidden(
+          uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(activityId, nativeModule().rustbuffer_alloc),
+          FfiConverterBool.lower(hidden, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
   }
 
   /**
@@ -33753,12 +33686,6 @@ export interface MapManagerLike {
     heldRouteLines: number | undefined,
     heldSections: number | undefined,
   ) /*throws*/ : FfiMapScreenData;
-  queryViewport(
-    minLat: number,
-    maxLat: number,
-    minLng: number,
-    maxLng: number,
-  ) /*throws*/ : Array<string>;
 }
 /**
  * @deprecated Use `MapManagerLike` instead.
@@ -33860,35 +33787,6 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
     );
     try {
       return FfiConverterTypeFfiMapScreenData.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  queryViewport(
-    minLat: number,
-    maxLat: number,
-    minLng: number,
-    maxLng: number,
-  ): Array<string> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_mapmanager_query_viewport(
-          uniffiTypeMapManagerObjectFactory.clonePointer(this),
-          FfiConverterFloat64.lower(minLat, nativeModule().rustbuffer_alloc),
-          FfiConverterFloat64.lower(maxLat, nativeModule().rustbuffer_alloc),
-          FfiConverterFloat64.lower(minLng, nativeModule().rustbuffer_alloc),
-          FfiConverterFloat64.lower(maxLng, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceString.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -34008,12 +33906,6 @@ export interface RecordingManagerLike {
    * rides become uploadable again, and nobody else's. Returns how many moved.
    */
   clearPermissionBlocked(athleteId: string) /*throws*/ : number;
-  /**
-   * Drop every row. A `.veloqdb` restore carries this table like any other
-   * but not the FIT files it points at, so the rows are stale the moment
-   * they land on another install.
-   */
-  clearRecordings() /*throws*/ : number;
   /**
    * Remove one recording the signed-in athlete may see, handing back the
    * row so the caller can delete the files it names. A row stamped with
@@ -34201,28 +34093,6 @@ export class RecordingManager
               athleteId,
               nativeModule().rustbuffer_alloc,
             ),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-      ),
-    );
-  }
-
-  /**
-   * Drop every row. A `.veloqdb` restore carries this table like any other
-   * but not the FIT files it points at, so the rows are stale the moment
-   * they land on another install.
-   */
-  clearRecordings(): number /*throws*/ {
-    return FfiConverterUInt32.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_clear_recordings(
-            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -35511,7 +35381,6 @@ export interface SectionManagerLike {
     activityId: string,
     startIndex: number,
   ) /*throws*/ : void;
-  getAllNames() /*throws*/ : Map<string, string>;
   getById(sectionId: string) /*throws*/ : FfiSection | undefined;
   /**
    * Total number of sections, without deserializing any section blobs.
@@ -35561,11 +35430,6 @@ export interface SectionManagerLike {
     sectionId: string,
     version: number,
   ) /*throws*/ : ArrayBuffer;
-  getHistory(sectionId: string) /*throws*/ : Array<FfiSectionHistoryEvent>;
-  getMapSections(
-    sportType: string | undefined,
-    minVisits: number | undefined,
-  ) /*throws*/ : Array<FfiMapSection>;
   getNamedCorridors() /*throws*/ : Array<FfiNamedCorridor>;
   /**
    * Read through the pool, so the section detail screen does not wait
@@ -35578,8 +35442,6 @@ export interface SectionManagerLike {
     sectionId: string,
     sportType: string | undefined,
   ) /*throws*/ : FfiSectionPerformanceResult;
-  getPinnedVersion(sectionId: string) /*throws*/ : number | undefined;
-  getReferenceInfo(sectionId: string) /*throws*/ : FfiSectionReferenceInfo;
   getRetired() /*throws*/ : Array<FfiRetiredSection>;
   /**
    * The old-versus-new sections map in one read: the retired sections with
@@ -35910,26 +35772,6 @@ export class SectionManager
     );
   }
 
-  getAllNames(): Map<string, string> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterMapStringString.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
   getById(sectionId: string): FfiSection | undefined /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -36128,58 +35970,6 @@ export class SectionManager
     }
   }
 
-  getHistory(sectionId: string): Array<FfiSectionHistoryEvent> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_history(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(sectionId, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceTypeFfiSectionHistoryEvent.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  getMapSections(
-    sportType: string | undefined,
-    minVisits: number | undefined,
-  ): Array<FfiMapSection> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_map_sections(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          FfiConverterOptionalString.lower(
-            sportType,
-            nativeModule().rustbuffer_alloc,
-          ),
-          FfiConverterOptionalUInt32.lower(
-            minVisits,
-            nativeModule().rustbuffer_alloc,
-          ),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceTypeFfiMapSection.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
   getNamedCorridors(): Array<FfiNamedCorridor> /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -36230,48 +36020,6 @@ export class SectionManager
     );
     try {
       return FfiConverterTypeFfiSectionPerformanceResult.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  getPinnedVersion(sectionId: string): number | undefined /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_pinned_version(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(sectionId, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterOptionalFloat64.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  getReferenceInfo(sectionId: string): FfiSectionReferenceInfo /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(sectionId, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterTypeFfiSectionReferenceInfo.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -37461,12 +37209,6 @@ export interface SettingsManagerLike {
    * Bytes the stream store holds, for the cache readout.
    */
   streamStoreBytes() /*throws*/ : number;
-  /**
-   * Where the athlete's rides start and finish most often, for the export
-   * privacy row to offer. A guess: the trim stays off until it is confirmed
-   * or replaced, and a library with too little to cluster answers none.
-   */
-  suggestExportHome() /*throws*/ : SuggestedHome | undefined;
 }
 /**
  * @deprecated Use `SettingsManagerLike` instead.
@@ -38010,31 +37752,6 @@ export class SettingsManager
     );
   }
 
-  /**
-   * Where the athlete's rides start and finish most often, for the export
-   * privacy row to offer. A guess: the trim stays off until it is confirmed
-   * or replaced, and a library with too little to cluster answers none.
-   */
-  suggestExportHome(): SuggestedHome | undefined /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_suggest_export_home(
-          uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterOptionalTypeSuggestedHome.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
   uniffiDestroy(): void {
     const ptr = (this as any)[destructorGuardSymbol];
     if (ptr !== undefined) {
@@ -38152,16 +37869,6 @@ export interface StrengthManagerLike {
    * `get_exercise_sets`, the same path a cache hit takes.
    */
   fetchAndParseExerciseSets(activityId: string): FfiStartResult;
-  /**
-   * Get activities for a specific exercise filtered by muscle group.
-   * Returns activities sorted by date descending with per-activity stats.
-   */
-  getActivitiesForExercise(
-    startTs: number,
-    endTs: number,
-    muscleSlug: string,
-    exerciseCategory: number,
-  ) /*throws*/ : FfiExerciseActivities;
   /**
    * One exercise's best set per session and estimated one-rep-max trend.
    */
@@ -38326,42 +38033,6 @@ export class StrengthManager
     );
     try {
       return FfiConverterTypeFfiStartResult.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  /**
-   * Get activities for a specific exercise filtered by muscle group.
-   * Returns activities sorted by date descending with per-activity stats.
-   */
-  getActivitiesForExercise(
-    startTs: number,
-    endTs: number,
-    muscleSlug: string,
-    exerciseCategory: number,
-  ): FfiExerciseActivities /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
-          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
-          FfiConverterFloat64.lower(startTs, nativeModule().rustbuffer_alloc),
-          FfiConverterFloat64.lower(endTs, nativeModule().rustbuffer_alloc),
-          FfiConverterString.lower(muscleSlug, nativeModule().rustbuffer_alloc),
-          FfiConverterUInt16.lower(
-            exerciseCategory,
-            nativeModule().rustbuffer_alloc,
-          ),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterTypeFfiExerciseActivities.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -42304,6 +41975,11 @@ const FfiConverterSequenceTypeFfiWeeklySummary = new FfiConverterArray(
   FfiConverterTypeFfiWeeklySummary,
 );
 
+// FfiConverter for Array<FfiHeatmapHiddenActivity>
+const FfiConverterSequenceTypeFfiHeatmapHiddenActivity = new FfiConverterArray(
+  FfiConverterTypeFfiHeatmapHiddenActivity,
+);
+
 // FfiConverter for FfiRecordingEntry | undefined
 const FfiConverterOptionalTypeFfiRecordingEntry = new FfiConverterOptional(
   FfiConverterTypeFfiRecordingEntry,
@@ -42478,14 +42154,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_change_card_support() !==
-    33702
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_get_change_card_support",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_cutover_diff() !==
     29420
   ) {
@@ -42579,22 +42247,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_detector_cutover() !==
-    55314
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_start_detector_cutover",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill() !==
-    62057
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_start_elevation_backfill",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_engine_open() !==
     46726
   ) {
@@ -42607,14 +42259,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_start_gps_pass",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_stream_backfill() !==
-    31152
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_start_stream_backfill",
     );
   }
   if (
@@ -43298,14 +42942,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types() !==
-    18354
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_best_efforts_data() !==
     45426
   ) {
@@ -43394,14 +43030,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_latest_date() !==
-    50698
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_latest_date",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines() !==
     14877
   ) {
@@ -43415,14 +43043,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot() !==
-    20487
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot",
     );
   }
   if (
@@ -43490,11 +43110,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_hidden_activities() !==
+    3683
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_hidden_activities",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll() !==
     27592
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_heatmapmanager_poll",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_activity_hidden() !==
+    42309
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_set_activity_hidden",
     );
   }
   if (
@@ -43538,14 +43174,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport() !==
-    44013
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_mapmanager_query_viewport",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_recordingmanager_new() !==
     7397
   ) {
@@ -43575,14 +43203,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_recordingmanager_clear_permission_blocked",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_clear_recordings() !==
-    57558
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_recordingmanager_clear_recordings",
     );
   }
   if (
@@ -43882,14 +43502,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_all_names() !==
-    23962
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_all_names",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_by_id() !==
     637
   ) {
@@ -43946,22 +43558,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_history() !==
-    21918
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_history",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_map_sections() !==
-    60517
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_map_sections",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors() !==
     6713
   ) {
@@ -43975,22 +43571,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_performances",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version() !==
-    44547
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_pinned_version",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info() !==
-    43158
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info",
     );
   }
   if (
@@ -44378,14 +43958,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home() !==
-    43916
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_suggest_export_home",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_strengthmanager_new() !==
     40232
   ) {
@@ -44415,14 +43987,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_activities_for_exercise() !==
-    27348
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_get_activities_for_exercise",
     );
   }
   if (
@@ -45152,6 +44716,7 @@ export default Object.freeze({
     FfiConverterTypeFfiGroupWithPolyline,
     FfiConverterTypeFfiGroupingOutcome,
     FfiConverterTypeFfiHeatmapDay,
+    FfiConverterTypeFfiHeatmapHiddenActivity,
     FfiConverterTypeFfiHistoryRangeEstimate,
     FfiConverterTypeFfiHrZoneBand,
     FfiConverterTypeFfiHrvTrend,

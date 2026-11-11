@@ -138,6 +138,8 @@ function renderSection(props: {
       onPointSelect={() => {}}
       onInteractionChange={() => {}}
       onExportGpx={() => {}}
+      heatmapHidden={false}
+      onToggleHeatmapHidden={() => {}}
     />
   );
 }

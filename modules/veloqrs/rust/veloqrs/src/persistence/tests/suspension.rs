@@ -518,7 +518,7 @@ fn wait_for_visited(
 
 #[test]
 fn suspension_pauses_a_bulk_export_with_no_read_left_open() {
-    use crate::persistence::export::BulkExportFormat;
+    use crate::persistence::export::{BulkExportForTests, BulkExportFormat};
 
     let _guard = serial_global_state();
     // The library is an engine of the test's own. The resume conditions the

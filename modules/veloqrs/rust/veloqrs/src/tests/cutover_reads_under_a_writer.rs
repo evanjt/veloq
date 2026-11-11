@@ -94,6 +94,6 @@ fn start_cutover_answers_not_owed_without_waiting_for_a_writer() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("start_cutover_under_a_writer.db");
 
-    let outcome = read_while_writer_holds(crate::ffi::start_detector_cutover);
+    let outcome = read_while_writer_holds(crate::persistence::cutover::start_cutover);
     assert_eq!(outcome, crate::objects::FfiStartOutcome::NotOwed);
 }

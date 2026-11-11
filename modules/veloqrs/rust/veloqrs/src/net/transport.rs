@@ -449,6 +449,10 @@ impl Transport {
 
                     if status.is_success() {
                         self.note_success(lane, &budget);
+                        // The elevation pass's own ask cannot vouch for itself.
+                        if lane != Lane::Garmin && !path.ends_with("/streams.json") {
+                            crate::net::connectivity::note_link_proof();
+                        }
                         return resp
                             .bytes()
                             .await

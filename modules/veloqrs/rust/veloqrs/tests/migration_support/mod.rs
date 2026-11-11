@@ -52,6 +52,12 @@ pub const RELEASES: &[Release] = &[
         last_migration: "m20261030_225057_drop_rank_record_flag.sql",
         library: Some(include_str!("../fixtures/v79_library.sql")),
     },
+    Release {
+        name: "0.4.1",
+        user_version: 81,
+        last_migration: "m20261108_130440_section_rep_reversed.sql",
+        library: Some(include_str!("../fixtures/v81_library.sql")),
+    },
 ];
 
 /// The newest release in the field, the one the next build upgrades from.

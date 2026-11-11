@@ -26,7 +26,7 @@ import {
 } from '../../../scripts/lib/ffiExports';
 
 const RUST_FILE = path.join(RUST_SRC_DIR, 'ffi.rs');
-const ANCHOR = '/// Start the elevation backfill on a background thread.';
+const ANCHOR = '/// Ask the stream backfill to stop. It ends at its next batch boundary, so the';
 
 const bindings = (): string => fs.readFileSync(GENERATED_BINDINGS, 'utf8');
 
@@ -68,7 +68,7 @@ describe('the FFI docstring matches the generated bindings', () => {
       );
 
       expect(docDrift(extractFfiExports(copy), bindings())).toEqual([
-        '<standalone>::start_elevation_backfill',
+        '<standalone>::stop_stream_backfill',
       ]);
     } finally {
       fs.rmSync(copy, { recursive: true, force: true });
@@ -108,7 +108,7 @@ describe('the FFI docstring matches the generated bindings', () => {
       );
 
       expect(docDrift(extractFfiExports(copy), bindings())).toEqual([
-        '<standalone>::start_elevation_backfill',
+        '<standalone>::stop_stream_backfill',
       ]);
     } finally {
       fs.rmSync(copy, { recursive: true, force: true });

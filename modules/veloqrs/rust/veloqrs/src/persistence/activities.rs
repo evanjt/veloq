@@ -798,12 +798,14 @@ pub(crate) mod pooled {
         conn.query_row("SELECT COUNT(*) FROM activities", [], |row| row.get(0))
     }
 
+    #[cfg(test)]
     const VIEWPORT_SQL: &str = "SELECT id FROM activities
          WHERE min_lat <= ?2 AND max_lat >= ?1 AND min_lng <= ?4 AND max_lng >= ?3";
 
     /// The activities whose stored bounds intersect a window, edges included:
     /// the rule the engine's spatial index applies. A window given with its
     /// corners swapped is read as the box between them.
+    #[cfg(test)]
     pub(crate) fn activities_in_viewport(conn: &Connection, bounds: &Bounds) -> Vec<String> {
         let (min_lat, max_lat) = ordered(bounds.min_lat, bounds.max_lat);
         let (min_lng, max_lng) = ordered(bounds.min_lng, bounds.max_lng);
@@ -820,6 +822,7 @@ pub(crate) mod pooled {
         })
     }
 
+    #[cfg(test)]
     fn ordered(a: f64, b: f64) -> (f64, f64) {
         if a <= b { (a, b) } else { (b, a) }
     }
@@ -2654,6 +2657,7 @@ impl PersistentEngine {
              DELETE FROM route_line_layer;
              DELETE FROM route_names;
              DELETE FROM route_numbers;
+             DELETE FROM heatmap_hidden_activities;
              DELETE FROM gps_tracks;
              DELETE FROM signatures;
              DELETE FROM activities;
@@ -2772,6 +2776,7 @@ impl PersistentEngine {
 
         self.activity_metadata.clear();
         self.activity_metrics.clear();
+        self.heatmap_hidden = Arc::new(std::collections::HashSet::new());
         self.set_spatial_index(RTree::new());
         self.signature_cache.clear();
         self.groups.clear();
@@ -6848,7 +6853,9 @@ mod tests {
         // `activity_id` is a label in a log line rather than the activity's
         // data: it is the newest twenty runs of the native push worker,
         // trimmed by count, and a removed activity does not unmake the run
-        // that happened.
+        // that happened. `heatmap_hidden_activities` is kept past the activity
+        // on purpose: a sync that removes an activity and stores it again must
+        // not show it on the heatmap.
         let cascaded = [
             "gps_tracks",
             "signatures",
@@ -6858,6 +6865,7 @@ mod tests {
             "activity_climb_bests",
             "activity_new_ground",
             "push_runs",
+            "heatmap_hidden_activities",
         ];
         let uncovered: Vec<&String> = tables
             .iter()

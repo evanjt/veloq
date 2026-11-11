@@ -291,7 +291,7 @@ fn report() {
         let (mut resumes, mut cutover_ms) = (0u32, 0u128);
         if owed {
             while {
-                let started = veloqrs::ffi::start_detector_cutover();
+                let started = veloqrs::persistence::cutover::start_cutover();
                 assert_eq!(started, veloqrs::objects::FfiStartOutcome::Started);
                 while veloqrs::ffi::get_cutover_progress().running {
                     std::thread::sleep(std::time::Duration::from_millis(20));

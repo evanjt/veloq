@@ -228,7 +228,6 @@ const mockEngine = {
   unuploadedVisibleRecordingCount: (athleteId?: string) =>
     [...rows.values()].filter((r) => r.uploadStatus !== 'uploaded' && visibleTo(r, athleteId))
       .length,
-  clearRecordings: () => rows.clear(),
 };
 
 const markRecordingUploaded = (id: string, intervalsActivityId?: string) =>

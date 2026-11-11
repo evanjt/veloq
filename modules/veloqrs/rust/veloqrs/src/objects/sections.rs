@@ -303,21 +303,6 @@ impl SectionManager {
         })
     }
 
-    fn get_map_sections(
-        &self,
-        sport_type: Option<String>,
-        min_visits: Option<u32>,
-    ) -> Result<Vec<crate::FfiMapSection>, VeloqError> {
-        with_reader(|conn| {
-            crate::persistence::sections::pooled::map_sections(
-                conn,
-                sport_type.as_deref(),
-                min_visits,
-                &named::pooled::overlay_names(conn),
-            )
-        })
-    }
-
     /// Read through the pool, so the section detail screen does not wait
     /// behind a sync writing its pages. The answer is
     /// `performances::pooled::section_performances`, the same arithmetic the
@@ -338,24 +323,6 @@ impl SectionManager {
                 .as_ref()
                 .clone(),
             )
-        })
-    }
-
-    fn get_reference_info(
-        &self,
-        section_id: String,
-    ) -> Result<crate::FfiSectionReferenceInfo, VeloqError> {
-        // The raw row: neither field is one the corridor-name overlay touches.
-        with_reader(|conn| {
-            queries::pooled::section_raw(conn, &section_id)
-                .map(|s| crate::FfiSectionReferenceInfo {
-                    activity_id: s.representative_activity_id.unwrap_or_default(),
-                    is_user_defined: s.is_user_defined,
-                })
-                .unwrap_or(crate::FfiSectionReferenceInfo {
-                    activity_id: String::new(),
-                    is_user_defined: false,
-                })
         })
     }
 
@@ -416,10 +383,6 @@ impl SectionManager {
                     msg: format!("{}", e),
                 })
         })?
-    }
-
-    fn get_all_names(&self) -> Result<std::collections::HashMap<String, String>, VeloqError> {
-        with_reader(crate::persistence::sections::naming::pooled::all_section_names)
     }
 
     /// Cut a section from an inclusive index range of a stored activity's
@@ -529,15 +492,6 @@ impl SectionManager {
         })?
     }
 
-    fn get_history(
-        &self,
-        section_id: String,
-    ) -> Result<Vec<crate::FfiSectionHistoryEvent>, VeloqError> {
-        with_reader(|conn| {
-            history::linked_section_history(conn, &section_id, &named::pooled::overlay_names(conn))
-        })
-    }
-
     /// A stored version's line, coordinate-encoded like a section polyline.
     fn get_geometry_version_coords(
         &self,
@@ -559,10 +513,6 @@ impl SectionManager {
                     msg: err.to_string(),
                 })
         })?
-    }
-
-    fn get_pinned_version(&self, section_id: String) -> Result<Option<f64>, VeloqError> {
-        with_reader(|conn| history::pinned_section_version(conn, &section_id).map(|v| v as f64))
     }
 
     fn get_retired(
@@ -876,6 +826,61 @@ impl SectionManager {
             })
             .await
             .map_err(|e| VeloqError::Database { msg: e.to_string() })?
+    }
+}
+
+#[cfg(test)]
+impl SectionManager {
+    pub(crate) fn get_map_sections(
+        &self,
+        sport_type: Option<String>,
+        min_visits: Option<u32>,
+    ) -> Result<Vec<crate::FfiMapSection>, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::sections::pooled::map_sections(
+                conn,
+                sport_type.as_deref(),
+                min_visits,
+                &named::pooled::overlay_names(conn),
+            )
+        })
+    }
+
+    pub(crate) fn get_reference_info(
+        &self,
+        section_id: String,
+    ) -> Result<crate::FfiSectionReferenceInfo, VeloqError> {
+        // The raw row: neither field is one the corridor-name overlay touches.
+        with_reader(|conn| {
+            queries::pooled::section_raw(conn, &section_id)
+                .map(|s| crate::FfiSectionReferenceInfo {
+                    activity_id: s.representative_activity_id.unwrap_or_default(),
+                    is_user_defined: s.is_user_defined,
+                })
+                .unwrap_or(crate::FfiSectionReferenceInfo {
+                    activity_id: String::new(),
+                    is_user_defined: false,
+                })
+        })
+    }
+
+    pub(crate) fn get_all_names(
+        &self,
+    ) -> Result<std::collections::HashMap<String, String>, VeloqError> {
+        with_reader(crate::persistence::sections::naming::pooled::all_section_names)
+    }
+
+    pub(crate) fn get_history(
+        &self,
+        section_id: String,
+    ) -> Result<Vec<crate::FfiSectionHistoryEvent>, VeloqError> {
+        with_reader(|conn| {
+            history::linked_section_history(conn, &section_id, &named::pooled::overlay_names(conn))
+        })
+    }
+
+    pub(crate) fn get_pinned_version(&self, section_id: String) -> Result<Option<f64>, VeloqError> {
+        with_reader(|conn| history::pinned_section_version(conn, &section_id).map(|v| v as f64))
     }
 }
 

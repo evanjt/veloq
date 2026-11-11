@@ -200,6 +200,8 @@
     }
   },
   "activityDetail": {
+    "hideFromHeatmap": "Ocultar del mapa de calor",
+    "showOnHeatmap": "Mostrar en el mapa de calor",
     "lineKeyActivity": "Esta actividad",
     "lineKeyRoute": "Ruta coincidente",
     "failedToLoad": "Error al cargar la actividad",
@@ -2229,6 +2231,9 @@
     "heatmapGeneration": "Mapa de calor",
     "heatmapDescription": "Mantiene el mapa de calor en este dispositivo y usa almacenamiento para ello. Desactívalo para liberar ese espacio.",
     "heatmapStorageUsed": "Usando {{size}} de almacenamiento del dispositivo",
+    "heatmapHiddenTitle": "Ocultas del mapa de calor",
+    "heatmapHiddenShow": "Mostrar",
+    "heatmapHiddenShowLabel": "Mostrar {{name}} en el mapa de calor",
     "reanalyzeSections": "Reanalizar secciones",
     "reanalyzeWarning": "Esto reemplazará todas las secciones detectadas automáticamente que no hayan sido aceptadas. Las secciones aceptadas (fijadas) se conservarán.",
     "rescanFailed": "No se pudo completar el reanálisis. Algunos recorridos no se pudieron leer.",

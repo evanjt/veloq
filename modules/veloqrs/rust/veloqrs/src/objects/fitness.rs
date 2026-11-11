@@ -172,28 +172,6 @@ impl FitnessManager {
         })
     }
 
-    /// Record one critical-speed snapshot under the window it was read over.
-    ///
-    /// `window_days` is the range the curve behind it covered. It is part of
-    /// the key and the trend compares one window only, so a screen showing the
-    /// year range no longer overwrites, or is compared with, the sync's
-    /// six-week reading.
-    fn save_pace_snapshot(
-        &self,
-        sport_type: String,
-        critical_speed: f64,
-        d_prime: Option<f64>,
-        r2: Option<f64>,
-        date: f64,
-        window_days: f64,
-    ) -> Result<(), VeloqError> {
-        let date = crate::ffi_types::int_from_wire(date);
-        let window_days = crate::ffi_types::int_from_wire(window_days);
-        with_engine(|e| {
-            e.save_pace_snapshot(&sport_type, critical_speed, d_prime, r2, date, window_days);
-        })
-    }
-
     /// Everything the fitness tab paints with that stays fixed while it is
     /// mounted: the cycling eFTP trend over the chart's three months with the
     /// activities that moved it, and the last stored running and swimming
@@ -218,13 +196,6 @@ impl FitnessManager {
                 msg: format!("{}", err),
             })
         })?
-    }
-
-    fn get_available_sport_types(&self) -> Result<Vec<String>, VeloqError> {
-        with_reader(|conn| {
-            crate::persistence::fitness::derivations::pooled::try_available_sport_types(conn)
-                .unwrap_or_default()
-        })
     }
 
     fn get_summary_card_data(
@@ -294,21 +265,6 @@ impl FitnessManager {
             Ok(crate::FfiWellnessDays {
                 days,
                 coverage: crate::persistence::wellness::pooled::coverage(conn, &oldest, &newest),
-            })
-        })?
-    }
-
-    /// The newest stored wellness date, or `None` when nothing has synced.
-    /// A scalar the insights panel dates its dropped form cards from, so the
-    /// rows themselves never cross the FFI to be quoted as today's figures.
-    fn get_wellness_latest_date(&self) -> Result<Option<String>, VeloqError> {
-        // Off the engine lock: one committed scalar, read while a sync may
-        // well be holding the writer.
-        with_reader(|conn| {
-            crate::persistence::wellness::pooled::latest_date(conn).map_err(|err| {
-                VeloqError::Database {
-                    msg: format!("{}", err),
-                }
             })
         })?
     }
@@ -468,6 +424,16 @@ impl FitnessManager {
                     msg: format!("{e}"),
                 })
         })?
+    }
+}
+
+#[cfg(test)]
+impl FitnessManager {
+    pub(crate) fn get_available_sport_types(&self) -> Result<Vec<String>, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::fitness::derivations::pooled::try_available_sport_types(conn)
+                .unwrap_or_default()
+        })
     }
 }
 

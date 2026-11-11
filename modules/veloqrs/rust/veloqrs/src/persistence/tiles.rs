@@ -452,6 +452,10 @@ struct HeatmapSource {
     dir: String,
     db_path: String,
     bounds: Arc<rstar::RTree<super::ActivityBoundsEntry>>,
+    /// The activities the athlete hid. The bounds are shared with readers that
+    /// have no business with the choice, so a tile draw leaves these out
+    /// itself.
+    hidden: Arc<HashSet<String>>,
 }
 
 fn publish_heatmap_source(source: Option<HeatmapSource>) {
@@ -625,7 +629,7 @@ fn read_drawn_tile(base: &Path, z: u8, x: u32, y: u32) -> Option<Option<Vec<u8>>
 /// `Some(None)` when no heat falls in it, `None` when the tracks could not be
 /// read.
 fn draw_tile_on_request(source: &HeatmapSource, z: u8, x: u32, y: u32) -> Option<Option<Vec<u8>>> {
-    let reaching = activities_reaching_tile(&source.bounds, z, x, y);
+    let reaching = activities_reaching_tile(&source.bounds, &source.hidden, z, x, y);
     count_on_request(|c| c.tracks_loaded += reaching.len());
     let tracks = if reaching.is_empty() {
         LoadedTracksById::new()
@@ -660,6 +664,7 @@ fn draw_tile_on_request(source: &HeatmapSource, z: u8, x: u32, y: u32) -> Option
 /// box's tile range with the one-tile halo a point's stroke can bleed into.
 fn activities_reaching_tile(
     index: &rstar::RTree<super::ActivityBoundsEntry>,
+    hidden: &HashSet<String>,
     z: u8,
     x: u32,
     y: u32,
@@ -673,6 +678,7 @@ fn activities_reaching_tile(
     let around = rstar::AABB::from_corners([west, south], [east, north]);
     index
         .locate_in_envelope_intersecting(&around)
+        .filter(|entry| !hidden.contains(&entry.activity_id))
         .filter(|entry| {
             let b = &entry.bounds;
             let reach =
@@ -977,9 +983,12 @@ impl PersistentEngine {
         // Extract all activity (id, bounds) pairs from in-memory metadata.
         // The background thread uses IDs to bulk-load GPS tracks and bounds
         // for an early tile/bounds intersection filter.
+        // A hidden activity is left out here, so the pass never plans a tile
+        // for ground only it covers.
         let activities: Vec<(String, Bounds)> = self
             .activity_metadata
             .iter()
+            .filter(|(id, _)| !self.heatmap_hidden.contains(*id))
             .map(|(id, m)| (id.clone(), m.bounds))
             .collect();
 
@@ -1095,13 +1104,110 @@ impl PersistentEngine {
             dir,
             db_path: self.db_path.clone(),
             bounds: Arc::clone(&self.spatial_index),
+            hidden: Arc::clone(&self.heatmap_hidden),
         }));
+    }
+
+    /// Read the hidden set from `heatmap_hidden_activities`.
+    pub(super) fn load_heatmap_hidden(&mut self) -> rusqlite::Result<()> {
+        let mut statement = self
+            .db
+            .prepare("SELECT activity_id FROM heatmap_hidden_activities")?;
+        let hidden = statement
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<HashSet<_>>>()?;
+        drop(statement);
+        self.heatmap_hidden = Arc::new(hidden);
+        self.publish_heatmap_source();
+        Ok(())
+    }
+
+    /// Hide an activity from the heatmap, or show it again.
+    ///
+    /// The choice is stored first, then both tile paths see it: the pass reads
+    /// the set when it collects activities, and the on-request draw reads the
+    /// copy the source carries, which is published again here. The tiles the
+    /// activity's bounds reach are swept, which redraws them without it, or
+    /// with it again. The activity stays in every list, statistic and section.
+    ///
+    /// An id the library does not hold is stored all the same: a sync that
+    /// removes an activity and stores it again must not lose the choice.
+    pub fn set_heatmap_hidden(&mut self, activity_id: &str, hidden: bool) -> rusqlite::Result<()> {
+        if self.heatmap_hidden.contains(activity_id) == hidden {
+            return Ok(());
+        }
+        if hidden {
+            self.db.execute(
+                "INSERT OR IGNORE INTO heatmap_hidden_activities (activity_id, hidden_at)
+                 VALUES (?1, CAST(strftime('%s', 'now') AS INTEGER))",
+                [activity_id],
+            )?;
+        } else {
+            self.db.execute(
+                "DELETE FROM heatmap_hidden_activities WHERE activity_id = ?1",
+                [activity_id],
+            )?;
+        }
+        let mut set = (*self.heatmap_hidden).clone();
+        if hidden {
+            set.insert(activity_id.to_string());
+        } else {
+            set.remove(activity_id);
+        }
+        self.heatmap_hidden = Arc::new(set);
+        self.publish_heatmap_source();
+        if let Some(bounds) = self.activity_metadata.get(activity_id).map(|m| m.bounds) {
+            self.sweep_tiles_for(vec![bounds], "heatmap visibility");
+        }
+        Ok(())
+    }
+
+    /// The ids of the hidden activities, in order.
+    pub fn heatmap_hidden_activity_ids(&self) -> Vec<String> {
+        let mut ids: Vec<String> = self.heatmap_hidden.iter().cloned().collect();
+        ids.sort_unstable();
+        ids
     }
 
     /// The tiles path in force, or `None` when the athlete has the heatmap off.
     pub fn heatmap_tiles_path(&self) -> Option<&str> {
         self.heatmap_tiles_path.as_deref()
     }
+}
+
+/// Whether the athlete hid this activity from the heatmap, as committed.
+pub fn is_heatmap_hidden(conn: &Connection, activity_id: &str) -> bool {
+    conn.query_row(
+        "SELECT 1 FROM heatmap_hidden_activities WHERE activity_id = ?1",
+        [activity_id],
+        |_| Ok(()),
+    )
+    .is_ok()
+}
+
+/// The hidden activities the library holds, the newest first, for the list
+/// that shows each again. A hidden id the library does not hold has no name to
+/// show and is left out; its choice stands for when the activity arrives.
+pub fn heatmap_hidden_listing(conn: &Connection) -> Vec<crate::FfiHeatmapHiddenActivity> {
+    let Ok(mut statement) = conn.prepare(
+        "SELECT h.activity_id, m.name, m.sport_type, m.date
+         FROM heatmap_hidden_activities h
+         JOIN activity_metrics m ON m.activity_id = h.activity_id
+         ORDER BY m.date DESC, h.activity_id",
+    ) else {
+        return Vec::new();
+    };
+    statement
+        .query_map([], |row| {
+            Ok(crate::FfiHeatmapHiddenActivity {
+                activity_id: row.get(0)?,
+                name: row.get(1)?,
+                sport_type: row.get(2)?,
+                date: row.get::<_, i64>(3)? as f64,
+            })
+        })
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .unwrap_or_default()
 }
 
 /// Ids whose track did not decode on the last run. An absent or unreadable
@@ -2280,6 +2386,7 @@ mod tests {
             dir: tmp.path().to_string_lossy().into_owned(),
             db_path: String::new(),
             bounds: Arc::new(rstar::RTree::new()),
+            hidden: Arc::new(HashSet::new()),
         }));
 
         let served = heatmap_tile_bytes(12, 1, 1);

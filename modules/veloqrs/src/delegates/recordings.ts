@@ -347,11 +347,3 @@ export function deleteOwnRecording(
   );
   return row ? toEntry(row) : null;
 }
-
-/**
- * Drop every row. A `.veloqdb` restore carries this table like any other but
- * not the FIT files it points at, so the rows are stale the moment they land.
- */
-export function clearRecordings(host: DelegateHost): void {
-  host.write('clearRecordings', () => host.engine.recordings().clearRecordings());
-}

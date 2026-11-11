@@ -11,7 +11,6 @@
  */
 
 import {
-  startStreamBackfill as ffiStartStreamBackfill,
   stopStreamBackfill as ffiStopStreamBackfill,
   consentStreamBackfill as ffiConsentStreamBackfill,
   type StreamBackfillProgress,
@@ -44,21 +43,6 @@ export const STREAM_PHASES = [
 export type StreamBackfillPhase = (typeof STREAM_PHASES)[number];
 
 export type { StreamBackfillProgress };
-
-/**
- * Ask Rust to start a pass. The verdict names the refusal, so `NotOwed`, which
- * is the library already stocked, is not read as the same failure as being
- * offline or having no credential yet.
- */
-export function startStreamBackfill(host: DelegateHost): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
-  try {
-    return host.timed('startStreamBackfill', () => ffiStartStreamBackfill());
-  } catch (e) {
-    console.error('[Engine] startStreamBackfill threw:', e);
-    return FfiStartOutcome.Failed;
-  }
-}
 
 /**
  * Record the athlete's yes to a large automatic download and start the pass.

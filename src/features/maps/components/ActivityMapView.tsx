@@ -1075,6 +1075,8 @@ export const ActivityMapView = memo(function ActivityMapView({
         <ActivityMapControls
           nextStyle={nextMapStyle}
           onToggleStyle={toggleMapStyle}
+          isDark={isDark}
+          basePalette={basePalette}
           hasGradientData={hasGradientData}
           gradientActive={gradientActive}
           onToggleGradient={toggleColorByGradient}

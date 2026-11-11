@@ -167,15 +167,19 @@ tags:
 - runFlow:
     when:
       visible:
-        id: "activity-map-gradient-toggle"
+        id: "activity-map-layers"
     commands:
       - tapOn:
-          id: "activity-map-gradient-toggle"
+          id: "activity-map-layers"
+      - tapOn:
+          id: "activity-map-layer-gradient"
       - waitForAnimationToEnd:
           timeout: 2000
       - takeScreenshot: "screenshots/validation-activity-map-gradient-on"
       - tapOn:
-          id: "activity-map-gradient-toggle"
+          id: "activity-map-layers"
+      - tapOn:
+          id: "activity-map-layer-gradient"
 
 # --- 3D toggle ---
 - runFlow:

@@ -8,12 +8,8 @@
 
 import {
   isCutoverHeld as ffiIsCutoverHeld,
-  startDetectorCutover as ffiStartDetectorCutover,
   getCutoverDiff as ffiGetCutoverDiff,
-  getChangeCardSupport as ffiGetChangeCardSupport,
-  FfiStartOutcome,
   type FfiCatalogueCounts,
-  type FfiChangeCardSupport,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
@@ -85,19 +81,6 @@ export const CUTOVER_PHASES = [
 export type CutoverPhase = (typeof CUTOVER_PHASES)[number];
 
 /**
- * Start the cutover on a Rust worker and return the start verdict.
- */
-export function startDetectorCutover(host: DelegateHost): FfiStartOutcome {
-  if (!host.ready) return FfiStartOutcome.NotReady;
-  try {
-    return host.timed('startDetectorCutover', () => ffiStartDetectorCutover());
-  } catch (e) {
-    console.error('[Engine] startDetectorCutover threw:', e);
-    return FfiStartOutcome.Failed;
-  }
-}
-
-/**
  * The stored diff, so the change card survives a restart.
  *
  * The engine parses the settings row it persisted and hands back a record: the
@@ -116,30 +99,4 @@ export function getCutoverDiff(host: DelegateHost): CutoverDiff | null {
     countsOwed: !diff.counts,
     settingsReset: diff.settingsReset ?? null,
   };
-}
-
-export type ChangeCardSupport = FfiChangeCardSupport;
-
-const NO_SUPPORT: ChangeCardSupport = {
-  deterministic: false,
-  sameResultDripOrBatch: false,
-  ledger: false,
-  revert: false,
-  retired: false,
-  pinnedSurvive: false,
-  sameOnEveryDevice: false,
-};
-
-/**
- * Which claims the change card may make on this build. Every flag is false
- * off a half-open engine, so the card shows nothing rather than a guess.
- */
-export function getChangeCardSupport(host: DelegateHost): ChangeCardSupport {
-  if (!host.ready) return NO_SUPPORT;
-  try {
-    return host.timed('getChangeCardSupport', () => ffiGetChangeCardSupport());
-  } catch (e) {
-    console.error('[Engine] getChangeCardSupport threw:', e);
-    return NO_SUPPORT;
-  }
 }

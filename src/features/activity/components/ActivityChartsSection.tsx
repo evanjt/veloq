@@ -146,6 +146,10 @@ interface ActivityChartsSectionProps {
   onInteractionChange: (isInteracting: boolean) => void;
   /** Takes the export button, which the share sheet points at on iPad. */
   onExportGpx: (anchor: React.RefObject<ViewInstance | null>) => void;
+  /** Whether the athlete hid this activity from the heatmap, from the detail screen read */
+  heatmapHidden: boolean;
+  /** Hides the activity from the heatmap, or shows it again */
+  onToggleHeatmapHidden: () => void;
 }
 
 export const ActivityChartsSection = React.memo(function ActivityChartsSection({
@@ -182,6 +186,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   onPointSelect,
   onInteractionChange,
   onExportGpx,
+  heatmapHidden,
+  onToggleHeatmapHidden,
 }: ActivityChartsSectionProps) {
   const { t } = useTranslation();
   const pageScroll = usePagerPageScrollProps();
@@ -518,6 +524,22 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 loading={gpxExporting}
                 label={t('export.gpx')}
                 icon={{ chrome: 'share' }}
+              />
+            )}
+
+            {/* Heatmap visibility */}
+            {coordinates.length > 0 && (
+              <Button
+                testID="activity-heatmap-toggle"
+                variant="secondary"
+                style={styles.exportGpxButton}
+                onPress={onToggleHeatmapHidden}
+                label={
+                  heatmapHidden
+                    ? t('activityDetail.showOnHeatmap')
+                    : t('activityDetail.hideFromHeatmap')
+                }
+                icon={heatmapHidden ? 'eye' : 'eye-off'}
               />
             )}
 

@@ -279,33 +279,38 @@ impl BulkExportProgress {
     }
 }
 
-impl PersistentEngine {
-    /// Export all activities with GPS data as GPX files inside a ZIP archive.
-    ///
-    /// Streams one track at a time from SQLite → GPX XML → ZIP entry on disk.
-    /// The ZIP file is written to `dest_path`.
-    pub fn bulk_export_gpx(&self, dest_path: &str) -> Result<BulkExportResult, String> {
-        export_gpx(
-            &self.db,
-            PrivacyTrim::from_settings(self)?,
-            dest_path,
-            &BulkExportProgress::default(),
-        )
+/// The two whole-library exports, called the way the app calls them: on the
+/// export thread over its own read-only connection. The engine exposes no
+/// synchronous export, so tests reach the exports through this trait.
+#[cfg(test)]
+pub(crate) trait BulkExportForTests {
+    /// Every activity with GPS data as GPX files inside a ZIP archive.
+    fn bulk_export_gpx(&self, dest_path: &str) -> Result<BulkExportResult, String>;
+    /// Every activity with GPS data as one GeoJSON FeatureCollection.
+    fn bulk_export_geojson(&self, dest_path: &str) -> Result<BulkExportResult, String>;
+}
+
+#[cfg(test)]
+impl BulkExportForTests for PersistentEngine {
+    fn bulk_export_gpx(&self, dest_path: &str) -> Result<BulkExportResult, String> {
+        run_bulk_export_for_test(self, BulkExportFormat::Gpx, dest_path)
     }
 
-    /// Export all activities with GPS data as a single GeoJSON FeatureCollection.
-    ///
-    /// Each activity becomes a Feature with a LineString geometry and properties
-    /// (id, name, sport, date, distance, movingTime, trimmed) and the export's
-    /// provenance as a top-level `export` member. Streams one track at a time.
-    pub fn bulk_export_geojson(&self, dest_path: &str) -> Result<BulkExportResult, String> {
-        export_geojson(
-            &self.db,
-            PrivacyTrim::from_settings(self)?,
-            dest_path,
-            &BulkExportProgress::default(),
-        )
+    fn bulk_export_geojson(&self, dest_path: &str) -> Result<BulkExportResult, String> {
+        run_bulk_export_for_test(self, BulkExportFormat::GeoJson, dest_path)
     }
+}
+
+#[cfg(test)]
+fn run_bulk_export_for_test(
+    engine: &PersistentEngine,
+    format: BulkExportFormat,
+    dest_path: &str,
+) -> Result<BulkExportResult, String> {
+    engine
+        .bulk_export_background(format, dest_path, Default::default())?
+        .recv_blocking()
+        .unwrap_or_else(|| Err("Export thread died without a result".to_string()))
 }
 
 /// A GPX file ready to share: the name to save it under and its XML.

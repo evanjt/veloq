@@ -199,6 +199,8 @@
     }
   },
   "activityDetail": {
+    "hideFromHeatmap": "ヒートマップから非表示",
+    "showOnHeatmap": "ヒートマップに表示",
     "lineKeyActivity": "このアクティビティ",
     "lineKeyRoute": "一致したルート",
     "failedToLoad": "アクティビティの読み込みに失敗しました",
@@ -2177,6 +2179,9 @@
     "heatmapGeneration": "ヒートマップ",
     "heatmapDescription": "ヒートマップをこのデバイスに保存し、そのために容量を使用します。オフにすると、その容量が空きになります。",
     "heatmapStorageUsed": "デバイスのストレージを{{size}}使用中",
+    "heatmapHiddenTitle": "ヒートマップで非表示",
+    "heatmapHiddenShow": "表示",
+    "heatmapHiddenShowLabel": "{{name}}をヒートマップに表示",
     "reanalyzeSections": "セクションを再分析",
     "reanalyzeWarning": "未承認の自動検出セクションをすべて置き換えます。承認済み(ピン留め)のセクションは保持されます。",
     "rescanFailed": "再スキャンを完了できませんでした。一部のアクティビティの軌跡を読み取れません。",

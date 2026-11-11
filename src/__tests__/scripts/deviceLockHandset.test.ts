@@ -170,6 +170,38 @@ describe('the lock held on the handset', () => {
     expect(run.stdout).toContain('through');
   });
 
+  it('refuses a hold whose directory is fresh and has no holder line yet', () => {
+    const { host, lockDir } = fakeHandset();
+    fs.mkdirSync(lockDir);
+    const run = spawnSync(wrapper, ['echo', 'ran'], { encoding: 'utf8', env: host('beta') });
+    expect(run.status).not.toBe(0);
+    expect(run.stdout).not.toContain('ran');
+    expect(run.stderr).toContain('held');
+    expect(run.stderr).not.toContain('taking over');
+    expect(fs.existsSync(lockDir)).toBe(true);
+  });
+
+  it('refuses a hold whose holder line is still empty while it is being written', () => {
+    const { host, lockDir } = fakeHandset();
+    fs.mkdirSync(lockDir);
+    fs.writeFileSync(path.join(lockDir, 'holder'), '');
+    const run = spawnSync(wrapper, ['echo', 'ran'], { encoding: 'utf8', env: host('beta') });
+    expect(run.status).not.toBe(0);
+    expect(run.stdout).not.toContain('ran');
+    expect(run.stderr).toContain('held');
+    expect(fs.existsSync(lockDir)).toBe(true);
+  });
+
+  it('takes over a hold with no holder line once its directory is past the grace', () => {
+    const { host, lockDir } = fakeHandset();
+    fs.mkdirSync(lockDir);
+    fs.utimesSync(lockDir, 1000, 1000);
+    const run = spawnSync(wrapper, ['echo', 'ran'], { encoding: 'utf8', env: host('beta') });
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('ran');
+    expect(run.stderr).toMatch(/taking over .* aged \d+s/);
+  });
+
   it('takes over a holder older than the stated limit', () => {
     const { host, lockDir } = fakeHandset();
     fs.mkdirSync(lockDir);

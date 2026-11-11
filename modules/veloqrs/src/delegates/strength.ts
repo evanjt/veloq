@@ -9,7 +9,6 @@ import { FfiStartOutcome } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 import { startResult } from './start';
 import type {
-  FfiExerciseActivities,
   FfiStartResult,
   FfiExerciseDetailData,
   FfiExerciseSession,
@@ -138,19 +137,6 @@ export function getMuscleDetail(
 export function hasStrengthData(host: DelegateHost): boolean {
   if (!host.ready) return false;
   return host.timed('hasStrengthData', () => host.engine.strength().hasStrengthData());
-}
-
-export function getActivitiesForExercise(
-  host: DelegateHost,
-  startTs: number,
-  endTs: number,
-  muscleSlug: string,
-  exerciseCategory: number
-): FfiExerciseActivities {
-  if (!host.ready) return { activities: [] };
-  return host.timed('getActivitiesForExercise', () =>
-    host.engine.strength().getActivitiesForExercise(startTs, endTs, muscleSlug, exerciseCategory)
-  );
 }
 
 /** Insert pre-parsed sets without the network. Held in order until the engine opens. */

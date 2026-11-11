@@ -1809,7 +1809,10 @@ mod tests {
         seed_activity("a1");
 
         let gpx = tmp.path().join("all.zip").to_string_lossy().into_owned();
-        let result = with_engine(|e| e.bulk_export_gpx(&gpx)).unwrap().unwrap();
+        let result = crate::runtime::block_on(
+            VeloqEngine.run_bulk_export(BulkExportFormat::Gpx, gpx.clone()),
+        )
+        .expect("gpx export");
         assert_eq!(result.exported, 1);
         assert!(std::path::Path::new(&gpx).exists());
 
@@ -1818,9 +1821,10 @@ mod tests {
             .join("all.geojson")
             .to_string_lossy()
             .into_owned();
-        let result = with_engine(|e| e.bulk_export_geojson(&geojson))
-            .unwrap()
-            .unwrap();
+        let result = crate::runtime::block_on(
+            VeloqEngine.run_bulk_export(BulkExportFormat::GeoJson, geojson.clone()),
+        )
+        .expect("geojson export");
         assert_eq!(result.exported, 1);
         assert!(
             std::fs::read_to_string(&geojson)

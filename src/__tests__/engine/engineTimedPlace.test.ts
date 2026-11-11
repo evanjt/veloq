@@ -102,13 +102,6 @@ describe('gesture-time calls', () => {
     timed: EngineClient.getInstance().timed.bind(EngineClient.getInstance()),
   });
 
-  it('records a viewport query under the gesture place', () => {
-    const { queryViewport } = require('../../../modules/veloqrs/src/delegates/maps');
-    const host = hostWith({ maps: () => ({ queryViewport: () => ['a'] }) });
-    expect(queryViewport(host, 0, 1, 0, 1)).toEqual(['a']);
-    expect(recorded).toEqual(['queryViewport@gesture']);
-  });
-
   it('records the first page of the routes read as a mount and every later page as a gesture', () => {
     const { getRoutesScreenData } = require('../../../modules/veloqrs/src/delegates/routes');
     const host = hostWith({ routes: () => ({ getScreenData: () => ({}) }) });

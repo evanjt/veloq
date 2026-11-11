@@ -1,7 +1,7 @@
 /**
  * Scenario: a settled pan or zoom on the regional map only records the camera.
  *
- * Expected behaviour: no engine query runs, however large the library.
+ * Expected behaviour: no engine read runs, however large the library.
  */
 
 import { renderHook, act } from '@testing-library/react-native';
@@ -11,10 +11,16 @@ import { useMapHandlers } from '@/features/maps/components/regional/useMapHandle
 import type { MapSurfaceRef } from '@/features/maps/components/MapSurface';
 import type { ActivityBoundsItem } from '@/types';
 
-const mockEngine = {
-  getActivityCount: jest.fn(() => 2000),
-  queryViewport: jest.fn(() => ['a0']),
-};
+const mockUnexpectedCalls: string[] = [];
+const mockEngine = new Proxy({ getActivityCount: jest.fn(() => 2000) } as Record<string, unknown>, {
+  get: (target, name: string) =>
+    name in target
+      ? target[name]
+      : () => {
+          // Recording the camera is a settings write; anything else is a read.
+          if (!name.startsWith('set')) mockUnexpectedCalls.push(name);
+        },
+});
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
@@ -81,17 +87,17 @@ async function settle(count: number, zooms: number[]) {
 describe('a settled region change', () => {
   beforeEach(() => {
     jest.useFakeTimers();
-    mockEngine.queryViewport.mockClear();
+    mockUnexpectedCalls.length = 0;
   });
   afterEach(() => jest.useRealTimers());
 
-  it('queries no viewport on a library of 2,000 activities', async () => {
+  it('makes no engine read on a library of 2,000 activities', async () => {
     await settle(2000, [10, 10.5]);
-    expect(mockEngine.queryViewport).not.toHaveBeenCalled();
+    expect(mockUnexpectedCalls).toEqual([]);
   });
 
-  it('queries no viewport when crossing zoom 11 on five activities', async () => {
+  it('makes no engine read when crossing zoom 11 on five activities', async () => {
     await settle(5, [10, 12, 10]);
-    expect(mockEngine.queryViewport).not.toHaveBeenCalled();
+    expect(mockUnexpectedCalls).toEqual([]);
   });
 });

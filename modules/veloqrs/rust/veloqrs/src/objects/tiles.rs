@@ -76,6 +76,25 @@ impl HeatmapManager {
         crate::persistence::tiles::clear_tile_priority();
     }
 
+    /// Hide an activity from the heatmap, or show it again.
+    ///
+    /// The tiles the activity reaches are redrawn without it, or with it
+    /// again, by the sweep and the pass behind it. The activity stays in every
+    /// list, statistic and section.
+    fn set_activity_hidden(&self, activity_id: String, hidden: bool) -> Result<(), VeloqError> {
+        with_engine(|e| e.set_heatmap_hidden(&activity_id, hidden))?.map_err(|e| {
+            VeloqError::Database {
+                msg: format!("{e}"),
+            }
+        })
+    }
+
+    /// The activities hidden from the heatmap, newest first. Takes no engine
+    /// lock.
+    fn hidden_activities(&self) -> Result<Vec<crate::FfiHeatmapHiddenActivity>, VeloqError> {
+        super::error::with_reader(crate::persistence::tiles::heatmap_hidden_listing)
+    }
+
     /// Disable heatmap tile generation by clearing the tiles path.
     fn clear_tiles_path(&self) -> Result<(), VeloqError> {
         with_engine(|e| e.clear_heatmap_tiles_path())

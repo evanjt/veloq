@@ -725,6 +725,14 @@ impl PersistentEngine {
                 Ok(true)
             }
             "section_pins" => self.place_pin(row),
+            "heatmap_hidden_activities" => {
+                let Some(activity_id) = string(&row.values, "activity_id") else {
+                    return Ok(false);
+                };
+                self.set_heatmap_hidden(activity_id, true)
+                    .map_err(|e| e.to_string())?;
+                Ok(true)
+            }
             "section_forced_matches" => self.place_forced_match(row),
             "section_history" => self.place_history(row),
             super::record_backup::LEGACY_SECTION_NAME
@@ -3176,6 +3184,48 @@ mod tests {
         .unwrap();
         assert_eq!(carried.len(), older.len());
         assert!(ledger.ground.as_ref().unwrap().rep_activity_id.is_none());
+    }
+
+    /// Scenario: the athlete hid a flight from the heatmap, backed up and
+    /// restored onto a new phone, whose sync has not stored that flight yet.
+    ///
+    /// Expected behaviour: the hidden set travels in the record and comes back
+    /// whole, including an activity the new library does not hold yet, and
+    /// nothing is left waiting.
+    #[test]
+    fn test_the_hidden_heatmap_activities_survive_a_backup_and_restore() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().unwrap();
+        let mut source =
+            PersistentEngine::new(dir.path().join("hidden-source.db").to_str().unwrap()).unwrap();
+        source
+            .add_activity("ride-1".to_string(), ride(), "Ride".to_string())
+            .unwrap();
+        source.set_heatmap_hidden("ride-1", true).unwrap();
+        source.set_heatmap_hidden("flight-9", true).unwrap();
+        source.set_heatmap_hidden("ride-2", true).unwrap();
+        source.set_heatmap_hidden("ride-2", false).unwrap();
+        let payload =
+            crate::persistence::record_backup::collect_record_payload(&source.db).unwrap();
+
+        let mut restored =
+            PersistentEngine::new(dir.path().join("hidden-restored.db").to_str().unwrap()).unwrap();
+        let json = serde_json::to_string(&payload).unwrap();
+        let result = restored.restore_record_json(&json).unwrap();
+
+        assert_eq!(result.unplaced, 0);
+        assert_eq!(
+            restored.heatmap_hidden_activity_ids(),
+            vec!["flight-9".to_string(), "ride-1".to_string()]
+        );
+        let mut reopened =
+            PersistentEngine::new(dir.path().join("hidden-restored.db").to_str().unwrap()).unwrap();
+        reopened.load().unwrap();
+        assert_eq!(
+            reopened.heatmap_hidden_activity_ids(),
+            restored.heatmap_hidden_activity_ids(),
+            "the restored choice was not stored"
+        );
     }
 
     /// A library whose cutover retired `old-climb` over `ride-1`'s 10..40,

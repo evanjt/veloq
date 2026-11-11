@@ -11,6 +11,7 @@ import {
   CacheSizeRun,
   FfiStartOutcome,
   type CacheSizeRunLike,
+  type FfiHeatmapHiddenActivity,
   type FfiStartResult,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
@@ -174,5 +175,38 @@ export function pollTileGeneration(host: DelegateHost): string {
     return host.timed('poll', () => host.engine.heatmap().poll());
   } catch {
     return 'error';
+  }
+}
+
+/**
+ * Hide an activity from the heatmap, or show it again. The engine redraws the
+ * tiles the activity reaches. Whether the choice was stored.
+ */
+export function setActivityHeatmapHidden(
+  host: DelegateHost,
+  activityId: string,
+  hidden: boolean
+): boolean {
+  if (!host.ready) return false;
+  try {
+    host.timed('setActivityHidden', () =>
+      host.engine.heatmap().setActivityHidden(activityId, hidden)
+    );
+    return true;
+  } catch (e) {
+    console.warn('[EngineClient] Failed to store the heatmap choice for an activity:', e);
+    return false;
+  }
+}
+
+/** The activities hidden from the heatmap that the library holds, newest first. */
+export function heatmapHiddenActivities(host: DelegateHost): FfiHeatmapHiddenActivity[] {
+  if (!host.ready) return [];
+  try {
+    return host.timed('hiddenActivities', () => host.engine.heatmap().hiddenActivities());
+  } catch (e) {
+    console.warn('[EngineClient] Failed to read the activities hidden from the heatmap:', e);
+    // empty-on-error: the list only offers to undo a choice, which the activity's own screen also does, so a failed read leaves the section off
+    return [];
   }
 }

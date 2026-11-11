@@ -10,7 +10,6 @@
 import { validateId } from '../../conversions';
 import type {
   FfiSection,
-  FfiMapSection,
   FfiNamedCorridor,
   FfiSectionDetailData,
   FfiSectionPerformanceData,
@@ -29,25 +28,6 @@ const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = {
   bestForwardIsPr: false,
   bestReverseIsPr: false,
 };
-
-/**
- * Sections as the regional map draws them: six fields and the encoded line.
- *
- * The full section record carries the activity ids, one portion record per
- * traversal and the point density per section, and the map reads none of it.
- */
-export function getMapSections(
-  host: DelegateHost,
-  sportType?: string,
-  minVisits?: number
-): FfiMapSection[] {
-  if (!host.ready) return [];
-  // FfiConverterOptional* accepts undefined for "absent" but throws on null -
-  // forward optional args as-is, do NOT coalesce to null.
-  return host.timed('getMapSections', () =>
-    host.engine.sections().getMapSections(sportType, minVisits)
-  );
-}
 
 /**
  * Total section count without deserializing section blobs. Cheap alternative
@@ -104,12 +84,6 @@ export function getSectionById(host: DelegateHost, sectionId: string): FfiSectio
   return host.timed('getSectionById', () => host.engine.sections().getById(sectionId)) ?? null;
 }
 
-export function getAllSectionNames(host: DelegateHost): Record<string, string> {
-  if (!host.ready) return {};
-  const map = host.timed('getAllSectionNames', () => host.engine.sections().getAllNames());
-  return Object.fromEntries(map);
-}
-
 export function getSectionsByType(
   host: DelegateHost,
   sectionType?: 'auto' | 'custom'
@@ -147,18 +121,6 @@ export function getWorkoutSections(
 }
 export type { FfiSectionChartData };
 export type { FfiSectionChartPoint } from '../../generated/veloqrs';
-
-export function getSectionReferenceInfo(
-  host: DelegateHost,
-  sectionId: string
-): { activityId?: string; isUserDefined: boolean } {
-  if (!host.ready) return { isUserDefined: false };
-  validateId(sectionId, 'section ID');
-  const info = host.timed('getSectionReferenceInfo', () =>
-    host.engine.sections().getReferenceInfo(sectionId)
-  );
-  return present({ activityId: info?.activityId, isUserDefined: info?.isUserDefined ?? false });
-}
 
 /**
  * Get the representative activity's full GPS track for section expansion.

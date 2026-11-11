@@ -97,7 +97,6 @@ const previewFor = (radius: number) => ({
 function engineWith(over: Record<string, unknown> = {}) {
   const settings = new Map<string, string>();
   const engine = {
-    suggestExportHome: jest.fn(() => HOME),
     exportPrivacyPreview: jest.fn((_lat: number, _lng: number, radius: number) =>
       previewFor(radius)
     ),

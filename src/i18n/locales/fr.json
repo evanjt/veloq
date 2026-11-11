@@ -200,6 +200,8 @@
     }
   },
   "activityDetail": {
+    "hideFromHeatmap": "Masquer de la carte de chaleur",
+    "showOnHeatmap": "Afficher sur la carte de chaleur",
     "lineKeyActivity": "Cette activité",
     "lineKeyRoute": "Parcours associé",
     "failedToLoad": "Échec du chargement de l'activité",
@@ -2229,6 +2231,9 @@
     "heatmapGeneration": "Carte de chaleur",
     "heatmapDescription": "Garde la carte de chaleur sur cet appareil et utilise de l'espace de stockage pour elle. Désactive-la pour libérer cet espace.",
     "heatmapStorageUsed": "Utilise {{size}} du stockage de l'appareil",
+    "heatmapHiddenTitle": "Masquées de la carte de chaleur",
+    "heatmapHiddenShow": "Afficher",
+    "heatmapHiddenShowLabel": "Afficher {{name}} sur la carte de chaleur",
     "reanalyzeSections": "Réanalyser les sections",
     "reanalyzeWarning": "Cela remplacera toutes les sections détectées automatiquement non acceptées. Les sections acceptées (épinglées) seront conservées.",
     "rescanFailed": "La nouvelle analyse n'a pas pu aboutir. Certains tracés d'activité sont illisibles.",

@@ -28,6 +28,7 @@ import { RowDivider } from '@/shared/ui/RowGroup';
 import { composeAccessibilityLabel, SelectButton, PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { HeatmapRow } from './HeatmapRow';
+import { HeatmapHiddenList } from './HeatmapHiddenList';
 import { groupStyleState, groupTerrainState } from '../lib/mapStyleGroupState';
 import { settingsStyles } from './settingsStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
@@ -162,6 +163,7 @@ export function MapsSection() {
 
       {/* The heatmap is something the map draws, so it lives here. */}
       <HeatmapRow />
+      <HeatmapHiddenList />
 
       {/* Per-activity overrides */}
       <RowDivider />

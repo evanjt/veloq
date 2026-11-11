@@ -6,6 +6,18 @@ import { MapControlButton } from './MapControlButton';
 import { activityMapControlCount, useMapControlColumn } from '../lib/mapControlColumnLayout';
 import { styles } from './ActivityMapView.styles';
 import { LOCATE_GLYPH } from '@/features/maps/lib/mapGlyphs';
+import { layout, type MapPalette } from '@/theme';
+import { DivergingKeyScale } from './DivergingKeyScale';
+import {
+  MapLayersButton,
+  MapLayersMenu,
+  layersMenuPlacement,
+  useLayersMenu,
+  type MapLayerRow,
+} from './MapLayersMenu';
+
+/** Buttons above the layers button in the column: the style toggle. */
+const CONTROLS_ABOVE_LAYERS = 1;
 
 interface ActivityMapControlsProps {
   /** The style a tap of the style toggle draws, which its glyph names. */
@@ -29,6 +41,9 @@ interface ActivityMapControlsProps {
   onOpenFullscreen: () => void;
   /** Height of the map the column sits in; bounds it so no button leaves the map. */
   mapHeight: number;
+  isDark: boolean;
+  /** The base map the line is drawn over, whose ramp the gradient key repeats. */
+  basePalette: MapPalette;
 }
 
 export function ActivityMapControls({
@@ -49,6 +64,8 @@ export function ActivityMapControls({
   enableFullscreen,
   onOpenFullscreen,
   mapHeight,
+  isDark,
+  basePalette,
 }: ActivityMapControlsProps) {
   const { t } = useTranslation();
   const { top, maxHeight, width } = useMapControlColumn(
@@ -56,84 +73,112 @@ export function ActivityMapControls({
     activityMapControlCount({ shown: true, hasGradientData, hasRoute, enableFullscreen })
   );
 
+  const layers = useLayersMenu(hasGradientData);
+  const rows: MapLayerRow[] = hasGradientData
+    ? [
+        {
+          testID: 'activity-map-layer-gradient',
+          icon: 'slope-uphill',
+          label: t('maps.colorByGradient'),
+          checked: gradientActive,
+          onPress: () => {
+            layers.close();
+            onToggleGradient();
+          },
+          layerKey: gradientActive ? (
+            <DivergingKeyScale kind="grade" palette={basePalette} isDark={isDark} />
+          ) : undefined,
+        },
+      ]
+    : [];
+
   return (
-    <View
-      testID="activity-map-controls"
-      style={[styles.controlsContainer, { top, maxHeight, width }]}
-    >
-      {/* Style toggle */}
-      <MapControlButton
-        testID="activity-map-style-toggle"
-        accessibilityLabel={t('maps.toggleStyle')}
-        onPress={onToggleStyle}
+    <>
+      <View
+        testID="activity-map-controls"
+        style={[styles.controlsContainer, { top, maxHeight, width }]}
       >
-        <MapControlButton.Glyph name={getStyleIcon(nextStyle)} />
-      </MapControlButton>
-
-      {/* Gradient coloring toggle - only shown when gradient data is available */}
-      {hasGradientData ? (
+        {/* Style toggle */}
         <MapControlButton
-          testID="activity-map-gradient-toggle"
-          accessibilityLabel={t('maps.colorByGradient')}
-          selected={gradientActive}
-          onPress={onToggleGradient}
+          testID="activity-map-style-toggle"
+          accessibilityLabel={t('maps.toggleStyle')}
+          onPress={onToggleStyle}
         >
-          <MapControlButton.Glyph name="slope-uphill" />
+          <MapControlButton.Glyph name={getStyleIcon(nextStyle)} />
         </MapControlButton>
-      ) : null}
 
-      {/* 3D toggle */}
-      {hasRoute ? (
+        {/* Layers - only shown when there is a layer to toggle */}
+        {hasGradientData ? (
+          <MapLayersButton
+            testID="activity-map-layers"
+            open={layers.open}
+            onPress={layers.toggle}
+          />
+        ) : null}
+
+        {/* 3D toggle */}
+        {hasRoute ? (
+          <MapControlButton
+            testID="activity-map-3d-toggle"
+            accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
+            accessibilityState={{ busy: is3DLoading }}
+            selected={is3DMode}
+            onPress={onToggle3D}
+            disabled={is3DLoading}
+          >
+            {is3DLoading ? (
+              <MapControlButton.Spinner testID="activity-map-3d-busy" />
+            ) : (
+              <MapControlButton.Glyph name="terrain" />
+            )}
+          </MapControlButton>
+        ) : null}
+
+        {/* Compass */}
         <MapControlButton
-          testID="activity-map-3d-toggle"
-          accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
-          accessibilityState={{ busy: is3DLoading }}
-          selected={is3DMode}
-          onPress={onToggle3D}
-          disabled={is3DLoading}
+          accessibilityLabel={t('maps.resetOrientation')}
+          onPress={onResetOrientation}
         >
-          {is3DLoading ? (
-            <MapControlButton.Spinner testID="activity-map-3d-busy" />
+          <MapControlButton.Compass rotation={bearingAnim} />
+        </MapControlButton>
+
+        {/* GPS location */}
+        <MapControlButton
+          testID="activity-map-location"
+          accessibilityLabel={t('maps.goToLocation')}
+          accessibilityState={{ busy: locationLoading }}
+          selected={userLocationActive}
+          onPress={onGetLocation}
+          disabled={locationLoading}
+        >
+          {locationLoading ? (
+            <MapControlButton.Spinner />
           ) : (
-            <MapControlButton.Glyph name="terrain" />
+            <MapControlButton.Glyph name={LOCATE_GLYPH} />
           )}
         </MapControlButton>
+
+        {/* Fullscreen expand */}
+        {enableFullscreen ? (
+          <MapControlButton
+            testID="activity-map-fullscreen"
+            accessibilityLabel={t('maps.openFullscreen')}
+            onPress={onOpenFullscreen}
+          >
+            <MapControlButton.Glyph name="fullscreen" />
+          </MapControlButton>
+        ) : null}
+      </View>
+      {layers.open ? (
+        <MapLayersMenu
+          testID="activity-map-layers-menu"
+          backdropTestID="activity-map-layers-backdrop"
+          rows={rows}
+          isDark={isDark}
+          onClose={layers.close}
+          {...layersMenuPlacement(top, CONTROLS_ABOVE_LAYERS, layout.cardMargin)}
+        />
       ) : null}
-
-      {/* Compass */}
-      <MapControlButton
-        accessibilityLabel={t('maps.resetOrientation')}
-        onPress={onResetOrientation}
-      >
-        <MapControlButton.Compass rotation={bearingAnim} />
-      </MapControlButton>
-
-      {/* GPS location */}
-      <MapControlButton
-        testID="activity-map-location"
-        accessibilityLabel={t('maps.goToLocation')}
-        accessibilityState={{ busy: locationLoading }}
-        selected={userLocationActive}
-        onPress={onGetLocation}
-        disabled={locationLoading}
-      >
-        {locationLoading ? (
-          <MapControlButton.Spinner />
-        ) : (
-          <MapControlButton.Glyph name={LOCATE_GLYPH} />
-        )}
-      </MapControlButton>
-
-      {/* Fullscreen expand */}
-      {enableFullscreen ? (
-        <MapControlButton
-          testID="activity-map-fullscreen"
-          accessibilityLabel={t('maps.openFullscreen')}
-          onPress={onOpenFullscreen}
-        >
-          <MapControlButton.Glyph name="fullscreen" />
-        </MapControlButton>
-      ) : null}
-    </View>
+    </>
   );
 }

@@ -12,7 +12,6 @@ import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
 import { bindDelegates } from '../../../modules/veloqrs/src/delegates/bind';
 import type { DelegateHost } from '../../../modules/veloqrs/src/delegates/host';
 import * as elevationDelegates from '../../../modules/veloqrs/src/delegates/elevation';
-import { FfiStartOutcome } from '../../../modules/veloqrs/src/generated/veloqrs';
 
 const kennel = {
   countHounds(host: DelegateHost, breed: string, limit: number): string {
@@ -50,7 +49,6 @@ describe('bindDelegates', () => {
     expect(client.ready).toBe(false);
     const elevation = bindDelegates(client, elevationDelegates);
 
-    expect(elevation.startElevationBackfill()).toBe(FfiStartOutcome.NotReady);
     expect(elevation.resumeElevationBackfill()).toBe(false);
     expect(elevation.retryDownloadsNow()).toBeNull();
     expect(elevation.getElevationBackfillRemaining()).toBeNull();

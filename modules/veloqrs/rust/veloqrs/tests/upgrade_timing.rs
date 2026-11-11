@@ -230,7 +230,7 @@ fn the_cutover_logs_a_duration_for_every_phase_and_for_the_run() {
 
     start_capturing();
     assert_eq!(
-        veloqrs::ffi::start_detector_cutover(),
+        veloqrs::persistence::cutover::start_cutover(),
         veloqrs::objects::FfiStartOutcome::Started,
         "cutover refused"
     );
@@ -267,7 +267,7 @@ fn a_cutover_that_fails_still_logs_the_phases_it_reached() {
         .expect("engine")
         .expect("setting");
     assert_eq!(
-        veloqrs::ffi::start_detector_cutover(),
+        veloqrs::persistence::cutover::start_cutover(),
         veloqrs::objects::FfiStartOutcome::Started,
         "cutover refused"
     );

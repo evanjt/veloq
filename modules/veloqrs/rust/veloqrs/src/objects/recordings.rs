@@ -204,13 +204,6 @@ impl RecordingManager {
                 .map_err(db)
         })?
     }
-
-    /// Drop every row. A `.veloqdb` restore carries this table like any other
-    /// but not the FIT files it points at, so the rows are stale the moment
-    /// they land on another install.
-    fn clear_recordings(&self) -> Result<u32, VeloqError> {
-        with_engine(|e| e.clear_recordings().map_err(db))?
-    }
 }
 
 #[cfg(test)]

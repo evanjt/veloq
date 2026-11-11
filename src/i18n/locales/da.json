@@ -199,6 +199,8 @@
     }
   },
   "activityDetail": {
+    "hideFromHeatmap": "Skjul fra varmekortet",
+    "showOnHeatmap": "Vis på varmekortet",
     "lineKeyActivity": "Denne aktivitet",
     "lineKeyRoute": "Matchet rute",
     "failedToLoad": "Kunne ikke indlæse aktivitet",
@@ -2177,6 +2179,9 @@
     "heatmapGeneration": "Varmekort",
     "heatmapDescription": "Holder heatmappet på denne enhed og bruger lagerplads til det. Slå det fra for at frigive pladsen.",
     "heatmapStorageUsed": "Bruger {{size}} af enhedens lagerplads",
+    "heatmapHiddenTitle": "Skjult fra varmekortet",
+    "heatmapHiddenShow": "Vis",
+    "heatmapHiddenShowLabel": "Vis {{name}} på varmekortet",
     "reanalyzeSections": "Genanalysér sektioner",
     "reanalyzeWarning": "Dette erstatter alle ikke-accepterede automatisk detekterede sektioner. Accepterede (fastgjorte) sektioner bevares.",
     "rescanFailed": "Genscanningen kunne ikke fuldføres. Nogle aktivitetsspor kunne ikke læses.",

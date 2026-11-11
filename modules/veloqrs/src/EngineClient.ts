@@ -15,7 +15,6 @@ import type {
   AthleteProfile,
   FfiStartResult,
   FfiWidgetContext,
-  SuggestedHome,
   ExportPrivacyPreview,
   FfiGpsPoint,
   GpxFile as FfiGpxFile,
@@ -34,7 +33,6 @@ import type {
   FfiBestEffortsData,
   FfiPlannedEvent,
   FfiSection,
-  FfiMapSection,
   FfiNamedCorridor,
   FfiSectionDetailData,
   FfiSectionPerformanceData,
@@ -727,10 +725,6 @@ class EngineClient implements DelegateHost {
 
   getBodiesStored = (): number => syncDelegates.getBodiesStored(this);
 
-  /** Six fields and the encoded line, for the regional map's section overlay. */
-  getMapSections = (sportType?: string, minVisits?: number): FfiMapSection[] =>
-    sectionDelegates.getMapSections(this, sportType, minVisits);
-
   getGroups = (): FfiRouteGroup[] => routeDelegates.getGroups(this);
 
   getFilteredGroupSummaries = (
@@ -820,8 +814,6 @@ class EngineClient implements DelegateHost {
   setNameTranslations = (routeWord: string, sectionWord: string): void =>
     settingsDelegates.setNameTranslations(this, routeWord, sectionWord);
 
-  getAllSectionNames = (): Record<string, string> => sectionDelegates.getAllSectionNames(this);
-
   /** Coordinate-encoded; put it through `decodeCoords`. */
   getGpsTrack = (activityId: string): ArrayBuffer =>
     activityDelegates.getGpsTrack(this, activityId);
@@ -854,12 +846,9 @@ class EngineClient implements DelegateHost {
   includeSectionLap = (sectionId: string, activityId: string, startIndex: number): boolean =>
     sectionDelegates.includeSectionLap(this, sectionId, activityId, startIndex);
 
-  getSectionHistory = (sectionId: string) => sectionDelegates.getSectionHistory(this, sectionId);
   getSectionGeometryVersionPolyline = (sectionId: string, version: number) =>
     sectionDelegates.getSectionGeometryVersionPolyline(this, sectionId, version);
   unpinSection = (sectionId: string) => sectionDelegates.unpinSection(this, sectionId);
-  getPinnedSectionVersion = (sectionId: string) =>
-    sectionDelegates.getPinnedSectionVersion(this, sectionId);
 
   getSectionDetailData = (sectionId: string): FfiSectionDetailData | undefined =>
     sectionDelegates.getSectionDetailData(this, sectionId);
@@ -961,24 +950,6 @@ class EngineClient implements DelegateHost {
   getZoneDistribution = (sportType: string, zoneType: string, startTs: number, endTs: number) =>
     fitnessDelegates.getZoneDistribution(this, sportType, zoneType, startTs, endTs);
 
-  /**
-   * Record one critical-speed snapshot under the range the curve covered.
-   *
-   * `windowDays` is part of what makes a snapshot distinct, because the pace
-   * curve screen and the sync both write this and over different ranges. The
-   * trend compares one window only.
-   */
-  savePaceSnapshot = (
-    sportType: string,
-    criticalSpeed: number,
-    windowDays: number,
-    dPrime?: number,
-    r2?: number,
-    date?: number
-  ): void =>
-    fitnessDelegates.savePaceSnapshot(this, sportType, criticalSpeed, windowDays, dPrime, r2, date);
-
-  getAvailableSportTypes = (): string[] => fitnessDelegates.getAvailableSportTypes(this);
 
   /** The activities that moved the accepted eFTP, oldest first. */
 
@@ -1016,8 +987,6 @@ class EngineClient implements DelegateHost {
 
   getWellnessDays = (oldest: string, newest: string): fitnessDelegates.WellnessDays =>
     fitnessDelegates.getWellnessDays(this, oldest, newest);
-
-  getWellnessLatestDate = (): string | null => fitnessDelegates.getWellnessLatestDate(this);
 
   getActivityRecord = (activityId: string): FfiActivityRecord | null =>
     activityDelegates.getActivityRecord(this, activityId);
@@ -1094,9 +1063,6 @@ class EngineClient implements DelegateHost {
   // ==========================================================================
   // User Preferences (SQLite settings table)
   // ==========================================================================
-
-  /** The export privacy row's suggested home, or null when there is no guess. */
-  suggestExportHome = (): SuggestedHome | null => settingsDelegates.suggestExportHome(this);
   getBackupScreenData = (): FfiBackupScreenData | undefined =>
     settingsDelegates.getBackupScreenData(this);
   getCacheScreenData = (): FfiCacheScreenData | undefined =>
@@ -1295,9 +1261,6 @@ class EngineClient implements DelegateHost {
   disableSection = (sectionId: string): boolean => sectionDelegates.disableSection(this, sectionId);
 
   enableSection = (sectionId: string): boolean => sectionDelegates.enableSection(this, sectionId);
-
-  getSectionReferenceInfo = (sectionId: string): { activityId?: string; isUserDefined: boolean } =>
-    sectionDelegates.getSectionReferenceInfo(this, sectionId);
 
   // ==========================================================================
   // Section Bounds Trimming

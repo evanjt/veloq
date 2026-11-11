@@ -143,6 +143,8 @@ function section() {
       onPointSelect={() => {}}
       onInteractionChange={() => {}}
       onExportGpx={() => {}}
+      heatmapHidden={false}
+      onToggleHeatmapHidden={() => {}}
     />
   );
 }

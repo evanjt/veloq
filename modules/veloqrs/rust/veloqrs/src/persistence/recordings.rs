@@ -749,14 +749,6 @@ impl PersistentEngine {
     pub fn unuploaded_recording_count(&self, athlete_id: Option<&str>) -> SqlResult<u32> {
         pooled::unuploaded_visible_count(&self.db, athlete_id)
     }
-
-    /// Drop every row. A `.veloqdb` restore carries this table like any other,
-    /// but not the FIT files it points at, so the rows are stale the moment
-    /// they land on another install.
-    pub fn clear_recordings(&self) -> SqlResult<u32> {
-        let changed = self.db.execute("DELETE FROM recordings", [])?;
-        Ok(changed as u32)
-    }
 }
 
 /// The recording reads the library screen and the upload processor make,
@@ -1922,16 +1914,6 @@ mod tests {
             e.get_recording("r1").unwrap().unwrap().upload_status,
             "pending"
         );
-    }
-
-    #[test]
-    fn a_restore_wipes_rows_whose_fit_files_did_not_come_with_it() {
-        let (_dir, e) = engine();
-        e.insert_recording(&entry("a", 1_000, "pending")).unwrap();
-        e.insert_recording(&entry("b", 2_000, "uploaded")).unwrap();
-
-        assert_eq!(e.clear_recordings().unwrap(), 2);
-        assert!(e.list_recordings().unwrap().is_empty());
     }
 
     /// The install an outcome hands back. The engine call site checks it, so

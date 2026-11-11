@@ -294,6 +294,7 @@ pub(crate) fn change_card_support_for(
 
 /// [`change_card_support_for`] over the rows a pooled connection reads: the
 /// stored catalogue method and the persisted section config.
+#[cfg(test)]
 pub(crate) fn change_card_support_from(
     conn: &rusqlite::Connection,
 ) -> rusqlite::Result<ChangeCardSupport> {

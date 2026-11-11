@@ -199,6 +199,8 @@
     }
   },
   "activityDetail": {
+    "hideFromHeatmap": "Hide from heatmap",
+    "showOnHeatmap": "Show on heatmap",
     "lineKeyActivity": "This activity",
     "lineKeyRoute": "Matched route",
     "failedToLoad": "Failed to load activity",
@@ -2180,6 +2182,9 @@
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Keeps the heatmap on this device and uses storage for it. Turn it off to free that space.",
     "heatmapStorageUsed": "Using {{size}} of device storage",
+    "heatmapHiddenTitle": "Hidden from the heatmap",
+    "heatmapHiddenShow": "Show",
+    "heatmapHiddenShowLabel": "Show {{name}} on the heatmap",
     "disconnectAndClearData": "Sign out and delete all data",
     "sectionProximity": "Proximity: {{distance}}",
     "sectionMinLength": "Min length: {{distance}}",

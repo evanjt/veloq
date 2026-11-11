@@ -16,6 +16,7 @@ import { Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'rea
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { ViewInstance } from 'react-native';
+import { heatmap } from 'veloqrs';
 import type { RouteGroup as NativeRouteGroup, Section as NativeSection } from 'veloqrs';
 
 import {
@@ -257,6 +258,11 @@ export function ActivityDetailCard({
   }
   const handleSectionFocusHandled = useCallback(() => card.sectionShown(), [card]);
 
+  const heatmapHidden = detail?.heatmapHidden ?? false;
+  const handleToggleHeatmapHidden = useCallback(() => {
+    if (heatmap.setActivityHeatmapHidden(id, !heatmapHidden)) refreshDetail();
+  }, [id, heatmapHidden, refreshDetail]);
+
   const handleExportGpx = useCallback(
     (anchor: React.RefObject<ViewInstance | null>) => {
       if (activity) {
@@ -472,6 +478,8 @@ export function ActivityDetailCard({
           onPointSelect={handlePointSelect}
           onInteractionChange={setChartInteracting}
           onExportGpx={handleExportGpx}
+          heatmapHidden={heatmapHidden}
+          onToggleHeatmapHidden={handleToggleHeatmapHidden}
         />
 
         {isStrength ? (

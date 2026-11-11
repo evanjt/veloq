@@ -81,13 +81,6 @@ impl SettingsManager {
         })?
     }
 
-    /// Where the athlete's rides start and finish most often, for the export
-    /// privacy row to offer. A guess: the trim stays off until it is confirmed
-    /// or replaced, and a library with too little to cluster answers none.
-    fn suggest_export_home(&self) -> Result<Option<crate::persistence::SuggestedHome>, VeloqError> {
-        with_reader(crate::persistence::export::suggest_export_home_from)
-    }
-
     /// The fixed export privacy facts shown when backup settings opens.
     fn backup_screen_data(&self) -> Result<crate::FfiBackupScreenData, VeloqError> {
         with_reader(crate::persistence::screens::backup_screen_data)?
@@ -269,6 +262,18 @@ impl SettingsManager {
     /// Delete a single user preference.
     fn delete_setting(&self, key: String) -> Result<(), VeloqError> {
         with_settings_writer(|conn| crate::persistence::settings::delete_setting_on(conn, &key))
+    }
+}
+
+#[cfg(test)]
+impl SettingsManager {
+    /// Where the athlete's rides start and finish most often, for the export
+    /// privacy row to offer. A guess: the trim stays off until it is confirmed
+    /// or replaced, and a library with too little to cluster answers none.
+    pub(crate) fn suggest_export_home(
+        &self,
+    ) -> Result<Option<crate::persistence::SuggestedHome>, VeloqError> {
+        with_reader(crate::persistence::export::suggest_export_home_from)
     }
 }
 

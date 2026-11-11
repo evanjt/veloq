@@ -7,28 +7,19 @@
  * lifted to the platform tap minimum through hit slop.
  */
 
-import React, { useState } from 'react';
-import { View, Pressable, StyleSheet, Text, Animated } from 'react-native';
-import type { MaterialCommunityIcons } from '@expo/vector-icons';
+import React from 'react';
+import { View, StyleSheet, Animated } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { RowDivider } from '@/shared/ui/RowGroup';
-import {
-  colors,
-  colorWithOpacity,
-  darkColors,
-  iconSize,
-  ink,
-  layout,
-  raised,
-  type MapPalette,
-  spacing,
-  typography,
-} from '@/theme';
-import { Icon } from '@/shared/ui/Icon';
-import { MenuCheck } from '@/shared/ui/ContextMenu';
-import { useBackDismiss } from '@/shared/app/useBackDismiss';
+import { colors, colorWithOpacity, darkColors, type MapPalette, spacing } from '@/theme';
 import { MapKeyRamp, MapKeySwatch } from '../MapKey';
-import { MAP_CONTROL_SIZE, MapControlButton } from '../MapControlButton';
+import { MapControlButton } from '../MapControlButton';
+import {
+  MapLayersButton,
+  MapLayersMenu,
+  layersMenuPlacement,
+  useLayersMenu,
+  type MapLayerRow,
+} from '../MapLayersMenu';
 import {
   SPORT_FAMILY_LABELS,
   sportMarkColour,
@@ -37,12 +28,7 @@ import {
 import { RECENCY_FADE } from './regionalMapLayerSpecs';
 import { SECTION_LINE_DASH } from '../../lib/mapLineWidths';
 import { FIT_GLYPH, LOCATE_GLYPH } from '@/features/maps/lib/mapGlyphs';
-import { PressTarget } from '@/shared/ui/PressTarget';
 
-type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-
-/** The glyph inside a column control. */
-/** The glyph beside a menu row's label. */
 /** Controls above the layers control, which the menu lines up beside. */
 const CONTROLS_ABOVE_LAYERS = 3;
 /** Steps in the key's recency strip, newest to a year old. */
@@ -89,57 +75,6 @@ function ColumnButton({
     >
       {children}
     </MapControlButton>
-  );
-}
-
-/**
- * One row of the layers menu: a toggle when `checked` is given, else an action.
- * A layer's key sits under its label inside the row, so the row and its key are
- * one tap target, and a screen reader hears the layer's name with the key's
- * text as the hint.
- */
-function MenuRow({
-  testID,
-  icon,
-  label,
-  checked,
-  isDark,
-  onPress,
-  layerKey,
-  keyHint,
-}: {
-  testID: string;
-  icon: IconName;
-  label: string;
-  checked?: boolean;
-  isDark: boolean;
-  onPress: () => void;
-  layerKey?: React.ReactNode;
-  keyHint?: string | undefined;
-}) {
-  const palette = isDark ? darkColors : colors;
-  const isToggle = checked !== undefined;
-  return (
-    <PressTarget
-      testID={testID}
-      style={styles.menuRow}
-      onPress={onPress}
-      accessibilityLabel={label}
-      accessibilityRole={isToggle ? 'checkbox' : 'button'}
-      accessibilityState={isToggle ? { checked } : undefined}
-      accessibilityHint={layerKey ? keyHint : undefined}
-    >
-      <Icon
-        name={icon}
-        size={iconSize.md}
-        color={checked ? palette.actionPrimary : palette.textSecondary}
-      />
-      <View style={styles.menuLabelColumn}>
-        <Text style={[styles.menuLabel, { color: palette.textPrimary }]}>{label}</Text>
-        {layerKey}
-      </View>
-      {checked !== undefined ? <MenuCheck checked={checked} color={palette.actionPrimary} /> : null}
-    </PressTarget>
   );
 }
 
@@ -224,7 +159,6 @@ export function MapControlStack({
   linePalette,
 }: MapControlStackProps) {
   const { t } = useTranslation();
-  const [layersOpen, setLayersOpen] = useState(false);
   const show3D = is3DMode && can3D;
   const palette = isDark ? darkColors : colors;
 
@@ -232,31 +166,127 @@ export function MapControlStack({
   const sectionsToggle = sectionCount > 0 ? onToggleSections : undefined;
   const routesToggle = routeCount > 0 ? onToggleRoutes : undefined;
   const hasLayers = hasActivities || !!sectionsToggle || !!onToggleHeatmap || !!routesToggle;
-  const menuOpen = layersOpen && hasLayers;
+  const layers = useLayersMenu(hasLayers);
+  const menuOpen = layers.open;
   const recencyEnds = [t('maps.keyRecent'), t('maps.keyYearOrMore')] as const;
   const heatEnds = [t('maps.keyFewerPasses'), t('maps.keyMorePasses')] as const;
-  useBackDismiss(menuOpen, () => setLayersOpen(false));
 
   // Any other control, and fit-all, closes the menu on the way: the athlete has
   // gone back to the map.
   const closing = (action: () => void) => () => {
-    setLayersOpen(false);
+    layers.close();
     action();
   };
 
+  const rows: MapLayerRow[] = [];
+  if (hasActivities) {
+    rows.push({
+      testID: 'map-toggle-activities',
+      icon: 'map-marker-multiple',
+      label: t('maps.layerActivities'),
+      checked: showActivities,
+      onPress: onToggleActivities,
+      layerKey: showActivities ? (
+        <>
+          {keyCategories.length > 0 ? (
+            <View testID="map-key-categories" style={styles.menuKeyLine}>
+              {keyCategories.map((category) => (
+                <MapKeySwatch
+                  key={category}
+                  testID={`map-key-category-${category}`}
+                  swatch={sportMarkColour(category, isDark)}
+                  shape="dot"
+                  label={t(SPORT_FAMILY_LABELS[category])}
+                  isDark={isDark}
+                />
+              ))}
+            </View>
+          ) : null}
+          <MapKeyRamp
+            testID="map-key-recency"
+            ramp={recencyRamp(palette.textPrimary)}
+            label={t('maps.keyRecencyAxis')}
+            ends={recencyEnds}
+            stretch
+            isDark={isDark}
+          />
+        </>
+      ) : undefined,
+      keyHint: [
+        ...keyCategories.map((category) => t(SPORT_FAMILY_LABELS[category])),
+        ...recencyEnds,
+      ].join(', '),
+    });
+  }
+  if (sectionsToggle) {
+    rows.push({
+      testID: 'map-toggle-sections',
+      icon: 'road-variant',
+      label: t('maps.layerSections'),
+      checked: showSections,
+      onPress: sectionsToggle,
+      layerKey: showSections ? (
+        <MapKeySwatch
+          testID="map-key-sections"
+          stretch
+          swatch={linePalette.layer.sections.slice(0, LINE_KEY_COLOURS)}
+          dash={SECTION_LINE_DASH}
+          edge={linePalette.edge}
+        />
+      ) : undefined,
+    });
+  }
+  if (onToggleHeatmap) {
+    rows.push({
+      testID: 'map-toggle-heatmap',
+      icon: 'fire',
+      label: t('maps.layerHeatmap'),
+      checked: showHeatmap,
+      onPress: onToggleHeatmap,
+      layerKey:
+        showHeatmap && heatKeyColours.length > 0 ? (
+          <MapKeyRamp
+            testID="map-key-heat"
+            ramp={heatKeyColours}
+            label={t('maps.keyHeatAxis')}
+            ends={heatEnds}
+            stretch
+            isDark={isDark}
+          />
+        ) : undefined,
+      keyHint: heatEnds.join(', '),
+    });
+  }
+  if (routesToggle) {
+    rows.push({
+      testID: 'map-toggle-routes',
+      icon: 'map-marker-path',
+      label: t('maps.layerRoutes'),
+      checked: showRoutes,
+      onPress: routesToggle,
+      layerKey: showRoutes ? (
+        <MapKeySwatch
+          testID="map-key-routes"
+          stretch
+          swatch={linePalette.layer.routes.slice(0, LINE_KEY_COLOURS)}
+          edge={linePalette.edge}
+        />
+      ) : undefined,
+    });
+  }
+  const actions: MapLayerRow[] = hasActivities
+    ? [
+        {
+          testID: 'map-fit-all',
+          icon: FIT_GLYPH,
+          label: t('maps.fitAll'),
+          onPress: closing(onFitAll),
+        },
+      ]
+    : [];
+
   return (
     <>
-      {menuOpen ? (
-        // press-feedback: none, an invisible scrim over the map that only closes the menu
-        <Pressable
-          focusable={false}
-          testID="map-layers-backdrop"
-          style={StyleSheet.absoluteFill}
-          onPress={() => setLayersOpen(false)}
-          accessibilityLabel={t('common.close')}
-          accessibilityRole="button"
-        />
-      ) : null}
       <View style={[styles.controlStack, { top }]}>
         <ColumnButton
           testID="map-toggle-3d"
@@ -291,149 +321,20 @@ export function MapControlStack({
         </ColumnButton>
 
         {hasLayers ? (
-          <ColumnButton
-            testID="map-layers"
-            active={menuOpen}
-            expanded={menuOpen}
-            onPress={() => setLayersOpen((open) => !open)}
-            accessibilityLabel={t('maps.layers')}
-          >
-            <MapControlButton.Glyph name="layers-outline" />
-          </ColumnButton>
+          <MapLayersButton testID="map-layers" open={menuOpen} onPress={layers.toggle} />
         ) : null}
       </View>
 
       {menuOpen ? (
-        <View
+        <MapLayersMenu
           testID="map-layers-menu"
-          style={[
-            styles.menu,
-            raised('mapOverlay', isDark),
-            isDark && styles.surfaceDark,
-            { top: top + CONTROLS_ABOVE_LAYERS * (MAP_CONTROL_SIZE + spacing.sm) },
-          ]}
-        >
-          {hasActivities ? (
-            <MenuRow
-              testID="map-toggle-activities"
-              icon="map-marker-multiple"
-              label={t('maps.layerActivities')}
-              checked={showActivities}
-              isDark={isDark}
-              onPress={onToggleActivities}
-              layerKey={
-                showActivities ? (
-                  <>
-                    {keyCategories.length > 0 ? (
-                      <View testID="map-key-categories" style={styles.menuKeyLine}>
-                        {keyCategories.map((category) => (
-                          <MapKeySwatch
-                            key={category}
-                            testID={`map-key-category-${category}`}
-                            swatch={sportMarkColour(category, isDark)}
-                            shape="dot"
-                            label={t(SPORT_FAMILY_LABELS[category])}
-                            isDark={isDark}
-                          />
-                        ))}
-                      </View>
-                    ) : null}
-                    <MapKeyRamp
-                      testID="map-key-recency"
-                      ramp={recencyRamp(palette.textPrimary)}
-                      label={t('maps.keyRecencyAxis')}
-                      ends={recencyEnds}
-                      stretch
-                      isDark={isDark}
-                    />
-                  </>
-                ) : undefined
-              }
-              keyHint={[
-                ...keyCategories.map((category) => t(SPORT_FAMILY_LABELS[category])),
-                ...recencyEnds,
-              ].join(', ')}
-            />
-          ) : null}
-          {sectionsToggle ? (
-            <MenuRow
-              testID="map-toggle-sections"
-              icon="road-variant"
-              label={t('maps.layerSections')}
-              checked={showSections}
-              isDark={isDark}
-              onPress={sectionsToggle}
-              layerKey={
-                showSections ? (
-                  <MapKeySwatch
-                    testID="map-key-sections"
-                    stretch
-                    swatch={linePalette.layer.sections.slice(0, LINE_KEY_COLOURS)}
-                    dash={SECTION_LINE_DASH}
-                    edge={linePalette.edge}
-                  />
-                ) : undefined
-              }
-            />
-          ) : null}
-          {onToggleHeatmap ? (
-            <MenuRow
-              testID="map-toggle-heatmap"
-              icon="fire"
-              label={t('maps.layerHeatmap')}
-              checked={showHeatmap}
-              isDark={isDark}
-              onPress={onToggleHeatmap}
-              layerKey={
-                showHeatmap && heatKeyColours.length > 0 ? (
-                  <MapKeyRamp
-                    testID="map-key-heat"
-                    ramp={heatKeyColours}
-                    label={t('maps.keyHeatAxis')}
-                    ends={heatEnds}
-                    stretch
-                    isDark={isDark}
-                  />
-                ) : undefined
-              }
-              keyHint={heatEnds.join(', ')}
-            />
-          ) : null}
-          {routesToggle ? (
-            <MenuRow
-              testID="map-toggle-routes"
-              icon="map-marker-path"
-              label={t('maps.layerRoutes')}
-              checked={showRoutes}
-              isDark={isDark}
-              onPress={routesToggle}
-              layerKey={
-                showRoutes ? (
-                  <MapKeySwatch
-                    testID="map-key-routes"
-                    stretch
-                    swatch={linePalette.layer.routes.slice(0, LINE_KEY_COLOURS)}
-                    edge={linePalette.edge}
-                  />
-                ) : undefined
-              }
-            />
-          ) : null}
-          {hasActivities ? (
-            <>
-              <View style={styles.menuDividerGap}>
-                <RowDivider inset="none" />
-              </View>
-              <MenuRow
-                testID="map-fit-all"
-                icon={FIT_GLYPH}
-                label={t('maps.fitAll')}
-                isDark={isDark}
-                onPress={closing(onFitAll)}
-              />
-            </>
-          ) : null}
-        </View>
+          backdropTestID="map-layers-backdrop"
+          rows={rows}
+          actions={actions}
+          isDark={isDark}
+          onClose={layers.close}
+          {...layersMenuPlacement(top, CONTROLS_ABOVE_LAYERS, spacing.md)}
+        />
       ) : null}
     </>
   );
@@ -445,40 +346,10 @@ const styles = StyleSheet.create({
     right: spacing.md,
     gap: spacing.sm,
   },
-  surfaceDark: {
-    backgroundColor: darkColors.surfaceRaised,
-  },
-  menu: {
-    position: 'absolute',
-    width: layout.mapLayersMenuWidth,
-    right: spacing.md + MAP_CONTROL_SIZE + spacing.sm,
-    borderRadius: layout.borderRadiusMd,
-    backgroundColor: colorWithOpacity(ink.white, 0.95),
-    paddingVertical: spacing.xs,
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.smPlus,
-    minHeight: layout.minTapTarget,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  menuLabelColumn: {
-    flex: 1,
-    gap: spacing.xxs,
-  },
   menuKeyLine: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     columnGap: spacing.sm,
     rowGap: spacing.xxs,
-  },
-  menuLabel: {
-    ...typography.bodySmall,
-    flexShrink: 1,
-  },
-  menuDividerGap: {
-    paddingVertical: spacing.xs,
   },
 });

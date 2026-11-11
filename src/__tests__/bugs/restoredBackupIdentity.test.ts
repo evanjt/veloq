@@ -12,7 +12,6 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 const mockEngine = {
   destroyEngine: jest.fn(),
   getActivityCount: jest.fn().mockReturnValue(80),
-  clearRecordings: jest.fn(),
   notifyAll: jest.fn(),
   getSetting: jest.fn().mockReturnValue(null),
   setSetting: jest.fn(),

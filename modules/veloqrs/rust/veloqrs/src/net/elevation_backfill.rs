@@ -1847,6 +1847,7 @@ fn drain_queue_asking(
             .collect();
 
         let mut plan = Plan::default();
+        let mut batch_answered = false;
         for (id, result) in fetched {
             let ask = if asked_wide.contains(&id) {
                 Ask::Wide
@@ -1855,6 +1856,7 @@ fn drain_queue_asking(
             };
             if plan.sort(id, result, ask, &sports, &mut outcome) {
                 consecutive_failures = 0;
+                batch_answered = true;
             } else {
                 consecutive_failures += 1;
             }
@@ -1905,8 +1907,13 @@ fn drain_queue_asking(
                 };
             }
             for (id, result) in whole {
-                plan.sort(id, result, Ask::Track, &sports, &mut outcome);
+                if plan.sort(id, result, Ask::Track, &sports, &mut outcome) {
+                    batch_answered = true;
+                }
             }
+        }
+        if batch_answered || crate::net::connectivity::has_link_proof() {
+            count_failures_beside_answers(install, &mut plan.refused);
         }
         refused.append(&mut plan.refused);
 
@@ -1955,6 +1962,51 @@ fn drain_queue_asking(
         stopped: None,
         refused,
         unasked: Vec::new(),
+    }
+}
+
+/// Count one ask against each track a batch failed with a 5xx, timeout or
+/// transport error, and drop the ones that retire from the list to ask again.
+///
+/// Called only when the link demonstrably works, so the failure is about the
+/// track: the batch was answered for at least one other track, or a response
+/// to a request outside this pass arrived recently
+/// ([`crate::net::connectivity::has_link_proof`]). A batch where nothing is
+/// answered and no such response is known is indistinguishable from the
+/// connection being down, and counts nothing.
+fn count_failures_beside_answers(install: u64, refused: &mut Vec<(String, String)>) {
+    if refused.is_empty() {
+        return;
+    }
+    let ids: Vec<String> = refused.iter().map(|(id, _)| id.clone()).collect();
+    let retired = with_persistent_engine_for(install, |engine| {
+        match engine.record_elevation_attempts(&ids, ELEVATION_ATTEMPT_LIMIT) {
+            Ok(_) => ids
+                .iter()
+                .filter(|id| {
+                    engine.elevation_state_of_track(id)
+                        != Some(crate::persistence::ELEVATION_STATE_UNKNOWN)
+                })
+                .cloned()
+                .collect::<std::collections::HashSet<String>>(),
+            Err(e) => {
+                log::warn!("[Elevation] failed asks not counted: {}", e);
+                std::collections::HashSet::new()
+            }
+        }
+    })
+    .unwrap_or_default();
+    refused.retain(|(id, _)| !retired.contains(id));
+}
+
+/// Count one ask against tracks whose answer arrived and could not be stored.
+///
+/// The connection is not in question, so no proof of it is needed; a store
+/// that fails on every pass retires the track at the limit like any other
+/// ask that never settles it.
+fn count_local_failure(engine: &PersistentEngine, ids: &[String]) {
+    if let Err(e) = engine.record_elevation_attempts(ids, ELEVATION_ATTEMPT_LIMIT) {
+        log::warn!("[Elevation] failed store not counted: {}", e);
     }
 }
 
@@ -2100,7 +2152,10 @@ fn splice_batch(
             match engine.splice_track_elevation(id, altitudes, *series) {
                 Ok(true) => spliced += 1,
                 Ok(false) => moved.push(id.clone()),
-                Err(e) => log::warn!("[Elevation] splice of {} failed: {}", id, e),
+                Err(e) => {
+                    log::warn!("[Elevation] splice of {} failed: {}", id, e);
+                    count_local_failure(engine, std::slice::from_ref(id));
+                }
             }
         }
         (spliced, moved, store_wide_answers(engine, wide, sports))
@@ -2156,7 +2211,11 @@ fn store_batch(
                         engine.backfill_section_performance_cache();
                     }
                 }
-                Err(e) => log::warn!("[Elevation] batch store failed: {}", e),
+                Err(e) => {
+                    log::warn!("[Elevation] batch store failed: {}", e);
+                    let ids: Vec<String> = to_store.iter().map(|(id, _, _)| id.clone()).collect();
+                    count_local_failure(engine, &ids);
+                }
             }
         }
 
@@ -2317,7 +2376,10 @@ fn store_wide_answers(
                         clocked.push(id.clone());
                     }
                 }
-                Err(e) => log::warn!("[Elevation] store of {} failed, left owed: {}", id, e),
+                Err(e) => {
+                    log::warn!("[Elevation] store of {} failed, left owed: {}", id, e);
+                    count_local_failure(engine, std::slice::from_ref(id));
+                }
             }
         }
     }
@@ -3899,6 +3961,125 @@ mod tests {
 
             demo.assert_calls(0);
             assert!(synced.calls() > 0, "the synced track is still asked");
+        }
+    }
+
+    /// Scenario: one track's streams request answers 500 on every ask while
+    /// the tracks beside it are answered.
+    ///
+    /// Expected behaviour: each pass counts an ask against the failing track,
+    /// which retires at the limit and leaves the queue, so the queue drains.
+    /// A batch where nothing is answered counts nothing.
+    mod failing_beside_answered {
+        use super::*;
+        use crate::persistence::with_persistent_engine;
+        use tracematch::GpsPoint;
+
+        fn engine_with(ids: &[&str]) -> TempDir {
+            let tmp = init_global_engine("elevation_failing_beside.db");
+            with_persistent_engine(|engine| {
+                for (n, id) in ids.iter().enumerate() {
+                    let seed = n as f64 * 0.05;
+                    let track = (0..8)
+                        .map(|i| GpsPoint::new(46.2 + seed + i as f64 * 0.001, 7.35 + seed))
+                        .collect();
+                    engine
+                        .add_activity(id.to_string(), track, "Ride".into())
+                        .expect("add activity");
+                }
+            })
+            .expect("engine");
+            tmp
+        }
+
+        fn queue() -> Vec<(String, String)> {
+            with_persistent_engine(|e| e.tracks_missing_elevation())
+                .expect("engine")
+                .expect("queue")
+        }
+
+        fn remaining() -> u64 {
+            with_persistent_engine(|e| e.elevation_backfill_remaining())
+                .expect("engine")
+                .expect("count")
+        }
+
+        fn server_error() -> Fetched {
+            Fetched::Failed(NetError::Http {
+                status: 500,
+                body: String::new(),
+            })
+        }
+
+        #[test]
+        fn a_track_failing_beside_answered_ones_retires_and_the_queue_drains() {
+            let _serial = serial_global_state();
+            let _tmp = engine_with(&["good-a", "bad", "good-b"]);
+            // The same queue every pass: the answered tracks leave the stored
+            // queue after the first, and a lone failure is the next ticket's.
+            let owed = queue();
+
+            for _ in 0..ELEVATION_ATTEMPT_LIMIT {
+                drain_queue_with(engine_install(), &owed, true, |ids, _ask| {
+                    ids.iter()
+                        .map(|id| {
+                            let f = if id == "bad" {
+                                server_error()
+                            } else {
+                                Fetched::NoAltitude
+                            };
+                            (id.clone(), f)
+                        })
+                        .collect()
+                });
+            }
+
+            assert_eq!(remaining(), 0, "the failing track left the queue");
+            assert_eq!(
+                with_persistent_engine(|e| e.elevation_state_of_track("bad")).expect("engine"),
+                Some(crate::persistence::ELEVATION_STATE_UNREACHABLE)
+            );
+        }
+
+        /// Scenario: the only owed track answers 500 on every ask, and an
+        /// answer to another request shows the link works.
+        ///
+        /// Expected behaviour: each ask counts, and the track retires at the
+        /// limit although nothing beside it was answered.
+        #[test]
+        fn a_lone_failure_with_a_working_link_retires() {
+            let _serial = serial_global_state();
+            crate::net::connectivity::reset();
+            let _tmp = engine_with(&["bad"]);
+            crate::net::connectivity::note_link_proof();
+
+            for _ in 0..ELEVATION_ATTEMPT_LIMIT {
+                drain_queue_with(engine_install(), &queue(), true, |ids, _ask| {
+                    ids.iter().map(|id| (id.clone(), server_error())).collect()
+                });
+            }
+
+            assert_eq!(remaining(), 0, "the lone failing track left the queue");
+            assert_eq!(
+                with_persistent_engine(|e| e.elevation_state_of_track("bad")).expect("engine"),
+                Some(crate::persistence::ELEVATION_STATE_UNREACHABLE)
+            );
+            crate::net::connectivity::reset();
+        }
+
+        #[test]
+        fn a_batch_where_nothing_is_answered_counts_nothing() {
+            let _serial = serial_global_state();
+            crate::net::connectivity::reset();
+            let _tmp = engine_with(&["bad-a", "bad-b"]);
+
+            for _ in 0..ELEVATION_ATTEMPT_LIMIT + 1 {
+                drain_queue_with(engine_install(), &queue(), true, |ids, _ask| {
+                    ids.iter().map(|id| (id.clone(), server_error())).collect()
+                });
+            }
+
+            assert_eq!(remaining(), 2, "a blinking link retires nothing");
         }
     }
 

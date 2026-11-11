@@ -59,18 +59,3 @@ export function getAllMapSignatures(host: DelegateHost): {
   if (!host.ready) return [];
   return host.timed('getAllMapSignatures', () => host.engine.maps().getAllSignatures());
 }
-
-export function queryViewport(
-  host: DelegateHost,
-  minLat: number,
-  maxLat: number,
-  minLng: number,
-  maxLng: number
-): string[] {
-  if (!host.ready) return [];
-  return host.timed(
-    'queryViewport',
-    () => host.engine.maps().queryViewport(minLat, maxLat, minLng, maxLng),
-    'gesture'
-  );
-}

@@ -90,7 +90,12 @@ fn test_get_match_strictness_writer_held() {
 fn test_get_change_card_support_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("change_card_under_writer.db");
-    let pooled = read_while_writer_holds(crate::ffi::get_change_card_support);
+    let pooled = read_while_writer_holds(|| {
+        crate::objects::error::with_reader(|conn| {
+            crate::persistence::cutover::change_card_support_from(conn).unwrap()
+        })
+        .unwrap()
+    });
     let engine = crate::with_persistent_engine(|e| e.change_card_support()).unwrap();
     assert_eq!(pooled.deterministic, engine.deterministic);
     assert_eq!(pooled.same_on_every_device, engine.same_on_every_device);

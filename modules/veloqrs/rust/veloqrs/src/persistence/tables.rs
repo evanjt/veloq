@@ -290,6 +290,11 @@ static TABLES: &[Table] = &[
         Device,
         "rides this handset recorded, naming FIT files on its own disk",
     ),
+    t(
+        "heatmap_hidden_activities",
+        Record,
+        "the activities the athlete hid from the heatmap, which a sync that refills the activities does not restore",
+    ),
     t("route_names", Record, "names the athlete typed"),
     t(
         "route_numbers",

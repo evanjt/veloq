@@ -199,6 +199,8 @@
     }
   },
   "activityDetail": {
+    "hideFromHeatmap": "Auf der Heatmap ausblenden",
+    "showOnHeatmap": "Auf der Heatmap einblenden",
     "lineKeyActivity": "Diese Aktivität",
     "lineKeyRoute": "Passende Route",
     "failedToLoad": "Aktivität konnte nicht geladen werden",
@@ -2177,6 +2179,9 @@
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Hält die Heatmap auf diesem Gerät und belegt dafür Speicherplatz. Schalte sie aus, um diesen Platz freizugeben.",
     "heatmapStorageUsed": "Nutzt {{size}} Gerätespeicher",
+    "heatmapHiddenTitle": "Auf der Heatmap ausgeblendet",
+    "heatmapHiddenShow": "Einblenden",
+    "heatmapHiddenShowLabel": "{{name}} auf der Heatmap einblenden",
     "reanalyzeSections": "Abschnitte neu analysieren",
     "reanalyzeWarning": "Dies ersetzt alle nicht akzeptierten automatisch erkannten Abschnitte. Akzeptierte (angeheftete) Abschnitte bleiben erhalten.",
     "rescanFailed": "Der Suchlauf konnte nicht abgeschlossen werden. Einige Aktivitätsaufzeichnungen sind nicht lesbar.",

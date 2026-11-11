@@ -1419,16 +1419,6 @@ pub fn set_interacting(interacting: bool) {
     crate::net::pacing::set_interacting(interacting);
 }
 
-/// Start the elevation backfill on a background thread.
-///
-/// The verdict names the refusal, so an empty queue reads as the job finished
-/// rather than as a failure to start. Safe to call on every launch.
-#[uniffi::export]
-pub fn start_elevation_backfill() -> crate::objects::FfiStartOutcome {
-    init_logging();
-    crate::net::elevation_backfill::start_elevation_backfill()
-}
-
 /// Ask the elevation and stream downloads again now, through the path the
 /// engine's own sleeper takes, so the governor still decides what is sent.
 /// Refused, with the time it lifts, while a Retry-After, a cooldown or the
@@ -1511,16 +1501,6 @@ pub fn get_elevation_backfill_progress() -> ElevationBackfillProgress {
         percent: snapshot.percent(),
         resumes_at: snapshot.resumes_at_ms.map(|ms| ms as f64),
     }
-}
-
-/// Start the stream backfill on a background thread.
-///
-/// Unlike the elevation backfill this is not fired at launch: it is tens of
-/// megabytes on whatever connection the phone has, so a screen starts it.
-#[uniffi::export]
-pub fn start_stream_backfill() -> crate::objects::FfiStartOutcome {
-    init_logging();
-    crate::net::stream_backfill::start_stream_backfill()
 }
 
 /// Record the athlete's yes to a large automatic download and start the pass.
@@ -1714,12 +1694,6 @@ pub fn get_routes_status_data() -> FfiRoutesStatusData {
     }
 }
 
-/// Start the cutover on a background thread, returning the start verdict.
-#[uniffi::export]
-pub fn start_detector_cutover() -> crate::objects::FfiStartOutcome {
-    crate::persistence::cutover::start_cutover()
-}
-
 /// How far the running cutover has got. Read by [`get_routes_status_data`],
 /// which is what TypeScript polls.
 pub fn get_cutover_progress() -> CutoverProgress {
@@ -1744,17 +1718,6 @@ pub fn start_engine_open(db_path: String) -> crate::objects::FfiStartOutcome {
 #[uniffi::export]
 pub fn get_engine_open_progress() -> crate::persistence::open_run::FfiOpenProgress {
     crate::persistence::open_run::open_progress()
-}
-
-/// Which claims the change card may make on this build.
-#[uniffi::export]
-pub fn get_change_card_support() -> crate::persistence::cutover::ChangeCardSupport {
-    crate::objects::error::with_reader(|conn| {
-        crate::persistence::cutover::change_card_support_from(conn).ok()
-    })
-    .ok()
-    .flatten()
-    .unwrap_or(crate::persistence::cutover::ChangeCardSupport::NONE)
 }
 
 /// The stored cutover diff, if any.

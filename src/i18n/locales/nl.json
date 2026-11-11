@@ -199,6 +199,8 @@
     }
   },
   "activityDetail": {
+    "hideFromHeatmap": "Verberg op de heatmap",
+    "showOnHeatmap": "Toon op de heatmap",
     "lineKeyActivity": "Deze activiteit",
     "lineKeyRoute": "Gekoppelde route",
     "failedToLoad": "Activiteit laden mislukt",
@@ -2177,6 +2179,9 @@
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Houdt de warmtekaart op dit apparaat en gebruikt daarvoor opslagruimte. Zet hem uit om die ruimte vrij te maken.",
     "heatmapStorageUsed": "Gebruikt {{size}} apparaatopslag",
+    "heatmapHiddenTitle": "Verborgen op de heatmap",
+    "heatmapHiddenShow": "Toon",
+    "heatmapHiddenShowLabel": "Toon {{name}} op de heatmap",
     "reanalyzeSections": "Secties heranalyseren",
     "reanalyzeWarning": "Hiermee worden alle niet-geaccepteerde automatisch gedetecteerde secties vervangen. Geaccepteerde (vastgezette) secties blijven behouden.",
     "rescanFailed": "De herscan kon niet worden voltooid. Sommige activiteitstracks zijn onleesbaar.",

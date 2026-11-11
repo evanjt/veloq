@@ -3144,6 +3144,7 @@ pub mod pooled {
             held_back: crate::persistence::activity_held_back::of(conn, activity_id)
                 .unwrap_or_default(),
             provenance: crate::persistence::origin::provenance_of(activity_id),
+            heatmap_hidden: crate::persistence::tiles::is_heatmap_hidden(conn, activity_id),
         }
     }
 
@@ -4710,6 +4711,52 @@ mod tests {
             let bands = pooled::activity_detail_data(&engine.db, "a1", 1).hr_zones;
             assert_eq!(bands[0].seconds, 1.0);
             assert_eq!(bands[1].seconds, 2.0);
+        }
+
+        /// Scenario: the athlete hid a ride from the heatmap and opens it, then
+        /// opens the list of hidden rides.
+        ///
+        /// Expected behaviour: the detail read reports it hidden and any other
+        /// ride shown; the list names each hidden ride the library holds, the
+        /// newest first, and leaves out a hidden id it holds no ride for.
+        #[test]
+        fn the_detail_read_and_the_hidden_list_report_a_hidden_activity() {
+            let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
+            engine
+                .db
+                .execute_batch(
+                    "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                         elapsed_time, elevation_gain, sport_type)
+                     VALUES ('older', 'Lake loop', 1700000000, 0, 0, 0, 0, 'Ride'),
+                            ('newer', 'Night flight', 1700900000, 0, 0, 0, 0, 'Flight'),
+                            ('shown', 'Short spin', 1700500000, 0, 0, 0, 0, 'Ride');",
+                )
+                .expect("metrics");
+            for id in ["older", "newer", "gone"] {
+                engine.set_heatmap_hidden(id, true).expect("hidden");
+            }
+
+            assert!(pooled::activity_detail_data(&engine.db, "newer", 1).heatmap_hidden);
+            assert!(!pooled::activity_detail_data(&engine.db, "shown", 1).heatmap_hidden);
+            let listed: Vec<(String, String)> =
+                crate::persistence::tiles::heatmap_hidden_listing(&engine.db)
+                    .into_iter()
+                    .map(|a| (a.activity_id, a.name))
+                    .collect();
+            assert_eq!(
+                listed,
+                vec![
+                    ("newer".to_string(), "Night flight".to_string()),
+                    ("older".to_string(), "Lake loop".to_string()),
+                ]
+            );
+
+            engine.set_heatmap_hidden("newer", false).expect("shown");
+            assert!(!pooled::activity_detail_data(&engine.db, "newer", 1).heatmap_hidden);
+            assert_eq!(
+                crate::persistence::tiles::heatmap_hidden_listing(&engine.db).len(),
+                1
+            );
         }
 
         #[test]

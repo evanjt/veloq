@@ -470,7 +470,6 @@ export const engine = {
  * the whole namespace by name.
  */
 export const elevation = {
-  startElevationBackfill: jest.fn(),
   pauseElevationBackfill: jest.fn(),
   resumeElevationBackfill: jest.fn(),
   retryDownloadsNow: jest.fn(),
@@ -478,7 +477,6 @@ export const elevation = {
 };
 
 export const streamBackfill = {
-  startStreamBackfill: jest.fn(),
   consentStreamBackfill: jest.fn(),
   stopStreamBackfill: jest.fn(),
 };
@@ -496,7 +494,6 @@ export const connectivity = {
 export const maps = {
   getMapScreenData: jest.fn(),
   getAllMapSignatures: jest.fn(),
-  queryViewport: jest.fn(),
 };
 
 export const launch = {
@@ -509,9 +506,7 @@ export const routesStatus = {
 
 export const cutover = {
   isCutoverHeld: jest.fn(),
-  startDetectorCutover: jest.fn(),
   getCutoverDiff: jest.fn(),
-  getChangeCardSupport: jest.fn(),
 };
 
 export const heatmap = {
@@ -527,6 +522,8 @@ export const heatmap = {
   clearHeatmapTiles: jest.fn(),
   getHeatmapTileProgress: jest.fn(),
   pollTileGeneration: jest.fn(),
+  setActivityHeatmapHidden: jest.fn(),
+  heatmapHiddenActivities: jest.fn(() => []),
 };
 
 export const recordings = {
@@ -544,7 +541,6 @@ export const recordings = {
   wakeUploadSchedule: jest.fn(),
   uploadRecording: jest.fn(),
   deleteOwnRecording: jest.fn(),
-  clearRecordings: jest.fn(),
 };
 
 export const strength = {
@@ -558,7 +554,6 @@ export const strength = {
   getStrengthScreenData: jest.fn(),
   getMuscleDetail: jest.fn(),
   hasStrengthData: jest.fn(),
-  getActivitiesForExercise: jest.fn(),
   bulkInsertExerciseSets: jest.fn(),
 };
 

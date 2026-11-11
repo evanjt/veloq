@@ -33,7 +33,6 @@ describe('the strength delegate with the engine closed', () => {
     expect(strength.getMuscleGroups(host, 'a1')).toEqual([]);
     expect(strength.getUnprocessedStrengthIds(host)).toEqual([]);
     expect(strength.hasStrengthData(host)).toBe(false);
-    expect(strength.getActivitiesForExercise(host, 0, 1, 'chest', 1)).toEqual({ activities: [] });
     const screen = strength.getStrengthScreenData(host, 0, 1, [{ startTs: 0, endTs: 1 }]);
     expect(screen.summary.muscleVolumes).toEqual([]);
     expect(screen.weekly).toEqual([]);

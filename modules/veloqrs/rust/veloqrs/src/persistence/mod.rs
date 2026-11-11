@@ -79,7 +79,10 @@ pub(crate) mod empty_reason;
 pub(crate) mod export;
 pub(crate) mod file_lock;
 pub mod garmin_link;
-pub use export::{ExportPrivacyPreview, GeoJsonFeature, SuggestedHome, write_geojson_feature};
+pub use export::{
+    BulkExportFormat, BulkExportResult, ExportPrivacyPreview, GeoJsonFeature, SuggestedHome,
+    write_geojson_feature,
+};
 pub(crate) mod fitness;
 pub(crate) mod indicators;
 pub mod job_runs;
@@ -1243,6 +1246,11 @@ pub struct PersistentEngine {
     /// through `set_spatial_index`, never edited in place.
     spatial_index: Arc<RTree<ActivityBoundsEntry>>,
 
+    /// The activities the athlete hid from the heatmap, read from
+    /// `heatmap_hidden_activities`. Shared for the same reason as the index,
+    /// and replaced whole through `set_heatmap_hidden`.
+    pub(crate) heatmap_hidden: Arc<HashSet<String>>,
+
     /// Tier 2: LRU cached signatures (200 max = ~2MB)
     /// `Arc` avoids cloning the full `RouteSignature` (points vec + metadata)
     /// on every cache hit - callers that only read through a reference pay
@@ -1620,6 +1628,7 @@ impl PersistentEngine {
             new_ground: new_ground::Validity::default(),
             activity_metadata: HashMap::new(),
             spatial_index: Arc::new(RTree::new()),
+            heatmap_hidden: Arc::new(HashSet::new()),
             signature_cache: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
             section_cache: LruCache::new(std::num::NonZeroUsize::new(50).unwrap()),
             groups: Vec::new(),
@@ -1936,6 +1945,7 @@ impl PersistentEngine {
         let match_strictness = self.load_match_strictness_from_settings();
         let outcomes = [
             ("metadata", self.load_metadata()),
+            ("heatmap_hidden", self.load_heatmap_hidden()),
             ("groups", self.load_groups()),
             ("sections", self.load_sections()),
             ("processed_activity_ids", self.load_processed_activity_ids()),

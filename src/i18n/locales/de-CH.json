@@ -198,6 +198,8 @@
     }
   },
   "activityDetail": {
+    "hideFromHeatmap": "Vo der Wärmecharte verstecke",
+    "showOnHeatmap": "Uf der Wärmecharte zeige",
     "lineKeyActivity": "Diese Aktivität",
     "lineKeyRoute": "Passende Route",
     "failedToLoad": "Gopferteckel, Aktivität hät nöd wele lade!",
@@ -2097,6 +2099,9 @@
     "heatmapGeneration": "Wärmecharte",
     "heatmapDescription": "Hät d Heatmap uf dem Gerät und bruucht dafür Spicherplatz. Mach sie uus, für dä Platz wieder frei z ha.",
     "heatmapStorageUsed": "Bruucht {{size}} Spicherplatz",
+    "heatmapHiddenTitle": "Vo der Wärmecharte versteckt",
+    "heatmapHiddenShow": "Zeige",
+    "heatmapHiddenShowLabel": "{{name}} uf der Wärmecharte zeige",
     "reanalyzeSections": "Abschnitt neu analysierä",
     "reanalyzeWarning": "Das ersetzt all nöd akzeptierti automatisch erkannti Abschnitt. Akzeptierti (aagheftet) Abschnitt bliibed erhalte.",
     "rescanFailed": "Der Suchlauf konnte nicht abgeschlossen werden. Einige Aktivitätsaufzeichnungen sind nicht lesbar.",

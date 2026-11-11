@@ -22,8 +22,6 @@ jest.mock('@/features/routes/hooks/useEngine', () => ({
 const engine = {
   excludeSectionLap: jest.fn(() => true),
   includeSectionLap: jest.fn(() => true),
-  getSectionHistory: jest.fn(() => []),
-  getPinnedSectionVersion: jest.fn(() => null),
   runSectionBoundsEdit: jest.fn((): Promise<unknown[] | null> => Promise.resolve([])),
   unpinSection: jest.fn(() => true),
   // The real `useEngineRead` subscribes, so the stub answers that too.
@@ -58,16 +56,12 @@ describe('the ledger comes from the bundle', () => {
 
     expect(result.current.pinnedVersion).toBe(2);
     expect(result.current.versions.map((v) => v.version)).toEqual([2, 1]);
-    expect(engine.getSectionHistory).not.toHaveBeenCalled();
-    expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
   });
 
   it('reads nothing and is empty when the bundle carried none', async () => {
     const { result } = await renderHook(() => useSectionLedger('sec1'));
 
     expect(result.current.history).toEqual([]);
-    expect(engine.getSectionHistory).not.toHaveBeenCalled();
-    expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
   });
 
   it('leaves the ledger to the re-read bundle after a revert or an unpin', async () => {
@@ -88,8 +82,6 @@ describe('the ledger comes from the bundle', () => {
       expect(result.current.unpin()).toBe(true);
     });
     expect(engine.unpinSection).toHaveBeenCalledWith('sec1');
-    expect(engine.getSectionHistory).not.toHaveBeenCalled();
-    expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
 
     await rerender({
       ledger: {
@@ -99,7 +91,6 @@ describe('the ledger comes from the bundle', () => {
       },
     });
     expect(result.current.pinnedVersion).toBeNull();
-    expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
   });
 
   it('does not touch the engine for a revert it was not asked to make', async () => {

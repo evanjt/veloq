@@ -17,10 +17,12 @@ use crate::persistence::attempts::JobKey;
 use crate::persistence::strength::pooled;
 use crate::persistence::with_persistent_engine_blocking_for;
 use crate::persistence::{FitIntake, FitOutcome};
+#[cfg(test)]
+use crate::{FfiExerciseActivities, FfiExerciseActivity};
 use crate::{
-    FfiExerciseActivities, FfiExerciseActivity, FfiExerciseContribution, FfiExerciseGroup,
-    FfiExerciseSession, FfiExerciseSet, FfiMuscleGroup, FfiMuscleGroupDetail, FfiMuscleVolume,
-    FfiStrengthCardSummary, FfiStrengthProgression, FfiStrengthSummary, FfiTimestampRange,
+    FfiExerciseContribution, FfiExerciseGroup, FfiExerciseSession, FfiExerciseSet, FfiMuscleGroup,
+    FfiMuscleGroupDetail, FfiMuscleVolume, FfiStrengthCardSummary, FfiStrengthProgression,
+    FfiStrengthSummary, FfiTimestampRange,
 };
 use log::info;
 use std::collections::HashMap;
@@ -505,9 +507,86 @@ impl StrengthManager {
         with_reader(|conn| strength_screen_from(conn, start_ts, end_ts, week_ranges))?
     }
 
+    /// Insert pre-parsed exercise sets for an activity without touching the
+    /// network or FIT-file pipeline. Demo mode uses this to seed synthetic
+    /// WeightTraining activities; the production path still goes through
+    /// fetch_and_parse_exercise_sets. Also marks the activity as FIT-processed
+    /// so the normal code path won't attempt to re-download.
+    fn bulk_insert_exercise_sets(
+        &self,
+        activity_id: String,
+        sets: Vec<FfiExerciseSet>,
+    ) -> Result<(), VeloqError> {
+        let internal: Vec<fit::FitExerciseSet> =
+            sets.iter().map(fit::FitExerciseSet::from).collect();
+        with_engine(|e| {
+            e.settle_exercise_sets(&activity_id, &internal)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })??;
+
+        // Same reason as the import above, and it is the demo seed's only
+        // signal that its synthetic sets have landed.
+        observer::notify(Announcement::FitParsed(activity_id.clone()));
+
+        Ok(())
+    }
+
+    /// Check if there are any strength activities with exercise data.
+    fn has_strength_data(&self) -> Result<bool, VeloqError> {
+        with_reader(|conn| {
+            let count =
+                pooled::strength_activity_count(conn).map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })?;
+            Ok(count > 0)
+        })?
+    }
+
+    /// Get aggregated muscle groups for an activity.
+    /// Returns slugs matching react-native-body-highlighter format.
+    fn get_muscle_groups(&self, activity_id: String) -> Result<Vec<FfiMuscleGroup>, VeloqError> {
+        with_reader(|conn| {
+            let sets =
+                pooled::exercise_sets(conn, &activity_id).map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })?;
+
+            let groups = fit::aggregate_muscle_groups(&sets);
+            Ok(groups
+                .into_iter()
+                .map(|g| FfiMuscleGroup {
+                    slug: g.slug,
+                    intensity: g.intensity,
+                })
+                .collect())
+        })?
+    }
+
+    /// Per-activity muscle detail: groups exercise sets by display name,
+    /// classifies primary/secondary role, returns totals + sorted exercise
+    /// list. Replaces the group-by/reduce loop in `useMuscleDetail.ts`.
+    fn get_muscle_detail(
+        &self,
+        activity_id: String,
+        muscle_slug: String,
+    ) -> Result<FfiMuscleGroupDetail, VeloqError> {
+        with_reader(|conn| {
+            let sets =
+                pooled::exercise_sets(conn, &activity_id).map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })?;
+            Ok(aggregate_muscle_detail(&muscle_slug, &sets))
+        })?
+    }
+}
+
+#[cfg(test)]
+impl StrengthManager {
     /// Get activities for a specific exercise filtered by muscle group.
     /// Returns activities sorted by date descending with per-activity stats.
-    fn get_activities_for_exercise(
+    pub(crate) fn get_activities_for_exercise(
         &self,
         start_ts: f64,
         end_ts: f64,
@@ -588,80 +667,6 @@ impl StrengthManager {
             activities.sort_by(|a, b| b.date.total_cmp(&a.date));
 
             Ok(FfiExerciseActivities { activities })
-        })?
-    }
-
-    /// Insert pre-parsed exercise sets for an activity without touching the
-    /// network or FIT-file pipeline. Demo mode uses this to seed synthetic
-    /// WeightTraining activities; the production path still goes through
-    /// fetch_and_parse_exercise_sets. Also marks the activity as FIT-processed
-    /// so the normal code path won't attempt to re-download.
-    fn bulk_insert_exercise_sets(
-        &self,
-        activity_id: String,
-        sets: Vec<FfiExerciseSet>,
-    ) -> Result<(), VeloqError> {
-        let internal: Vec<fit::FitExerciseSet> =
-            sets.iter().map(fit::FitExerciseSet::from).collect();
-        with_engine(|e| {
-            e.settle_exercise_sets(&activity_id, &internal)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
-        })??;
-
-        // Same reason as the import above, and it is the demo seed's only
-        // signal that its synthetic sets have landed.
-        observer::notify(Announcement::FitParsed(activity_id.clone()));
-
-        Ok(())
-    }
-
-    /// Check if there are any strength activities with exercise data.
-    fn has_strength_data(&self) -> Result<bool, VeloqError> {
-        with_reader(|conn| {
-            let count =
-                pooled::strength_activity_count(conn).map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })?;
-            Ok(count > 0)
-        })?
-    }
-
-    /// Get aggregated muscle groups for an activity.
-    /// Returns slugs matching react-native-body-highlighter format.
-    fn get_muscle_groups(&self, activity_id: String) -> Result<Vec<FfiMuscleGroup>, VeloqError> {
-        with_reader(|conn| {
-            let sets =
-                pooled::exercise_sets(conn, &activity_id).map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })?;
-
-            let groups = fit::aggregate_muscle_groups(&sets);
-            Ok(groups
-                .into_iter()
-                .map(|g| FfiMuscleGroup {
-                    slug: g.slug,
-                    intensity: g.intensity,
-                })
-                .collect())
-        })?
-    }
-
-    /// Per-activity muscle detail: groups exercise sets by display name,
-    /// classifies primary/secondary role, returns totals + sorted exercise
-    /// list. Replaces the group-by/reduce loop in `useMuscleDetail.ts`.
-    fn get_muscle_detail(
-        &self,
-        activity_id: String,
-        muscle_slug: String,
-    ) -> Result<FfiMuscleGroupDetail, VeloqError> {
-        with_reader(|conn| {
-            let sets =
-                pooled::exercise_sets(conn, &activity_id).map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })?;
-            Ok(aggregate_muscle_detail(&muscle_slug, &sets))
         })?
     }
 }

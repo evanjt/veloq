@@ -80,6 +80,8 @@ export interface ActivityDetailBundle {
   heldBack: ActivityHeldBack | null;
   /** Where the ride's data was filled from; null only before the read answers */
   provenance: ActivityProvenance | null;
+  /** Whether the athlete hid this activity from the heatmap; it stays everywhere else */
+  heatmapHidden: boolean;
 }
 
 /** Route groups on the detail screen need at least this many attempts. */
@@ -154,6 +156,7 @@ function fetchActivityDetailData(activityId: string): DetailRead {
       syncFailure: result.syncFailure ?? null,
       heldBack: result.heldBack ?? null,
       provenance: result.provenance ?? null,
+      heatmapHidden: result.heatmapHidden,
     },
     error: undefined,
   };

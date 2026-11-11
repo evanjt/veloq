@@ -95,27 +95,6 @@ export function getZoneDistribution(
   );
 }
 
-export function savePaceSnapshot(
-  host: DelegateHost,
-  sportType: string,
-  criticalSpeed: number,
-  windowDays: number,
-  dPrime?: number,
-  r2?: number,
-  date?: number
-): void {
-  // Stamped at the call, not at the write: a snapshot held until the engine
-  // opens still belongs to the moment the curve was fitted.
-  const ts = date ?? Math.floor(Date.now() / 1000);
-  host.write('savePaceSnapshot', () => {
-    try {
-      host.engine.fitness().savePaceSnapshot(sportType, criticalSpeed, dPrime, r2, ts, windowDays);
-    } catch {
-      // Pace snapshot save failed - non-critical
-    }
-  });
-}
-
 /**
  * Everything the fitness tab paints with that stays fixed while it is
  * mounted: the eFTP trend over the chart's three months with the activities
@@ -170,11 +149,6 @@ export function getFitnessScreenData(
   return host.timed('getFitnessScreenData', () =>
     host.engine.fitness().getFitnessScreenData(spanDays, windows)
   );
-}
-
-export function getAvailableSportTypes(host: DelegateHost): string[] {
-  if (!host.ready) return [];
-  return host.timed('getAvailableSportTypes', () => host.engine.fitness().getAvailableSportTypes());
 }
 
 /**
@@ -320,13 +294,6 @@ export function getWellnessDays(host: DelegateHost, oldest: string, newest: stri
   );
   if (!window) return { days: [], coverage: RangeCoverage.NotFetched };
   return { days: window.days.map((d) => present(d)), coverage: window.coverage };
-}
-
-export function getWellnessLatestDate(host: DelegateHost): string | null {
-  if (!host.ready) return null;
-  return (
-    host.timed('getWellnessLatestDate', () => host.engine.fitness().getWellnessLatestDate()) ?? null
-  );
 }
 
 export function getWellnessSparklines(host: DelegateHost, days: number): WellnessSparklines | null {

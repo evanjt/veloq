@@ -123,19 +123,16 @@ describe('FFI Binding Validation', () => {
       // Named here so a re-add has to answer for itself rather than ride in
       // on a bumped count.
       expect(names.has('detect_sections_standalone')).toBe(false);
-      expect(names.has('start_elevation_backfill')).toBe(true);
       expect(names.has('pause_elevation_backfill')).toBe(true);
       // A pause with no inverse held detection for the rest of the process,
       // with a force-quit as the only exit. This is that inverse.
       expect(names.has('resume_elevation_backfill')).toBe(true);
       expect(names.has('get_elevation_backfill_remaining')).toBe(true);
-      expect(names.has('start_stream_backfill')).toBe(true);
       // Tens of megabytes on the athlete's own connection, so unlike the
       // elevation pass nothing starts this at launch and the stop is the
       // control that matters.
       expect(names.has('stop_stream_backfill')).toBe(true);
       expect(names.has('is_cutover_held')).toBe(true);
-      expect(names.has('start_detector_cutover')).toBe(true);
       // A cut that could not be stopped left a force-quit as the only lever,
       // and the in-flight token undid that on the next launch. The one
       // run-scoped cancel is the lever, shared with the exports.

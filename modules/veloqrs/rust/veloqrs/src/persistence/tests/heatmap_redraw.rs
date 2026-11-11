@@ -715,3 +715,125 @@ fn a_stored_track_clears_a_deep_tile_drawn_on_request_and_the_next_ask_redraws_i
         "the redrawn tile is not what a library holding the new ride draws"
     );
 }
+
+fn crossing() -> Vec<GpsPoint> {
+    line((46.225, 7.371), (46.235, 7.371), 40)
+}
+
+/// The pixels of a tile as the pass draws it from `rides` alone.
+fn drawn_from(rides: &[&[GpsPoint]], (z, x, y): (u8, u32, u32)) -> Vec<u8> {
+    let placed: Vec<crate::tiles::ProjectedTrack> = rides
+        .iter()
+        .map(|ride| crate::tiles::ProjectedTrack::new(ride))
+        .filter(|ride| ride.tiles_along(z).contains(&(x, y)))
+        .collect();
+    let refs: Vec<&crate::tiles::ProjectedTrack> = placed.iter().collect();
+    pixels_of(&crate::tiles::draw_heatmap_tile(z, x, y, &refs).expect("the rides ink the tile"))
+}
+
+fn pixels_of(png: &[u8]) -> Vec<u8> {
+    image::load_from_memory(png).unwrap().to_rgba8().into_raw()
+}
+
+fn on_disk(base: &Path, tile: (u8, u32, u32)) -> Vec<u8> {
+    pixels_of(&std::fs::read(png(base, tile)).expect("the tile is on disk"))
+}
+
+fn hide(id: &str, hidden: bool) {
+    with_persistent_engine(|e| e.set_heatmap_hidden(id, hidden))
+        .expect("engine")
+        .expect("the choice is stored");
+}
+
+/// Scenario: a flight lays a long straight line across the heatmap and the
+/// athlete hides it, then shows it again.
+///
+/// Expected behaviour: the tile both rides cross is redrawn from the other
+/// ride alone, by the pass at a low zoom and on request at street level, and
+/// from both again once the flight is shown.
+#[test]
+fn a_hidden_activity_leaves_every_tile_both_paths_draw_and_returns_when_shown() {
+    let _serial = serial_global_state();
+    settle();
+    let (_tmp, tiles) = engine_with_two_rides("hidden-redraw.db");
+    store_through_the_ffi("crossing", &crossing());
+    settle();
+    let (east, crossing) = (sion_east(), crossing());
+    let low = tile_at(46.23, 7.371, 14);
+    let street = tile_at(46.23, 7.371, 16);
+    for tile in [low, street] {
+        assert!(
+            crate::tiles::ProjectedTrack::new(&east)
+                .tiles_along(tile.0)
+                .contains(&(tile.1, tile.2))
+                && crate::tiles::ProjectedTrack::new(&crossing)
+                    .tiles_along(tile.0)
+                    .contains(&(tile.1, tile.2)),
+            "both rides must cross z{}",
+            tile.0
+        );
+    }
+    let street_both = heatmap_tile_bytes(street.0, street.1, street.2).expect("drawn on request");
+    assert!(
+        pixels_of(&street_both) == drawn_from(&[&east, &crossing], street),
+        "the street is not drawn from both rides before one is hidden"
+    );
+
+    hide("east", true);
+    settle();
+    let alone = |tile| drawn_from(&[&crossing], tile);
+    let low_hidden = on_disk(&tiles, low);
+    let street_hidden = heatmap_tile_bytes(street.0, street.1, street.2).expect("drawn again");
+    let (low_alone, street_alone) = (alone(low), alone(street));
+
+    hide("east", false);
+    settle();
+    let low_shown = on_disk(&tiles, low);
+    let street_shown = heatmap_tile_bytes(street.0, street.1, street.2).expect("drawn again");
+    turn_the_heatmap_off();
+
+    assert!(low_hidden == low_alone, "the pass drew the hidden ride");
+    assert!(
+        pixels_of(&street_hidden) == street_alone,
+        "the on-request draw drew the hidden ride"
+    );
+    assert!(
+        low_shown == drawn_from(&[&east, &crossing], low),
+        "the pass did not draw the ride again once it was shown"
+    );
+    assert!(
+        pixels_of(&street_shown) == drawn_from(&[&east, &crossing], street),
+        "the on-request draw did not draw the ride again once it was shown"
+    );
+}
+
+/// Scenario: the hidden ride is removed and stored again, as a resync that
+/// deletes and refills the mirror rows does.
+///
+/// Expected behaviour: it is still hidden, in the stored choice and in the
+/// tiles the pass draws after it returns.
+#[test]
+fn a_hidden_activity_stays_hidden_through_a_remove_and_a_store() {
+    let _serial = serial_global_state();
+    settle();
+    let (_tmp, tiles) = engine_with_two_rides("hidden-resync.db");
+    store_through_the_ffi("crossing", &crossing());
+    settle();
+    hide("east", true);
+    settle();
+
+    crate::objects::activities::ActivityManager::new()
+        .remove("east".into())
+        .expect("east removed");
+    store_through_the_ffi("east", &sion_east());
+    settle();
+
+    let low = tile_at(46.23, 7.371, 14);
+    let listed = with_persistent_engine(|e| e.heatmap_hidden_activity_ids()).expect("engine");
+    turn_the_heatmap_off();
+    assert_eq!(listed, vec!["east".to_string()]);
+    assert!(
+        on_disk(&tiles, low) == drawn_from(&[&crossing()], low),
+        "the ride stored again was drawn though it is hidden"
+    );
+}

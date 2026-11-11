@@ -11,11 +11,12 @@
 
 import React from 'react';
 import { Animated, StyleSheet } from 'react-native';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen, within } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 
 import { ActivityMapControls } from '@/features/maps/components/ActivityMapControls';
+import { mapPalette } from '@/theme';
 import { MAP_CONTROL_GAP, MAP_CONTROL_SIZE } from '@/features/maps/components/MapControlButton';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -50,6 +51,8 @@ function renderControls(handlers: Partial<React.ComponentProps<typeof ActivityMa
           enableFullscreen={true}
           onOpenFullscreen={jest.fn()}
           mapHeight={400}
+          isDark={false}
+          basePalette={mapPalette('light')}
           {...handlers}
         />
       </HeaderHeightContext.Provider>
@@ -84,9 +87,49 @@ describe('the activity map control column', () => {
     expect(style.width).toBe(MAP_CONTROL_SIZE);
   });
 
+  it('replaces the gradient button with a layers button whose menu holds the gradient row', async () => {
+    const onToggleGradient = jest.fn();
+    await renderControls({ onToggleGradient });
+
+    expect(screen.queryByTestId('activity-map-gradient-toggle')).toBeNull();
+    expect(screen.queryByTestId('activity-map-layers-menu')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('activity-map-layers'));
+    expect(screen.getByTestId('activity-map-layers-menu')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('activity-map-layer-gradient'));
+    expect(onToggleGradient).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('activity-map-layers-menu')).toBeNull();
+  });
+
+  it('shows the gradient key under the row while the colouring is on', async () => {
+    await renderControls({ gradientActive: true });
+
+    await fireEvent.press(screen.getByTestId('activity-map-layers'));
+    expect(
+      within(screen.getByTestId('activity-map-layer-gradient')).getAllByTestId('map-key-ramp-step')
+    ).toHaveLength(7);
+  });
+
+  it('draws no layers button without gradient data, and keeps 3D, compass and locate as buttons', async () => {
+    await renderControls({ hasGradientData: false });
+
+    expect(screen.queryByTestId('activity-map-layers')).toBeNull();
+    expect(screen.getByTestId('activity-map-3d-toggle')).toBeTruthy();
+    expect(screen.getByLabelText('maps.resetOrientation')).toBeTruthy();
+    expect(screen.getByTestId('activity-map-location')).toBeTruthy();
+  });
+
+  it('closes the menu from its scrim', async () => {
+    await renderControls();
+
+    await fireEvent.press(screen.getByTestId('activity-map-layers'));
+    await fireEvent.press(screen.getByTestId('activity-map-layers-backdrop'));
+    expect(screen.queryByTestId('activity-map-layers-menu')).toBeNull();
+  });
+
   it.each([
     ['activity-map-style-toggle', 'onToggleStyle'],
-    ['activity-map-gradient-toggle', 'onToggleGradient'],
     ['activity-map-3d-toggle', 'onToggle3D'],
     ['maps.resetOrientation', 'onResetOrientation'],
     ['activity-map-fullscreen', 'onOpenFullscreen'],

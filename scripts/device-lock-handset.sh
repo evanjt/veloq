@@ -14,8 +14,9 @@
 #
 # A holder is abandoned when it is older than VELOQ_DEVICE_LOCK_MAX_AGE seconds
 # (default 14400), or when it names this host and a process that no longer runs.
-# VELOQ_DEVICE_LOCK_WAIT is how many seconds to wait for a live holder before
-# refusing (default 0, refuse at once).
+# A directory with no holder line yet is abandoned once it is older than 30
+# seconds. VELOQ_DEVICE_LOCK_WAIT is how many seconds to wait for a live holder
+# before refusing (default 0, refuse at once).
 
 set -u
 
@@ -35,14 +36,31 @@ max_age="${VELOQ_DEVICE_LOCK_MAX_AGE:-14400}"
 wait_for="${VELOQ_DEVICE_LOCK_WAIT:-0}"
 mine="host=$host pid=$$ item=$item since=$(date +%s)"
 
+# The holder is written two round trips after the directory, so an empty hold is
+# still being taken until its directory has aged past this.
+grace=30
+
 # `adb shell` reads stdin unless `-n` is given, so the caller's input is kept
 # from it here and handed to the command below.
 handset() { adb -s "$VELOQ_DEVICE_SERIAL" shell "$@" </dev/null 2>&1 | tr -d '\r'; }
 
 field() { printf '%s\n' "$2" | tr ' ' '\n' | sed -n "s/^$1=//p" | head -1; }
 
-# Whether the holder line names a lock nobody is using any more.
+# Seconds since the lock directory was made, on the handset's own clock. Anything
+# unreadable counts as fresh, so a hold is never taken on a guess.
+hold_age() {
+  secs=$(handset "echo \$((\$(date +%s) - \$(stat -c %Y $dir)))")
+  case "$secs" in ''|*[!0-9]*) secs=0 ;; esac
+  echo "$secs"
+}
+
+# Whether the holder line names a lock nobody is using any more. With no holder
+# line, the directory's age decides instead.
 abandoned() {
+  if [ -z "$1" ]; then
+    [ "$2" -gt "$grace" ]
+    return
+  fi
   since=$(field since "$1")
   pid=$(field pid "$1")
   [ -n "$since" ] || return 0
@@ -71,14 +89,19 @@ while :; do
   esac
   holder=$(handset "cat $dir/holder")
   case "$holder" in *No\ such\ file*) holder="" ;; esac
-  if abandoned "$holder"; then
-    echo "device-lock-handset: taking over an abandoned hold ($holder)" >&2
+  age=$(hold_age)
+  if abandoned "$holder" "$age"; then
+    echo "device-lock-handset: taking over an abandoned hold (${holder:-no holder line}), directory aged ${age}s" >&2
     handset "rm -r $dir" >/dev/null
     continue
   fi
   if [ "$waited" -ge "$wait_for" ]; then
-    echo "device-lock-handset: $VELOQ_DEVICE_SERIAL is held: $holder" >&2
-    echo "device-lock-handset: held since $(field since "$holder"), by item $(field item "$holder") on $(field host "$holder")" >&2
+    if [ -n "$holder" ]; then
+      echo "device-lock-handset: $VELOQ_DEVICE_SERIAL is held: $holder" >&2
+      echo "device-lock-handset: held since $(field since "$holder"), by item $(field item "$holder") on $(field host "$holder")" >&2
+    else
+      echo "device-lock-handset: $VELOQ_DEVICE_SERIAL is held: taken ${age}s ago, holder line not written yet" >&2
+    fi
     exit 75
   fi
   sleep 2

@@ -12,6 +12,9 @@ use std::io::Read;
 use tempfile::TempDir;
 use veloqrs::{GpsPoint, PersistentEngine};
 
+mod export_support;
+use export_support::BulkExport;
+
 const HOME_LAT: f64 = 46.2333;
 const HOME_LNG: f64 = 7.36;
 

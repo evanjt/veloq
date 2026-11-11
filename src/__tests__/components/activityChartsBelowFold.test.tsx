@@ -106,6 +106,8 @@ function section(transitionSettled: boolean) {
       onPointSelect={() => {}}
       onInteractionChange={() => {}}
       onExportGpx={() => {}}
+      heatmapHidden={false}
+      onToggleHeatmapHidden={() => {}}
     />
   );
 }

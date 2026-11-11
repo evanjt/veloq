@@ -11,7 +11,6 @@ import type { DelegateHost } from './host';
 import type {
   AthleteProfile,
   SettingPair,
-  SuggestedHome as FfiSuggestedHome,
   ExportPrivacyPreview as FfiExportPrivacyPreview,
   FfiGpsPoint,
   GpxFile as FfiGpxFile,
@@ -64,16 +63,6 @@ export function setSportSettings(host: DelegateHost, json: string): void {
 export function hrZoneFor(host: DelegateHost, sportType: string, bpm: number): number | null {
   if (!host.ready) return null;
   return host.timed('hrZoneFor', () => host.engine.settings().hrZoneFor(sportType, bpm)) ?? null;
-}
-
-/**
- * Where the athlete's rides start and finish most often, for the export
- * privacy row to offer. A guess, so the trim stays off until it is confirmed
- * or replaced, and a library with too little to cluster answers null.
- */
-export function suggestExportHome(host: DelegateHost): FfiSuggestedHome | null {
-  if (!host.ready) return null;
-  return host.timed('suggestExportHome', () => host.engine.settings().suggestExportHome()) ?? null;
 }
 
 export function getBackupScreenData(host: DelegateHost): FfiBackupScreenData | undefined {

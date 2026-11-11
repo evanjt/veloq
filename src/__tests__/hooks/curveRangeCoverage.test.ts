@@ -27,7 +27,6 @@ const engine = {
   getPaceCurve: jest.fn(),
   syncPowerCurve: jest.fn(),
   syncPaceCurve: jest.fn(),
-  savePaceSnapshot: jest.fn(),
   rangeCoverage: jest.fn(),
   subscribe: jest.fn(() => () => {}),
   getBodiesStored: jest.fn(() => 0),

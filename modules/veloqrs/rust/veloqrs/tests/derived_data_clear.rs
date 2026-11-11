@@ -535,6 +535,10 @@ fn activity_keyed_seeds() -> Vec<(&'static str, &'static str)> {
             "section_rank_dirty_activity",
             "INSERT OR REPLACE INTO section_rank_dirty_activity (activity_id) VALUES (?1)",
         ),
+        (
+            "heatmap_hidden_activities",
+            "INSERT INTO heatmap_hidden_activities (activity_id, hidden_at) VALUES (?1, 0)",
+        ),
     ]
 }
 
@@ -554,10 +558,14 @@ const REACHED_OTHERWISE: &[&str] = &[
 ];
 
 /// The seeded tables whose row for a removed activity is the athlete's own
-/// decision: a ride attached to a section by hand, and an attempt taken out of
-/// a route. The activity returns when the range widens, and the decision must
-/// still be there.
-const ATHLETE_DECISIONS: &[&str] = &["activity_matches", "section_forced_matches"];
+/// decision: a ride attached to a section by hand, an attempt taken out of a
+/// route, and a ride hidden from the heatmap. The activity returns when the
+/// range widens, and the decision must still be there.
+const ATHLETE_DECISIONS: &[&str] = &[
+    "activity_matches",
+    "section_forced_matches",
+    "heatmap_hidden_activities",
+];
 
 fn keyed_rows(db: &Connection, table: &str, id: &str) -> i64 {
     db.query_row(

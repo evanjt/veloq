@@ -116,6 +116,7 @@ fn every_class_is_used_and_the_record_set_is_named() {
     assert_eq!(
         record,
         vec![
+            "heatmap_hidden_activities",
             "route_names",
             "route_numbers",
             "section_forced_matches",

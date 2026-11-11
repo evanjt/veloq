@@ -236,6 +236,7 @@ fn activity_detail(v: FfiActivityDetailData) -> Lowered {
         sync_failure,
         held_back,
         provenance,
+        heatmap_hidden,
     )
 }
 

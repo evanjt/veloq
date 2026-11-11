@@ -23,11 +23,6 @@ export type RetiredSection = FfiRetiredSection;
 export type RetiredMapData = FfiRetiredMapData;
 export type SectionChange = FfiSectionChange;
 
-export function getSectionHistory(host: DelegateHost, sectionId: string): SectionHistoryEvent[] {
-  if (!host.ready) return [];
-  return host.timed('getHistory', () => host.engine.sections().getHistory(sectionId));
-}
-
 /** A stored version's line, or an empty list when it was pruned. */
 export function getSectionGeometryVersionPolyline(
   host: DelegateHost,
@@ -51,14 +46,6 @@ export function unpinSection(host: DelegateHost, sectionId: string): boolean {
     console.error('[Engine] unpinSection failed:', sectionId, e);
     return false;
   }
-}
-
-export function getPinnedSectionVersion(host: DelegateHost, sectionId: string): number | null {
-  if (!host.ready) return null;
-  const v = host.timed('getPinnedVersion', () =>
-    host.engine.sections().getPinnedVersion(sectionId)
-  );
-  return v ?? null;
 }
 
 /**

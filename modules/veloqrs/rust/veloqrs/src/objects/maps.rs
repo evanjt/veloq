@@ -1,5 +1,6 @@
 use super::error::{VeloqError, with_reader};
 use std::sync::Arc;
+#[cfg(test)]
 use tracematch::Bounds;
 
 #[derive(uniffi::Object)]
@@ -12,28 +13,6 @@ impl MapManager {
     #[uniffi::constructor]
     fn new() -> Arc<Self> {
         Arc::new(Self { _private: () })
-    }
-
-    fn query_viewport(
-        &self,
-        min_lat: f64,
-        max_lat: f64,
-        min_lng: f64,
-        max_lng: f64,
-    ) -> Result<Vec<String>, VeloqError> {
-        // Off the engine lock: this runs on every viewport change of a pan,
-        // and the stored bounds it reads are indexed columns.
-        with_reader(|conn| {
-            crate::persistence::activities::pooled::activities_in_viewport(
-                conn,
-                &Bounds {
-                    min_lat,
-                    max_lat,
-                    min_lng,
-                    max_lng,
-                },
-            )
-        })
     }
 
     // The FFI signature, which takes each layer switch as its own argument.
@@ -80,6 +59,31 @@ impl MapManager {
 
     fn get_all_signatures(&self) -> Result<Vec<crate::ffi_types::FfiMapSignature>, VeloqError> {
         with_reader(crate::persistence::activities::pooled::all_map_signatures)
+    }
+}
+
+#[cfg(test)]
+impl MapManager {
+    pub(crate) fn query_viewport(
+        &self,
+        min_lat: f64,
+        max_lat: f64,
+        min_lng: f64,
+        max_lng: f64,
+    ) -> Result<Vec<String>, VeloqError> {
+        // Off the engine lock: this runs on every viewport change of a pan,
+        // and the stored bounds it reads are indexed columns.
+        with_reader(|conn| {
+            crate::persistence::activities::pooled::activities_in_viewport(
+                conn,
+                &Bounds {
+                    min_lat,
+                    max_lat,
+                    min_lng,
+                    max_lng,
+                },
+            )
+        })
     }
 }
 

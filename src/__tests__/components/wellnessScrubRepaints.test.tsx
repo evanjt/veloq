@@ -30,6 +30,7 @@ const DAYS: WellnessData[] = Array.from({ length: 30 }, (_, i) => ({
 }));
 
 const WINDOW_COMMIT_MARK = 'wellness:window-commit';
+const COMMIT_TAG = '[COMMIT]';
 
 // The label and value columns the first row lays out either side of the sparkline column.
 const LABEL_SIDE = 93;
@@ -100,30 +101,38 @@ describe('wellness trends scrub', () => {
     expect(svg).toHaveBeenCalledTimes(5);
   });
 
-  it('marks the commit of each smoothing window change, and of no scrub or mount', async () => {
+  it('marks and logs the commit of each smoothing window change, and of no scrub or mount', async () => {
     const year = yearOfDays();
     const built = capturePans();
     const mark = jest.spyOn(performance, 'mark');
+    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
     const commits = () => mark.mock.calls.filter(([name]) => name === WINDOW_COMMIT_MARK).length;
+    const commitLines = () => log.mock.calls.filter(([line]) => String(line).includes(COMMIT_TAG));
 
     const tree = await render(
       <WellnessTrendsChart data={year} timeRange="1y" smoothingWindow={7} />
     );
     await layout(tree);
     expect(commits()).toBe(0);
+    expect(commitLines()).toHaveLength(0);
 
     await act(async () => {
       tree.rerender(<WellnessTrendsChart data={year} timeRange="1y" smoothingWindow={21} />);
     });
     expect(commits()).toBe(1);
+    expect(commitLines()).toHaveLength(1);
+    expect(String(commitLines()[0][0])).toContain(WINDOW_COMMIT_MARK);
+    expect(String(commitLines()[0][0])).toContain('window=21');
 
     await scrub(scrubPan(built), 120, [160, 200]);
     expect(commits()).toBe(1);
+    expect(commitLines()).toHaveLength(1);
 
     await act(async () => {
       tree.rerender(<WellnessTrendsChart data={year} timeRange="1y" smoothingWindow={14} />);
     });
     expect(commits()).toBe(2);
+    expect(commitLines()).toHaveLength(2);
   });
 });
 

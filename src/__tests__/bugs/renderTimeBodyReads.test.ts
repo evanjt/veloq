@@ -36,7 +36,6 @@ const engine = {
   syncPowerCurve: jest.fn(),
   syncPaceCurve: jest.fn(),
   syncActivityIntervals: jest.fn(),
-  savePaceSnapshot: jest.fn(),
   subscribe: jest.fn(() => () => {}),
   getBodiesStored: jest.fn(() => 0),
   triggerRefresh: jest.fn(),

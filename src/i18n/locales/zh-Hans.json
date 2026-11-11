@@ -199,6 +199,8 @@
     }
   },
   "activityDetail": {
+    "hideFromHeatmap": "从热力图中隐藏",
+    "showOnHeatmap": "在热力图中显示",
     "lineKeyActivity": "本次活动",
     "lineKeyRoute": "匹配路线",
     "failedToLoad": "加载活动失败",
@@ -2177,6 +2179,9 @@
     "heatmapGeneration": "热力图",
     "heatmapDescription": "将热力图保存在此设备上，并占用相应存储空间。关闭后即可释放该空间。",
     "heatmapStorageUsed": "正在使用 {{size}} 设备存储空间",
+    "heatmapHiddenTitle": "已从热力图中隐藏",
+    "heatmapHiddenShow": "显示",
+    "heatmapHiddenShowLabel": "在热力图中显示{{name}}",
     "reanalyzeSections": "重新分析路段",
     "reanalyzeWarning": "这将替换所有未接受的自动检测路段。已接受(已固定)的路段将予以保留。",
     "rescanFailed": "无法完成重新扫描。部分活动轨迹无法读取。",

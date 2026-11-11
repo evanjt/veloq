@@ -115,6 +115,8 @@ function section(streams: ActivityStreams) {
       onPointSelect={() => {}}
       onInteractionChange={() => {}}
       onExportGpx={() => {}}
+      heatmapHidden={false}
+      onToggleHeatmapHidden={() => {}}
     />
   );
 }

@@ -159,6 +159,8 @@ describe('the map control columns draw one button', () => {
           enableFullscreen={false}
           onOpenFullscreen={jest.fn()}
           mapHeight={400}
+          isDark={false}
+          basePalette={mapPalette('light')}
         />
       </SafeAreaProvider>
     );

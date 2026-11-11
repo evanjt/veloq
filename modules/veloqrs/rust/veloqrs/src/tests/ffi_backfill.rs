@@ -1,4 +1,5 @@
-use super::{get_elevation_backfill_remaining, get_routes_status_data, start_stream_backfill};
+use super::{get_elevation_backfill_remaining, get_routes_status_data};
+use crate::net::stream_backfill::start_stream_backfill;
 use crate::objects::FfiStartOutcome;
 use crate::test_globals::{init_global_engine, read_while_writer_holds, serial_global_state};
 

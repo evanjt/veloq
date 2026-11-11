@@ -51,6 +51,12 @@ mod migration_drop_geocoding;
 #[path = "../migration_climb_bests_spike_remeasure.rs"]
 mod migration_climb_bests_spike_remeasure;
 
+#[path = "../migration_heatmap_hidden.rs"]
+mod migration_heatmap_hidden;
+
+#[path = "../migration_pace_history_window_prune.rs"]
+mod migration_pace_history_window_prune;
+
 #[path = "../migration_job_runs.rs"]
 mod migration_job_runs;
 

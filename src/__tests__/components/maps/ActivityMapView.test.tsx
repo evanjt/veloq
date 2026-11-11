@@ -240,19 +240,23 @@ describe('ActivityMapView', () => {
       grade_smooth: [-12, -3, 4, 14],
       distance: [0, 100, 200, 300],
     });
+    async function toggleGradient() {
+      await fireEvent.press(screen.getByTestId('activity-map-layers'));
+      await fireEvent.press(screen.getByTestId('activity-map-layer-gradient'));
+    }
     const TICKS = ['-10', '-5', '-2', '+2', '+5', '+10', 'Downhill', 'Uphill', 'Grade (%)'];
 
     it('shows no gradient key while the line is in the sport colour', async () => {
       await renderActivityMap({ streams: GRADED });
 
-      expect(screen.getByTestId('activity-map-gradient-toggle')).toBeTruthy();
+      expect(screen.getByTestId('activity-map-layers')).toBeTruthy();
       expect(screen.queryByTestId('activity-map-key')).toBeNull();
     });
 
     it('labels the scale with its gradient ticks while the line is coloured by gradient', async () => {
       await renderActivityMap({ streams: GRADED });
 
-      await fireEvent.press(screen.getByTestId('activity-map-gradient-toggle'));
+      await toggleGradient();
 
       const key = screen.getByTestId('activity-map-key');
       for (const tick of TICKS) {
@@ -263,7 +267,7 @@ describe('ActivityMapView', () => {
         DIVERGING_BANDS.grade.map((band) => gradeStepTokenColour(band.step, 'light'))
       );
 
-      await fireEvent.press(screen.getByTestId('activity-map-gradient-toggle'));
+      await toggleGradient();
       expect(screen.queryByTestId('activity-map-key')).toBeNull();
     });
 
@@ -273,7 +277,7 @@ describe('ActivityMapView', () => {
         initial3DCamera: { center: [7.448, 46.949], zoom: 13, bearing: 20, pitch: 60 },
       });
 
-      await fireEvent.press(screen.getByTestId('activity-map-gradient-toggle'));
+      await toggleGradient();
 
       expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
       expect(screen.getByTestId('activity-map-key')).toBeTruthy();
