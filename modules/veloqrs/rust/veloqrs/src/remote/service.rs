@@ -232,7 +232,8 @@ pub fn accept_offer(offer: &str) -> Result<String, Refusal> {
         .flatten();
     let cert = certificate().map_err(Refusal::Engine)?;
     let address = local_address().map_err(Refusal::Network)?;
-    let (answer, served) = peer::accept(offer, cert, address, Arc::new(EngineGate))?;
+    let stun = super::stun::Stun::resolve_default(address.is_ipv6());
+    let (answer, served) = peer::accept(offer, cert, address, Arc::new(EngineGate), stun)?;
     let mut peers = lock(&PEERS);
     peers.retain(|(_, peer)| !peer.is_finished());
     peers.push((fingerprint, served));

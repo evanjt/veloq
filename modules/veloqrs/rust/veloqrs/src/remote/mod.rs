@@ -5,6 +5,7 @@ pub mod pairing;
 pub mod peer;
 pub mod protocol;
 pub mod service;
+pub mod stun;
 
 /// Install the crypto the WebRTC stack uses, once per process.
 pub(crate) fn install_crypto() {
