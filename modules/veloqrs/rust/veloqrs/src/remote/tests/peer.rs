@@ -165,7 +165,8 @@ fn loopback() -> IpAddr {
 fn a_pinned_browser_gets_an_answer_over_the_channel() {
     let (mut browser, offer) = Browser::new();
     let gate = TestGate::pinning(Some(&browser.fingerprint));
-    let (answer, peer) = accept(&offer, certificate(), loopback(), gate.clone()).expect("accepted");
+    let (answer, peer) =
+        accept(&offer, certificate(), loopback(), gate.clone(), None).expect("accepted");
     browser.take_answer(&answer);
 
     let (opened, replies) = browser.run(ASK, Duration::from_secs(10));
@@ -181,7 +182,7 @@ fn a_pinned_browser_gets_an_answer_over_the_channel() {
 fn an_unpinned_browser_is_refused_before_any_answer() {
     let (_browser, offer) = Browser::new();
     let gate = TestGate::pinning(Some("sha-256 00:11"));
-    let refused = accept(&offer, certificate(), loopback(), gate.clone());
+    let refused = accept(&offer, certificate(), loopback(), gate.clone(), None);
     assert_eq!(refused.err(), Some(Refusal::NotPinned));
     assert_eq!(gate.connected.load(Ordering::SeqCst), 0);
 }
@@ -195,7 +196,8 @@ fn a_device_removed_while_it_connects_gets_no_byte() {
         connected: AtomicUsize::new(0),
         disconnected: AtomicUsize::new(0),
     });
-    let (answer, peer) = accept(&offer, certificate(), loopback(), gate.clone()).expect("accepted");
+    let (answer, peer) =
+        accept(&offer, certificate(), loopback(), gate.clone(), None).expect("accepted");
     browser.take_answer(&answer);
 
     let (_opened, replies) = browser.run(ASK, Duration::from_secs(5));
@@ -211,7 +213,7 @@ fn a_device_removed_while_it_connects_gets_no_byte() {
 fn a_malformed_offer_is_refused() {
     let gate = TestGate::pinning(None);
     assert!(matches!(
-        accept("not json", certificate(), loopback(), gate),
+        accept("not json", certificate(), loopback(), gate, None),
         Err(Refusal::Malformed(_))
     ));
 }

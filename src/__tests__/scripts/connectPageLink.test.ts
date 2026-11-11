@@ -13,6 +13,7 @@ import {
   answerFingerprint,
   invitation,
   normaliseFingerprint,
+  peerConfiguration,
   proof,
   retryDelay,
   roomFor,
@@ -217,5 +218,14 @@ describe('the connect page state machine', () => {
     const next = step(inviting, { type: 'expired' });
     expect(next.state).toEqual({ name: 'unpaired' });
     expect(doing(next)).toEqual(['hangUp', 'invite']);
+  });
+});
+
+describe('the page asks a STUN server for its public address', () => {
+  it('builds its peer connection with the pinned certificate and a STUN server', () => {
+    const certificate = { expires: 1 } as unknown as RTCCertificate;
+    const config = peerConfiguration(certificate);
+    expect(config.certificates).toEqual([certificate]);
+    expect(config.iceServers).toEqual([{ urls: 'stun:stun.cloudflare.com:3478' }]);
   });
 });

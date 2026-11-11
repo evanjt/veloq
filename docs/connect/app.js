@@ -8,6 +8,7 @@ import {
   base64url,
   invitation as invitationText,
   normaliseFingerprint,
+  peerConfiguration,
   proof,
   proofsMatch,
   roomFor,
@@ -215,7 +216,7 @@ async function join(/** @type {string} */ room) {
 async function offer() {
   peer?.close();
   const mine = session;
-  const made = new RTCPeerConnection({ certificates: [certificate], iceServers: [] });
+  const made = new RTCPeerConnection(peerConfiguration(certificate));
   peer = made;
   const opened = made.createDataChannel('veloq');
   channel = opened;

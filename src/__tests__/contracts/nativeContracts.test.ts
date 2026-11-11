@@ -19,6 +19,7 @@ import {
   MAPLIBRE_GL_JS_SHA256,
 } from '@/features/maps/assets/maplibreRenderer.generated';
 
+import { STUN_SERVER } from '../../../docs/connect/link.js';
 import { VELOQ_TILE_SCHEME } from '@/features/maps/lib/tileTransport';
 import { PAGE_REVISION_META } from '@/features/maps/lib/htmlBuilders/shared';
 import {
@@ -2387,5 +2388,17 @@ describe('form is zoned and printed as the widget zones and prints it', () => {
 
   it.each(vectors.cases.map((v) => [name(v), v] as const))('prints %s', (_name, v) => {
     expect(formatForm(v.tsb, v.fitness, v.asPercent)).toBe(v.text);
+  });
+});
+
+describe('the connect page and the engine ask the same STUN server', () => {
+  it('names one host and port on both sides', () => {
+    const rust = fs.readFileSync(
+      path.join(__dirname, '../../../modules/veloqrs/rust/veloqrs/src/remote/stun.rs'),
+      'utf8'
+    );
+    const engine = /pub const SERVER: &str = "([^"]+)";/.exec(rust)?.[1];
+    expect(engine).toBeDefined();
+    expect(STUN_SERVER).toBe(`stun:${engine}`);
   });
 });

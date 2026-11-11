@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
+use super::stun::{self, Stun};
 use str0m::change::{SdpAnswer, SdpOffer};
 use str0m::config::DtlsCert;
 use str0m::net::{Protocol, Receive};
@@ -88,12 +89,15 @@ fn normalise(hash: &str, hex: &str) -> String {
 
 /// Answer a browser's offer and serve the connection on its own thread, on a
 /// socket bound to `bind`. Returns the answer as the JSON a browser sets as
-/// its remote description.
+/// its remote description. With `stun`, the phone first learns its public
+/// address from that server and offers it beside the local one; a server that
+/// does not answer leaves the local address alone.
 pub fn accept(
     offer: &str,
     cert: DtlsCert,
     bind: IpAddr,
     gate: Arc<dyn Gate>,
+    stun: Option<Stun>,
 ) -> Result<(String, Peer), Refusal> {
     super::install_crypto();
     let offer: SdpOffer =
@@ -112,6 +116,12 @@ pub fn accept(
     let candidate =
         Candidate::host(local, "udp").map_err(|error| Refusal::Network(error.to_string()))?;
     rtc.add_local_candidate(candidate);
+    if let Some(stun) = stun
+        && let Some(public) = stun::mapped_address(&socket, stun)
+        && let Ok(reflexive) = Candidate::server_reflexive(public, local, "udp")
+    {
+        rtc.add_local_candidate(reflexive);
+    }
     let answer: SdpAnswer = rtc
         .sdp_api()
         .accept_offer(offer)
@@ -127,7 +137,16 @@ pub fn accept(
     let flag = Arc::clone(&stop);
     let thread = std::thread::Builder::new()
         .name("remote-peer".into())
-        .spawn(move || serve(rtc, socket, gate, &local_fingerprint, &flag))
+        .spawn(move || {
+            serve(
+                rtc,
+                socket,
+                gate,
+                &local_fingerprint,
+                &flag,
+                stun.map(|s| s.server),
+            )
+        })
         .map_err(|error| Refusal::Network(error.to_string()))?;
     Ok((
         answer,
@@ -144,6 +163,7 @@ fn serve(
     gate: Arc<dyn Gate>,
     fingerprint: &str,
     stop: &AtomicBool,
+    stun_server: Option<SocketAddr>,
 ) {
     let mut admitted: Option<String> = None;
     let mut buf = vec![0u8; 2000];
@@ -181,6 +201,9 @@ fn serve(
         let input = match socket.recv_from(&mut buf) {
             Ok((n, source)) => {
                 buf.truncate(n);
+                if Some(source) == stun_server {
+                    continue;
+                }
                 let Ok(contents) = buf.as_slice().try_into() else {
                     continue;
                 };

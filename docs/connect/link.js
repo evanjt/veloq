@@ -5,6 +5,22 @@
 /** The longest an invitation lasts. The phone refuses one past two minutes. */
 export const INVITATION_TTL_SECS = 110;
 
+/**
+ * The server the page asks for its public address. A STUN server learns only
+ * that address, never the data, which stays end to end between the browser
+ * and the phone. The phone names the same server.
+ */
+export const STUN_SERVER = 'stun:stun.cloudflare.com:3478';
+
+/**
+ * The peer connection's configuration: the pinned certificate and the STUN
+ * server.
+ * @param {RTCCertificate} certificate
+ */
+export function peerConfiguration(certificate) {
+  return { certificates: [certificate], iceServers: [{ urls: STUN_SERVER }] };
+}
+
 const FIRST_RETRY_MS = 2_000;
 const LAST_RETRY_MS = 30_000;
 
