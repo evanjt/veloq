@@ -881,7 +881,9 @@ mod tests {
     use super::*;
     use crate::persistence::export::BulkExportFormat;
     use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
-    use crate::test_globals::{init_global_engine, read_while_writer_holds, serial_global_state};
+    use crate::test_globals::{
+        hold_engine_lock, init_global_engine, read_while_writer_holds, serial_global_state,
+    };
     use crate::with_persistent_engine;
     use tracematch::GpsPoint;
 
@@ -1943,22 +1945,6 @@ mod tests {
             .expect("the export task")
             .expect("the export");
         assert!(std::path::Path::new(&dest).exists());
-    }
-
-    /// Hold the engine write lock on a thread of its own until the returned
-    /// sender is sent to, so a job started meanwhile is certainly still going.
-    fn hold_engine_lock() -> (std::sync::mpsc::Sender<()>, std::thread::JoinHandle<()>) {
-        let (holding, held) = std::sync::mpsc::channel();
-        let (release, released) = std::sync::mpsc::channel::<()>();
-        let writer = std::thread::spawn(move || {
-            with_persistent_engine(|_| {
-                holding.send(()).ok();
-                released.recv().ok();
-            })
-            .expect("engine");
-        });
-        held.recv().expect("the writer took the lock");
-        (release, writer)
     }
 
     /// Scenario: the athlete stops an export the moment it starts.

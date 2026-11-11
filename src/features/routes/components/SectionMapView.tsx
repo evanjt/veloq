@@ -30,7 +30,7 @@ import {
 } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import { useTheme } from '@/shared/app';
-import { useMapHeldFocus } from '@/shared/app/MapSheetHost';
+import { useMapHeldFocus, useMapSheetHost } from '@/shared/app/MapSheetHost';
 import {
   useSettleCamera,
   BaseMapView,
@@ -65,6 +65,7 @@ import {
   mapControlColumnLayout,
   MapControlButton,
   visibleMapInset,
+  HIGHLIGHT_THROTTLE_MS,
 } from '@/features/maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ComponentErrorBoundary } from '@/shared/ui';
@@ -84,6 +85,7 @@ import {
   noDataRanges,
 } from '@/features/maps';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
+import { scrubMarkerCollection, scrubMarkerPoint } from '../lib/scrubMarker';
 import { DetailMapLegend, hasLegendLayers } from './DetailMapLegend';
 import {
   buildSectionLayers,
@@ -158,6 +160,8 @@ interface SectionMapViewProps {
    * section line. Null where the section is ridden one way only.
    */
   shownDirection?: LineDirection | null | undefined;
+  /** Metres along the section the delta chart is scrubbed to, drawn as a marker. Null when idle. */
+  scrubDistanceM?: number | null | undefined;
   /**
    * What a tap on a preview map does in place of fullscreen, such as opening
    * the section's screen. Ignored when the map is interactive.
@@ -182,6 +186,7 @@ export const SectionMapView = memo(function SectionMapView({
   highlightedActivityId = null,
   highlightedLapPoints,
   highlightedActivityDate,
+  scrubDistanceM = null,
   pageActivityId,
   allActivityTraces,
   trimRange = null,
@@ -266,6 +271,7 @@ export const SectionMapView = memo(function SectionMapView({
   // A screen covered by another keeps its WebViews but releases their maps,
   // which hold the GL context and every tile texture in it. A map in a host
   // stays held under its own sheet.
+  const sheetKey = useMapSheetHost()?.key;
   const screenFocused = useMapHeldFocus();
   const map3DOpacity = useRef(new Animated.Value(0)).current;
   const bearingAnim = useRef(new Animated.Value(0)).current;
@@ -275,6 +281,36 @@ export const SectionMapView = memo(function SectionMapView({
   const polyline = section.polyline;
   const displayPoints = useMemo(() => polyline || [], [polyline]);
   const sectionCoords = useMemo(() => lngLatFromShort(displayPoints), [displayPoints]);
+  // The section's line in the order the shown attempt rode it.
+  const scrubLine = useMemo(
+    () => (deltaLine?.direction === 'reverse' ? [...displayPoints].reverse() : displayPoints),
+    [displayPoints, deltaLine?.direction]
+  );
+  const scrubPoint = useMemo(
+    () =>
+      scrubMarkerPoint({
+        distanceM: scrubDistanceM,
+        lengthM: deltaLine?.sectionLengthM ?? section.distanceMeters,
+        lapPoints: highlightedLapPoints,
+        linePoints: scrubLine,
+      }),
+    [
+      scrubDistanceM,
+      deltaLine?.sectionLengthM,
+      section.distanceMeters,
+      highlightedLapPoints,
+      scrubLine,
+    ]
+  );
+  // The marker moves at chart frame rate, so it reaches the surface once a frame.
+  const scrubGeoJSON = useThrottledValue(
+    useMemo(() => scrubMarkerCollection(scrubPoint), [scrubPoint]),
+    HIGHLIGHT_THROTTLE_MS
+  );
+  const scrubCoordinate3D = useMemo<[number, number] | null>(
+    () => (scrubPoint ? [scrubPoint.lng, scrubPoint.lat] : null),
+    [scrubPoint]
+  );
 
   // Expand mode fits the whole context window, not just the section portion, so
   // the user can see what there is to expand into.
@@ -519,6 +555,7 @@ export const SectionMapView = memo(function SectionMapView({
       deltaBands,
       deltaGapsGeoJSON,
       shownDirection,
+      scrubGeoJSON,
       trimmedGeoJSON,
       endpoints,
       sectionContext,
@@ -530,6 +567,7 @@ export const SectionMapView = memo(function SectionMapView({
       deltaBands,
       deltaGapsGeoJSON,
       shownDirection,
+      scrubGeoJSON,
       trimmedGeoJSON,
       endpoints,
       sectionContext,
@@ -597,8 +635,9 @@ export const SectionMapView = memo(function SectionMapView({
     () => ({
       sectionTrimGeoJSON,
       highlightedTraceGeoJSON: overlays3D.highlightGeoJSON,
+      highlightCoordinate: scrubCoordinate3D,
     }),
-    [sectionTrimGeoJSON, overlays3D.highlightGeoJSON]
+    [sectionTrimGeoJSON, overlays3D.highlightGeoJSON, scrubCoordinate3D]
   );
 
   if (!bounds || displayPoints.length === 0) {
@@ -641,6 +680,7 @@ export const SectionMapView = memo(function SectionMapView({
 
   const attributionOverlay = (
     <AttributionOverlay
+      sheetKey={sheetKey}
       ref={attributionRef}
       initialAttribution={initialAttribution}
       bottomInset={coveredBottom}
@@ -693,6 +733,7 @@ export const SectionMapView = memo(function SectionMapView({
                     frameSize={frameSize}
                     sectionTrimGeoJSON={sectionTrimGeoJSON}
                     highlightedTraceGeoJSON={overlays3D.highlightGeoJSON}
+                    highlightCoordinate={scrubCoordinate3D}
                     released={!screenFocused}
                     onMapReady={handleMap3DReady}
                     onMapFailed={handleMap3DFailed}

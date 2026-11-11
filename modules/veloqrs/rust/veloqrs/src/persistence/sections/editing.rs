@@ -224,6 +224,30 @@ impl PersistentEngine {
             .flatten()
     }
 
+    /// Rewrite the profile columns from the line the row holds: gain, loss,
+    /// grades, straightness and class. The lift flag is the detector's verdict
+    /// on the line's own pass, and an edit does not re-run that, so it stays.
+    /// Every writer of a section's line calls this after its UPDATE.
+    fn write_line_profile(&self, section_id: &str, line: &[GpsPoint]) -> rusqlite::Result<()> {
+        let profile = tracematch::enrich(line, calculate_route_distance(line));
+        self.db.execute(
+            "UPDATE sections SET
+                elevation_gain_m = ?, avg_grade_percent = ?, elevation_loss_m = ?,
+                max_grade_percent = ?, straightness = ?, klass = ?
+             WHERE id = ?",
+            params![
+                profile.elevation_gain_m,
+                profile.avg_grade_percent,
+                profile.elevation_loss_m,
+                profile.max_grade_percent,
+                profile.straightness,
+                profile.klass.map(tracematch::SectionClass::as_str),
+                section_id
+            ],
+        )?;
+        Ok(())
+    }
+
     /// Trim a section's bounds by slicing its polyline to the given index range.
     /// Backs up the original polyline on first trim (preserves true original across multiple trims).
     /// Re-matches all activities against the new trimmed polyline.
@@ -353,6 +377,8 @@ impl PersistentEngine {
                 ],
             )
             .map_err(|e| format!("Failed to update section: {}", e))?;
+        self.write_line_profile(section_id, &trimmed)
+            .map_err(|e| format!("Failed to update the section's profile: {e}"))?;
 
         // Re-match activities against the new polyline; a custom section
         // rescans the library, an auto one re-cuts the rides it holds.
@@ -517,6 +543,8 @@ impl PersistentEngine {
                 ],
             )
             .map_err(|e| format!("Failed to restore section bounds: {}", e))?;
+        self.write_line_profile(section_id, &original)
+            .map_err(|e| format!("Failed to update the section's profile: {e}"))?;
 
         if is_user_defined == 0 {
             self.return_row_name_to_intent(section_id)?;
@@ -658,6 +686,8 @@ impl PersistentEngine {
                 ],
             )
             .map_err(|e| format!("Failed to revert section: {}", e))?;
+        self.write_line_profile(section_id, &polyline)
+            .map_err(|e| format!("Failed to update the section's profile: {e}"))?;
 
         let departed = self.rebuild_section_junctions(section_id, &polyline)?;
 
@@ -1255,6 +1285,8 @@ impl PersistentEngine {
                 ],
             )
             .map_err(|e| format!("Failed to update section: {}", e))?;
+        self.write_line_profile(section_id, &new_polyline)
+            .map_err(|e| format!("Failed to update the section's profile: {e}"))?;
 
         // Re-match activities against new polyline
         let departed = self.rebuild_section_junctions(section_id, &new_polyline)?;
@@ -1522,6 +1554,7 @@ impl PersistentEngine {
             ],
         )?;
 
+        self.write_line_profile(section_id, &polyline)?;
         let details = serde_json::json!({
             "from": vanished_activity_id,
             "to": new_id,
@@ -1991,6 +2024,114 @@ mod tests {
         ledger_row(&engine, "gone", "dissolved", "{}");
 
         assert_eq!(engine.retired_sections()[0].name, None);
+    }
+
+    /// A climb for its first half and a flat run for the rest.
+    fn hill(n: usize) -> Vec<GpsPoint> {
+        (0..n)
+            .map(|i| GpsPoint {
+                latitude: 46.0 + i as f64 * 0.001,
+                longitude: 7.0,
+                elevation: Some(if i < n / 2 {
+                    i as f64 * 8.0
+                } else {
+                    (n / 2) as f64 * 8.0
+                }),
+            })
+            .collect()
+    }
+
+    /// A section over `hill(n)` whose profile columns hold values no line
+    /// produces, with the lift flag set.
+    fn engine_with_stale_profile(n: usize) -> PersistentEngine {
+        let (mut engine, _) = engine_with_section(n, "auto");
+        let ride = hill(n);
+        engine
+            .add_activity("a2".to_string(), ride.clone(), "Ride".to_string())
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET polyline_blob = ?, elevation_gain_m = 999.0,
+                    avg_grade_percent = 99.0, elevation_loss_m = 55.0, max_grade_percent = 77.0,
+                    straightness = 0.1, klass = NULL, is_lift = 1 WHERE id = 's1'",
+                params![codec::serialize_track_points(&ride)],
+            )
+            .unwrap();
+        engine
+    }
+
+    fn stored_profile(engine: &PersistentEngine) -> tracematch::Enrichment {
+        engine
+            .db
+            .query_row(
+                "SELECT elevation_gain_m, avg_grade_percent, elevation_loss_m, max_grade_percent,
+                        straightness, klass, is_lift FROM sections WHERE id = 's1'",
+                [],
+                |row| crate::persistence::sections::interest::enrichment_from_row(row, 0, 2),
+            )
+            .unwrap()
+    }
+
+    /// The profile of the line the row holds now, with the flag the row keeps.
+    fn profile_of_stored_line(engine: &PersistentEngine) -> tracematch::Enrichment {
+        let line = engine.stored_section_polyline("s1").unwrap();
+        tracematch::Enrichment {
+            is_lift: true,
+            ..tracematch::enrich(&line, calculate_route_distance(&line))
+        }
+    }
+
+    fn make_profile_stale(engine: &PersistentEngine) {
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET elevation_gain_m = 999.0, avg_grade_percent = 99.0 WHERE id = 's1'",
+                [],
+            )
+            .unwrap();
+    }
+
+    /// Scenario: the athlete trims a climb to its flat end, resets the
+    /// bounds, reverts to the trimmed version and expands onto a ride.
+    /// Expected behaviour: after each edit the profile columns describe the
+    /// line the row holds, and the lift flag the detector set is kept.
+    #[test]
+    fn every_line_edit_rewrites_the_profile_of_the_new_line() {
+        let mut engine = engine_with_stale_profile(20);
+        let stale = stored_profile(&engine);
+
+        engine.trim_section("s1", 10, 19).unwrap();
+        let trimmed = stored_profile(&engine);
+        assert_ne!(trimmed, stale);
+        assert_eq!(trimmed, profile_of_stored_line(&engine), "trim");
+        let version = events_of(&engine, KIND_TRIMMED)[0]
+            .geometry_version
+            .unwrap();
+
+        make_profile_stale(&engine);
+        engine.reset_section_bounds("s1").unwrap();
+        assert_eq!(
+            stored_profile(&engine),
+            profile_of_stored_line(&engine),
+            "reset"
+        );
+
+        make_profile_stale(&engine);
+        engine.revert_section_to_version("s1", version).unwrap();
+        assert_eq!(
+            stored_profile(&engine),
+            profile_of_stored_line(&engine),
+            "revert"
+        );
+
+        make_profile_stale(&engine);
+        engine.expand_section_bounds("s1", "a2", 0, 19).unwrap();
+        assert_eq!(
+            stored_profile(&engine),
+            profile_of_stored_line(&engine),
+            "expand"
+        );
     }
 }
 

@@ -5,7 +5,7 @@ use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::sections::DetectionRefusal;
 use log::{info, warn};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU8, AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::Duration;
 
@@ -91,6 +91,9 @@ pub(crate) enum DetectionPoll {
 /// were going to finish. TypeScript stops watching at two minutes and says the
 /// run is still going, which is a screen giving up and not a caller: this wait
 /// is off the screen and outlives it.
+///
+/// The checkpoint driver reads it as a quiet bound, not as a cap on the run:
+/// the longest the slot may go without a checkpoint before the driver stops.
 pub(crate) const SLOT_WAIT_LIMIT: Duration = Duration::from_secs(420);
 
 /// How often the slot is re-read while a run holds it.
@@ -323,6 +326,73 @@ fn settle_claimed_detect(slot: &crate::persistence::CheckpointSlot, release: Rel
     }
 }
 
+/// A start is building its run and has not installed it yet.
+///
+/// The slot has three states: empty, a start building (this flag), and a run
+/// installed (the handle). A start needs the handle mutex only to check the
+/// slot and to install, so a status read never waits behind the engine hold of
+/// the build. Both flags are written only while the mutex is held, so a reader
+/// that holds it sees the handle or the window, never the gap between them.
+static START_WINDOW_OPEN: AtomicBool = AtomicBool::new(false);
+/// A cancel arrived while the window was open; the installer applies it.
+static START_WINDOW_CANCELLED: AtomicBool = AtomicBool::new(false);
+
+/// Whether a start is building its run. Read it with the handle mutex held
+/// when the answer has to agree with the handle.
+pub(crate) fn start_window_open() -> bool {
+    START_WINDOW_OPEN.load(Ordering::SeqCst)
+}
+
+/// The slot taken by a start that is building its run.
+///
+/// Dropped without `install`, it empties the slot again, so a refusal or an
+/// early return cannot wedge it.
+pub(crate) struct StartWindow {
+    installed: bool,
+}
+
+impl StartWindow {
+    /// Take the slot, or `None` when a run or another start holds it.
+    pub(crate) fn open() -> Option<Self> {
+        let guard = SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if guard.is_some() || start_window_open() {
+            return None;
+        }
+        START_WINDOW_CANCELLED.store(false, Ordering::SeqCst);
+        START_WINDOW_OPEN.store(true, Ordering::SeqCst);
+        Some(Self { installed: false })
+    }
+
+    /// Put the built run in the slot, stopping it at once when a cancel
+    /// arrived while it was being built.
+    pub(crate) fn install(mut self, handle: crate::persistence::SectionDetectionHandle) {
+        let mut guard = SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        // The record describes the last run that finished. A run that has just
+        // started has not, so the previous outcome stops being the answer the
+        // moment this one takes the slot.
+        record_started_run(&handle.checkpoint_slot());
+        if START_WINDOW_CANCELLED.swap(false, Ordering::SeqCst) {
+            handle.request_cancel();
+        }
+        *guard = Some(handle);
+        START_WINDOW_OPEN.store(false, Ordering::SeqCst);
+        self.installed = true;
+    }
+}
+
+impl Drop for StartWindow {
+    fn drop(&mut self) {
+        if !self.installed {
+            START_WINDOW_CANCELLED.store(false, Ordering::SeqCst);
+            START_WINDOW_OPEN.store(false, Ordering::SeqCst);
+        }
+    }
+}
+
 /// Settle only the self-applying run that still owns this slot.
 pub(crate) fn settle_finished_worker(slot: &Arc<crate::persistence::CheckpointSlot>) {
     let mut guard = SECTION_DETECTION_HANDLE
@@ -449,6 +519,9 @@ fn poll_detection_once_inner(
         .unwrap_or_else(|e| e.into_inner());
 
     if handle_guard.is_none() {
+        if start_window_open() {
+            return Ok(DetectionPoll::Running);
+        }
         return Ok(if follow_idle {
             match LAST_DETECTION_OUTCOME.load(Ordering::Relaxed) {
                 OUTCOME_COMPLETE => DetectionPoll::Applied,
@@ -592,23 +665,64 @@ fn spawn_checkpoint_driver(install: u64) {
     crate::threads::spawn_named("veloq-ckpt", move || {
         let _counted = counted;
         let started = std::time::Instant::now();
-        loop {
-            std::thread::sleep(DRIVER_POLL);
-            if !still_running(&slot) {
-                return;
-            }
-            if let Some(checkpoint) = slot.take() {
-                persist_checkpoint(install, checkpoint);
-            }
-            if started.elapsed() > SLOT_WAIT_LIMIT {
-                log::warn!(
-                    "veloqrs: [DetectionManager] checkpoint driver gave up after {:?}",
-                    started.elapsed()
-                );
-                return;
-            }
+        let end = drive_checkpoints_with(
+            &slot,
+            DRIVER_POLL,
+            SLOT_WAIT_LIMIT,
+            || still_running(&slot),
+            |checkpoint| persist_checkpoint(install, checkpoint),
+            std::thread::sleep,
+            || started.elapsed(),
+        );
+        if end == DriverEnd::Quiet {
+            log::warn!(
+                "veloqrs: [DetectionManager] checkpoint driver stopped: the run wrote no checkpoint for {:?}",
+                SLOT_WAIT_LIMIT
+            );
         }
     });
+}
+
+/// How the checkpoint driver's loop ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DriverEnd {
+    /// The run left the shared handle, and the worker settled it.
+    RunLeft,
+    /// No checkpoint reached the slot for longer than the limit, with the run
+    /// still holding the handle.
+    Quiet,
+}
+
+/// The checkpoint driver's loop, with its clock, sleep, run check and sink
+/// passed in so the schedule can be driven without seven minutes of wall time.
+///
+/// `limit` bounds the silence, not the run: a run that keeps checkpointing
+/// keeps the driver, and the driver gives up only when no checkpoint has
+/// reached the slot for longer than `limit`. The run's own exit is checked
+/// first, so a finished run is never waited out.
+fn drive_checkpoints_with(
+    slot: &crate::persistence::CheckpointSlot,
+    poll_every: Duration,
+    limit: Duration,
+    mut still_running: impl FnMut() -> bool,
+    mut persist: impl FnMut(crate::persistence::CacheUpdate),
+    mut sleep: impl FnMut(Duration),
+    mut now: impl FnMut() -> Duration,
+) -> DriverEnd {
+    let mut last_checkpoint = now();
+    loop {
+        sleep(poll_every);
+        if !still_running() {
+            return DriverEnd::RunLeft;
+        }
+        if let Some(checkpoint) = slot.take() {
+            persist(checkpoint);
+            last_checkpoint = now();
+        }
+        if now().saturating_sub(last_checkpoint) > limit {
+            return DriverEnd::Quiet;
+        }
+    }
 }
 
 /// Whether the run that owns `slot` still holds the shared handle.
@@ -659,10 +773,10 @@ fn persist_checkpoint_with(
 /// Whether a detection run currently holds the shared slot. A snapshot only:
 /// callers that must not lose the race hold the guard themselves.
 fn detection_running() -> bool {
-    SECTION_DETECTION_HANDLE
+    let guard = SECTION_DETECTION_HANDLE
         .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .is_some()
+        .unwrap_or_else(|e| e.into_inner());
+    guard.is_some() || start_window_open()
 }
 
 /// Ask a running preview to stop. Cooperative and non-blocking: the preview
@@ -742,20 +856,17 @@ fn start_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, VeloqError> 
     // and the reverse order here would deadlock the pair.
     cancel_running_preview();
 
-    // Held across check, spawn and install. Releasing it to spawn lets
-    // every loser start a worker of its own that rewrites `route_groups`
-    // beside the winner, and then overwrite the winner's handle so the
-    // run left in the slot is not the one being polled.
-    let mut handle_guard = SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    if handle_guard.is_some() {
+    // The slot is taken for the build and the mutex let go, so a status read
+    // never waits behind the engine hold. Releasing it with the slot free
+    // would let every loser start a worker of its own that rewrites
+    // `route_groups` beside the winner, so the window refuses them.
+    let Some(window) = StartWindow::open() else {
         info!("veloqrs: [DetectionManager] Section detection already running");
         // This start did no work. Preserve an earlier failure count when
         // the run holding the slot did not claim the key.
         drop(claim);
         return Ok(FfiStartOutcome::Busy.into());
-    }
+    };
 
     let (install, handle) = with_engine(|e| {
         (
@@ -786,13 +897,8 @@ fn start_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, VeloqError> 
 
     let slot = handle.checkpoint_slot();
     slot.mark_detect_claimed();
-    // The record describes the last run that finished. A run that has just
-    // started has not, so the previous outcome stops being the answer the
-    // moment this one takes the slot.
-    record_started_run(&slot);
-    *handle_guard = Some(handle);
+    window.install(handle);
     claim.hand_over();
-    drop(handle_guard);
     slot.mark_installed(install);
     spawn_checkpoint_driver(install);
     info!("veloqrs: [DetectionManager] Section detection started");
@@ -824,18 +930,15 @@ fn force_redetect_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, Vel
 
     cancel_running_preview();
 
-    // Held across check, clear, spawn and install, for the same reason as
-    // `start`. The clear belongs inside it too: two losers clearing the
-    // processed set behind the winner would throw away the evidence cache
+    // The window is held across check, clear, spawn and install, for the same
+    // reason as `start`. The clear belongs inside it too: two losers clearing
+    // the processed set behind the winner would throw away the evidence cache
     // a run that is already going has been folding into.
-    let mut handle_guard = SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    if handle_guard.is_some() {
+    let Some(window) = StartWindow::open() else {
         info!("veloqrs: [DetectionManager] Cannot force redetect: detection already running");
         drop(claim);
         return Ok(FfiStartOutcome::Busy.into());
-    }
+    };
 
     // Clear and spawn against the engine that owns the claim. A refusal
     // leaves the processed set intact.
@@ -859,10 +962,8 @@ fn force_redetect_with(after_claim: impl FnOnce()) -> Result<FfiStartResult, Vel
     };
     let slot = handle.checkpoint_slot();
     slot.mark_detect_claimed();
-    record_started_run(&slot);
-    *handle_guard = Some(handle);
+    window.install(handle);
     claim.hand_over();
-    drop(handle_guard);
     slot.mark_installed(install);
     spawn_checkpoint_driver(install);
     info!("veloqrs: [DetectionManager] Forced full section re-detection started");
@@ -934,6 +1035,18 @@ impl DetectionManager {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
 
+        if handle_guard.is_none() && start_window_open() {
+            // A run being built has reported nothing yet: answer what a fresh
+            // run reports, so a follower that looks right after a start lands
+            // still follows it.
+            let fresh = crate::persistence::SectionDetectionProgress::new();
+            return Ok(Some(crate::FfiDetectionProgress {
+                phase: fresh.get_phase(),
+                completed: fresh.get_completed(),
+                total: fresh.get_total(),
+                percent: fresh.get_percent(),
+            }));
+        }
         Ok(handle_guard.as_ref().map(|handle| {
             let (phase, completed, total) = handle.get_progress();
             let percent = handle.progress.get_percent();
@@ -959,6 +1072,11 @@ impl DetectionManager {
             Some(handle) => {
                 handle.request_cancel();
                 info!("veloqrs: [DetectionManager] Cancel requested");
+                true
+            }
+            None if start_window_open() => {
+                START_WINDOW_CANCELLED.store(true, Ordering::SeqCst);
+                info!("veloqrs: [DetectionManager] Cancel requested while the run is being built");
                 true
             }
             None => false,
@@ -2217,6 +2335,152 @@ mod tests {
         wait_for_slot_drivers();
     }
 
+    mod checkpoint_driver {
+        use super::super::*;
+        use std::cell::{Cell, RefCell};
+
+        const POLL: Duration = Duration::from_millis(250);
+
+        fn checkpoint_for(folded: &str) -> crate::persistence::CacheUpdate {
+            crate::persistence::CacheUpdate {
+                cache: crate::SectionEvidenceCache::new(),
+                folded_ids: std::collections::HashSet::from([folded.to_string()]),
+                checkpoint: true,
+                boundaries: Vec::new(),
+            }
+        }
+
+        /// Scenario: the fold puts a checkpoint in the slot every two seconds,
+        /// so a run that is still folding past seven minutes has been writing
+        /// the whole time. The driver follows that run, and a checkpoint taken
+        /// after the seven-minute mark is the one a kill would resume from.
+        ///
+        /// Expected behaviour: the driver keeps persisting while its run holds
+        /// the slot, and leaves only when the run does.
+        #[test]
+        fn a_checkpoint_driver_keeps_persisting_past_the_limit_while_its_run_folds() {
+            let slot = crate::persistence::CheckpointSlot::default();
+            let clock = Cell::new(Duration::ZERO);
+            let persisted = RefCell::new(Vec::new());
+
+            let end = drive_checkpoints_with(
+                &slot,
+                POLL,
+                SLOT_WAIT_LIMIT,
+                || clock.get() < Duration::from_secs(600),
+                |_| persisted.borrow_mut().push(clock.get()),
+                |d| {
+                    clock.set(clock.get() + d);
+                    slot.put(checkpoint_for("folded"));
+                },
+                || clock.get(),
+            );
+
+            assert_eq!(
+                end,
+                DriverEnd::RunLeft,
+                "the run ended, so the driver leaves"
+            );
+            assert!(
+                persisted.borrow().iter().any(|at| *at > SLOT_WAIT_LIMIT),
+                "a checkpoint taken after the limit reaches the database"
+            );
+        }
+
+        /// Scenario: a worker hangs without writing a checkpoint and holds the
+        /// slot for ever. The driver has nothing to persist, and must not poll
+        /// for ever with it.
+        ///
+        /// Expected behaviour: the driver gives up once the slot has been quiet
+        /// for longer than the limit, and persists nothing.
+        #[test]
+        fn a_checkpoint_driver_gives_up_on_a_run_that_writes_nothing() {
+            let slot = crate::persistence::CheckpointSlot::default();
+            let clock = Cell::new(Duration::ZERO);
+            let persisted = RefCell::new(Vec::new());
+
+            let end = drive_checkpoints_with(
+                &slot,
+                POLL,
+                SLOT_WAIT_LIMIT,
+                || true,
+                |_| persisted.borrow_mut().push(clock.get()),
+                |d| clock.set(clock.get() + d),
+                || clock.get(),
+            );
+
+            assert_eq!(end, DriverEnd::Quiet);
+            assert!(persisted.borrow().is_empty());
+            assert!(clock.get() > SLOT_WAIT_LIMIT);
+            assert!(clock.get() <= SLOT_WAIT_LIMIT + POLL);
+        }
+
+        /// Scenario: one checkpoint lands at 400 s and then the run goes quiet.
+        /// The limit is a bound on silence, so it counts from that checkpoint
+        /// and not from the start of the run.
+        ///
+        /// Expected behaviour: the driver gives up 420 s after the last
+        /// checkpoint, at 820 s, and not at 420 s.
+        #[test]
+        fn a_checkpoint_restarts_the_quiet_bound() {
+            let slot = crate::persistence::CheckpointSlot::default();
+            let clock = Cell::new(Duration::ZERO);
+            let offered = Cell::new(false);
+            let persisted = RefCell::new(Vec::new());
+
+            let end = drive_checkpoints_with(
+                &slot,
+                POLL,
+                SLOT_WAIT_LIMIT,
+                || true,
+                |_| persisted.borrow_mut().push(clock.get()),
+                |d| {
+                    clock.set(clock.get() + d);
+                    if !offered.get() && clock.get() >= Duration::from_secs(400) {
+                        offered.set(true);
+                        slot.put(checkpoint_for("folded"));
+                    }
+                },
+                || clock.get(),
+            );
+
+            assert_eq!(end, DriverEnd::Quiet);
+            assert_eq!(
+                persisted.borrow().len(),
+                1,
+                "the one checkpoint is persisted"
+            );
+            let silence_from = Duration::from_secs(820);
+            assert!(clock.get() > silence_from);
+            assert!(clock.get() <= silence_from + POLL);
+        }
+
+        /// Scenario: the run left the shared handle, which the worker does when
+        /// it settles, and the clock is already well past the limit.
+        ///
+        /// Expected behaviour: the driver returns on the next poll whatever the
+        /// clock reads, and persists nothing further.
+        #[test]
+        fn a_checkpoint_driver_leaves_when_its_run_has_left_whatever_the_clock_says() {
+            let slot = crate::persistence::CheckpointSlot::default();
+            let clock = Cell::new(SLOT_WAIT_LIMIT * 2);
+            let persisted = RefCell::new(Vec::new());
+
+            let end = drive_checkpoints_with(
+                &slot,
+                POLL,
+                SLOT_WAIT_LIMIT,
+                || false,
+                |_| persisted.borrow_mut().push(clock.get()),
+                |d| clock.set(clock.get() + d),
+                || clock.get(),
+            );
+
+            assert_eq!(end, DriverEnd::RunLeft);
+            assert!(persisted.borrow().is_empty());
+        }
+    }
+
     /// A driver that panics still leaves the count where it found it, or the
     /// next test waits forever on a thread that is already dead.
     #[test]
@@ -2295,6 +2559,180 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(5));
         }
+    }
+
+    /// How long a start is given to reach its wait on the engine lock.
+    const START_REACHES_ENGINE: Duration = Duration::from_millis(300);
+
+    /// Start a run on a thread of its own and take the engine for writing the
+    /// moment it has claimed its key, so the build is certainly waiting on the
+    /// engine when this returns. The release sender lets everything go; it is
+    /// dropped on a panic too.
+    fn start_building_under_engine_hold(
+        start: impl FnOnce(Box<dyn FnOnce()>) -> bool + Send + 'static,
+    ) -> (
+        std::sync::mpsc::Sender<()>,
+        std::thread::JoinHandle<()>,
+        std::thread::JoinHandle<bool>,
+    ) {
+        let (held_tx, held_rx) = std::sync::mpsc::channel();
+        let starter = std::thread::spawn(move || {
+            start(Box::new(move || {
+                held_tx
+                    .send(crate::test_globals::hold_engine_lock())
+                    .expect("the test is waiting");
+            }))
+        });
+        let (release, writer) = held_rx.recv().expect("the start claimed its key");
+        std::thread::sleep(START_REACHES_ENGINE);
+        (release, writer, starter)
+    }
+
+    fn assert_status_reads_do_not_wait() {
+        let timed = |what: &str, read: fn()| {
+            crate::test_globals::returns_within(Duration::from_secs(5), what, read);
+        };
+        timed("get_progress", || {
+            let progress = DetectionManager::new().get_progress().expect("progress");
+            assert!(progress.is_some(), "a run being built reads as under way");
+        });
+        timed("poll", || {
+            let _ = DetectionManager::new().poll().expect("poll");
+        });
+        timed("cancel", || {
+            assert!(
+                DetectionManager::new().cancel(),
+                "the run being built is cancellable"
+            );
+        });
+    }
+
+    /// Scenario: a start holds the engine while it builds its run, and the
+    /// athlete's screen reads the status meanwhile.
+    ///
+    /// Expected behaviour: the reads answer at once and say a run is under way,
+    /// whether the starter is the FFI start or the conditioner.
+    #[test]
+    fn status_reads_do_not_wait_behind_a_start_building_its_run() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let _workers = hold_detection_workers();
+
+        let (release, writer, starter) = start_building_under_engine_hold(|after_claim| {
+            start_with(after_claim).expect("start").started()
+        });
+        assert_status_reads_do_not_wait();
+        drop(release);
+        writer.join().expect("writer");
+        starter.join().expect("starter");
+        drop(_workers);
+        drain_detection();
+    }
+
+    #[test]
+    fn status_reads_do_not_wait_behind_a_conditioner_start() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let _workers = hold_detection_workers();
+
+        let (release, writer, starter) = start_building_under_engine_hold(|after_claim| {
+            crate::persistence::sections::conditioning::try_start_conditioning_with(
+                false,
+                None,
+                after_claim,
+            )
+        });
+        assert_status_reads_do_not_wait();
+        drop(release);
+        writer.join().expect("writer");
+        starter.join().expect("starter");
+        drop(_workers);
+        drain_detection();
+    }
+
+    /// Scenario: a second start lands while the first is still building.
+    /// Expected behaviour: it is refused, and one worker is started.
+    #[test]
+    fn a_second_start_during_the_build_is_busy_and_starts_no_second_worker() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let _workers = hold_detection_workers();
+        let before = detection_workers_started();
+
+        let (release, writer, starter) = start_building_under_engine_hold(|after_claim| {
+            start_with(after_claim).expect("start").started()
+        });
+        let second = DetectionManager::new().start().expect("second start");
+        assert!(!second.started(), "a start beside a start is refused");
+        let forced = DetectionManager::new().force_redetect().expect("force");
+        assert!(!forced.started(), "so is a forced re-detect");
+        drop(release);
+        writer.join().expect("writer");
+        assert!(starter.join().expect("starter"), "the first start ran");
+        drop(_workers);
+        drain_detection();
+        assert_eq!(detection_workers_started() - before, 1);
+    }
+
+    /// Scenario: a start refused under the engine lock because detection is
+    /// switched off.
+    /// Expected behaviour: the slot is left empty, so the next start runs.
+    #[test]
+    fn a_start_refused_under_the_engine_lock_leaves_the_slot_empty() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let manager = DetectionManager::new();
+
+        let suspension = std::cell::RefCell::new(None);
+        let refused = start_with(|| {
+            *suspension.borrow_mut() =
+                Some(crate::persistence::sections::conditioning::suspend_detection());
+        });
+        drop(suspension);
+        assert!(
+            !matches!(refused, Ok(ref r) if r.started()),
+            "a suspended engine starts nothing"
+        );
+        assert!(
+            !detection_running(),
+            "a refused start leaves nothing standing"
+        );
+        assert!(manager.get_progress().expect("progress").is_none());
+
+        clear_detection_handle();
+        assert!(manager.start().expect("next start").started());
+        drain_detection();
+    }
+
+    /// Scenario: the athlete cancels while the run is still being built.
+    /// Expected behaviour: the cancel is not lost; the run ends cancelled once
+    /// it is installed.
+    #[test]
+    fn a_cancel_during_the_build_ends_the_run_once_it_installs() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let workers = hold_detection_workers();
+
+        let (release, writer, starter) = start_building_under_engine_hold(|after_claim| {
+            start_with(after_claim).expect("start").started()
+        });
+        assert!(DetectionManager::new().cancel());
+        drop(release);
+        writer.join().expect("writer");
+        assert!(starter.join().expect("starter"));
+        drop(workers);
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while detection_running() && Instant::now() < deadline {
+            let _ = poll_detection_once();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(!detection_running());
+        assert_eq!(DetectionManager::new().last_outcome(), "idle");
     }
 
     /// A section standing on the fixture's own activities, so a catalogue can

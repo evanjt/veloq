@@ -91,6 +91,18 @@ pub(crate) mod laps {
 
     use crate::{SectionLap, SectionPerformanceRecord, SectionPerformanceResult};
 
+    /// The order a section's records are read in: by activity date, then by
+    /// activity id, so two outings that share a start second are read in the
+    /// same order whatever order they were collected in.
+    pub(crate) fn record_order(
+        a: &SectionPerformanceRecord,
+        b: &SectionPerformanceRecord,
+    ) -> std::cmp::Ordering {
+        a.activity_date
+            .cmp(&b.activity_date)
+            .then_with(|| a.activity_id.cmp(&b.activity_id))
+    }
+
     /// One stored traversal of a section, as the computation needs it.
     pub(crate) struct Portion {
         pub activity_id: String,
@@ -485,7 +497,7 @@ pub(crate) mod laps {
         section_distance: f64,
         mut records: Vec<SectionPerformanceRecord>,
     ) -> SectionPerformanceResult {
-        records.sort_by_key(|r| r.activity_date);
+        records.sort_by(record_order);
 
         let mut best_fwd: Option<(usize, f64, f64, bool)> = None;
         let mut best_rev: Option<(usize, f64, f64, bool)> = None;
@@ -976,7 +988,11 @@ impl PersistentEngine {
     ///
     /// Only a portion whose activity has a stored track is examined, so a
     /// library's trackless portions are not reread for the life of the install.
-    /// Returns the number of rows it looked at.
+    /// A portion whose line and track are both read and still yield no
+    /// coverage (a single fix, or indices past the track) is marked
+    /// `coverage_empty` and leaves the set; rewriting its indices or storing a
+    /// new track for the activity clears the mark. Returns the number of rows
+    /// it looked at.
     pub fn backfill_section_coverage(&mut self) -> usize {
         let unmeasured: Vec<(String, String, u32, u32, f64, Option<f64>)> = match self.db.prepare(
             "SELECT sa.section_id, sa.activity_id, sa.start_index, sa.end_index,
@@ -984,7 +1000,7 @@ impl PersistentEngine {
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              JOIN gps_tracks g ON g.activity_id = sa.activity_id
-             WHERE sa.coverage IS NULL AND sa.excluded = 0",
+             WHERE sa.coverage IS NULL AND sa.coverage_empty = 0 AND sa.excluded = 0",
         ) {
             Ok(mut stmt) => stmt
                 .query_map([], |row| {
@@ -1061,6 +1077,11 @@ impl PersistentEngine {
                 continue;
             };
             let Some(coverage) = portion_coverage(line, track, *start_index, *end_index) else {
+                let _ = tx.execute(
+                    "UPDATE section_activities SET coverage_empty = 1
+                     WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+                    params![section_id, activity_id, start_index],
+                );
                 continue;
             };
             if tx

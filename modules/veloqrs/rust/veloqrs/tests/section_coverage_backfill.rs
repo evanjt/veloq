@@ -170,3 +170,52 @@ fn a_partial_lap_is_not_the_record_once_coverage_is_measured() {
         "the fragment is quicker over its own ground, so it must not hold the record"
     );
 }
+
+/// A portion of a single fix spans no distance, so no coverage can be taken
+/// from it. Looking at it once settles that, and it is not read again.
+#[test]
+fn a_portion_that_cannot_be_measured_is_not_examined_again() {
+    let dir = TempDir::new().unwrap();
+    let path = seed(&dir);
+    let db = conn(&path);
+    db.execute(
+        "UPDATE section_activities SET start_index = 20, end_index = 21
+         WHERE activity_id = 'half'",
+        [],
+    )
+    .expect("shrink to a single fix");
+    let mut engine = open(&path);
+
+    assert_eq!(engine.backfill_section_coverage(), 2);
+    assert_eq!(coverage(&db, "half"), None);
+    assert_eq!(
+        engine.backfill_section_coverage(),
+        0,
+        "the unmeasurable portion and the measured one both leave the unmeasured set"
+    );
+}
+
+/// The verdict belongs to the indices it was taken from, so a portion whose
+/// indices are rewritten is looked at again.
+#[test]
+fn an_unmeasurable_verdict_is_dropped_when_the_portion_is_rewritten() {
+    let dir = TempDir::new().unwrap();
+    let path = seed(&dir);
+    let db = conn(&path);
+    db.execute(
+        "UPDATE section_activities SET start_index = 20, end_index = 21
+         WHERE activity_id = 'half'",
+        [],
+    )
+    .expect("shrink to a single fix");
+    let mut engine = open(&path);
+    engine.backfill_section_coverage();
+
+    db.execute(
+        "UPDATE section_activities SET end_index = 40 WHERE activity_id = 'half'",
+        [],
+    )
+    .expect("widen");
+    assert_eq!(engine.backfill_section_coverage(), 1);
+    assert!(coverage(&db, "half").is_some());
+}

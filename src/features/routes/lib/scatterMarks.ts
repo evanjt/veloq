@@ -14,6 +14,7 @@
 import type { TFunction } from 'i18next';
 import type { FfiFocusRange, FfiRecordStep } from 'veloqrs';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
+import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import {
   formatDuration,
   formatSecondsValue,
@@ -153,7 +154,7 @@ export function placeRecordStaircase(
   let carriedIn: number | null = null;
   const steps: PlacedStep[] = [];
   for (const step of progression) {
-    const at = step.activityDate * 1000;
+    const at = wallClockSecondsToLocalDate(step.activityDate).getTime();
     const value = clampToRange(valueOf(step), range);
     if (at < first) {
       carriedIn = value;

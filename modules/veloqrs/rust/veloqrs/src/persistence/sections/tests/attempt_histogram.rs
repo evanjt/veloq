@@ -152,3 +152,41 @@ fn route_directions_are_separate() {
     assert!(h.forward.is_none());
     assert_eq!(h.reverse.unwrap().binned, 3);
 }
+
+/// Sorted times with the lower quartile at 300 s and the upper at `q3` s, so
+/// the Freedman-Diaconis ideal width with eight attempts is `q3 - 300` seconds.
+fn eight_attempts_with_quartiles_at_300_and_q3(q3: f64) -> Vec<f64> {
+    vec![280.0, 300.0, 300.0, q3, q3, q3, q3, q3 + 100.0]
+}
+
+#[test]
+fn width_rounds_to_the_nearest_step_not_up() {
+    let sorted = eight_attempts_with_quartiles_at_300_and_q3(375.0);
+    assert_eq!(bin_width(&sorted), 90.0);
+}
+
+#[test]
+fn width_rounds_down_to_a_nearer_step_below_the_ideal() {
+    let sorted = eight_attempts_with_quartiles_at_300_and_q3(335.0);
+    assert_eq!(bin_width(&sorted), 30.0);
+}
+
+#[test]
+fn forty_five_and_one_eighty_seconds_are_steps() {
+    assert_eq!(
+        bin_width(&eight_attempts_with_quartiles_at_300_and_q3(340.0)),
+        45.0
+    );
+    assert_eq!(
+        bin_width(&eight_attempts_with_quartiles_at_300_and_q3(500.0)),
+        180.0
+    );
+}
+
+#[test]
+fn three_and_four_second_steps_are_readable_widths() {
+    let three = [100.0, 100.0, 100.0, 100.0, 103.0, 103.0, 103.0, 110.0];
+    let four = [100.0, 100.0, 100.0, 100.0, 104.0, 104.0, 104.0, 110.0];
+    assert_eq!(bin_width(&three), 3.0);
+    assert_eq!(bin_width(&four), 4.0);
+}

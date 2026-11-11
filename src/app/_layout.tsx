@@ -279,7 +279,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               `[Engine] Initialised with persistent storage: ${stats?.activityCount ?? 0} cached activities`
             );
           }
-          // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
+          // Migrate AsyncStorage preferences to SQLite (idempotent). The launch ran it
+          // already; this covers a library opened or wiped and reopened here.
           migrateSettingsToSqlite().catch(() => {});
           // Load WebDAV credentials into memory cache
           initWebdavConfig().catch(() => {});

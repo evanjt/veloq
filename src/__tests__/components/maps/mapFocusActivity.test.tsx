@@ -30,7 +30,7 @@ const ventoux: ActivityBoundsItem = {
   ],
   type: 'Ride',
   name: 'Mont Ventoux',
-  date: '2026-04-10T08:00:00Z',
+  date: Date.UTC(2026, 3, 10, 8, 0, 0) / 1000,
   distance: 60_000,
   duration: 12_000,
 };

@@ -13,6 +13,7 @@
 
 import type { FfiTrendBandPoint } from 'veloqrs';
 import type { PerformanceDataPoint } from '@/types';
+import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 
 /** A performance point as rendered on the chart - base record plus its normalised X. */
 export type ScatterChartPoint = PerformanceDataPoint & { x: number };
@@ -104,7 +105,8 @@ export interface TrendBandPoint {
 /**
  * Place an engine trend curve on the chart's x axis, 0.02 to 0.98 across the
  * drawn points' dates (the same placement `splitAndPositionChartData` gives
- * each point). The engine's curve is over unix seconds; this is only geometry.
+ * each point). The engine's curve is over wall-clock seconds, read through
+ * `wallClockSecondsToLocalDate` so it sits on the same scale as the drawn dates.
  * Null when the engine has no curve for the direction or nothing is drawn.
  */
 export function placeEngineTrend(
@@ -117,7 +119,7 @@ export function placeEngineTrend(
   const first = firstPoint.date.getTime();
   const range = lastPoint.date.getTime() - first || 1;
   return curve.map((p) => ({
-    x: 0.02 + ((p.time * 1000 - first) / range) * 0.96,
+    x: 0.02 + ((wallClockSecondsToLocalDate(p.time).getTime() - first) / range) * 0.96,
     y: p.value,
     upper: p.upper,
     lower: p.lower,

@@ -103,3 +103,36 @@ fn named_and_disabled_coexist_on_one_id() {
         vec!["disabled".to_string(), "named".to_string()]
     );
 }
+
+/// A custom section is the athlete's own line, not a detector corridor, so
+/// deleting it leaves its ground free for a section to form there again.
+#[test]
+fn deleting_a_custom_section_writes_no_deleted_intent() {
+    let (_dir, mut engine, db_path) = open();
+    let id = create(&mut engine);
+    {
+        let conn = Connection::open(&db_path).expect("open");
+        conn.execute(
+            "UPDATE sections SET section_type = 'custom' WHERE id = ?",
+            [&id],
+        )
+        .expect("mark custom");
+    }
+    engine.delete_section(&id).expect("delete");
+    drop(engine);
+
+    let conn = Connection::open(&db_path).expect("reopen");
+    assert!(kinds_for(&conn, &id).is_empty());
+}
+
+/// A deleted auto corridor stays deleted: the intent is still written.
+#[test]
+fn deleting_an_auto_section_writes_a_deleted_intent() {
+    let (_dir, mut engine, db_path) = open();
+    let id = create(&mut engine);
+    engine.delete_section(&id).expect("delete");
+    drop(engine);
+
+    let conn = Connection::open(&db_path).expect("reopen");
+    assert_eq!(kinds_for(&conn, &id), vec!["deleted".to_string()]);
+}

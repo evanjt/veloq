@@ -24,7 +24,7 @@ export interface RecordingStreams {
   latlng: [number, number][]; // [lat, lng]
   altitude: number[]; // metres; NaN when the fix has no altitude
   heartrate: number[]; // bpm
-  power: number[]; // watts
+  power: (number | null)[]; // watts; null when the sensor was absent or stale, 0 is a real reading
   cadence: number[]; // rpm
   speed: number[]; // m/s
   distance: number[]; // cumulative meters

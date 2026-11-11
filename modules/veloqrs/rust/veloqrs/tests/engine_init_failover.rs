@@ -708,9 +708,9 @@ fn quarantine_salvages_user_sections_and_intents() {
                 polyline: line.iter().rev().cloned().collect(),
                 distance_meters: 1200.0,
                 name: Some("Wrong way".to_string()),
-                source_activity_id: Some("act_1".to_string()),
-                start_index: Some(0),
-                end_index: Some(29),
+                source_activity_id: None,
+                start_index: None,
+                end_index: None,
             })
             .unwrap();
         engine.delete_section(&removed_id).unwrap();

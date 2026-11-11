@@ -61,7 +61,7 @@
     "explanations": {
       "conditions": "Temperatur aus Wetterdaten oder deinem Gerätesensor.",
       "energy": "Geschätzter Energieverbrauch aus Herzfrequenz, Leistung und Dauer.",
-      "fitnessImpact": "Im Vergleich zu einem Ruhetag erhöht diese Aktivität die Fitness um Belastung × (1 − e^(−1/{{fitnessDays}})) und die Ermüdung um Belastung × (1 − e^(−1/{{fatigueDays}})). Krafttraining erhöht nur die Ermüdung. Der Formbeitrag ist Fitness minus Ermüdung.",
+      "fitnessImpact": "Wie viel diese Aktivität im Vergleich zu einem Ruhetag zu deiner Fitness und Ermüdung beigetragen hat.",
       "heartRate": "Durchschnittliche Herzfrequenz während der Aktivität.",
       "newGround": "Der Anteil der Kartenkacheln dieser Aktivität, die keine frühere Aktivität berührt hatte. Eine Kachel ist je nach Breitengrad etwa 150 bis 300 m breit; gemessen wird also die Kachelabdeckung, nicht die Strecke auf neuen Wegen.",
       "activityEftp": "Der eFTP ist die Schätzung des Leistungsmodells von intervals.icu für diese Aktivität.",
@@ -70,7 +70,7 @@
       "yourForm": "Deine Form (TSB) an diesem Tag. Dies ist ein Tageswert basierend auf deinem Gesamttraining, nicht spezifisch für diese Aktivität. TSB = Fitness (CTL) minus Ermüdung (ATL).",
       "speed": "Durchschnitts- und Höchstgeschwindigkeit, wie intervals.icu sie für diese Aktivität gespeichert hat.",
       "pace": "Durchschnittliche und schnellste Pace, wie intervals.icu sie für diese Aktivität gespeichert hat.",
-      "cadence": "Durchschnittliche Frequenz, wie intervals.icu sie gespeichert hat: Kurbelumdrehungen pro Minute auf dem Rad, sonst Schritte oder Züge pro Minute."
+      "cadence": "Durchschnittliche Frequenz. Kurbelumdrehungen pro Minute auf dem Rad, Züge pro Minute im Wasser. Zu Fuß sind es Schritte pro Minute, sodass der Wert doppelt so hoch ist wie die Schritte, die intervals.icu anzeigt."
     },
     "ftp": "FTP-Einstellung: {{value}}",
     "heartRate": "Herzfrequenz",
@@ -462,10 +462,11 @@
     "enterDetailsInstead": "Daten stattdessen eingeben",
     "fillAllFields": "Bitte fülle alle Felder aus",
     "fillField": "Bitte fülle das Feld „{{field}}“ aus",
-    "webdavHttpsRequired": "Verwende eine https://-Adresse. Über http:// würden dein Passwort und deine Sicherungen unverschlüsselt übertragen.",
+    "webdavSchemeRequired": "Verwende eine http://- oder https://-Adresse",
+    "webdavPlainHttpWarning": "Diese Adresse verwendet http://, daher werden dein Passwort und deine Backups unverschlüsselt übertragen. Nutze sie nur mit einem Server in einem Netzwerk, dem du vertraust.",
     "webdavInvalidUrl": "Das ist keine gültige Serveradresse",
     "webdavSaveFailed": "Die Serverdaten konnten auf diesem Gerät nicht gespeichert werden",
-    "webdavPlainLan": "Unverschlüsselten Server in meinem eigenen Netzwerk erlauben",
+    "webdavRemoveFirst": "Entferne zuerst den Server, damit keine Sicherungen mehr dorthin gehen",
     "webdavTestUnauthorised": "Authentifizierung fehlgeschlagen",
     "webdavTestMethodNotAllowed": "Prüfe das Format deiner WebDAV-Adresse. Der Server akzeptiert PROPFIND auf diesem Pfad nicht",
     "webdavTestStatus": "Server antwortete mit {{code}}",
@@ -716,6 +717,7 @@
     "statusNoActivityAccess": "Garmin hat den Schlüssel akzeptiert, aber er kann deine Aktivitäten nicht lesen.",
     "statusMalformed": "Das sieht nicht nach einem Garmin-Schlüssel aus.",
     "statusUnreachable": "Garmin war nicht erreichbar. Versuche es gleich noch einmal.",
+    "statusSaveFailed": "Der Schlüssel konnte auf diesem Gerät nicht gespeichert werden, daher ist Garmin nicht verbunden. Versuche es erneut.",
     "feedTitle": "Meine Garmin-Fahrten in Veloq zeigen",
     "feedHint": "Fahrten aus deinem Garmin-Konto erscheinen nach dem Verbinden im Feed von Veloq.",
     "moreOptions": "Weitere Optionen",
@@ -890,17 +892,17 @@
   "insights": {
     "ranking": {
       "title": "Karten-Rangfolge",
-      "intro": "Das sind Faktoren für die Kartenauswahl, keine Konfidenzwahrscheinlichkeiten.",
+      "intro": "Diese Faktoren bestimmen die Reihenfolge der Karten. Es sind keine Konfidenzwerte.",
       "scoreOnScale": "{{score}} auf einer Skala von 0 bis 1",
       "unavailable": "Nicht genügend gültige Vergleichsdaten",
       "recency": {
         "label": "Aktualität",
-        "explanation": "Höhere Werte bedeuten, dass dieser Abschnitt kürzlicher absolviert wurde; der Wert sinkt mit der Zeit."
+        "explanation": "Höhere Werte bedeuten, dass dieser Abschnitt zuletzt absolviert wurde. Der Wert sinkt mit der Zeit."
       },
       "improvement": {
         "label": "Leistungsänderung",
-        "medianOfThree": "Median der letzten drei Versuche im Vergleich zu den drei davor; positiv bedeutet schneller, negativ langsamer.",
-        "firstToLast": "Letzter Versuch im Vergleich zum ersten; positiv bedeutet schneller, negativ langsamer."
+        "medianOfThree": "Median der letzten drei Versuche im Vergleich zu den drei davor. Positiv bedeutet schneller. Negativ bedeutet langsamer.",
+        "firstToLast": "Letzter Versuch im Vergleich zum ersten. Positiv bedeutet schneller. Negativ bedeutet langsamer."
       },
       "anomaly": {
         "label": "Ungewöhnlichkeit",
@@ -908,13 +910,13 @@
       },
       "engagement": {
         "label": "Relative Nutzung",
-        "explanation": "Höhere Werte bedeuten mehr Versuche im Verhältnis zu deinem am häufigsten absolvierten Abschnitt in dieser Sportart; mehr Versuche auf einem anderen Abschnitt können diesen Wert senken."
+        "explanation": "Höhere Werte bedeuten mehr Versuche im Verhältnis zu deinem am häufigsten absolvierten Abschnitt in dieser Sportart. Versuche auf einem anderen Abschnitt können diesen Wert senken."
       }
     },
     "title": "Einblicke",
     "strength": "Kraft",
     "noInsights": "Einblicke erscheinen mit dem Training",
-    "noInsightsHint": "Absolviere mehr Aktivitäten für personalisierte Einblicke",
+    "noInsightsHint": "Für Einblicke brauchst du mehr Aktivitäten zum Vergleich.",
     "couldNotBuild": "Einblicke konnten nicht erstellt werden",
     "wellnessFromLastSync": "Wellness vom letzten Sync, {{date}}",
     "sectionPr": "PR auf {{name}}",
@@ -961,11 +963,11 @@
       "prDetection": "Vergleicht deine letzte Abschnittszeit mit allen vorherigen Versuchen, um persönliche Rekorde zu erkennen.",
       "sectionTrend": "Verfolgt die Medianleistung auf häufig besuchten Abschnitten über die Zeit.",
       "periodComparison": "Vergleicht Trainingsmetriken zwischen aufeinanderfolgenden Wochen, um die Progression zu verfolgen.",
-      "hrvDescription": "Die 7 Kalendertage bis heute, wobei nur Tage mit einer HRV-Messung zählen und mindestens fünf davon nötig sind. Der Mittelwert der älteren Hälfte wird mit dem der neueren verglichen. Eine Änderung zählt nur, wenn ihr 95-%-Intervall, berechnet aus der Streuung deiner eigenen Messungen, null ausschließt und sie größer ist als eine halbe Standardabweichung dieser Streuung und 2 % des älteren Mittelwerts; alles darunter gilt als stabil. Ein stabiles Fenster gilt dennoch als fallend, wenn die letzten beiden Messungen an aufeinanderfolgenden Tagen liegen, die zweite niedriger ist, unter dem Fenstermittel liegt und das Paar denselben Test gegen die Messungen davor besteht.",
+      "hrvDescription": "Die 7 Kalendertage bis heute, mit mindestens fünf HRV-Messungen. Der Mittelwert der älteren Hälfte wird mit dem der neueren verglichen. Eine Änderung zählt nur, wenn ihr 95-%-Intervall, aus der Streuung deiner Messungen, die Null ausschließt und größer ist als eine halbe Standardabweichung dieser Streuung und 2 % des Mittelwerts der älteren Hälfte. Alles Kleinere gilt als stabil. Ein stabiles Fenster gilt trotzdem als fallend, wenn die letzten beiden Messungen an aufeinanderfolgenden Tagen liegen, die zweite niedriger ist, unter dem Fenstermittel liegt und das Paar denselben Test gegen die früheren Messungen besteht.",
       "periodComparisonRestDay": "Vergleicht die letzte Woche mit deinem 4-Wochen-Durchschnitt, wenn die aktuelle Woche noch keine Aktivitäten hat.",
       "ftpEstimation": "Vergleicht deine neueste tägliche eFTP mit dem Wert von vor 30 Tagen. Die eFTP ist die Schätzung von intervals.icu aus deiner Leistungskurve, nicht die FTP-Einstellung in deinem Konto.",
-      "criticalSpeedDescription": "Vergleicht deine neueste kritische Geschwindigkeit aus der 42-Tage-Tempokurve mit dem jüngsten früheren Wert innerhalb der letzten 90 Tage, der um mehr als 0,02 m/s abweicht, und zeigt die Änderung als Tempo.",
-      "efficiencyDescription": "Verfolgt die durchschnittliche Herzfrequenz mal Tempo über passende Versuche auf dem Abschnitt, mit einer linearen Regression nach der Methode der kleinsten Quadrate über die Zeit. Eine Richtung wird nur gezeigt, wenn das 95-%-Intervall der Steigung null ausschließt und die modellierte Änderung über die Versuche mehr als 2 % des Mittelwerts beträgt. Ein sinkender Wert bedeutet weniger Herzschläge pro km: eine niedrigere Herzfrequenz, ein schnelleres Tempo oder beides.",
+      "criticalSpeedDescription": "Vergleicht deine neueste kritische Geschwindigkeit aus der 42-Tage-Tempokurve mit dem jüngsten Wert der letzten 90 Tage, der um mehr als 0,02 m/s abweicht. Die Änderung wird als Tempo angezeigt.",
+      "efficiencyDescription": "Verfolgt die durchschnittliche Herzfrequenz mal Tempo über passende Versuche auf dem Abschnitt, als Trend nach der Methode der kleinsten Quadrate über die Zeit. Eine Richtung wird nur gezeigt, wenn das 95-%-Intervall des Trends null ausschließt und die angepasste Änderung mehr als 2 % des Mittelwerts beträgt. Ein sinkender Wert bedeutet weniger Herzschläge pro km: eine niedrigere Herzfrequenz, ein schnelleres Tempo oder beides.",
       "efficiencyFormula": "{{quantity}} ({{unit}}) = durchschnittliche Herzfrequenz × Pace (Sekunden pro km)",
       "route": "Zählt Versuche auf einer Strecke in einer Sportart und Richtung, die gestoppt, nicht ausgeschlossen, nicht teilweise sind und im Distanzband der Strecke liegen. Ein Rekord ist der schnellste davon, kürzlich aufgestellt. Ein Trend vergleicht den Median der letzten drei mit den drei davor, ab sechs Versuchen."
     },
@@ -1002,10 +1004,10 @@
       "trendingDown": "HRV: neuere Hälfte niedriger",
       "stable": "HRV: keine klare Änderung",
       "lastTwoDays": "HRV: letzte zwei Messungen unter dem Mittelwert",
-      "trendingUpBody": "Die neuere Hälfte deiner letzten 7 HRV-Tage liegt im Mittel über der älteren Hälfte, um mehr, als deine Schwankung von Tag zu Tag erklärt. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
-      "trendingDownBody": "Die neuere Hälfte deiner letzten 7 HRV-Tage liegt im Mittel unter der älteren Hälfte, um mehr, als deine Schwankung von Tag zu Tag erklärt. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
-      "stableBody": "Die beiden Hälften deiner letzten 7 HRV-Tage unterscheiden sich nicht mehr, als deine Schwankung von Tag zu Tag erklärt. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
-      "lastTwoDaysBody": "Das Fenster selbst blieb stabil, aber deine letzten beiden Messungen fielen an aufeinanderfolgenden Tagen, stärker, als deine Schwankung von Tag zu Tag erklärt, und die letzte, {{latest}} ms, liegt unter dem Fenstermittel von {{avg}} ms über {{days}} Messungen."
+      "trendingUpBody": "Die neuere Hälfte deiner letzten 7 HRV-Tage liegt im Mittel höher als die ältere, um mehr als deine übliche Schwankung von Tag zu Tag. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
+      "trendingDownBody": "Die neuere Hälfte deiner letzten 7 HRV-Tage liegt im Mittel niedriger als die ältere, um mehr als deine übliche Schwankung von Tag zu Tag. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
+      "stableBody": "Die beiden Hälften deiner letzten 7 HRV-Tage unterscheiden sich nicht mehr als deine übliche Schwankung von Tag zu Tag. Mittelwert des Fensters {{avg}} ms über {{days}} Messungen, zuletzt {{latest}} ms.",
+      "lastTwoDaysBody": "Die letzten 7 Tage blieben stabil, aber deine letzten beiden Messungen fielen an aufeinanderfolgenden Tagen um mehr als deine übliche Schwankung von Tag zu Tag. Die letzte, {{latest}} ms, liegt unter dem Fenstermittel von {{avg}} ms über {{days}} Messungen."
     },
     "weeklyLoad": {
       "title": "Trainingsbelastung {{percent}}% {{direction}} Durchschnitt",
@@ -1013,20 +1015,20 @@
       "below": "unter"
     },
     "stalePr": {
-      "title": "{{section}} ist einen neuen Versuch wert",
+      "title": "{{section}}: Fitness ist seit dem PR gestiegen",
       "subtitle": "{{visited}}. PR {{prTime}} bei {{metric}} {{previous}}, jetzt {{current}}",
-      "body": "{{visited}}. Mit deiner aktuellen Fitness einen neuen Versuch wert: {{metric}} {{previous}} am Tag des PR, jetzt {{current}}.",
+      "body": "{{visited}}. {{metric}} lag am Tag des PR bei {{previous}}, jetzt bei {{current}}.",
       "currentMetric": "Aktuell {{metric}}",
       "prMetric": "{{metric}} bei PR",
       "metricGain": "{{metric}}-Gewinn",
       "prTime": "PR-Zeit",
-      "methodology": "Angezeigt für einen Abschnitt, den du mindestens {{visits}}-mal und nicht in den letzten {{days}} Tagen absolviert hast, wenn deine Fitness heute mindestens {{gain}}% über der Fitness am Tag des PR liegt. Bis zu {{max}} werden angezeigt, die meistbesuchten zuerst. Die Rad-Fitness ist die eFTP, die Schätzung von intervals.icu aus deiner Leistungskurve. Die Lauf-Fitness ist die kritische Geschwindigkeit und die Schwimm-Fitness die CSS, beide aus deiner Pace-Kurve.",
+      "methodology": "Angezeigt für einen Abschnitt, den du mindestens {{visits}}-mal und nicht in den letzten {{days}} Tagen absolviert hast, wenn deine Fitness jetzt mindestens {{gain}}% über ihrem Stand am PR-Tag liegt. Bis zu {{max}}, die meistbesuchten zuerst. Die Rad-Fitness ist die eFTP, die Schätzung von intervals.icu aus deiner Leistungskurve. Die Lauf-Fitness ist die kritische Geschwindigkeit und die Schwimm-Fitness die CSS, beide aus deiner Pace-Kurve.",
       "metricCyclingEftp": "Rad-eFTP",
       "metricSwimCss": "Schwimm-CSS",
       "metricRunningCriticalSpeed": "Kritische Laufgeschwindigkeit",
       "groupMore": "(+{{n}} weitere)",
-      "groupTitle_one": "{{count}} Abschnitt, der einen neuen Versuch wert ist",
-      "groupTitle_other": "{{count}} Abschnitte, die einen neuen Versuch wert sind",
+      "groupTitle_one": "{{count}} Abschnitt, in dem die Fitness seit dem PR gestiegen ist",
+      "groupTitle_other": "{{count}} Abschnitte, in denen die Fitness seit den PRs gestiegen ist",
       "groupSubtitle": "{{metric}} jetzt {{current}}",
       "visitedRide_one": "Einmal gefahren",
       "visitedRide_other": "{{count}}-mal gefahren",
@@ -1050,7 +1052,7 @@
       "openActivity": "PR-Aktivität öffnen"
     },
     "aboutTitle": "Über Einblicke",
-    "aboutBody": "Trainingsmetriken sind Schätzungen basierend auf veröffentlichten sportwissenschaftlichen Modellen. Individuelle Reaktionen variieren erheblich. Diese Einblicke dienen nur zur Information, keine medizinische oder Trainingsberatung.",
+    "aboutBody": "Einblicke vergleichen dein jüngstes Training mit deiner eigenen Historie. Nur zur Information, keine medizinische oder Trainingsberatung.",
     "explanation": {
       "title": "Einblicke verstehen",
       "foundLabel": "Methode",
@@ -1062,7 +1064,7 @@
         },
         "fitness": {
           "label": "eFTP und kritische Geschwindigkeit",
-          "text": "Eine Änderung eines der beiden und die Rekorde, die du aufgestellt hast, als der Wert niedriger war."
+          "text": "Eine Änderung bei einem der beiden und alle PRs, die bei niedrigerer Fitness aufgestellt wurden."
         },
         "week": {
           "label": "Diese Woche",
@@ -1085,18 +1087,18 @@
       "sources": "Zeiten, Herzfrequenz und Leistung stammen aus deinen Aktivitäten, eFTP, kritische Geschwindigkeit und HRV von intervals.icu, und Methode und Daten jeder Karte stehen unter „{{howCalculated}}“.",
       "strengthTitle": "Kraft verstehen"
     },
-    "aboutRanking": "Die Karten sind danach sortiert, wie viel sie zu sagen haben: wie aktuell etwas ist, wie stark es von deinem Ueblichen abweicht, wie sehr es sich veraendert hat und wie oft du es machst.",
+    "aboutRanking": "Die Karten sind danach sortiert, wie aktuell sie sind, wie stark sie von deinem Üblichen abweichen, wie sehr sie sich verändert haben und wie oft du den Abschnitt wiederholst.",
     "efficiencyTrend": {
       "seriesLabel": "{{quantity}}, ältester bis neuester Versuch",
       "quantity": "Herzfrequenz × Tempo",
       "title": "Effizienz verbessert sich auf {{name}}",
       "changeTitle": "Effizienz auf {{name}}: {{hrChange}} bpm",
       "changeSubtitle": "Modelliert {{hrChange}} bpm bei mittlerem Tempo über {{efforts}} Versuche",
-      "changeBody": "Über {{efforts}} Versuche auf {{name}} stieg das Produkt aus Herzfrequenz und Tempo. Bei mittlerem Tempo entspricht dies modellierten {{hrChange}} bpm; die gemessene Herzfrequenz kann abweichen.",
+      "changeBody": "Über {{efforts}} Versuche auf {{name}} stieg das Produkt aus Herzfrequenz und Tempo. Bei mittlerem Tempo entspricht dies modellierten {{hrChange}} bpm. Die gemessene Herzfrequenz kann abweichen.",
       "subtitle": "Modelliert {{hrChange}} bpm bei durchschnittlichem Tempo über {{efforts}} Versuche",
-      "body": "Über {{efforts}} Versuche auf {{name}} hat sich Herzfrequenz mal Tempo verbessert. Bei deinem durchschnittlichen Tempo entspricht das modellierten {{hrChange}} bpm; deine Herzfrequenz selbst kann unverändert sein.",
+      "body": "Über {{efforts}} Versuche auf {{name}} hat sich Herzfrequenz mal Tempo verbessert. Bei deinem durchschnittlichen Tempo entspricht das modellierten {{hrChange}} bpm. Deine Herzfrequenz allein kann unverändert sein.",
       "sheetHeading": "Vergleich passender Versuche",
-      "sheetBody": "Beruht auf wiederholten Versuchen auf demselben Abschnitt mit Herzfrequenz und Tempo. Vergleicht über die Zeit, was jede Passage dein Herz gekostet hat.",
+      "sheetBody": "Vergleicht Herzfrequenz mal Tempo über wiederholte Versuche auf diesem Abschnitt, im Verlauf der Zeit. Gezählt werden nur Versuche mit Herzfrequenz und Tempo.",
       "sheetMeta": "Öffne den Abschnitt für die zugrunde liegenden Versuche."
     },
     "strengthBalance": {
@@ -1109,14 +1111,14 @@
       "noSignal": "Keine Daten",
       "allOneSideTitle": "{{pair}}: gesamtes Volumen auf einer Seite",
       "oneSidedBody": "{{dominant}} stellt das gesamte gewichtete Satzvolumen für {{pair}} der letzten 4 Wochen.",
-      "ratioBody": "{{pair}} liegt im jüngsten 4-Wochen-Fenster bei durchschnittlich {{ratio}} gewichteten Sätzen.",
+      "ratioBody": "In den letzten 4 Wochen hat die größere Seite von {{pair}} das {{ratio}}-Fache der gewichteten Sätze der kleineren.",
       "ratioLabel": "Verhältnis",
       "statusLabel": "Status",
       "formula": "Gewichtete Sätze pro Antagonisten-Paar",
-      "algorithm": "Vergleicht gewichtete Satzzahlen über gängige Antagonisten-Paare. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5."
+      "algorithm": "Vergleicht gewichtete Sätze gegenüberliegender Muskelpaare. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5."
     },
     "viewInDetail": "Im Detail ansehen",
-    "routesDisabledDescription": "Deine Abschnitte bleiben gespeichert und öffnen sich wieder, sobald der Abgleich eingeschaltet ist.",
+    "routesDisabledDescription": "Deine Abschnitte bleiben gespeichert und kehren zurück, sobald Routen und Abschnitte eingeschaltet sind.",
     "routesDisabledLine1": "Routen & Abschnitte deaktiviert",
     "routesDisabledLine2": "Routen & Abschnitte einschalten",
     "strengthProgression": {
@@ -1150,7 +1152,7 @@
       "split": "Er wurde in mehrere Abschnitte geteilt",
       "restored": "Er ist zurückgekehrt",
       "reverted": "Er wurde auf eine frühere Version zurückgesetzt",
-      "body": "Der Verlauf des Abschnitts zeigt, was sich bewegt hat und welche Aktivitäten dabei waren."
+      "body": "Der Verlauf des Abschnitts listet jede Änderung und die Aktivitäten in ihrer Nähe auf."
     },
     "milestoneSheet": {
       "powerHeading": "Zu dieser eFTP-Änderung",
@@ -1425,7 +1427,7 @@
     },
     "privacy": {
       "title": "Datenschutzhinweis",
-      "brief": "Deine Athleten-ID und ein Push-Token werden auf unserem Server gespeichert (30 Tage Ablauf). Benachrichtigungen werden über Apple oder Google geleitet, aber alle Einblicke werden auf deinem Gerät erzeugt. Du kannst jederzeit deaktivieren.",
+      "brief": "Deine Athleten-ID und ein Push-Token werden 30 Tage lang auf unserem Server gespeichert. Benachrichtigungen erreichen dein Gerät über Expo, dann Apple oder Google. Die Einblicke werden auf deinem Gerät erzeugt. Du kannst Benachrichtigungen jederzeit ausschalten.",
       "accept": "Verstanden"
     },
     "settings": {
@@ -1727,7 +1729,7 @@
     "duplicateNameMessage": "Bitte wähle einen anderen Namen. Jede Route muss einen eindeutigen Namen haben.",
     "expandInSettings": "In Einstellungen erweitern",
     "gpsTrackNotDownloaded": "GPS-Daten noch nicht heruntergeladen. Versuche es erneut, sobald sie heruntergeladen sind.",
-    "match": "Übereinstimmung",
+    "matchPercent": "{{percent}} Übereinstimmung",
     "noFrequentSections": "Noch keine häufigen Abschnitte",
     "noMatchingRoutes": "Keine passenden Routen gefunden",
     "noRoutesFor": "Keine Routen für {{filters}}",
@@ -1966,7 +1968,7 @@
     "mergeCandidatesTitle": "Abschnitt zum Zusammenführen auswählen",
     "mergeCandidatesSubtitle_one": "{{count}} ähnlicher Abschnitt in der Nähe",
     "mergeCandidatesSubtitle_other": "{{count}} ähnliche Abschnitte in der Nähe",
-    "overlapLabel": "Überlappung",
+    "overlapPercent": "{{percent}} Überlappung",
     "distanceAway": "{{distance}} entfernt",
     "acceptSection": "Akzeptieren",
     "acceptAllSections": "Alle akzeptieren",
@@ -2128,6 +2130,9 @@
     "streamHistoryDays_other": "{{count}} Tage",
     "streamHistoryAll": "Alle",
     "streamHistoryReset": "Zurücksetzen",
+    "streamHistoryNarrowTitle": "Ältere Streamdaten löschen?",
+    "streamHistoryNarrowBody": "Gespeicherte Reihen von Aktivitäten, die älter als {{window}} sind, werden von diesem Gerät gelöscht, einschließlich Herzfrequenz, Leistung und Trittfrequenz. Das erneute Herunterladen nutzt das tägliche Anfragelimit von intervals.icu.",
+    "streamHistoryNarrowConfirm": "Ältere Reihen löschen",
     "streamBackfill": "Fehlende Serien",
     "streamBackfillOwed_one": "{{count}} Aktivität",
     "streamBackfillOwedSized_one": "{{count}} Aktivität, {{size}}",

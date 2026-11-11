@@ -74,9 +74,9 @@ async function heightOf(element: React.ReactElement, fontScale: number): Promise
 const days = Array.from({ length: 30 }, (_, i) => 40 + i);
 
 const metrics = [
-  { label: 'FTP', value: 250, navigationTarget: '/a' },
-  { label: 'Week', value: '4h', navigationTarget: '/b' },
-  { label: 'Weight', value: 70, unit: 'kg', navigationTarget: '/c' },
+  { id: 'ftp' as const, label: 'FTP', value: 250, navigationTarget: '/a' },
+  { id: 'weekHours' as const, label: 'Week', value: '4h', navigationTarget: '/b' },
+  { id: 'weight' as const, label: 'Weight', value: 70, unit: 'kg', navigationTarget: '/c' },
 ];
 
 function summary(props: Partial<SummaryCardProps>) {

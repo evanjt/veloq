@@ -8,6 +8,7 @@ import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { SheetActions, SheetHeader, SheetScrollView, PressTarget } from '@/shared/ui';
 import { formatDistance, formatFullDate } from '@/shared/format/format';
+import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import {
   colors,
@@ -135,8 +136,8 @@ function MergeConfirmSheetContent() {
             {dropped.slice(0, MAX_NAMED_RIDES).map((ride) => (
               <NameText key={ride.activityId} style={[styles.optionStat, { color: textSecondary }]}>
                 {ride.name
-                  ? `${ride.name}, ${formatFullDate(new Date(ride.startDate * 1000))}`
-                  : formatFullDate(new Date(ride.startDate * 1000))}
+                  ? `${ride.name}, ${formatFullDate(wallClockSecondsToLocalDate(ride.startDate))}`
+                  : formatFullDate(wallClockSecondsToLocalDate(ride.startDate))}
               </NameText>
             ))}
             {dropped.length > MAX_NAMED_RIDES && (

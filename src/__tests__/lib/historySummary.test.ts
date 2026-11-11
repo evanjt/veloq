@@ -21,6 +21,13 @@ describe('activityHistorySummary', () => {
     expect(out).toContain('"span":"time.daysCount|{\\"count\\":91}"');
   });
 
+  it('counts calendar days across a clock change that gains an hour', () => {
+    const springNow = new Date(2026, 3, 3, 12);
+    const out = activityHistorySummary('2026-03-25', springNow, 60, t as never);
+
+    expect(out).toContain('"span":"time.daysCount|{\\"count\\":10}"');
+  });
+
   it('names the span in years from 365 days', () => {
     const out = activityHistorySummary('2024-11-02', now, 1500, t as never);
 

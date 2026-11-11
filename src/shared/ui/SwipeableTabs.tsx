@@ -36,7 +36,7 @@ import {
   stroke,
 } from '@/theme';
 import { PressTarget } from '@/shared/ui/PressTarget';
-import { layoutTabStrip, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
+import { layoutTabStrip, neededTabWidths, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
 import { pagerPanDecision, type PagerScrollerEdges } from '@/shared/ui/pagerPanDecision';
 import {
   PagerScrollerContext,
@@ -191,12 +191,8 @@ export function SwipeableTabs({
   const [contentWidths, setContentWidths] = useState<number[]>([]);
   const available = pageWidth - spacing.md * 2;
   const stripLayout = useMemo(
-    () =>
-      layoutTabStrip(
-        tabs.map((_, i) => (contentWidths[i] ?? 0) + TAB_PADDING * 2),
-        available
-      ),
-    [tabs, contentWidths, available]
+    () => layoutTabStrip(neededTabWidths(contentWidths, tabCount, TAB_PADDING), available),
+    [contentWidths, tabCount, available]
   );
   const { scrolls, widths: tabWidths, offsets: tabOffsets, contentWidth } = stripLayout;
   const scrollRef = useRef<ScrollViewInstance>(null);

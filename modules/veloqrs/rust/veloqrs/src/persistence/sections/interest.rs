@@ -57,6 +57,27 @@ pub(crate) fn rank_from_row(row: &Row, base: usize) -> SqlResult<Option<RankFeat
     }))
 }
 
+/// Whether any value the line alone decides is missing from `e`.
+fn lacks_profile(e: &Enrichment) -> bool {
+    e.elevation_gain_m.is_none()
+        || e.avg_grade_percent.is_none()
+        || e.elevation_loss_m.is_none()
+        || e.max_grade_percent.is_none()
+        || e.straightness.is_none()
+        || e.klass.is_none()
+}
+
+/// Take each value `stored` lacks from `computed`, keeping every stored value
+/// and the stored lift flag.
+fn fill_profile(stored: &mut Enrichment, computed: Enrichment) {
+    stored.elevation_gain_m = stored.elevation_gain_m.or(computed.elevation_gain_m);
+    stored.avg_grade_percent = stored.avg_grade_percent.or(computed.avg_grade_percent);
+    stored.elevation_loss_m = stored.elevation_loss_m.or(computed.elevation_loss_m);
+    stored.max_grade_percent = stored.max_grade_percent.or(computed.max_grade_percent);
+    stored.straightness = stored.straightness.or(computed.straightness);
+    stored.klass = stored.klass.or(computed.klass);
+}
+
 /// Rank of `v` in a sorted sample, 0..1, ties at their midpoint.
 fn percentile(sorted: &[f64], v: f64) -> f64 {
     if sorted.is_empty() {
@@ -175,7 +196,9 @@ impl PersistentEngine {
         let mut applied: Vec<(usize, RankedSection)> = Vec::with_capacity(ranked.len());
         {
             let mut stmt = tx.prepare(&format!(
-                "UPDATE sections SET elevation_loss_m = ?, max_grade_percent = ?, straightness = ?,
+                "UPDATE sections SET elevation_gain_m = COALESCE(elevation_gain_m, ?),
+                        avg_grade_percent = COALESCE(avg_grade_percent, ?),
+                        elevation_loss_m = ?, max_grade_percent = ?, straightness = ?,
                         klass = ?, is_lift = {IS_LIFT_UNLESS_UNFLAGGED}, rank_score = ?,
                         sport_rank_score = ?
                  WHERE id = ?"
@@ -193,6 +216,8 @@ impl PersistentEngine {
                     enrichment.is_lift = false;
                 }
                 stmt.execute(params![
+                    enrichment.elevation_gain_m,
+                    enrichment.avg_grade_percent,
                     enrichment.elevation_loss_m,
                     enrichment.max_grade_percent,
                     enrichment.straightness,
@@ -244,18 +269,20 @@ pub(crate) struct RankedSection {
 
 impl RankPlan {
     /// Compute the pooled and within-sport scores from the stored passes,
-    /// tracks and dates on `conn`. A section loaded without a profile (a row
-    /// older than the columns) gets one here from its own line, keeping its
-    /// stored lift flag, which only the detector decides. Effort per
-    /// pass is the pass's average heart rate as a percentile of the athlete's
-    /// own activities in that sport; a pass without one sits at neutral.
+    /// tracks and dates on `conn`. A section loaded with part of its profile
+    /// missing (a row older than the columns, or one an earlier ranking wrote
+    /// only in part) has the missing values computed here from its own line.
+    /// A stored value stays, and so does the stored lift flag, which only the
+    /// detector decides. Effort per pass is the pass's average heart rate as a
+    /// percentile of the athlete's own activities in that sport; a pass
+    /// without one sits at neutral.
     pub(crate) fn compute(mut self, conn: &rusqlite::Connection) -> SqlResult<Vec<RankedSection>> {
         for s in self.sections.iter_mut() {
-            if s.enrichment == Enrichment::default() && s.polyline.len() >= 2 {
-                s.enrichment = Enrichment {
-                    is_lift: s.enrichment.is_lift,
-                    ..tracematch::enrich(&s.polyline, s.distance_meters)
-                };
+            if lacks_profile(&s.enrichment) && s.polyline.len() >= 2 {
+                fill_profile(
+                    &mut s.enrichment,
+                    tracematch::enrich(&s.polyline, s.distance_meters),
+                );
             }
         }
 
@@ -682,6 +709,152 @@ mod tests {
         let by_id = scores(&engine);
         assert!(by_id[0].1.is_some());
         assert!(by_id[1].1.is_none());
+    }
+
+    /// A file-backed engine holding one stored ride and a custom section cut
+    /// from points 20 to 119 of it.
+    fn engine_with_custom_section(path: &std::path::Path, ride: Vec<GpsPoint>) -> String {
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+        engine
+            .add_activity("a1".to_string(), ride.clone(), "Ride".to_string())
+            .unwrap();
+        let cut = ride[20..120].to_vec();
+        let distance = tracematch::matching::calculate_route_distance(&cut);
+        engine
+            .create_section(crate::sections::CreateSectionParams {
+                sport_type: "Ride".to_string(),
+                polyline: cut,
+                distance_meters: distance,
+                name: Some("Climb".to_string()),
+                source_activity_id: Some("a1".to_string()),
+                start_index: Some(20),
+                end_index: Some(119),
+            })
+            .unwrap()
+    }
+
+    fn rank_after_reopen(path: &std::path::Path) {
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+        engine.load_sections().unwrap();
+        engine.rank_catalogue().unwrap();
+    }
+
+    fn stored_profile(path: &std::path::Path, id: &str) -> crate::sections::Section {
+        PersistentEngine::new(path.to_str().unwrap())
+            .unwrap()
+            .get_section(id)
+            .unwrap()
+    }
+
+    /// Scenario: the athlete cuts a custom section from a ride with
+    /// elevation, ranking runs, and the app is restarted.
+    ///
+    /// Expected behaviour: the row carries the climb's gain and average
+    /// grade, as it carries the rest of the profile.
+    #[test]
+    fn a_custom_section_keeps_its_gain_and_grade_after_ranking_and_a_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("custom.db");
+        let id = engine_with_custom_section(&path, line(200));
+        rank_after_reopen(&path);
+
+        let section = stored_profile(&path, &id);
+        let gain = section.elevation_gain_m.expect("a stored gain");
+        assert!((90.0..=100.0).contains(&gain), "gain {gain}");
+        assert!(section.avg_grade_percent.expect("a stored grade") > 0.0);
+        assert!(section.elevation_loss_m.is_some());
+    }
+
+    /// Scenario: a custom section a previous release ranked holds loss, max
+    /// grade, straightness and class, and no gain or average grade.
+    ///
+    /// Expected behaviour: the next ranking fills in the two that are missing
+    /// and leaves the stored ones as they were.
+    #[test]
+    fn ranking_fills_the_gain_and_grade_a_ranked_custom_row_is_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("upgrade.db");
+        let id = engine_with_custom_section(&path, line(200));
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute(
+            "UPDATE sections SET elevation_gain_m = NULL, avg_grade_percent = NULL,
+                elevation_loss_m = 7.0, max_grade_percent = 3.0, straightness = 0.5,
+                klass = 'flat'
+             WHERE id = ?",
+            params![id],
+        )
+        .unwrap();
+        drop(conn);
+
+        rank_after_reopen(&path);
+        let section = stored_profile(&path, &id);
+        assert!(section.elevation_gain_m.is_some());
+        assert!(section.avg_grade_percent.is_some());
+        assert_eq!(section.elevation_loss_m, Some(7.0));
+
+        rank_after_reopen(&path);
+        let again = stored_profile(&path, &id);
+        assert_eq!(again.elevation_gain_m, section.elevation_gain_m);
+        assert_eq!(again.avg_grade_percent, section.avg_grade_percent);
+    }
+
+    /// Scenario: a section's row already holds a gain and grade the detector
+    /// stored, and ranking computes its own from the line.
+    ///
+    /// Expected behaviour: the stored values stay.
+    #[test]
+    fn ranking_keeps_a_stored_gain_and_grade() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("kept.db");
+        let id = engine_with_custom_section(&path, line(200));
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute(
+            "UPDATE sections SET elevation_gain_m = 555.0, avg_grade_percent = 5.5,
+                elevation_loss_m = NULL, max_grade_percent = NULL, straightness = NULL,
+                klass = NULL
+             WHERE id = ?",
+            params![id],
+        )
+        .unwrap();
+        drop(conn);
+
+        rank_after_reopen(&path);
+        let section = stored_profile(&path, &id);
+        assert_eq!(section.elevation_gain_m, Some(555.0));
+        assert_eq!(section.avg_grade_percent, Some(5.5));
+        assert!(section.elevation_loss_m.is_some());
+    }
+
+    /// Scenario: the ride a custom section is cut from has no elevation.
+    ///
+    /// Expected behaviour: ranking stores no gain or grade rather than a zero,
+    /// and still stores the shape of the line.
+    #[test]
+    fn a_custom_section_from_a_flat_file_ride_stores_no_gain() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("flat.db");
+        let ride: Vec<GpsPoint> = line(200)
+            .into_iter()
+            .map(|p| GpsPoint {
+                elevation: None,
+                ..p
+            })
+            .collect();
+        let id = engine_with_custom_section(&path, ride);
+        rank_after_reopen(&path);
+
+        let section = stored_profile(&path, &id);
+        assert_eq!(section.elevation_gain_m, None);
+        assert_eq!(section.avg_grade_percent, None);
+        let straightness: Option<f64> = rusqlite::Connection::open(&path)
+            .unwrap()
+            .query_row(
+                "SELECT straightness FROM sections WHERE id = ?",
+                params![id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(straightness.is_some());
     }
 
     #[test]

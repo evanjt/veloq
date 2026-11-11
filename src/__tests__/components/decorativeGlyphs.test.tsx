@@ -84,6 +84,7 @@ describe('the top banner', () => {
 
 describe('the summary card supporting row', () => {
   const metric = (n: number) => ({
+    id: (['hrv', 'rhr', 'weekHours', 'weekCount'] as const)[n - 1],
     label: `metric.${n}`,
     value: n,
     accessibilityLabel: `metric ${n}`,

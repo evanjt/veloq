@@ -22,7 +22,12 @@ import type {
   FfiSplitSummary,
 } from 'veloqrs';
 import { DirectionSwitch, ToggleButton } from '@/shared/ui';
-import { colors, colourTokens, PERFORMANCE_PLOT_HEIGHT } from '@/theme';
+import {
+  colors,
+  colourTokens,
+  PERFORMANCE_BELOW_PLOT_HEIGHT,
+  PERFORMANCE_PLOT_HEIGHT,
+} from '@/theme';
 import { layoutViews } from '../../__shared__/layoutViews';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -406,6 +411,25 @@ describe('PerformanceChartPanel plot height', () => {
     seen.push(heightOf('section-scatter-chart'));
 
     expect(seen).toEqual(Array(4).fill(PERFORMANCE_PLOT_HEIGHT));
+  });
+
+  it('reserves the same minimum height under the plot in every view', async () => {
+    const tree = await render(
+      panel({ curves: forwardCurves(false), highlightedActivityId: 'act-0' })
+    );
+    const reserveOf = () =>
+      StyleSheet.flatten(tree.getByTestId('performance-below-plot').props.style).minHeight;
+
+    const seen = [reserveOf()];
+    await fireEvent.press(tree.getByTestId('chart-plot-histogram'));
+    seen.push(reserveOf());
+    await fireEvent.press(tree.getByTestId('chart-plot-delta'));
+    seen.push(reserveOf());
+    await fireEvent.press(tree.getByTestId('chart-plot-scatter'));
+    seen.push(reserveOf());
+
+    expect(PERFORMANCE_BELOW_PLOT_HEIGHT).toEqual(expect.any(Number));
+    expect(seen).toEqual(Array(4).fill(PERFORMANCE_BELOW_PLOT_HEIGHT));
   });
 
   it('draws the typical attempt at the same height when no attempt is chosen', async () => {

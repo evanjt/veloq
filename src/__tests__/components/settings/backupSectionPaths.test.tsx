@@ -393,7 +393,7 @@ it('stores the WebDAV details the form shows before Back Up Now runs', async () 
 });
 
 it("shows the form's refusal and runs no backup when the WebDAV details cannot be stored", async () => {
-  mockCommit.mockResolvedValueOnce({ kind: 'refused', message: 'backup.webdavHttpsRequired' });
+  mockCommit.mockResolvedValueOnce({ kind: 'refused', message: 'backup.webdavSchemeRequired' });
   await render(<BackupSection />);
 
   await act(async () => {
@@ -402,7 +402,7 @@ it("shows the form's refusal and runs no backup when the WebDAV details cannot b
 
   expect(performBackup).not.toHaveBeenCalled();
   expect(screen.getByTestId('backup-error-message')).toHaveTextContent(
-    'backup.webdavHttpsRequired'
+    'backup.webdavSchemeRequired'
   );
 });
 

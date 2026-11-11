@@ -100,6 +100,20 @@ describe('sectionSparklineData', () => {
     expect(data?.highlightIndex).toBe(1);
   });
 
+  it('labels each attempt with the day the engine stamped it, whatever the device zone', () => {
+    /** A wall clock on the given day and hour, stamped as UTC the way the engine stores it. */
+    const stampedAt = (day: number, hour: number) => Date.UTC(2026, 10, day, hour) / 1000;
+    const data = sectionSparklineData(
+      encounter({ historyDates: [stampedAt(5, 7), stampedAt(5, 15), stampedAt(6, 2)] }),
+      'act-b',
+      'Ride',
+      true,
+      t
+    );
+
+    expect(data?.points.map((p) => p.label)).toEqual(['5 Nov', '5 Nov', '6 Nov']);
+  });
+
   it('has nothing to draw for a single attempt', () => {
     const one = encounter({
       historyTimes: [200],

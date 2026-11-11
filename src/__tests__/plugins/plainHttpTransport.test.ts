@@ -1,14 +1,13 @@
 /**
- * Scenario: the athlete opts in to backing up to a plain-http WebDAV server on
- * their own network, and the form accepts the address. A debug build allows
+ * Scenario: the athlete backs up to a plain-http WebDAV server they host, and
+ * the form accepts the address with a warning. A debug build allows
  * cleartext to any host, so the backup works there, while a release build
  * carries only what its manifest and its App Transport Security dictionary
  * allow.
  *
  * Expected behaviour: the native config the app's own plugins generate on top
- * of Expo's template lets plain http through to every host the address check
- * accepts behind the opt-in, on both platforms, and keeps refusing it to a
- * public host.
+ * of Expo's template lets plain http through to any host on both platforms,
+ * and keeps the athlete data source and the sign-in proxy on https.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -19,7 +18,6 @@ import { join } from 'node:path';
 import type { AndroidConfig as AndroidConfigTypes } from 'expo/config-plugins';
 
 import { webdavUrlProblem } from '@/features/settings/lib/autobackup/webdavConfig';
-import PLAIN_LAN_SUFFIXES from '@/features/settings/lib/autobackup/plainLanSuffixes.json';
 
 type Action = (
   mod: Record<string, unknown>
@@ -100,7 +98,7 @@ async function generate(variant: 'production' | 'dev'): Promise<Generated> {
     config = require(join(ROOT, name))(config);
   }
 
-  const androidRoot = mkdtempSync(join(tmpdir(), 'plain-lan-android-'));
+  const androidRoot = mkdtempSync(join(tmpdir(), 'plain-http-android-'));
   const manifestPath = join(androidRoot, 'AndroidManifest.xml');
   writeFileSync(manifestPath, templateFile('package/android/app/src/main/AndroidManifest.xml'));
   let manifest = await AndroidConfig.Manifest.readAndroidManifestAsync(manifestPath);
@@ -154,8 +152,7 @@ function androidCarriesHttp({ manifest, resDir }: Generated, host: string): bool
 
 /**
  * Whether App Transport Security lets an http request to this host through: a
- * matching exception domain decides, else local networking covers IP literals,
- * unqualified names and `.local`, and arbitrary loads are ignored beside it.
+ * matching exception domain decides, else arbitrary loads apply.
  */
 function iosCarriesHttp({ infoPlist }: Generated, host: string): boolean {
   const ats = infoPlist.NSAppTransportSecurity ?? {};
@@ -167,23 +164,21 @@ function iosCarriesHttp({ infoPlist }: Generated, host: string): boolean {
     )
     .sort((a, b) => b.length - a.length)[0];
   if (domain) return exceptions[domain]!.NSExceptionAllowsInsecureHTTPLoads === true;
-  const local =
-    host.startsWith('[') || /^[\d.]+$/.test(host) || !host.includes('.') || host.endsWith('.local');
-  if (ats.NSAllowsLocalNetworking === true) return local;
   return ats.NSAllowsArbitraryLoads === true;
 }
 
 const ACCEPTED_HOSTS = [
   ipv4(192, 168, 1, 20),
-  ipv4(10, 0, 0, 5),
-  ipv4(172, 16, 0, 9),
   '127.0.0.1',
   'localhost',
   '[::1]',
-  '[fe80::1]',
-  '[fd12::5]',
-  ...PLAIN_LAN_SUFFIXES.flatMap((suffix) => [`nas.${suffix}`, `files.attic.${suffix}`]),
+  'nas.local',
+  'nas.home.arpa',
+  'cloud.example.com',
+  'files.attic.example.org',
 ];
+
+const HTTPS_ONLY_HOSTS = ['intervals.icu', 'www.intervals.icu', 'auth.veloq.fit', 'veloq.fit'];
 
 describe.each(['production', 'dev'] as const)('the %s release transport', (variant) => {
   let generated: Generated;
@@ -192,61 +187,56 @@ describe.each(['production', 'dev'] as const)('the %s release transport', (varia
   });
 
   it.each(ACCEPTED_HOSTS)('carries plain http to %s on Android', (host) => {
-    expect(webdavUrlProblem(`http://${host}/dav`, true)).toBeNull();
+    expect(webdavUrlProblem(`http://${host}/dav`)).toBeNull();
     expect(androidCarriesHttp(generated, host)).toBe(true);
   });
 
   it.each(ACCEPTED_HOSTS)('carries plain http to %s on iOS', (host) => {
-    expect(webdavUrlProblem(`http://${host}/dav`, true)).toBeNull();
+    expect(webdavUrlProblem(`http://${host}/dav`)).toBeNull();
     expect(iosCarriesHttp(generated, host)).toBe(true);
   });
 
-  it('keeps plain http off the athlete data source and the sign-in proxy on Android', () => {
-    for (const host of ['intervals.icu', 'auth.veloq.fit']) {
-      expect(androidCarriesHttp(generated, host)).toBe(false);
-    }
+  it.each(HTTPS_ONLY_HOSTS)('keeps plain http off %s on Android', (host) => {
+    expect(androidCarriesHttp(generated, host)).toBe(false);
   });
 
-  it('keeps refusing plain http to a public host on iOS', () => {
-    for (const host of ['cloud.example.com', 'intervals.icu', 'nas.lan.example.com']) {
-      expect(iosCarriesHttp(generated, host)).toBe(false);
-    }
-    expect(generated.infoPlist.NSAppTransportSecurity?.NSAllowsArbitraryLoads).toBe(false);
+  it.each(HTTPS_ONLY_HOSTS)('keeps plain http off %s on iOS', (host) => {
+    expect(iosCarriesHttp(generated, host)).toBe(false);
   });
 });
 
-describe('with-plain-lan-transport', () => {
+describe('with-plain-http-transport', () => {
   const {
     NETWORK_SECURITY_XML,
     writeNetworkSecurityConfig,
-    withPlainLanExceptions,
-  } = require('../../plugins/with-plain-lan-transport');
+    withPlainHttpAllowed,
+  } = require('../../plugins/with-plain-http-transport');
 
   it('keeps an exception domain it does not own and the settings beside it', () => {
-    const ats = withPlainLanExceptions({
-      NSAllowsArbitraryLoads: false,
+    const ats = withPlainHttpAllowed({
+      NSAllowsLocalNetworking: false,
       NSExceptionDomains: { 'orchard.example': { NSExceptionMinimumTLSVersion: 'TLSv1.2' } },
     });
 
-    expect(ats.NSAllowsArbitraryLoads).toBe(false);
-    expect(ats.NSAllowsLocalNetworking).toBe(true);
+    expect(ats.NSAllowsArbitraryLoads).toBe(true);
+    expect(ats.NSAllowsLocalNetworking).toBe(false);
     expect(ats.NSExceptionDomains['orchard.example']).toEqual({
       NSExceptionMinimumTLSVersion: 'TLSv1.2',
     });
-    expect(ats.NSExceptionDomains.lan).toEqual({
+    expect(ats.NSExceptionDomains['intervals.icu']).toEqual({
       NSIncludesSubdomains: true,
-      NSExceptionAllowsInsecureHTTPLoads: true,
+      NSExceptionAllowsInsecureHTTPLoads: false,
     });
   });
 
   it('starts an ATS dictionary when the Info.plist has none', () => {
-    const ats = withPlainLanExceptions(undefined);
+    const ats = withPlainHttpAllowed(undefined);
 
-    expect(Object.keys(ats.NSExceptionDomains).sort()).toEqual([...PLAIN_LAN_SUFFIXES].sort());
+    expect(Object.keys(ats.NSExceptionDomains).sort()).toEqual(['intervals.icu', 'veloq.fit']);
   });
 
   it('rewrites the network security config a previous prebuild left', () => {
-    const resDir = join(mkdtempSync(join(tmpdir(), 'plain-lan-res-')), 'res', 'xml');
+    const resDir = join(mkdtempSync(join(tmpdir(), 'plain-http-res-')), 'res', 'xml');
 
     writeNetworkSecurityConfig(resDir);
     writeFileSync(join(resDir, 'veloq_network_security_config.xml'), '<stale />');

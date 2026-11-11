@@ -960,7 +960,7 @@
     "sections.correlationVarStress": "Established loanword with the same spelling.",
     "sections.legendPr": "Conventional training or recording abbreviation.",
     "sections.liftGround": "Dutch word or phrase with the same spelling.",
-    "sections.overlapLabel": "Dutch word or phrase with the same spelling.",
+    "sections.overlapPercent": "Dutch word or phrase with the same spelling.",
     "sections.routesCountLabel_one": "Dutch word or phrase with the same spelling.",
     "sections.routesCountLabel_other": "Dutch word or phrase with the same spelling.",
     "settings.account": "Established Dutch loanword or technical term.",

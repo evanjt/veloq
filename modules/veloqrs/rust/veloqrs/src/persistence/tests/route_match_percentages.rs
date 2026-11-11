@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn track(latitude: f64) -> Vec<GpsPoint> {
     (0..200)
@@ -379,4 +380,83 @@ fn test_the_remeasure_and_grouping_label_a_partial_match_at_the_same_percentage(
             "{percentage}"
         );
     }
+}
+
+fn route_of_members(count: usize) -> RouteGroup {
+    let members: Vec<String> = (0..count).map(|index| format!("m{index:05}")).collect();
+    RouteGroup {
+        representative_id: members[0].clone(),
+        activity_ids: members,
+        ..group()
+    }
+}
+
+#[test]
+fn test_load_groups_backfill_commits_once_when_every_member_row_exists() {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    let route = route_of_members(2_000);
+    insert_route_groups(&engine.db, [&route]).unwrap();
+    let tx = engine.db.unchecked_transaction().unwrap();
+    for activity_id in &route.activity_ids {
+        tx.execute(
+            "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction)
+             VALUES ('r_1', ?, 40.0, 'same')",
+            [activity_id],
+        )
+        .unwrap();
+    }
+    tx.commit().unwrap();
+    engine.load_groups().unwrap();
+
+    let commits = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&commits);
+    engine
+        .db
+        .commit_hook(Some(move || {
+            counter.fetch_add(1, Ordering::SeqCst);
+            false
+        }))
+        .unwrap();
+    engine.load_groups().unwrap();
+    engine.db.commit_hook(None::<fn() -> bool>).unwrap();
+
+    assert!(
+        commits.load(Ordering::SeqCst) <= 1,
+        "load_groups committed {} times for 2,000 members whose rows exist",
+        commits.load(Ordering::SeqCst)
+    );
+}
+
+#[test]
+fn test_load_groups_backfill_fills_a_member_with_no_row() {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    let route = route_of_members(3);
+    insert_route_groups(&engine.db, [&route]).unwrap();
+    for activity_id in ["m00000", "m00001"] {
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction)
+                 VALUES ('r_1', ?, 40.0, 'same')",
+                [activity_id],
+            )
+            .unwrap();
+    }
+
+    engine.load_groups().unwrap();
+
+    let rows: i64 = engine
+        .db
+        .query_row(
+            "SELECT COUNT(*) FROM activity_matches WHERE route_id = 'r_1'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(rows, 3);
+    let filled = engine
+        .activity_matches
+        .get("r_1")
+        .expect("reloaded matches for r_1");
+    assert!(filled.iter().any(|m| m.activity_id == "m00002"));
 }

@@ -120,7 +120,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             headerRight={
               dominantZone ? (
                 <Text style={[styles.headerValue, { color: valueInk }]}>
-                  {dominantZone.name}: {dominantZone.share}%
+                  {dominantZone.name}: {formatPercent(dominantZone.share)}
                 </Text>
               ) : null
             }

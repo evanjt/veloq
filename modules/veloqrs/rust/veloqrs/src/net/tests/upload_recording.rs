@@ -1306,12 +1306,28 @@ fn a_ride_whose_read_back_is_unknown_is_kept() {
     insert(&refused);
     let fake = Fake::answering(vec![]).reads("i10", http(500, "busy"));
 
-    sweep(&fake, &now);
+    let owed = sweep(&fake, &now);
 
     assert_eq!(row("r1").upload_status, "uploaded");
     assert_eq!(row("r2").upload_status, "uploaded");
     assert!(fit_on_disk(&offline));
     assert!(fit_on_disk(&refused));
+    assert!(owed, "an unanswered read-back is work owed");
+}
+
+/// Scenario: a landed ride intervals.icu reads back present, owing nothing.
+/// Expected behaviour: the sweep deletes it and reports nothing owed, so the
+/// schedule rests instead of sweeping again.
+#[test]
+fn a_settled_sweep_reports_nothing_owed() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("sweep_settled.db");
+    let entry = landed_ride(&dir, "r1", "i9");
+    insert(&entry);
+    let fake = Fake::answering(vec![]).reads("i9", present());
+
+    assert!(!sweep(&fake, &now));
+    assert!(!exists("r1"));
 }
 
 /// Scenario: a landed ride owes its effort, and the server refuses the effort
@@ -1329,19 +1345,21 @@ fn a_ride_owing_its_effort_is_kept_until_the_effort_is_sent() {
 
     let mut refusing = Fake::answering(vec![]).reads("i9", present());
     refusing.rpe_answer = FfiCallKind::Network;
-    sweep(&refusing, &now);
+    let owed = sweep(&refusing, &now);
 
     assert_eq!(*refusing.rpe.lock().unwrap(), vec![("i9".to_string(), 7)]);
     assert!(exists("r1"), "kept while the effort is owed");
     assert!(!row("r1").rpe_sent);
     assert!(fit_on_disk(&entry));
+    assert!(owed, "a refused effort is work owed");
 
     let taking = Fake::answering(vec![]).reads("i9", present());
-    sweep(&taking, &now);
+    let owed = sweep(&taking, &now);
 
     assert_eq!(*taking.rpe.lock().unwrap(), vec![("i9".to_string(), 7)]);
     assert!(!exists("r1"), "deleted once the effort is sent");
     assert!(!fit_on_disk(&entry));
+    assert!(!owed, "nothing is owed once the effort is sent");
 }
 
 /// Scenario: a landed ride owing its effort, read back gone.

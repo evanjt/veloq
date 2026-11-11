@@ -109,6 +109,7 @@ export {
   directionColours,
   type LineDirection,
 } from './lib/directionLayer';
+export { HIGHLIGHT_THROTTLE_MS } from './lib/mapBudgets';
 export {
   boundsOfLngLat,
   EMPTY_FEATURE_COLLECTION,

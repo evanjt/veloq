@@ -423,7 +423,72 @@ fn a_rejected_key_stops_the_pass_without_moving_a_checkpoint() {
 
     assert_eq!(ended, Err(Halt::KeyRejected));
     assert_eq!(store.get(WATERMARK), None);
+    assert_eq!(store.get(CURSOR), None);
     assert!(store.ingested().is_empty());
+}
+
+/// Scenario: the first pass of a new connection halts as unreachable before
+/// its window lists, and the next pass comes five days later with three rides
+/// in the days that window would have covered.
+///
+/// Expected behaviour: the second pass starts its backfill from the window it
+/// lists, so the three rides are stored rather than skipped.
+#[test]
+fn a_first_pass_halted_as_unreachable_does_not_strand_the_next_pass_rides() {
+    let garmin = Garmin::new();
+    garmin.server.mock(|when, then| {
+        when.method(GET)
+            .path(LIST_PATH)
+            .query_param("startDate", "2026-09-25");
+        then.status(404);
+    });
+    let store = MemoryStore::default();
+
+    let halted = run(&garmin, &store, day(2026, 10, 25), &never());
+
+    assert_eq!(halted, Err(Halt::Unreachable));
+    assert_eq!(store.get(WATERMARK), None);
+
+    garmin.lists("2026-09-30", "2026-10-30", &[]);
+    garmin.lists("2026-09-01", "2026-09-29", &[21, 22, 23]);
+    for id in [21, 22, 23] {
+        garmin.serves(id);
+    }
+    garmin.lists_nothing_else();
+
+    run(&garmin, &store, day(2026, 10, 30), &never()).unwrap();
+
+    assert_eq!(store.ingested(), vec![21, 22, 23]);
+}
+
+/// Scenario: the first window lists a ride whose original does not download,
+/// and the backfill's first window lists another that does not download
+/// either. The next pass comes five days later and the first ride downloads
+/// by then.
+///
+/// Expected behaviour: the first ride lies before the second pass's own window,
+/// so the backfill of that pass has to reach it.
+#[test]
+fn a_ride_owed_by_an_unsettled_first_window_is_found_by_the_pass_after_it() {
+    let garmin = Garmin::new();
+    garmin.lists("2026-09-25", "2026-10-25", &[41]);
+    let mut refusal = refuses_download(&garmin, 41);
+    garmin.lists("2026-09-01", "2026-09-24", &[42]);
+    refuses_download(&garmin, 42);
+    let store = MemoryStore::default();
+
+    run(&garmin, &store, day(2026, 10, 25), &never()).unwrap();
+    assert_eq!(store.get(WATERMARK), None);
+
+    refusal.delete();
+    garmin.serves(41);
+    garmin.lists("2026-09-30", "2026-10-30", &[]);
+    garmin.lists("2026-09-01", "2026-09-29", &[41, 42]);
+    garmin.lists_nothing_else();
+
+    run(&garmin, &store, day(2026, 10, 30), &never()).unwrap();
+
+    assert_eq!(store.ingested(), vec![41]);
 }
 
 /// Scenario: five originals in a row fail to download.

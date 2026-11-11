@@ -156,4 +156,13 @@ describe('a chart scrub on the section card', () => {
 
     expect(lastMapProps()).toMatchObject({ shownDirection: 'reverse', deltaLine });
   });
+
+  it('hands the map the scrubbed distance and clears it', async () => {
+    await setup();
+    const card = detailCardWriter(KEY, 0);
+    await act(async () => card.setScrubDistance(120));
+    expect(lastMapProps().scrubDistanceM).toBe(120);
+    await act(async () => card.setScrubDistance(null));
+    expect(lastMapProps().scrubDistanceM).toBeNull();
+  });
 });

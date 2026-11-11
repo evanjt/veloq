@@ -346,6 +346,7 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
             recordProgression={performance?.recordProgression}
             curves={performance?.curves}
             onDeltaLineChange={setDeltaLine}
+            onScrubDistanceChange={card.setScrubDistance}
             streams={streams}
             forwardStats={forwardStats}
             reverseStats={reverseStats}

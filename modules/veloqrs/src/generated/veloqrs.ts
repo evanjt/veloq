@@ -477,7 +477,7 @@ export function setInteracting(interacting: boolean): void {
  * passing through inactive for a system sheet, is not one.
  *
  * The online value is advisory and only ever a reason to refuse work: a
- * state nobody has refreshed for fifteen minutes expires back to "try", and
+ * state nobody has refreshed for an hour expires back to "try", and
  * an install that never calls this behaves exactly as it did before. A
  * return starts the default sync, which the sync service gates on the
  * credential.
@@ -5368,81 +5368,6 @@ const FfiConverterTypeFfiActivityNotification = (() => {
         FfiConverterString.allocationSize(value.title) +
         FfiConverterString.allocationSize(value.body) +
         FfiConverterOptionalString.allocationSize(value.sentence)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * A detected recurring training pattern from k-means clustering.
- */
-export type FfiActivityPattern = {
-  /**
-   * Sport type (e.g., "Ride", "Run")
-   */
-  sportType: string;
-  /**
-   * Most common day of week (0=Mon..6=Sun)
-   */
-  primaryDay: number;
-  /**
-   * Average moving time in seconds
-   */
-  avgDurationSecs: number;
-  /**
-   * Average training load (TSS)
-   */
-  avgTss: number;
-  /**
-   * Number of activities in this pattern
-   */
-  activityCount: number;
-};
-
-/**
- * Generated factory for {@link FfiActivityPattern} record objects.
- */
-export const FfiActivityPattern = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiActivityPattern, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiActivityPattern>,
-  });
-})();
-
-const FfiConverterTypeFfiActivityPattern = (() => {
-  type TypeName = FfiActivityPattern;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        sportType: FfiConverterString.readFromCursor(c),
-        primaryDay: FfiConverterUInt8.readFromCursor(c),
-        avgDurationSecs: FfiConverterUInt32.readFromCursor(c),
-        avgTss: FfiConverterFloat64.readFromCursor(c),
-        activityCount: FfiConverterUInt32.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.sportType, c);
-      FfiConverterUInt8.writeIntoCursor(value.primaryDay, c);
-      FfiConverterUInt32.writeIntoCursor(value.avgDurationSecs, c);
-      FfiConverterFloat64.writeIntoCursor(value.avgTss, c);
-      FfiConverterUInt32.writeIntoCursor(value.activityCount, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.sportType) +
-        FfiConverterUInt8.allocationSize(value.primaryDay) +
-        FfiConverterUInt32.allocationSize(value.avgDurationSecs) +
-        FfiConverterFloat64.allocationSize(value.avgTss) +
-        FfiConverterUInt32.allocationSize(value.activityCount)
       );
     }
   }
@@ -32568,15 +32493,15 @@ export interface FitnessManagerLike {
     windows: FfiFitnessScreenWindows,
   ) /*throws*/ : FfiFitnessScreenData;
   /**
-   * Batch insights data: combines period stats, trends, patterns, recent PRs
+   * Batch insights data: combines period stats, trends, recent PRs
    * and the section and strength tail. Reduces the Insights hook to a single
    * round-trip.
    *
    * Read through the pool, so opening the tab while a sync page commits does
    * not wait out the write. What the engine path answers from memory is the
-   * activity patterns and the section list, and both are loaded from the
-   * rows this reads. The metrics load that replaces the memory tier is
-   * 2.5 ms on a 1,598-activity library against a 100 ms mount budget
+   * section list, which is loaded from the rows this reads. The
+   * metrics load that replaces the memory tier is 2.5 ms on a
+   * 1,598-activity library against a 100 ms mount budget
    * (`tests/insights_pool_cost.rs`).
    */
   getInsightsData(params: FfiInsightsParams) /*throws*/ : FfiInsightsData;
@@ -32924,15 +32849,15 @@ export class FitnessManager
   }
 
   /**
-   * Batch insights data: combines period stats, trends, patterns, recent PRs
+   * Batch insights data: combines period stats, trends, recent PRs
    * and the section and strength tail. Reduces the Insights hook to a single
    * round-trip.
    *
    * Read through the pool, so opening the tab while a sync page commits does
    * not wait out the write. What the engine path answers from memory is the
-   * activity patterns and the section list, and both are loaded from the
-   * rows this reads. The metrics load that replaces the memory tier is
-   * 2.5 ms on a 1,598-activity library against a 100 ms mount budget
+   * section list, which is loaded from the rows this reads. The
+   * metrics load that replaces the memory tier is 2.5 ms on a
+   * 1,598-activity library against a 100 ms mount budget
    * (`tests/insights_pool_cost.rs`).
    */
   getInsightsData(params: FfiInsightsParams): FfiInsightsData /*throws*/ {
@@ -42647,8 +42572,7 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_set_network_online() !==
-    64517
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_set_network_online() !== 60
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_set_network_online",
@@ -43407,7 +43331,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data() !==
-    37089
+    51285
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data",
@@ -45146,7 +45070,6 @@ export default Object.freeze({
     FfiConverterTypeFfiActivityName,
     FfiConverterTypeFfiActivityNewGround,
     FfiConverterTypeFfiActivityNotification,
-    FfiConverterTypeFfiActivityPattern,
     FfiConverterTypeFfiActivityProvenance,
     FfiConverterTypeFfiActivityRecord,
     FfiConverterTypeFfiActivityRouteHighlight,

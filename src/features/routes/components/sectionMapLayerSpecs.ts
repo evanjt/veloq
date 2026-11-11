@@ -25,6 +25,7 @@ import {
 } from '@/features/maps';
 import type { SectionMapLayers } from './useSectionMapLayers';
 import { SECTION_MAP_BOUNDS_PADDING } from '../lib/sectionMapCamera';
+import { buildScrubLayers, SCRUB_SOURCE_ID, scrubMarkerCollection } from '../lib/scrubMarker';
 
 interface SectionLayerInput extends SectionMapLayers {
   endpoints: GeoJSON.FeatureCollection;
@@ -57,6 +58,8 @@ interface SectionLayerInput extends SectionMapLayers {
    */
   userLocationGeoJSON?: GeoJSON.FeatureCollection;
   hasUserLocation?: boolean;
+  /** The marker for the distance the delta chart is scrubbed to. Empty when none is. */
+  scrubGeoJSON?: GeoJSON.FeatureCollection;
 }
 
 /**
@@ -82,6 +85,7 @@ export function buildSectionSources(input: SectionLayerInput): Record<string, Ma
     'highlighted-lap': { kind: 'geojson', data: input.highlightedLapGeoJSON },
     'highlighted-trace': { kind: 'geojson', data: input.highlightedTraceGeoJSON },
     endpoints: { kind: 'geojson', data: input.endpoints },
+    [SCRUB_SOURCE_ID]: { kind: 'geojson', data: input.scrubGeoJSON ?? scrubMarkerCollection(null) },
     [DELTA_GAPS_SOURCE_ID]: { kind: 'geojson', data: input.deltaGapsGeoJSON },
     ...(input.userLocationGeoJSON
       ? { [USER_LOCATION_SOURCE_ID]: { kind: 'geojson' as const, data: input.userLocationGeoJSON } }
@@ -260,7 +264,8 @@ export function buildSectionLayers(
         'line-width': trimLineWidth,
       },
     },
-    ...buildEndpointLayers(palette)
+    ...buildEndpointLayers(palette),
+    ...buildScrubLayers(palette)
   );
 
   if (input.userLocationGeoJSON)

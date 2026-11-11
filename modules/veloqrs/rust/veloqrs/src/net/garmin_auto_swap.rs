@@ -224,15 +224,43 @@ pub(crate) fn start(install: u64) {
     {
         return;
     }
-    if ACTIVE.swap(true, Ordering::SeqCst) {
-        return;
-    }
-    crate::threads::spawn_named("garmin-autoswap", move || {
+    let _ = spawn_pass(&ACTIVE, move || {
         run(&store, Utc::now(), |id| {
             swap_import(&crate::net::garmin_swap::Live, id)
         });
-        ACTIVE.store(false, Ordering::SeqCst);
     });
+}
+
+/// Holds the pass latch. The latch clears when the guard drops, so a pass that
+/// panics frees it as it unwinds, and so does a thread that never starts.
+struct Slot(&'static AtomicBool);
+
+impl Slot {
+    fn claim(latch: &'static AtomicBool) -> Option<Self> {
+        latch
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .ok()
+            .map(|_| Slot(latch))
+    }
+}
+
+impl Drop for Slot {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
+}
+
+/// Run `pass` on a thread of its own while `latch` is claimed. Returns the
+/// thread, or `None` when a pass already holds the latch.
+fn spawn_pass(
+    latch: &'static AtomicBool,
+    pass: impl FnOnce() + Send + 'static,
+) -> Option<std::thread::JoinHandle<()>> {
+    let slot = Slot::claim(latch)?;
+    Some(crate::threads::spawn_named("garmin-autoswap", move || {
+        let _slot = slot;
+        pass();
+    }))
 }
 
 #[cfg(test)]

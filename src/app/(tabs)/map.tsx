@@ -19,9 +19,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import {
-  ATTRIBUTION_CLEARANCE,
-  AttributionOverlay,
-  type AttributionOverlayRef,
   FILTER_CHIP,
   DEFAULT_MAP_PERIOD,
   filterSheetDragHeight,
@@ -53,6 +50,8 @@ import {
 } from '@/shared/ui';
 import { useFootCover } from '@/shared/ui/bottomPills';
 import { useGestureCallback } from '@/shared/ui/useGestureCallback';
+import { MapSheetCreditLine } from '@/shared/ui/MapSheetCreditLine';
+import { useMapSheetCreditStore } from '@/shared/app/mapSheetCredit';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useActivityBoundsCache } from '@/features/activity';
 import { useRouteSettings } from '@/features/routes';
@@ -170,14 +169,14 @@ function MapScreenContent() {
   const bottomClearance = useBottomClearance();
   const isMetric = useMetricSystem();
 
-  // The map reports its credit as the style and viewport change. It goes to the
-  // overlay through its ref, so a new credit does not re-render the map.
-  const attributionRef = useRef<AttributionOverlayRef>(null);
+  // The map reports its credit as the style and viewport change. It is published to the credit
+  // line in the sheet, its only reader, so a new credit does not re-render the map.
   const handleAttributionChange = useCallback((text: string) => {
-    attributionRef.current?.setAttribution(text);
+    useMapSheetCreditStore.getState().set(MAP_TAB_CREDIT_KEY, text);
   }, []);
+  useEffect(() => () => useMapSheetCreditStore.getState().clear(MAP_TAB_CREDIT_KEY), []);
   // The sheet's height moves on the UI thread with the finger and its settling, and the credit
-  // rides its edge every frame. The height it last settled on is React state, which the bottom
+  // line inside it moves with the sheet's frame. The height it last settled on is React state, which the bottom
   // pills and the map's popups read, so they move when the sheet settles.
   const sheetHeight = useSharedValue(0);
   const sheetTarget = useSharedValue(0);
@@ -189,14 +188,13 @@ function MapScreenContent() {
   const [loweredRows, setLoweredRows] = useState(0);
   const [raisedRows, setRaisedRows] = useState(0);
   const [detailHeight, setDetailHeight] = useState(0);
-  const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
-  // The bottom pills rise over the sheet and its credit while the tab is in front.
+  // The credit line sits inside the sheet under its handle, so the measured height of the line
+  // is part of the sheet's stops and of its settled height, and the clearances below read it there.
+  const [creditHeight, setCreditHeight] = useState(0);
+  // The bottom pills rise over the sheet while the tab is in front.
   const pillClearance = useBottomClearance({ insetTaken: false });
   const focused = useIsFocused();
-  useFootCover(
-    'mapSheet',
-    focused ? filterSheetFootCover(settledHeight, attributionClearance, pillClearance) : null
-  );
+  useFootCover('mapSheet', focused ? filterSheetFootCover(settledHeight, pillClearance) : null);
   // The raised sheet stops under the map's top controls and its filters scroll past that.
   const insetTop = useSafeAreaInsets().top;
   const [screenHeight, setScreenHeight] = useState(0);
@@ -229,7 +227,7 @@ function MapScreenContent() {
   const sheetPadding = bottomClearance + spacing.md;
   const sheetMeasured = loweredRows > 0;
   const { lowered: loweredHeight, raised: raisedHeight } = filterSheetStops(
-    handleRowHeight + loweredRows + detailHeight + sheetPadding,
+    handleRowHeight + creditHeight + loweredRows + detailHeight + sheetPadding,
     raisedRows,
     sheetMaxHeight
   );
@@ -521,7 +519,7 @@ function MapScreenContent() {
                 sectionsEnabled={sectionsEnabled}
                 selectSectionId={sectionsEnabled ? selectSectionId : undefined}
                 keyCategories={keyCategories}
-                bottomClearance={settledHeight + attributionClearance}
+                bottomClearance={settledHeight}
                 mapLabel={activitySummary}
               />
             </ComponentErrorBoundary>
@@ -549,17 +547,6 @@ function MapScreenContent() {
         ]}
         pointerEvents="box-none"
       >
-        {/* The credit is the sheet's own child on its top edge, so it moves in the sheet's layout
-            on every frame of a drag rather than chasing it from another view. */}
-        <View testID="map-attribution-lane" style={styles.attributionLane} pointerEvents="none">
-          <AttributionOverlay
-            ref={attributionRef}
-            initialAttribution=""
-            onClearanceChange={setAttributionClearance}
-            edgeRadius={SHEET_CORNER_RADIUS}
-          />
-        </View>
-
         <View
           testID="map-filter-sheet-body"
           style={[styles.infoBar, { paddingBottom: sheetPadding }, isDark && styles.infoBarDark]}
@@ -580,6 +567,15 @@ function MapScreenContent() {
               <View style={[styles.handle, isDark && styles.handleDark]} />
             </PressTarget>
           </GestureDetector>
+
+          {/* The credit under the handle, in the sheet's own colours, so it moves with the sheet's
+            frame on every drag. Its measured height is part of the stops. */}
+          <View
+            testID="map-sheet-credit"
+            onLayout={(event) => setCreditHeight(event.nativeEvent.layout.height)}
+          >
+            <MapSheetCreditLine sheetKey={MAP_TAB_CREDIT_KEY} />
+          </View>
 
           <GestureDetector gesture={filtersDrag}>
             <ScrollView
@@ -703,11 +699,13 @@ const HANDLE_SLOP = {
   bottom: spacing.xs,
 };
 
-// The filter sheet and the credit on its edge cover the map and its empty state,
-// which stack at the base. The layer scale has no row for a sheet over a map.
+// The filter sheet covers the map and its empty state, which stack at the base. The layer scale
+// has no row for a sheet over a map.
 const FILTER_SHEET_LAYER = layers.raised;
 // The sheet's top corners, the ones a bottom sheet over the map takes elsewhere in the app.
 const SHEET_CORNER_RADIUS = layout.borderRadiusXxl;
+// The key the Map tab publishes its basemap credit under, read by the credit line in its sheet.
+const MAP_TAB_CREDIT_KEY = 'map-tab';
 
 const styles = StyleSheet.create({
   container: {
@@ -832,13 +830,6 @@ const styles = StyleSheet.create({
   detailText: {
     ...typography.caption,
     color: colors.textSecondary,
-  },
-  // A line of no height on the sheet's top edge; the credit sits on it.
-  attributionLane: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: '100%',
   },
 });
 

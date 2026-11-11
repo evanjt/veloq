@@ -10,18 +10,61 @@ use std::collections::HashMap;
 
 use super::super::PersistentEngine;
 
-/// The cycling `sportInfo` entry's model estimate, rounded, or none when the
-/// day carries no cycling entry.
+/// The day's cycling eFTP, rounded: the first cycling `sportInfo` entry with a
+/// positive finite estimate, or none when no cycling entry carries one. The
+/// SQL readers below apply the same rule.
 fn cycling_eftp(raw: &str) -> Option<u16> {
     let body: serde_json::Value = serde_json::from_str(raw).ok()?;
-    let entries = body.get("sportInfo")?.as_array()?;
-    let entry = entries.iter().find(|e| {
-        e.get("type")
-            .and_then(|t| t.as_str())
-            .is_some_and(crate::sport::is_cycling)
-    })?;
-    let eftp = entry.get("eftp")?.as_f64()?;
-    (eftp.is_finite() && eftp > 0.0).then(|| eftp.round() as u16)
+    body.get("sportInfo")?
+        .as_array()?
+        .iter()
+        .filter(|e| {
+            e.get("type")
+                .and_then(|t| t.as_str())
+                .is_some_and(crate::sport::is_cycling)
+        })
+        .find_map(|e| {
+            let eftp = e.get("eftp")?.as_f64()?;
+            (eftp.is_finite() && eftp > 0.0).then(|| eftp.round() as u16)
+        })
+}
+
+#[cfg(test)]
+mod cycling_eftp_rule {
+    use super::cycling_eftp;
+
+    #[test]
+    fn the_first_cycling_entry_with_an_estimate_is_read() {
+        let raw = r#"{"sportInfo":[{"type":"MountainBikeRide"},{"type":"Ride","eftp":240}]}"#;
+        assert_eq!(cycling_eftp(raw), Some(240));
+    }
+
+    #[test]
+    fn a_cycling_entry_without_a_positive_estimate_is_passed_over() {
+        let zero = r#"{"sportInfo":[{"type":"Ride","eftp":0},{"type":"Ride","eftp":240}]}"#;
+        let negative = r#"{"sportInfo":[{"type":"Ride","eftp":-5},{"type":"Ride","eftp":240}]}"#;
+        assert_eq!(cycling_eftp(zero), Some(240));
+        assert_eq!(cycling_eftp(negative), Some(240));
+    }
+
+    #[test]
+    fn a_day_with_no_positive_cycling_estimate_has_none() {
+        let no_estimate = r#"{"sportInfo":[{"type":"MountainBikeRide"},{"type":"Ride"}]}"#;
+        let zero = r#"{"sportInfo":[{"type":"Ride","eftp":0}]}"#;
+        let run_only = r#"{"sportInfo":[{"type":"Run","eftp":300}]}"#;
+        let no_sport_info = r#"{"id":"2026-09-05"}"#;
+        assert_eq!(cycling_eftp(no_estimate), None);
+        assert_eq!(cycling_eftp(zero), None);
+        assert_eq!(cycling_eftp(run_only), None);
+        assert_eq!(cycling_eftp(no_sport_info), None);
+        assert_eq!(cycling_eftp("not json"), None);
+    }
+
+    #[test]
+    fn a_run_entry_ahead_of_the_cycling_one_is_not_read_as_cycling() {
+        let raw = r#"{"sportInfo":[{"type":"Run","eftp":300},{"type":"Ride","eftp":240}]}"#;
+        assert_eq!(cycling_eftp(raw), Some(240));
+    }
 }
 
 /// The days the FTP trend reads, from a newest-first stream of stored bodies.
@@ -31,9 +74,9 @@ fn cycling_eftp(raw: &str) -> Option<u16> {
 /// to be parsed for those two: wellness is upserted 365 days a sync and the
 /// only delete is the full wipe, so it grows a year per year of use.
 ///
-/// A day with no cycling entry is skipped and never counts as the newest, so a
-/// month off the bike is read through rather than reported as no trend. An
-/// account that has never ridden reads to the end, which is the price of
+/// A day with no cycling estimate is skipped and never counts as the newest,
+/// so a month off the bike is read through rather than reported as no trend.
+/// An account that has never ridden reads to the end, which is the price of
 /// knowing there is nothing.
 ///
 /// Returned oldest first, which is the order the trend reads them in.
@@ -124,6 +167,9 @@ const MIN_EFFICIENCY_CHANGE: f64 = 0.02;
 /// Fewest efforts an efficiency trend takes a direction from.
 const MIN_EFFICIENCY_DIRECTION_EFFORTS: usize = 5;
 
+/// Fewest efforts an efficiency trend exists at all.
+pub(crate) const MIN_EFFICIENCY_EFFORTS: usize = 3;
+
 pub(crate) fn efficiency_trend(
     subject_id: &str,
     sport_type: &str,
@@ -131,7 +177,7 @@ pub(crate) fn efficiency_trend(
     efforts: &[Effort],
 ) -> Option<crate::FfiEfficiencyTrend> {
     // Need at least 3 data points for a meaningful trend
-    if efforts.len() < 3 {
+    if efforts.len() < MIN_EFFICIENCY_EFFORTS {
         return None;
     }
 
@@ -163,7 +209,7 @@ pub(crate) fn efficiency_trend(
         })
         .collect();
 
-    if points.len() < 3 {
+    if points.len() < MIN_EFFICIENCY_EFFORTS {
         return None;
     }
     points.sort_by(|a, b| a.date.total_cmp(&b.date));
@@ -243,6 +289,20 @@ pub(crate) fn efficiency_trend(
 
 pub(crate) mod pooled {
 
+    /// The traversals an efficiency trend is drawn from, as a `WHERE` fragment
+    /// to append after a condition on `sa`: included, timed, with heart rate,
+    /// and a complete traversal of its section. The trend's read and the
+    /// examples scan's gate both take this clause, so a section the gate passes
+    /// is one the trend can judge.
+    pub(crate) fn efficiency_effort_clause() -> String {
+        let complete = crate::persistence::records::complete_traversal_clause("sa", "s");
+        format!(
+            " AND sa.excluded = 0
+              AND sa.lap_time IS NOT NULL AND sa.avg_hr IS NOT NULL
+              AND sa.lap_time > 0 AND sa.avg_hr > 0{complete}"
+        )
+    }
+
     /// The efficiency trend for one section, with its name and length handed
     /// in: the engine reads those off the in-memory catalogue and a pooled
     /// caller off the row, and neither belongs in this query. Only efforts
@@ -263,7 +323,7 @@ pub(crate) mod pooled {
         // filtering to one sport's complete traversals with both lap_time and
         // avg_hr: a fragment's pace is its own ground's, not the section's,
         // and a ride's pace against a run's is not one series.
-        let complete = crate::persistence::records::complete_traversal_clause("sa", "s");
+        let efforts = efficiency_effort_clause();
         let mut stmt = conn
             .prepare(&format!(
                 "SELECT sa.lap_time, sa.avg_hr, sa.distance_meters, am.date, sa.direction
@@ -272,12 +332,7 @@ pub(crate) mod pooled {
                  LEFT JOIN sections s ON s.id = sa.section_id
                  WHERE sa.section_id = ?1
                    AND am.sport_type = ?2
-                   AND sa.excluded = 0
-                   AND sa.lap_time IS NOT NULL
-                   AND sa.avg_hr IS NOT NULL
-                   AND sa.lap_time > 0
-                   AND sa.avg_hr > 0
-                   AND am.date >= ?3{complete}
+                   AND am.date >= ?3{efforts}
                  ORDER BY am.date ASC"
             ))
             .map_err(|e| {

@@ -119,6 +119,9 @@ export function ActivityDetailCard({
   // One engine call covering route match, section matches, encounters,
   // highlights, overlays and engine counts.
   const { data: detail, error: detailError, refresh: refreshDetail } = useActivityDetailData(id);
+  useEffect(() => {
+    card.setDetail(id, detail);
+  }, [card, id, detail]);
   const { retry: retrySync } = useRetryActivitySync(id, refreshDetail);
   const detailReadFailed = !detail && detailError !== undefined;
 

@@ -42,6 +42,7 @@ import {
 import { Icon } from '@/shared/ui/Icon';
 import { RankRing } from '@/shared/charts/RankRing';
 import { seriesSummary, type SparklinePoint } from '@/shared/charts';
+import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import type { ActivityType } from '@/types';
 import { SectionSparkline } from '@/features/routes';
 import type { SectionEncounter } from 'veloqrs';
@@ -223,7 +224,8 @@ export function sectionSparklineData(
     if (id === activityId) highlightIndex = points.length;
     points.push({
       value: time > 0 ? encounter.distanceMeters / time : 0,
-      label: date !== undefined ? formatShortDate(new Date(date * 1000)) : String(i + 1),
+      label:
+        date !== undefined ? formatShortDate(wallClockSecondsToLocalDate(date)) : String(i + 1),
       key: `${id}-${i}`,
       ...(date !== undefined ? { date } : {}),
     });

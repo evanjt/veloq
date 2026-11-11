@@ -9,6 +9,13 @@ import { typography } from './typography';
  */
 export const PERFORMANCE_PLOT_HEIGHT = 220;
 
+/**
+ * The least height the region under the plot takes, in every view, so the panel's total does not
+ * move when the view changes. It is zero until a device measurement of each view's total sizes it
+ * to the tallest view.
+ */
+export const PERFORMANCE_BELOW_PLOT_HEIGHT = 0;
+
 /** The one chart text role: a 12px caption in tabular figures, never below it. */
 const chartText = {
   ...typography.caption,

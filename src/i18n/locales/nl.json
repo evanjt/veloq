@@ -61,7 +61,7 @@
     "explanations": {
       "conditions": "Temperatuur uit weergegevens of je apparaatsensor.",
       "energy": "Geschat energieverbruik uit hartslag, vermogen en duur.",
-      "fitnessImpact": "Vergeleken met een rustdag verhoogt deze activiteit de fitheid met belasting × (1 − e^(−1/{{fitnessDays}})) en de vermoeidheid met belasting × (1 − e^(−1/{{fatigueDays}})). Krachttraining verhoogt alleen de vermoeidheid. De invloed op de vorm is fitheid min vermoeidheid.",
+      "fitnessImpact": "Hoeveel deze activiteit toevoegde aan je fitheid en vermoeidheid, vergeleken met een rustdag.",
       "heartRate": "Gemiddelde hartslag tijdens de activiteit.",
       "newGround": "Het aandeel kaarttegels van deze activiteit dat geen eerdere activiteit had aangeraakt. Een tegel is afhankelijk van de breedtegraad ongeveer 150 tot 300 m breed, dus dit meet tegeldekking en niet de afstand over nieuwe wegen.",
       "activityEftp": "De eFTP is de schatting van het vermogensmodel van intervals.icu voor deze activiteit.",
@@ -70,7 +70,7 @@
       "yourForm": "Je vorm (TSB) op deze dag. Dit is een dagwaarde gebaseerd op je totale training, niet specifiek voor deze activiteit. TSB = Fitheid (CTL) min Vermoeidheid (ATL).",
       "speed": "Gemiddelde en maximale snelheid zoals intervals.icu ze voor deze activiteit heeft opgeslagen.",
       "pace": "Gemiddeld en snelste tempo zoals intervals.icu ze voor deze activiteit heeft opgeslagen.",
-      "cadence": "Gemiddelde cadans zoals intervals.icu die heeft opgeslagen: trapomwentelingen per minuut op de fiets, anders passen of slagen per minuut."
+      "cadence": "Gemiddelde cadans. Trapomwentelingen per minuut op de fiets, slagen per minuut in het water. Te voet zijn het passen per minuut, dus de waarde is dubbel zo hoog als de passen die intervals.icu toont."
     },
     "ftp": "FTP-instelling: {{value}}",
     "heartRate": "Hartslag",
@@ -462,10 +462,11 @@
     "enterDetailsInstead": "Gegevens zelf invoeren",
     "fillAllFields": "Vul alle velden in",
     "fillField": "Vul het veld ‘{{field}}’ in",
-    "webdavHttpsRequired": "Gebruik een https://-adres. Bij http:// zouden je wachtwoord en back-ups onversleuteld worden verzonden.",
+    "webdavSchemeRequired": "Gebruik een http://- of https://-adres",
+    "webdavPlainHttpWarning": "Dit adres gebruikt http://, dus je wachtwoord en back-ups worden onversleuteld verzonden. Gebruik het alleen met een server en netwerk die je vertrouwt.",
     "webdavInvalidUrl": "Dat is geen geldig serveradres",
     "webdavSaveFailed": "De servergegevens konden niet op dit apparaat worden opgeslagen",
-    "webdavPlainLan": "Een onversleutelde server op mijn eigen netwerk toestaan",
+    "webdavRemoveFirst": "Verwijder eerst de server, zodat back-ups er niet meer naartoe gaan",
     "webdavTestUnauthorised": "Authenticatie mislukt",
     "webdavTestMethodNotAllowed": "Controleer het formaat van je WebDAV-adres. De server accepteert PROPFIND niet op dit pad",
     "webdavTestStatus": "Server antwoordde met {{code}}",
@@ -716,6 +717,7 @@
     "statusNoActivityAccess": "Garmin heeft de sleutel geaccepteerd, maar hij kan je activiteiten niet lezen.",
     "statusMalformed": "Dat lijkt niet op een Garmin-sleutel.",
     "statusUnreachable": "Garmin was niet bereikbaar. Probeer het zo meteen opnieuw.",
+    "statusSaveFailed": "De sleutel kon niet op dit apparaat worden bewaard, dus Garmin is niet verbonden. Probeer het opnieuw.",
     "feedTitle": "Mijn Garmin-ritten tonen in Veloq",
     "feedHint": "Ritten uit je Garmin-account verschijnen na het koppelen in de feed van Veloq.",
     "moreOptions": "Meer opties",
@@ -890,17 +892,17 @@
   "insights": {
     "ranking": {
       "title": "Kaartvolgorde",
-      "intro": "Dit zijn selectiefactoren voor kaarten, geen betrouwbaarheidskansen.",
+      "intro": "Deze factoren bepalen de volgorde van de kaarten. Het zijn geen betrouwbaarheidsscores.",
       "scoreOnScale": "{{score}} op een schaal van 0 tot 1",
       "unavailable": "Niet genoeg geldige vergelijkingsgegevens",
       "recency": {
         "label": "Recentheid",
-        "explanation": "Hogere scores betekenen dat dit onderdeel recenter is voltooid; de score daalt met de tijd."
+        "explanation": "Hogere scores betekenen dat dit onderdeel recenter is gedaan. De score daalt met de tijd."
       },
       "improvement": {
         "label": "Prestatieverandering",
-        "medianOfThree": "Mediaan van de laatste drie inspanningen vergeleken met de drie daarvoor; positief betekent sneller, negatief betekent langzamer.",
-        "firstToLast": "Laatste inspanning vergeleken met de eerste; positief betekent sneller, negatief betekent langzamer."
+        "medianOfThree": "Mediaan van de laatste drie inspanningen vergeleken met de drie daarvoor. Positief betekent sneller, negatief betekent langzamer.",
+        "firstToLast": "Laatste inspanning vergeleken met de eerste. Positief betekent sneller, negatief betekent langzamer."
       },
       "anomaly": {
         "label": "Ongewoonheid",
@@ -908,13 +910,13 @@
       },
       "engagement": {
         "label": "Relatieve betrokkenheid",
-        "explanation": "Hogere scores betekenen meer inspanningen ten opzichte van je meest voltooide onderdeel in deze sport; meer inspanningen op een ander onderdeel kunnen deze score verlagen."
+        "explanation": "Hogere scores betekenen meer inspanningen ten opzichte van je meest gedane sectie in deze sport. Meer inspanningen op een andere sectie kunnen deze score verlagen."
       }
     },
     "title": "Inzichten",
     "strength": "Kracht",
     "noInsights": "Inzichten verschijnen naarmate je traint",
-    "noInsightsHint": "Voltooi meer activiteiten voor gepersonaliseerde inzichten",
+    "noInsightsHint": "Inzichten hebben meer activiteiten nodig om mee te vergelijken.",
     "couldNotBuild": "Inzichten konden niet worden opgebouwd",
     "wellnessFromLastSync": "Welzijn van de laatste synchronisatie, {{date}}",
     "sectionPr": "PR op {{name}}",
@@ -961,11 +963,11 @@
       "prDetection": "Vergelijkt je laatste sectietijd met alle eerdere pogingen om persoonlijke records te detecteren.",
       "sectionTrend": "Volgt de mediane prestatie op veelbezochte secties door de tijd.",
       "periodComparison": "Vergelijkt trainingsmetrieken tussen opeenvolgende weken om progressie te volgen.",
-      "hrvDescription": "De 7 kalenderdagen tot en met vandaag, met alleen de dagen met een HRV-meting, en minstens vijf daarvan. Het gemiddelde van de oudere helft wordt vergeleken met dat van de nieuwere helft. Een verschil telt alleen als het 95%-interval, berekend uit de spreiding van je eigen metingen, nul uitsluit en het groter is dan een halve standaardafwijking van die spreiding en 2 % van het oudere gemiddelde; alles kleiner leest als stabiel. Een stabiel venster leest toch als dalend wanneer de laatste twee metingen op opeenvolgende dagen vallen, de tweede lager is, onder het venstergemiddelde ligt en het paar dezelfde toets doorstaat tegenover de metingen ervoor.",
+      "hrvDescription": "De 7 kalenderdagen tot en met vandaag, met minstens vijf HRV-metingen. Het gemiddelde van de oudere helft wordt vergeleken met dat van de nieuwere helft. Een verschil telt alleen als het 95%-interval, berekend uit de spreiding van je metingen, nul uitsluit en groter is dan een halve standaardafwijking van die spreiding en 2 % van het gemiddelde van de oudere helft. Alles wat kleiner is, leest als stabiel. Een stabiel venster leest toch als dalend als de laatste twee metingen op opeenvolgende dagen vallen, de tweede lager is, onder het venstergemiddelde ligt en het paar dezelfde toets doorstaat tegenover de eerdere metingen.",
       "periodComparisonRestDay": "Vergelijkt de vorige week met je 4-weken-gemiddelde wanneer de huidige week nog geen activiteiten heeft.",
       "ftpEstimation": "Vergelijkt je nieuwste dagelijkse eFTP met de waarde van 30 dagen geleden. De eFTP is de schatting van intervals.icu uit je vermogenscurve, niet de FTP-instelling in je account.",
-      "criticalSpeedDescription": "Vergelijkt je nieuwste kritische snelheid uit de 42-daagse tempocurve met de meest recente eerdere waarde binnen de voorgaande 90 dagen die meer dan 0,02 m/s afwijkt, en toont het verschil als tempo.",
-      "efficiencyDescription": "Volgt de gemiddelde hartslag maal tempo over overeenkomende pogingen op de sectie, met een kleinste-kwadratenregressie over de tijd. Een richting wordt alleen getoond als het 95%-interval van de helling nul uitsluit en de gemodelleerde verandering over de pogingen meer dan 2 % van het gemiddelde is. Een dalende waarde betekent minder hartslagen per km: een lagere hartslag, een sneller tempo of beide.",
+      "criticalSpeedDescription": "Vergelijkt je laatste kritische snelheid uit de 42-daagse tempocurve met de meest recente waarde van de afgelopen 90 dagen die meer dan 0,02 m/s verschilt, en toont de verandering als tempo.",
+      "efficiencyDescription": "Volgt de gemiddelde hartslag maal tempo over overeenkomende pogingen op de sectie, als een trend met kleinste kwadraten over de tijd. Een richting wordt alleen getoond als het 95%-interval van de trend nul uitsluit en de aangepaste verandering meer dan 2 % van het gemiddelde is. Een dalende waarde betekent minder hartslagen per km: een lagere hartslag, een sneller tempo of beide.",
       "efficiencyFormula": "{{quantity}} ({{unit}}) = gemiddelde hartslag × tempo (seconden per km)",
       "route": "Telt pogingen op een route in één sport en richting die getimed zijn, niet uitgesloten, niet gedeeltelijk en binnen de afstandsband van de route. Een record is de snelste daarvan, recent gezet. Een trend vergelijkt de mediaan van de laatste drie met de drie ervoor, vanaf zes pogingen."
     },
@@ -1002,10 +1004,10 @@
       "trendingDown": "HRV: recentere helft lager",
       "stable": "HRV: geen duidelijke verandering",
       "lastTwoDays": "HRV: laatste twee metingen onder het gemiddelde",
-      "trendingUpBody": "De nieuwere helft van je laatste 7 HRV-dagen ligt gemiddeld hoger dan de oudere helft, meer dan je schommeling van dag tot dag verklaart. Gemiddelde van het venster {{avg}} ms over {{days}} metingen, laatste {{latest}} ms.",
-      "trendingDownBody": "De nieuwere helft van je laatste 7 HRV-dagen ligt gemiddeld lager dan de oudere helft, meer dan je schommeling van dag tot dag verklaart. Gemiddelde van het venster {{avg}} ms over {{days}} metingen, laatste {{latest}} ms.",
-      "stableBody": "De twee helften van je laatste 7 HRV-dagen verschillen niet meer dan je schommeling van dag tot dag verklaart. Gemiddelde van het venster {{avg}} ms over {{days}} metingen, laatste {{latest}} ms.",
-      "lastTwoDaysBody": "Het venster zelf bleef stabiel, maar je laatste twee metingen daalden op opeenvolgende dagen, meer dan je schommeling van dag tot dag verklaart, en de laatste, {{latest}} ms, ligt onder het venstergemiddelde van {{avg}} ms over {{days}} metingen."
+      "trendingUpBody": "De nieuwere helft van je laatste 7 HRV-dagen ligt gemiddeld hoger dan de oudere helft, meer dan je gewone schommeling van dag tot dag. Gemiddelde van het venster {{avg}} ms over {{days}} metingen, laatste {{latest}} ms.",
+      "trendingDownBody": "De nieuwere helft van je laatste 7 HRV-dagen ligt gemiddeld lager dan de oudere helft, meer dan je gewone schommeling van dag tot dag. Gemiddelde van het venster {{avg}} ms over {{days}} metingen, laatste {{latest}} ms.",
+      "stableBody": "De twee helften van je laatste 7 HRV-dagen verschillen niet meer dan je gewone schommeling van dag tot dag. Gemiddelde van het venster {{avg}} ms over {{days}} metingen, laatste {{latest}} ms.",
+      "lastTwoDaysBody": "De laatste 7 dagen bleven stabiel, maar je laatste twee metingen daalden op opeenvolgende dagen met meer dan je gewone schommeling van dag tot dag, en de laatste, {{latest}} ms, ligt onder het venstergemiddelde van {{avg}} ms over {{days}} metingen."
     },
     "weeklyLoad": {
       "title": "Trainingsbelasting {{percent}}% {{direction}} gemiddelde",
@@ -1013,20 +1015,20 @@
       "below": "onder"
     },
     "stalePr": {
-      "title": "{{section}} is een nieuwe poging waard",
+      "title": "{{section}}: fitness is gestegen sinds het PR",
       "subtitle": "{{visited}}. PR {{prTime}} bij {{metric}} {{previous}}, nu {{current}}",
-      "body": "{{visited}}. Een nieuwe poging waard met je huidige fitness: {{metric}} {{previous}} op de dag van het PR, nu {{current}}.",
+      "body": "{{visited}}. {{metric}} was {{previous}} op de dag van het PR en is nu {{current}}.",
       "currentMetric": "Huidig {{metric}}",
       "prMetric": "{{metric}} bij PR",
       "metricGain": "{{metric}}-winst",
       "prTime": "PR-tijd",
-      "methodology": "Getoond voor een sectie die je minstens {{visits}} keer hebt gedaan en niet in de laatste {{days}} dagen, als je fitness vandaag minstens {{gain}}% hoger is dan op de dag van het PR. Er worden er tot {{max}} getoond, de meest bezochte eerst. Fietsfitness is de eFTP, de schatting van intervals.icu uit je vermogenscurve. Hardloopfitness is de kritische snelheid en zwemfitness de CSS, beide uit je tempocurve.",
+      "methodology": "Getoond voor een sectie die je minstens {{visits}} keer hebt gedaan en niet in de laatste {{days}} dagen, als je fitness nu minstens {{gain}}% hoger ligt dan op de dag van het PR. Er worden er tot {{max}} getoond, de meest bezochte eerst. Fietsfitness is de eFTP, de schatting van intervals.icu uit je vermogenscurve. Hardloopfitness is de kritische snelheid en zwemfitness de CSS, beide uit je tempocurve.",
       "metricCyclingEftp": "Fiets-eFTP",
       "metricSwimCss": "Zwem-CSS",
       "metricRunningCriticalSpeed": "Kritische snelheid hardlopen",
       "groupMore": "(+{{n}} meer)",
-      "groupTitle_one": "{{count}} sectie die een nieuwe poging waard is",
-      "groupTitle_other": "{{count}} secties die een nieuwe poging waard zijn",
+      "groupTitle_one": "{{count}} sectie waar de fitness sinds het PR is gestegen",
+      "groupTitle_other": "{{count}} secties waar de fitness sinds hun PR's is gestegen",
       "groupSubtitle": "{{metric}} nu {{current}}",
       "visitedRide_one": "Eén keer gefietst",
       "visitedRide_other": "{{count}} keer gefietst",
@@ -1050,7 +1052,7 @@
       "openActivity": "De PR-activiteit openen"
     },
     "aboutTitle": "Over inzichten",
-    "aboutBody": "Trainingsmetrieken zijn schattingen op basis van gepubliceerde sportwetenschappelijke modellen. Individuele reacties variëren aanzienlijk. Deze inzichten zijn alleen informatief, geen medisch of coachingadvies.",
+    "aboutBody": "Inzichten vergelijken je recente training met je eigen geschiedenis. Alleen ter informatie, geen medisch of coachingadvies.",
     "explanation": {
       "title": "Inzichten begrijpen",
       "foundLabel": "Methode",
@@ -1062,7 +1064,7 @@
         },
         "fitness": {
           "label": "eFTP en kritische snelheid",
-          "text": "Een verandering in een van beide, en de records die je zette toen die lager was."
+          "text": "Een verandering in een van beide, en alle PR's die bij lagere fitness zijn gezet."
         },
         "week": {
           "label": "Deze week",
@@ -1085,18 +1087,18 @@
       "sources": "Tijden, hartslag en vermogen komen uit je activiteiten, eFTP, kritische snelheid en HRV van intervals.icu, en de methode en gegevens van elke kaart staan onder ‘{{howCalculated}}’.",
       "strengthTitle": "Kracht begrijpen"
     },
-    "aboutRanking": "Kaarten staan gesorteerd op hoeveel ze te zeggen hebben: hoe recent iets is, hoe sterk het afwijkt van je gewoonte, hoeveel het verschoven is en hoe vaak je het doet.",
+    "aboutRanking": "Kaarten staan gesorteerd op hoe recent ze zijn, hoe sterk ze afwijken van je gewoonte, hoeveel ze zijn veranderd en hoe vaak je het onderdeel herhaalt.",
     "efficiencyTrend": {
       "seriesLabel": "{{quantity}}, oudste poging tot nieuwste",
       "quantity": "Hartslag × tempo",
       "title": "Efficiëntie verbetert op {{name}}",
       "changeTitle": "Efficiëntie op {{name}}: {{hrChange}} bpm",
       "changeSubtitle": "Gemodelleerd {{hrChange}} bpm bij gemiddeld tempo over {{efforts}} ritten",
-      "changeBody": "Over {{efforts}} ritten op {{name}} steeg het product van hartslag en tempo. Bij het gemiddelde tempo komt dat neer op gemodelleerd {{hrChange}} bpm; de gemeten hartslag kan verschillen.",
+      "changeBody": "Over {{efforts}} ritten op {{name}} steeg het product van hartslag en tempo. Bij het gemiddelde tempo komt dat neer op gemodelleerd {{hrChange}} bpm. De gemeten hartslag kan verschillen.",
       "subtitle": "Gemodelleerd {{hrChange}} bpm bij gemiddeld tempo over {{efforts}} pogingen",
-      "body": "Over {{efforts}} pogingen op {{name}} is hartslag maal tempo verbeterd. Bij je gemiddelde tempo is dat een gemodelleerde {{hrChange}} bpm; je hartslag zelf kan onveranderd zijn.",
+      "body": "Over {{efforts}} pogingen op {{name}} is hartslag maal tempo verbeterd. Bij je gemiddelde tempo is dat een gemodelleerde {{hrChange}} bpm. Je hartslag alleen kan onveranderd zijn.",
       "sheetHeading": "Vergelijking van overeenkomende pogingen",
-      "sheetBody": "Gebaseerd op herhaalde pogingen op dezelfde sectie met zowel hartslag als tempo. Vergelijkt door de tijd wat elke passage je hart kostte.",
+      "sheetBody": "Vergelijkt hartslag maal tempo over herhaalde pogingen op deze sectie, in de tijd. Alleen pogingen met zowel hartslag als tempo tellen mee.",
       "sheetMeta": "Open de sectie voor de onderliggende pogingen."
     },
     "strengthBalance": {
@@ -1109,14 +1111,14 @@
       "noSignal": "Geen data",
       "allOneSideTitle": "{{pair}}: alle volume aan één kant",
       "oneSidedBody": "{{dominant}} vertegenwoordigt al het gewogen setvolume voor {{pair}} in de afgelopen 4 weken.",
-      "ratioBody": "{{pair}} komt in het recentste 4-weekse venster gemiddeld uit op {{ratio}} in gewogen sets.",
+      "ratioBody": "In de laatste 4 weken heeft de grotere kant van {{pair}} {{ratio}} keer zoveel gewogen sets als de kleinere.",
       "ratioLabel": "Verhouding",
       "statusLabel": "Status",
       "formula": "Gewogen sets per antagonistenpaar",
-      "algorithm": "Vergelijkt gewogen setaantallen tussen gangbare antagonistenparen. Primair werk telt als 1.0 en secundair werk als 0.5."
+      "algorithm": "Vergelijkt gewogen sets voor tegenovergestelde spierparen. Primair werk telt als 1.0 en secundair werk als 0.5."
     },
     "viewInDetail": "Bekijk in detail",
-    "routesDisabledDescription": "Je secties blijven bewaard en openen weer zodra matching is ingeschakeld.",
+    "routesDisabledDescription": "Je secties blijven bewaard en komen terug zodra routes en secties aan staan.",
     "routesDisabledLine1": "Routes & secties uitgeschakeld",
     "routesDisabledLine2": "Routes & secties inschakelen",
     "strengthProgression": {
@@ -1150,7 +1152,7 @@
       "split": "Het is gesplitst in meerdere stukken",
       "restored": "Het is teruggekeerd",
       "reverted": "Het is teruggezet naar een eerdere versie",
-      "body": "De geschiedenis van het stuk laat zien wat er verschoof en welke activiteiten erbij waren."
+      "body": "De geschiedenis van de sectie geeft elke wijziging weer en de activiteiten in de buurt."
     },
     "milestoneSheet": {
       "powerHeading": "Over deze eFTP-verandering",
@@ -1425,7 +1427,7 @@
     },
     "privacy": {
       "title": "Privacymelding",
-      "brief": "Je atleet-ID en een pushtoken worden opgeslagen op onze server (30 dagen geldig). Meldingen worden via Apple of Google verzonden, maar alle inzichtinhoud wordt op je apparaat gegenereerd. Je kunt dit op elk moment uitschakelen.",
+      "brief": "Je atleet-ID en een pushtoken worden opgeslagen op onze server (30 dagen geldig). Meldingen komen via Expo, daarna via Apple of Google, op je apparaat aan, maar alle inzichtinhoud wordt op je apparaat gegenereerd. Je kunt meldingen op elk moment uitschakelen.",
       "accept": "Ik begrijp het"
     },
     "settings": {
@@ -1727,7 +1729,7 @@
     "duplicateNameMessage": "Kies een andere naam. Elke route moet een unieke naam hebben.",
     "expandInSettings": "Uitbreiden in Instellingen",
     "gpsTrackNotDownloaded": "GPS-gegevens nog niet gedownload. Probeer het opnieuw zodra ze gedownload zijn.",
-    "match": "overeenkomst",
+    "matchPercent": "{{percent}} overeenkomst",
     "noFrequentSections": "Nog geen frequente secties",
     "noMatchingRoutes": "Geen overeenkomende routes gevonden",
     "noRoutesFor": "Geen routes voor {{filters}}",
@@ -1966,7 +1968,7 @@
     "mergeCandidatesTitle": "Kies een sectie om samen te voegen",
     "mergeCandidatesSubtitle_one": "{{count}} vergelijkbare sectie in de buurt",
     "mergeCandidatesSubtitle_other": "{{count}} vergelijkbare secties in de buurt",
-    "overlapLabel": "overlap",
+    "overlapPercent": "{{percent}} overlap",
     "distanceAway": "{{distance}} verderop",
     "acceptSection": "Accepteren",
     "acceptAllSections": "Alles accepteren",
@@ -2128,6 +2130,9 @@
     "streamHistoryDays_other": "{{count}} dagen",
     "streamHistoryAll": "Alles",
     "streamHistoryReset": "Herstellen",
+    "streamHistoryNarrowTitle": "Oudere streamgeschiedenis verwijderen?",
+    "streamHistoryNarrowBody": "De opgeslagen reeksen van activiteiten ouder dan {{window}} worden van dit apparaat verwijderd, inclusief hartslag, vermogen en cadans. Opnieuw downloaden gebruikt de dagelijkse aanvraaglimiet van intervals.icu.",
+    "streamHistoryNarrowConfirm": "Oudere reeksen verwijderen",
     "streamBackfill": "Ontbrekende reeksen",
     "streamBackfillOwed_one": "{{count}} activiteit",
     "streamBackfillOwedSized_one": "{{count}} activiteit, {{size}}",

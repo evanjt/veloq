@@ -15,6 +15,7 @@ import { useForeground } from '@/shared/app/useRetryTriggers';
 import { openAppSettings } from '@/shared/app/permissions';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { formatCadence, formatHeartRate, formatPower } from '@/shared/format/format';
+import { formatPercent } from '@/shared/format';
 import { useClock, useRecordingStore } from '@/features/recording';
 import {
   useSensorStore,
@@ -357,7 +358,7 @@ function SensorSettingsScreenContent() {
                             ? t(`sensors.status.${connection.status}`)
                             : t('sensors.status.disconnected', 'Not connected')}
                           {connection?.batteryPercent != null
-                            ? ` · ${connection.batteryPercent}%`
+                            ? ` · ${formatPercent(connection.batteryPercent)}`
                             : ''}
                         </Text>
                       </View>

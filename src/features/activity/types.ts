@@ -207,7 +207,11 @@ export interface ActivityBoundsItem {
   bounds: [[number, number], [number, number]]; // [[minLat, minLng], [maxLat, maxLng]]
   type: ActivityType;
   name: string;
-  date: string; // ISO date
+  /**
+   * The engine's wall-clock seconds: the athlete's local start stamped as UTC. Read it through
+   * `wallClockSecondsToLocalDate`, never as an instant, or the day moves by the device offset.
+   */
+  date: number;
   distance: number; // meters
   duration: number; // seconds
   /**

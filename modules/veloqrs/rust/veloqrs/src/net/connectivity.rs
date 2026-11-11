@@ -19,7 +19,7 @@
 //! it rather than through it.
 
 use std::sync::{Condvar, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 /// How long a pushed state is believed.
 ///
@@ -36,9 +36,15 @@ use std::time::{Duration, Instant};
 /// 300 s (`net::elevation_backfill::RESUME_WAITS`), which is the slowest thing
 /// that reads it. At an hour an offline push suppresses twelve resting passes and
 /// then expires, and the transport carries it from there.
+///
+/// The age is read off the wall clock, so it counts the time a device spent
+/// asleep. A backgrounded app is mostly asleep, and a monotonic age would stop
+/// there and keep a push from the evening refusing work into the morning. A
+/// clock set back past the stamp, which cannot be aged, reads as stale; a
+/// clock set forward reads as stale too, the same direction.
 pub const STALE_AFTER: Duration = Duration::from_secs(60 * 60);
 
-static STATE: Mutex<Option<(bool, Instant)>> = Mutex::new(None);
+static STATE: Mutex<Option<(bool, SystemTime)>> = Mutex::new(None);
 
 /// How many times the state has gone from not online to online. A sleeper
 /// compares this against the count it started with, so an edge that landed
@@ -51,7 +57,7 @@ static ONLINE_EDGE: Condvar = Condvar::new();
 /// sleepers too, and they go back to sleep because their own count is unchanged.
 static NUDGES: Mutex<u64> = Mutex::new(0);
 
-fn state() -> std::sync::MutexGuard<'static, Option<(bool, Instant)>> {
+fn state() -> std::sync::MutexGuard<'static, Option<(bool, SystemTime)>> {
     STATE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
@@ -63,11 +69,11 @@ fn edges() -> std::sync::MutexGuard<'static, u64> {
 ///
 /// True when the push was an online edge, a transition from not online.
 pub fn set_online(online: bool) -> bool {
-    set_online_at(online, Instant::now())
+    set_online_at(online, SystemTime::now())
 }
 
 /// [`set_online`] with the moment handed in, so staleness is testable.
-pub fn set_online_at(online: bool, at: Instant) -> bool {
+pub fn set_online_at(online: bool, at: SystemTime) -> bool {
     let was_online = state()
         .replace((online, at))
         .is_some_and(|(online, _)| online);
@@ -143,13 +149,14 @@ pub fn sleep_or_online_edge_or_nudge(wait: Duration) -> bool {
 /// "try", so this can never be the reason a live connection goes unused for
 /// longer than [`STALE_AFTER`].
 pub fn is_offline() -> bool {
-    matches!(*state(), Some((false, at)) if at.elapsed() < STALE_AFTER)
+    matches!(*state(), Some((false, at)) if at.elapsed().is_ok_and(|age| age < STALE_AFTER))
 }
 
 /// What was last pushed, and how long ago, for logging and for the read the
-/// FFI hands back. `None` means nothing has ever been pushed.
+/// FFI hands back. `None` means nothing has ever been pushed. A stamp ahead of
+/// the clock reports an age of zero.
 pub fn last_push() -> Option<(bool, Duration)> {
-    state().map(|(online, at)| (online, at.elapsed()))
+    state().map(|(online, at)| (online, at.elapsed().unwrap_or(Duration::ZERO)))
 }
 
 /// Forget everything pushed, returning the process to its never-pushed state.
@@ -207,14 +214,51 @@ mod tests {
         let _serial = serial_global_state();
         reset();
 
-        set_online_at(false, Instant::now() - STALE_AFTER);
+        set_online_at(false, SystemTime::now() - STALE_AFTER);
         assert!(!is_offline(), "a missed push must not strand the queue");
 
         set_online_at(
             false,
-            Instant::now() - STALE_AFTER + Duration::from_secs(30),
+            SystemTime::now() - STALE_AFTER + Duration::from_secs(30),
         );
         assert!(is_offline(), "inside the window it still counts");
+
+        reset();
+    }
+
+    /// The stamp is wall time, so a push made before a night's sleep has aged
+    /// by the time the device wakes. A monotonic stamp stops while the device
+    /// sleeps and would hold that push into the morning.
+    #[test]
+    fn an_offline_pushed_before_a_long_sleep_expires_on_waking() {
+        let _serial = serial_global_state();
+        reset();
+
+        set_online_at(
+            false,
+            SystemTime::now() - STALE_AFTER - Duration::from_secs(1),
+        );
+        assert!(!is_offline(), "a night's sleep must age the push out");
+
+        reset();
+    }
+
+    /// A stamp ahead of the clock means the clock went backwards. The age is
+    /// unknowable, so the push reads as stale and the transport decides.
+    #[test]
+    fn a_stamp_ahead_of_the_clock_reads_as_try_and_keeps_the_push() {
+        let _serial = serial_global_state();
+        reset();
+
+        set_online_at(false, SystemTime::now() + Duration::from_secs(60));
+        assert!(
+            !is_offline(),
+            "a clock that went backwards must not refuse work"
+        );
+
+        let (online, age) = last_push().expect("a push was recorded");
+        assert!(!online);
+        assert_eq!(age, Duration::ZERO);
 
         reset();
     }
@@ -226,7 +270,7 @@ mod tests {
         let _serial = serial_global_state();
         reset();
 
-        set_online_at(true, Instant::now() - STALE_AFTER * 4);
+        set_online_at(true, SystemTime::now() - STALE_AFTER * 4);
         assert!(!is_offline());
 
         reset();
@@ -237,7 +281,7 @@ mod tests {
         let _serial = serial_global_state();
         reset();
 
-        set_online_at(false, Instant::now() - Duration::from_secs(60));
+        set_online_at(false, SystemTime::now() - Duration::from_secs(60));
         let (online, age) = last_push().expect("a push was recorded");
 
         assert!(!online);

@@ -225,6 +225,7 @@ pub struct FitRecording {
 /// indoor ride comes back as an empty track rather than an error. An
 /// unreadable file is an error, so a caller never takes it for a ride that
 /// stayed indoors.
+#[cfg(test)]
 pub fn parse_fit_track(data: &[u8]) -> Result<Vec<crate::GpsPoint>, FitParseError> {
     parse_fit_recording(data).map(|recording| recording.track)
 }
@@ -941,6 +942,7 @@ pub fn exercise_display_name(category: u16, _subcategory: Option<u16>) -> String
 }
 
 /// A display name for a FIT SwimStroke number, as the profile names them.
+#[cfg(test)]
 pub fn swim_stroke_display_name(stroke: u8) -> String {
     match stroke {
         0 => "Freestyle".into(),

@@ -841,14 +841,6 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       exhausted: () => onMapFailed?.('renderer kept dying'),
     });
 
-    // Stop the view that is going away. It is captured each time one mounts:
-    // React detaches the ref before this cleanup runs, so reading it here finds
-    // null and the page keeps loading.
-    useEffect(() => {
-      const webView = webViewRef.current;
-      return () => webView?.stopLoading();
-    }, [viewKey, lost]);
-
     // A released map comes back in the same WebView. The page opens at the
     // camera it was built with, so one the athlete has moved since gets a new
     // page built at the saved camera rather than a reload.

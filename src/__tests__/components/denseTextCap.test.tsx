@@ -53,6 +53,7 @@ const DENSE_SURFACES = [
   'src/features/routes/components/section/SectionScatterChart.tsx',
   'src/features/stats/components/FTPTrendChart.tsx',
   'src/shared/ui/BottomTabBar.tsx',
+  'src/shared/ui/MapSheetCreditLine.tsx',
   'src/shared/ui/StatTile.tsx',
   'src/features/wellness/components/WellnessTrendsChart.tsx',
   'src/shared/charts/YAxisLabels.tsx',

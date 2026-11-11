@@ -276,7 +276,9 @@ pub fn section_record_progression(
     };
     let mut laps: Vec<_> = record_eligible_laps(result, reverse).collect();
     // Stable, so two laps of one outing keep the order they were ridden in.
-    laps.sort_by_key(|(record, _)| record.activity_date);
+    laps.sort_by(|(a, _), (b, _)| {
+        crate::persistence::fitness::performances::laps::record_order(a, b)
+    });
     let mut steps: Vec<crate::FfiRecordStep> = Vec::new();
     for (record, lap) in laps {
         let previous = steps.last();

@@ -107,7 +107,7 @@
     "weeklyLoad": {
       "title": "Carga de entrenamiento {{percent}}% {{direction}} del promedio"
     },
-    "aboutRanking": "Las tarjetas se ordenan por lo que cada una tiene para decir: que tan reciente es, cuanto se sale de lo habitual en vos, cuanto cambio y con que frecuencia lo haces."
+    "aboutRanking": "Las tarjetas se ordenan por lo recientes que son, cuánto se salen de lo habitual, cuánto han cambiado y con qué frecuencia repetís el tramo."
   },
   "login": {
     "apiKeyConnect": "Conectar con clave API",

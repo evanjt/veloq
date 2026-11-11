@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
+import { formatSignedPercentage } from '@/shared/format';
 import { trendVerdict, verdictRung } from '@/shared/format/trend';
 import {
   colors,
@@ -102,7 +103,7 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
           {progression?.changePct != null && (
             <Badge
               tone={verdictTone(verdictRung(trendVerdict('weekSets', progression.trend)))}
-              text={`${progression.changePct > 0 ? '+' : ''}${Math.round(progression.changePct)}%`}
+              text={formatSignedPercentage(Math.round(progression.changePct))}
               isDark={isDark}
             />
           )}

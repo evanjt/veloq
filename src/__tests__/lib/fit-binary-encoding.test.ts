@@ -35,6 +35,7 @@ const RECORD_POWER = 7;
 const RECORD_ENHANCED_SPEED = 73;
 const LAP_TOTAL_ELAPSED = 7;
 const LAP_AVG_HEART_RATE = 15;
+const LAP_AVG_POWER = 19;
 const SESSION_TOTAL_ELAPSED = 7;
 const SESSION_TOTAL_TIMER = 8;
 const SESSION_SPORT = 5;
@@ -194,7 +195,7 @@ describe('generateFitFile', () => {
         ],
         altitude: [420, NaN, 421],
         heartrate: [140, 0, 145],
-        power: [210, 0, 215],
+        power: [210, null, 215],
         cadence: [80, 0, 82],
         speed: [6, 0, 7],
         distance: [0, 12, 26],
@@ -423,6 +424,72 @@ describe('generateFitFile', () => {
       expect(messagesOfType(buffer, MESG_SESSION)).toHaveLength(1);
       const bytes = new Uint8Array(buffer);
       expect(String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11])).toBe('.FIT');
+    });
+  });
+
+  describe('power stream', () => {
+    const powerStreams = (power: (number | null)[]) =>
+      makeStreams({
+        time: power.map((_, i) => i),
+        latlng: power.map(() => [45, 10] as [number, number]),
+        altitude: power.map(() => 100),
+        heartrate: power.map(() => 0),
+        power,
+        cadence: power.map(() => 0),
+        speed: power.map(() => 5),
+        distance: power.map((_, i) => i * 5),
+      });
+
+    it('writes a coasting 0 W as a reading and averages it into the session and lap', async () => {
+      const buffer = await generateFitFile({
+        activityType: 'Ride',
+        startTime,
+        streams: powerStreams([200, 0, 0, 200]),
+        laps: [],
+      });
+
+      expect(messagesOfType(buffer, MESG_RECORD).map((r) => r.fields.get(RECORD_POWER))).toEqual([
+        200, 0, 0, 200,
+      ]);
+      expect(onlyMessage(buffer, MESG_SESSION).fields.get(SESSION_AVG_POWER)).toBe(100);
+      expect(onlyMessage(buffer, MESG_LAP).fields.get(LAP_AVG_POWER)).toBe(100);
+    });
+
+    it('writes a missing sample as invalid and leaves it out of the average', async () => {
+      const buffer = await generateFitFile({
+        activityType: 'Ride',
+        startTime,
+        streams: powerStreams([200, null, 0, 200]),
+        laps: [],
+      });
+
+      expect(messagesOfType(buffer, MESG_RECORD).map((r) => r.fields.get(RECORD_POWER))).toEqual([
+        200,
+        INVALID_UINT16,
+        0,
+        200,
+      ]);
+      expect(onlyMessage(buffer, MESG_SESSION).fields.get(SESSION_AVG_POWER)).toBe(133);
+    });
+
+    it('writes an all-coasting ride as 0 W, and a ride with no sensor as invalid', async () => {
+      const coasting = await generateFitFile({
+        activityType: 'Ride',
+        startTime,
+        streams: powerStreams([0, 0]),
+        laps: [],
+      });
+      const none = await generateFitFile({
+        activityType: 'Ride',
+        startTime,
+        streams: powerStreams([null, null]),
+        laps: [],
+      });
+
+      expect(onlyMessage(coasting, MESG_SESSION).fields.get(SESSION_AVG_POWER)).toBe(0);
+      expect(onlyMessage(coasting, MESG_LAP).fields.get(LAP_AVG_POWER)).toBe(0);
+      expect(onlyMessage(none, MESG_SESSION).fields.get(SESSION_AVG_POWER)).toBe(INVALID_UINT16);
+      expect(onlyMessage(none, MESG_LAP).fields.get(LAP_AVG_POWER)).toBe(INVALID_UINT16);
     });
   });
 
@@ -656,7 +723,7 @@ describe('generateFitFile', () => {
         time: [25, 35, 45, 65, 90],
         distance: [0, 100, 150, 300, 400],
         heartrate: [NaN, 140, 0, 160, Infinity],
-        power: [0, 200, NaN, 250, 0],
+        power: [null, 200, NaN, 250, null],
         cadence: [NaN, 80, 0, 90, 0],
       });
       const streams = Object.fromEntries(
@@ -960,7 +1027,7 @@ describe('generateFitFile', () => {
         ],
         altitude: [100, 100],
         heartrate: [0, 0],
-        power: [0, 0],
+        power: [null, null],
         cadence: [0, 0],
         speed: [8.0, 8.0],
         distance: [0, 8.0],

@@ -109,15 +109,12 @@ export function popupMaxHeight(
 }
 
 /**
- * How far the filter sheet and the credit on its edge reach past the bottom clearance, the cover
- * the bottom pill stack rises over. The sheet's padding already holds the clearance, so only what
- * reaches above it counts. A sheet not laid out yet covers nothing.
+ * How far the filter sheet reaches past the bottom clearance, the cover the bottom pill stack
+ * rises over. The sheet's padding already holds the clearance, so only what reaches above it
+ * counts. The credit line is inside the sheet, so the sheet's height is the whole cover. A sheet
+ * not laid out yet covers nothing.
  */
-export function filterSheetFootCover(
-  sheetHeight: number,
-  attributionClearance: number,
-  clearance: number
-): number {
+export function filterSheetFootCover(sheetHeight: number, clearance: number): number {
   if (sheetHeight <= 0) return 0;
-  return Math.max(0, sheetHeight + attributionClearance - clearance);
+  return Math.max(0, sheetHeight - clearance);
 }

@@ -81,7 +81,7 @@ export {
   mapTextShadow,
   chartLabelHalo,
 } from './shadows';
-export { chartStyles, PERFORMANCE_PLOT_HEIGHT } from './chartStyles';
+export { chartStyles, PERFORMANCE_BELOW_PLOT_HEIGHT, PERFORMANCE_PLOT_HEIGHT } from './chartStyles';
 export {
   duration,
   easing,

@@ -61,7 +61,7 @@
     "explanations": {
       "conditions": "天気データまたはデバイスセンサーからの温度。",
       "energy": "心拍数、パワー、持続時間から推定されるエネルギー消費量。",
-      "fitnessImpact": "休息日と比べ、このアクティビティは負荷 × (1 − e^(−1/{{fitnessDays}})) だけフィットネスを、負荷 × (1 − e^(−1/{{fatigueDays}})) だけ疲労を増やします。筋力トレーニングは疲労のみを増やします。フォームへの影響はフィットネスから疲労を引いた値です。",
+      "fitnessImpact": "このアクティビティが、休息日と比べてフィットネスと疲労をどれだけ増やしたかです。",
       "heartRate": "アクティビティ中の平均心拍数。",
       "newGround": "このアクティビティが通過した地図タイルのうち、これまでのアクティビティが通過していなかったものの割合です。タイルの幅は緯度により約150〜300 mで、新しい道の距離ではなくタイルの被覆率を示します。",
       "activityEftp": "eFTPは、このアクティビティに対するintervals.icuのパワーモデル推定値です。",
@@ -70,7 +70,7 @@
       "yourForm": "この日のあなたのフォーム（TSB）。これは特定のアクティビティではなく、全体的なトレーニングに基づく日次値です。TSB = フィットネス（CTL）- 疲労（ATL）。",
       "speed": "intervals.icu がこのアクティビティに保存した平均速度と最高速度です。",
       "pace": "intervals.icu がこのアクティビティに保存した平均ペースと最速ペースです。",
-      "cadence": "intervals.icu が保存した平均ケイデンスです。自転車では毎分のクランク回転数、それ以外では毎分の歩数またはストローク数です。"
+      "cadence": "平均ケイデンスです。自転車では毎分のクランク回転数、水中では毎分のストローク数です。徒歩では毎分の歩数になり、intervals.icu が表示する歩数の 2 倍の値になります。"
     },
     "ftp": "FTP設定: {{value}}",
     "heartRate": "心拍数",
@@ -462,10 +462,11 @@
     "enterDetailsInstead": "詳細を手動で入力",
     "fillAllFields": "すべてのフィールドを入力してください",
     "fillField": "「{{field}}」を入力してください",
-    "webdavHttpsRequired": "https:// のアドレスを使ってください。http:// では、パスワードとバックアップが暗号化されずに送信されます。",
+    "webdavSchemeRequired": "http:// または https:// のアドレスを使用してください",
+    "webdavPlainHttpWarning": "このアドレスは http:// を使用しているため、パスワードとバックアップは暗号化されずに送信されます。信頼できるサーバーとネットワークでのみ使用してください。",
     "webdavInvalidUrl": "有効なサーバーアドレスではありません",
     "webdavSaveFailed": "このデバイスにサーバー情報を保存できませんでした",
-    "webdavPlainLan": "自分のネットワーク内の暗号化されていないサーバーを許可する",
+    "webdavRemoveFirst": "バックアップが送られないよう、先にサーバーを削除してください",
     "webdavTestUnauthorised": "認証に失敗しました",
     "webdavTestMethodNotAllowed": "WebDAVのURL形式を確認してください。サーバーはこのパスでPROPFINDを受け付けません",
     "webdavTestStatus": "サーバーが{{code}}を返しました",
@@ -716,6 +717,7 @@
     "statusNoActivityAccess": "Garminはこのキーを受け付けましたが、アクティビティを読み取れません。",
     "statusMalformed": "Garminのキーではないようです。",
     "statusUnreachable": "Garminに接続できませんでした。しばらくしてからもう一度お試しください。",
+    "statusSaveFailed": "このデバイスにキーを保存できなかったため、Garminは接続されていません。もう一度お試しください。",
     "feedTitle": "VeloqにGarminのライドを表示",
     "feedHint": "接続すると、Garminアカウントのライドが Veloq のフィードに表示されます。",
     "moreOptions": "その他のオプション",
@@ -890,12 +892,12 @@
   "insights": {
     "ranking": {
       "title": "カードの順位",
-      "intro": "カードの選定要因であり、信頼度の確率ではありません。",
+      "intro": "これらの要因はカードの並び順を決めるものです。信頼度スコアではありません。",
       "scoreOnScale": "0〜1のスケールで{{score}}",
       "unavailable": "有効な比較データが不足しています",
       "recency": {
         "label": "新しさ",
-        "explanation": "値が高いほど、このセクションを最近走り終えたことを示します。値は時間とともに下がります。"
+        "explanation": "値が高いほど、このセクションをより最近行ったことを示します。値は時間の経過とともに下がります。"
       },
       "improvement": {
         "label": "パフォーマンスの変化",
@@ -908,13 +910,13 @@
       },
       "engagement": {
         "label": "相対的な頻度",
-        "explanation": "値が高いほど、この競技で最も多く走ったセクションに対する回数が多いことを示します。他のセクションの回数が多いと、この値は下がることがあります。"
+        "explanation": "値が高いほど、この競技で最も多く行ったセクションに対する回数が多いことを示します。他のセクションの回数が多いと、この値は下がることがあります。"
       }
     },
     "title": "インサイト",
     "strength": "筋力",
     "noInsights": "トレーニングに応じてインサイトが表示されます",
-    "noInsightsHint": "パーソナライズされたインサイトを見るには、より多くのアクティビティを完了してください",
+    "noInsightsHint": "インサイトを比較するには、もっと多くのアクティビティが必要です。",
     "couldNotBuild": "インサイトを作成できませんでした",
     "wellnessFromLastSync": "ウェルネスは最終同期のデータです。{{date}}",
     "sectionPr": "{{name}}でPR",
@@ -961,11 +963,11 @@
       "prDetection": "最新の区間タイムを過去のすべてのタイムと比較してPRを検出します。",
       "sectionTrend": "頻繁に訪れる区間での中央値パフォーマンスの推移を追跡します。",
       "periodComparison": "連続する週間のトレーニング指標を比較して進捗を追跡します。",
-      "hrvDescription": "本日までの 7 暦日のうち HRV の測定がある日を対象とし、5 日以上必要です。古い半分の平均と新しい半分の平均を比べます。変化として扱うのは、ご自身の測定値のばらつきから求めた 95% 区間が 0 を含まず、かつそのばらつきの標準偏差の半分と古い平均の 2% の両方を超える場合だけで、それ以外は横ばいとします。横ばいの期間でも、直近 2 件が連続した日で、後の値が低く、期間平均を下回り、さらにその 2 件がそれ以前の測定値に対して同じ検定を満たす場合は下降と読みます。",
+      "hrvDescription": "本日までの7暦日のうち、HRVの測定が5件以上ある期間を対象とします。古い半分の平均と新しい半分の平均を比べます。変化として扱うのは、自分の測定値のばらつきから求めた95%区間が0を含まず、かつそのばらつきの標準偏差の半分と古い平均の2%の両方を超える場合だけです。それ以外は横ばいとします。横ばいの期間でも、直近2件が連続した日で、後の値が低く、期間平均を下回り、さらにその2件がそれ以前の測定値に対して同じ検定を満たす場合は下降と読みます。",
       "periodComparisonRestDay": "今週のアクティビティがまだない場合、先週と4週間平均を比較します。",
       "ftpEstimation": "最新の日次eFTPを30日前の値と比較します。eFTPはパワーカーブからintervals.icuが推定した値で、アカウントのFTP設定ではありません。",
-      "criticalSpeedDescription": "42日間のペースカーブから得た最新のクリティカルスピードを、過去90日以内で0.02 m/sを超えて異なる直近の値と比較し、その変化をペースで表示します。",
-      "efficiencyDescription": "セクション上の一致した記録について、平均心拍数とペースの積を最小二乗回帰で時系列に追跡します。傾きの 95% 区間が 0 を含まず、記録全体でのモデル上の変化が平均の 2% を超える場合にのみ方向を表示します。値が下がるほど、1 kmあたりの心拍が少ないことを示します。心拍数が低い、ペースが速い、またはその両方です。",
+      "criticalSpeedDescription": "42日間のペースカーブから得た最新のクリティカルスピードを、過去90日以内で0.02 m/sを超えて異なる最新の値と比較し、その変化をペースで表示します。",
+      "efficiencyDescription": "セクション上の一致した記録について、平均心拍数とペースの積を、最小二乗法による時系列のトレンドとして追跡します。トレンドの95%区間が0を含まず、かつ当てはめた変化が平均の2%を超える場合にのみ方向を表示します。値が下がるほど、1 kmあたりの心拍が少ないことを示します。心拍数が低い、ペースが速い、またはその両方です。",
       "efficiencyFormula": "{{quantity}} ({{unit}}) = 平均心拍数 × ペース(1 kmあたりの秒数)",
       "route": "1つの競技と方向で、タイムがあり、除外されておらず、部分的でなく、ルートの距離範囲内にある試行を数えます。自己ベストはその中で最速のもので、最近のものです。傾向は、直近3回の中央値をその前の3回と比較し、6回以上の試行から算出します。"
     },
@@ -1002,10 +1004,10 @@
       "trendingDown": "HRV：新しい側の半分が低い",
       "stable": "HRV：明確な変化なし",
       "lastTwoDays": "HRV：直近2回の測定が平均を下回る",
-      "trendingUpBody": "直近 7 日間の HRV のうち、新しい半分の平均が古い半分を、日々のばらつきでは説明できないほど上回っています。期間平均 {{avg}} ms、{{days}} 件の測定、最新 {{latest}} ms。",
-      "trendingDownBody": "直近 7 日間の HRV のうち、新しい半分の平均が古い半分を、日々のばらつきでは説明できないほど下回っています。期間平均 {{avg}} ms、{{days}} 件の測定、最新 {{latest}} ms。",
-      "stableBody": "直近 7 日間の HRV の前半と後半の差は、日々のばらつきで説明できる範囲です。期間平均 {{avg}} ms、{{days}} 件の測定、最新 {{latest}} ms。",
-      "lastTwoDaysBody": "期間自体は横ばいですが、直近 2 件の測定が連続した日に日々のばらつきでは説明できないほど下がり、最新の {{latest}} ms は {{days}} 件の期間平均 {{avg}} ms を下回っています。"
+      "trendingUpBody": "直近7日間のHRVのうち、新しい半分の平均が古い半分を、いつもの日々のばらつきを超えて上回っています。期間平均 {{avg}} ms、{{days}} 件の測定、最新 {{latest}} ms。",
+      "trendingDownBody": "直近7日間のHRVのうち、新しい半分の平均が古い半分を、いつもの日々のばらつきを超えて下回っています。期間平均 {{avg}} ms、{{days}} 件の測定、最新 {{latest}} ms。",
+      "stableBody": "直近7日間のHRVの前半と後半の差は、いつもの日々のばらつきの範囲内です。期間平均 {{avg}} ms、{{days}} 件の測定、最新 {{latest}} ms。",
+      "lastTwoDaysBody": "直近7日間は横ばいでしたが、直近2件の測定は連続した日に、いつもの日々のばらつきを超えて下がりました。最新の {{latest}} ms は、{{days}} 件の測定の期間平均 {{avg}} ms を下回っています。"
     },
     "weeklyLoad": {
       "title": "トレーニング負荷が平均{{direction}}{{percent}}%",
@@ -1013,20 +1015,20 @@
       "below": "より下"
     },
     "stalePr": {
-      "title": "{{section}}は再挑戦する価値あり",
+      "title": "{{section}}：PR以降フィットネスが向上",
       "subtitle": "{{visited}}。PR {{prTime}} {{metric}} {{previous}}時、現在{{current}}",
-      "body": "{{visited}}。今のフィットネスなら再挑戦する価値があります。PRの日の{{metric}}は{{previous}}、現在は{{current}}。",
+      "body": "{{visited}}。PRの日は{{metric}}が{{previous}}、現在は{{current}}です。",
       "currentMetric": "現在の{{metric}}",
       "prMetric": "PR時の{{metric}}",
       "metricGain": "{{metric}}の向上",
       "prTime": "PRタイム",
-      "methodology": "{{visits}}回以上行い、直近{{days}}日間は訪れていないセクションのうち、今日のフィットネスがPRの日より{{gain}}%以上高いものを表示します。最大{{max}}件、訪問回数の多い順です。サイクリングのフィットネスはeFTPで、パワーカーブからのintervals.icuの推定値です。ランはクリティカルスピード、スイムはCSSで、どちらもペースカーブから求めます。",
+      "methodology": "{{visits}}回以上行い、直近{{days}}日間は訪れていないセクションのうち、現在のフィットネスがPRの日の水準より{{gain}}%以上高いものを表示します。最大{{max}}件、訪問回数の多い順です。サイクリングのフィットネスはeFTPで、パワーカーブからのintervals.icuの推定値です。ランはクリティカルスピード、スイムはCSSで、どちらもペースカーブから求めます。",
       "metricCyclingEftp": "サイクリングeFTP",
       "metricSwimCss": "スイムCSS",
       "metricRunningCriticalSpeed": "ランのクリティカルスピード",
       "groupMore": "(他{{n}}件)",
-      "groupTitle_one": "再挑戦する価値のあるセクション{{count}}件",
-      "groupTitle_other": "再挑戦する価値のあるセクション{{count}}件",
+      "groupTitle_one": "PR以降にフィットネスが向上したセクション{{count}}件",
+      "groupTitle_other": "PR以降にフィットネスが向上したセクション{{count}}件",
       "groupSubtitle": "現在の{{metric}} {{current}}",
       "visitedRide_one": "{{count}}回ライド",
       "visitedRide_other": "{{count}}回ライド",
@@ -1050,7 +1052,7 @@
       "openActivity": "PRのアクティビティを開く"
     },
     "aboutTitle": "インサイトについて",
-    "aboutBody": "トレーニング指標は公開された運動科学モデルに基づく推定値です。個人差が大きく生じます。これらのインサイトは情報提供のみを目的としており、医療やコーチングのアドバイスではありません。",
+    "aboutBody": "これらのインサイトは、直近のトレーニングをご自身の過去と比較するものです。情報提供のみを目的としており、医療やコーチングのアドバイスではありません。",
     "explanation": {
       "title": "インサイトを理解する",
       "foundLabel": "方法",
@@ -1062,7 +1064,7 @@
         },
         "fitness": {
           "label": "eFTP とクリティカルスピード",
-          "text": "いずれかの変化と、それが低かった頃に出した記録。"
+          "text": "どちらかの変化と、それより低いフィットネスの時に設定したPR。"
         },
         "week": {
           "label": "今週",
@@ -1085,7 +1087,7 @@
       "sources": "タイム、心拍数、パワーはアクティビティから、eFTP、クリティカルスピード、HRV は intervals.icu から取得し、各カードの方法とデータは「{{howCalculated}}」にあります。",
       "strengthTitle": "筋力を理解する"
     },
-    "aboutRanking": "カードは伝えるべき内容の大きさで並びます。どれだけ新しいか、いつもとどれだけ違うか、どれだけ動いたか、どれだけ頻繁に取り組んでいるか。",
+    "aboutRanking": "カードは、どれだけ新しいか、いつもとどれだけ違うか、どれだけ変化したか、そのセクションをどれだけ繰り返しているかの順に並びます。",
     "efficiencyTrend": {
       "seriesLabel": "{{quantity}}、古い走行から新しい走行へ",
       "quantity": "心拍数 × ペース",
@@ -1094,9 +1096,9 @@
       "changeSubtitle": "{{efforts}}回の走行における平均ペースでの推定変化 {{hrChange}} bpm",
       "changeBody": "{{name}}での{{efforts}}回の走行で、心拍数とペースの積が上昇しました。平均ペースでは推定 {{hrChange}} bpmに相当します。実測心拍数とは異なる場合があります。",
       "subtitle": "{{efforts}}回の平均ペースでのモデル値 {{hrChange}}bpm",
-      "body": "{{name}}での{{efforts}}回の走行で、心拍数×ペースが改善しました。平均ペースに換算したモデル値は{{hrChange}}bpmです。心拍数そのものは変わっていない可能性があります。",
+      "body": "{{name}}での{{efforts}}回の走行で、心拍数×ペースが改善しました。平均ペースで換算したモデル値は{{hrChange}}bpmです。心拍数だけは変わっていない可能性があります。",
       "sheetHeading": "一致した記録の比較",
-      "sheetBody": "同じセクションで心拍数とペースの両方がある繰り返しの記録に基づき、各回で心臓にかかった負担を時系列で比較します。",
+      "sheetBody": "同じセクションで心拍数とペースの両方がある繰り返しの記録を比較し、時系列で示します。心拍数とペースの両方が記録されたものだけを数えます。",
       "sheetMeta": "記録はセクションを開いて確認できます。"
     },
     "strengthBalance": {
@@ -1109,14 +1111,14 @@
       "noSignal": "データなし",
       "allOneSideTitle": "{{pair}}：ボリュームが片側のみ",
       "oneSidedBody": "過去4週間の{{pair}}の加重セットはすべて{{dominant}}によるものです。",
-      "ratioBody": "直近4週間で{{pair}}の加重セット比は平均{{ratio}}です。",
+      "ratioBody": "直近4週間で、{{pair}}の大きい側は小さい側の{{ratio}}倍の加重セット数です。",
       "ratioLabel": "比率",
       "statusLabel": "ステータス",
       "formula": "拮抗筋ペアごとの加重セット数",
-      "algorithm": "一般的な拮抗筋ペア間で加重セット数を比較します。主働は1.0、補助は0.5として数えます。"
+      "algorithm": "対になる筋肉ペアの加重セット数を比較します。主働は1.0、補助は0.5として数えます。"
     },
     "viewInDetail": "詳細を見る",
-    "routesDisabledDescription": "セクションは保存されたままで、マッチングを有効にすると再び開けます。",
+    "routesDisabledDescription": "セクションは保存されたままで、ルートとセクションをオンにすると戻ってきます。",
     "routesDisabledLine1": "ルートとセクションが無効です",
     "routesDisabledLine2": "ルートとセクションを有効にする",
     "strengthProgression": {
@@ -1150,7 +1152,7 @@
       "split": "複数の区間に分割されました",
       "restored": "復活しました",
       "reverted": "以前のバージョンに戻されました",
-      "body": "区間の履歴に、何が変わり、その前後にどの活動があったかが表示されます。"
+      "body": "区間の履歴に、各変化と、その前後の活動が一覧で表示されます。"
     },
     "milestoneSheet": {
       "powerHeading": "このeFTPの変化について",
@@ -1425,7 +1427,7 @@
     },
     "privacy": {
       "title": "プライバシーに関するお知らせ",
-      "brief": "アスリートIDとプッシュトークンがサーバーに保存されます（30日で期限切れ）。通知はAppleまたはGoogleを経由しますが、インサイトの内容はすべてデバイス上で生成されます。いつでも無効にできます。",
+      "brief": "アスリートIDとプッシュトークンがサーバーに保存されます（30日で期限切れ）。通知は Expo を経由し、その後 Apple または Google を経由して端末に届きますが、インサイトの内容はすべてデバイス上で生成されます。いつでも通知をオフにできます。",
       "accept": "理解しました"
     },
     "settings": {
@@ -1727,7 +1729,7 @@
     "duplicateNameMessage": "別の名前を選択してください。各ルートには一意の名前が必要です。",
     "expandInSettings": "設定で拡張",
     "gpsTrackNotDownloaded": "GPSデータはまだダウンロードされていません。ダウンロード後にもう一度お試しください。",
-    "match": "一致",
+    "matchPercent": "{{percent}} 一致",
     "noFrequentSections": "よく通る区間がまだありません",
     "noMatchingRoutes": "一致するルートが見つかりません",
     "noRoutesFor": "{{filters}} のルートはありません",
@@ -1966,7 +1968,7 @@
     "mergeCandidatesTitle": "結合するセクションを選択",
     "mergeCandidatesSubtitle_one": "近くに類似セクションが{{count}}件あります",
     "mergeCandidatesSubtitle_other": "近くに類似セクションが{{count}}件あります",
-    "overlapLabel": "重なり",
+    "overlapPercent": "{{percent}} 重なり",
     "distanceAway": "{{distance}}離れている",
     "acceptSection": "承認",
     "acceptAllSections": "すべて承認",
@@ -2128,6 +2130,9 @@
     "streamHistoryDays_other": "{{count}}日",
     "streamHistoryAll": "すべて",
     "streamHistoryReset": "リセット",
+    "streamHistoryNarrowTitle": "古いストリーム履歴を削除しますか?",
+    "streamHistoryNarrowBody": "{{window}}より前のアクティビティの保存済みデータ系列を、心拍・パワー・ケイデンスを含めてこの端末から削除します。再度ダウンロードするには intervals.icu の1日あたりのリクエスト上限を使います。",
+    "streamHistoryNarrowConfirm": "古いデータ系列を削除",
     "streamBackfill": "未取得のデータ系列",
     "streamBackfillOwed_one": "{{count}} 件のアクティビティ",
     "streamBackfillOwedSized_one": "{{count}} 件のアクティビティ、{{size}}",

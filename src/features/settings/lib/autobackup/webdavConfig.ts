@@ -7,53 +7,27 @@
 import * as SecureStore from 'expo-secure-store';
 
 import { addressFailure } from './backends/errors';
-import PLAIN_LAN_SUFFIXES from './plainLanSuffixes.json';
 
 const WEBDAV_URL_KEY = 'veloq-webdav-url';
 const WEBDAV_USERNAME_KEY = 'veloq-webdav-username';
 const WEBDAV_PASSWORD_KEY = 'veloq-webdav-password';
-const WEBDAV_PLAIN_LAN_KEY = 'veloq-webdav-plain-lan';
+/** Written by builds that asked for an opt-in to plain http. Nothing reads it now; clearing removes it. */
+const LEGACY_PLAIN_LAN_KEY = 'veloq-webdav-plain-lan';
 
 export interface WebdavConfig {
   url: string;
   username: string;
   password: string;
-  /** The athlete accepted an unencrypted server on their own network. */
-  plainLan: boolean;
 }
 
-export type WebdavUrlProblem = 'empty' | 'invalid' | 'not-https';
+export type WebdavUrlProblem = 'empty' | 'invalid' | 'not-http';
 
 /**
- * The name suffixes a home network answers for. The native config plugin reads
- * the same list, so each platform's release transport carries plain http to
- * every name this check accepts.
+ * Why an address cannot be a WebDAV server, or null. Both http and https are
+ * accepted for any host, because people self-host WebDAV; `isPlainHttp` is what
+ * the form warns on.
  */
-const PRIVATE_NAME = new RegExp(
-  `^([^.]+\\.)*(${PLAIN_LAN_SUFFIXES.map((suffix) => suffix.replace(/\./g, '\\.')).join('|')})$`,
-  'i'
-);
-
-const PRIVATE_ADDRESS =
-  /^(localhost|127(\.\d{1,3}){3}|10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2})$/;
-
-/** Loopback, link-local fe80::/10 and unique-local fc00::/7 literals, without brackets. */
-const PRIVATE_IPV6 =
-  /^(::1|fe[89ab][0-9a-f]?(:[0-9a-f]{0,4})*|f[cd][0-9a-f]{0,2}(:[0-9a-f]{0,4})*)$/i;
-
-function isPrivateHost(hostname: string): boolean {
-  if (hostname.startsWith('[') && hostname.endsWith(']')) {
-    return PRIVATE_IPV6.test(hostname.slice(1, -1));
-  }
-  return PRIVATE_ADDRESS.test(hostname) || PRIVATE_NAME.test(hostname);
-}
-
-/**
- * Why an address cannot take the athlete's password and record archive, or null.
- * The payload crosses as Basic auth and a raw file, so only https carries it,
- * except to a private host the athlete has explicitly allowed.
- */
-export function webdavUrlProblem(url: string, plainLan = false): WebdavUrlProblem | null {
+export function webdavUrlProblem(url: string): WebdavUrlProblem | null {
   const trimmed = url.trim();
   if (!trimmed) return 'empty';
   let parsed: URL;
@@ -62,9 +36,13 @@ export function webdavUrlProblem(url: string, plainLan = false): WebdavUrlProble
   } catch {
     return 'invalid';
   }
-  if (parsed.protocol === 'https:') return null;
-  if (parsed.protocol === 'http:' && plainLan && isPrivateHost(parsed.hostname)) return null;
-  return 'not-https';
+  if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return null;
+  return 'not-http';
+}
+
+/** Whether an address sends the password and record archive unencrypted. */
+export function isPlainHttp(url: string): boolean {
+  return /^\s*http:/i.test(url);
 }
 
 // In-memory cache (SecureStore is async but we need sync access for isAvailable)
@@ -79,20 +57,19 @@ export function getWebdavConfig(): WebdavConfig | null {
 export function webdavConfigProblem(): WebdavUrlProblem | null {
   const config = _webdavCache;
   if (!config) return 'empty';
-  return webdavUrlProblem(config.url, config.plainLan);
+  return webdavUrlProblem(config.url);
 }
 
 /** Load WebDAV config from SecureStore into cache. Call on app startup. */
 export async function initWebdavConfig(): Promise<void> {
   try {
-    const [url, username, password, plainLan] = await Promise.all([
+    const [url, username, password] = await Promise.all([
       SecureStore.getItemAsync(WEBDAV_URL_KEY),
       SecureStore.getItemAsync(WEBDAV_USERNAME_KEY),
       SecureStore.getItemAsync(WEBDAV_PASSWORD_KEY),
-      SecureStore.getItemAsync(WEBDAV_PLAIN_LAN_KEY),
     ]);
     if (url && username && password) {
-      _webdavCache = { url, username, password, plainLan: plainLan === '1' };
+      _webdavCache = { url, username, password };
     } else {
       _webdavCache = null;
     }
@@ -103,24 +80,22 @@ export async function initWebdavConfig(): Promise<void> {
 
 /**
  * Save WebDAV config to SecureStore and cache. Rejects with an `address` failure
- * for an address that would send in the clear.
+ * for an address that is not http or https.
  */
 export async function setWebdavConfig(
   url: string,
   username: string,
-  password: string,
-  plainLan = false
+  password: string
 ): Promise<void> {
-  const problem = webdavUrlProblem(url, plainLan);
+  const problem = webdavUrlProblem(url);
   if (problem) throw addressFailure('Save WebDAV server', problem);
   const opts = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
   await Promise.all([
     SecureStore.setItemAsync(WEBDAV_URL_KEY, url, opts),
     SecureStore.setItemAsync(WEBDAV_USERNAME_KEY, username, opts),
     SecureStore.setItemAsync(WEBDAV_PASSWORD_KEY, password, opts),
-    SecureStore.setItemAsync(WEBDAV_PLAIN_LAN_KEY, plainLan ? '1' : '0', opts),
   ]);
-  _webdavCache = { url, username, password, plainLan };
+  _webdavCache = { url, username, password };
 }
 
 /**
@@ -131,7 +106,7 @@ export async function setWebdavConfig(
 export async function clearWebdavConfig(): Promise<void> {
   _webdavCache = null;
   const results = await Promise.allSettled(
-    [WEBDAV_URL_KEY, WEBDAV_USERNAME_KEY, WEBDAV_PASSWORD_KEY, WEBDAV_PLAIN_LAN_KEY].map((key) =>
+    [WEBDAV_URL_KEY, WEBDAV_USERNAME_KEY, WEBDAV_PASSWORD_KEY, LEGACY_PLAIN_LAN_KEY].map((key) =>
       Promise.resolve().then(() => SecureStore.deleteItemAsync(key))
     )
   );

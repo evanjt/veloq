@@ -50,6 +50,13 @@ export interface BackupBackend {
   /** Check if this backend is available on the current device/platform. */
   isAvailable(): Promise<boolean>;
 
+  /**
+   * Whether the carrier holds a stored setup that is unavailable only because
+   * its address may not carry the credential. A run records that as a failure
+   * the athlete sees, rather than skipping the carrier as not set up.
+   */
+  addressProblem?(): boolean;
+
   /** List all existing backups, newest first. */
   listBackups(): Promise<BackupEntry[]>;
 

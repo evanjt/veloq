@@ -254,7 +254,6 @@ describe('restoring from a WebDAV server typed in without leaving the last field
       url: SERVER,
       username: 'rider',
       password: 'app-password',
-      plainLan: false,
     });
     expect(fetchMock).toHaveBeenCalledWith(
       `${SERVER}Veloq`,
@@ -313,17 +312,17 @@ describe('restoring from a WebDAV server typed in without leaving the last field
     );
   });
 
-  it('gives the https refusal for a plain address on the open internet', async () => {
+  it('refuses an address that is neither http nor https', async () => {
     const fetchMock = stubServer();
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     await openChooser();
-    await typeServer({ url: 'http://cloud.example.com/dav/', user: 'rider', password: 'pw' });
+    await typeServer({ url: 'ftp://cloud.example.com/dav/', user: 'rider', password: 'pw' });
 
     await pressList();
 
     expect(alert).toHaveBeenCalledWith(
       i18n.t('backup.notListedTitle'),
-      i18n.t('backup.webdavHttpsRequired'),
+      i18n.t('backup.webdavSchemeRequired'),
       undefined,
       expect.anything()
     );

@@ -8,6 +8,9 @@ import { demoLibrary, seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { getEngine } from '@/shared/native/engine';
 import { PACE_SNAPSHOT_WINDOW_DAYS, TIME_RANGES } from '@/shared/app/constants';
 import { timeRangeToDays } from '@/features/wellness';
+import { formatLocalDate } from '@/shared/format/format';
+import { dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
+import { atUtcOffset } from '../__shared__/fixedOffsetDate';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -199,6 +202,46 @@ describe('seedDemoEngine', () => {
 
     expect(second).toEqual(first);
   });
+
+  /**
+   * Scenario: intervals.icu sends `start_date_local` as a zoneless wall clock, and the engine stores
+   * it stamped as UTC. The demo fixtures carry the same zoneless clock, so a seed that reads them
+   * through `new Date` stamps the device zone instead: east of UTC a 00:00 workout lands on the day
+   * before, and a ride at 08:00 reads as 22:00 the previous evening.
+   *
+   * Expected behaviour: every stamp is the fixture's own wall clock read as UTC, and today's
+   * planned workout falls inside today's window, at every device offset. The clock is pinned so
+   * "today" is the same on every run.
+   */
+  const NOW = Date.UTC(2026, 10, 9, 12, 0);
+
+  it.each([10, -8])(
+    'stamps each demo activity with its wall clock read as UTC at UTC%s',
+    (offsetHours) => {
+      const rows = atUtcOffset(offsetHours, () => demoLibrary().activities, NOW);
+
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        const [y, mo, d, h, mi, s] = JSON.parse(row.raw)
+          .start_date_local.split(/[-T:]/)
+          .map(Number);
+        expect(row.date).toBe(Date.UTC(y, mo - 1, d, h, mi, s) / 1000);
+      }
+    }
+  );
+
+  it.each([10, -8])(
+    'keeps the planned workout for the current day inside that day at UTC%s',
+    (offsetHours) => {
+      atUtcOffset(offsetHours, () => seedDemoEngine(), NOW);
+      const today = atUtcOffset(offsetHours, () => formatLocalDate(new Date()), NOW);
+
+      const [, , rows] = engine.replaceCalendarEvents.mock.calls[0];
+      const workout = rows.find((row: { eventId: string }) => row.eventId === '90001');
+      expect(workout.date).toBeGreaterThanOrEqual(dayStartEpochSeconds(today));
+      expect(workout.date).toBeLessThanOrEqual(dayEndEpochSeconds(today));
+    }
+  );
 
   it('is a no-op before the engine exists', () => {
     mockGetEngine.mockReturnValue(null);

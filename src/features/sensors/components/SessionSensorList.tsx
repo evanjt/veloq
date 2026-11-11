@@ -8,6 +8,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { Button, NameText, Row, SignalStatus, type SignalLevel } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { formatCadence, formatHeartRate, formatPower } from '@/shared/format/format';
+import { formatPercent } from '@/shared/format';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { useRecordingStore } from '@/features/recording';
 
@@ -108,7 +109,7 @@ export function SessionSensorList() {
               ? null
               : t(`sensors.status.${row.state}`),
           ...row.live.map(({ kind, value }) => FORMAT_SAMPLE[kind](value)),
-          row.batteryPercent != null ? `${row.batteryPercent}%` : null,
+          row.batteryPercent != null ? formatPercent(row.batteryPercent) : null,
         ]
           .filter((part): part is string => !!part)
           .join(' · ');

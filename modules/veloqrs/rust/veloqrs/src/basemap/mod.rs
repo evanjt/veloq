@@ -45,6 +45,7 @@ pub use preseed::{
 };
 pub use store::{SourceTileCounts, TileCounts, TileStore, is_kept_offline};
 
+use crate::atomic_file::write_atomically;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -260,10 +261,17 @@ fn load_resolved(source: &str) -> Option<HeldTemplate> {
 
 fn save_resolved(source: &str, held: &HeldTemplate) {
     let Some(path) = resolved_path() else { return };
-    let mut map = read_resolved(&path);
+    save_resolved_at(&path, source, held);
+}
+
+/// [`save_resolved`] against the sidecar at `path`, so a test can aim it at a
+/// directory of its own. Installed through [`write_atomically`], so a kill
+/// mid-write leaves the previous sidecar rather than a truncated one.
+fn save_resolved_at(path: &std::path::Path, source: &str, held: &HeldTemplate) {
+    let mut map = read_resolved(path);
     map.insert(source.to_string(), held.clone());
     if let Ok(raw) = serde_json::to_string(&map)
-        && let Err(e) = std::fs::write(&path, raw)
+        && let Err(e) = write_atomically(path, raw.as_bytes())
     {
         log::warn!("[basemap] could not keep the resolved template: {e}");
     }
@@ -904,6 +912,48 @@ impl TileMiss {
         crate::runtime::spawn(async move {
             done(fetch.await.unwrap_or(Err(UPSTREAM_FAILED)));
         });
+    }
+}
+
+#[cfg(test)]
+mod sidecar_tests {
+    use super::*;
+    use std::io::Read;
+
+    fn held(template: &str, fetched_at: u64) -> HeldTemplate {
+        HeldTemplate {
+            template: template.to_string(),
+            fetched_at,
+        }
+    }
+
+    /// A refresh that is killed mid-write must leave the previous sidecar whole,
+    /// and a reader that opened it before the refresh keeps the bytes it opened.
+    #[test]
+    fn a_refresh_replaces_the_sidecar_so_an_open_reader_keeps_the_old_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tile-templates.json");
+        save_resolved_at(
+            &path,
+            "openfreemap",
+            &held("https://tiles.example.test/2026-10-01/{z}/{x}/{y}.pbf", 1),
+        );
+        let first = std::fs::read(&path).unwrap();
+
+        let mut reader = std::fs::File::open(&path).unwrap();
+        save_resolved_at(
+            &path,
+            "openfreemap",
+            &held("https://tiles.example.test/2026-10-08/{z}/{x}/{y}.pbf", 2),
+        );
+
+        let mut seen = Vec::new();
+        reader.read_to_end(&mut seen).unwrap();
+        assert_eq!(seen, first, "the refresh rewrote the sidecar in place");
+        assert_eq!(
+            read_resolved(&path)["openfreemap"],
+            held("https://tiles.example.test/2026-10-08/{z}/{x}/{y}.pbf", 2)
+        );
     }
 }
 

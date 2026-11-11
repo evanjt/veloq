@@ -333,15 +333,15 @@ impl FitnessManager {
         })?
     }
 
-    /// Batch insights data: combines period stats, trends, patterns, recent PRs
+    /// Batch insights data: combines period stats, trends, recent PRs
     /// and the section and strength tail. Reduces the Insights hook to a single
     /// round-trip.
     ///
     /// Read through the pool, so opening the tab while a sync page commits does
     /// not wait out the write. What the engine path answers from memory is the
-    /// activity patterns and the section list, and both are loaded from the
-    /// rows this reads. The metrics load that replaces the memory tier is
-    /// 2.5 ms on a 1,598-activity library against a 100 ms mount budget
+    /// section list, which is loaded from the rows this reads. The
+    /// metrics load that replaces the memory tier is 2.5 ms on a
+    /// 1,598-activity library against a 100 ms mount budget
     /// (`tests/insights_pool_cost.rs`).
     fn get_insights_data(
         &self,

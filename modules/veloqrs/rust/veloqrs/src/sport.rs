@@ -203,6 +203,7 @@ pub fn sport_family(sport: &str) -> &'static str {
 
 /// The sport's fixed shade within its family, 1 to 3. The base shade is 1,
 /// and the only one drawn where families mix.
+#[cfg(test)]
 pub fn sport_shade(sport: &str) -> u8 {
     if SHADE_3.contains(&sport) {
         3
@@ -237,6 +238,7 @@ pub fn is_swimming(sport: &str) -> bool {
     SWIMMING.contains(&sport)
 }
 
+#[cfg(test)]
 pub fn measures_power(sport: &str) -> bool {
     POWER.contains(&sport)
 }

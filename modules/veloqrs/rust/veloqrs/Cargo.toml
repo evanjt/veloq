@@ -427,3 +427,9 @@ required-features = ["synthetic"]
 name = "heatmap_tile_on_request"
 path = "examples/heatmap_tile_on_request.rs"
 required-features = ["synthetic"]
+
+# Standalone: reads the process's resident set while a full-scope regroup runs on the private corpus.
+[[test]]
+name = "match_measurement_residency"
+path = "tests/match_measurement_residency.rs"
+required-features = ["real-corpus"]

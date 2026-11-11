@@ -492,6 +492,22 @@ describe('the Android build', () => {
     ]);
   });
 
+  it('hands cargo no empty build setting, which is how a Gradle daemon unsets CARGO_BUILD_JOBS', () => {
+    build(ARM, { FAKE_LOG_LIFECYCLE: '1', CARGO_BUILD_JOBS: '' });
+
+    const events = calls().filter((line) => /^(start|end) /.test(line));
+    expect(events).toHaveLength(2);
+    expect(events.every((line) => line.endsWith(' jobs=undefined'))).toBe(true);
+  });
+
+  it('keeps a job count set in the environment and hands it to cargo', () => {
+    build(ARM, { FAKE_LOG_LIFECYCLE: '1', CARGO_BUILD_JOBS: '4' });
+
+    const events = calls().filter((line) => /^(start|end) /.test(line));
+    expect(events).toHaveLength(2);
+    expect(events.every((line) => line.endsWith(' jobs=4'))).toBe(true);
+  });
+
   it('passes the NDK it fingerprinted to cargo-ndk', () => {
     const dir = ndk('27.1.12297006');
     write(

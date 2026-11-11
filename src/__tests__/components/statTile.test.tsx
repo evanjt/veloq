@@ -12,14 +12,20 @@ import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
+import { initialiseI18n } from '@/i18n';
 import { StatTile } from '@/shared/ui/StatTile';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
+import { ABSENT } from '@/shared/format/absent';
 import { colors, darkColors, typography, verdictColor } from '@/theme';
 
 let mockIsDark = false;
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: mockIsDark }),
 }));
+
+beforeAll(async () => {
+  await initialiseI18n('en-GB');
+});
 
 afterEach(() => {
   mockIsDark = false;
@@ -165,6 +171,32 @@ describe('StatTile', () => {
 
     expect(tile.props.accessible).toBe(true);
     expect(tile.props.accessibilityLabel).toBe('Distance, 44.2 km, Up, 12%, vs last week');
+  });
+
+  it('speaks an absent value as no data rather than as minus', async () => {
+    const view = await render(<StatTile testID="tile" label="HRV" value={ABSENT} />);
+    const spoken = view.getByTestId('tile').props.accessibilityLabel;
+
+    expect(spoken).toBe('HRV, No data');
+    expect(spoken).not.toContain(ABSENT);
+  });
+
+  it('speaks an absent delta as no data, and leaves a value with a sign spoken as printed', async () => {
+    const absent = await render(
+      <StatTile
+        testID="tile"
+        label="Load"
+        value="410"
+        delta={{ glyph: '→', text: ABSENT, tone: 'neutral', spoken: 'No change' }}
+      />
+    );
+    expect(absent.getByTestId('tile').props.accessibilityLabel).toBe(
+      'Load, 410, No change, No data'
+    );
+    expect(absent.getByTestId('tile-delta').props.accessibilityLabel).toBe('No change, No data');
+
+    const signed = await render(<StatTile testID="tile" label="Power" value="-3" unit="W" />);
+    expect(signed.getByTestId('tile').props.accessibilityLabel).toBe('Power, -3 W');
   });
 
   it('is no second stop inside a parent that already speaks it', async () => {

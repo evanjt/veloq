@@ -307,7 +307,7 @@ fn insights_data_split_by_part() {
     let parts = fanout + junction_scan + ranked + performances;
     println!(
         "parts {:.2} ms of a {:.2} ms bundle ({:.0}%); the rest is period stats, trends, \
-         patterns, efficiency and strength",
+         efficiency and strength",
         parts.as_secs_f64() * 1000.0,
         total.as_secs_f64() * 1000.0,
         100.0 * parts.as_secs_f64() / total.as_secs_f64()

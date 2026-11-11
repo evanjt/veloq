@@ -35,8 +35,8 @@
   "activity": {
     "heldBack": {
       "title": "Not shared by intervals.icu",
-      "detail": "intervals.icu holds this activity but does not make it available to apps, so its data is empty here.",
-      "detailGarmin": "Connecting your Garmin key fills it from the original.",
+      "detail": "intervals.icu has this activity but does not share it with apps, so there is no data here.",
+      "detailGarmin": "Connect Garmin to fill it from the original file.",
       "connectGarmin": "Connect Garmin"
     },
     "provenance": {
@@ -61,16 +61,16 @@
     "explanations": {
       "conditions": "Temperature from weather data or your device sensor.",
       "energy": "Estimated energy expenditure from heart rate, power, and duration.",
-      "fitnessImpact": "Compared with a rest day, this activity adds load × (1 − e^(−1/{{fitnessDays}})) to fitness and load × (1 − e^(−1/{{fatigueDays}})) to fatigue. Strength training adds fatigue only. Form impact is fitness minus fatigue.",
+      "fitnessImpact": "How much this activity added to your fitness and fatigue, compared with a rest day.",
       "heartRate": "Average heart rate during the activity.",
       "newGround": "The share of the map tiles this activity touched that no earlier activity had touched. Tiles are about 150 to 300 m across, depending on latitude, so this is tile coverage and not distance on new roads.",
       "activityEftp": "The eFTP is intervals.icu's power model estimate for this activity.",
       "power": "Average power output in watts.",
-      "trainingLoad": "Training load is computed by intervals.icu from power, heart rate or pace, depending on the data the activity holds and your sport settings. It weighs duration by intensity relative to your threshold.",
-      "yourForm": "Your Form (TSB) on this day. This is a daily value based on your overall training, not specific to this activity. TSB = Fitness (CTL) minus Fatigue (ATL).",
+      "trainingLoad": "intervals.icu calculates training load from power, heart rate or pace, whichever the activity has. It weighs duration by intensity against your threshold.",
+      "yourForm": "Your Form (TSB) that day, from all your training rather than this activity alone. TSB is Fitness (CTL) minus Fatigue (ATL).",
       "speed": "Average and maximum speed as intervals.icu stored them for this activity.",
       "pace": "Average and fastest pace as intervals.icu stored them for this activity.",
-      "cadence": "Average cadence: crank revolutions per minute on a bike, steps per minute on foot, twice the strides intervals.icu stores, and strokes per minute otherwise."
+      "cadence": "Average cadence. Revolutions per minute on a bike, strokes per minute in the water. On foot it's steps per minute, so it reads double the strides intervals.icu shows."
     },
     "ftp": "FTP setting: {{value}}",
     "heartRate": "Heart rate",
@@ -284,13 +284,13 @@
   },
   "alerts": {
     "cacheCleared": "Cache cleared",
-    "clearCacheMessage": "This will clear all cached activity data, activity tracks, and route matching data, then start reloading. This may take a few minutes. The local data range goes back to the last 90 days.",
-    "clearCacheOffline": "You are offline. The reload needs a connection, so your activities, maps and routes will stay empty until the network returns.",
+    "clearCacheMessage": "Clears cached activity data, tracks and route matching, then reloads them. Might take a few minutes. Local data then covers the last 90 days.",
+    "clearCacheOffline": "You're offline. The reload needs a connection, so activities, maps and routes stay empty until you're back online.",
     "clearCacheTitle": "Clear & reload cache",
     "clearReload": "Clear & reload",
     "signOut": "Sign out",
     "signOutMessage": "Your library, names and settings stay on this phone. Sign in again to sync.",
-    "disconnectOffline": "You are offline. Both ways back in need a connection, so you will not be able to sign in again until the network returns.",
+    "disconnectOffline": "You're offline. Signing in again needs a connection, however you sign in.",
     "signOutTitle": "Sign out?",
     "leaveDemoTitle": "Leave demo?",
     "leaveDemoMessage": "The sample rides close and you return to sign-in. Nothing from the demo is kept.",
@@ -298,9 +298,9 @@
     "failedToClear": "Failed to clear cache. Please try again.",
     "failedToDisconnect": "Failed to disconnect. Please try again.",
     "accountChangeTitle": "Different account detected",
-    "accountChangeMessage": "This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.",
+    "accountChangeMessage": "This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account permanently deletes it. To keep it, go back and sign in to that account.",
     "accountChangeDemoMessage": "This device has cached data for another account ({{cachedAthleteId}}). Continuing to demo mode will permanently delete that data. To keep it, go back and sign in to that account first.",
-    "unnamedLibraryMessage": "This device holds a library that names no account. If it is yours, keep it and it will sync as this account. Otherwise delete it.",
+    "unnamedLibraryMessage": "This device has a library that isn't linked to an account. If it's yours, keep it and it'll sync to this account. Otherwise, delete it.",
     "unnamedLibraryMine": "This is mine",
     "unnamedLibraryDelete": "Delete it",
     "accountChangeUnknownDemoMessage": "This device holds a library from another account. Continuing to demo mode will permanently delete it. To keep it, go back and sign in to that account first.",
@@ -462,10 +462,11 @@
     "enterDetailsInstead": "Enter details instead",
     "fillAllFields": "Please fill in all fields",
     "fillField": "Please fill in the {{field}} field",
-    "webdavHttpsRequired": "Use an https:// address. Over http://, your password and backups would travel unencrypted.",
+    "webdavSchemeRequired": "Use an http:// or https:// address",
+    "webdavPlainHttpWarning": "This address uses http://, so your password and backups travel unencrypted. Use it only with a server you trust on a network you trust.",
     "webdavInvalidUrl": "That is not a valid server address",
     "webdavSaveFailed": "Could not save the server details on this device",
-    "webdavPlainLan": "Allow an unencrypted server on my own network",
+    "webdavRemoveFirst": "Remove the server first to stop backups going to it",
     "webdavTestUnauthorised": "Authentication failed",
     "webdavTestMethodNotAllowed": "Check your WebDAV URL format. The server does not accept PROPFIND at this path",
     "webdavTestStatus": "Server returned {{code}}",
@@ -716,6 +717,7 @@
     "statusNoActivityAccess": "This key cannot read your activities.",
     "statusMalformed": "That does not look like a Garmin key.",
     "statusUnreachable": "Garmin could not be reached. Try again shortly.",
+    "statusSaveFailed": "The key could not be kept on this device, so Garmin is not connected. Try again.",
     "feedTitle": "Show my Garmin rides in Veloq",
     "feedHint": "Rides from your Garmin account appear in Veloq's feed once connected.",
     "moreOptions": "More options",
@@ -818,15 +820,15 @@
     "noActivitiesFor": "No activities for {{filters}}",
     "searchPlaceholder": "Search activities…",
     "streamConsentTitle": "Download missing activity data?",
-    "streamConsentBody_one": "{{count}} activity is missing its heart rate, power and cadence series. Downloading it uses about {{megabytes}} MB of data.",
-    "streamConsentBody_other": "{{count}} activities are missing their heart rate, power and cadence series. Downloading them uses about {{megabytes}} MB of data.",
+    "streamConsentBody_one": "{{count}} activity is missing heart rate, power and cadence data. Grabbing it uses about {{megabytes}} MB.",
+    "streamConsentBody_other": "{{count}} activities are missing heart rate, power and cadence data. Grabbing them uses about {{megabytes}} MB.",
     "streamConsentDownload": "Download",
     "streamConsentDecline": "Not now",
     "sectionsChangedTitleOwed": "Your sections are being upgraded",
     "sectionsChangedTitleDone": "Your sections are updated",
-    "sectionsChangedBody": "We've improved how Veloq finds sections. {{total}} of your old sections have been retired. The ones you saved, renamed or pinned are kept. If you want any of the others back, find them in Retired sections.",
+    "sectionsChangedBody": "Veloq finds sections differently now. {{total}} old sections are retired. Any you saved, renamed or pinned are kept. Want one back? Find it under Retired sections.",
     "sectionsChangedBodyNone": "We've improved how Veloq finds sections.",
-    "sectionsChangedBodyOwed": "Your newest activities can be used now. Older activities download newest first under intervals.icu's daily limit and join your sections as they arrive. The sections you saved, renamed or pinned are kept.",
+    "sectionsChangedBodyOwed": "Your newest activities are ready now. Older ones download newest first, within intervals.icu's daily limit, and join your sections as they arrive. Sections you saved, renamed or pinned are kept.",
     "sectionsChangedReady_one": "{{count}} activity is ready to use now.",
     "sectionsChangedReady_other": "{{count}} activities are ready to use now.",
     "sectionsChangedProgress": "See progress",
@@ -890,17 +892,17 @@
   "insights": {
     "ranking": {
       "title": "Card ranking",
-      "intro": "These are card-selection factors, not confidence probabilities.",
+      "intro": "These factors set the card order. They are not confidence scores.",
       "scoreOnScale": "{{score}} on a 0 to 1 scale",
       "unavailable": "Not enough valid comparison data",
       "recency": {
         "label": "Recency",
-        "explanation": "Higher scores mean this section was completed more recently; the score falls with time."
+        "explanation": "Higher scores mean this section was done more recently. The score falls as time passes."
       },
       "improvement": {
         "label": "Performance change",
-        "medianOfThree": "Latest three-effort median compared with the previous three; positive means faster, negative means slower.",
-        "firstToLast": "Latest effort compared with the first; positive means faster, negative means slower."
+        "medianOfThree": "Latest three-effort median compared with the previous three. Positive means faster, negative means slower.",
+        "firstToLast": "Latest effort compared with the first. Positive means faster, negative means slower."
       },
       "anomaly": {
         "label": "Unusualness",
@@ -908,13 +910,13 @@
       },
       "engagement": {
         "label": "Relative engagement",
-        "explanation": "Higher scores mean more efforts relative to your most-completed section in this sport; more efforts on another section can lower this score."
+        "explanation": "Higher scores mean more efforts, relative to your most-done section in this sport. Efforts on other sections can lower it."
       }
     },
     "title": "Insights",
     "strength": "Strength",
     "noInsights": "Insights will appear as you train",
-    "noInsightsHint": "Complete more activities to see personalised insights",
+    "noInsightsHint": "Insights need more activities to compare against.",
     "couldNotBuild": "Insights could not be built",
     "wellnessFromLastSync": "Wellness from the last sync, {{date}}",
     "sectionPr": "PR on {{name}}",
@@ -959,10 +961,10 @@
       "trendingDown": "HRV: newer half lower",
       "stable": "HRV: no clear change",
       "lastTwoDays": "HRV: last two readings below the mean",
-      "trendingUpBody": "The newer half of your last 7 days of HRV averaged more than the older half, by more than your day-to-day variation accounts for. Window mean {{avg}} ms over {{days}} readings, latest {{latest}} ms.",
-      "trendingDownBody": "The newer half of your last 7 days of HRV averaged less than the older half, by more than your day-to-day variation accounts for. Window mean {{avg}} ms over {{days}} readings, latest {{latest}} ms.",
-      "stableBody": "The two halves of your last 7 days of HRV differ by no more than your day-to-day variation accounts for. Window mean {{avg}} ms over {{days}} readings, latest {{latest}} ms.",
-      "lastTwoDaysBody": "The window itself held steady, but your last two readings fell on consecutive days, further than your day-to-day variation accounts for, and the latest, {{latest}} ms, is below the window mean of {{avg}} ms over {{days}} readings."
+      "trendingUpBody": "The newer half of your last 7 days of HRV averaged higher than the older half, by more than your usual day-to-day variation. Window mean {{avg}} ms over {{days}} readings, latest {{latest}} ms.",
+      "trendingDownBody": "The newer half of your last 7 days of HRV averaged lower than the older half, by more than your usual day-to-day variation. Window mean {{avg}} ms over {{days}} readings, latest {{latest}} ms.",
+      "stableBody": "The two halves of your last 7 days of HRV differ by no more than your usual day-to-day variation. Window mean {{avg}} ms over {{days}} readings, latest {{latest}} ms.",
+      "lastTwoDaysBody": "The last 7 days held steady, but your last two readings fell on consecutive days by more than your usual day-to-day variation. The latest, {{latest}} ms, is below the window mean of {{avg}} ms over {{days}} readings."
     },
     "weeklyLoad": {
       "title": "Training load {{percent}}% {{direction}} average",
@@ -970,20 +972,20 @@
       "below": "below"
     },
     "stalePr": {
-      "title": "{{section}} is worth another go",
+      "title": "{{section}}: fitness has risen since the PR",
       "subtitle": "{{visited}}. PR {{prTime}} at {{metric}} {{previous}}, now {{current}}",
-      "body": "{{visited}}. Worth another go at your current fitness: {{metric}} {{previous}} on the PR's day, {{current}} now.",
+      "body": "{{visited}}. {{metric}} was {{previous}} on the PR's day and is {{current}} now.",
       "currentMetric": "Current {{metric}}",
       "prMetric": "{{metric}} at PR",
       "metricGain": "{{metric}} gain",
       "prTime": "PR time",
-      "methodology": "Shown for a section you've done at least {{visits}} times and not in the last {{days}} days, where your fitness today is at least {{gain}}% above your fitness on the day you set the PR. Up to {{max}} are shown, most visited first. Cycling fitness is eFTP, intervals.icu's estimate from your power curve. Running fitness is critical speed and swimming fitness is CSS, both from your pace curve.",
+      "methodology": "Shown for a section done at least {{visits}} times and not in the last {{days}} days, where fitness now is at least {{gain}}% above its level on the PR day. Up to {{max}}, most visited first. Cycling uses eFTP, intervals.icu's estimate from your power curve. Running uses critical speed and swimming uses CSS, both from your pace curve.",
       "metricCyclingEftp": "Cycling eFTP",
       "metricSwimCss": "Swim CSS",
       "metricRunningCriticalSpeed": "Running critical speed",
       "groupMore": "(+{{n}} more)",
-      "groupTitle_one": "{{count}} section worth another go",
-      "groupTitle_other": "{{count}} sections worth another go",
+      "groupTitle_one": "{{count}} section where fitness has risen since its PR",
+      "groupTitle_other": "{{count}} sections where fitness has risen since their PRs",
       "groupSubtitle": "{{metric}} now {{current}}",
       "visitedRide_one": "Ridden once",
       "visitedRide_other": "Ridden {{count}} times",
@@ -1012,11 +1014,11 @@
       "prDetection": "Compares your latest section time against all previous efforts to detect personal records.",
       "sectionTrend": "Tracks median performance on frequently visited sections over time.",
       "periodComparison": "Compares training metrics so far this week against the same point last week.",
-      "hrvDescription": "The 7 calendar days ending today, keeping the days with an HRV reading, and at least five of them. The mean of the older half is compared with the mean of the newer half. A move counts only when its 95% interval, from the spread of your own readings, excludes zero, and it is larger than half a standard deviation of that spread and 2% of the older mean; anything less reads as steady. A steady window still reads as falling when the last two readings are on consecutive days, the second is lower, it sits below the window mean, and the pair passes the same test against the readings before it.",
+      "hrvDescription": "The 7 calendar days ending today, with at least five HRV readings. The mean of the older half is compared with the newer half. A move counts only if its 95% interval, from the spread of your readings, excludes zero and is larger than half a standard deviation of that spread and 2% of the older mean. Anything smaller reads as steady. A steady window still reads as falling if the last two readings fall on consecutive days, the second is lower, it sits below the window mean, and it passes the same test against earlier readings.",
       "periodComparisonRestDay": "Compares last week against your 4-week average when the current week has no activities yet.",
       "ftpEstimation": "Compares your latest daily eFTP with the value from 30 days earlier. eFTP is intervals.icu's estimate from your power curve, not the FTP setting on your account.",
-      "criticalSpeedDescription": "Compares your latest critical speed from the 42-day pace curve with the most recent earlier value that differs from it by more than 0.02 m/s within the previous 90 days, and shows the change as pace.",
-      "efficiencyDescription": "Tracks average heart rate multiplied by pace across matched efforts on the section, with an ordinary least squares regression over time. A direction is shown only when the slope's 95% interval excludes zero and the fitted change across the efforts is more than 2% of the mean. A falling value means fewer heartbeats per km: a lower heart rate, a faster pace or both.",
+      "criticalSpeedDescription": "Compares your latest critical speed, from the 42-day pace curve, with the most recent value in the previous 90 days that differs by more than 0.02 m/s. The change is shown as pace.",
+      "efficiencyDescription": "Tracks average heart rate times pace across matched efforts on the section, as a least squares trend over time. A direction is shown only when the trend's 95% interval excludes zero and the fitted change is more than 2% of the mean. A falling value means fewer heartbeats per km: a lower heart rate, a faster pace or both.",
       "efficiencyFormula": "{{quantity}} ({{unit}}) = average heart rate × pace (seconds per km)",
       "route": "Counts attempts on a route in one sport and direction that are timed, not excluded, not partial and inside the route's distance band. A record is the fastest of them, set recently. A trend compares the median of the last three against the three before, from six attempts."
     },
@@ -1049,7 +1051,7 @@
       "weeklyLoad": "Weekly load"
     },
     "aboutTitle": "About insights",
-    "aboutBody": "Training metrics are estimates based on published exercise science models. Individual responses vary significantly. These insights are informational only, not medical or coaching advice.",
+    "aboutBody": "Insights compare your recent training with your own history. For information only, not medical or coaching advice.",
     "explanation": {
       "title": "Understanding insights",
       "foundLabel": "Method",
@@ -1061,7 +1063,7 @@
         },
         "fitness": {
           "label": "eFTP and critical speed",
-          "text": "A change in either, and the records set while it was lower."
+          "text": "A change in either, and any PRs set at lower fitness."
         },
         "week": {
           "label": "This week",
@@ -1084,18 +1086,18 @@
       "sources": "Times, heart rate and power come from your activities, and eFTP, critical speed and HRV from intervals.icu, with each card's method and data under “{{howCalculated}}”.",
       "strengthTitle": "Understanding strength"
     },
-    "aboutRanking": "Cards are ordered by how much each one has to say: how recent it is, how far it stands out from your usual, how much it has moved, and how often you do it.",
+    "aboutRanking": "Cards are ordered by how recent they are, how far they stand out from your usual, how much they have moved, and how often you repeat the section.",
     "efficiencyTrend": {
       "seriesLabel": "{{quantity}}, oldest effort to newest",
       "quantity": "Heart rate × pace",
       "title": "Efficiency improving on {{name}}",
       "changeTitle": "Efficiency on {{name}}: {{hrChange}} bpm",
       "changeSubtitle": "Modelled {{hrChange}} bpm at average pace over {{efforts}} efforts",
-      "changeBody": "Over {{efforts}} efforts on {{name}}, heart rate times pace increased. At the average pace this is a modelled {{hrChange}} bpm; measured heart rate may differ.",
+      "changeBody": "Over {{efforts}} efforts on {{name}}, heart rate times pace increased. At the average pace this is a modelled {{hrChange}} bpm. Measured heart rate may differ.",
       "subtitle": "Modelled {{hrChange}} bpm at average pace over {{efforts}} efforts",
-      "body": "Over {{efforts}} efforts on {{name}}, heart rate times pace has improved. At your average pace that is a modelled {{hrChange}} bpm; your heart rate itself may not have changed.",
+      "body": "Over {{efforts}} efforts on {{name}}, heart rate times pace has improved. At your average pace that is a modelled {{hrChange}} bpm. Your heart rate alone may not have changed.",
       "sheetHeading": "Matched-effort comparison",
-      "sheetBody": "Based on repeat efforts on the same section that carry both heart rate and pace. Compares what each pass cost your heart over time.",
+      "sheetBody": "Compares heart rate times pace across repeat efforts on this section, over time. Only efforts with both heart rate and pace are counted.",
       "sheetMeta": "Open the section for the underlying efforts."
     },
     "strengthBalance": {
@@ -1108,15 +1110,15 @@
       "noSignal": "No signal",
       "allOneSideTitle": "{{pair}}: all volume on one side",
       "oneSidedBody": "{{dominant}} represents all of the weighted set volume for {{pair}} across the past 4 weeks.",
-      "ratioBody": "{{pair}} averages {{ratio}} in weighted sets in the most recent 4-week window.",
+      "ratioBody": "Over the last 4 weeks, the larger side of {{pair}} has {{ratio}} the weighted sets of the smaller.",
       "ratioLabel": "Ratio",
       "statusLabel": "Status",
       "formula": "Weighted sets per antagonist pair",
-      "algorithm": "Compares weighted set counts across common antagonist pairs. Primary work counts as 1.0 and secondary work counts as 0.5."
+      "algorithm": "Compares weighted sets for opposing muscle pairs. Primary work counts as 1.0 and secondary work counts as 0.5."
     },
     "howCalculated": "How was this calculated?",
     "viewInDetail": "View in detail",
-    "routesDisabledDescription": "Your sections are kept and open again once matching is on.",
+    "routesDisabledDescription": "Your sections are kept and come back when routes and sections are on.",
     "routesDisabledLine1": "Routes & sections disabled",
     "routesDisabledLine2": "Turn on routes and sections",
     "strengthProgression": {
@@ -1150,7 +1152,7 @@
       "split": "It split into more than one section",
       "restored": "It came back",
       "reverted": "It was put back to an earlier version",
-      "body": "The section's history shows what moved and which activities were around it."
+      "body": "The section history lists each change and the activities near it."
     },
     "milestoneSheet": {
       "powerHeading": "About this eFTP change",
@@ -1425,13 +1427,13 @@
     },
     "privacy": {
       "title": "Privacy notice",
-      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Expo, then Apple or Google, to reach your device. All insight content is generated on your device. You can disable at any time.",
+      "brief": "Veloq keeps your athlete ID and a push token on its server for 30 days. Notifications reach your device through Expo, then Apple or Google. Insight content is generated on your device. You can turn notifications off any time.",
       "accept": "I understand"
     },
     "settings": {
       "title": "Notifications",
       "enable": "Enable notifications",
-      "requiresOAuth": "To enable notifications, disconnect and reconnect using the OAuth login flow instead of a personal API key.",
+      "requiresOAuth": "Notifications need you to sign in with intervals.icu, not a personal API key. Disconnect, then sign in again.",
       "privacyHint": "Stores a push token and athlete ID on our server (30-day expiry). See veloq.fit/privacy",
       "sectionPr": "Personal bests",
       "fitnessMilestone": "Fitness milestones"
@@ -1727,7 +1729,7 @@
     "duplicateNameMessage": "Please choose a different name. Each route must have a unique name.",
     "expandInSettings": "Expand range",
     "gpsTrackNotDownloaded": "GPS data not downloaded yet. Try again once it has downloaded.",
-    "match": "match",
+    "matchPercent": "{{percent}} match",
     "noFrequentSections": "No frequent sections yet",
     "noMatchingRoutes": "No matching routes found",
     "noRoutesFor": "No routes for {{filters}}",
@@ -1975,7 +1977,7 @@
     "mergeCandidatesTitle": "Choose a section to merge",
     "mergeCandidatesSubtitle_one": "{{count}} similar section nearby",
     "mergeCandidatesSubtitle_other": "{{count}} similar sections nearby",
-    "overlapLabel": "overlap",
+    "overlapPercent": "{{percent}} overlap",
     "distanceAway": "{{distance}} away",
     "accepted": "Accepted",
     "acceptedOnly": "Accepted only",
@@ -2132,6 +2134,9 @@
     "streamHistoryDays_other": "{{count}} days",
     "streamHistoryAll": "All",
     "streamHistoryReset": "Reset",
+    "streamHistoryNarrowTitle": "Delete older stream history?",
+    "streamHistoryNarrowBody": "Stored series for activities older than {{window}} are deleted from this device, including their heart rate, power and cadence. Downloading them again uses intervals.icu's daily request limit.",
+    "streamHistoryNarrowConfirm": "Delete older series",
     "streamBackfill": "Missing series",
     "streamBackfillOwed_one": "{{count}} activity",
     "streamBackfillOwedSized_one": "{{count}} activity, {{size}}",

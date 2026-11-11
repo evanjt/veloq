@@ -1,11 +1,12 @@
 /**
  * What an activity card shares with the map it sits over, kept as the card's state in the host's
  * entry (`mapSheetHost`): the tab on show, the point a chart scrub is on, the section a row holds
- * highlighted, and the section a marker tap asked the Sections tab to show. The card holds the
+ * highlighted, the detail bundle the card read, and the section a marker tap asked the Sections tab to show. The card holds the
  * first three as its own and writes them for the map, which reads each field on its own, so a
  * scrub renders the map and not the card. A marker tap on the map writes the section to show,
  * which the card reads from its own place in the stack and opens the Sections tab on.
  */
+import type { ActivityDetailBundle } from '../hooks/useActivityDetailData';
 import {
   patchHostCard,
   useHostCardField,
@@ -17,6 +18,7 @@ const ACTIVE_TAB = 'activeTab';
 const HIGHLIGHT_INDEX = 'highlightIndex';
 const HIGHLIGHTED_SECTION = 'highlightedSectionId';
 const FOCUS_SECTION = 'focusSectionId';
+const DETAIL = 'detail';
 
 /** The tabs an activity card can show. */
 export type ActivityTab = 'charts' | 'exercises' | 'lengths' | 'routes' | 'sections';
@@ -56,6 +58,8 @@ export interface ActivityCardWriter {
   showSection: (sectionId: string) => void;
   /** The Sections tab has scrolled to the section a marker asked for. */
   sectionShown: () => void;
+  /** The bundle the card read for `activityId`, for the map to draw from without a read of its own. */
+  setDetail: (activityId: string, bundle: ActivityDetailBundle | null) => void;
 }
 
 /**
@@ -71,6 +75,7 @@ export function activityCardWriter(hostKey: string, index: number): ActivityCard
     setHighlightedSectionId: (sectionId) => patch({ [HIGHLIGHTED_SECTION]: sectionId }),
     showSection: (sectionId) => patch({ [FOCUS_SECTION]: sectionId }),
     sectionShown: () => patch({ [FOCUS_SECTION]: null }),
+    setDetail: (activityId, bundle) => patch({ [DETAIL]: bundle ? { activityId, bundle } : null }),
   };
 }
 
@@ -95,4 +100,13 @@ export function useCardHighlightedSection(hostKey: string): string | null {
  */
 export function useCardFocusSection(hostKey: string, index: number): string | null {
   return useHostCardField<string | null>(hostKey, index, FOCUS_SECTION) ?? null;
+}
+
+/** The bundle the card on show read for `activityId`; null before it has written one. */
+export function useCardDetail(hostKey: string, activityId: string): ActivityDetailBundle | null {
+  const held = useHostTopCardField<{ activityId: string; bundle: ActivityDetailBundle } | null>(
+    hostKey,
+    DETAIL
+  );
+  return held?.activityId === activityId ? held.bundle : null;
 }

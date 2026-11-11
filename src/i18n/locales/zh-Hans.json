@@ -61,7 +61,7 @@
     "explanations": {
       "conditions": "来自天气数据或您设备传感器的温度。",
       "energy": "根据心率、功率和持续时间估算的能量消耗。",
-      "fitnessImpact": "与休息日相比，本次活动使体能增加负荷 × (1 − e^(−1/{{fitnessDays}}))，使疲劳增加负荷 × (1 − e^(−1/{{fatigueDays}}))。力量训练只增加疲劳。状态影响等于体能影响减去疲劳影响。",
+      "fitnessImpact": "与休息日相比，本次活动使体能和疲劳分别增加了多少。",
       "heartRate": "活动期间的平均心率。",
       "newGround": "本次活动经过的地图图块中，此前任何活动都未经过的比例。图块宽度随纬度约为150至300米，因此衡量的是图块覆盖率，而不是新道路上的距离。",
       "activityEftp": "eFTP 是 intervals.icu 对本次活动的功率模型估算值。",
@@ -70,7 +70,7 @@
       "yourForm": "您这天的状态 (TSB)。这是基于您整体训练的每日值，而非特定于此活动。TSB = 体能 (CTL) 减去疲劳 (ATL)。",
       "speed": "intervals.icu 为此活动保存的平均速度和最高速度。",
       "pace": "intervals.icu 为此活动保存的平均配速和最快配速。",
-      "cadence": "intervals.icu 保存的平均踏频：骑行时为每分钟曲柄转数，其他运动为每分钟步数或划水次数。"
+      "cadence": "平均踏频。骑行时为每分钟曲柄转数，游泳时为每分钟划水次数。步行时为每分钟步数，因此数值是 intervals.icu 所示步数的两倍。"
     },
     "ftp": "FTP 设置：{{value}}",
     "heartRate": "心率",
@@ -462,10 +462,11 @@
     "enterDetailsInstead": "改为手动输入",
     "fillAllFields": "请填写所有字段",
     "fillField": "请填写“{{field}}”",
-    "webdavHttpsRequired": "请使用 https:// 地址。使用 http:// 时，密码和备份将以未加密的方式传输。",
+    "webdavSchemeRequired": "请使用 http:// 或 https:// 地址",
+    "webdavPlainHttpWarning": "此地址使用 http://，你的密码和备份将以未加密方式传输。请仅用于你信任的服务器和网络。",
     "webdavInvalidUrl": "这不是有效的服务器地址",
     "webdavSaveFailed": "无法在此设备上保存服务器信息",
-    "webdavPlainLan": "允许我自己网络中的未加密服务器",
+    "webdavRemoveFirst": "请先移除服务器，以免备份继续发送到该服务器",
     "webdavTestUnauthorised": "身份验证失败",
     "webdavTestMethodNotAllowed": "请检查 WebDAV 地址格式。服务器在此路径不接受 PROPFIND",
     "webdavTestStatus": "服务器返回 {{code}}",
@@ -716,6 +717,7 @@
     "statusNoActivityAccess": "Garmin 已接受此密钥,但它无法读取你的活动。",
     "statusMalformed": "这看起来不是 Garmin 密钥。",
     "statusUnreachable": "无法连接到 Garmin。请稍后重试。",
+    "statusSaveFailed": "无法在此设备上保存密钥，因此未连接 Garmin。请重试。",
     "feedTitle": "在 Veloq 中显示我的 Garmin 骑行",
     "feedHint": "连接后,你 Garmin 账户中的骑行会出现在 Veloq 的动态中。",
     "moreOptions": "更多选项",
@@ -890,17 +892,17 @@
   "insights": {
     "ranking": {
       "title": "卡片排序",
-      "intro": "这些是卡片的选择因素，而不是置信概率。",
+      "intro": "这些因素决定卡片的排列顺序，不是置信度分数。",
       "scoreOnScale": "0 到 1 的评分中为 {{score}}",
       "unavailable": "可用于比较的有效数据不足",
       "recency": {
         "label": "新近度",
-        "explanation": "分数越高，表示该路段完成得越近；分数会随时间下降。"
+        "explanation": "分数越高，表示该路段完成得越近。分数会随时间推移而下降。"
       },
       "improvement": {
         "label": "表现变化",
-        "medianOfThree": "最近三次成绩的中位数与之前三次相比；正值表示更快，负值表示更慢。",
-        "firstToLast": "最近一次成绩与第一次相比；正值表示更快，负值表示更慢。"
+        "medianOfThree": "最近三次成绩的中位数与之前三次相比。正值表示更快，负值表示更慢。",
+        "firstToLast": "最近一次成绩与第一次相比。正值表示更快，负值表示更慢。"
       },
       "anomaly": {
         "label": "异常程度",
@@ -908,13 +910,13 @@
       },
       "engagement": {
         "label": "相对参与度",
-        "explanation": "分数越高，表示相对于你在该运动中完成次数最多的路段，次数越多；其他路段的次数更多可能会降低此分数。"
+        "explanation": "分数越高，表示相对于你在该运动中完成次数最多的路段，此路段的次数越多。其他路段的次数更多可能会降低此分数。"
       }
     },
     "title": "洞察",
     "strength": "力量",
     "noInsights": "训练后将显示洞察",
-    "noInsightsHint": "完成更多活动以查看个性化洞察",
+    "noInsightsHint": "洞察需要更多活动才能进行比较。",
     "couldNotBuild": "无法生成洞察",
     "wellnessFromLastSync": "健康数据来自上次同步，{{date}}",
     "sectionPr": "{{name}}上的PR",
@@ -961,11 +963,11 @@
       "prDetection": "将你最近一次路段时间与所有之前的表现进行比较，以检测个人纪录。",
       "sectionTrend": "跟踪经常访问的路段上的中位表现随时间的变化。",
       "periodComparison": "比较连续各周的训练指标以跟踪进展。",
-      "hrvDescription": "截至今天的 7 个日历日，仅计入有心率变异性读数的日子，且至少需要五天。将较旧一半的平均值与较新一半的平均值相比较。只有当变化的 95% 区间（由你自身读数的离散程度得出）不包含零，且变化大于该离散程度标准差的一半和较旧平均值的 2% 时，才算作变化；更小的变化视为平稳。若最近两次读数落在连续两天、第二次更低、低于窗口平均值，且这两次读数相对此前读数通过同一检验，平稳的窗口仍视为下降。",
+      "hrvDescription": "截至今天的7个日历日，至少需要五次心率变异性读数。将较旧一半的平均值与较新一半的平均值相比较。只有当变化的95%区间（由你自身读数的离散程度得出）不包含零，且变化大于该离散程度标准差的一半和较旧平均值的2%时，才算作变化。更小的变化视为平稳。若最近两次读数落在连续两天、第二次更低、低于窗口平均值，且这两次读数相对此前读数通过同一检验，平稳的窗口仍视为下降。",
       "periodComparisonRestDay": "当本周尚无活动时，将上周与4周平均值进行比较。",
       "ftpEstimation": "将最新的每日 eFTP 与 30 天前的值比较。eFTP 是 intervals.icu 根据你的功率曲线估算的值，不是账户里的 FTP 设置。",
-      "criticalSpeedDescription": "将42天配速曲线得出的最新临界速度，与此前90天内相差超过0.02 m/s的最近一个较早值比较，并以配速显示变化。",
-      "efficiencyDescription": "用普通最小二乘回归，随时间追踪该路段匹配成绩的平均心率与配速之积。只有当斜率的 95% 区间不包含零，且各次成绩间的模型变化超过平均值的 2% 时，才显示方向。数值下降表示每公里心跳更少：心率更低、配速更快，或两者兼有。",
+      "criticalSpeedDescription": "将42天配速曲线得出的最新临界速度，与前90天内相差超过0.02 m/s的最近一个值比较，并以配速显示变化。",
+      "efficiencyDescription": "用普通最小二乘法的趋势，随时间追踪该路段匹配成绩的平均心率与配速之积。只有当趋势的95%区间不包含零，且拟合的变化超过平均值的2%时，才显示方向。数值下降表示每公里心跳更少：心率更低、配速更快，或两者兼有。",
       "efficiencyFormula": "{{quantity}} ({{unit}}) = 平均心率 × 配速(每公里秒数)",
       "route": "统计某条路线在同一运动和方向上有计时、未被排除、非部分且在路线距离范围内的尝试。纪录是其中最快的一次，且为近期所创。趋势将最近三次的中位数与之前三次比较，至少需要六次尝试。"
     },
@@ -1002,10 +1004,10 @@
       "trendingDown": "HRV：较新的一半更低",
       "stable": "HRV：无明显变化",
       "lastTwoDays": "HRV：最近两次读数低于均值",
-      "trendingUpBody": "最近 7 天心率变异性中，较新的一半平均值高于较旧的一半，差异超出你日常波动所能解释的范围。窗口平均 {{avg}} 毫秒，共 {{days}} 次读数，最新 {{latest}} 毫秒。",
-      "trendingDownBody": "最近 7 天心率变异性中，较新的一半平均值低于较旧的一半，差异超出你日常波动所能解释的范围。窗口平均 {{avg}} 毫秒，共 {{days}} 次读数，最新 {{latest}} 毫秒。",
-      "stableBody": "最近 7 天心率变异性的两个半段之间的差异，在你日常波动所能解释的范围之内。窗口平均 {{avg}} 毫秒，共 {{days}} 次读数，最新 {{latest}} 毫秒。",
-      "lastTwoDaysBody": "窗口本身保持平稳，但最近两次读数连续两天下降，降幅超出你日常波动所能解释的范围，且最新的 {{latest}} 毫秒低于窗口平均值 {{avg}} 毫秒（共 {{days}} 次读数）。"
+      "trendingUpBody": "最近7天心率变异性中，较新的一半平均值高于较旧的一半，差异超出你日常波动的范围。窗口平均{{avg}}毫秒，共{{days}}次读数，最新{{latest}}毫秒。",
+      "trendingDownBody": "最近7天心率变异性中，较新的一半平均值低于较旧的一半，差异超出你日常波动的范围。窗口平均{{avg}}毫秒，共{{days}}次读数，最新{{latest}}毫秒。",
+      "stableBody": "最近7天心率变异性两半之间的差异，不超出你的日常波动。窗口平均{{avg}}毫秒，共{{days}}次读数，最新{{latest}}毫秒。",
+      "lastTwoDaysBody": "窗口本身保持平稳，但最近两次读数连续两天下降，降幅超出你的日常波动，且最新的{{latest}}毫秒低于窗口平均值{{avg}}毫秒（共{{days}}次读数）。"
     },
     "weeklyLoad": {
       "title": "训练负荷{{direction}}平均值 {{percent}}%",
@@ -1013,20 +1015,20 @@
       "below": "低于"
     },
     "stalePr": {
-      "title": "{{section}}值得再试一次",
+      "title": "{{section}}：自PR以来体能有所提升",
       "subtitle": "{{visited}}。PR {{prTime}} {{metric}} {{previous}}时，现在{{current}}",
-      "body": "{{visited}}。以你现在的体能值得再试一次：PR当天{{metric}}为{{previous}}，现在为{{current}}。",
+      "body": "{{visited}}。PR当天{{metric}}为{{previous}}，现在为{{current}}。",
       "currentMetric": "当前{{metric}}",
       "prMetric": "PR时的{{metric}}",
       "metricGain": "{{metric}}增长",
       "prTime": "PR 时间",
-      "methodology": "显示完成至少{{visits}}次、最近{{days}}天未去过、且今天体能比创下PR当天高出至少{{gain}}%的路段。最多显示{{max}}个，访问最多的在前。骑行体能为eFTP，即intervals.icu根据你的功率曲线得出的估算值。跑步为临界速度，游泳为CSS，均来自你的配速曲线。",
+      "methodology": "显示完成至少{{visits}}次、最近{{days}}天未去过、且当前体能比创下PR当天高出至少{{gain}}%的路段。最多显示{{max}}个，访问最多的在前。骑行体能为eFTP，即intervals.icu根据你的功率曲线得出的估算值。跑步为临界速度，游泳为CSS，均来自你的配速曲线。",
       "metricCyclingEftp": "骑行eFTP",
       "metricSwimCss": "游泳CSS",
       "metricRunningCriticalSpeed": "跑步临界速度",
       "groupMore": "(另外{{n}}个)",
-      "groupTitle_one": "{{count}}个值得再试的路段",
-      "groupTitle_other": "{{count}}个值得再试的路段",
+      "groupTitle_one": "{{count}}个自PR以来体能有所提升的路段",
+      "groupTitle_other": "{{count}}个自PR以来体能有所提升的路段",
       "groupSubtitle": "当前{{metric}} {{current}}",
       "visitedRide_one": "骑行{{count}}次",
       "visitedRide_other": "骑行{{count}}次",
@@ -1050,7 +1052,7 @@
       "openActivity": "打开PR活动"
     },
     "aboutTitle": "关于洞察",
-    "aboutBody": "训练指标是基于已发表的运动科学模型的估算值。个体反应差异显著。这些洞察仅供参考，非医疗或教练建议。",
+    "aboutBody": "洞察将你近期的训练与你自己的历史相比较。仅供参考，不构成医疗或教练建议。",
     "explanation": {
       "title": "了解洞察",
       "foundLabel": "方法",
@@ -1062,7 +1064,7 @@
         },
         "fitness": {
           "label": "eFTP 和临界速度",
-          "text": "其中任一项的变化，以及在其较低时创下的纪录。"
+          "text": "其中任一项的变化，以及体能较低时创下的PR。"
         },
         "week": {
           "label": "本周",
@@ -1085,18 +1087,18 @@
       "sources": "用时、心率和功率来自您的活动，eFTP、临界速度和 HRV 来自 intervals.icu，每张卡片的方法和数据见“{{howCalculated}}”。",
       "strengthTitle": "了解力量"
     },
-    "aboutRanking": "卡片按各自能说明的分量排序：是否新近、与你的常态差多少、变化有多大、你做得有多频繁。",
+    "aboutRanking": "卡片按是否新近、与你的常态差多少、变化有多大、你重复该路段的频率排序。",
     "efficiencyTrend": {
       "seriesLabel": "{{quantity}}，从最早一次到最新一次",
       "quantity": "心率 × 配速",
       "title": "{{name}}上效率正在提升",
       "changeTitle": "{{name}} 的效率：{{hrChange}} bpm",
       "changeSubtitle": "{{efforts}} 次活动中平均配速下的估算变化 {{hrChange}} bpm",
-      "changeBody": "在 {{name}} 的 {{efforts}} 次活动中，心率与配速的乘积上升。按平均配速估算为 {{hrChange}} bpm；实际测得的心率可能不同。",
+      "changeBody": "在 {{name}} 的 {{efforts}} 次活动中，心率与配速的乘积上升。按平均配速估算为 {{hrChange}} bpm。实际测得的心率可能不同。",
       "subtitle": "{{efforts}}次中，平均配速下模型值{{hrChange}}bpm",
-      "body": "在{{name}}的{{efforts}}次中，心率乘以配速有所改善。按平均配速换算，模型值为{{hrChange}}bpm；心率本身可能没有变化。",
+      "body": "在{{name}}的{{efforts}}次成绩中，心率乘以配速有所改善。按平均配速换算，模型值为{{hrChange}}bpm。你的心率本身可能没有变化。",
       "sheetHeading": "匹配成绩对比",
-      "sheetBody": "基于同一路段上同时带有心率和配速的重复成绩，随时间比较每次通过时心脏的负担。",
+      "sheetBody": "比较该路段重复成绩中的心率乘以配速，随时间变化。只统计同时有心率和配速的成绩。",
       "sheetMeta": "打开路段查看对应成绩。"
     },
     "strengthBalance": {
@@ -1109,14 +1111,14 @@
       "noSignal": "无数据",
       "allOneSideTitle": "{{pair}}：训练量全在一侧",
       "oneSidedBody": "过去4周{{pair}}的全部加权组数都来自{{dominant}}。",
-      "ratioBody": "最近4周内{{pair}}的加权组数平均比为{{ratio}}。",
+      "ratioBody": "最近4周内，{{pair}}较大一侧的加权组数是较小一侧的{{ratio}}倍。",
       "ratioLabel": "比例",
       "statusLabel": "状态",
       "formula": "每个拮抗肌对的加权组数",
-      "algorithm": "比较常见拮抗肌对之间的加权组数。主要训练计为1.0，辅助训练计为0.5。"
+      "algorithm": "比较对立肌肉组之间的加权组数。主要训练计为1.0，辅助训练计为0.5。"
     },
     "viewInDetail": "查看详情",
-    "routesDisabledDescription": "您的路段已保留，启用匹配后即可再次打开。",
+    "routesDisabledDescription": "你的路段已保留，启用路线和路段后即可回来。",
     "routesDisabledLine1": "路线和路段已禁用",
     "routesDisabledLine2": "启用路线和路段",
     "strengthProgression": {
@@ -1150,7 +1152,7 @@
       "split": "被拆分为多个路段",
       "restored": "重新出现",
       "reverted": "已恢复到早期版本",
-      "body": "路段的历史显示了变化的内容以及前后的活动。"
+      "body": "路段的历史列出每次变化，以及变化前后的活动。"
     },
     "milestoneSheet": {
       "powerHeading": "关于这次eFTP变化",
@@ -1425,7 +1427,7 @@
     },
     "privacy": {
       "title": "隐私声明",
-      "brief": "您的运动员 ID 和推送令牌将存储在我们的服务器上（30天过期）。通知通过 Apple 或 Google 路由，但所有洞察内容均在您的设备上生成。您可以随时禁用。",
+      "brief": "您的运动员 ID 和推送令牌将存储在我们的服务器上（30天过期）。通知先经 Expo，再经 Apple 或 Google 送达您的设备，但所有洞察内容均在您的设备上生成。您可以随时关闭通知。",
       "accept": "我了解"
     },
     "settings": {
@@ -1727,7 +1729,7 @@
     "duplicateNameMessage": "请选择一个不同的名称。每条路线必须有唯一的名称。",
     "expandInSettings": "在设置中展开",
     "gpsTrackNotDownloaded": "GPS 数据尚未下载。下载完成后请重试。",
-    "match": "匹配",
+    "matchPercent": "{{percent}} 匹配",
     "noFrequentSections": "暂无常用路段",
     "noMatchingRoutes": "未找到匹配路线",
     "noRoutesFor": "没有符合 {{filters}} 的路线",
@@ -1966,7 +1968,7 @@
     "mergeCandidatesTitle": "选择要合并的路段",
     "mergeCandidatesSubtitle_one": "附近有 {{count}} 个相似路段",
     "mergeCandidatesSubtitle_other": "附近有 {{count}} 个相似路段",
-    "overlapLabel": "重叠",
+    "overlapPercent": "{{percent}} 重叠",
     "distanceAway": "距离 {{distance}}",
     "acceptSection": "接受",
     "acceptAllSections": "全部接受",
@@ -2128,6 +2130,9 @@
     "streamHistoryDays_other": "{{count}} 天",
     "streamHistoryAll": "全部",
     "streamHistoryReset": "重置",
+    "streamHistoryNarrowTitle": "删除较早的数据流历史?",
+    "streamHistoryNarrowBody": "{{window}}之前的活动所保存的数据序列将从本设备删除，包括心率、功率和踏频。重新下载会占用 intervals.icu 的每日请求上限。",
+    "streamHistoryNarrowConfirm": "删除较早的序列",
     "streamBackfill": "缺失的数据序列",
     "streamBackfillOwed_one": "{{count}} 项活动",
     "streamBackfillOwedSized_one": "{{count}} 项活动，{{size}}",

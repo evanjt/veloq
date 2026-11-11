@@ -150,6 +150,9 @@ let disconnects = 0;
 /**
  * Ask Garmin whether the pasted key works, and keep it only when it does.
  * A key Garmin refuses, or that could not be checked, is never written.
+ * When Garmin accepts the key but the keychain write fails, the engine's copy
+ * is cleared too, so the engine never holds a key the keychain does not keep,
+ * and the write's error is thrown.
  * A disconnect that lands while the key is being written removes the key
  * again, so a sign-out is never outlived by the connect it overlapped; that
  * connect answers Unreachable, as nothing was kept.
@@ -157,11 +160,17 @@ let disconnects = 0;
 export async function connectGarminKey(pasted: string, deps: Deps = {}): Promise<GarminKeyStatus> {
   const key = pasted.trim();
   if (key === '') return GarminKeyStatus.Malformed;
+  const engine = deps.engine ?? engineKey;
   const disconnectsBefore = disconnects;
-  const status = await (deps.engine ?? engineKey).connectGarmin(key);
+  const status = await engine.connectGarmin(key);
   if (status === GarminKeyStatus.Connected) {
     const io = deps.io ?? secureStoreIo;
-    await io.write(GARMIN_KEY_STORAGE_KEY, key, CREDENTIAL_KEYCHAIN_OPTIONS);
+    try {
+      await io.write(GARMIN_KEY_STORAGE_KEY, key, CREDENTIAL_KEYCHAIN_OPTIONS);
+    } catch (error) {
+      await Promise.allSettled([Promise.resolve().then(() => engine.clearGarminKey())]);
+      throw error;
+    }
     if (disconnects !== disconnectsBefore) {
       await deleteCredential(io, GARMIN_KEY_STORAGE_KEY);
       return GarminKeyStatus.Unreachable;

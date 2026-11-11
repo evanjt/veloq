@@ -168,18 +168,19 @@ function compileEnvironment(env, { profile, triples }) {
 }
 
 /**
- * The environment with every compile setting that is set but empty removed.
- * A Gradle daemon unsets a variable a previous build had by leaving it empty,
- * and Cargo reads an empty profile or target setting as a value and fails, so
- * an empty one means what an unset one means, to Cargo and to the fingerprint.
+ * The environment with every Cargo or compiler setting that is set but empty
+ * removed. A Gradle daemon unsets a variable a previous build had by leaving it
+ * empty, and Cargo reads an empty profile, target or build setting as a value
+ * and fails, so an empty one means what an unset one means, to Cargo and to
+ * the fingerprint.
  */
-function withoutEmptyCompileSettings(env) {
-  const compileSetting = (name) =>
-    /^CARGO_(PROFILE|TARGET)_/.test(name) ||
-    /^(RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|CARGO_BUILD_RUSTFLAGS|RUSTC|LIBSQLITE3_FLAGS|IPHONEOS_DEPLOYMENT_TARGET)$/.test(name) ||
+function withoutEmptyCargoSettings(env) {
+  const cargoSetting = (name) =>
+    /^CARGO_(PROFILE|TARGET|BUILD)_/.test(name) ||
+    /^(RUSTFLAGS|CARGO_ENCODED_RUSTFLAGS|RUSTC|LIBSQLITE3_FLAGS|IPHONEOS_DEPLOYMENT_TARGET)$/.test(name) ||
     /^(CC|CXX|AR|CFLAGS|CXXFLAGS|TARGET_CC|TARGET_CFLAGS|TARGET_CXXFLAGS)(_.*)?$/.test(name);
   return Object.fromEntries(
-    Object.entries(env).filter(([name, value]) => value !== '' || !compileSetting(name))
+    Object.entries(env).filter(([name, value]) => value !== '' || !cargoSetting(name))
   );
 }
 
@@ -838,7 +839,7 @@ function main(argv, env = process.env, overrides = {}) {
   const options = parseArgs(argv, env);
   const moduleDir = overrides.moduleDir ?? MODULE_DIR;
   const context = {
-    env: withoutEmptyCompileSettings(options.fromXcode ? terminalEnvironment(env) : env),
+    env: withoutEmptyCargoSettings(options.fromXcode ? terminalEnvironment(env) : env),
     moduleDir,
     rustDir: overrides.rustDir ?? path.join(moduleDir, 'rust'),
     buildRoot: overrides.buildRoot ?? path.join(moduleDir, 'build', 'rust'),

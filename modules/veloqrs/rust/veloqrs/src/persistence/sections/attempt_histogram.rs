@@ -4,8 +4,9 @@
 //! It bins the same attempts the trend curve fits, so the bars and the
 //! scatter under the same chips agree. Bins are equal widths of attempt time,
 //! which on a fixed-length section is equal width in pace. The width is the
-//! Freedman-Diaconis width, `2 * IQR * n^(-1/3)`, rounded up to a readable
-//! step and widened until there are at most `MAX_BINS` bins.
+//! Freedman-Diaconis width, `2 * IQR * n^(-1/3)`, rounded to the nearest
+//! readable step on a ratio scale and widened until there are at most
+//! `MAX_BINS` bins.
 
 use crate::{FfiAttemptHistogram, FfiAttemptHistograms, FfiSectionChartPoint};
 
@@ -15,10 +16,11 @@ const MAX_BINS: usize = 20;
 /// Fewest counted attempts a direction needs for a distribution.
 const MIN_ATTEMPTS: usize = 3;
 
-/// Readable bin widths in seconds: 1, 2, 5, 10, 15, 20, 30 s, 1, 2, 5, 10, 15,
-/// 30 min and 1 h.
-const STEPS: [f64; 14] = [
-    1.0, 2.0, 5.0, 10.0, 15.0, 20.0, 30.0, 60.0, 120.0, 300.0, 600.0, 900.0, 1800.0, 3600.0,
+/// Readable bin widths in seconds, ascending: 1, 2, 3, 4, 5, 10, 15, 20, 30,
+/// 45, 60, 90, 120, 180, 240, 300, 600, 900, 1800 and 3600.
+const STEPS: [f64; 20] = [
+    1.0, 2.0, 3.0, 4.0, 5.0, 10.0, 15.0, 20.0, 30.0, 45.0, 60.0, 90.0, 120.0, 180.0, 240.0, 300.0,
+    600.0, 900.0, 1800.0, 3600.0,
 ];
 
 /// Quantile of sorted values by linear interpolation between ranks.
@@ -33,23 +35,42 @@ fn bin_count(start: f64, width: f64, slowest: f64) -> usize {
     (((slowest - start) / width).ceil() as usize).max(1)
 }
 
-/// The bin width for sorted times: the Freedman-Diaconis width rounded up to
-/// a step, then the next step up until the bins fit.
+/// The step nearest `ideal` by ratio, so that 75 s is nearer 90 s than 60 s.
+/// A zero ideal, from times that all match, takes the smallest step.
+fn nearest_step(ideal: f64) -> f64 {
+    if ideal <= 0.0 {
+        return STEPS[0];
+    }
+    STEPS
+        .iter()
+        .copied()
+        .min_by(|a, b| {
+            (a.ln() - ideal.ln())
+                .abs()
+                .total_cmp(&(b.ln() - ideal.ln()).abs())
+        })
+        .unwrap_or(STEPS[0])
+}
+
+/// The bin width for sorted times: the Freedman-Diaconis width rounded to its
+/// nearest step, then the first step from there up that gives at most
+/// `MAX_BINS` bins, or the largest step when none does.
 fn bin_width(sorted: &[f64]) -> f64 {
     let n = sorted.len() as f64;
     let iqr = quantile(sorted, 0.75) - quantile(sorted, 0.25);
     let ideal = 2.0 * iqr * n.powf(-1.0 / 3.0);
     let fastest = sorted[0];
     let slowest = sorted[sorted.len() - 1];
-    let mut chosen = STEPS[STEPS.len() - 1];
-    for &step in STEPS.iter().filter(|&&s| s >= ideal) {
-        chosen = step;
-        let start = (fastest / step).floor() * step;
-        if bin_count(start, step, slowest) <= MAX_BINS {
-            break;
-        }
-    }
-    chosen
+    let nearest = nearest_step(ideal);
+    STEPS
+        .iter()
+        .copied()
+        .filter(|&step| step >= nearest)
+        .find(|&step| {
+            let start = (fastest / step).floor() * step;
+            bin_count(start, step, slowest) <= MAX_BINS
+        })
+        .unwrap_or(STEPS[STEPS.len() - 1])
 }
 
 /// The binned times, or `None` below `MIN_ATTEMPTS`. `edge_distance` is the

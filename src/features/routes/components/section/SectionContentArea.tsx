@@ -65,6 +65,8 @@ export interface SectionContentAreaProps {
   onDeltaLineChange?: ((line: SectionDeltaLine | null) => void) | undefined;
   /** Called with the direction the chart is on while both are drawn, else null. */
   onShownDirectionChange?: ((direction: ChartDirection | null) => void) | undefined;
+  /** Called with the metres along the section the delta chart is scrubbed to, null when it ends. */
+  onScrubDistanceChange?: ((distanceM: number | null) => void) | undefined;
   forwardStats: DirectionStats | null;
   reverseStats: DirectionStats | null;
   bestForwardRecord: SectionPerformanceRecord | null;
@@ -124,6 +126,7 @@ export function SectionContentArea({
   curves,
   onDeltaLineChange,
   onShownDirectionChange,
+  onScrubDistanceChange,
   forwardStats,
   reverseStats,
   bestForwardRecord,
@@ -202,6 +205,7 @@ export function SectionContentArea({
         curves={curves}
         onDeltaLineChange={onDeltaLineChange}
         onShownDirectionChange={onShownDirectionChange}
+        onScrubDistanceChange={onScrubDistanceChange}
         forwardStats={forwardStats}
         reverseStats={reverseStats}
         bestForwardRecord={bestForwardRecord}

@@ -105,7 +105,6 @@ export function insightsExplanation(t: TFunction): Explanation {
           howCalculated: t('insights.howCalculated') as string,
         }) as string,
       },
-      { key: 'disclaimer', text: t('insights.aboutBody') as string },
     ],
   };
 }

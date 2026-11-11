@@ -515,6 +515,25 @@ describe('RecordingStore', () => {
       expect(useRecordingStore.getState().streams.heartrate).toEqual([0]);
     });
 
+    it('records null for stale or absent power, and keeps a fresh 0 W', () => {
+      useRecordingStore.getState().startRecording('Ride', 'gps');
+      const startTime = useRecordingStore.getState().startTime!;
+      const dateNowSpy = jest.spyOn(Date, 'now');
+      dateNowSpy.mockReturnValue(startTime);
+      useRecordingStore.getState().addGpsPoint(makePoint({ timestamp: startTime + 1000 }));
+      useRecordingStore.getState().setSensorSample('power', 0);
+      dateNowSpy.mockReturnValue(startTime + 2000);
+      useRecordingStore
+        .getState()
+        .addGpsPoint(makePoint({ latitude: 45.0001, timestamp: startTime + 2000 }));
+      dateNowSpy.mockReturnValue(startTime + 20_000);
+      useRecordingStore
+        .getState()
+        .addGpsPoint(makePoint({ latitude: 45.0002, timestamp: startTime + 20_000 }));
+
+      expect(useRecordingStore.getState().streams.power).toEqual([null, 0, null]);
+    });
+
     it('rejects non-finite and negative sensor values', () => {
       useRecordingStore.getState().startRecording('Ride', 'gps');
       useRecordingStore.getState().setSensorSample('power', NaN);
@@ -546,7 +565,6 @@ describe('RecordingStore', () => {
   describe('addLap()', () => {
     describe.each([
       ['heartrate', 'avgHeartrate', 150],
-      ['power', 'avgPower', 200],
       ['cadence', 'avgCadence', 90],
     ] as const)('%s averages', (sensor, average, value) => {
       const recordSamples = (samples: number[]) => {
@@ -592,6 +610,50 @@ describe('RecordingStore', () => {
         useRecordingStore.getState().addLap();
 
         expect(useRecordingStore.getState().laps[2][average]).toBe(value + 10);
+      });
+    });
+
+    describe('power average', () => {
+      const recordPower = (samples: (number | null)[]) => {
+        const dateNowSpy = jest.spyOn(Date, 'now');
+        dateNowSpy.mockReturnValue(1000);
+        useRecordingStore.getState().startRecording('Ride', 'indoor');
+        samples.forEach((sample, index) => {
+          const at = 2000 + index * 10_000;
+          dateNowSpy.mockReturnValue(at);
+          if (sample != null) useRecordingStore.getState().setSensorSample('power', sample);
+          useRecordingStore.getState().addIndoorSample();
+        });
+      };
+
+      it('counts a fresh 0 W reading as coasting', () => {
+        recordPower([200, 0, 0, 200]);
+        expect(useRecordingStore.getState().streams.power).toEqual([200, 0, 0, 200]);
+        useRecordingStore.getState().addLap();
+
+        expect(useRecordingStore.getState().laps[0].avgPower).toBe(100);
+      });
+
+      it('leaves a stale sample out of the stream and the average', () => {
+        recordPower([200, null, 200]);
+        expect(useRecordingStore.getState().streams.power).toEqual([200, null, 200]);
+        useRecordingStore.getState().addLap();
+
+        expect(useRecordingStore.getState().laps[0].avgPower).toBe(200);
+      });
+
+      it('is 0 W for a lap of nothing but coasting', () => {
+        recordPower([0, 0]);
+        useRecordingStore.getState().addLap();
+
+        expect(useRecordingStore.getState().laps[0].avgPower).toBe(0);
+      });
+
+      it('is null for a lap with no sensor at all', () => {
+        recordPower([null, null]);
+        useRecordingStore.getState().addLap();
+
+        expect(useRecordingStore.getState().laps[0].avgPower).toBeNull();
       });
     });
 

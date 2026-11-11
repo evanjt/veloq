@@ -108,17 +108,17 @@ describe('the fitness impact explanation', () => {
     return card.explanation;
   };
 
-  it('states the time constants the athlete set', async () => {
-    expect(await explanation(28, 5)).toBe(
-      'activity.explanations.fitnessImpact:{"fitnessDays":28,"fatigueDays":5}'
-    );
-  });
-
-  it('states 42 and 7 when those are the constants in effect', async () => {
-    expect(await explanation(42, 7)).toBe(
-      'activity.explanations.fitnessImpact:{"fitnessDays":42,"fatigueDays":7}'
-    );
-  });
+  it.each([
+    [28, 5],
+    [42, 7],
+  ])(
+    'passes no time constants to the copy for %i and %i days',
+    async (fitnessDays, fatigueDays) => {
+      expect(await explanation(fitnessDays, fatigueDays)).toBe(
+        'activity.explanations.fitnessImpact'
+      );
+    }
+  );
 });
 
 describe('the heart rate card over a default max HR', () => {

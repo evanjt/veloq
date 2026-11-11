@@ -55,6 +55,7 @@ export type BaseMap3DLayer = Pick<
   | 'sectionMarkersGeoJSON'
   | 'sectionTrimGeoJSON'
   | 'highlightedTraceGeoJSON'
+  | 'highlightCoordinate'
   | 'onSectionClick'
 >;
 

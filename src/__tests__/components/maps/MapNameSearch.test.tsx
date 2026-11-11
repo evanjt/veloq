@@ -36,7 +36,7 @@ const ride = (id: string, name: string): ActivityBoundsItem => ({
   ],
   type: 'Ride',
   name,
-  date: '2026-04-10T08:00:00Z',
+  date: Date.UTC(2026, 3, 10, 8, 0, 0) / 1000,
   distance: 60_000,
   duration: 12_000,
 });
@@ -120,7 +120,7 @@ describe('MapNameSearch', () => {
 
   it('shows a localised date with year in each result', async () => {
     await initialiseI18n('en-GB');
-    const activity = { ...ride('a1', 'Morning ride'), date: '2026-10-05T07:00:00' };
+    const activity = { ...ride('a1', 'Morning ride'), date: Date.UTC(2026, 9, 5, 7) / 1000 };
     await render(
       <MapNameSearch
         needle="ride"
@@ -132,13 +132,13 @@ describe('MapNameSearch', () => {
       />
     );
 
-    expect(screen.getByText(formatShortDateWithYear(new Date(activity.date)))).toBeTruthy();
+    expect(screen.getByText(formatShortDateWithYear(new Date(2026, 9, 5)))).toBeTruthy();
     expect(screen.queryByText('2026-10-05')).toBeNull();
   });
 
   it('names each result with the date it draws beside the name', async () => {
     await initialiseI18n('en-GB');
-    const activity = { ...ride('a3', 'Orchard spin'), date: '2026-06-14T09:00:00' };
+    const activity = { ...ride('a3', 'Orchard spin'), date: Date.UTC(2026, 5, 14, 9) / 1000 };
     await render(
       <MapNameSearch
         needle="orchard"
@@ -151,8 +151,34 @@ describe('MapNameSearch', () => {
     );
 
     expect(screen.getByTestId('map-search-result-a3').props.accessibilityLabel).toContain(
-      formatShortDateWithYear(new Date(activity.date))
+      formatShortDateWithYear(new Date(2026, 5, 14))
     );
+  });
+
+  it('dates each ride by the day the athlete rode it in any zone', async () => {
+    await initialiseI18n('en-GB');
+    const afternoon = {
+      ...ride('p1', 'Afternoon ride'),
+      date: Date.UTC(2026, 10, 5, 15) / 1000,
+    };
+    const dawn = {
+      ...ride('p2', 'Dawn run'),
+      date: Date.UTC(2026, 10, 5, 7) / 1000,
+    };
+    await render(
+      <MapNameSearch
+        needle="ride"
+        onChangeNeedle={jest.fn()}
+        results={[afternoon, dawn]}
+        total={2}
+        filters={[]}
+        onChoose={jest.fn()}
+      />
+    );
+
+    const day = formatShortDateWithYear(new Date(2026, 10, 5));
+    expect(screen.getByTestId('map-search-result-p1').props.accessibilityLabel).toContain(day);
+    expect(screen.getByTestId('map-search-result-p2').props.accessibilityLabel).toContain(day);
   });
 });
 
@@ -209,7 +235,7 @@ describe('MapNameSearch count and rows', () => {
       />
     );
 
-    const date = formatShortDateWithYear(new Date(six[0]!.date));
+    const date = formatShortDateWithYear(new Date(2026, 3, 10));
     expect(screen.getByText('42.3 km')).toBeTruthy();
     expect(
       screen.getByTestId('map-search-result-m0-icon', { includeHiddenElements: true })

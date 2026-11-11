@@ -39,7 +39,6 @@ import { toActivityType } from '@/types';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import type { Section as NativeSection } from 'veloqrs';
 import { useActivity, useActivityDetailStreams, useSectionOverlays } from '../hooks';
-import { useActivityDetailData } from '../hooks/useActivityDetailData';
 import { useActivityMapChoices } from '../hooks/useActivityMapChoices';
 import { groupSectionEncounters, sectionRowLabels } from '../lib/groupSectionEncounters';
 import { routeOverlayLine } from '../lib/routeOverlayLine';
@@ -48,6 +47,7 @@ import {
   useCardActiveTab,
   useCardHighlightIndex,
   useCardHighlightedSection,
+  useCardDetail,
 } from '../lib/activityCardState';
 
 /** Stable empty list so the custom-sections hook keeps skipping its own read. */
@@ -65,7 +65,7 @@ export function ActivityDetailMap({ activityId: id }: ActivityDetailMapProps) {
   const inSlot = useInMapSurfaceSlot();
   const { data: activity } = useActivity(id);
   const { data: streams, coordinates } = useActivityDetailStreams(id);
-  const { data: detail } = useActivityDetailData(id);
+  const detail = useCardDetail(hostKey, id);
   // The camera is computed from the preview line the feed card draws, not from the
   // full stream, so the same ride opens on the bearing its card showed.
   const { coordinates: previewCoordinates, altitude: previewAltitude } = useMapPreviewCoordinates(

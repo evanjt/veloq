@@ -17,8 +17,8 @@ jest.mock('@/i18n', () => ({
 }));
 
 const metrics = [
-  { label: 'FTP', value: '-', navigationTarget: '/a' },
-  { label: 'Week', value: '-', navigationTarget: '/b' },
+  { id: 'ftp' as const, label: 'FTP', value: '-', navigationTarget: '/a' },
+  { id: 'weekHours' as const, label: 'Week', value: '-', navigationTarget: '/b' },
 ];
 
 describe('SummaryCard loading', () => {

@@ -7,6 +7,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { formatDistance, formatDuration } from '@/shared/format/format';
+import { formatPercent } from '@/shared/format/number';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
 // The light entry keeps the routes map components out of the recording module
 // graph.
@@ -219,7 +220,7 @@ function RouteOverlaySheetContent() {
             const meta = [
               ...item.meta,
               overlap != null && Number.isFinite(overlap)
-                ? `${Math.round(overlap)}% ${t('sections.overlapLabel')}`
+                ? t('sections.overlapPercent', { percent: formatPercent(overlap) })
                 : ABSENT,
             ].join(' · ');
             return (

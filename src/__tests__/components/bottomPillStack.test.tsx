@@ -68,16 +68,14 @@ describe('bottomPillStack', () => {
     expect(bottomPillStack({ clearance: 114, cover: 0, heights: [] })).toEqual([]);
   });
 
-  it('lifts the whole stack over the map tab sheet and its credit, as measured', () => {
+  it('lifts the whole stack over the map tab sheet, its credit line included, as measured', () => {
     // The sheet's own padding already holds the clearance, so the cover is what reaches past it.
-    const cover = filterSheetFootCover(380, 24, 114);
-    expect(bottomPillStack({ clearance: 114, cover, heights: [44] })).toEqual([
-      380 + 24 + spacing.md,
-    ]);
+    const cover = filterSheetFootCover(380, 114);
+    expect(bottomPillStack({ clearance: 114, cover, heights: [44] })).toEqual([380 + spacing.md]);
   });
 
   it('reports no cover from a sheet not laid out yet', () => {
-    expect(filterSheetFootCover(0, 24, 114)).toBe(0);
+    expect(filterSheetFootCover(0, 114)).toBe(0);
   });
 });
 

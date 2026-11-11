@@ -14,6 +14,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { formatPercent } from '@/shared/format';
 import Slider from '@react-native-community/slider';
 import { useTranslation } from 'react-i18next';
 
@@ -98,7 +99,7 @@ export function GroupingParamPanel({
       <ParamRow
         paramKey="minMatchPercentage"
         label={matchLabel}
-        valueText={`${params.minMatchPercentage}%`}
+        valueText={formatPercent(params.minMatchPercentage)}
         value={params.minMatchPercentage}
         onChange={set('minMatchPercentage')}
         onEdit={open('minMatchPercentage', matchLabel)}

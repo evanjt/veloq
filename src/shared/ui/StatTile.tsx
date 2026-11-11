@@ -10,7 +10,9 @@
 
 import React from 'react';
 import { StyleSheet, View, type TextStyle } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
+import { absentLabel } from '@/shared/format/absent';
 import {
   spacing,
   themedStyles,
@@ -19,7 +21,7 @@ import {
   type Palette,
   type VerdictRung,
 } from '@/theme';
-import { composeAccessibilityLabel } from './accessibilityLabel';
+import { composeAccessibilityLabel, type AccessibilityLabelPart } from './accessibilityLabel';
 import { DenseText } from './DenseText';
 import { PressTarget } from './PressTarget';
 
@@ -81,8 +83,13 @@ export function printedStatValue(value: string | number, unit?: string | undefin
   return unit ? `${value} ${unit}` : String(value);
 }
 
-function spokenDelta(delta: StatTileDelta): string {
-  return composeAccessibilityLabel(delta.spoken, delta.text);
+/**
+ * What the tile speaks for its parts: the parts composed, with an absent mark read as
+ * no data so a screen reader never says it as minus.
+ */
+function speak(t: Parameters<typeof absentLabel>[1], ...parts: AccessibilityLabelPart[]): string {
+  const text = composeAccessibilityLabel(...parts);
+  return absentLabel(text, t) ?? text;
 }
 
 export function StatTile({
@@ -102,13 +109,14 @@ export function StatTile({
   testID,
 }: StatTileProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const styles = themedStyles(makeStyles, isDark);
   const isAction = onPress !== undefined && !disabled;
   const centred = align === 'center';
   const printedValue = printedStatValue(value, unit);
   const spoken =
     accessibilityLabel ??
-    composeAccessibilityLabel(label, printedValue, delta && spokenDelta(delta), caption);
+    speak(t, label, printedValue, delta && speak(t, delta.spoken, delta.text), caption);
 
   const valueLine = (
     <View style={[styles.valueRow, centred && styles.centredRow]}>
@@ -122,7 +130,7 @@ export function StatTile({
       {delta ? (
         <DenseText
           testID={testID ? `${testID}-delta` : undefined}
-          accessibilityLabel={spokenDelta(delta)}
+          accessibilityLabel={speak(t, delta.spoken, delta.text)}
           style={[styles.delta, { color: verdictColor(delta.tone, isDark) }]}
         >
           {delta.text ? `${delta.glyph} ${delta.text}` : delta.glyph}

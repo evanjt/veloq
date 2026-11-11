@@ -17,7 +17,7 @@ function ride(id: string, lat: number, lng: number, isVirtual: boolean): Activit
     ],
     type: isVirtual ? 'VirtualRide' : 'Ride',
     name: id,
-    date: '2026-01-15T10:00:00Z',
+    date: Date.UTC(2026, 0, 15, 10, 0, 0) / 1000,
     distance: 40_000,
     duration: 3600,
     isVirtual,

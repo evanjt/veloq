@@ -36,7 +36,6 @@ import {
   calendarDaysBetween,
   formatTimeDelta,
   formatPrGap,
-  formatPrImprovement,
   formatPerformanceDelta,
   speedToSecsPerKm,
   getMonday,
@@ -579,13 +578,11 @@ describe("durations in the locale's units", () => {
     expect(formatDurationHuman(330)).toBe('5分30秒');
     expect(formatDurationDelta(12)).toBe('12秒');
     expect(formatTimeDelta(-5)).toContain('5秒');
-    expect(formatPrImprovement(14)).toBe('-14秒');
   });
 
   it('writes the same seconds unit in every short form', () => {
     expect(formatDurationDelta(12)).toBe('12 s');
     expect(formatPrGap(12)).toBe('+12 s');
-    expect(formatPrImprovement(14)).toBe('-14 s');
   });
 });
 

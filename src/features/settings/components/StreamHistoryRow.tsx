@@ -29,10 +29,12 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import {
   DEFAULT_STREAM_RETENTION_DAYS,
   STREAM_RETENTION_ALL,
+  narrowsStreamWindow,
   nextStreamRetentionDays,
 } from '../lib/streamRetention';
 
 import { Button, Row } from '@/shared/ui';
+import { confirmAction } from '@/shared/ui/dialog';
 
 export {
   STREAM_RETENTION_CHOICES_DAYS,
@@ -115,6 +117,25 @@ export function StreamHistoryRow({ isDark }: StreamHistoryRowProps) {
   }
   const { days, bytes } = store;
 
+  // A narrowing write deletes saved series at once, so it waits for the
+  // athlete. Widening and reset delete nothing and write straight away.
+  const chooseWindow = (next: number) => {
+    if (!narrowsStreamWindow(days, next)) {
+      write(next);
+      return;
+    }
+    confirmAction({
+      title: t('settings.streamHistoryNarrowTitle'),
+      message: t('settings.streamHistoryNarrowBody', {
+        window: t('settings.streamHistoryDays', { count: next }),
+      }),
+      confirmLabel: t('settings.streamHistoryNarrowConfirm'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+      onConfirm: () => write(next),
+    });
+  };
+
   const windowLabel =
     days === STREAM_RETENTION_ALL
       ? t('settings.streamHistoryAll')
@@ -145,7 +166,7 @@ export function StreamHistoryRow({ isDark }: StreamHistoryRowProps) {
           <Button
             labelTestID="settings-stream-window"
             label={`${windowLabel} ›`}
-            onPress={() => write(nextStreamRetentionDays(days))}
+            onPress={() => chooseWindow(nextStreamRetentionDays(days))}
             variant="ghost"
             size="sm"
           />

@@ -2,6 +2,7 @@ import { i18n } from '@/i18n';
 import type { WellnessData } from '@/types';
 import { colors, colorWithOpacity, darkColors, opacity } from '@/theme/colors';
 import { formFromLoads } from '@/shared/math';
+import { formatSignedPercentage } from '@/shared/format';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 
 /**
@@ -67,7 +68,7 @@ export function formatForm(
 ): string | null {
   if (asPercent) {
     if (!fitness) return null;
-    return `${signed(Math.round((tsb / fitness) * 100))}%`;
+    return formatSignedPercentage(Math.round((tsb / fitness) * 100));
   }
   return signed(Math.round(tsb));
 }

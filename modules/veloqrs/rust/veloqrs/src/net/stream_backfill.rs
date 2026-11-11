@@ -983,7 +983,13 @@ fn drain_queue_with_auth(
     };
     let mut consecutive_failures = 0usize;
 
-    for batch in queue.chunks(BATCH) {
+    for (chunk, batch) in queue.chunks(BATCH).enumerate() {
+        // Before the checks below, so a pass that waited behind the athlete
+        // re-reads every reason to stop once it wakes. The first batch has
+        // nothing before it to wait behind.
+        if chunk > 0 {
+            crate::net::pacing::pause();
+        }
         if !install_current() {
             return (outcome, Some(Stopped::Superseded));
         }
@@ -1139,7 +1145,7 @@ pub fn start_stream_backfill() -> FfiStartOutcome {
     // a restore installing another database mid-pass would otherwise take
     // streams fetched against the old library's activity ids.
     let install = engine_install();
-    crate::threads::spawn_named("veloq-streams", move || {
+    crate::threads::spawn_background("veloq-streams", move || {
         run_in_slot(slot, install, &session);
     });
     FfiStartOutcome::Started
@@ -1194,6 +1200,32 @@ mod tests {
             "the walk did not stop on the refusal"
         );
         assert_eq!(outcome.failed, 0);
+    }
+
+    /// Scenario: the athlete is touching the screen while a stream pass walks
+    /// three batches.
+    ///
+    /// Expected behaviour: the pass waits the pacing gap at each boundary
+    /// between batches, so the walk takes at least two gaps, and still asks
+    /// every activity.
+    #[test]
+    fn an_interacting_athlete_widens_the_gap_between_batches() {
+        use crate::net::pacing;
+        let _serial = crate::test_globals::serial_global_state();
+        pacing::reset();
+        pacing::set_interacting(true);
+
+        let started = std::time::Instant::now();
+        let (_, stopped, asked) = walk(&gaps(3 * BATCH), |_| Fetched::Nothing);
+        let elapsed = started.elapsed();
+        pacing::reset();
+
+        assert_eq!(asked, 3 * BATCH, "pacing delays work, it never drops it");
+        assert!(stopped.is_none(), "the walk stopped before its queue ended");
+        assert!(
+            elapsed >= 2 * pacing::GAP,
+            "two boundaries, each held for the gap, took only {elapsed:?}"
+        );
     }
 
     fn gaps(n: usize) -> Vec<StreamGap> {

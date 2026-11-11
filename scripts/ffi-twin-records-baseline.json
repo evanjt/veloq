@@ -1,6 +1,5 @@
 {
   "FfiActivityMetrics": "The domain row carries the power and heart rate zone-time vectors the engine sums; the route read crosses without them.",
-  "FfiActivityPattern": "The clustering's row carries its cluster id, season, distance, frequency, confidence and recency; the app is shown five of its twelve fields.",
   "FfiActivityRecord": "The domain struct is the intervals.icu wire body, every field optional and under the API's names; the copy is the typed screen row built from it.",
   "FfiBulkExportProgress": "The domain struct is the atomic counters the writing thread moves; the copy is a snapshot of them with the run id, read on a timer.",
   "FfiClimbBest": "The domain struct holds the climb's stream indices and raw rates; the copy adds the label and the activity it came from, and drops the indices no screen reads.",

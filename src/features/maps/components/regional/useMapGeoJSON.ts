@@ -12,6 +12,7 @@
 import { useMemo } from 'react';
 
 import { convertLatLngTuples } from '@/shared/geo/polyline';
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import type { ActivityBoundsItem } from '@/types';
 import { getActivityCategory, sportMarkColour } from '../../lib/activityCategories';
 import type { SelectedActivity } from './ActivityPopup';
@@ -23,6 +24,16 @@ import type { MapGeoJSONData } from '../../lib/htmlBuilders';
 const MARKER_SIZE = 24;
 export function getMarkerSize(_distance: number): number {
   return MARKER_SIZE;
+}
+
+const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
+
+/**
+ * How far an activity sits behind now, in years, capped at one. Both arguments are
+ * wall-clock seconds, so the gap is the athlete's elapsed time and carries no device offset.
+ */
+export function recencyAge(activityWallSeconds: number, nowWallSeconds: number): number {
+  return Math.min((nowWallSeconds - activityWallSeconds) / SECONDS_PER_YEAR, 1);
 }
 
 interface UseMapGeoJSONOptions {
@@ -63,8 +74,8 @@ export function useMapGeoJSON({
   const markersGeoJSON = useMemo(() => {
     let skippedCount = 0;
     // One clock read for the whole set, so every marker ages against the same
-    // instant rather than against its own microsecond.
-    const now = Date.now();
+    // wall-clock second rather than against its own.
+    const nowWall = localWallClockToEpochSeconds(new Date(Date.now()));
     const features = allActivities
       .map((activity) => {
         // Use pre-computed center (no format detection during render!)
@@ -84,8 +95,7 @@ export function useMapGeoJSON({
         }
         const size = getMarkerSize(activity.distance);
         // Recency: 0 = today, 1 = 1+ year old (for opacity fade on unclustered points)
-        const ageMs = now - new Date(activity.date).getTime();
-        const age = Math.min(ageMs / (365 * 24 * 60 * 60 * 1000), 1);
+        const age = recencyAge(activity.date, nowWall);
 
         return {
           type: 'Feature' as const,

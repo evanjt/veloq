@@ -12,7 +12,7 @@ import { documentFile } from './recordingFiles';
 const log = debug.create('RecordingBackup');
 
 const BACKUP_PATH = documentFile('recording_backup.json');
-const BACKUP_VERSION = 2;
+const BACKUP_VERSION = 3;
 const OWNERLESS_PENDING_KEY = 'ownerless_recording_backup_pending_athlete';
 const OWNERLESS_SETTLED_KEY = 'ownerless_recording_backup_settled';
 export const OWNERLESS_RECORDINGS_SETTLED_KEY = 'ownerless_recordings_settled';
@@ -49,6 +49,22 @@ export function decodeStoredAltitude(altitude: unknown, samples: number): number
   return altitude.map((alt) => (typeof alt === 'number' ? alt : NaN));
 }
 
+/**
+ * Stored power back to one sample per fix. From version 3 a missing reading is
+ * null and 0 is a 0 W reading. Earlier files recorded both as 0, so there a 0
+ * is no reading. A file with no power stream reads as all missing.
+ */
+export function decodeStoredPower(
+  power: unknown,
+  samples: number,
+  zeroIsReading: boolean
+): (number | null)[] {
+  if (!Array.isArray(power)) return Array.from({ length: samples }, () => null);
+  return power.map((w) =>
+    typeof w === 'number' && Number.isFinite(w) && (zeroIsReading ? w >= 0 : w > 0) ? w : null
+  );
+}
+
 /** The fields every version of the backup carries. */
 function hasCommonFields(obj: Record<string, unknown>): boolean {
   if (typeof obj.activityType !== 'string') return false;
@@ -64,7 +80,7 @@ function hasCommonFields(obj: Record<string, unknown>): boolean {
 }
 
 function isCurrentBackup(obj: Record<string, unknown>): boolean {
-  if (obj.version !== BACKUP_VERSION || !hasCommonFields(obj)) return false;
+  if (!hasCommonFields(obj)) return false;
   if (obj.athleteId !== undefined && typeof obj.athleteId !== 'string') return false;
   if (obj.status !== 'recording' && obj.status !== 'paused' && obj.status !== 'stopped')
     return false;
@@ -99,7 +115,7 @@ function parseBackup(value: unknown): RecordingBackup | null {
   if (typeof value !== 'object' || value === null) return null;
   const obj = value as Record<string, unknown>;
   let backup: RecordingBackup;
-  if (isCurrentBackup(obj)) {
+  if ((obj.version === BACKUP_VERSION || obj.version === 2) && isCurrentBackup(obj)) {
     backup = { ...(obj as unknown as RecordingBackup) };
   } else if (obj.version === 1 && hasCommonFields(obj)) {
     const v1 = obj as unknown as RecordingBackup;
@@ -122,6 +138,11 @@ function parseBackup(value: unknown): RecordingBackup | null {
   backup.streams = {
     ...backup.streams,
     altitude: decodeStoredAltitude(backup.streams.altitude, backup.streams.time.length),
+    power: decodeStoredPower(
+      backup.streams.power,
+      backup.streams.time.length,
+      obj.version === BACKUP_VERSION
+    ),
   };
   const review = backup.status === 'stopped' ? parseReviewDraft(obj.review) : null;
   if (review) backup.review = review;

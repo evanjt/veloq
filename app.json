@@ -82,7 +82,7 @@
       "./src/plugins/with-r8-config",
       "./src/plugins/with-android-backup",
       "./src/plugins/with-android-bluetooth",
-      "./src/plugins/with-plain-lan-transport",
+      "./src/plugins/with-plain-http-transport",
       "./src/plugins/with-android-new-intent",
       "./src/plugins/with-android-back-callback",
       "./src/plugins/with-backup-file-types",

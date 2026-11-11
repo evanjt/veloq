@@ -60,7 +60,7 @@
     "explanations": {
       "conditions": "Temperatur vom Grät oder Wetter.",
       "energy": "Verbruuchti Energie, öppe so vill.",
-      "fitnessImpact": "Im Vergleich zu einem Ruhetag erhöht diese Aktivität die Fitness um Belastung × (1 − e^(−1/{{fitnessDays}})) und die Ermüdung um Belastung × (1 − e^(−1/{{fatigueDays}})). Krafttraining erhöht nur die Ermüdung. Der Formbeitrag ist Fitness minus Ermüdung.",
+      "fitnessImpact": "Wie viel diese Aktivität im Vergleich zu einem Ruhetag zu deiner Fitness und Müedigkeit beigetragen hat.",
       "heartRate": "Schnitt-Puls währed dr Aktivität.",
       "newGround": "Der Anteil der Kartenkacheln dieser Aktivität, die keine frühere Aktivität berührt hatte. Eine Kachel ist je nach Breitengrad etwa 150 bis 300 m breit; gemessen wird also die Kachelabdeckung, nicht die Strecke auf neuen Wegen.",
       "activityEftp": "De eFTP isch d Schätzig vom Leistigsmodell vo intervals.icu für die Aktivität.",
@@ -69,7 +69,7 @@
       "yourForm": "Dini Form (TSB) a dem Tag. Fitness minus Müedigkeit.",
       "speed": "Durchschnitts- und Höchsttempo, wie intervals.icu sie für diese Aktivität gespeichert hat.",
       "pace": "Durchschnittliches und schnellstes Tempo, wie intervals.icu sie für diese Aktivität gespeichert hat.",
-      "cadence": "Durchschnittliche Frequenz, wie intervals.icu sie gespeichert hat: Kurbelumdrehungen pro Minute auf dem Velo, sonst Schritte oder Züge pro Minute."
+      "cadence": "Durchschnittliche Frequenz. Kurbelumdrehungen pro Minute auf dem Velo, Züge pro Minute im Wasser. Zu Fuss sind es Schritte pro Minute, daher ist der Wert doppelt so hoch wie die Schritte, die intervals.icu anzeigt."
     },
     "ftp": "FTP-Iistellig: {{value}}",
     "heartRate": "Puls",
@@ -461,10 +461,11 @@
     "enterDetailsInstead": "Date stattdesse iigä",
     "fillAllFields": "Bitte füll alli Fälder us",
     "fillField": "Bitte füll s Fäld „{{field}}“ us",
-    "webdavHttpsRequired": "Verwend e https://-Adräss. En http://-Server würd dis Passwort und d Sicherig unverschlüsselt bechoh.",
+    "webdavSchemeRequired": "Verwende eine http://- oder https://-Adresse",
+    "webdavPlainHttpWarning": "Diese Adresse verwendet http://, daher werden dein Passwort und deine Backups unverschlüsselt übertragen. Nutze sie nur mit einem Server in einem Netzwerk, dem du vertraust.",
     "webdavInvalidUrl": "Das ist keine gültige Serveradresse",
     "webdavSaveFailed": "Die Serverdaten konnten auf diesem Gerät nicht gespeichert werden",
-    "webdavPlainLan": "Unverschlüsselten Server in meinem eigenen Netzwerk erlauben",
+    "webdavRemoveFirst": "Entferne zuerst den Server, damit keine Sicherungen mehr dorthin gehen",
     "webdavTestUnauthorised": "Authentifizierung fehlgeschlagen",
     "webdavTestMethodNotAllowed": "Prüfe das Format deiner WebDAV-Adresse. Der Server akzeptiert PROPFIND auf diesem Pfad nicht",
     "webdavTestStatus": "Server antwortete mit {{code}}",
@@ -715,6 +716,7 @@
     "statusNoActivityAccess": "Garmin hat den Schlüssel akzeptiert, aber er kann deine Aktivitäten nicht lesen.",
     "statusMalformed": "Das sieht nicht nach einem Garmin-Schlüssel aus.",
     "statusUnreachable": "Garmin war nicht erreichbar. Versuche es gleich noch einmal.",
+    "statusSaveFailed": "Der Schlüssel konnte auf diesem Gerät nicht gespeichert werden, daher ist Garmin nicht verbunden. Versuche es erneut.",
     "feedTitle": "Meine Garmin-Fahrten in Veloq zeigen",
     "feedHint": "Fahrten aus deinem Garmin-Konto erscheinen nach dem Verbinden im Feed von Veloq.",
     "moreOptions": "Weitere Optionen",
@@ -875,17 +877,17 @@
   "insights": {
     "ranking": {
       "title": "Charte-Rangfolg",
-      "intro": "Das sind Faktoren für die Kartenauswahl, keine Konfidenzwahrscheinlichkeiten.",
+      "intro": "Diese Faktoren bestimmen die Reihenfolge der Karten. Es sind keine Konfidenzwerte.",
       "scoreOnScale": "{{score}} auf einer Skala von 0 bis 1",
       "unavailable": "Nicht genügend gültige Vergleichsdaten",
       "recency": {
         "label": "Aktualität",
-        "explanation": "Höhere Werte bedeuten, dass dieser Abschnitt kürzlicher absolviert wurde; der Wert sinkt mit der Zeit."
+        "explanation": "Höhere Werte bedeuten, dass dieser Abschnitt zuletzt absolviert wurde. Der Wert sinkt mit der Zeit."
       },
       "improvement": {
         "label": "Leistungsänderung",
-        "medianOfThree": "Median der letzten drei Versuche im Vergleich zu den drei davor; positiv bedeutet schneller, negativ langsamer.",
-        "firstToLast": "Letzter Versuch im Vergleich zum ersten; positiv bedeutet schneller, negativ langsamer."
+        "medianOfThree": "Median der letzten drei Versuche im Vergleich zu den drei davor. Positiv bedeutet schneller. Negativ bedeutet langsamer.",
+        "firstToLast": "Letzter Versuch im Vergleich zum ersten. Positiv bedeutet schneller. Negativ bedeutet langsamer."
       },
       "anomaly": {
         "label": "Ungewöhnlichkeit",
@@ -893,13 +895,13 @@
       },
       "engagement": {
         "label": "Relative Nutzung",
-        "explanation": "Höhere Werte bedeuten mehr Versuche im Verhältnis zu deinem am häufigsten absolvierten Abschnitt in dieser Sportart; mehr Versuche auf einem anderen Abschnitt können diesen Wert senken."
+        "explanation": "Höhere Werte bedeuten mehr Versuche im Verhältnis zu deinem am häufigsten absolvierten Abschnitt in dieser Sportart. Versuche auf einem anderen Abschnitt können diesen Wert senken."
       }
     },
     "title": "S Wichigschte",
     "strength": "Chraft",
     "noInsights": "Tipps chömed wenn du trainiersch",
-    "noInsightsHint": "Mach meh Aktivitäte für persönlichi Tipps",
+    "noInsightsHint": "Für Iischichte bruuchts meh Aktivitäte zum vergliiche.",
     "couldNotBuild": "Einblicke konnten nicht erstellt werden",
     "wellnessFromLastSync": "Wellness vom letzten Sync, {{date}}",
     "sectionPr": "PR uf {{name}}!",
@@ -946,11 +948,11 @@
       "prDetection": "Vergliicht dini letschti Abschnittsziit mit allne früheri Versüech zum persönlichi Rekord z erchenne.",
       "sectionTrend": "Verfolgt d Median-Leistig uf oft bsuechte Abschnitt über d Ziit.",
       "periodComparison": "Vergliicht Trainingsmetrike zwüsche ufeinanderfolgende Wuche zum de Fortschritt z verfolge.",
-      "hrvDescription": "Die 7 Kalendertage bis heute, wobei nur Tage mit einer HRV-Messung zählen und mindestens fünf davon nötig sind. Der Mittelwert der älteren Hälfte wird mit dem der neueren verglichen. Eine Änderung zählt nur, wenn ihr 95-%-Intervall, berechnet aus der Streuung deiner eigenen Messungen, null ausschliesst und sie grösser ist als eine halbe Standardabweichung dieser Streuung und 2 % des älteren Mittelwerts; alles darunter gilt als stabil. Ein stabiles Fenster gilt dennoch als fallend, wenn die letzten beiden Messungen an aufeinanderfolgenden Tagen liegen, die zweite niedriger ist, unter dem Fenstermittel liegt und das Paar denselben Test gegen die Messungen davor besteht.",
+      "hrvDescription": "Die 7 Kalendertage bis heute, mit mindestens fünf HRV-Messungen. Der Mittelwert der älteren Hälfte wird mit dem der neueren verglichen. Eine Änderung zählt nur, wenn ihr 95-%-Intervall, aus der Streuung deiner Messungen, die Null ausschliesst und grösser ist als eine halbe Standardabweichung dieser Streuung und 2 % des Mittelwerts der älteren Hälfte. Alles Kleinere gilt als stabil. Ein stabiles Fenster gilt trotzdem als fallend, wenn die letzten beiden Messungen an aufeinanderfolgenden Tagen liegen, die zweite tiefer ist, unter dem Fenstermittel liegt und das Paar denselben Test gegen die früheren Messungen besteht.",
       "periodComparisonRestDay": "Vergliicht d letscht Wuche mit dim 4-Wuche-Schnitt wenn die Wuche no kei Aktivitäte hät.",
       "ftpEstimation": "Verglicht dini neuschti tägligi eFTP mit em Wärt vo vor 30 Täg. eFTP isch d Schätzig vo intervals.icu us dinere Leischtigschurve, nid d FTP-Iistellig uf dim Konto.",
-      "criticalSpeedDescription": "Vergliicht dini neuschti kritischi Gschwindigkeit us de 42-Täg-Tempokurve mit em letschte früechere Wärt innert de letschte 90 Täg, wo um meh als 0,02 m/s abwiicht, und zeigt d Änderig als Tempo.",
-      "efficiencyDescription": "Verfolgt di durchschnittlich Härzfrequänz mal Tempo über passendi Versüech uf em Abschnitt, mit ere lineare Regression nach de Methode vo de chliinschte Quadrat über d Ziit. E Richtig wird nume zeigt, wänn s 95-%-Intervall vo de Steigig null usschliesst und di modellierti Änderig über d Versüech meh als 2 % vom Schnitt usmacht. En sinkende Wärt heisst weniger Härzschläg pro km: e tüüferi Härzfrequänz, es schnällers Tempo oder beides.",
+      "criticalSpeedDescription": "Vergliicht dini neuschti kritischi Gschwindigkeit us de 42-Täg-Tempokurve mit em letschte Wärt vo de letschte 90 Täg, wo um meh als 0,02 m/s abwiicht. D Änderig wird als Tempo zeigt.",
+      "efficiencyDescription": "Verfolgt d durchschnittlich Härzfrequänz mal Tempo über passendi Versüech uf em Abschnitt, als Trend nach de Methode vo de chliinschte Quadrat über d Ziit. E Richtig wird nume zeigt, wänn s 95-%-Intervall vom Trend null usschliesst und di agpasst Änderig meh als 2 % vom Schnitt usmacht. En sinkende Wärt heisst weniger Härzschläg pro km: e tüüferi Härzfrequänz, es schnällers Tempo oder beides.",
       "efficiencyFormula": "{{quantity}} ({{unit}}) = durchschnittlechi Herzfrequänz × Pace (Sekunde pro km)",
       "route": "Zählt Versuche auf einer Strecke in einer Sportart und Richtung, die gestoppt, nicht ausgeschlossen, nicht teilweise sind und im Distanzband der Strecke liegen. Ein Rekord ist der schnellste davon, kürzlich aufgestellt. Ein Trend vergleicht den Median der letzten drei mit den drei davor, ab sechs Versuchen."
     },
@@ -987,10 +989,10 @@
       "trendingDown": "HRV: neueri Hälfti tiefer",
       "stable": "HRV: kei klari Änderig",
       "lastTwoDays": "HRV: letschti zwei Messige under em Durchschnitt",
-      "trendingUpBody": "Di neueri Hälfti vo dine letschte 7 HRV-Täg lit im Schnitt über de eltere Hälfti, um meh, als dini Schwankig vo Tag zu Tag erklärt. Schnitt im Fänschter {{avg}} ms über {{days}} Messige, zletscht {{latest}} ms.",
-      "trendingDownBody": "Di neueri Hälfti vo dine letschte 7 HRV-Täg lit im Schnitt under de eltere Hälfti, um meh, als dini Schwankig vo Tag zu Tag erklärt. Schnitt im Fänschter {{avg}} ms über {{days}} Messige, zletscht {{latest}} ms.",
-      "stableBody": "Di beide Hälftene vo dine letschte 7 HRV-Täg unterscheided sich nöd meh, als dini Schwankig vo Tag zu Tag erklärt. Schnitt im Fänschter {{avg}} ms über {{days}} Messige, zletscht {{latest}} ms.",
-      "lastTwoDaysBody": "S Fänschter sälber isch stabil blibe, aber dini letschte zwei Messige sind zwei Täg hinderenand abegheit, meh als dini Schwankig vo Tag zu Tag erklärt, und di letscht, {{latest}} ms, lit under em Fänschterschnitt vo {{avg}} ms über {{days}} Messige."
+      "trendingUpBody": "Di neueri Hälfti vo dine letschte 7 HRV-Täg lit im Schnitt höcher als di eltere, um meh als dini übliche Schwankig vo Tag zu Tag. Schnitt im Fänschter {{avg}} ms über {{days}} Messige, zletscht {{latest}} ms.",
+      "trendingDownBody": "Di neueri Hälfti vo dine letschte 7 HRV-Täg lit im Schnitt tiefer als di eltere, um meh als dini übliche Schwankig vo Tag zu Tag. Schnitt im Fänschter {{avg}} ms über {{days}} Messige, zletscht {{latest}} ms.",
+      "stableBody": "Di beide Hälftene vo dine letschte 7 HRV-Täg unterscheided sich nöd meh als dini übliche Schwankig vo Tag zu Tag. Schnitt im Fänschter {{avg}} ms über {{days}} Messige, zletscht {{latest}} ms.",
+      "lastTwoDaysBody": "D letschte 7 Täg sind stabil bliibe, aber dini letschte zwei Messige sind an zwei Täg hinderenand abegheit, meh als dini übliche Schwankig vo Tag zu Tag. Di letscht, {{latest}} ms, lit under em Fänschterschnitt vo {{avg}} ms über {{days}} Messige."
     },
     "weeklyLoad": {
       "title": "Trainingsbelastig {{percent}}% {{direction}} Schnitt",
@@ -998,20 +1000,20 @@
       "below": "unter"
     },
     "stalePr": {
-      "title": "{{section}} isch en neue Versuech wert",
+      "title": "{{section}}: d Fitness isch sit em PR gstiige",
       "subtitle": "{{visited}}. PR {{prTime}} bi {{metric}} {{previous}}, jetzt {{current}}",
-      "body": "{{visited}}. Mit dinere aktuelle Fitness en neue Versuech wert: {{metric}} {{previous}} am Tag vom PR, jetzt {{current}}.",
+      "body": "{{visited}}. {{metric}} isch am Tag vom PR bi {{previous}} gsii, jetzt bi {{current}}.",
       "currentMetric": "Aktuell {{metric}}",
       "prMetric": "{{metric}} bim PR",
       "metricGain": "{{metric}}-Gwinn",
       "prTime": "PR-Ziit",
-      "methodology": "Zeigt für en Abschnitt, wo du mindestens {{visits}}-mal und nöd i de letschte {{days}} Täg gmacht häsch, wänn dini Fitness hüt mindestens {{gain}}% über de Fitness am Tag vom PR isch. Bis {{max}} wärded zeigt, die meischtbsuechte zerscht. D Rad-Fitness isch d eFTP, d Schätzig vo intervals.icu us dinere Leistigskurve. D Lauf-Fitness isch d kritischi Gschwindigkeit und d Schwimm-Fitness d CSS, beidi us dinere Pace-Kurve.",
+      "methodology": "Zeigt für en Abschnitt, wo du mindestens {{visits}}-mal und nöd i de letschte {{days}} Täg gmacht hesch, wänn dini Fitness jetzt mindestens {{gain}}% über em Stand am PR-Tag isch. Bis {{max}} wärded zeigt, die meischtbsuechte zerscht. D Rad-Fitness isch d eFTP, d Schätzig vo intervals.icu us dinere Leistigskurve. D Lauf-Fitness isch d kritischi Gschwindigkeit und d Schwimm-Fitness d CSS, beidi us dinere Pace-Kurve.",
       "metricCyclingEftp": "Rad-eFTP",
       "metricSwimCss": "Schwimm-CSS",
       "metricRunningCriticalSpeed": "Kritische Laufgeschwindigkeit",
       "groupMore": "(+{{n}} wiiteri)",
-      "groupTitle_one": "{{count}} Abschnitt, wo en neue Versuech wert isch",
-      "groupTitle_other": "{{count}} Abschnitt, wo en neue Versuech wert sind",
+      "groupTitle_one": "{{count}} Abschnitt, wo d Fitness sit em PR gstiige isch",
+      "groupTitle_other": "{{count}} Abschnitt, wo d Fitness sit de PRs gstiige isch",
       "groupSubtitle": "{{metric}} jetzt {{current}}",
       "visitedRide_one": "Eimal gfahre",
       "visitedRide_other": "{{count}}-mal gfahre",
@@ -1035,7 +1037,7 @@
       "openActivity": "PR-Aktivität uftue"
     },
     "aboutTitle": "Über Einblicke",
-    "aboutBody": "Trainingsmetrike sind Schätzige basierend uf publizierte sportwüsseschaftliche Modäll. Individuelli Reaktione variiere. Die Einblicke sind nur informativ, kei medizinische oder Coaching-Raat.",
+    "aboutBody": "Di Einblicke vergliiched dis letschte Training mit diner eigene Historie. Nur zur Information, kei medizinischi oder Coaching-Raat.",
     "explanation": {
       "title": "Einblick verstaa",
       "foundLabel": "Methode",
@@ -1047,7 +1049,7 @@
         },
         "fitness": {
           "label": "eFTP und kritischi Gschwindigkeit",
-          "text": "E Änderig vo eim vo beidne und d Rekord, wo du ufgstellt hesch, wo de Wärt tüüfer gsi isch."
+          "text": "E Änderig vo eim vo beidne und alli PRs, wo du bi tüüferer Fitness ufgstellt hesch."
         },
         "week": {
           "label": "Die Wuche",
@@ -1070,18 +1072,18 @@
       "sources": "Ziite, Herzfrequänz und Leischtig chömed us dine Aktivitäte, eFTP, kritischi Gschwindigkeit und HRV vo intervals.icu, und Methode und Date vo jeder Charte stönd under «{{howCalculated}}».",
       "strengthTitle": "Chraft verstaa"
     },
-    "aboutRanking": "Die Karten sind danach sortiert, wie viel sie zu sagen haben: wie aktuell etwas ist, wie stark es von deinem Ueblichen abweicht, wie sehr es sich veraendert hat und wie oft du es machst.",
+    "aboutRanking": "Die Karten sind danach sortiert, wie aktuell sie sind, wie stark sie von deinem Üblichen abweichen, wie stark sie sich verändert haben und wie oft du den Abschnitt wiederholst.",
     "efficiencyTrend": {
       "seriesLabel": "{{quantity}}, vom eltschte bis zum neuschte Versüech",
       "quantity": "Härzfrequänz × Tempo",
       "title": "Effizienz verbessert sich uf {{name}}",
       "changeTitle": "Effizienz auf {{name}}: {{hrChange}} bpm",
       "changeSubtitle": "Modelliert {{hrChange}} bpm bei mittlerem Tempo über {{efforts}} Versuche",
-      "changeBody": "Über {{efforts}} Versuche auf {{name}} stieg das Produkt aus Herzfrequenz und Tempo. Bei mittlerem Tempo entspricht dies modellierten {{hrChange}} bpm; die gemessene Herzfrequenz kann abweichen.",
+      "changeBody": "Über {{efforts}} Versuche auf {{name}} stieg das Produkt aus Herzfrequenz und Tempo. Bei mittlerem Tempo entspricht dies modellierten {{hrChange}} bpm. Die gemessene Herzfrequenz kann abweichen.",
       "subtitle": "Modelliert {{hrChange}} bpm bim durchschnittlichä Tempo über {{efforts}} Versüech",
-      "body": "Über {{efforts}} Versüech uf {{name}} hät sich Härzfrequänz mal Tempo verbessert. Bim durchschnittlichä Tempo entspricht das modellierte {{hrChange}} bpm; dini Härzfrequänz sälber cha unverändert si.",
+      "body": "Über {{efforts}} Versüech uf {{name}} hät sich Härzfrequänz mal Tempo verbessert. Bim durchschnittlichä Tempo sind das modellierti {{hrChange}} bpm. Dini Härzfrequänz alleini cha unverändert si.",
       "sheetHeading": "Passendi Versüech im Vergliich",
-      "sheetBody": "Basiert uf mehrere Versüech uf em gliiche Abschnitt mit Härzfrequänz und Tempo. Vergliicht über d Ziit, was jede Durchgang dis Härz gchoschtet hät.",
+      "sheetBody": "Vergliicht Härzfrequänz mal Tempo über mehreri Versüech uf em gliiche Abschnitt, über d Ziit. Zellt werded nume Versüech mit Härzfrequänz und Tempo.",
       "sheetMeta": "Mach de Abschnitt uf, dänn gsehsch d Versüech dehinder."
     },
     "strengthBalance": {
@@ -1094,14 +1096,14 @@
       "noSignal": "Kei Date",
       "allOneSideTitle": "{{pair}}: gesamtes Volumen auf einer Seite",
       "oneSidedBody": "{{dominant}} stellt das gesamte gewichtete Satzvolumen für {{pair}} der letzten 4 Wochen.",
-      "ratioBody": "{{pair}} liegt im jüngsten 4-Wochen-Fenster bei durchschnittlich {{ratio}} gewichteten Sätzen.",
+      "ratioBody": "In den letzten 4 Wochen hat die grössere Seite von {{pair}} das {{ratio}}-Fache der gewichteten Sätze der kleineren.",
       "ratioLabel": "Verhältnis",
       "statusLabel": "Status",
       "formula": "Gewichtete Sätze pro Antagonisten-Paar",
-      "algorithm": "Vergleicht gewichtete Satzzahlen über gängige Antagonisten-Paare. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5."
+      "algorithm": "Vergleicht gewichtete Sätze gegenüberliegender Muskelpaare. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5."
     },
     "viewInDetail": "Im Detail luege",
-    "routesDisabledDescription": "Dini Abschnitt bliibed gspeicheret und gönd wieder uf, sobald dr Abgliich iigschaltet isch.",
+    "routesDisabledDescription": "Dini Abschnitt bliibed gspeicheret und chömed wieder, sobald Routene und Abschnitte iigschaltet sind.",
     "routesDisabledLine1": "Route & Abschnitt deaktiviert",
     "routesDisabledLine2": "Route & Abschnitt iischalte",
     "strengthProgression": {
@@ -1135,7 +1137,7 @@
       "split": "Er wurde in mehrere Abschnitte geteilt",
       "restored": "Er ist zurückgekehrt",
       "reverted": "Er wurde auf eine frühere Version zurückgesetzt",
-      "body": "Der Verlauf des Abschnitts zeigt, was sich bewegt hat und welche Aktivitäten dabei waren."
+      "body": "Der Verlauf des Abschnitts listet jede Änderung und die Aktivitäten in ihrer Nähe auf."
     },
     "milestoneSheet": {
       "powerHeading": "Zu dere eFTP-Änderig",
@@ -1391,7 +1393,7 @@
     },
     "privacy": {
       "title": "Dateschutz-Hinwiis",
-      "brief": "Dini Athleten-ID und en Push-Token wärded uf üsem Server gspicheret (30-Täg-Ablauf). Benachrichtigunge werded über Apple oder Google gschickt, aber de ganzi Inhalt wird uf dim Grät erstellt. Chasch jederzit deaktiviere.",
+      "brief": "Dini Athleten-ID und en Push-Token wärded uf üsem Server gspicheret (30-Täg-Ablauf). Benachrichtigunge werded über Expo, dänn über Apple oder Google zuegstellt, aber de ganzi Inhalt wird uf dim Grät erstellt. Chasch jederzit deaktiviere.",
       "accept": "Verstande"
     },
     "settings": {
@@ -1687,7 +1689,7 @@
     "duplicateNameMessage": "Bitte wähl en andere Name. Jedi Route muess en eigene Name ha.",
     "expandInSettings": "In Istellige erwitere",
     "gpsTrackNotDownloaded": "GPS-Date no nöd abeglade. Probiers nomol, wenn si abeglade sind.",
-    "match": "Match",
+    "matchPercent": "{{percent}} Match",
     "noFrequentSections": "No kei hüüfigi Abschnitt",
     "noMatchingRoutes": "Kei passendi Route gfunde",
     "noRoutesFor": "Kei Route für {{filters}}",
@@ -1898,7 +1900,7 @@
     "mergeCandidatesTitle": "Abschnitt zum Zämefüege uswähle",
     "mergeCandidatesSubtitle_one": "{{count}} ähnlicher Abschnitt i de Nöchi",
     "mergeCandidatesSubtitle_other": "{{count}} ähnlichi Abschnitt i de Nöchi",
-    "overlapLabel": "Überlappung",
+    "overlapPercent": "{{percent}} Überlappung",
     "distanceAway": "{{distance}} entfernt",
     "acceptSection": "Akzeptierä",
     "acceptAllSections": "All akzeptierä",
@@ -2048,6 +2050,9 @@
     "streamHistoryDays_other": "{{count}} Tage",
     "streamHistoryAll": "Alle",
     "streamHistoryReset": "Zurücksetzen",
+    "streamHistoryNarrowTitle": "Ältere Streamdaten löschen?",
+    "streamHistoryNarrowBody": "Gespeicherte Reihen von Aktivitäten, die älter sind als {{window}}, werden von diesem Gerät gelöscht, einschliesslich Herzfrequenz, Leistung und Trittfrequenz. Erneutes Herunterladen nutzt das tägliche Anfragelimit von intervals.icu.",
+    "streamHistoryNarrowConfirm": "Ältere Reihen löschen",
     "streamBackfill": "Fehlende Serien",
     "streamBackfillOwed_one": "{{count}} Aktivität",
     "streamBackfillOwedSized_one": "{{count}} Aktivität, {{size}}",

@@ -72,6 +72,26 @@ beforeEach(() => {
 });
 
 describe('performBackup', () => {
+  it('records an address failure for a switched-on carrier whose address is refused', async () => {
+    const refused: BackupBackend = {
+      ...testBackend,
+      id: 'test-refused',
+      isAvailable: async () => false,
+      addressProblem: () => true,
+    };
+    mockCarriers.push(refused);
+    try {
+      const result = await performBackup(true);
+
+      expect(result).toMatchObject({
+        carriers: { 'test-refused': { status: 'failed', kind: 'address' } },
+      });
+      expect(getLastBackupFailure()).toMatchObject({ kind: 'address' });
+    } finally {
+      mockCarriers.pop();
+    }
+  });
+
   it('leaves the last-backup timestamp alone when the upload is rejected', async () => {
     upload.mockRejectedValue(transferFailure('Upload backup', 401));
 

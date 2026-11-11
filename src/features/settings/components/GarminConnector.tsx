@@ -25,6 +25,8 @@ import {
   saveGarminFeed,
   saveGarminUpload,
   saveGarminAutoSwap,
+  type GarminChoices,
+  type GarminConnectorState,
 } from '../lib/garminConnector';
 import { useExperimental } from '../lib/experimental';
 import { settingsStyles } from './settingsStyles';
@@ -36,6 +38,17 @@ const STATUS_KEY = {
   [GarminKeyStatus.Unreachable]: 'garmin.statusUnreachable',
   [GarminKeyStatus.NoActivityAccess]: 'garmin.statusNoActivityAccess',
 } as const;
+
+/** What the device holds: the connector's state, and the choices kept beside the key. */
+interface Held {
+  state: GarminConnectorState;
+  choices: GarminChoices;
+}
+
+async function readHeld(): Promise<Held> {
+  const [state, choices] = await Promise.all([readGarminConnectorState(), readGarminChoices()]);
+  return { state, choices };
+}
 
 /**
  * The Garmin connector: the athlete pastes their Personal key, it is kept in
@@ -56,6 +69,7 @@ export function GarminConnector() {
   const [pasted, setPasted] = useState('');
   const [checking, setChecking] = useState(false);
   const [status, setStatus] = useState<GarminKeyStatus | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [account, setAccount] = useState<GarminAccount | undefined>(undefined);
   const [feedOn, setFeedOn] = useState(true);
   const [uploadOn, setUploadOn] = useState(false);
@@ -63,26 +77,38 @@ export function GarminConnector() {
   const [autoSwapStopped, setAutoSwapStopped] = useState('');
   const [showMore, setShowMore] = useState(false);
 
+  const showHeld = useCallback(({ state, choices }: Held) => {
+    setConnected(state === 'connected');
+    setKeyNeeded(state === 'keyNeeded');
+    setFeedOn(choices.feed);
+    setUploadOn(choices.upload);
+    setAutoSwapOn(choices.autoSwap);
+    setAutoSwapStopped(choices.autoSwapStopped);
+  }, []);
+
+  /**
+   * Reads the device again, so a switch or the connection shows what is held
+   * after a save or a disconnect that did not finish. A read that fails as
+   * well leaves the screen as it is.
+   */
+  const reloadHeld = useCallback(async () => {
+    const held = await readHeld().catch(() => null);
+    if (held) showHeld(held);
+  }, [showHeld]);
+
   useEffect(() => {
     let live = true;
-    void (async () => {
-      const state = await readGarminConnectorState();
-      const choices = await readGarminChoices();
-      if (!live) return;
-      setConnected(state === 'connected');
-      setKeyNeeded(state === 'keyNeeded');
-      setFeedOn(choices.feed);
-      setUploadOn(choices.upload);
-      setAutoSwapOn(choices.autoSwap);
-      setAutoSwapStopped(choices.autoSwapStopped);
-    })();
+    void readHeld().then((held) => {
+      if (live) showHeld(held);
+    });
     return () => {
       live = false;
     };
-  }, []);
+  }, [showHeld]);
 
   const connect = useCallback(async () => {
     setChecking(true);
+    setSaveFailed(false);
     try {
       const result = await connectGarminKey(pasted);
       setStatus(result);
@@ -92,27 +118,37 @@ export function GarminConnector() {
         setKeyNeeded(false);
         setPasted('');
       }
+    } catch {
+      setSaveFailed(true);
     } finally {
       setChecking(false);
     }
   }, [pasted]);
 
   const disconnect = useCallback(async () => {
-    await disconnectGarmin();
-    setConnected(false);
-    setKeyNeeded(false);
-    setStatus(null);
-    setAccount(undefined);
-    setFeedOn(true);
-    setUploadOn(false);
-    setAutoSwapOn(false);
-    setAutoSwapStopped('');
-  }, []);
+    try {
+      await disconnectGarmin();
+    } catch {
+      // Every step has run. The read below shows which of them left the key or a choice behind.
+    } finally {
+      setStatus(null);
+      setAccount(undefined);
+      setSaveFailed(false);
+    }
+    await reloadHeld();
+  }, [reloadHeld]);
 
-  const changeFeed = useCallback((value: boolean) => {
-    setFeedOn(value);
-    void saveGarminFeed(value);
-  }, []);
+  const changeFeed = useCallback(
+    async (value: boolean) => {
+      setFeedOn(value);
+      try {
+        await saveGarminFeed(value);
+      } catch {
+        await reloadHeld();
+      }
+    },
+    [reloadHeld]
+  );
 
   const changeUpload = useCallback(
     async (value: boolean) => {
@@ -121,9 +157,13 @@ export function GarminConnector() {
         if (!granted) return;
       }
       setUploadOn(value);
-      await saveGarminUpload(value);
+      try {
+        await saveGarminUpload(value);
+      } catch {
+        await reloadHeld();
+      }
     },
-    [writeAccessMissing, upgradePermissions]
+    [writeAccessMissing, upgradePermissions, reloadHeld]
   );
 
   const changeAutoSwap = useCallback(
@@ -134,9 +174,13 @@ export function GarminConnector() {
       }
       setAutoSwapOn(value);
       if (value) setAutoSwapStopped('');
-      await saveGarminAutoSwap(value);
+      try {
+        await saveGarminAutoSwap(value);
+      } catch {
+        await reloadHeld();
+      }
     },
-    [writeAccessMissing, upgradePermissions]
+    [writeAccessMissing, upgradePermissions, reloadHeld]
   );
 
   const warn = garminDuplicateWarning({
@@ -147,6 +191,11 @@ export function GarminConnector() {
   const connectedLine = account
     ? t('garmin.statusConnectedAs', { name: account.displayName ?? t('garmin.accountFallback') })
     : t('garmin.statusConnected');
+  const failure = saveFailed
+    ? 'garmin.statusSaveFailed'
+    : status !== null && status !== GarminKeyStatus.Connected
+      ? STATUS_KEY[status]
+      : null;
 
   return (
     <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
@@ -198,9 +247,9 @@ export function GarminConnector() {
             testID="garmin-key-input"
           />
           <Text style={[styles.text, secondary]}>{t('garmin.privacy')}</Text>
-          {status !== null && status !== GarminKeyStatus.Connected ? (
-            <StatusLine tone="error" message={t(STATUS_KEY[status])}>
-              <Text style={{ color: palette.textPrimary }}>{t(STATUS_KEY[status])}</Text>
+          {failure !== null ? (
+            <StatusLine tone="error" message={t(failure)}>
+              <Text style={{ color: palette.textPrimary }}>{t(failure)}</Text>
             </StatusLine>
           ) : null}
           <Button
@@ -219,7 +268,7 @@ export function GarminConnector() {
             title={t('garmin.feedTitle')}
             description={t('garmin.feedHint')}
             value={feedOn}
-            onValueChange={changeFeed}
+            onValueChange={(value) => void changeFeed(value)}
             testID="garmin-feed-switch"
           />
           <RowDivider />

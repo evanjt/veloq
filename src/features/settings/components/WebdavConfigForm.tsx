@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Platform } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { useTranslation } from 'react-i18next';
 
-import { Button, StatusLine, SwitchRow, TextField, type TextFieldHandle } from '@/shared/ui';
+import { Button, StatusLine, TextField, type TextFieldHandle } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import {
   getWebdavConfig,
@@ -16,6 +16,7 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
 import { InfoButton } from './InfoButton';
 import { webdavTestMessage } from '../lib/autobackup/webdavTestMessage';
+import { isPlainHttp } from '../lib/autobackup/webdavConfig';
 import type { NextcloudLogin } from '../lib/autobackup/nextcloudLogin';
 
 /** What committing the form left stored. `empty` is a form with no field filled in. */
@@ -56,7 +57,6 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
   const [webdavUrl, setWebdavUrl] = useState(storedWebdav?.url ?? '');
   const [webdavUser, setWebdavUser] = useState(storedWebdav?.username ?? '');
   const [webdavPass, setWebdavPass] = useState(storedWebdav?.password ?? '');
-  const [webdavPlainLan, setWebdavPlainLan] = useState(storedWebdav?.plainLan ?? false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<'success' | 'error' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -81,16 +81,13 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
     if (!showQrScanner && Platform.OS !== 'ios') focusUrlIfAsked();
   }, [showQrScanner, focusUrlIfAsked]);
 
-  // Basic credentials and the record archive cross on every backup, so an
-  // address that would carry them in the clear is refused before it is stored.
+  // A plain http address is allowed, with a warning, because people self-host
+  // WebDAV. An address that is not http or https is refused before it is stored.
   const urlProblemText = useCallback(
-    (url: string, plainLan: boolean): string | null => {
-      const problem = webdavUrlProblem(url, plainLan);
-      if (problem === 'not-https') {
-        return t(
-          'backup.webdavHttpsRequired',
-          'Use an https:// address. An http:// server would receive your password and record archive unencrypted.'
-        );
+    (url: string): string | null => {
+      const problem = webdavUrlProblem(url);
+      if (problem === 'not-http') {
+        return t('backup.webdavSchemeRequired', 'Use an http:// or https:// address');
       }
       if (problem === 'invalid') {
         return t('backup.webdavInvalidUrl', 'That is not a valid server address');
@@ -109,14 +106,9 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
   // A refused keychain write leaves nothing stored, so the form says so rather
   // than showing filled fields over an unconfigured backup.
   const storeWebdav = useCallback(
-    async (
-      url: string,
-      user: string,
-      password: string,
-      plainLan: boolean
-    ): Promise<WebdavCommit> => {
+    async (url: string, user: string, password: string): Promise<WebdavCommit> => {
       try {
-        await setWebdavConfig(url, user, password, plainLan);
+        await setWebdavConfig(url, user, password);
       } catch {
         return showRefusal(
           t('backup.webdavSaveFailed', 'Could not save the server details on this device')
@@ -139,6 +131,13 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
       ];
       const missing = fields.filter(([value]) => !value);
       if (missing.length === fields.length) {
+        // A cleared form over a stored server would otherwise read as nothing configured
+        // while backups still go to that server. Removing it is the Remove button's job.
+        if (getWebdavConfig() !== null) {
+          return showRefusal(
+            t('backup.webdavRemoveFirst', 'Remove the server first to stop backups going to it')
+          );
+        }
         return required
           ? showRefusal(t('backup.fillAllFields', 'Please fill in all fields'))
           : { kind: 'empty' };
@@ -146,20 +145,19 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
       if (missing.length > 0) {
         return showRefusal(t('backup.fillField', { field: missing[0]?.[1] }));
       }
-      const refused = urlProblemText(webdavUrl, webdavPlainLan);
+      const refused = urlProblemText(webdavUrl);
       if (refused) return showRefusal(refused);
       const stored = getWebdavConfig();
       if (
         stored?.url === webdavUrl &&
         stored.username === webdavUser &&
-        stored.password === webdavPass &&
-        stored.plainLan === webdavPlainLan
+        stored.password === webdavPass
       ) {
         return { kind: 'stored' };
       }
-      return storeWebdav(webdavUrl, webdavUser, webdavPass, webdavPlainLan);
+      return storeWebdav(webdavUrl, webdavUser, webdavPass);
     },
-    [webdavUrl, webdavUser, webdavPass, webdavPlainLan, t, urlProblemText, showRefusal, storeWebdav]
+    [webdavUrl, webdavUser, webdavPass, t, urlProblemText, showRefusal, storeWebdav]
   );
   useImperativeHandle(ref, () => ({ commit }), [commit]);
 
@@ -175,18 +173,12 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
     setWebdavUrl('');
     setWebdavUser('');
     setWebdavPass('');
-    setWebdavPlainLan(false);
     setConnectionResult(null);
     setConnectionError(null);
     onRemoved();
   }, [onRemoved]);
 
-  const handleTogglePlainLan = useCallback((value: boolean) => {
-    setWebdavPlainLan(value);
-    setConnectionResult(null);
-    setConnectionError(null);
-  }, []);
-  const plainHttp = /^\s*http:/i.test(webdavUrl);
+  const plainHttp = isPlainHttp(webdavUrl);
 
   // The test's outcome is a status message, spoken by the status line it sits
   // in, which stays mounted so a second test's outcome is heard as a change.
@@ -204,16 +196,16 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
       setWebdavUser(user);
       setWebdavPass(password);
       setShowQrScanner(false);
-      const refused = urlProblemText(webdavEndpoint, webdavPlainLan);
+      const refused = urlProblemText(webdavEndpoint);
       if (refused) {
         setConnectionResult('error');
         setConnectionError(refused);
         return;
       }
       setConnectionResult(null);
-      void storeWebdav(webdavEndpoint, user, password, webdavPlainLan);
+      void storeWebdav(webdavEndpoint, user, password);
     },
-    [urlProblemText, webdavPlainLan, storeWebdav]
+    [urlProblemText, storeWebdav]
   );
 
   const handleTestConnection = useCallback(async () => {
@@ -231,8 +223,8 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
       return;
     }
     setConnectionResult('error');
-    setConnectionError(webdavTestMessage(outcome, t, urlProblemText(webdavUrl, webdavPlainLan)));
-  }, [commit, urlProblemText, webdavUrl, webdavPlainLan, t]);
+    setConnectionError(webdavTestMessage(outcome, t, urlProblemText(webdavUrl)));
+  }, [commit, urlProblemText, webdavUrl, t]);
 
   return (
     <>
@@ -268,13 +260,16 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
           autoComplete="url"
         />
         {plainHttp ? (
-          <SwitchRow
-            inset="none"
-            title={t('backup.webdavPlainLan', 'Allow an unencrypted server on my own network')}
-            value={webdavPlainLan}
-            onValueChange={handleTogglePlainLan}
-            testID="backup-webdav-plain-lan"
-          />
+          <Text
+            testID="backup-webdav-plain-http-warning"
+            accessibilityRole="alert"
+            style={[styles.plainHttpWarning, isDark && styles.plainHttpWarningDark]}
+          >
+            {t(
+              'backup.webdavPlainHttpWarning',
+              'This address uses http://, so your password and backups travel unencrypted. Use it only with a server you trust on a network you trust.'
+            )}
+          </Text>
         ) : null}
         <TextField
           testID="backup-webdav-username"
@@ -378,6 +373,13 @@ const styles = StyleSheet.create({
   connectionError: {
     ...typography.caption,
     color: colors.errorText,
+  },
+  plainHttpWarning: {
+    ...typography.caption,
+    color: colors.warningText,
+  },
+  plainHttpWarningDark: {
+    color: darkColors.warningText,
   },
   connectionErrorDark: {
     color: darkColors.errorText,

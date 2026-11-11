@@ -36,6 +36,7 @@ const ALLOWED = new Set([
   'rise',
   'rises',
   'rising',
+  'risen',
   'wise',
   'raise',
   'raised',

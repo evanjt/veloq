@@ -1321,6 +1321,9 @@ fn migration_017_is_rerunnable() {
     // migrations run, so a rerun never meets them in the field.
     conn.execute_batch(
         "DROP TRIGGER IF EXISTS section_activities_visit_count_section_au;
+         DROP TRIGGER IF EXISTS section_activities_coverage_empty_indices_au;
+         DROP TRIGGER IF EXISTS section_activities_coverage_empty_track_ai;
+         DROP TRIGGER IF EXISTS section_activities_coverage_empty_track_au;
          DROP TRIGGER IF EXISTS activity_metrics_sports_ai;
          DROP TRIGGER IF EXISTS activity_metrics_sports_au;",
     )

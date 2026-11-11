@@ -1,10 +1,9 @@
 /**
- * Scenario: the Map tab credits its basemap over the map, above the filter sheet.
- * Expected behaviour: one attribution bar, the shared overlay, carried inside the
- * sheet on its top edge, clear of its rounded corners, and themed by the app
- * rather than the basemap. The
- * map's popups clear the sheet and the credit as measured, and the sheet never
- * grows past the space under the map's top controls.
+ * Scenario: the Map tab credits its basemap, with the filter sheet over the map.
+ * Expected behaviour: the credit is a line inside the sheet under its handle, with no bar
+ * drawn over the map, themed by the app rather than the basemap. The map's popups clear the
+ * sheet, its credit line included, as measured, and the sheet never grows past the space under
+ * the map's top controls.
  */
 import React from 'react';
 import { StyleSheet } from 'react-native';
@@ -13,7 +12,6 @@ import MapScreen from '@/app/(tabs)/map';
 import { renderStaged } from '../__shared__/stagedRender';
 import { advanceAnimationByTime, getAnimatedStyle } from '../__shared__/reanimatedJest';
 import { darkColors } from '@/theme';
-import { ATTRIBUTION_CLEARANCE } from '@/features/maps/components/AttributionOverlay';
 
 const MOCK_CREDIT = '© Invented Tiles © Example Contributors';
 let mockBasemapDark = false;
@@ -31,10 +29,6 @@ jest.mock('expo-router', () => ({
   useSegments: () => ['(tabs)', 'map'],
 }));
 jest.mock('@/features/maps', () => ({
-  ATTRIBUTION_CLEARANCE: jest.requireActual('@/features/maps/components/AttributionOverlay')
-    .ATTRIBUTION_CLEARANCE,
-  AttributionOverlay: jest.requireActual('@/features/maps/components/AttributionOverlay')
-    .AttributionOverlay,
   FILTER_CHIP: { fill: 'teal', ink: 'black' },
   DEFAULT_MAP_PERIOD: 'all',
   ...jest.requireActual('@/features/maps/lib/filterSheet'),
@@ -77,6 +71,11 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
   useTheme: () => ({ isDark: mockAppDark, colors: {} }),
 }));
+// The credit line reads the theme from its own module, not the shared barrel.
+jest.mock('@/shared/app/useTheme', () => ({
+  ...jest.requireActual('@/shared/app/useTheme'),
+  useTheme: () => ({ isDark: mockAppDark, colors: {} }),
+}));
 jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {} }));
 jest.mock('@/shared/ui', () => {
   const { Text } = require('react-native');
@@ -115,64 +114,62 @@ describe('map tab attribution', () => {
     jest.useRealTimers();
   });
 
-  it('credits the basemap once, through the shared overlay', async () => {
+  it('credits the basemap once, as a line in the sheet with no bar over the map', async () => {
     const view = await renderStaged(<MapScreen />);
-    expect(view.getAllByTestId('map-attribution-bar')).toHaveLength(1);
+    expect(view.queryAllByTestId('map-attribution-bar')).toHaveLength(0);
     expect(view.getAllByText(MOCK_CREDIT)).toHaveLength(1);
     expect(view.getByTestId('map-attribution-text').props.children).toBe(MOCK_CREDIT);
   });
 
-  it('rides inside the sheet, on its top edge, so a drag moves both in one layout', async () => {
+  it('draws the credit under the handle inside the sheet, so a drag moves both in one layout', async () => {
     const view = await renderStaged(<MapScreen />);
     jest.useFakeTimers();
     await layOut(view, 'map-filter-lowered', 140);
-    const sheet = view.getByTestId('map-filter-sheet');
-    const lane = within(sheet).getByTestId('map-attribution-lane');
-    expect(within(lane).getByTestId('map-attribution-bar')).toBeTruthy();
-    expect(StyleSheet.flatten(lane.props.style).bottom).toBe('100%');
+    const body = within(view.getByTestId('map-filter-sheet')).getByTestId('map-filter-sheet-body');
+    expect(within(body).getByTestId('map-filter-handle')).toBeTruthy();
+    const credit = within(body).getByTestId('map-sheet-credit');
+    expect(within(credit).getByTestId('map-attribution-text').props.children).toBe(MOCK_CREDIT);
+    expect(
+      within(view.getByTestId('map-filter-scroll')).queryByTestId('map-sheet-credit')
+    ).toBeNull();
     // Nothing of the credit's own animates: it moves only because the sheet does.
-    expect(getAnimatedStyle(lane)).toEqual({});
+    expect(getAnimatedStyle(credit)).toEqual({});
 
     const lowered = sheetHeight(view);
     await layOut(view, 'map-filter-lowered', 360);
     act(() => advanceAnimationByTime(400));
     expect(sheetHeight(view)).toBe(lowered + 220);
-    expect(within(view.getByTestId('map-filter-sheet')).getByTestId('map-attribution-lane')).toBe(
-      view.getByTestId('map-attribution-lane')
-    );
   });
 
-  it("keeps the sheet's top corners rounded, the credit standing clear of them", async () => {
+  it("keeps the sheet's top corners rounded, with no credit drawn over the map", async () => {
     const view = await renderStaged(<MapScreen />);
     const body = StyleSheet.flatten(view.getByTestId('map-filter-sheet-body').props.style);
     const radius = body.borderTopLeftRadius as number;
     expect(radius).toBeGreaterThan(0);
     expect(body.borderTopRightRadius).toBe(radius);
     expect(body.overflow).toBe('hidden');
-
-    const credit = StyleSheet.flatten(view.getByTestId('map-attribution').props.style);
-    expect(credit.left).toBeGreaterThanOrEqual(radius);
-    expect(credit.right).toBeGreaterThanOrEqual(radius);
+    expect(view.queryByTestId('map-attribution')).toBeNull();
     expect(view.getByTestId('map-attribution-text').props.numberOfLines).toBeUndefined();
   });
 
-  it('hands the map the raised sheet and its credit to clear, as measured', async () => {
+  it('hands the map the sheet with its credit line included, as the line is measured', async () => {
     const view = await renderStaged(<MapScreen />);
     jest.useFakeTimers();
+    await layOut(view, 'map-sheet-credit', 40);
     await layOut(view, 'map-filter-lowered', 140);
-    await layOut(view, 'map-filter-raised', 320);
     const lowered = sheetHeight(view);
-    expect(mockMapClearance).toBeGreaterThanOrEqual(lowered + ATTRIBUTION_CLEARANCE);
+    expect(mockMapClearance).toBe(lowered);
+
+    await layOut(view, 'map-sheet-credit', 64);
+    act(() => advanceAnimationByTime(400));
+    expect(sheetHeight(view)).toBe(lowered + 24);
+    expect(mockMapClearance).toBe(lowered + 24);
 
     await fireEvent.press(view.getByTestId('map-filter-handle'));
+    await layOut(view, 'map-filter-raised', 320);
     await act(async () => advanceAnimationByTime(400));
-    expect(sheetHeight(view)).toBe(lowered + 320);
-    expect(mockMapClearance).toBeGreaterThanOrEqual(lowered + 320 + ATTRIBUTION_CLEARANCE);
-
-    await fireEvent(view.getByTestId('map-attribution-bar'), 'layout', {
-      nativeEvent: { layout: { x: 0, y: 0, width: 200, height: 40 } },
-    });
-    expect(mockMapClearance).toBeGreaterThanOrEqual(lowered + 320 + 40);
+    expect(sheetHeight(view)).toBe(lowered + 24 + 320);
+    expect(mockMapClearance).toBe(lowered + 24 + 320);
   });
 
   it('bounds the raised sheet by the space under the top controls', async () => {

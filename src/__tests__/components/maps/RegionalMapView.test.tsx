@@ -140,7 +140,7 @@ function activity(id: string, overrides: Partial<ActivityBoundsItem> = {}): Acti
     ],
     type: 'Ride',
     name: `Ride ${id}`,
-    date: '2026-01-15T10:00:00Z',
+    date: Date.UTC(2026, 0, 15, 10, 0, 0) / 1000,
     distance: 42_000,
     duration: 5400,
     startPoint: [46.948, 7.447],

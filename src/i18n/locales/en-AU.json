@@ -22,13 +22,13 @@
     "Soccer": "Soccer"
   },
   "alerts": {
-    "clearCacheMessage": "This clears out all cached activity data, activity tracks and route matching data, then starts to reload. Might take a few minutes. The local data range goes back to the last 90 days.",
-    "disconnectOffline": "You're offline. Both ways back in need a connection, so you won't be able to sign in again till the network's back.",
+    "clearCacheMessage": "Clears out cached activity data, tracks and route matching, then reloads. Might take a few minutes. Local data then covers the last 90 days.",
+    "disconnectOffline": "You're offline. Signing in again needs a connection, however you sign in, so wait till it's back.",
     "failedToClear": "Couldn't clear the cache. Give it another go.",
     "failedToDisconnect": "Couldn't disconnect. Give it another go.",
     "accountChangeMessage": "This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To hang on to it, go back and sign in to that account instead.",
     "accountChangeDemoMessage": "This device has cached data for another account ({{cachedAthleteId}}). Carrying on to demo mode will permanently delete that data. To hang on to it, go back and sign in to that account first.",
-    "unnamedLibraryMessage": "This device holds a library with no account's name on it. If it's yours, keep it and it'll sync as this account. Otherwise delete it.",
+    "unnamedLibraryMessage": "This device holds a library that's not linked to an account. If it's yours, keep it and it'll sync to this account. Otherwise delete it.",
     "unnamedLibraryMine": "Yep, that's mine",
     "accountChangeUnknownDemoMessage": "This device holds a library from another account. Carrying on to demo mode will permanently delete it. To hang on to it, go back and sign in to that account first.",
     "disconnectAndClearMessage": "This signs you out and clears your library off this phone. This cannot be undone."
@@ -170,8 +170,8 @@
       "emptyBody": "Activities come from your intervals.icu account, or record one right here."
     },
     "streamConsentTitle": "Grab the missing activity data?",
-    "streamConsentBody_one": "{{count}} activity is missing its heart rate, power and cadence series. Grabbing it uses about {{megabytes}} MB of data.",
-    "streamConsentBody_other": "{{count}} activities are missing their heart rate, power and cadence series. Grabbing them uses about {{megabytes}} MB of data."
+    "streamConsentBody_one": "{{count}} activity is missing its heart rate, power and cadence data. Grabbing it uses about {{megabytes}} MB.",
+    "streamConsentBody_other": "{{count}} activities are missing their heart rate, power and cadence data. Grabbing them uses about {{megabytes}} MB."
   },
   "fitness": {
     "noData": "No fitness data yet",

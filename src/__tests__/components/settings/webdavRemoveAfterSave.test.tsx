@@ -11,14 +11,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 
 import { WebdavConfigForm } from '@/features/settings/components/WebdavConfigForm';
 
-type StoredConfig = { url: string; username: string; password: string; plainLan: boolean };
+type StoredConfig = { url: string; username: string; password: string };
 
 let mockStored: StoredConfig | null = null;
-const mockSave = jest.fn(
-  async (url: string, username: string, password: string, plainLan: boolean) => {
-    mockStored = { url, username, password, plainLan };
-  }
-);
+const mockSave = jest.fn(async (url: string, username: string, password: string) => {
+  mockStored = { url, username, password };
+});
 const mockClear = jest.fn(async () => {
   mockStored = null;
 });
@@ -60,7 +58,6 @@ it('hides Remove again after it removes the stored configuration', async () => {
     url: 'https://x.example/dav/',
     username: 'keeper',
     password: 'lighthouse',
-    plainLan: false,
   };
   const onRemoved = jest.fn();
   await render(<WebdavConfigForm onConfigChange={jest.fn()} onRemoved={onRemoved} />);
@@ -76,7 +73,6 @@ it('shows Remove straight away when the configuration was stored before the form
     url: 'https://x.example/dav/',
     username: 'keeper',
     password: 'lighthouse',
-    plainLan: false,
   };
   await render(<WebdavConfigForm onConfigChange={jest.fn()} onRemoved={jest.fn()} />);
 

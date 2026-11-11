@@ -56,7 +56,7 @@ describe('the Insights explanation card', () => {
     const card = screen.getByTestId('insights-explanation');
     expect(within(card).getByText('insights.explanation.title')).toBeTruthy();
     expect(within(card).getByText('insights.explanation.foundLabel')).toBeTruthy();
-    expect(within(card).getByText('insights.aboutBody')).toBeTruthy();
+    expect(within(card).queryByText('insights.aboutBody')).toBeNull();
     expect(within(card).queryByText(/insights\.aboutRanking/)).toBeNull();
     expect(within(card).queryByText('insights.explanation.orderLabel')).toBeNull();
     expect(lastChildOfScroll()?.props.testID).toBe('insights-explanation');

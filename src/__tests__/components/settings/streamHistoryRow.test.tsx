@@ -9,10 +9,12 @@
  * re-reads the size the eviction left behind, reset returns to the default, and the
  * activity retention path does not exist at all. That last
  * one deletes whole activities and is a different setting with a similar name.
+ * A choice that narrows the window prunes saved series, so it waits for the
+ * athlete to confirm; widening and reset write at once.
  */
 
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 
 import {
   StreamHistoryRow,
@@ -30,6 +32,11 @@ jest.mock('react-i18next', () => ({
 
 const setStreamRetentionDays = jest.fn();
 const mockUpdateRouteSettings = jest.fn();
+const mockConfirmAction = jest.fn();
+
+jest.mock('@/shared/ui/dialog', () => ({
+  confirmAction: (args: unknown) => mockConfirmAction(args),
+}));
 
 let stored: number | undefined = DEFAULT_STREAM_RETENTION_DAYS;
 let bytes = 4 * 1024 * 1024;
@@ -71,6 +78,8 @@ describe('StreamHistoryRow', () => {
   beforeEach(() => {
     setStreamRetentionDays.mockClear();
     mockUpdateRouteSettings.mockClear();
+    mockConfirmAction.mockReset();
+    mockConfirmAction.mockImplementation((args: { onConfirm: () => void }) => args.onConfirm());
     stored = DEFAULT_STREAM_RETENTION_DAYS;
     bytes = 4 * 1024 * 1024;
     mockEngineHandle = buildEngine();
@@ -120,6 +129,57 @@ describe('StreamHistoryRow', () => {
     // The default is the open window, so the step off it is the narrowest one
     // and the readout drops rather than grows.
     expect(getByTestId('settings-stream-bytes').props.children).toBe('1.4 MB');
+  });
+
+  it('does not narrow the window from all until the athlete confirms', async () => {
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
+    mockConfirmAction.mockImplementationOnce(() => undefined);
+
+    await fireEvent.press(getByTestId('settings-stream-window'));
+
+    expect(mockConfirmAction).toHaveBeenCalledTimes(1);
+    expect(mockConfirmAction.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ destructive: true, cancelLabel: 'common.cancel' })
+    );
+    expect(setStreamRetentionDays).not.toHaveBeenCalled();
+    expect(stored).toBe(DEFAULT_STREAM_RETENTION_DAYS);
+
+    act(() => mockConfirmAction.mock.calls[0][0].onConfirm());
+
+    expect(setStreamRetentionDays).toHaveBeenCalledTimes(1);
+    expect(setStreamRetentionDays).toHaveBeenCalledWith(30);
+    expect(stored).toBe(30);
+  });
+
+  it('leaves the window alone when the athlete cancels the narrowing', async () => {
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
+    mockConfirmAction.mockImplementationOnce(() => undefined);
+
+    await fireEvent.press(getByTestId('settings-stream-window'));
+    act(() => mockConfirmAction.mock.calls[0][0].onCancel?.());
+
+    expect(setStreamRetentionDays).not.toHaveBeenCalled();
+    expect(stored).toBe(DEFAULT_STREAM_RETENTION_DAYS);
+  });
+
+  it('widens a narrower window without asking', async () => {
+    stored = 30;
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
+
+    await fireEvent.press(getByTestId('settings-stream-window'));
+
+    expect(mockConfirmAction).not.toHaveBeenCalled();
+    expect(setStreamRetentionDays).toHaveBeenCalledWith(90);
+  });
+
+  it('reset widens to keep-everything without asking', async () => {
+    stored = 365;
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
+
+    await fireEvent.press(getByTestId('settings-stream-reset'));
+
+    expect(mockConfirmAction).not.toHaveBeenCalled();
+    expect(setStreamRetentionDays).toHaveBeenCalledWith(DEFAULT_STREAM_RETENTION_DAYS);
   });
 
   it('shrinking the window drops the readout', async () => {

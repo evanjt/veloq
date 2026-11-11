@@ -2,24 +2,21 @@ const { withAndroidManifest, withInfoPlist, AndroidConfig } = require('expo/conf
 const fs = require('fs');
 const path = require('path');
 
-const PLAIN_LAN_SUFFIXES = require('../features/settings/lib/autobackup/plainLanSuffixes.json');
-
 /**
  * Expo config plugin that lets a release build carry plain http to a WebDAV
- * server on the athlete's own network, once they have opted in.
+ * server the athlete hosts, wherever it is.
  *
- * The address check in the app (`webdavUrlProblem`) is the gate: it accepts
- * http only behind the opt-in and only to a private address or a name under
- * one of the suffixes in `plainLanSuffixes.json`. Each platform's transport
- * has to carry everything that check accepts, or the form saves an address
- * every backup then fails against.
+ * The app's address check (`webdavUrlProblem`) accepts http to any host and
+ * the form warns about it, so each platform's transport has to carry http to
+ * any host, or the form saves an address every backup then fails against. The
+ * app's own services stay on https.
  *
- * Android blocks cleartext from API 28 unless the manifest allows it, and a
- * network security config cannot name an address range, so the base config
- * permits cleartext and the app's own services are pinned back to https.
+ * Android blocks cleartext from API 28 unless the manifest allows it, so the
+ * base config permits cleartext and the app's own services are pinned back to
+ * https.
  *
- * iOS local networking already covers IP literals, unqualified names and
- * `.local`. The other suffixes get an exception domain each.
+ * iOS App Transport Security allows arbitrary loads, and the same services get
+ * an exception domain that keeps insecure http off.
  */
 
 const NETWORK_SECURITY_CONFIG = 'veloq_network_security_config';
@@ -28,7 +25,7 @@ const NETWORK_SECURITY_CONFIG = 'veloq_network_security_config';
 const HTTPS_ONLY_DOMAINS = ['intervals.icu', 'veloq.fit'];
 
 const NETWORK_SECURITY_XML = `<?xml version="1.0" encoding="utf-8"?>
-<!-- Veloq network security config: plain http only where the app's own address check allows it -->
+<!-- Veloq network security config: plain http everywhere but the app's own services -->
 <network-security-config>
   <base-config cleartextTrafficPermitted="true" />
   <domain-config cleartextTrafficPermitted="false">
@@ -49,26 +46,26 @@ function writeNetworkSecurityConfig(resDir) {
 }
 
 /**
- * Add an insecure-http exception for each home network suffix to an ATS
- * dictionary, with local networking on and everything else kept.
+ * Allow plain http in an ATS dictionary, with the app's own services kept on
+ * https and every other setting kept.
  */
-function withPlainLanExceptions(ats = {}) {
+function withPlainHttpAllowed(ats = {}) {
   const exceptions = { ...(ats.NSExceptionDomains ?? {}) };
-  for (const suffix of PLAIN_LAN_SUFFIXES) {
-    exceptions[suffix] = {
-      ...(exceptions[suffix] ?? {}),
+  for (const domain of HTTPS_ONLY_DOMAINS) {
+    exceptions[domain] = {
+      ...(exceptions[domain] ?? {}),
       NSIncludesSubdomains: true,
-      NSExceptionAllowsInsecureHTTPLoads: true,
+      NSExceptionAllowsInsecureHTTPLoads: false,
     };
   }
   return {
     ...ats,
-    NSAllowsLocalNetworking: true,
+    NSAllowsArbitraryLoads: true,
     NSExceptionDomains: exceptions,
   };
 }
 
-function withPlainLanTransport(config) {
+function withPlainHttpTransport(config) {
   config = withAndroidManifest(config, async (mod) => {
     writeNetworkSecurityConfig(
       path.join(mod.modRequest.platformProjectRoot, 'app', 'src', 'main', 'res', 'xml')
@@ -78,7 +75,7 @@ function withPlainLanTransport(config) {
   });
 
   config = withInfoPlist(config, (mod) => {
-    mod.modResults.NSAppTransportSecurity = withPlainLanExceptions(
+    mod.modResults.NSAppTransportSecurity = withPlainHttpAllowed(
       mod.modResults.NSAppTransportSecurity
     );
     return mod;
@@ -87,8 +84,8 @@ function withPlainLanTransport(config) {
   return config;
 }
 
-module.exports = withPlainLanTransport;
+module.exports = withPlainHttpTransport;
 module.exports.NETWORK_SECURITY_XML = NETWORK_SECURITY_XML;
 module.exports.configureManifest = configureManifest;
 module.exports.writeNetworkSecurityConfig = writeNetworkSecurityConfig;
-module.exports.withPlainLanExceptions = withPlainLanExceptions;
+module.exports.withPlainHttpAllowed = withPlainHttpAllowed;

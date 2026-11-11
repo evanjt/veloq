@@ -282,7 +282,9 @@ describe('tap-target floor', () => {
         heroValue={42}
         heroLabel="Fitness"
         showSparkline={false}
-        supportingMetrics={[{ label: 'Form', value: '-3', navigationTarget: '/fitness' }]}
+        supportingMetrics={[
+          { id: 'form', label: 'Form', value: '-3', navigationTarget: '/fitness' },
+        ]}
       />
     );
     await act(async () => {

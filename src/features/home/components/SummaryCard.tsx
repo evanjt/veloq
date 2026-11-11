@@ -12,6 +12,7 @@ import {
   TextSeparator,
   PressTarget,
 } from '@/shared/ui';
+import type { MetricId } from '@/features/settings';
 import { colors, darkColors, layers, layout, spacing, typography } from '@/theme';
 import {
   FITNESS_SPARKLINE_HEIGHT,
@@ -39,6 +40,8 @@ const SKELETON_METRIC_WIDTH = 64;
  * Supporting metric displayed in the bottom row of SummaryCard
  */
 interface SupportingMetric {
+  /** The metric's identity, which keys its tile; a translated label can repeat. */
+  id: MetricId;
   label: string;
   /** The metric's name for a screen reader, the only thing it hears while values load. */
   name?: string | undefined;
@@ -413,7 +416,7 @@ export const SummaryCard = React.memo(function SummaryCard({
           {/* Supporting metrics row - each metric tappable */}
           <View testID="summary-card-supporting" style={styles.supportingRow}>
             {supportingMetrics.slice(0, 4).map((metric, index) => (
-              <React.Fragment key={metric.label}>
+              <React.Fragment key={metric.id}>
                 {index > 0 && (
                   <TextSeparator
                     style={[styles.metricDivider, isDark && styles.metricDividerDark]}

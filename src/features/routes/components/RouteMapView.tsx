@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHeroHeaderBottom } from '@/shared/ui/useHeroHeaderBottom';
 import { useTheme } from '@/shared/app';
-import { useMapHeldFocus } from '@/shared/app/MapSheetHost';
+import { useMapHeldFocus, useMapSheetHost } from '@/shared/app/MapSheetHost';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import {
   colors,
@@ -46,9 +46,12 @@ import {
   statusBarStyleForMap,
   useDrawnMapStyle,
   useSurfaceAttribution,
+  HIGHLIGHT_THROTTLE_MS,
 } from '@/features/maps';
 import { buildRouteLayers, routeMapSpecs } from './routeMapLayerSpecs';
 import { useStableBy } from '@/shared/app/useStableBy';
+import { useThrottledValue } from '@/shared/ui/useThrottledValue';
+import { scrubMarkerCollection, scrubMarkerPoint } from '../lib/scrubMarker';
 import type { ActivityType, RouteGroup, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
 import { ROUTE_MAP_FIT_PADDING, routeCameraSpec } from '../lib/routeMapCamera';
@@ -83,6 +86,8 @@ interface RouteMapViewProps {
   activitySignatures?: Record<string, { points: RoutePoint[] }> | undefined;
   /** The attempt the chart's delta plot shows, which colours the route line. */
   deltaLine?: SectionDeltaLine | null | undefined;
+  /** Metres along the route the delta chart is scrubbed to, drawn as a marker. Null when idle. */
+  scrubDistanceM?: number | null | undefined;
   /**
    * The padding the route is fitted with, per edge, for a map partly covered by its sheet. A
    * change refits the route; with none the fit keeps one margin all round.
@@ -111,6 +116,7 @@ export function RouteMapView({
   onPress,
   activitySignatures = {},
   deltaLine = null,
+  scrubDistanceM = null,
   fitPadding,
   coveredBottom,
   coveredBottomRadius,
@@ -121,6 +127,7 @@ export function RouteMapView({
   const headerBottom = useHeroHeaderBottom();
   const fullscreenInsets = useSafeAreaInsets();
   // A map in a host stays held under its own sheet and is released only under another screen.
+  const sheetKey = useMapSheetHost()?.key;
   const screenFocused = useMapHeldFocus();
   const surfaceRef = useRef<MapSurfaceRef>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -179,6 +186,37 @@ export function RouteMapView({
   }, [activityTraces, highlightedActivityId, highlightedLapPoints]);
 
   const routeLine = useMemo(() => featureCollection([lineFeature(routeCoords)]), [routeCoords]);
+
+  // The route's line in the order the shown attempt rode it.
+  const scrubLine = useMemo(
+    () => (deltaLine?.direction === 'reverse' ? [...displayPoints].reverse() : displayPoints),
+    [displayPoints, deltaLine?.direction]
+  );
+  const scrubPoint = useMemo(
+    () =>
+      scrubMarkerPoint({
+        distanceM: scrubDistanceM,
+        lengthM: deltaLine?.sectionLengthM ?? routeGroup.signature?.distance,
+        lapPoints: highlightedLapPoints,
+        linePoints: scrubLine,
+      }),
+    [
+      scrubDistanceM,
+      deltaLine?.sectionLengthM,
+      routeGroup.signature?.distance,
+      highlightedLapPoints,
+      scrubLine,
+    ]
+  );
+  // The marker moves at chart frame rate, so it reaches the surface once a frame.
+  const scrubGeoJSON = useThrottledValue(
+    useMemo(() => scrubMarkerCollection(scrubPoint), [scrubPoint]),
+    HIGHLIGHT_THROTTLE_MS
+  );
+  const scrubCoordinate3D = useMemo<[number, number] | null>(
+    () => (scrubPoint ? [scrubPoint.lng, scrubPoint.lat] : null),
+    [scrubPoint]
+  );
 
   const deltaBands = useMemo(
     () =>
@@ -246,6 +284,7 @@ export function RouteMapView({
         fadedFilter,
         routeContext,
         deltaBands,
+        scrubGeoJSON,
       }),
     [
       routeCoords,
@@ -258,6 +297,7 @@ export function RouteMapView({
       fadedFilter,
       routeContext,
       deltaBands,
+      scrubGeoJSON,
     ]
   );
   // The extent moves only with the route, not with what is picked on it.
@@ -289,8 +329,9 @@ export function RouteMapView({
         highlightedTrace,
         highlightedActivityId,
         contextColor: palette.muted,
+        highlightCoordinate: scrubCoordinate3D,
       }),
-    [fadedTraces, highlightedTrace, highlightedActivityId, palette]
+    [fadedTraces, highlightedTrace, highlightedActivityId, palette, scrubCoordinate3D]
   );
 
   const handleMapPress = useCallback(() => {
@@ -349,6 +390,7 @@ export function RouteMapView({
         onRegionDidChange={trackAttribution}
       />
       <AttributionOverlay
+        sheetKey={sheetKey}
         ref={attributionRef}
         initialAttribution={initialAttribution}
         bottomInset={coveredBottom}
@@ -443,12 +485,15 @@ export function buildRoute3DLayer({
   highlightedTrace,
   highlightedActivityId,
   contextColor,
+  highlightCoordinate,
 }: {
   fadedTraces: GeoJSON.FeatureCollection;
   highlightedTrace: GeoJSON.FeatureCollection;
   highlightedActivityId: string | null;
   /** The base's muted colour, which the flat map draws the other attempts in. */
   contextColor: string;
+  /** The scrub marker as [lng, lat], null when idle. */
+  highlightCoordinate?: [number, number] | null;
 }): BaseMap3DLayer {
   const color = contextColor;
   return {
@@ -459,6 +504,7 @@ export function buildRoute3DLayer({
         .map((f) => ({ ...f, properties: { ...f.properties, color } })),
     },
     highlightedTraceGeoJSON: highlightedTrace,
+    highlightCoordinate,
   };
 }
 

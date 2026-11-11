@@ -858,32 +858,49 @@ fn read_back_verdict(answer: &FfiCallOutcome) -> ReadBack {
 /// back and, once intervals.icu has it and it owes nothing, deleted with its
 /// files. A 200 from the upload says the server took the bytes, not that the
 /// activity survived, so until it reads back the device's copy is the only one.
-pub(crate) fn sweep(uplink: &dyn Uplink, now_ms: &dyn Fn() -> i64) {
+///
+/// Answers whether it left work owed for a later sweep: an effort the server
+/// refused, a read-back it did not answer, a Garmin offer or a reconcile that
+/// could not be written.
+pub(crate) fn sweep(uplink: &dyn Uplink, now_ms: &dyn Fn() -> i64) -> bool {
     let install = crate::persistence::engine_install();
-    let mut changed = reconcile_landed(install);
+    let mut owed = false;
+    let mut changed = reconcile_landed(install, &mut owed);
     if let Some(athlete) = uplink.signed_in() {
-        changed |= offer_garmin_originals(install, &athlete, now_ms());
+        changed |= offer_garmin_originals(install, &athlete, now_ms(), &mut owed);
     }
     // Both requests go under the credential held, so only that athlete's rides
     // are asked about, and with nobody signed in there is nothing to ask with.
     if let Some(athlete) = uplink.signed_in() {
-        changed |= send_owed_efforts(install, &athlete, uplink);
-        changed |= confirm_landed(install, &athlete, uplink, now_ms);
+        changed |= send_owed_efforts(install, &athlete, uplink, &mut owed);
+        changed |= confirm_landed(install, &athlete, uplink, now_ms, &mut owed);
     }
     if changed {
         notify(Announcement::RecordingsChanged);
     }
+    owed
 }
 
 /// Queue the Garmin originals the upload owes, under the athlete signed in,
 /// for those whose FIT is still on the phone. One without its file stays a
-/// complete local row and is not offered. True when a row was queued.
-pub(crate) fn offer_garmin_originals(install: u64, athlete: &str, now_ms: i64) -> bool {
-    let owed = under(install, |e| e.garmin_uploads_owed())
-        .and_then(Result::ok)
-        .unwrap_or_default();
+/// complete local row and is not offered. True when a row was queued; an offer
+/// that could not be written sets `owed`.
+pub(crate) fn offer_garmin_originals(
+    install: u64,
+    athlete: &str,
+    now_ms: i64,
+    owed: &mut bool,
+) -> bool {
+    let offers = match under(install, |e| e.garmin_uploads_owed()) {
+        Some(Ok(offers)) => offers,
+        Some(Err(_)) => {
+            *owed = true;
+            Vec::new()
+        }
+        None => Vec::new(),
+    };
     let mut queued = false;
-    for offer in owed {
+    for offer in offers {
         let Some(path) = source_fit_file(&offer.key).filter(|p| p.is_file()) else {
             continue;
         };
@@ -917,9 +934,13 @@ pub(crate) fn offer_garmin_originals(install: u64, athlete: &str, now_ms: i64) -
             rpe: None,
             rpe_sent: false,
         };
-        queued |= under(install, |e| e.insert_recording(&entry))
-            .and_then(Result::ok)
-            .unwrap_or(false);
+        // A closed engine is not owed work: the next start's sweep finds the
+        // offer again, as it does for a reconcile.
+        match under(install, |e| e.insert_recording(&entry)) {
+            Some(Ok(written)) => queued |= written,
+            Some(Err(_)) => *owed = true,
+            None => {}
+        }
     }
     queued
 }
@@ -941,15 +962,18 @@ fn settled_by(ride: &FfiRecordingEntry, athlete: &str) -> bool {
 /// Write the server's id onto every provisional row a landed upload could not
 /// reach, an engine closed at the moment of the upload being the case this is
 /// for.
-fn reconcile_landed(install: u64) -> bool {
+fn reconcile_landed(install: u64, owed: &mut bool) -> bool {
     let mut changed = false;
     for ride in rows(install) {
         match under(install, |e| e.reconcile_recording_upload(&ride.id)) {
             Some(Ok(reconciled)) => changed |= reconciled,
-            Some(Err(err)) => log::warn!(
-                "veloqrs: [upload] could not record the upload of {}: {err}",
-                ride.id
-            ),
+            Some(Err(err)) => {
+                *owed = true;
+                log::warn!(
+                    "veloqrs: [upload] could not record the upload of {}: {err}",
+                    ride.id
+                );
+            }
             None => return changed,
         }
     }
@@ -958,8 +982,8 @@ fn reconcile_landed(install: u64) -> bool {
 
 /// Send every effort a landed upload could not, as its own request: the
 /// upload already landed, and sending the file again would make a second
-/// activity.
-fn send_owed_efforts(install: u64, athlete: &str, uplink: &dyn Uplink) -> bool {
+/// activity. An effort the server refuses sets `owed`.
+fn send_owed_efforts(install: u64, athlete: &str, uplink: &dyn Uplink, owed: &mut bool) -> bool {
     let mut changed = false;
     for ride in rows(install) {
         if ride.upload_status != "uploaded"
@@ -973,6 +997,7 @@ fn send_owed_efforts(install: u64, athlete: &str, uplink: &dyn Uplink) -> bool {
             continue;
         };
         if uplink.send_rpe(intervals_id, rpe).kind != FfiCallKind::Ok {
+            *owed = true;
             log::warn!(
                 "veloqrs: [upload] could not set the effort of {}, the next sweep retries it",
                 ride.id
@@ -999,6 +1024,7 @@ fn confirm_landed(
     athlete: &str,
     uplink: &dyn Uplink,
     now_ms: &dyn Fn() -> i64,
+    owed: &mut bool,
 ) -> bool {
     let mut changed = false;
     for ride in rows(install) {
@@ -1027,7 +1053,7 @@ fn confirm_landed(
                     changed = true;
                 }
             }
-            ReadBack::Unknown => {}
+            ReadBack::Unknown => *owed = true,
         }
     }
     changed

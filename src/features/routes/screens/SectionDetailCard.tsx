@@ -444,6 +444,7 @@ function SectionDetailCardContent({
           curves={performance?.curves}
           onDeltaLineChange={card.setDeltaLine}
           onShownDirectionChange={card.setShownDirection}
+          onScrubDistanceChange={card.setScrubDistance}
           forwardStats={forwardStats}
           reverseStats={reverseStats}
           bestForwardRecord={bestForwardRecord}

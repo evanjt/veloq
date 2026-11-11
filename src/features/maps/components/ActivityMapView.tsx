@@ -18,7 +18,7 @@ import {
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { duration, iconSize, mapPalette, themePalette, type MapPalette } from '@/theme';
 import { useTheme } from '@/shared/app';
-import { useMapHeldFocus } from '@/shared/app/MapSheetHost';
+import { useMapHeldFocus, useMapSheetHost } from '@/shared/app/MapSheetHost';
 import { useMapPreferences } from '@/features/settings/light';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
 import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
@@ -249,6 +249,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   // A screen covered by another keeps its WebViews but releases their maps,
   // which hold the GL context and every tile texture in it. Inside a detail host the screen is
   // the host's, so the map stays held under its own sheet.
+  const sheetKey = useMapSheetHost()?.key;
   const screenFocused = useMapHeldFocus();
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
@@ -1056,6 +1057,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         {/* Attribution - uses ref-based updates to avoid map re-renders */}
         {showAttribution || isFullscreen ? (
           <AttributionOverlay
+            sheetKey={sheetKey}
             ref={attributionRef}
             initialAttribution={initialAttributionRef.current}
             bottomInset={coveredBottom}

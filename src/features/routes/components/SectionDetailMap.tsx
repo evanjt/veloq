@@ -23,6 +23,7 @@ import { useRouteSettings } from '../stores/RouteSettingsStore';
 import {
   useCardAttempt,
   useCardDeltaLine,
+  useCardScrub,
   useCardShownDirection,
   useCardSport,
 } from '../lib/detailCardState';
@@ -75,6 +76,7 @@ export function SectionDetailMap({
   const sport = useCardSport(hostKey);
   const deltaLine = useCardDeltaLine(hostKey);
   const shownDirection = useCardShownDirection(hostKey);
+  const scrubDistanceM = useCardScrub(hostKey);
   const { stop, toolActive, leaveTool } = useMapSheetStop(hostKey);
 
   // The map mounts once the host's push has finished, so the push is not held by it.
@@ -170,6 +172,7 @@ export function SectionDetailMap({
           pageActivityId={pageActivityId}
           deltaLine={deltaLine}
           shownDirection={shownDirection}
+          scrubDistanceM={scrubDistanceM}
           allActivityTraces={allActivityTraces}
           trimRange={trimRange}
           extensionTrack={isTrimming && trim.isExpanded ? trim.expandContextPoints : null}

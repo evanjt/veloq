@@ -9,6 +9,7 @@ import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
 import { chartStyles, spacing, typography } from '@/theme';
+import { formatSignedPercentage } from '@/shared/format';
 import {
   chartBoundsFor,
   ChartCanvas,
@@ -81,6 +82,9 @@ const zoneLabelSize = (zone: FormZone) => {
   };
 };
 const signedForm = (n: number) => (n > 0 ? `+${n}` : String(n === 0 ? 0 : n));
+// A form value as read: a percentage of fitness under the percentage setting, else the signed TSB.
+const signedFormValue = (n: number, asPercent: boolean) =>
+  asPercent ? formatSignedPercentage(n) : signedForm(n);
 const SERIES = { form: (d: FormChartPoint) => d.form };
 const xOf = (d: FormChartPoint) => d.x;
 const ZONES: FormZone[] = ['transition', 'fresh', 'greyZone', 'optimal', 'highRisk'];
@@ -127,7 +131,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
           key: d.date,
           value: d.form,
         })),
-        format: (v) => `${signedForm(Math.round(v))}${asPercent ? '%' : ''}`,
+        format: (v) => signedFormValue(Math.round(v), asPercent),
       };
       return {
         summary: seriesSummary(series, t),
@@ -157,7 +161,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
       const day = formatShortDate(point.date);
       if (point.form === null)
         return `${day}, ${t('systemSurfaces.spoken.noReading', { label: t('metrics.form') })}`;
-      const value = `${signedForm(Math.round(point.form))}${asPercent ? '%' : ''}`;
+      const value = signedFormValue(Math.round(point.form), asPercent);
       // Zoned as the fitness readout zones the day, on the rounded loads it prints.
       const zone = formZoneFromLoads(point.fitness, point.fatigue, asPercent);
       return [day, `${t('metrics.form')} ${value}`, ...(zone ? [formZoneLabel(zone)] : [])].join(
@@ -215,7 +219,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   // The unit, when form is a percentage, is printed once, on the top label.
   const yTicks = [Math.round(maxForm), 0, Math.round(minForm)].map((value, i) => ({
     value,
-    label: `${signedForm(value)}${asPercent && i === 0 ? '%' : ''}`,
+    label: i === 0 ? signedFormValue(value, asPercent) : signedForm(value),
   }));
 
   // Each zone named inside its band where the form line leaves room, in the

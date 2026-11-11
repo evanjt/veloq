@@ -319,6 +319,7 @@ pub fn ingest_original(
             install,
             &athlete,
             chrono::Utc::now().timestamp_millis(),
+            &mut false,
         );
     }
     if ingested == (Ingested::Stored { tracked: true }) {

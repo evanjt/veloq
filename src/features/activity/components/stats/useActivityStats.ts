@@ -133,7 +133,7 @@ export function useActivityStats({
               ? null
               : {
                   label: t('activity.stats.intensityFactor'),
-                  value: `${Math.round(intensity)}%`,
+                  value: formatPercent(Math.round(intensity)),
                 },
           activity.trimp
             ? {
@@ -169,10 +169,7 @@ export function useActivityStats({
         value: formatSigned(fitnessImpact.fitness, 1),
         icon: 'chart-line',
         context: t('activity.stats.fitnessImpactContext'),
-        explanation: t('activity.explanations.fitnessImpact', {
-          fitnessDays: fitnessImpact.fitnessDays,
-          fatigueDays: fitnessImpact.fatigueDays,
-        }),
+        explanation: t('activity.explanations.fitnessImpact'),
         details: [
           { label: t('activity.stats.fitnessCTL'), value: formatSigned(fitnessImpact.fitness, 1) },
           { label: t('activity.stats.fatigueATL'), value: formatSigned(fitnessImpact.fatigue, 1) },
@@ -187,7 +184,7 @@ export function useActivityStats({
       result.push({
         title: t('activity.stats.newGround'),
         // Floored, so a ride one tile short of entirely new does not read 100%.
-        value: `${Math.floor(newGround.fraction * 100)}%`,
+        value: formatPercent(Math.floor(newGround.fraction * 100)),
         icon: 'compass-outline',
         context: t('activity.stats.newGroundContext'),
         explanation: t('activity.explanations.newGround'),
@@ -274,7 +271,7 @@ export function useActivityStats({
                 label: ownMax
                   ? t('activity.stats.percentOfMaxHRLabel')
                   : t('activity.stats.percentOfDefaultMaxHRLabel', { value: maxHR }),
-                value: `${hrPercent}%`,
+                value: formatPercent(hrPercent),
               },
           activity.hrRecovery != null
             ? {
@@ -489,7 +486,7 @@ export function useActivityStats({
           activity.ftp
             ? {
                 label: t('activity.stats.percentOfFTP'),
-                value: `${Math.round((avgPower / activity.ftp) * 100)}%`,
+                value: formatPercent(Math.round((avgPower / activity.ftp) * 100)),
               }
             : null,
           eftp

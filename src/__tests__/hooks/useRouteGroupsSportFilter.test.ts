@@ -53,6 +53,14 @@ it('does not offer it to a sport nothing traversed it in', async () => {
   expect(result.current.groups).toEqual([]);
 });
 
+describe('the hook is a read, not a second owner of renaming', () => {
+  it('returns no rename of its own, so a route is renamed only through the names command', async () => {
+    const { result } = await renderHook(() => useRouteGroups({}));
+
+    expect(result.current).not.toHaveProperty('renameRoute');
+  });
+});
+
 describe('a group the engine gave no label', () => {
   it('keeps a single sport in the membership set without giving the group a sport label', async () => {
     (useGroupSummaries as jest.Mock).mockReturnValue({
@@ -63,11 +71,10 @@ describe('a group the engine gave no label', () => {
 
     const { result } = await renderHook(() => useRouteGroups({}));
 
-    expect(result.current.groups[0].type).toBe('Other');
     expect(result.current.groups[0].sportTypes).toEqual(['Run']);
   });
 
-  it('reads as Other when the set is empty too, rather than inventing one', async () => {
+  it('keeps an empty membership set empty rather than inventing a sport', async () => {
     (useGroupSummaries as jest.Mock).mockReturnValue({
       summaries: [{ ...mixedLoop, sportType: '', sportTypes: [] }],
       totalCount: 1,
@@ -76,6 +83,6 @@ describe('a group the engine gave no label', () => {
 
     const { result } = await renderHook(() => useRouteGroups({}));
 
-    expect(result.current.groups[0].type).toBe('Other');
+    expect(result.current.groups[0].sportTypes).toEqual([]);
   });
 });

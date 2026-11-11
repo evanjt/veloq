@@ -43,6 +43,16 @@ interface SensorSampleLite {
 
 type SensorStreamKind = 'heartrate' | 'power' | 'cadence' | 'speed';
 
+/**
+ * A power sample for the recorded stream: null when absent or stale, and a
+ * fresh 0 W (coasting) stays 0, because the stream keeps a missing reading
+ * and a zero reading apart.
+ */
+export function freshPower(sample: SensorSampleLite | null, now: number): number | null {
+  if (!sample) return null;
+  return now - sample.at <= SENSOR_STALE_MS ? sample.value : null;
+}
+
 export function freshValue(sample: SensorSampleLite | null, now: number): number {
   if (!sample) return 0;
   return now - sample.at <= SENSOR_STALE_MS ? sample.value : 0;
@@ -513,7 +523,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     // Sensor streams stay index-aligned with time[] - sample-and-hold the
     // latest value per point, 0 (FIT no-data) when absent or stale.
     streams.heartrate.push(heartrate);
-    streams.power.push(freshValue(latestSensor.power, nowMs));
+    streams.power.push(freshPower(latestSensor.power, nowMs));
     streams.cadence.push(freshValue(latestSensor.cadence, nowMs));
     set({
       streams: { ...streams },
@@ -573,7 +583,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     streams.speed.push(freshValue(latestSensor.speed, nowMs));
     streams.distance.push(streams.distance[streams.distance.length - 1] ?? 0);
     streams.heartrate.push(heartrate);
-    streams.power.push(freshValue(latestSensor.power, nowMs));
+    streams.power.push(freshPower(latestSensor.power, nowMs));
     streams.cadence.push(freshValue(latestSensor.cadence, nowMs));
     set({
       streams: { ...streams },

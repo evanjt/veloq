@@ -56,7 +56,6 @@ pub mod types;
 pub use types::*;
 
 // Activity pattern detection via k-means clustering
-pub mod patterns;
 
 // The one three-way better/worse/same verdict every trend reads
 pub mod trend;
@@ -512,6 +511,23 @@ pub(crate) mod test_globals {
         })
         .expect("engine");
         tmp
+    }
+
+    /// Hold the engine write lock on a thread of its own until the returned
+    /// sender is sent to (or dropped), so a job started meanwhile is certainly
+    /// still going.
+    pub(crate) fn hold_engine_lock() -> (std::sync::mpsc::Sender<()>, std::thread::JoinHandle<()>) {
+        let (holding, held) = std::sync::mpsc::channel();
+        let (release, released) = std::sync::mpsc::channel::<()>();
+        let writer = std::thread::spawn(move || {
+            with_persistent_engine(|_| {
+                holding.send(()).ok();
+                released.recv().ok();
+            })
+            .expect("engine");
+        });
+        held.recv().expect("the writer took the lock");
+        (release, writer)
     }
 
     pub(crate) fn clear_detection_handle() {

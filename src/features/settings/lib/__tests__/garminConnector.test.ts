@@ -108,6 +108,21 @@ describe('connecting a Garmin key', () => {
     }
   );
 
+  it('clears the engine copy and reports the failure when the keychain write fails after Garmin accepted the key', async () => {
+    const { io, held } = keychain();
+    io.write = jest.fn(async () => {
+      throw new Error('invented keychain failure');
+    });
+    const e = engine(GarminKeyStatus.Connected);
+    const setEnabled = jest.fn();
+    await expect(connectGarminKey('abc', { io, engine: e, setEnabled })).rejects.toThrow(
+      'invented keychain failure'
+    );
+    expect(e.clearGarminKey).toHaveBeenCalledTimes(1);
+    expect(setEnabled).not.toHaveBeenCalled();
+    expect(held.size).toBe(0);
+  });
+
   it('does not ask Garmin about an empty paste', async () => {
     const { io } = keychain();
     const e = engine(GarminKeyStatus.Connected);

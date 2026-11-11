@@ -16,6 +16,7 @@ import { present } from 'veloqrs/src/delegates/optional';
 import type { Activity, WellnessData } from '@/types';
 import { PACE_SNAPSHOT_WINDOW_DAYS, TIME_RANGES } from '@/shared/app/constants';
 import { PERIOD_DAYS } from '@/shared/app/period';
+import { startDateLocalToEpochSeconds } from '@/shared/time/startDate';
 
 /**
  * The curve windows the Fitness tab can request, one per period its picker
@@ -82,7 +83,7 @@ export function demoLibrary(): DemoLibrary {
     ),
     activities: activities.map((a) => ({
       activityId: a.id,
-      date: Math.floor(new Date(a.start_date_local).getTime() / 1000),
+      date: startDateLocalToEpochSeconds(a.start_date_local) ?? 0,
       raw: JSON.stringify(a),
     })),
     oldestActivity:
@@ -195,7 +196,7 @@ function seedCalendarEvents(engine: DemoEngine): void {
   const events = getDemoCalendarEvents();
   if (events.length === 0) return;
 
-  const dates = events.map((e) => Math.floor(new Date(e.start_date_local).getTime() / 1000));
+  const dates = events.map((e) => startDateLocalToEpochSeconds(e.start_date_local) ?? 0);
   engine.replaceCalendarEvents(
     Math.min(...dates) - 86400,
     Math.max(...dates) + 86400,

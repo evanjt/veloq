@@ -61,7 +61,7 @@
     "explanations": {
       "conditions": "Temperatura dos dados meteorológicos ou do sensor do seu dispositivo.",
       "energy": "Gasto energético estimado a partir da frequência cardíaca, potência e duração.",
-      "fitnessImpact": "Em relação a um dia de descanso, esta atividade soma carga × (1 − e^(−1/{{fitnessDays}})) à condição física e carga × (1 − e^(−1/{{fatigueDays}})) à fadiga. O treino de força aumenta apenas a fadiga. O impacto na forma é condição física menos fadiga.",
+      "fitnessImpact": "Quanto esta atividade somou à sua condição física e à fadiga, em comparação com um dia de descanso.",
       "heartRate": "Frequência cardíaca média durante a atividade.",
       "newGround": "A parte dos blocos do mapa percorridos por esta atividade que nenhuma atividade anterior tinha percorrido. Um bloco tem cerca de 150 a 300 m, conforme a latitude, por isso mede a cobertura de blocos e não a distância em estradas novas.",
       "activityEftp": "O eFTP é a estimativa do modelo de potência do intervals.icu para esta atividade.",
@@ -70,7 +70,7 @@
       "yourForm": "A sua Forma (TSB) neste dia. Este é um valor diário baseado no seu treino geral, não específico desta atividade. TSB = Condição (CTL) menos Fadiga (ATL).",
       "speed": "Velocidade média e máxima tal como o intervals.icu as guardou para esta atividade.",
       "pace": "Ritmo médio e mais rápido tal como o intervals.icu os guardou para esta atividade.",
-      "cadence": "Cadência média tal como o intervals.icu a guardou: pedaladas por minuto na bicicleta, passos ou braçadas por minuto nos restantes."
+      "cadence": "Cadência média. Pedaladas por minuto na bicicleta, braçadas por minuto na água. A pé são passos por minuto, por isso o valor fica o dobro dos passos que o intervals.icu mostra."
     },
     "ftp": "Definição de FTP: {{value}}",
     "heartRate": "Frequência cardíaca",
@@ -464,10 +464,11 @@
     "enterDetailsInstead": "Introduzir os dados manualmente",
     "fillAllFields": "Preencha todos os campos",
     "fillField": "Preencha o campo «{{field}}»",
-    "webdavHttpsRequired": "Use um endereço https://. Com http://, a sua palavra-passe e as cópias seriam enviadas sem cifra.",
+    "webdavSchemeRequired": "Utilize um endereço http:// ou https://",
+    "webdavPlainHttpWarning": "Este endereço utiliza http://, pelo que a palavra-passe e as cópias de segurança circulam sem cifragem. Utilize-o apenas com um servidor e uma rede em que confie.",
     "webdavInvalidUrl": "Esse não é um endereço de servidor válido",
     "webdavSaveFailed": "Não foi possível guardar os dados do servidor neste dispositivo",
-    "webdavPlainLan": "Permitir um servidor sem cifra na minha própria rede",
+    "webdavRemoveFirst": "Remova primeiro o servidor para que as cópias deixem de ser enviadas para ele",
     "webdavTestUnauthorised": "Falha na autenticação",
     "webdavTestMethodNotAllowed": "Verifique o formato do endereço WebDAV. O servidor não aceita PROPFIND neste caminho",
     "webdavTestStatus": "O servidor respondeu {{code}}",
@@ -730,6 +731,7 @@
     "statusNoActivityAccess": "A Garmin aceitou a chave, mas ela não consegue ler as suas atividades.",
     "statusMalformed": "Isso não parece uma chave da Garmin.",
     "statusUnreachable": "Não foi possível contactar a Garmin. Tente novamente daqui a pouco.",
+    "statusSaveFailed": "Não foi possível guardar a chave neste dispositivo, por isso a Garmin não está ligada. Tente novamente.",
     "feedTitle": "Mostrar os meus treinos Garmin no Veloq",
     "feedHint": "Os treinos da sua conta Garmin aparecem no feed do Veloq depois de ligada.",
     "moreOptions": "Mais opções",
@@ -911,17 +913,17 @@
   "insights": {
     "ranking": {
       "title": "Ordem dos cartões",
-      "intro": "São fatores de seleção de cartões, não probabilidades de confiança.",
+      "intro": "Estes fatores determinam a ordem dos cartões. Não são pontuações de confiança.",
       "scoreOnScale": "{{score}} numa escala de 0 a 1",
       "unavailable": "Dados de comparação válidos insuficientes",
       "recency": {
         "label": "Atualidade",
-        "explanation": "Pontuações mais altas significam que este trecho foi concluído mais recentemente; a pontuação diminui com o tempo."
+        "explanation": "Pontuações mais altas significam que esta secção foi feita mais recentemente. A pontuação diminui com o tempo."
       },
       "improvement": {
         "label": "Variação de desempenho",
-        "medianOfThree": "Mediana dos últimos três esforços comparada com a dos três anteriores; positivo significa mais rápido, negativo significa mais lento.",
-        "firstToLast": "Último esforço comparado com o primeiro; positivo significa mais rápido, negativo significa mais lento."
+        "medianOfThree": "Mediana dos últimos três esforços comparada com a dos três anteriores. Positivo significa mais rápido, negativo significa mais lento.",
+        "firstToLast": "Último esforço comparado com o primeiro. Positivo significa mais rápido, negativo significa mais lento."
       },
       "anomaly": {
         "label": "Invulgaridade",
@@ -929,13 +931,13 @@
       },
       "engagement": {
         "label": "Participação relativa",
-        "explanation": "Pontuações mais altas significam mais esforços em relação ao seu trecho mais percorrido neste desporto; mais esforços noutro trecho podem baixar esta pontuação."
+        "explanation": "Pontuações mais altas significam mais esforços em relação à sua secção mais feita neste desporto. Mais esforços noutra secção podem baixar esta pontuação."
       }
     },
     "title": "Insights",
     "strength": "Força",
     "noInsights": "Os insights aparecerão à medida que treina",
-    "noInsightsHint": "Complete mais atividades para ver insights personalizados",
+    "noInsightsHint": "Os insights precisam de mais atividades para comparar.",
     "couldNotBuild": "Não foi possível gerar os insights",
     "wellnessFromLastSync": "Bem-estar da última sincronização, {{date}}",
     "sectionPr": "PR em {{name}}",
@@ -982,11 +984,11 @@
       "prDetection": "Compara o seu tempo mais recente num troço com todos os esforços anteriores para detetar recordes pessoais.",
       "sectionTrend": "Acompanha o desempenho mediano em troços frequentemente visitados ao longo do tempo.",
       "periodComparison": "Compara métricas de treino entre semanas consecutivas para acompanhar a progressão.",
-      "hrvDescription": "Os 7 dias de calendário que terminam hoje, mantendo os dias com uma leitura de VFC, e pelo menos cinco deles. A média da metade mais antiga é comparada com a da metade mais recente. Uma variação só conta quando o seu intervalo de 95 %, calculado a partir da dispersão das suas próprias leituras, exclui o zero e é maior do que meio desvio-padrão dessa dispersão e 2 % da média mais antiga; qualquer variação menor lê-se como estável. Uma janela estável lê-se ainda assim como em queda quando as duas últimas leituras caem em dias consecutivos, a segunda é mais baixa, fica abaixo da média da janela e o par passa o mesmo teste face às leituras anteriores.",
+      "hrvDescription": "Os 7 dias de calendário que terminam hoje, com pelo menos cinco leituras de VFC. A média da metade mais antiga é comparada com a da metade mais recente. Uma variação só conta quando o seu intervalo de 95 %, calculado a partir da dispersão das suas leituras, exclui o zero e é maior do que meio desvio-padrão dessa dispersão e 2 % da média mais antiga. Qualquer variação menor lê-se como estável. Uma janela estável lê-se ainda assim como em queda quando as duas últimas leituras caem em dias consecutivos, a segunda é mais baixa, fica abaixo da média da janela e o par passa o mesmo teste face às leituras anteriores.",
       "periodComparisonRestDay": "Compara a semana passada com a sua média de 4 semanas quando a semana atual ainda não tem atividades.",
       "ftpEstimation": "Compara o seu eFTP diário mais recente com o valor de há 30 dias. O eFTP é a estimativa do intervals.icu a partir da sua curva de potência, não a definição de FTP da sua conta.",
-      "criticalSpeedDescription": "Compara a sua velocidade crítica mais recente da curva de ritmo de 42 dias com o valor anterior mais recente que difere em mais de 0,02 m/s nos 90 dias anteriores, e mostra a alteração como ritmo.",
-      "efficiencyDescription": "Acompanha a frequência cardíaca média multiplicada pelo ritmo nos esforços correspondentes da secção, com uma regressão por mínimos quadrados ordinários ao longo do tempo. Só se mostra uma direção quando o intervalo de 95 % do declive exclui o zero e a variação modelada ao longo dos esforços é superior a 2 % da média. Um valor a descer significa menos batimentos por km: frequência cardíaca mais baixa, ritmo mais rápido ou ambos.",
+      "criticalSpeedDescription": "Compara a sua velocidade crítica mais recente, da curva de ritmo de 42 dias, com o valor mais recente dos últimos 90 dias que difira em mais de 0,02 m/s. A alteração é mostrada como ritmo.",
+      "efficiencyDescription": "Acompanha a frequência cardíaca média multiplicada pelo ritmo nos esforços correspondentes da secção, como uma tendência por mínimos quadrados ao longo do tempo. Só se mostra uma direção quando o intervalo de 95 % da tendência exclui o zero e a variação ajustada é superior a 2 % da média. Um valor a descer significa menos batimentos por km: frequência cardíaca mais baixa, ritmo mais rápido ou ambos.",
       "efficiencyFormula": "{{quantity}} ({{unit}}) = frequência cardíaca média × ritmo (segundos por km)",
       "route": "Conta as tentativas numa rota, num desporto e numa direção, que têm tempo, não estão excluídas, não são parciais e estão dentro da faixa de distância da rota. Um recorde é a mais rápida delas, feita recentemente. Uma tendência compara a mediana das últimas três com as três anteriores, a partir de seis tentativas."
     },
@@ -1023,10 +1025,10 @@
       "trendingDown": "VFC: metade recente mais baixa",
       "stable": "VFC: sem alteração clara",
       "lastTwoDays": "VFC: duas últimas leituras abaixo da média",
-      "trendingUpBody": "A metade mais recente dos seus últimos 7 dias de VFC tem média superior à metade mais antiga, mais do que a sua variação de um dia para o outro explica. Média da janela {{avg}} ms em {{days}} leituras, última {{latest}} ms.",
-      "trendingDownBody": "A metade mais recente dos seus últimos 7 dias de VFC tem média inferior à metade mais antiga, mais do que a sua variação de um dia para o outro explica. Média da janela {{avg}} ms em {{days}} leituras, última {{latest}} ms.",
-      "stableBody": "As duas metades dos seus últimos 7 dias de VFC não diferem mais do que a sua variação de um dia para o outro explica. Média da janela {{avg}} ms em {{days}} leituras, última {{latest}} ms.",
-      "lastTwoDaysBody": "A janela em si manteve-se estável, mas as suas duas últimas leituras caíram em dias consecutivos, mais do que a sua variação de um dia para o outro explica, e a última, {{latest}} ms, está abaixo da média da janela de {{avg}} ms em {{days}} leituras."
+      "trendingUpBody": "A metade mais recente dos seus últimos 7 dias de VFC tem média superior à metade mais antiga, mais do que a sua variação habitual de um dia para o outro. Média da janela {{avg}} ms em {{days}} leituras, última {{latest}} ms.",
+      "trendingDownBody": "A metade mais recente dos seus últimos 7 dias de VFC tem média inferior à metade mais antiga, mais do que a sua variação habitual de um dia para o outro. Média da janela {{avg}} ms em {{days}} leituras, última {{latest}} ms.",
+      "stableBody": "As duas metades dos seus últimos 7 dias de VFC não diferem mais do que a sua variação habitual de um dia para o outro. Média da janela {{avg}} ms em {{days}} leituras, última {{latest}} ms.",
+      "lastTwoDaysBody": "A janela em si manteve-se estável, mas as suas duas últimas leituras caíram em dias consecutivos, mais do que a sua variação habitual de um dia para o outro, e a última, {{latest}} ms, está abaixo da média da janela de {{avg}} ms em {{days}} leituras."
     },
     "weeklyLoad": {
       "title": "Carga de treino {{percent}}% {{direction}} da média",
@@ -1034,21 +1036,21 @@
       "below": "abaixo"
     },
     "stalePr": {
-      "title": "{{section}} merece nova tentativa",
+      "title": "{{section}}: a forma subiu desde o PR",
       "subtitle": "{{visited}}. PR {{prTime}} a {{metric}} {{previous}}, agora {{current}}",
-      "body": "{{visited}}. Merece nova tentativa com a sua forma atual: {{metric}} {{previous}} no dia do PR, {{current}} agora.",
+      "body": "{{visited}}. {{metric}} era {{previous}} no dia do PR e é agora {{current}}.",
       "currentMetric": "{{metric}} atual",
       "prMetric": "{{metric}} no PR",
       "metricGain": "Ganho de {{metric}}",
       "prTime": "Tempo do PR",
-      "methodology": "Mostrado para uma secção feita pelo menos {{visits}} vezes e não nos últimos {{days}} dias, quando a sua forma de hoje está pelo menos {{gain}}% acima da do dia do PR. São mostradas até {{max}}, as mais visitadas primeiro. No ciclismo a forma é o eFTP, a estimativa do intervals.icu a partir da sua curva de potência. Na corrida é a velocidade crítica e na natação a CSS, ambas da sua curva de ritmo.",
+      "methodology": "Mostrado para uma secção feita pelo menos {{visits}} vezes e não nos últimos {{days}} dias, quando a sua forma atual está pelo menos {{gain}}% acima da do dia em que definiu o PR. São mostradas até {{max}}, as mais visitadas primeiro. No ciclismo a forma é o eFTP, a estimativa do intervals.icu a partir da sua curva de potência. Na corrida é a velocidade crítica e na natação a CSS, ambas a partir da sua curva de ritmo.",
       "metricCyclingEftp": "eFTP de ciclismo",
       "metricSwimCss": "CSS de natação",
       "metricRunningCriticalSpeed": "Velocidade crítica de corrida",
       "groupMore": "(+{{n}} mais)",
-      "groupTitle_one": "{{count}} secção que merece nova tentativa",
+      "groupTitle_one": "{{count}} secção em que a forma subiu desde o seu PR",
       "groupTitle_many": "{{count}} de secções que merecem nova tentativa",
-      "groupTitle_other": "{{count}} secções que merecem nova tentativa",
+      "groupTitle_other": "{{count}} secções em que a forma subiu desde os seus PR",
       "groupSubtitle": "{{metric}} agora {{current}}",
       "visitedRide_one": "Uma vez de bicicleta",
       "visitedRide_many": "{{count}} vezes de bicicleta",
@@ -1079,7 +1081,7 @@
       "openActivity": "Abrir a atividade do PR"
     },
     "aboutTitle": "Sobre os Insights",
-    "aboutBody": "As métricas de treino são estimativas baseadas em modelos de ciência do exercício publicados. As respostas individuais variam significativamente. Estes insights são meramente informativos, não constituem aconselhamento médico ou de treino.",
+    "aboutBody": "Os insights comparam o seu treino recente com o seu próprio histórico. Apenas informativos, não constituem aconselhamento médico ou de treino.",
     "explanation": {
       "title": "Compreender os insights",
       "foundLabel": "Método",
@@ -1091,7 +1093,7 @@
         },
         "fitness": {
           "label": "eFTP e velocidade crítica",
-          "text": "Uma mudança em qualquer um dos dois e os recordes que estabeleceu quando era mais baixo."
+          "text": "Uma alteração em qualquer um dos dois, e os PR definidos com uma forma mais baixa."
         },
         "week": {
           "label": "Esta semana",
@@ -1114,18 +1116,18 @@
       "sources": "Os tempos, a frequência cardíaca e a potência vêm das suas atividades, e o eFTP, a velocidade crítica e a VFC do intervals.icu, com o método e os dados de cada cartão em «{{howCalculated}}».",
       "strengthTitle": "Compreender a força"
     },
-    "aboutRanking": "Os cartões são ordenados pelo que tem para dizer: quão recente é, quanto foge ao teu habitual, quanto mudou e com que frequência o fazes.",
+    "aboutRanking": "Os cartões são ordenados pelo quão recentes são, pelo quanto fogem ao seu habitual, pelo quanto mudaram e com que frequência a repetes.",
     "efficiencyTrend": {
       "seriesLabel": "{{quantity}}, da passagem mais antiga à mais recente",
       "quantity": "Frequência cardíaca × ritmo",
       "title": "Eficiência a melhorar em {{name}}",
       "changeTitle": "Eficiência em {{name}}: {{hrChange}} bpm",
       "changeSubtitle": "{{hrChange}} bpm estimados ao ritmo médio em {{efforts}} passagens",
-      "changeBody": "Em {{efforts}} passagens em {{name}}, o produto da frequência cardíaca pelo ritmo aumentou. Ao ritmo médio equivale a {{hrChange}} bpm estimados; a frequência medida pode diferir.",
+      "changeBody": "Em {{efforts}} passagens em {{name}}, o produto da frequência cardíaca pelo ritmo aumentou. Ao ritmo médio equivale a {{hrChange}} bpm estimados. A frequência medida pode diferir.",
       "subtitle": "{{hrChange}} bpm modelados ao ritmo médio em {{efforts}} esforços",
-      "body": "Em {{efforts}} esforços em {{name}}, a frequência cardíaca por ritmo melhorou. Ao seu ritmo médio equivale a {{hrChange}} bpm modelados; a sua frequência cardíaca em si pode não ter mudado.",
+      "body": "Em {{efforts}} esforços em {{name}}, a frequência cardíaca por ritmo melhorou. Ao seu ritmo médio equivale a {{hrChange}} bpm modelados. A frequência cardíaca em si pode não ter mudado.",
       "sheetHeading": "Comparação de esforços correspondentes",
-      "sheetBody": "Baseado em esforços repetidos na mesma secção com frequência cardíaca e ritmo. Compara ao longo do tempo o que cada passagem custou ao seu coração.",
+      "sheetBody": "Compara frequência cardíaca por ritmo nos esforços repetidos desta secção, ao longo do tempo. Só são contados os esforços com frequência cardíaca e ritmo.",
       "sheetMeta": "Abra a secção para ver os esforços."
     },
     "strengthBalance": {
@@ -1138,14 +1140,14 @@
       "noSignal": "Sem sinal",
       "allOneSideTitle": "{{pair}}: todo o volume num só lado",
       "oneSidedBody": "{{dominant}} representa todo o volume de séries ponderadas de {{pair}} nas últimas 4 semanas.",
-      "ratioBody": "{{pair}} apresenta uma média de {{ratio}} em séries ponderadas na janela mais recente de 4 semanas.",
+      "ratioBody": "Nas últimas 4 semanas, o lado maior de {{pair}} tem {{ratio}} vezes as séries ponderadas do menor.",
       "ratioLabel": "Rácio",
       "statusLabel": "Estado",
       "formula": "Séries ponderadas por par antagonista",
-      "algorithm": "Compara o número de séries ponderadas entre pares antagonistas comuns. O trabalho primário conta como 1.0 e o secundário como 0.5."
+      "algorithm": "Compara séries ponderadas de pares de músculos opostos. O trabalho principal conta como 1.0 e o secundário como 0.5."
     },
     "viewInDetail": "Ver em detalhe",
-    "routesDisabledDescription": "Os seus troços ficam guardados e voltam a abrir quando a correspondência estiver ativada.",
+    "routesDisabledDescription": "Os seus trechos ficam guardados e voltam quando rotas e secções estiverem ativadas.",
     "routesDisabledLine1": "Percursos e troços desativados",
     "routesDisabledLine2": "Ativar percursos e troços",
     "strengthProgression": {
@@ -1179,7 +1181,7 @@
       "split": "Dividiu-se em vários troços",
       "restored": "Regressou",
       "reverted": "Foi reposto numa versão anterior",
-      "body": "O histórico do troço mostra o que mudou e que atividades estiveram por perto."
+      "body": "O histórico da secção lista cada alteração e as atividades próximas."
     },
     "milestoneSheet": {
       "powerHeading": "Sobre esta alteração do eFTP",
@@ -1458,7 +1460,7 @@
     },
     "privacy": {
       "title": "Aviso de privacidade",
-      "brief": "O seu ID de atleta e um token push serão armazenados no nosso servidor (expira em 30 dias). As notificações são encaminhadas pela Apple ou Google, mas todo o conteúdo dos insights é gerado no seu dispositivo. Pode desativar a qualquer momento.",
+      "brief": "O seu ID de atleta e um token push serão armazenados no nosso servidor (expira em 30 dias). As notificações chegam ao seu dispositivo pelo Expo, depois pela Apple ou pela Google, mas todo o conteúdo dos insights é gerado no seu dispositivo. Pode desativar as notificações a qualquer momento.",
       "accept": "Compreendo"
     },
     "settings": {
@@ -1763,7 +1765,7 @@
     "duplicateNameMessage": "Por favor, escolha um nome diferente. Cada rota deve ter um nome único.",
     "expandInSettings": "Expandir nas Definições",
     "gpsTrackNotDownloaded": "Dados GPS ainda não transferidos. Tente novamente quando estiverem transferidos.",
-    "match": "correspondência",
+    "matchPercent": "{{percent}} correspondência",
     "noFrequentSections": "Sem troços frequentes ainda",
     "noMatchingRoutes": "Nenhum percurso correspondente encontrado",
     "noRoutesFor": "Nenhum percurso para {{filters}}",
@@ -2014,7 +2016,7 @@
     "mergeCandidatesSubtitle_one": "{{count}} troço semelhante por perto",
     "mergeCandidatesSubtitle_many": "{{count}} de troços semelhantes por perto",
     "mergeCandidatesSubtitle_other": "{{count}} troços semelhantes por perto",
-    "overlapLabel": "sobreposição",
+    "overlapPercent": "{{percent}} sobreposição",
     "distanceAway": "a {{distance}}",
     "acceptSection": "Aceitar",
     "acceptAllSections": "Aceitar todos",
@@ -2180,6 +2182,9 @@
     "streamHistoryDays_other": "{{count}} dias",
     "streamHistoryAll": "Tudo",
     "streamHistoryReset": "Repor",
+    "streamHistoryNarrowTitle": "Apagar o histórico de séries mais antigo?",
+    "streamHistoryNarrowBody": "As séries guardadas de atividades com mais de {{window}} serão apagadas deste dispositivo, incluindo a frequência cardíaca, a potência e a cadência. Transferi-las de novo usa o limite diário de pedidos do intervals.icu.",
+    "streamHistoryNarrowConfirm": "Apagar séries antigas",
     "streamBackfill": "Séries em falta",
     "streamBackfillOwed_one": "{{count}} atividade",
     "streamBackfillOwedSized_one": "{{count}} atividade, {{size}}",

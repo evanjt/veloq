@@ -10,6 +10,7 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { Row, SheetHeader, sheetScrollProps } from '@/shared/ui';
 import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import { formatDistance } from '@/shared/format/format';
+import { formatPercent } from '@/shared/format/number';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import {
@@ -81,7 +82,7 @@ function MergeCandidatesSheetContent() {
             {' · '}
             {formatDistance(item.distanceMeters, isMetric)}
             {' · '}
-            {Math.round(item.overlapPct * 100)}% {t('sections.overlapLabel')}
+            {t('sections.overlapPercent', { percent: formatPercent(item.overlapPct * 100) })}
             {' · '}
             {t('sections.distanceAway', {
               distance: formatDistance(item.centerDistanceMeters, isMetric),

@@ -159,7 +159,7 @@ describe('a regional tap on an activity', () => {
       ],
       type: 'Ride',
       name: `Ride ${id}`,
-      date: '2026-04-10T08:00:00Z',
+      date: Date.UTC(2026, 3, 10, 8, 0, 0) / 1000,
       distance: 60_000,
       duration: 12_000,
     };

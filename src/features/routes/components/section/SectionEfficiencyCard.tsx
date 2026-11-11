@@ -20,6 +20,7 @@ import {
 } from '@/shared/charts';
 import { formatSigned } from '@/shared/format';
 import { formatShortDate } from '@/shared/format/format';
+import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import type { TrendDirection, TrendVerdict } from '@/shared/format/trend';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { EfficiencyDirection, type EfficiencyTrend } from 'veloqrs';
@@ -65,7 +66,7 @@ export function SectionEfficiencyCard({ trend, isDark }: SectionEfficiencyCardPr
     const name = t('insights.efficiencyTrend.quantity');
     // Efforts sit at their date, so a long gap between two of them reads as one.
     const points: SparklinePoint[] = trend.points.map((p) => ({
-      label: formatShortDate(new Date(p.date * 1000)),
+      label: formatShortDate(wallClockSecondsToLocalDate(p.date)),
       key: String(p.date),
       value: p.hrPaceRatio,
       date: p.date,

@@ -26,7 +26,7 @@ function askAboutUnnamedLibrary(): Promise<UnnamedLibraryChoice> {
       title: t('alerts.accountChangeTitle', { defaultValue: 'Different account detected' }),
       message: t('alerts.unnamedLibraryMessage', {
         defaultValue:
-          'This device holds a library that names no account. If it is yours, keep it and it will sync as this account. Otherwise delete it.',
+          "This device has a library that isn't linked to an account. If it's yours, keep it and it'll sync to this account. Otherwise, delete it.",
       }),
       cancelLabel: t('common.cancel'),
       onCancel: () => resolve('cancel'),

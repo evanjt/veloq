@@ -61,7 +61,7 @@
     "explanations": {
       "conditions": "Temperatur fra vejrdata eller din enheds sensor.",
       "energy": "Estimeret energiforbrug fra puls, kraft og varighed.",
-      "fitnessImpact": "Sammenlignet med en hviledag øger denne aktivitet fitness med belastning × (1 − e^(−1/{{fitnessDays}})) og træthed med belastning × (1 − e^(−1/{{fatigueDays}})). Styrketræning øger kun træthed. Formpåvirkningen er fitness minus træthed.",
+      "fitnessImpact": "Hvor meget denne aktivitet tilføjede til din fitness og træthed sammenlignet med en hviledag.",
       "heartRate": "Gennemsnitlig puls under aktiviteten.",
       "newGround": "Andelen af kortfelter, som denne aktivitet berørte, og som ingen tidligere aktivitet havde berørt. Et felt er cirka 150 til 300 m bredt afhængigt af breddegrad, så det måler feltdækning og ikke afstand på nye veje.",
       "activityEftp": "eFTP er intervals.icus effektmodelestimat for denne aktivitet.",
@@ -70,7 +70,7 @@
       "yourForm": "Din form (TSB) på denne dag. Dette er en daglig værdi baseret på din samlede træning, ikke specifik for denne aktivitet. TSB = Fitness (CTL) minus Træthed (ATL).",
       "speed": "Gennemsnitlig og maksimal fart, som intervals.icu gemte dem for denne aktivitet.",
       "pace": "Gennemsnitligt og hurtigste tempo, som intervals.icu gemte dem for denne aktivitet.",
-      "cadence": "Gennemsnitlig kadence, som intervals.icu gemte den: pedalomdrejninger pr. minut på cykel, ellers skridt eller tag pr. minut."
+      "cadence": "Gennemsnitlig kadence. Pedalomdrejninger pr. minut på cykel, tag pr. minut i vandet. Til fods er det skridt pr. minut, så tallet er dobbelt så stort som de skridt, intervals.icu viser."
     },
     "ftp": "FTP-indstilling: {{value}}",
     "heartRate": "Puls",
@@ -462,10 +462,11 @@
     "enterDetailsInstead": "Indtast oplysninger i stedet",
     "fillAllFields": "Udfyld venligst alle felter",
     "fillField": "Udfyld venligst feltet »{{field}}«",
-    "webdavHttpsRequired": "Brug en https://-adresse. Over http:// ville din adgangskode og dine sikkerhedskopier blive sendt ukrypteret.",
+    "webdavSchemeRequired": "Brug en http://- eller https://-adresse",
+    "webdavPlainHttpWarning": "Adressen bruger http://, så din adgangskode og dine sikkerhedskopier sendes ukrypteret. Brug den kun med en server og et netværk, du stoler på.",
     "webdavInvalidUrl": "Det er ikke en gyldig serveradresse",
     "webdavSaveFailed": "Serveroplysningerne kunne ikke gemmes på denne enhed",
-    "webdavPlainLan": "Tillad en ukrypteret server på mit eget netværk",
+    "webdavRemoveFirst": "Fjern serveren først for at stoppe sikkerhedskopier til den",
     "webdavTestUnauthorised": "Godkendelse mislykkedes",
     "webdavTestMethodNotAllowed": "Tjek formatet på din WebDAV-adresse. Serveren accepterer ikke PROPFIND på denne sti",
     "webdavTestStatus": "Serveren svarede {{code}}",
@@ -716,6 +717,7 @@
     "statusNoActivityAccess": "Garmin accepterede nøglen, men den kan ikke læse dine aktiviteter.",
     "statusMalformed": "Det ligner ikke en Garmin-nøgle.",
     "statusUnreachable": "Garmin kunne ikke nås. Prøv igen om lidt.",
+    "statusSaveFailed": "Nøglen kunne ikke gemmes på denne enhed, så Garmin er ikke forbundet. Prøv igen.",
     "feedTitle": "Vis mine Garmin-ture i Veloq",
     "feedHint": "Ture fra din Garmin-konto vises i Veloqs feed, når den er forbundet.",
     "moreOptions": "Flere valgmuligheder",
@@ -890,17 +892,17 @@
   "insights": {
     "ranking": {
       "title": "Kortrækkefølge",
-      "intro": "Det er faktorer til udvælgelse af kort, ikke sandsynligheder for sikkerhed.",
+      "intro": "Disse faktorer bestemmer kortenes rækkefølge. De er ikke sikkerhedsscorer.",
       "scoreOnScale": "{{score}} på en skala fra 0 til 1",
       "unavailable": "Ikke nok gyldige sammenligningsdata",
       "recency": {
         "label": "Aktualitet",
-        "explanation": "Højere værdier betyder, at denne strækning er gennemført for nylig; værdien falder med tiden."
+        "explanation": "Højere værdier betyder, at dette afsnit blev gennemført for nylig. Værdien falder med tiden."
       },
       "improvement": {
         "label": "Præstationsændring",
-        "medianOfThree": "Medianen af de seneste tre forsøg sammenlignet med de tre før; positiv betyder hurtigere, negativ betyder langsommere.",
-        "firstToLast": "Seneste forsøg sammenlignet med det første; positiv betyder hurtigere, negativ betyder langsommere."
+        "medianOfThree": "Medianen af de seneste tre forsøg sammenlignet med de tre før. Positiv betyder hurtigere, negativ betyder langsommere.",
+        "firstToLast": "Seneste forsøg sammenlignet med det første. Positiv betyder hurtigere, negativ betyder langsommere."
       },
       "anomaly": {
         "label": "Usædvanlighed",
@@ -908,13 +910,13 @@
       },
       "engagement": {
         "label": "Relativ aktivitet",
-        "explanation": "Højere værdier betyder flere forsøg i forhold til din mest gennemførte strækning i denne sport; flere forsøg på en anden strækning kan sænke værdien."
+        "explanation": "Højere værdier betyder flere forsøg i forhold til din mest gennemførte strækning i denne sport. Forsøg på andre afsnit kan sænke værdien."
       }
     },
     "title": "Indsigt",
     "strength": "Styrke",
     "noInsights": "Indsigt vises, efterhånden som du træner",
-    "noInsightsHint": "Gennemfør flere aktiviteter for at se personlige indsigter",
+    "noInsightsHint": "Indsigter kræver flere aktiviteter at sammenligne med.",
     "couldNotBuild": "Indsigter kunne ikke opbygges",
     "wellnessFromLastSync": "Velvære fra sidste synkronisering, {{date}}",
     "sectionPr": "PR på {{name}}",
@@ -961,11 +963,11 @@
       "prDetection": "Sammenligner din seneste sektionstid med alle tidligere forsøg for at registrere personlige rekorder.",
       "sectionTrend": "Sporer medianpræstation på ofte besøgte sektioner over tid.",
       "periodComparison": "Sammenligner træningsmålinger mellem på hinanden følgende uger for at spore progression.",
-      "hrvDescription": "De 7 kalenderdage til og med i dag, hvor kun dage med en HRV-måling tæller, og mindst fem af dem. Gennemsnittet af den ældre halvdel sammenlignes med den nyere halvdels. En ændring tæller kun, når dens 95 %-interval, beregnet ud fra spredningen i dine egne målinger, udelukker nul, og den er større end en halv standardafvigelse af den spredning og 2 % af det ældre gennemsnit; alt mindre læses som stabilt. Et stabilt vindue læses alligevel som faldende, når de seneste to målinger ligger på hinanden følgende dage, den anden er lavere, den ligger under vinduets gennemsnit, og parret består samme test mod målingerne før det.",
+      "hrvDescription": "De 7 kalenderdage til og med i dag, med mindst fem HRV-målinger. Gennemsnittet af den ældre halvdel sammenlignes med den nyere. En ændring tæller kun, hvis dens 95 %-interval, beregnet ud fra spredningen i dine målinger, ikke indeholder nul og er større end en halv standardafvigelse af den spredning og 2 % af det ældre gennemsnit. Alt mindre læses som stabilt. Et stabilt vindue læses dog stadig som faldende, hvis de seneste to målinger ligger på hinanden følgende dage, den anden er lavere, den ligger under vinduets gennemsnit, og parret består samme test over for de foregående målinger.",
       "periodComparisonRestDay": "Sammenligner sidste uge med dit 4-ugers gennemsnit, når den aktuelle uge endnu ikke har nogen aktiviteter.",
       "ftpEstimation": "Sammenligner din nyeste daglige eFTP med værdien for 30 dage siden. eFTP er intervals.icu’s estimat ud fra din kraftkurve, ikke FTP-indstillingen på din konto.",
-      "criticalSpeedDescription": "Sammenligner din seneste kritiske fart fra 42-dages tempokurven med den seneste tidligere værdi inden for de foregående 90 dage, der afviger med mere end 0,02 m/s, og viser ændringen som tempo.",
-      "efficiencyDescription": "Følger gennemsnitlig puls ganget med tempo på tværs af matchede forsøg på sektionen, med en mindste kvadraters regression over tid. En retning vises kun, når hældningens 95 %-interval udelukker nul, og den modellerede ændring over forsøgene er mere end 2 % af gennemsnittet. En faldende værdi betyder færre hjerteslag pr. km: lavere puls, hurtigere tempo eller begge dele.",
+      "criticalSpeedDescription": "Sammenligner din seneste kritiske fart fra 42-dages tempokurven med den seneste værdi inden for de foregående 90 dage, der afviger med mere end 0,02 m/s. Ændringen vises som tempo.",
+      "efficiencyDescription": "Følger gennemsnitlig puls ganget med tempo på tværs af matchede forsøg på sektionen, som en mindste kvadraters trend over tid. En retning vises kun, når trendens 95 %-interval ikke indeholder nul, og den tilpassede ændring er mere end 2 % af gennemsnittet. En faldende værdi betyder færre hjerteslag pr. km: lavere puls, hurtigere tempo eller begge dele.",
       "efficiencyFormula": "{{quantity}} ({{unit}}) = gennemsnitlig puls × tempo (sekunder pr. km)",
       "route": "Tæller forsøg på en rute i én sportsgren og retning, som er tidsmålt, ikke udelukket, ikke delvist og inden for rutens afstandsbånd. En rekord er den hurtigste af dem, sat for nylig. En tendens sammenligner medianen af de seneste tre med de tre før, fra seks forsøg."
     },
@@ -1002,10 +1004,10 @@
       "trendingDown": "HRV: nyere halvdel lavere",
       "stable": "HRV: ingen klar ændring",
       "lastTwoDays": "HRV: de to seneste målinger under gennemsnittet",
-      "trendingUpBody": "Den nyere halvdel af dine seneste 7 HRV-dage ligger i gennemsnit over den ældre halvdel, mere end din dag-til-dag-variation forklarer. Vinduets gennemsnit {{avg}} ms over {{days}} målinger, seneste {{latest}} ms.",
-      "trendingDownBody": "Den nyere halvdel af dine seneste 7 HRV-dage ligger i gennemsnit under den ældre halvdel, mere end din dag-til-dag-variation forklarer. Vinduets gennemsnit {{avg}} ms over {{days}} målinger, seneste {{latest}} ms.",
-      "stableBody": "De to halvdele af dine seneste 7 HRV-dage adskiller sig ikke mere, end din dag-til-dag-variation forklarer. Vinduets gennemsnit {{avg}} ms over {{days}} målinger, seneste {{latest}} ms.",
-      "lastTwoDaysBody": "Selve vinduet holdt sig stabilt, men dine seneste to målinger faldt på hinanden følgende dage, mere end din dag-til-dag-variation forklarer, og den seneste, {{latest}} ms, ligger under vinduets gennemsnit på {{avg}} ms over {{days}} målinger."
+      "trendingUpBody": "Den nyere halvdel af dine seneste 7 HRV-dage ligger i gennemsnit højere end den ældre halvdel, mere end din sædvanlige dag-til-dag-variation. Vinduets gennemsnit {{avg}} ms over {{days}} målinger, seneste {{latest}} ms.",
+      "trendingDownBody": "Den nyere halvdel af dine seneste 7 HRV-dage ligger i gennemsnit lavere end den ældre halvdel, mere end din sædvanlige dag-til-dag-variation. Vinduets gennemsnit {{avg}} ms over {{days}} målinger, seneste {{latest}} ms.",
+      "stableBody": "De to halvdele af dine seneste 7 HRV-dage adskiller sig ikke mere end din sædvanlige dag-til-dag-variation. Vinduets gennemsnit {{avg}} ms over {{days}} målinger, seneste {{latest}} ms.",
+      "lastTwoDaysBody": "De seneste 7 dage holdt sig stabile, men dine to seneste målinger faldt på hinanden følgende dage med mere end din sædvanlige dag-til-dag-variation, og den seneste, {{latest}} ms, ligger under vinduets gennemsnit på {{avg}} ms over {{days}} målinger."
     },
     "weeklyLoad": {
       "title": "Træningsbelastning {{percent}}% {{direction}} gennemsnit",
@@ -1013,20 +1015,20 @@
       "below": "under"
     },
     "stalePr": {
-      "title": "{{section}} er et nyt forsøg værd",
+      "title": "{{section}}: formen er steget siden PR'et",
       "subtitle": "{{visited}}. PR {{prTime}} ved {{metric}} {{previous}}, nu {{current}}",
-      "body": "{{visited}}. Et nyt forsøg værd med din nuværende form: {{metric}} {{previous}} på PR-dagen, nu {{current}}.",
+      "body": "{{visited}}. {{metric}} var {{previous}} på PR-dagen og er {{current}} nu.",
       "currentMetric": "Nuværende {{metric}}",
       "prMetric": "{{metric}} ved PR",
       "metricGain": "{{metric}} gevinst",
       "prTime": "PR-tid",
-      "methodology": "Vises for et afsnit, du har gennemført mindst {{visits}} gange og ikke inden for de sidste {{days}} dage, når din form i dag ligger mindst {{gain}}% over formen på PR-dagen. Op til {{max}} vises, de mest besøgte først. Cykelformen er eFTP, intervals.icu's estimat ud fra din wattkurve. Løbeformen er kritisk fart og svømmeformen CSS, begge ud fra din tempokurve.",
+      "methodology": "Vises for et afsnit, du har gennemført mindst {{visits}} gange og ikke inden for de sidste {{days}} dage, når formen nu er mindst {{gain}}% over niveauet på PR-dagen. Op til {{max}} vises, de mest besøgte først. Cykelformen er eFTP, intervals.icu's estimat ud fra din wattkurve. Løbeformen er kritisk fart og svømmeformen CSS, begge ud fra din tempokurve.",
       "metricCyclingEftp": "Cykel-eFTP",
       "metricSwimCss": "Svømme-CSS",
       "metricRunningCriticalSpeed": "Kritisk løbefart",
       "groupMore": "(+{{n}} flere)",
-      "groupTitle_one": "{{count}} afsnit, der er et nyt forsøg værd",
-      "groupTitle_other": "{{count}} afsnit, der er et nyt forsøg værd",
+      "groupTitle_one": "{{count}} afsnit, hvor formen er steget siden dets PR",
+      "groupTitle_other": "{{count}} afsnit, hvor formen er steget siden deres PR'er",
       "groupSubtitle": "{{metric}} nu {{current}}",
       "visitedRide_one": "Cyklet én gang",
       "visitedRide_other": "Cyklet {{count}} gange",
@@ -1050,7 +1052,7 @@
       "openActivity": "Åbn PR-aktiviteten"
     },
     "aboutTitle": "Om indsigt",
-    "aboutBody": "Træningsmålinger er estimater baseret på publicerede sportsvidenskabelige modeller. Individuelle reaktioner varierer betydeligt. Disse indsigter er kun informative, ikke medicinsk rådgivning eller træningsrådgivning.",
+    "aboutBody": "Indsigter sammenligner din seneste træning med din egen historik. Kun til orientering, ikke medicinsk eller træningsmæssig rådgivning.",
     "explanation": {
       "title": "Forstå indsigterne",
       "foundLabel": "Metode",
@@ -1062,7 +1064,7 @@
         },
         "fitness": {
           "label": "eFTP og kritisk fart",
-          "text": "En ændring i en af dem og de rekorder, du satte, da den var lavere."
+          "text": "En ændring i en af dem, og alle PR'er sat ved lavere form."
         },
         "week": {
           "label": "Denne uge",
@@ -1085,18 +1087,18 @@
       "sources": "Tider, puls og watt kommer fra dine aktiviteter, og eFTP, kritisk fart og HRV fra intervals.icu, med hvert korts metode og data under “{{howCalculated}}”.",
       "strengthTitle": "Forstå styrke"
     },
-    "aboutRanking": "Kortene sorteres efter, hvor meget hvert af dem har at sige: hvor nyt det er, hvor meget det skiller sig ud fra dit saedvanlige, hvor meget det har flyttet sig, og hvor ofte du goer det.",
+    "aboutRanking": "Kortene sorteres efter, hvor nyt hvert af dem er, hvor meget det skiller sig ud fra dit sædvanlige, hvor meget det har ændret sig, og hvor ofte du gentager afsnittet.",
     "efficiencyTrend": {
       "seriesLabel": "{{quantity}}, ældste forsøg til nyeste",
       "quantity": "Puls × tempo",
       "title": "Effektivitet forbedres på {{name}}",
       "changeTitle": "Effektivitet på {{name}}: {{hrChange}} bpm",
       "changeSubtitle": "Modelleret {{hrChange}} bpm ved gennemsnitstempo over {{efforts}} ture",
-      "changeBody": "Over {{efforts}} ture på {{name}} steg produktet af puls og tempo. Ved gennemsnitstempo svarer det til modellerede {{hrChange}} bpm; den målte puls kan afvige.",
+      "changeBody": "Over {{efforts}} ture på {{name}} steg produktet af puls og tempo. Ved gennemsnitstempo svarer det til modellerede {{hrChange}} bpm. Den målte puls kan afvige.",
       "subtitle": "Modelleret {{hrChange}} bpm ved gennemsnitstempo over {{efforts}} bestræbelser",
-      "body": "Over {{efforts}} bestræbelser på {{name}} er puls gange tempo forbedret. Ved dit gennemsnitstempo svarer det til modelleret {{hrChange}} bpm; din puls kan i sig selv være uændret.",
+      "body": "Over {{efforts}} forsøg på {{name}} er puls gange tempo forbedret. Ved dit gennemsnitstempo svarer det til modelleret {{hrChange}} bpm. Din puls alene behøver ikke at have ændret sig.",
       "sheetHeading": "Sammenligning af matchede forsøg",
-      "sheetBody": "Bygger på gentagne forsøg på samme sektion med både puls og tempo. Sammenligner over tid, hvad hver passage kostede dit hjerte.",
+      "sheetBody": "Sammenligner puls gange tempo på tværs af gentagne forsøg på denne sektion over tid. Kun forsøg med både puls og tempo tælles med.",
       "sheetMeta": "Åbn sektionen for de underliggende forsøg."
     },
     "strengthBalance": {
@@ -1109,14 +1111,14 @@
       "noSignal": "Intet signal",
       "allOneSideTitle": "{{pair}}: al volumen på én side",
       "oneSidedBody": "{{dominant}} står for hele det vægtede sætvolumen for {{pair}} gennem de seneste 4 uger.",
-      "ratioBody": "{{pair}} ligger i gennemsnit på {{ratio}} i vægtede sæt i det seneste 4-ugers vindue.",
+      "ratioBody": "I de seneste 4 uger har den største side af {{pair}} {{ratio}} gange så mange vægtede sæt som den mindste.",
       "ratioLabel": "Forhold",
       "statusLabel": "Status",
       "formula": "Vægtede sæt pr. antagonistpar",
-      "algorithm": "Sammenligner antallet af vægtede sæt på tværs af almindelige antagonistpar. Primært arbejde tæller som 1.0 og sekundært arbejde som 0.5."
+      "algorithm": "Sammenligner vægtede sæt for modsatte muskelpar. Primært arbejde tæller som 1.0 og sekundært arbejde som 0.5."
     },
     "viewInDetail": "Se i detaljer",
-    "routesDisabledDescription": "Dine sektioner er gemt og åbner igen, når matchning er slået til.",
+    "routesDisabledDescription": "Dine sektioner er gemt og kommer tilbage, når ruter og sektioner er slået til.",
     "routesDisabledLine1": "Ruter og sektioner deaktiveret",
     "routesDisabledLine2": "Slå ruter og sektioner til",
     "strengthProgression": {
@@ -1150,7 +1152,7 @@
       "split": "Den blev delt i flere strækninger",
       "restored": "Den kom tilbage",
       "reverted": "Den blev sat tilbage til en tidligere version",
-      "body": "Strækningens historik viser, hvad der flyttede sig, og hvilke aktiviteter der var omkring."
+      "body": "Strækningens historik lister hver ændring og de aktiviteter, der var i nærheden."
     },
     "milestoneSheet": {
       "powerHeading": "Om denne eFTP-ændring",
@@ -1425,7 +1427,7 @@
     },
     "privacy": {
       "title": "Privatlivsmeddelelse",
-      "brief": "Dit atlet-ID og et push-token gemmes på vores server (30 dages udløb). Notifikationer sendes via Apple eller Google, men alt indsigtsindhold genereres på din enhed. Du kan deaktivere når som helst.",
+      "brief": "Dit atlet-ID og et push-token gemmes på vores server i 30 dage. Notifikationer leveres til din enhed via Expo, derefter Apple eller Google. Indsigtsindhold genereres på din enhed. Du kan slå notifikationer fra når som helst.",
       "accept": "Jeg forstår"
     },
     "settings": {
@@ -1727,7 +1729,7 @@
     "duplicateNameMessage": "Vælg venligst et andet navn. Hver rute skal have et unikt navn.",
     "expandInSettings": "Udvid i Indstillinger",
     "gpsTrackNotDownloaded": "GPS-data ikke hentet endnu. Prøv igen, når de er hentet.",
-    "match": "lighed",
+    "matchPercent": "{{percent}} lighed",
     "noFrequentSections": "Ingen hyppige sektioner endnu",
     "noMatchingRoutes": "Ingen matchende ruter fundet",
     "noRoutesFor": "Ingen ruter for {{filters}}",
@@ -1966,7 +1968,7 @@
     "mergeCandidatesTitle": "Vælg en sektion at flette",
     "mergeCandidatesSubtitle_one": "{{count}} lignende sektion i nærheden",
     "mergeCandidatesSubtitle_other": "{{count}} lignende sektioner i nærheden",
-    "overlapLabel": "overlapning",
+    "overlapPercent": "{{percent}} overlapning",
     "distanceAway": "{{distance}} væk",
     "acceptSection": "Acceptér",
     "acceptAllSections": "Acceptér alle",
@@ -2129,6 +2131,9 @@
     "streamHistoryDays_other": "{{count}} dage",
     "streamHistoryAll": "Alle",
     "streamHistoryReset": "Nulstil",
+    "streamHistoryNarrowTitle": "Slet ældre streamhistorik?",
+    "streamHistoryNarrowBody": "Gemte serier for aktiviteter ældre end {{window}} slettes fra denne enhed, inklusive puls, effekt og kadence. Det at hente dem igen bruger intervals.icu's daglige anmodningsgrænse.",
+    "streamHistoryNarrowConfirm": "Slet ældre serier",
     "streamBackfill": "Manglende serier",
     "streamBackfillOwed_one": "{{count}} aktivitet",
     "streamBackfillOwedSized_one": "{{count}} aktivitet, {{size}}",

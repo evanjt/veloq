@@ -168,6 +168,10 @@ export const webdavBackend: BackupBackend = {
     return webdavConfigProblem() === null;
   },
 
+  addressProblem(): boolean {
+    return getWebdavConfig() !== null && webdavConfigProblem() !== null;
+  },
+
   async listBackups(): Promise<BackupEntry[]> {
     const config = requireConfig('List backups');
 

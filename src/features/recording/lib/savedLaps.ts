@@ -1,13 +1,22 @@
 import type { RecordingLap, RecordingStreams } from '../types';
 import { pausedSecondsBetween, type PauseInterval } from './pausedTime';
 
-/** Missing sensor readings are recorded as zero, or NaN; neither is an observation. */
-function average(values: number[] | undefined, start: number, end: number): number | null {
+/**
+ * Mean of the observations in a lap. Heart rate and cadence record a missing
+ * reading as zero, which is no observation; power records it as null, so a
+ * 0 W reading counts when `zeroIsReading` is set. NaN is never an observation.
+ */
+function average(
+  values: readonly (number | null)[] | undefined,
+  start: number,
+  end: number,
+  zeroIsReading = false
+): number | null {
   let total = 0;
   let count = 0;
   for (let i = start; i <= end; i++) {
     const value = values?.[i];
-    if (value != null && Number.isFinite(value) && value > 0) {
+    if (value != null && Number.isFinite(value) && (zeroIsReading ? value >= 0 : value > 0)) {
       total += value;
       count++;
     }
@@ -39,7 +48,7 @@ export function summariseLap(
     distance,
     avgSpeed: duration > 0 ? distance / duration : 0,
     avgHeartrate: average(streams.heartrate, startIndex, endIndex),
-    avgPower: average(streams.power, startIndex, endIndex),
+    avgPower: average(streams.power, startIndex, endIndex, true),
     avgCadence: average(streams.cadence, startIndex, endIndex),
   };
 }

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, layout, opacity, spacing, typography, zoneColour } from '@/theme';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
+import { formatPercent } from '@/shared/format';
 import { DenseText, denseExtent } from '@/shared/ui/DenseText';
 
 import { ChartSurface } from './ChartSurface';
@@ -56,7 +57,7 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
       const filled = band.seconds > 0;
       return {
         label: band.secondary != null ? `${band.label} ${band.secondary}` : band.label,
-        value: filled ? `${band.primary ?? ABSENT} (${band.share}%)` : ABSENT,
+        value: filled ? `${band.primary ?? ABSENT} (${formatPercent(band.share)})` : ABSENT,
         filled,
       };
     });
@@ -82,7 +83,7 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
           // Only a zone with no time reads as empty. One the engine rounds to a share of 0 still
           // prints that share and its time.
           const filled = band.seconds > 0;
-          const share = filled ? `${band.share}%` : ABSENT;
+          const share = filled ? formatPercent(band.share) : ABSENT;
           const length = longest > 0 ? (band.seconds / longest) * 100 : 0;
           const primary = filled ? (band.primary ?? ABSENT) : ABSENT;
           return (

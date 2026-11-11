@@ -225,6 +225,22 @@ describe('SectionDeltaChart', () => {
     expect(legend).toContain('sections.deltaReferenceRecordPhrase');
   });
 
+  // 15:00 UTC crosses into the next day east of UTC+8, and 07:00 UTC crosses back west of UTC-8.
+  it.each([15, 7])(
+    'dates the reference in the legend by the day the engine stamped it, at %i:00 UTC, whatever the device zone',
+    async (hour) => {
+      /** 5 November 2026 at the given hour, stamped as UTC the way the engine stores it. */
+      const stamped = Date.UTC(2026, 10, 5, hour) / 1000;
+      const deltas = direction([lap('ref', 0, LEVEL, { activityDate: stamped }), ...LAPS.slice(1)]);
+      const tree = await render(chart({ deltas }));
+      await layoutViews(tree, 400, 300);
+
+      expect(String(tree.getByTestId('section-delta-caption').props.children)).toContain(
+        '5 Nov 26'
+      );
+    }
+  );
+
   it('names the previous record when this attempt is the record', async () => {
     const previous = lap('prev', -3, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
     const deltas = direction(LAPS, {

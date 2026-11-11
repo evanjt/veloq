@@ -6,6 +6,7 @@ import { composeAccessibilityLabel, Row, SearchBar } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { formatDistance, formatShortDateWithYear } from '@/shared/format/format';
 import { spokenDistance } from '@/shared/format/spoken';
+import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import {
   getActivityCategory,
@@ -63,7 +64,7 @@ export function MapNameSearch({
             {countLine}
           </Text>
           {results.map((a) => {
-            const date = formatShortDateWithYear(new Date(a.date));
+            const date = formatShortDateWithYear(wallClockSecondsToLocalDate(a.date));
             const distance = formatDistance(a.distance, isMetric);
             const sport = t(sportFamilyLabel(getActivityCategory(a.type)));
             return (

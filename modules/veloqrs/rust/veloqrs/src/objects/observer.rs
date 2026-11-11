@@ -225,6 +225,10 @@ impl PartialEq for Queued {
 struct Pending {
     queued: Vec<Queued>,
     delivering: bool,
+    /// Which delivery thread is current. A thread whose own generation is
+    /// behind this was abandoned inside a call that never returned, and owes
+    /// the queue nothing.
+    generation: u64,
 }
 
 /// The queue and the signal, with the delivery thread started on first use.
@@ -238,15 +242,52 @@ static ANNOUNCER: LazyLock<Arc<Announcer>> = LazyLock::new(|| {
         pending: Mutex::new(Pending::default()),
         changed: Condvar::new(),
     });
-    let thread = Arc::clone(&announcer);
-    std::thread::Builder::new()
-        .name("veloq-announce".into())
-        .spawn(move || thread.run())
-        .expect("the announce thread is the only path to the foreign observer");
+    announcer.spawn(0);
     announcer
 });
 
+/// Delivery threads left parked inside a call that never returned.
+static ABANDONED_ANNOUNCERS: AtomicU32 = AtomicU32::new(0);
+
+/// How many delivery threads this process has given up on because a teardown
+/// found them inside a call into a runtime that was going away.
+pub fn abandoned_announce_threads() -> u32 {
+    ABANDONED_ANNOUNCERS.load(Ordering::Relaxed)
+}
+
 impl Announcer {
+    fn spawn(self: &Arc<Self>, generation: u64) {
+        let thread = Arc::clone(self);
+        std::thread::Builder::new()
+            .name("veloq-announce".into())
+            .spawn(move || thread.run(generation))
+            .expect("the announce thread is the only path to the foreign observer");
+    }
+
+    /// Replace a delivery thread that is inside a call, if there is one.
+    ///
+    /// React Native drops a task queued on a runtime it is tearing down, and
+    /// the binding's blocking post waits on a promise that task would set, so
+    /// the call never returns. The thread cannot be woken or cancelled: its
+    /// stack holds what the dropped task points at. It is left where it is and
+    /// a new thread takes the queue. The new thread is spawned under the lock,
+    /// so an announcement pushed meanwhile waits for it rather than being lost.
+    fn replace_if_delivering(self: &Arc<Self>) {
+        let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
+        if !pending.delivering {
+            return;
+        }
+        pending.generation += 1;
+        pending.delivering = false;
+        let abandoned = ABANDONED_ANNOUNCERS.fetch_add(1, Ordering::Relaxed) + 1;
+        log::error!(
+            "veloqrs: [observer] a runtime was torn down inside an announcement; the delivery thread is abandoned and replaced, {abandoned} so far this process"
+        );
+        self.spawn(pending.generation);
+        drop(pending);
+        self.changed.notify_all();
+    }
+
     fn push(&self, queued: Queued) {
         self.pending
             .lock()
@@ -256,8 +297,9 @@ impl Announcer {
         self.changed.notify_all();
     }
 
-    /// Take the batch, deliver it, signal, repeat. Never returns.
-    fn run(&self) {
+    /// Take the batch, deliver it, signal, repeat. Returns only when a
+    /// teardown has replaced this thread, after the call it was parked in.
+    fn run(&self, generation: u64) {
         loop {
             let batch = {
                 let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
@@ -278,10 +320,12 @@ impl Announcer {
                 queued.release();
             }
 
-            self.pending
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .delivering = false;
+            let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
+            if pending.generation != generation {
+                return;
+            }
+            pending.delivering = false;
+            drop(pending);
             self.changed.notify_all();
         }
     }
@@ -366,6 +410,8 @@ pub extern "C" fn veloq_runtime_torn_down() {
             std::mem::forget(observer);
         }
         UNOBSERVED_LOGGED.store(false, Ordering::Relaxed);
+        drop(observer);
+        ANNOUNCER.replace_if_delivering();
     })
 }
 
@@ -844,6 +890,87 @@ mod tests {
                 "the handle of a torn-down runtime was released through the binding"
             );
             assert_eq!(heard_next, vec!["sync_settled"]);
+        }
+
+        /// Scenario: a runtime is torn down while the delivery thread is inside
+        /// a call that the dropped task will never complete. The next runtime
+        /// registers an observer.
+        ///
+        /// Expected behaviour: a new delivery thread serves the new observer,
+        /// the flush returns promptly, and when the parked call finally returns
+        /// it neither delivers what it held nor clears the live thread's state.
+        #[test]
+        fn a_delivery_parked_at_teardown_does_not_silence_the_next_observer() {
+            let _guard = serial_global_state();
+            let (gated, was_entered, release) = Slow::gated();
+            let slow = Arc::new(gated);
+            set_observer(Some(slow.clone()));
+            notify(Announcement::SyncSettled);
+            was_entered
+                .recv_timeout(Duration::from_secs(5))
+                .expect("the announcement never reached the observer");
+            notify(Announcement::ActivitiesStored);
+
+            let abandoned = abandoned_announce_threads();
+            veloq_runtime_torn_down();
+            let next = Recorder::new();
+            set_observer(Some(next.clone()));
+            notify(Announcement::TilesGenerated);
+
+            let (flushed, was_flushed) = channel();
+            let waiter = std::thread::spawn(move || {
+                flush();
+                let _ = flushed.send(());
+            });
+            let flush_returned = was_flushed.recv_timeout(Duration::from_secs(2));
+            let heard = next.events();
+            let counted = abandoned_announce_threads() - abandoned;
+
+            let _ = release.send(());
+            waiter.join().unwrap();
+            std::thread::sleep(Duration::from_millis(100));
+            notify(Announcement::GroupsChanged);
+            flush();
+            let heard_after = next.events();
+            set_observer(None);
+
+            assert!(
+                flush_returned.is_ok(),
+                "the flush waited on a thread parked in a torn-down runtime"
+            );
+            assert_eq!(heard, vec!["tiles_generated"]);
+            assert_eq!(counted, 1);
+            assert_eq!(
+                heard_after,
+                vec!["tiles_generated", "groups_changed"],
+                "the released thread disturbed the live one"
+            );
+            assert_eq!(slow.events(), vec!["sync_settled"]);
+        }
+
+        /// A teardown with nothing in flight replaces nothing, and two with a
+        /// parked thread replace it once.
+        #[test]
+        fn only_a_teardown_inside_a_delivery_replaces_the_thread() {
+            let _guard = serial_global_state();
+            set_observer(None);
+            flush();
+            let before = abandoned_announce_threads();
+            veloq_runtime_torn_down();
+            assert_eq!(abandoned_announce_threads(), before);
+
+            let (gated, was_entered, release) = Slow::gated();
+            set_observer(Some(Arc::new(gated)));
+            notify(Announcement::SyncSettled);
+            was_entered
+                .recv_timeout(Duration::from_secs(5))
+                .expect("the announcement never reached the observer");
+            veloq_runtime_torn_down();
+            veloq_runtime_torn_down();
+            let _ = release.send(());
+            flush();
+            assert_eq!(abandoned_announce_threads() - before, 1);
+            set_observer(None);
         }
 
         /// A teardown with nothing registered, and a second one behind it, are

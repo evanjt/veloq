@@ -176,9 +176,9 @@ describe('map filter sheet drag', () => {
     getAnimatedStyle(view.getByTestId('map-filter-sheet')).height as number;
   // The credit rides inside the sheet, so it moves with the sheet's own layout.
   const creditInSheet = (view: RenderResult) =>
-    within(view.getByTestId('map-filter-sheet')).getByTestId('map-attribution-lane');
+    within(view.getByTestId('map-filter-sheet')).getByTestId('map-sheet-credit');
 
-  it('carries the sheet and the credit on its edge with the finger before it lifts, with no render', async () => {
+  it('carries the sheet and its credit line with the finger before it lifts, with no render', async () => {
     const view = await renderMeasured();
     const lowered = sheetHeight(view);
     expect(lowered).toBeGreaterThan(120);

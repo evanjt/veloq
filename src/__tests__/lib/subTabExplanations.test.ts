@@ -67,13 +67,13 @@ describe('the Insights explanation', () => {
     }
   });
 
-  it('says how insights are found first, and the disclaimer last', () => {
+  it('says how insights are found first, and carries no disclaimer row', () => {
     expect(explanation.rows[0]).toEqual({
       key: 'found',
       label: 'insights.explanation.foundLabel',
       text: 'insights.explanation.found',
     });
-    expect(explanation.rows.at(-1)).toEqual({ key: 'disclaimer', text: 'insights.aboutBody' });
+    expect(rowKeys(explanation.rows)).not.toContain('disclaimer');
   });
 
   it('says where the numbers come from, and leaves the ordering to the header', () => {

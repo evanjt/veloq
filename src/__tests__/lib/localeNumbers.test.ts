@@ -9,6 +9,7 @@
  * no sign.
  */
 
+import { formatForm } from '@/features/fitness/lib/fitness';
 import {
   formatCalories,
   formatDecimal,
@@ -60,6 +61,12 @@ describe('under de-DE', () => {
     expect(formatPercent(12.5, 1)).toBe('12,5\u00a0%');
     expect(formatSigned(-1.25, 1)).toBe('-1,3');
     expect(formatSignedPercent(0.14)).toBe('+14\u00a0%');
+  });
+
+  it('writes the form percentage of fitness the locale way', () => {
+    expect(formatForm(10, 40, true)).toBe('+25\u00a0%');
+    expect(formatForm(-8, 40, true)).toBe('-20\u00a0%');
+    expect(formatForm(0, 40, true)).toBe('0\u00a0%');
   });
 });
 

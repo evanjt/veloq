@@ -32,6 +32,7 @@ import { forgetBackupFolder } from './backends/folderBackend';
 import { forgetGoogleDrive } from './backends/googleDriveBackend';
 import { ICLOUD_CONTAINER, isIcloudReachable, isIcloudSupported } from './backends/icloudBackend';
 import {
+  addressFailure,
   BackupTransferError,
   isBackupTransferError,
   type BackupFailureKind,
@@ -486,6 +487,12 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
       }
       if (libraryMoved()) return { wroteZip: false, carriers: {} };
       if (!isCarrierOn(carrier.id) || !(await carrier.isAvailable())) {
+        if (isCarrierOn(carrier.id) && carrier.addressProblem?.()) {
+          recordBackupFailure(carrier.id, addressFailure('Back up', 'refused'));
+          carriers[carrier.id] = { status: 'failed', kind: 'address' };
+          anyFailed = true;
+          continue;
+        }
         log.log(`${carrier.id} not set up, skipping`);
         carriers[carrier.id] = { status: 'skipped', reason: 'unavailable' };
         continue;

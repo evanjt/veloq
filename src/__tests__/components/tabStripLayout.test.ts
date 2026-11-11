@@ -7,7 +7,21 @@
  * scrolls, with offsets and widths for the indicator to follow.
  */
 
-import { layoutTabStrip, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
+import { layoutTabStrip, neededTabWidths, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
+
+describe('neededTabWidths', () => {
+  it('adds the padding either side of each measured tab', () => {
+    expect(neededTabWidths([300, 40], 2, 8)).toStrictEqual([316, 56]);
+  });
+
+  it('gives an unmeasured tab no width, so the strip waits for it', () => {
+    expect(neededTabWidths([300], 3, 8)).toStrictEqual([316, 0, 0]);
+  });
+
+  it('gives every tab no width before anything is measured', () => {
+    expect(neededTabWidths([], 2, 8)).toStrictEqual([0, 0]);
+  });
+});
 
 describe('layoutTabStrip', () => {
   it('keeps equal tabs when every tab fits its share', () => {
@@ -40,6 +54,10 @@ describe('layoutTabStrip', () => {
 
   it('keeps equal tabs while a tab is still unmeasured', () => {
     expect(layoutTabStrip([80, 0, 70], 300).scrolls).toBe(false);
+  });
+
+  it('keeps equal tabs while a wide tab is measured and the rest are not', () => {
+    expect(layoutTabStrip(neededTabWidths([300], 3, 8), 300).scrolls).toBe(false);
   });
 });
 

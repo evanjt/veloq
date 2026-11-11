@@ -42,6 +42,7 @@ import { mapSheetPanelWidth, mapSheetScreenOptions, sheetSurface } from './scree
 import { useSheetWindow } from './TopSafeAreaContext';
 import { useTheme } from './useTheme';
 import { BACK_SWIPE_EDGE_WIDTH } from '@/shared/ui/backSwipeEdge';
+import { MapSheetCreditLine } from '@/shared/ui/MapSheetCreditLine';
 import { MapSheetHandle } from '@/shared/ui/MapSheetHandle';
 import { useHeroHeaderBottom } from '@/shared/ui/useHeroHeaderBottom';
 import { colors, darkColors, stroke } from '@/theme';
@@ -353,6 +354,7 @@ export function MapSheetHostSheet({ children }: { children: React.ReactNode }) {
       ]}
     >
       {Platform.OS === 'android' && host ? <MapSheetHandle sheetKey={host.key} drawn /> : null}
+      {host ? <MapSheetCreditLine sheetKey={host.key} /> : null}
       {children}
     </View>
   );

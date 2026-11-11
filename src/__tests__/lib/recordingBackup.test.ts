@@ -358,6 +358,43 @@ it.each([
   expect(restored?.streams.altitude).toEqual([NaN, NaN, NaN]);
 });
 
+describe('the power stream in a stored backup', () => {
+  const withPower = (version: number, power: unknown) => {
+    const backup = buildRecordingBackup(makeState())!;
+    mockFileStore.set(
+      BACKUP_PATH,
+      JSON.stringify({ ...backup, version, streams: { ...backup.streams, power } })
+    );
+  };
+
+  it('reads a version-2 zero as no reading, because that build recorded both as 0', async () => {
+    withPower(2, [200, 0, 180]);
+    const loaded = await loadRecordingBackup();
+    expect(loaded?.streams.power).toEqual([200, null, 180]);
+  });
+
+  it('keeps a 0 W reading and a missing one apart in a version-3 file', async () => {
+    withPower(3, [200, 0, null]);
+    const loaded = await loadRecordingBackup();
+    expect(loaded?.streams.power).toEqual([200, 0, null]);
+  });
+
+  it('round-trips a saved stream with coasting and a gap', async () => {
+    const backup = buildRecordingBackup(
+      makeState({ streams: { ...makeStreams(), power: [150, 0, null] } })
+    )!;
+    await saveRecordingBackup(backup);
+    const loaded = await loadRecordingBackup();
+    expect(loaded?.streams.power).toEqual([150, 0, null]);
+  });
+
+  it('reads a file with no power stream as all missing', async () => {
+    withPower(2, undefined);
+    const loaded = await loadRecordingBackup();
+    expect(loaded?.streams.power).toEqual(loaded?.streams.time.map(() => null));
+  });
+});
+
 describe('an ownerless backup from a build before the athlete stamp', () => {
   const ATHLETE_PATH = '/mock/docs/recording_backup_i1.json';
 
@@ -394,7 +431,7 @@ describe('an ownerless backup from a build before the athlete stamp', () => {
     expect(loaded?.stopTime).toBeNull();
     expect(loaded?.streams.latlng).toEqual(makeStreams().latlng);
     expect(loaded?.streams.time).toEqual(makeStreams().time);
-    expect(JSON.parse(mockFileStore.get(ATHLETE_PATH)!).version).toBe(2);
+    expect(JSON.parse(mockFileStore.get(ATHLETE_PATH)!).version).toBe(3);
     expect(mockFileStore.has(BACKUP_PATH)).toBe(false);
   });
 

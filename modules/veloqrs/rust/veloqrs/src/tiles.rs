@@ -543,6 +543,7 @@ pub const DRAW_MARGIN: f32 = 100.0;
 /// A point's pixel coordinates in this tile's frame, however far outside it
 /// the point lies. A segment is drawn from where its ends actually are, so
 /// both have to be placed before either can be judged.
+#[cfg(test)]
 #[inline]
 fn gps_to_pixel_unbounded(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> (f32, f32) {
     tile_to_pixel(
@@ -566,6 +567,7 @@ fn tile_to_pixel((global_x, global_y): (f64, f64), tile_x: u32, tile_y: u32) -> 
 
 /// Convert GPS point to pixel coordinates within a tile.
 /// Returns None if the point is too far outside the tile.
+#[cfg(test)]
 #[inline]
 pub fn gps_to_pixel(point: &GpsPoint, z: u8, tile_x: u32, tile_y: u32) -> Option<(f32, f32)> {
     let (px, py) = gps_to_pixel_unbounded(point, z, tile_x, tile_y);

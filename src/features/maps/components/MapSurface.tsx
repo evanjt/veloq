@@ -594,14 +594,6 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     };
   }, []);
 
-  // Captured each time a view mounts. React detaches the ref before this
-  // cleanup runs, so reading `webViewRef.current` here finds null and the page
-  // goes on loading after the surface is gone.
-  useEffect(() => {
-    const webView = webViewRef.current;
-    return () => webView?.stopLoading();
-  }, [viewKey, lost]);
-
   return (
     <ComponentErrorBoundary part="map" debugName="Map">
       <View style={styles.container} accessibilityIgnoresInvertColors>

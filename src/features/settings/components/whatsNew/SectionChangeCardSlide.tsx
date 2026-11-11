@@ -10,6 +10,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
+import { formatPercent } from '@/shared/format';
 import {
   CUTOVER_FAILURE_KEYS,
   getPhaseDisplayKey,
@@ -34,7 +35,7 @@ const SETTING_LABELS: Record<keyof CutoverSettings, string> = {
 
 function settingValue(field: keyof CutoverSettings, value: number): string {
   if (field === 'minActivities') return String(value);
-  if (field === 'divergenceThreshold') return `${Math.round(value * 100)}%`;
+  if (field === 'divergenceThreshold') return formatPercent(Math.round(value * 100));
   return `${Math.round(value)} m`;
 }
 

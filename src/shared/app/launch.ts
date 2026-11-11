@@ -217,8 +217,10 @@ export async function initialiseApp(): Promise<StartupArea[] | null> {
   // the database and its journal while no connection is open.
   await resolveRouteDbPath();
   await openEngine();
-  // Before any store reads: a store that finds its key absent writes defaults,
-  // and the repair then sees a row and skips the key.
+  // Before any store or provider reads a preference: a store that finds its key
+  // absent writes defaults and the repair then skips it, and the terrain override
+  // cleanup must be what the map provider loads, or its next save writes the
+  // uncleaned map back.
   await migrateSettingsToSqlite().catch((reason) => {
     console.warn('[launch] settings migration failed:', errorMessage(reason));
   });

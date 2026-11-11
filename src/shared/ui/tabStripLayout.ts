@@ -18,10 +18,27 @@ function cumulative(widths: number[]): number[] {
 }
 
 /**
+ * The width each tab needs, given the content width measured for each tab so
+ * far. A tab with no measurement yet needs 0, which `layoutTabStrip` reads as
+ * unmeasured; a measured tab needs its content plus `padding` either side.
+ */
+export function neededTabWidths(
+  contentWidths: readonly number[],
+  count: number,
+  padding: number
+): number[] {
+  return Array.from({ length: count }, (_, i) => {
+    const content = contentWidths[i];
+    return content === undefined ? 0 : content + padding * 2;
+  });
+}
+
+/**
  * Lay out a strip of tabs from the width each needs for its icon, label and
- * badge. Tabs take equal shares of `available` while every one fits its share,
- * and are sized to their content, in a scrolling strip, once any does not. A
- * tab not yet measured counts as fitting, so the first layout is the equal one.
+ * badge, as `neededTabWidths` gives them. Tabs take equal shares of `available`
+ * while every one fits its share, and are sized to their content, in a
+ * scrolling strip, once any does not. Until every tab has a width the strip is
+ * the equal one, so a partly measured row never lays out as a scrolling strip.
  */
 export function layoutTabStrip(needed: number[], available: number): TabStripLayout {
   const count = needed.length;

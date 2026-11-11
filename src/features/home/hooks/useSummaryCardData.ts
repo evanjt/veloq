@@ -33,6 +33,8 @@ import {
  * Supporting metric for SummaryCard display
  */
 interface SupportingMetric {
+  /** The metric's identity, which keys its tile; a translated label can repeat. */
+  id: MetricId;
   label: string;
   /** The metric's name for a screen reader, where the label is a glyph. */
   name: string;
@@ -501,6 +503,7 @@ export function useSummaryCardData(
       const shown = supportingMetric(metricId);
       return {
         ...shown,
+        id: metricId,
         name: spokenOf(metricId).name,
         accessibilityLabel: describe(metricId, shown.value, shown.trend),
         navigationTarget: summaryCardTarget(metricId),
@@ -509,7 +512,7 @@ export function useSummaryCardData(
 
     function supportingMetric(
       metricId: MetricId
-    ): Omit<SupportingMetric, 'name' | 'navigationTarget' | 'accessibilityLabel'> {
+    ): Omit<SupportingMetric, 'id' | 'name' | 'navigationTarget' | 'accessibilityLabel'> {
       switch (metricId) {
         case 'fitness':
           return {

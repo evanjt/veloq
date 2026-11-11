@@ -39,7 +39,7 @@ jest.mock('expo-router', () => ({
   },
   useLocalSearchParams: () => mockParams,
 }));
-jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
   useMetricSystem: jest.fn(() => true),
@@ -129,7 +129,7 @@ it('shows live percentages and orders routes by overlap after the recorded track
   });
 
   const { screen } = await renderPicker();
-  await waitFor(() => expect(screen.getByText(/75%/)).toBeTruthy());
+  await waitFor(() => expect(screen.getByText(/sections\.overlapPercent.*75/)).toBeTruthy());
   expect(
     screen.getByTestId('route-overlay-list').props.data.map((group: { id: string }) => group.id)
   ).toEqual(['long', 'short', 'unknown']);
@@ -160,8 +160,8 @@ it('labels a measured overlap and marks a route the measurement did not answer',
   });
 
   const { screen } = await renderPicker();
-  await waitFor(() => expect(screen.getByText(/75% sections\.overlapLabel/)).toBeTruthy());
-  expect(screen.queryByText(/ 0%/)).toBeNull();
+  await waitFor(() => expect(screen.getByText(/sections\.overlapPercent.*75/)).toBeTruthy());
+  expect(screen.queryByText(/"percent":"0/)).toBeNull();
   expect(screen.getAllByLabelText(/common\.noData/)).toHaveLength(2);
   restore();
 });
@@ -175,7 +175,7 @@ it('prints no percentage before the first measurement or after a failed one', as
   await waitFor(() => expect(measure).toHaveBeenCalled());
   await act(async () => {});
 
-  expect(screen.queryByText(/\d%/)).toBeNull();
+  expect(screen.queryByText(/sections\.overlapPercent/)).toBeNull();
   expect(screen.getAllByLabelText(/common\.noData/)).toHaveLength(3);
   restore();
 });

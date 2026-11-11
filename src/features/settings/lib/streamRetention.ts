@@ -41,3 +41,15 @@ export function nextStreamRetentionDays(days: number): number {
   if (at < 0) return DEFAULT_STREAM_RETENTION_DAYS;
   return STREAM_RETENTION_CHOICES_DAYS[(at + 1) % STREAM_RETENTION_CHOICES_DAYS.length];
 }
+
+/**
+ * Whether moving the window from one value to another evicts saved series.
+ * The engine prunes on the way in, so a narrowing write deletes at once and a
+ * widening one deletes nothing. Keep-everything is the widest window, so only
+ * a move off it onto a bounded one narrows.
+ */
+export function narrowsStreamWindow(from: number, to: number): boolean {
+  if (to === STREAM_RETENTION_ALL) return false;
+  if (from === STREAM_RETENTION_ALL) return true;
+  return to < from;
+}

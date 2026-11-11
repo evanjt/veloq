@@ -1386,7 +1386,7 @@ pub struct ElevationBackfillProgress {
 /// passing through inactive for a system sheet, is not one.
 ///
 /// The online value is advisory and only ever a reason to refuse work: a
-/// state nobody has refreshed for fifteen minutes expires back to "try", and
+/// state nobody has refreshed for an hour expires back to "try", and
 /// an install that never calls this behaves exactly as it did before. A
 /// return starts the default sync, which the sync service gates on the
 /// credential.

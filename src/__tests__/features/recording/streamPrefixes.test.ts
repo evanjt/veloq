@@ -105,3 +105,19 @@ describe('windowAverage', () => {
     expect(windowAverage(prefixes.hrSum, prefixes.hrCount, prefixes, 0, 99)).toBe(150);
   });
 });
+
+describe('power with coasting', () => {
+  it('counts a 0 W reading and skips a missing one', () => {
+    const prefixes = buildStreamPrefixes({
+      altitude: [0, 0, 0, 0],
+      heartrate: [0, 0, 0, 0],
+      power: [200, 0, null, 200],
+    });
+    expect(windowAverage(prefixes.powerSum, prefixes.powerCount, prefixes, 0, 3)).toBeCloseTo(
+      400 / 3,
+      9
+    );
+    expect(windowAverage(prefixes.powerSum, prefixes.powerCount, prefixes, 1, 1)).toBe(0);
+    expect(windowAverage(prefixes.powerSum, prefixes.powerCount, prefixes, 2, 2)).toBeNull();
+  });
+});

@@ -1056,13 +1056,9 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
-    where: 'Documents/basemap-tiles/, the map tile store and its pinned ground',
-    writers: [
-      'src/shared/app/launch.ts',
-      `${RUST}/basemap/store.rs`,
-      `${RUST}/atomic_file.rs`,
-      `${RUST}/basemap/mod.rs`,
-    ],
+    where:
+      'Documents/basemap-tiles/, the map tile store, its pinned ground and tile-templates.json beside them',
+    writers: ['src/shared/app/launch.ts', `${RUST}/basemap/store.rs`, `${RUST}/atomic_file.rs`],
     holds: "map tiles browsed, and low zooms pinned around the athlete's activity bounds",
     wiped: {
       files: [
@@ -1326,7 +1322,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: ['backupSetup'],
-    where: 'the WebDAV server, user, password and plain-LAN flag in SecureStore',
+    where: 'the WebDAV server, user and password in SecureStore',
     writers: ['src/features/settings/lib/autobackup/webdavConfig.ts'],
     holds: "the athlete's backup server login",
     wiped: {

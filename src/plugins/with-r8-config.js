@@ -32,10 +32,6 @@ const PROGUARD_RULES = `
     @expo.modules.kotlin.annotations.* <methods>;
 }
 
-# Route matcher native module (UniFFI generated)
--keep class com.veloq.app.routematcher.** { *; }
--keep class uniffi.** { *; }
-
 # MapLibre
 -keep class org.maplibre.** { *; }
 -dontwarn org.maplibre.**

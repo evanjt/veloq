@@ -42,7 +42,6 @@ const ACTIVITY_NAMES = [
 const SHARED_HELPERS = [
   'getActivityColor',
   'getActivityIcon',
-  'getSportDisplayName',
   'isPaceSport',
   'isSwimmingActivity',
   'measuresPower',

@@ -215,6 +215,26 @@ describe('initialiseApp', () => {
     expect(calls.some((c) => c.name === 'getSetting')).toBe(true);
   });
 
+  it('cleans stored terrain failures before any store or provider reads the overrides', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    migratedLibrary();
+    stored.delete('veloq-terrain-override-cleanup-done');
+    stored.set(
+      'veloq-map-activity-overrides',
+      JSON.stringify({ a: { terrain3D: false }, b: { style: 'satellite', terrain3D: false } })
+    );
+    mockEngine.setSetting.mockImplementation((key: string, value: string) => {
+      stored.set(key, value);
+    });
+
+    await expect(initialiseApp()).resolves.toBeNull();
+
+    expect(JSON.parse(stored.get('veloq-map-activity-overrides')!)).toEqual({
+      b: { style: 'satellite' },
+    });
+    expect(stored.get('veloq-terrain-override-cleanup-done')).toBe('1');
+  });
+
   it('settles where the database lives before opening it', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     migratedLibrary();

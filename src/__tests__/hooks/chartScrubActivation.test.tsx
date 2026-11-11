@@ -83,6 +83,26 @@ describe('chart scrub activation', () => {
     expect(mgr.activate).toHaveBeenCalledTimes(1);
   });
 
+  it('snaps to the latest layout when only an interior point moved', async () => {
+    const built = capturePans();
+    const onSelect = jest.fn();
+    const three = [{ x: 0 }, { x: 10 }, { x: 100 }];
+    const { result } = await renderHook(() =>
+      useChartGestures({ data: three, accessibilityLabel: 'Kiln heat', onSelect })
+    );
+    await act(async () => {
+      result.current.syncXCoords(three, (p) => p.x);
+    });
+    await act(async () => {
+      result.current.syncXCoords([{ x: 0 }, { x: 60 }, { x: 100 }], (p) => p.x);
+    });
+
+    const pan = scrubPan(built);
+    await touchAndMove(pan, touchAt(0), [touchAt(0, 60)]);
+    await start(pan, 60);
+    expect(onSelect).toHaveBeenLastCalledWith(three[1], 1);
+  });
+
   it('waits while the finger is still inside the slop', async () => {
     const { pan, onSelect } = await renderChart();
 

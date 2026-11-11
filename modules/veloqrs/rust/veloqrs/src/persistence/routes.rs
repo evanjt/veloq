@@ -1109,10 +1109,6 @@ impl PersistentEngine {
             matches_count
         );
 
-        if !self.groups.is_empty() {
-            stamp_groups_match_rule_if_absent(&self.db, &self.match_config)?;
-        }
-        stamp_signatures_matcher_revision_if_empty(&self.db)?;
         if !self.groups.is_empty() && self.activity_matches.is_empty() {
             log::info!(
                 "veloqrs: Forcing groups recompute: groups exist but activity_matches is empty"
@@ -1131,6 +1127,12 @@ impl PersistentEngine {
             self.set_groups_dirty(false);
         }
 
+        // The stamps and the backfill are this pass's writes and share one
+        // transaction. Each statement otherwise commits on its own, and most of
+        // them change nothing, so a library paid one commit per member at every
+        // launch and every adopt. Each is idempotent: a pass that rolls back is
+        // made again by the next load.
+        //
         // Backfill: ensure every group member has an activity_matches DB entry.
         // The grouping algorithm uses Union-Find which adds members transitively,
         // but only records match info for directly compared pairs.
@@ -1140,8 +1142,13 @@ impl PersistentEngine {
         // carries a real percentage exactly where it was, and `changes()` is
         // the count the probe used to produce. This runs at launch and again
         // after every apply.
+        let tx = self.db.unchecked_transaction()?;
+        if !self.groups.is_empty() {
+            stamp_groups_match_rule_if_absent(&tx, &self.match_config)?;
+        }
+        stamp_signatures_matcher_revision_if_empty(&tx)?;
         let mut backfilled = 0u32;
-        if let Ok(mut stmt) = self.db.prepare(
+        if let Ok(mut stmt) = tx.prepare(
             "INSERT OR IGNORE INTO activity_matches (route_id, activity_id, match_percentage, direction)
              VALUES (?, ?, 0.0, 'same')",
         ) {
@@ -1153,6 +1160,7 @@ impl PersistentEngine {
                 }
             }
         }
+        tx.commit()?;
         if backfilled > 0 {
             // Reload matches to include the new entries
             self.load_activity_matches()?;

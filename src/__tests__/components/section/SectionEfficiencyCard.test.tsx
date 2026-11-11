@@ -72,6 +72,22 @@ it('renders the chart for a section that has a series', async () => {
   expect(getByTestId('section-efficiency-chart')).toBeTruthy();
 });
 
+it('dates each effort by the day the engine stamped it, whatever the device zone', async () => {
+  /** A wall clock on the given day and hour, stamped as UTC the way the engine stores it. */
+  const stampedAt = (day: number, hour: number) => Date.UTC(2026, 10, day, hour) / 1000;
+  const { UNSAFE_getAllByProps } = await render(
+    <SectionEfficiencyCard
+      trend={trend({ points: [point(0.64, stampedAt(5, 7)), point(0.59, stampedAt(5, 15))] })}
+      isDark={false}
+    />
+  );
+
+  const [plotted] = UNSAFE_getAllByProps({ testID: 'section-efficiency-chart' }).filter((node) =>
+    Array.isArray(node.props.points)
+  );
+  expect(plotted.props.points.map((p: { label: string }) => p.label)).toEqual(['5 Nov', '5 Nov']);
+});
+
 it('titles the card as a heading', async () => {
   const { getByRole } = await render(<SectionEfficiencyCard trend={trend()} isDark={false} />);
 

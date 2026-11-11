@@ -14,7 +14,7 @@ import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Card, DirectionSwitch, SelectButton, ToggleButtonRow } from '@/shared/ui';
-import { spacing } from '@/theme';
+import { PERFORMANCE_BELOW_PLOT_HEIGHT, spacing } from '@/theme';
 import { directionColour } from '@/features/routes/lib/directionColour';
 import {
   deltasAgainst,
@@ -89,6 +89,8 @@ export interface PerformanceChartPanelProps extends Omit<
    * with null otherwise, so the section map reads the panel's one direction.
    */
   onShownDirectionChange?: ((direction: ChartDirection | null) => void) | undefined;
+  /** Called with the metres along the section the delta chart is scrubbed to, null when it ends. */
+  onScrubDistanceChange?: ((distanceM: number | null) => void) | undefined;
   /** What the plot's figures are, drawn under the plot and its legend. */
   footnote?: React.ReactNode;
 }
@@ -98,6 +100,7 @@ export function PerformanceChartPanel({
   curves,
   onDeltaLineChange,
   onShownDirectionChange,
+  onScrubDistanceChange,
   onActivitySelect,
   onExcludeActivity,
   onIncludeActivity,
@@ -250,6 +253,9 @@ export function PerformanceChartPanel({
     ) : null;
   const showsCompare =
     shownPlot === 'delta' && compareChoices.length > 1 && reference !== undefined;
+  // The scatter and its legend are the view drawn when neither delta nor histogram is.
+  const showsScatter =
+    !(shownPlot === 'delta' && deltas && curves) && !(shownPlot === 'histogram' && histogram);
   const showsDirection = hasForward && hasReverse;
   const mapDirection = showsDirection ? direction : null;
   useEffect(() => {
@@ -326,6 +332,7 @@ export function PerformanceChartPanel({
             isDark={isDark}
             highlightedActivityId={emphasisedId}
             reference={reference}
+            onScrubDistanceChange={onScrubDistanceChange}
           />
         </Card>
       ) : shownPlot === 'histogram' && histogram ? (
@@ -341,16 +348,18 @@ export function PerformanceChartPanel({
           />
         </Card>
       ) : (
-        <>
-          <Card variant="flat" padding="none">
-            <SectionScatterChart
-              {...scatterProps}
-              selectedDirection={direction}
-              selectedPointId={attempt?.id}
-              onSelectPoint={selectAttempt}
-              showDataRowStart={excludedLink}
-            />
-          </Card>
+        <Card variant="flat" padding="none">
+          <SectionScatterChart
+            {...scatterProps}
+            selectedDirection={direction}
+            selectedPointId={attempt?.id}
+            onSelectPoint={selectAttempt}
+            showDataRowStart={excludedLink}
+          />
+        </Card>
+      )}
+      <View testID="performance-below-plot" style={styles.belowPlot}>
+        {showsScatter ? (
           <ScatterLegend
             isDark={isDark}
             direction={direction}
@@ -360,8 +369,8 @@ export function PerformanceChartPanel({
             showOutsideBand={shown.some((d) => d.outsideDistanceBand === true)}
             showEstimated={shown.some((d) => d.estimated === true && !d.isExcluded)}
           />
-        </>
-      )}
+        ) : null}
+      </View>
       {footnote}
       {attempt ? (
         <View style={styles.card}>
@@ -410,6 +419,9 @@ const styles = StyleSheet.create({
   directionSwitch: {
     flexGrow: 1,
     flexShrink: 1,
+  },
+  belowPlot: {
+    minHeight: PERFORMANCE_BELOW_PLOT_HEIGHT,
   },
   card: {
     marginTop: spacing.sm,

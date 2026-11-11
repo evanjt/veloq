@@ -37,15 +37,14 @@
     "greyZone": "Gray zone"
   },
   "insights": {
-    "noInsightsHint": "Complete more activities to see personalized insights",
     "data": {
       "hrChange": "Modeled change at average pace"
     },
     "efficiencyTrend": {
       "changeSubtitle": "Modeled {{hrChange}} bpm at average pace over {{efforts}} efforts",
-      "changeBody": "Over {{efforts}} efforts on {{name}}, heart rate times pace increased. At the average pace this is a modeled {{hrChange}} bpm; measured heart rate may differ.",
+      "changeBody": "Over {{efforts}} efforts on {{name}}, heart rate times pace increased. At the average pace this is a modeled {{hrChange}} bpm. Measured heart rate may differ.",
       "subtitle": "Modeled {{hrChange}} bpm at average pace over {{efforts}} efforts",
-      "body": "Over {{efforts}} efforts on {{name}}, heart rate times pace has improved. At your average pace that is a modeled {{hrChange}} bpm; your heart rate itself may not have changed."
+      "body": "Over {{efforts}} efforts on {{name}}, heart rate times pace has improved. At your average pace that is a modeled {{hrChange}} bpm. Your heart rate alone may not have changed."
     },
     "line": {
       "efficiency": "Modeled HR {{change}} at average pace on {{name}}"
@@ -64,11 +63,6 @@
     "colorByGradient": "Color by gradient",
     "tapSelectEnd": "Tap to select end",
     "tapSelectStart": "Tap to select start"
-  },
-  "notifications": {
-    "privacy": {
-      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. You can disable at any time."
-    }
   },
   "recording": {
     "batteryOptNudge": "Long recordings work best with battery optimization off for Veloq.",

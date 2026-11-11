@@ -8,9 +8,18 @@
  * Used by ActivityMapView; extracted for reuse and readability.
  */
 
-import React, { memo, forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
+import React, {
+  memo,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { useTheme } from '@/shared/app';
+import { useMapSheetCreditStore } from '@/shared/app/mapSheetCredit';
 import {
   colors,
   colorWithOpacity,
@@ -51,11 +60,17 @@ export interface AttributionOverlayProps {
    * each side by it, so the edge's corners stay rounded under the credit.
    */
   edgeRadius?: number | undefined;
+  /**
+   * The key of the map sheet host this map belongs to. While a sheet covers the map's foot
+   * (`bottomInset` above zero) the credit is published for the sheet to draw as its own first
+   * line and this draws no bar; with nothing covering the map the bar is drawn as usual.
+   */
+  sheetKey?: string | undefined;
 }
 
 export const AttributionOverlay = memo(
   forwardRef<AttributionOverlayRef, AttributionOverlayProps>(
-    ({ initialAttribution, onClearanceChange, bottomInset = 0, edgeRadius = 0 }, ref) => {
+    ({ initialAttribution, onClearanceChange, bottomInset = 0, edgeRadius = 0, sheetKey }, ref) => {
       // The bar is chrome, so it follows the app theme rather than the base drawn under it.
       const { isDark } = useTheme();
       const [attribution, setAttribution] = useState(initialAttribution);
@@ -74,6 +89,19 @@ export const AttributionOverlay = memo(
         },
         [onClearanceChange]
       );
+
+      const inSheet = !!sheetKey && bottomInset > 0;
+      useEffect(() => {
+        if (!inSheet || !sheetKey) return undefined;
+        useMapSheetCreditStore.getState().set(sheetKey, attribution);
+        return undefined;
+      }, [inSheet, sheetKey, attribution]);
+      useEffect(() => {
+        if (!inSheet || !sheetKey) return undefined;
+        return () => useMapSheetCreditStore.getState().clear(sheetKey);
+      }, [inSheet, sheetKey]);
+
+      if (inSheet) return null;
 
       // A caller that waits on the map for its credit draws no blank bar meanwhile.
       if (!attribution) return null;

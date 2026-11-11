@@ -31,7 +31,12 @@ import {
   representativePointsOf,
 } from '../lib/buildRouteGroup';
 import { routeHeadline } from '../lib/routeHeadline';
-import { useCardAttempt, useCardDeltaLine, useCardSport } from '../lib/detailCardState';
+import {
+  useCardAttempt,
+  useCardDeltaLine,
+  useCardScrub,
+  useCardSport,
+} from '../lib/detailCardState';
 import { toActivityType } from '../types';
 
 import { colorWithOpacity, iconSize, opacity } from '@/theme';
@@ -51,6 +56,7 @@ export function RouteDetailMap({ routeId, pageActivityId }: RouteDetailMapProps)
   const { activityId, lapPoints, date } = useCardAttempt(hostKey);
   const sport = useCardSport(hostKey);
   const deltaLine = useCardDeltaLine(hostKey);
+  const scrubDistanceM = useCardScrub(hostKey);
   const { stop } = useMapSheetStop(hostKey);
 
   const sheetWindow = useSheetWindow();
@@ -104,6 +110,7 @@ export function RouteDetailMap({ routeId, pageActivityId }: RouteDetailMapProps)
           pageActivityId={pageActivityId}
           activitySignatures={signatures}
           deltaLine={deltaLine}
+          scrubDistanceM={scrubDistanceM}
           fitPadding={fitPadding}
           coveredBottom={coveredBottom}
           coveredBottomRadius={mapSheetCoveredCorner(coveredBottom)}

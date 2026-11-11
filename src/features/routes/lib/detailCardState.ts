@@ -1,7 +1,7 @@
 /**
  * What a route or section card shares with the map it sits over, kept as the card's state in the
  * host's entry (`mapSheetHost`): the attempt the chart picked, the sport on show, the line the
- * delta plot colours and the direction the chart is on. The card writes it and the map reads it,
+ * delta plot colours, the direction the chart is on and the distance the delta chart is scrubbed to. The card writes it and the map reads it,
  * each field on its own, so a scrub renders the map and not the card.
  */
 import { useMemo } from 'react';
@@ -19,6 +19,7 @@ const ATTEMPT_DATE = 'attemptDateMs';
 const SPORT = 'sport';
 const DELTA_LINE = 'deltaLine';
 const SHOWN_DIRECTION = 'shownDirection';
+const SCRUB_DISTANCE = 'scrubDistanceM';
 
 export interface DetailCardWriter {
   /** The chart's picked attempt, bound so it can be handed to a chart as a stable callback. */
@@ -26,6 +27,8 @@ export interface DetailCardWriter {
   setSport: (sport: string | undefined) => void;
   setDeltaLine: (deltaLine: SectionDeltaLine | null) => void;
   setShownDirection: (direction: ChartDirection | null) => void;
+  /** The metres along the section the delta chart is scrubbed to, null when it is not. */
+  setScrubDistance: (distanceM: number | null) => void;
 }
 
 /**
@@ -45,6 +48,7 @@ export function detailCardWriter(hostKey: string, index: number): DetailCardWrit
     setSport: (sport) => patch({ [SPORT]: sport }),
     setDeltaLine: (deltaLine) => patch({ [DELTA_LINE]: deltaLine }),
     setShownDirection: (direction) => patch({ [SHOWN_DIRECTION]: direction }),
+    setScrubDistance: (distanceM) => patch({ [SCRUB_DISTANCE]: distanceM }),
   };
 }
 
@@ -76,4 +80,9 @@ export function useCardDeltaLine(hostKey: string): SectionDeltaLine | null {
 /** The direction the card's chart is on. */
 export function useCardShownDirection(hostKey: string): ChartDirection | null {
   return useHostTopCardField<ChartDirection | null>(hostKey, SHOWN_DIRECTION) ?? null;
+}
+
+/** The metres along the section the card's delta chart is scrubbed to, for the map to mark. */
+export function useCardScrub(hostKey: string): number | null {
+  return useHostTopCardField<number | null>(hostKey, SCRUB_DISTANCE) ?? null;
 }

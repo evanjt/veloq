@@ -34,6 +34,8 @@ pub(crate) fn asked(method: &'static str, args: &[&str], dispatch: impl Into<Dis
 #[derive(Clone)]
 pub(crate) struct RecordingSource {
     pub account: String,
+    pub athlete_body: String,
+    pub sport_settings_body: String,
     pub activity_body: String,
     pub streams: ParsedStreams,
     pub stream_series: Vec<StreamDto>,
@@ -51,6 +53,8 @@ impl RecordingSource {
     pub fn new() -> Self {
         Self {
             account: "i1".into(),
+            athlete_body: "{}".into(),
+            sport_settings_body: "[]".into(),
             activity_body: "{}".into(),
             streams: ParsedStreams::default(),
             stream_series: Vec::new(),
@@ -117,12 +121,12 @@ impl Source for RecordingSource {
 
     async fn athlete_body(&self, dispatch: Dispatch) -> Result<String, NetError> {
         self.note("athlete_body", &[], dispatch);
-        Ok("{}".into())
+        Ok(self.athlete_body.clone())
     }
 
     async fn sport_settings_body(&self, dispatch: Dispatch) -> Result<String, NetError> {
         self.note("sport_settings_body", &[], dispatch);
-        Ok("[]".into())
+        Ok(self.sport_settings_body.clone())
     }
 
     async fn fitness_model_events_body(&self, dispatch: Dispatch) -> Result<String, NetError> {

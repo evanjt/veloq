@@ -24,6 +24,7 @@ import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { formatDistance } from '@/shared/format/format';
+import { formatPercent } from '@/shared/format/number';
 import { toActivityType } from '@/features/routes/types';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
@@ -91,7 +92,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
       : null;
   const matchText =
     avgMatchPercentage !== undefined && avgMatchPercentage > 0
-      ? `${Math.round(avgMatchPercentage)}% ${t('routes.match')}`
+      ? t('routes.matchPercent', { percent: formatPercent(avgMatchPercentage) })
       : null;
   const countLabel = t('routes.activitiesCount', { count: route.activityCount });
 

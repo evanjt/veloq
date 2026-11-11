@@ -2583,6 +2583,28 @@ impl PersistentEngine {
         }
     }
 
+    /// Record that the athlete removed `section_id`'s corridor, so detection
+    /// does not form an auto section there again. Only a detector-owned
+    /// corridor is suppressed: a custom section is the athlete's own line, and
+    /// a section handed to a live auto section leaves its ground to that
+    /// section (`handed_over`), so neither writes an intent.
+    pub(crate) fn record_deleted_intent(&self, section_id: &str, handed_over: bool) {
+        if handed_over {
+            return;
+        }
+        let custom: bool = self
+            .db
+            .query_row(
+                "SELECT section_type = 'custom' FROM sections WHERE id = ?",
+                rusqlite::params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+        if !custom {
+            self.record_section_intent(section_id, "deleted");
+        }
+    }
+
     /// Clear a section's suppression intent (on enable), so its corridor can be
     /// detected again. Best-effort. Kind-scoped so an enable can never take a
     /// named intent with it.

@@ -387,9 +387,11 @@ export async function generateFitFile(params: {
     }
 
     // Power
-    const pwr = streams.power?.[i] ?? 0;
-    writer.writeUint16(pwr > 0 ? Math.min(65535, Math.round(pwr)) : 0xffff);
-    if (Number.isFinite(pwr) && pwr > 0) {
+    // Null is no reading and uses the invalid sentinel; 0 W is a reading.
+    const pwr = streams.power?.[i] ?? null;
+    const hasPower = pwr != null && Number.isFinite(pwr) && pwr >= 0;
+    writer.writeUint16(hasPower ? Math.min(65534, Math.round(pwr)) : 0xffff);
+    if (hasPower) {
       totalPower += pwr;
       powerCount++;
       if (pwr > maxPower) maxPower = pwr;
@@ -449,7 +451,7 @@ export async function generateFitFile(params: {
     writer.writeUint32(Math.round(lap.distance * 100));
     writer.writeUint16(Math.min(65535, Math.round(lap.avgSpeed * 1000)));
     writer.writeUint8(lap.avgHeartrate ? Math.min(255, Math.round(lap.avgHeartrate)) : 0xff);
-    writer.writeUint16(lap.avgPower ? Math.min(65535, Math.round(lap.avgPower)) : 0xffff);
+    writer.writeUint16(lap.avgPower != null ? Math.min(65534, Math.round(lap.avgPower)) : 0xffff);
     writer.writeUint8(lap.avgCadence ? Math.min(255, Math.round(lap.avgCadence)) : 0xff);
   }
 
@@ -496,8 +498,8 @@ export async function generateFitFile(params: {
   writer.writeUint8(maxHr > 0 ? Math.min(255, maxHr) : 0xff);
   writer.writeUint8(avgCadence > 0 ? Math.min(255, Math.round(avgCadence)) : 0xff);
   writer.writeUint8(maxCadence > 0 ? Math.min(255, maxCadence) : 0xff);
-  writer.writeUint16(avgPower > 0 ? Math.min(65535, Math.round(avgPower)) : 0xffff);
-  writer.writeUint16(maxPower > 0 ? Math.min(65535, maxPower) : 0xffff);
+  writer.writeUint16(powerCount > 0 ? Math.min(65534, Math.round(avgPower)) : 0xffff);
+  writer.writeUint16(powerCount > 0 ? Math.min(65534, Math.round(maxPower)) : 0xffff);
   writer.writeUint16(Math.min(65535, Math.round(climbing.gain)));
   writer.writeUint16(Math.min(65535, Math.round(climbing.loss)));
   writer.writeUint8(0); // first_lap_index

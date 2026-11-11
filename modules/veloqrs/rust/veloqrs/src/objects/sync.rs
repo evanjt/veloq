@@ -2875,11 +2875,26 @@ fn profile_is_owed(athlete_id: &str, force: bool) -> bool {
 /// fills in. So one request serves both. A body without them falls back to
 /// their own endpoint, because a profile stored without sport settings is
 /// never current and would be asked for on every run.
+///
+/// An answer that is not the athlete's own, or sport settings that are not a
+/// list, fails the step before anything is written. The stored profile is what
+/// every reader of FTP and zones sees until a valid answer replaces it.
 async fn sync_athlete(install: u64, source: &impl Source) -> Result<(), NetError> {
     let body = source.athlete_body(PROFILE_SLICE).await?;
+    if !is_athlete_body(&body, source.account()) {
+        return Err(NetError::Decode(
+            "athlete body is not a profile for this athlete".into(),
+        ));
+    }
     let sport_settings = match embedded_sport_settings(&body) {
         Some(settings) => settings,
-        None => source.sport_settings_body(PROFILE_SLICE).await?,
+        None => {
+            let settings = source.sport_settings_body(PROFILE_SLICE).await?;
+            if !is_json_array(&settings) {
+                return Err(NetError::Decode("sport settings body is not a list".into()));
+            }
+            settings
+        }
     };
     // The fitness and fatigue days change rarely and default to 42 and 7, so
     // a failed read keeps whatever was stored rather than failing the profile.
@@ -2888,7 +2903,7 @@ async fn sync_athlete(install: u64, source: &impl Source) -> Result<(), NetError
         .await
         .inspect_err(|e| log::warn!("[Sync] fitness model events fetch failed: {}", e))
         .ok()
-        .filter(|body| serde_json::from_str::<serde_json::Value>(body).is_ok_and(|v| v.is_array()));
+        .filter(|body| is_json_array(body));
     // A dropped write leaves the previous athlete's profile, FTP and zones
     // standing with nothing to say so, and the step above counts as done. The
     // helper reports all three outcomes, so this needs no mapping of its own.
@@ -2913,6 +2928,20 @@ fn embedded_sport_settings(body: &str) -> Option<String> {
     let body: serde_json::Value = serde_json::from_str(body).ok()?;
     let settings = body.get("sportSettings")?;
     settings.is_array().then(|| settings.to_string())
+}
+
+/// Whether `body` is a JSON object whose `id` is `athlete_id`. The profile
+/// gate reads a stored profile as current only when its id matches the
+/// athlete, and the account's id comes from the same `id` field, so a body
+/// that fails this is refused rather than stored in place of a good one.
+fn is_athlete_body(body: &str, athlete_id: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(body)
+        .is_ok_and(|v| v.get("id").and_then(serde_json::Value::as_str) == Some(athlete_id))
+}
+
+/// Whether `body` parses as a JSON array.
+fn is_json_array(body: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(body).is_ok_and(|v| v.is_array())
 }
 
 /// `start_date_local` as epoch seconds. intervals.icu sends local wall-clock
@@ -5359,6 +5388,10 @@ mod sync_calendar_tests;
 #[cfg(test)]
 #[path = "tests/sync_profile_gate.rs"]
 mod sync_profile_gate_tests;
+
+#[cfg(test)]
+#[path = "tests/sync_athlete_body.rs"]
+mod sync_athlete_body_tests;
 
 #[cfg(test)]
 #[path = "tests/sync_install_stamp.rs"]

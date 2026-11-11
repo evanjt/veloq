@@ -19,7 +19,8 @@ import MergeConfirmSheet from '@/app/sheets/merge-confirm';
 import { openSheet } from '@/shared/app/sheetRequest';
 import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import { rootScreenLayout } from '@/shared/ui/rootScreenLayout';
-import { initialiseI18n } from '@/i18n';
+import { i18n, initialiseI18n } from '@/i18n';
+import { formatPercent } from '@/shared/format/number';
 import type { MergeCandidatesSheetInput, MergeConfirmSheetInput } from '@/features/routes';
 
 const mockPush = jest.fn();
@@ -275,6 +276,18 @@ describe('merge confirm sheet', () => {
     expect(screen.getByText(/Morning Spin, .*2023/)).toBeTruthy();
   });
 
+  it('dates each ride that would leave by the day the engine stamped it, whatever the device zone', async () => {
+    /** A wall clock on 5 November 2026 at the given hour, stamped as UTC the way the engine stores it. */
+    const stampedAt = (hour: number) => Date.UTC(2026, 10, 5, hour) / 1000;
+    mockPreviewDropped.mockReturnValue([
+      { activityId: 'r1', name: 'Morning Spin', startDate: stampedAt(15) },
+      { activityId: 'r2', name: '', startDate: stampedAt(7) },
+    ]);
+    await openConfirm();
+    expect(screen.getByText(/Morning Spin, 5 Nov 2026/)).toBeTruthy();
+    expect(screen.getByText('5 Nov 2026')).toBeTruthy();
+  });
+
   it('asks again for the other direction when the choice changes', async () => {
     await openConfirm();
     expect(mockPreviewDropped).toHaveBeenLastCalledWith('sec-a', 'sec-b');
@@ -309,5 +322,21 @@ describe('merge confirm sheet', () => {
     expect(count(names, 'bike')).toBe(1);
     expect(count(names, 'run')).toBe(1);
     expect(count(names, 'walk')).toBe(1);
+  });
+});
+
+describe('merge candidate overlap label', () => {
+  afterEach(async () => {
+    await initialiseI18n('en-AU');
+  });
+
+  it('takes the percent from the translation and the formatter, with no sign from the caller', async () => {
+    await initialiseI18n('de-DE');
+    await openCandidates([candidate({ overlapPct: 0.88 })]);
+    const expected = i18n.t('sections.overlapPercent', { percent: formatPercent(88) });
+    expect(expected).not.toBe('sections.overlapPercent');
+    const asText = new RegExp(expected.replace(/\s/g, '\\s'));
+    expect(screen.getByText(asText)).toBeTruthy();
+    expect(screen.queryByText(/88% /)).toBeNull();
   });
 });

@@ -6,6 +6,7 @@ import {
   paceUnitLabel,
   swimPaceUnitLabel,
 } from '@/shared/format/format';
+import { formatSignedPercentage } from '@/shared/format';
 import type { DataPoint, HistoryMark, Insight, FtpTrend, PaceTrend, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
@@ -114,7 +115,7 @@ function addPaceMilestoneInsight(
   };
   const paceChange: DataPoint = {
     label: t('insights.data.improvement'),
-    value: `${declining ? '' : '+'}${gainPercent}%`,
+    value: formatSignedPercentage(gainPercent),
     context: declining ? 'neutral' : 'good',
   };
   const previous: DataPoint = {

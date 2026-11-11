@@ -61,7 +61,7 @@
     "explanations": {
       "conditions": "Temperatura z danych pogodowych lub czujnika urządzenia.",
       "energy": "Szacowany wydatek energetyczny na podstawie tętna, mocy i czasu trwania.",
-      "fitnessImpact": "W porównaniu z dniem odpoczynku ta aktywność zwiększa kondycję o obciążenie × (1 − e^(−1/{{fitnessDays}})), a zmęczenie o obciążenie × (1 − e^(−1/{{fatigueDays}})). Trening siłowy zwiększa tylko zmęczenie. Wpływ na formę to kondycja minus zmęczenie.",
+      "fitnessImpact": "Ile ta aktywność dodała do Twojej kondycji i zmęczenia w porównaniu z dniem odpoczynku.",
       "heartRate": "Średnie tętno podczas aktywności.",
       "newGround": "Odsetek kafelków mapy, przez które przebiegała ta aktywność, a których żadna wcześniejsza aktywność nie dotknęła. Kafelek ma zależnie od szerokości geograficznej około 150–300 m, więc to pokrycie kafelków, a nie dystans po nowych drogach.",
       "activityEftp": "eFTP to oszacowanie modelu mocy intervals.icu dla tej aktywności.",
@@ -70,7 +70,7 @@
       "yourForm": "Twoja forma (TSB) w tym dniu. To dzienna wartość oparta na ogólnym treningu, nie specyficzna dla tej aktywności. TSB = Kondycja (CTL) minus Zmęczenie (ATL).",
       "speed": "Średnia i maksymalna prędkość zapisane przez intervals.icu dla tej aktywności.",
       "pace": "Średnie i najszybsze tempo zapisane przez intervals.icu dla tej aktywności.",
-      "cadence": "Średnia kadencja zapisana przez intervals.icu: obroty korby na minutę na rowerze, w innych sportach kroki lub ruchy na minutę."
+      "cadence": "Średnia kadencja. Obroty korby na minutę na rowerze, ruchy na minutę w wodzie. Podczas biegu są to kroki na minutę, więc wartość jest dwukrotnie wyższa niż liczba kroków pokazywana przez intervals.icu."
     },
     "ftp": "Ustawienie FTP: {{value}}",
     "heartRate": "Tętno",
@@ -476,10 +476,11 @@
     "enterDetailsInstead": "Wpisz dane ręcznie",
     "fillAllFields": "Wypełnij wszystkie pola",
     "fillField": "Wypełnij pole „{{field}}”",
-    "webdavHttpsRequired": "Użyj adresu https://. Przez http:// hasło i kopie zapasowe byłyby przesyłane bez szyfrowania.",
+    "webdavSchemeRequired": "Użyj adresu http:// lub https://",
+    "webdavPlainHttpWarning": "Ten adres używa http://, więc hasło i kopie zapasowe są przesyłane bez szyfrowania. Używaj go tylko z serwerem i siecią, którym ufasz.",
     "webdavInvalidUrl": "To nie jest prawidłowy adres serwera",
     "webdavSaveFailed": "Nie udało się zapisać danych serwera na tym urządzeniu",
-    "webdavPlainLan": "Zezwól na nieszyfrowany serwer w mojej własnej sieci",
+    "webdavRemoveFirst": "Najpierw usuń serwer, aby kopie zapasowe przestały na niego trafiać",
     "webdavTestUnauthorised": "Uwierzytelnianie nie powiodło się",
     "webdavTestMethodNotAllowed": "Sprawdź format adresu WebDAV. Serwer nie obsługuje PROPFIND pod tą ścieżką",
     "webdavTestStatus": "Serwer zwrócił {{code}}",
@@ -756,6 +757,7 @@
     "statusNoActivityAccess": "Garmin przyjął klucz, ale nie może on odczytać Twoich aktywności.",
     "statusMalformed": "To nie wygląda na klucz Garmin.",
     "statusUnreachable": "Nie udało się połączyć z Garmin. Spróbuj za chwilę.",
+    "statusSaveFailed": "Nie udało się zapisać klucza na tym urządzeniu, więc Garmin nie jest połączony. Spróbuj ponownie.",
     "feedTitle": "Pokaż moje przejazdy z Garmin w Veloq",
     "feedHint": "Przejazdy z Twojego konta Garmin pojawią się w kanale Veloq po połączeniu.",
     "moreOptions": "Więcej opcji",
@@ -952,17 +954,17 @@
   "insights": {
     "ranking": {
       "title": "Kolejność kart",
-      "intro": "To czynniki wyboru kart, a nie prawdopodobieństwa pewności.",
+      "intro": "Te czynniki ustalają kolejność kart. To nie są wyniki pewności.",
       "scoreOnScale": "{{score}} w skali od 0 do 1",
       "unavailable": "Za mało prawidłowych danych do porównania",
       "recency": {
         "label": "Aktualność",
-        "explanation": "Wyższe wartości oznaczają, że ten odcinek ukończono niedawno; wartość spada z upływem czasu."
+        "explanation": "Wyższe wartości oznaczają, że ten odcinek przejechano niedawno. Wynik spada z upływem czasu."
       },
       "improvement": {
         "label": "Zmiana wyników",
-        "medianOfThree": "Mediana trzech ostatnich przejazdów w porównaniu z trzema poprzednimi; wartość dodatnia oznacza szybciej, ujemna wolniej.",
-        "firstToLast": "Ostatni przejazd w porównaniu z pierwszym; wartość dodatnia oznacza szybciej, ujemna wolniej."
+        "medianOfThree": "Mediana trzech ostatnich przejazdów w porównaniu z trzema poprzednimi. Wartość dodatnia oznacza szybciej, ujemna wolniej.",
+        "firstToLast": "Ostatni przejazd w porównaniu z pierwszym. Wartość dodatnia oznacza szybciej, ujemna wolniej."
       },
       "anomaly": {
         "label": "Nietypowość",
@@ -970,13 +972,13 @@
       },
       "engagement": {
         "label": "Względna częstotliwość",
-        "explanation": "Wyższe wartości oznaczają więcej przejazdów w stosunku do Twojego najczęściej pokonywanego odcinka w tym sporcie; więcej przejazdów na innym odcinku może obniżyć tę wartość."
+        "explanation": "Wyższe wartości oznaczają więcej przejazdów w stosunku do twojego najczęściej pokonywanego odcinka w tym sporcie. Więcej przejazdów na innym odcinku może obniżyć ten wynik."
       }
     },
     "title": "Analizy",
     "strength": "Siła",
     "noInsights": "Analizy pojawią się w miarę treningów",
-    "noInsightsHint": "Ukończ więcej aktywności, aby zobaczyć spersonalizowane analizy",
+    "noInsightsHint": "Analizy wymagają więcej aktywności do porównania.",
     "couldNotBuild": "Nie udało się utworzyć analiz",
     "wellnessFromLastSync": "Dane o zdrowiu z ostatniej synchronizacji, {{date}}",
     "sectionPr": "PR na {{name}}",
@@ -1033,11 +1035,11 @@
       "prDetection": "Porównuje ostatni czas na odcinku ze wszystkimi poprzednimi próbami w celu wykrycia rekordów osobistych.",
       "sectionTrend": "Śledzi medianę wyników na często odwiedzanych odcinkach w czasie.",
       "periodComparison": "Porównuje wskaźniki treningowe między kolejnymi tygodniami, aby śledzić postęp.",
-      "hrvDescription": "7 dni kalendarzowych kończących się dzisiaj, licząc dni z pomiarem HRV i wymagając co najmniej pięciu z nich. Średnia starszej połowy jest porównywana ze średnią nowszej. Zmiana liczy się tylko wtedy, gdy jej 95-procentowy przedział, wyznaczony z rozrzutu Twoich własnych pomiarów, wyklucza zero, a ona sama jest większa niż połowa odchylenia standardowego tego rozrzutu i 2 % starszej średniej; każda mniejsza zmiana czytana jest jako stabilna. Stabilne okno i tak czytane jest jako spadkowe, gdy dwa ostatnie pomiary przypadają na kolejne dni, drugi jest niższy, leży poniżej średniej okna, a para przechodzi ten sam test względem wcześniejszych pomiarów.",
+      "hrvDescription": "7 dni kalendarzowych kończących się dzisiaj, z co najmniej pięcioma pomiarami HRV. Średnia starszej połowy jest porównywana z nowszą. Zmiana liczy się tylko wtedy, gdy jej 95-procentowy przedział, wyznaczony z rozrzutu twoich pomiarów, wyklucza zero, a ona sama jest większa niż połowa odchylenia standardowego tego rozrzutu i 2 % starszej średniej. Każda mniejsza zmiana jest czytana jako stabilna. Stabilne okno i tak jest czytane jako spadkowe, gdy dwa ostatnie pomiary przypadają na kolejne dni, drugi jest niższy, leży poniżej średniej okna, a para przechodzi ten sam test względem wcześniejszych pomiarów.",
       "periodComparisonRestDay": "Porównuje zeszły tydzień ze średnią z 4 tygodni, gdy bieżący tydzień nie ma jeszcze aktywności.",
       "ftpEstimation": "Porównuje najnowsze dzienne eFTP z wartością sprzed 30 dni. eFTP to szacunek intervals.icu z Twojej krzywej mocy, a nie ustawienie FTP na koncie.",
-      "criticalSpeedDescription": "Porównuje najnowszą prędkość krytyczną z 42-dniowej krzywej tempa z najnowszą wcześniejszą wartością z poprzednich 90 dni, która różni się o ponad 0,02 m/s, i pokazuje zmianę jako tempo.",
-      "efficiencyDescription": "Śledzi średnie tętno pomnożone przez tempo w dopasowanych próbach na sekcji, z regresją metodą najmniejszych kwadratów w czasie. Kierunek jest pokazywany tylko wtedy, gdy 95-procentowy przedział nachylenia wyklucza zero, a modelowana zmiana w próbach przekracza 2 % średniej. Malejąca wartość oznacza mniej uderzeń serca na km: niższe tętno, szybsze tempo lub jedno i drugie.",
+      "criticalSpeedDescription": "Porównuje najnowszą prędkość krytyczną z 42-dniowej krzywej tempa z najnowszą wartością z ostatnich 90 dni, która różni się o więcej niż 0,02 m/s. Zmiana jest pokazywana jako tempo.",
+      "efficiencyDescription": "Śledzi średnie tętno pomnożone przez tempo w dopasowanych próbach na odcinku, jako trend metodą najmniejszych kwadratów w czasie. Kierunek jest pokazywany tylko wtedy, gdy 95-procentowy przedział trendu wyklucza zero, a dopasowana zmiana przekracza 2 % średniej. Malejąca wartość oznacza mniej uderzeń serca na km: niższe tętno, szybsze tempo lub jedno i drugie.",
       "efficiencyFormula": "{{quantity}} ({{unit}}) = średnie tętno × tempo (sekundy na km)",
       "route": "Liczy próby na trasie w jednej dyscyplinie i kierunku, które mają zmierzony czas, nie są wykluczone, nie są częściowe i mieszczą się w paśmie dystansu trasy. Rekord to najszybsza z nich, ustanowiona niedawno. Trend porównuje medianę ostatnich trzech prób z trzema wcześniejszymi, od sześciu prób."
     },
@@ -1074,10 +1076,10 @@
       "trendingDown": "HRV: nowsza połowa niższa",
       "stable": "HRV: brak wyraźnej zmiany",
       "lastTwoDays": "HRV: dwa ostatnie pomiary poniżej średniej",
-      "trendingUpBody": "Nowsza połowa Twoich ostatnich 7 dni HRV ma wyższą średnią niż starsza, o więcej, niż wyjaśnia Twoja zmienność z dnia na dzień. Średnia okna {{avg}} ms z {{days}} pomiarów, ostatni {{latest}} ms.",
-      "trendingDownBody": "Nowsza połowa Twoich ostatnich 7 dni HRV ma niższą średnią niż starsza, o więcej, niż wyjaśnia Twoja zmienność z dnia na dzień. Średnia okna {{avg}} ms z {{days}} pomiarów, ostatni {{latest}} ms.",
-      "stableBody": "Obie połowy Twoich ostatnich 7 dni HRV nie różnią się bardziej, niż wyjaśnia Twoja zmienność z dnia na dzień. Średnia okna {{avg}} ms z {{days}} pomiarów, ostatni {{latest}} ms.",
-      "lastTwoDaysBody": "Samo okno pozostało stabilne, ale dwa ostatnie pomiary spadły w kolejnych dniach, bardziej, niż wyjaśnia Twoja zmienność z dnia na dzień, a ostatni, {{latest}} ms, jest poniżej średniej okna wynoszącej {{avg}} ms z {{days}} pomiarów."
+      "trendingUpBody": "Nowsza połowa twoich ostatnich 7 dni HRV ma wyższą średnią niż starsza, o więcej niż wynosi twoja zwykła zmienność z dnia na dzień. Średnia okna {{avg}} ms z {{days}} pomiarów, ostatni {{latest}} ms.",
+      "trendingDownBody": "Nowsza połowa twoich ostatnich 7 dni HRV ma niższą średnią niż starsza, o więcej niż wynosi twoja zwykła zmienność z dnia na dzień. Średnia okna {{avg}} ms z {{days}} pomiarów, ostatni {{latest}} ms.",
+      "stableBody": "Obie połowy twoich ostatnich 7 dni HRV nie różnią się bardziej, niż wynosi twoja zwykła zmienność z dnia na dzień. Średnia okna {{avg}} ms z {{days}} pomiarów, ostatni {{latest}} ms.",
+      "lastTwoDaysBody": "Samo okno pozostało stabilne, ale dwa ostatnie pomiary spadły w kolejnych dniach o więcej niż twoja zwykła zmienność z dnia na dzień, a ostatni, {{latest}} ms, jest poniżej średniej okna wynoszącej {{avg}} ms z {{days}} pomiarów."
     },
     "weeklyLoad": {
       "title": "Obciążenie treningowe {{percent}}% {{direction}} średniej",
@@ -1085,22 +1087,22 @@
       "below": "poniżej"
     },
     "stalePr": {
-      "title": "Warto znów spróbować: {{section}}",
+      "title": "{{section}}: forma wzrosła od PR-u",
       "subtitle": "{{visited}}. PR {{prTime}} przy {{metric}} {{previous}}, teraz {{current}}",
-      "body": "{{visited}}. Warto spróbować ponownie przy obecnej formie: {{metric}} {{previous}} w dniu PR, teraz {{current}}.",
+      "body": "{{visited}}. {{metric}} w dniu PR wynosiło {{previous}}, teraz wynosi {{current}}.",
       "currentMetric": "Obecny {{metric}}",
       "prMetric": "{{metric}} przy PR",
       "metricGain": "Zysk {{metric}}",
       "prTime": "Czas PR",
-      "methodology": "Pokazywane dla odcinka pokonanego co najmniej {{visits}} razy i nie w ciągu ostatnich {{days}} dni, gdy dzisiejsza forma jest co najmniej o {{gain}}% wyższa niż w dniu PR. Pokazujemy do {{max}}, najczęściej odwiedzane najpierw. W kolarstwie formą jest eFTP, szacunek intervals.icu z krzywej mocy. W bieganiu jest to prędkość krytyczna, a w pływaniu CSS, obie z krzywej tempa.",
+      "methodology": "Pokazywane dla odcinka pokonanego co najmniej {{visits}} razy i nie w ciągu ostatnich {{days}} dni, gdy forma jest obecnie co najmniej o {{gain}}% wyższa niż w dniu PR. Pokazujemy do {{max}}, najczęściej odwiedzane najpierw. W kolarstwie formą jest eFTP, szacunek intervals.icu z krzywej mocy. W bieganiu jest to prędkość krytyczna, a w pływaniu CSS, obie z krzywej tempa.",
       "metricCyclingEftp": "eFTP kolarskie",
       "metricSwimCss": "CSS pływackie",
       "metricRunningCriticalSpeed": "Prędkość krytyczna biegu",
       "groupMore": "(+{{n}} więcej)",
-      "groupTitle_one": "{{count}} odcinek wart ponownej próby",
+      "groupTitle_one": "{{count}} odcinek, na którym forma wzrosła od jego PR-u",
       "groupTitle_few": "{{count}} odcinki warte ponownej próby",
       "groupTitle_many": "{{count}} odcinków wartych ponownej próby",
-      "groupTitle_other": "{{count}} odcinka wartego ponownej próby",
+      "groupTitle_other": "{{count}} odcinków, na których forma wzrosła od ich PR-ów",
       "groupSubtitle": "{{metric}} teraz {{current}}",
       "visitedRide_one": "Na rowerze raz",
       "visitedRide_few": "Na rowerze {{count}} razy",
@@ -1138,7 +1140,7 @@
       "openActivity": "Otwórz aktywność z PR"
     },
     "aboutTitle": "O analizach",
-    "aboutBody": "Metryki treningowe to szacunki oparte na opublikowanych modelach nauk o sporcie. Indywidualne reakcje mogą się znacznie różnić. Te analizy mają charakter wyłącznie informacyjny, nie stanowią porady medycznej ani trenerskiej.",
+    "aboutBody": "Analizy porównują twój ostatni trening z twoją własną historią. Mają charakter wyłącznie informacyjny, nie stanowią porady medycznej ani trenerskiej.",
     "explanation": {
       "title": "Zrozumienie analiz",
       "foundLabel": "Metoda",
@@ -1150,7 +1152,7 @@
         },
         "fitness": {
           "label": "eFTP i prędkość krytyczna",
-          "text": "Zmiana jednej z tych wartości i rekordy ustanowione, gdy była niższa."
+          "text": "Zmiana którejś z tych wartości oraz rekordy ustanowione przy niższej formie."
         },
         "week": {
           "label": "Ten tydzień",
@@ -1173,18 +1175,18 @@
       "sources": "Czasy, tętno i moc pochodzą z Twoich aktywności, a eFTP, prędkość krytyczna i HRV z intervals.icu, zaś metoda i dane każdej karty są pod „{{howCalculated}}”.",
       "strengthTitle": "Zrozumienie siły"
     },
-    "aboutRanking": "Karty sa uporzadkowane wedlug tego, ile maja do powiedzenia: jak swieze sa, jak bardzo odbiegaja od twojej normy, jak duza jest zmiana i jak czesto to robisz.",
+    "aboutRanking": "Karty są uporządkowane według tego, jak są świeże, jak bardzo odbiegają od twojej normy, jak bardzo się zmieniły i jak często powtarzasz odcinek.",
     "efficiencyTrend": {
       "seriesLabel": "{{quantity}}, od najstarszego przejazdu do najnowszego",
       "quantity": "Tętno × tempo",
       "title": "Efektywność rośnie na {{name}}",
       "changeTitle": "Wydajność na {{name}}: {{hrChange}} ud./min",
       "changeSubtitle": "Modelowane {{hrChange}} ud./min przy średnim tempie z {{efforts}} przejazdów",
-      "changeBody": "W {{efforts}} przejazdach na {{name}} wzrósł iloczyn tętna i tempa. Przy średnim tempie odpowiada to modelowanym {{hrChange}} ud./min; zmierzone tętno może się różnić.",
+      "changeBody": "W {{efforts}} przejazdach na {{name}} wzrósł iloczyn tętna i tempa. Przy średnim tempie odpowiada to modelowanym {{hrChange}} ud./min. Zmierzone tętno może się różnić.",
       "subtitle": "Modelowo {{hrChange}} bpm przy średnim tempie w {{efforts}} powtórzeniach",
-      "body": "W {{efforts}} powtórzeniach na {{name}} iloczyn tętna i tempa się poprawił. Przy Twoim średnim tempie odpowiada to modelowym {{hrChange}} bpm; samo tętno mogło się nie zmienić.",
+      "body": "W {{efforts}} przejazdach na {{name}} iloczyn tętna i tempa się poprawił. Przy twoim średnim tempie odpowiada to modelowym {{hrChange}} bpm. Samo tętno mogło się nie zmienić.",
       "sheetHeading": "Porównanie dopasowanych prób",
-      "sheetBody": "Na podstawie powtarzanych prób na tej samej sekcji z tętnem i tempem. Porównuje w czasie, ile każdy przejazd kosztował Twoje serce.",
+      "sheetBody": "Porównuje tętno pomnożone przez tempo w powtarzanych przejazdach na tym odcinku, w czasie. Liczą się tylko przejazdy z tętnem i tempem.",
       "sheetMeta": "Otwórz sekcję, aby zobaczyć próby."
     },
     "strengthBalance": {
@@ -1197,14 +1199,14 @@
       "noSignal": "Brak sygnału",
       "allOneSideTitle": "{{pair}}: cała objętość po jednej stronie",
       "oneSidedBody": "{{dominant}} odpowiada za całą objętość ważonych serii dla pary {{pair}} z ostatnich 4 tygodni.",
-      "ratioBody": "{{pair}} osiąga średnio {{ratio}} w ważonych seriach w najnowszym oknie 4 tygodni.",
+      "ratioBody": "W ostatnich 4 tygodniach większa strona {{pair}} ma {{ratio}}-krotnie więcej ważonych serii niż mniejsza.",
       "ratioLabel": "Stosunek",
       "statusLabel": "Status",
       "formula": "Ważone serie na parę antagonistów",
-      "algorithm": "Porównuje liczbę ważonych serii między typowymi parami antagonistów. Praca główna liczy się jako 1.0, a pomocnicza jako 0.5."
+      "algorithm": "Porównuje ważone serie przeciwstawnych par mięśni. Praca główna liczy się jako 1.0, a pomocnicza jako 0.5."
     },
     "viewInDetail": "Zobacz szczegółowo",
-    "routesDisabledDescription": "Twoje odcinki są zachowane i otworzą się ponownie po włączeniu dopasowywania.",
+    "routesDisabledDescription": "Twoje odcinki są zachowane i wrócą, gdy trasy i odcinki będą włączone.",
     "routesDisabledLine1": "Trasy i odcinki wyłączone",
     "routesDisabledLine2": "Włącz trasy i odcinki",
     "strengthProgression": {
@@ -1240,7 +1242,7 @@
       "split": "Podzielił się na kilka odcinków",
       "restored": "Powrócił",
       "reverted": "Przywrócono wcześniejszą wersję",
-      "body": "Historia odcinka pokazuje, co się przesunęło i jakie aktywności były w pobliżu."
+      "body": "Historia odcinka pokazuje każdą zmianę i aktywności w jej pobliżu."
     },
     "milestoneSheet": {
       "powerHeading": "O tej zmianie eFTP",
@@ -1533,7 +1535,7 @@
     },
     "privacy": {
       "title": "Informacja o prywatności",
-      "brief": "Twój identyfikator sportowca i token push będą przechowywane na naszym serwerze (wygasają po 30 dniach). Powiadomienia są kierowane przez Apple lub Google, ale cała treść analiz jest generowana na Twoim urządzeniu. Możesz wyłączyć w dowolnym momencie.",
+      "brief": "Twój identyfikator sportowca i token push będą przechowywane na naszym serwerze (wygasają po 30 dniach). Powiadomienia docierają na urządzenie przez Expo, a potem przez Apple lub Google, ale cała treść analiz jest generowana na Twoim urządzeniu. Możesz wyłączyć powiadomienia w dowolnym momencie.",
       "accept": "Rozumiem"
     },
     "settings": {
@@ -1843,7 +1845,7 @@
     "duplicateNameMessage": "Proszę wybrać inną nazwę. Każda trasa musi mieć unikalną nazwę.",
     "expandInSettings": "Rozwiń w Ustawieniach",
     "gpsTrackNotDownloaded": "Dane GPS jeszcze nie pobrane. Spróbuj ponownie po ich pobraniu.",
-    "match": "dopasowanie",
+    "matchPercent": "{{percent}} dopasowanie",
     "noFrequentSections": "Brak częstych odcinków",
     "noMatchingRoutes": "Nie znaleziono pasujących tras",
     "noRoutesFor": "Brak tras dla: {{filters}}",
@@ -2128,7 +2130,7 @@
     "mergeCandidatesSubtitle_few": "{{count}} podobne odcinki w pobliżu",
     "mergeCandidatesSubtitle_many": "{{count}} podobnych odcinków w pobliżu",
     "mergeCandidatesSubtitle_other": "{{count}} podobnego odcinka w pobliżu",
-    "overlapLabel": "pokrycie",
+    "overlapPercent": "{{percent}} pokrycie",
     "distanceAway": "{{distance}} stąd",
     "acceptSection": "Akceptuj",
     "acceptAllSections": "Akceptuj wszystkie",
@@ -2300,6 +2302,9 @@
     "streamHistoryDays_other": "{{count}} dnia",
     "streamHistoryAll": "Wszystko",
     "streamHistoryReset": "Resetuj",
+    "streamHistoryNarrowTitle": "Usunąć starszą historię strumieni?",
+    "streamHistoryNarrowBody": "Zapisane serie aktywności starszych niż {{window}} zostaną usunięte z tego urządzenia, w tym tętna, mocy i kadencji. Ponowne pobranie zużyje dzienny limit żądań intervals.icu.",
+    "streamHistoryNarrowConfirm": "Usuń starsze serie",
     "streamBackfill": "Brakujące serie",
     "streamBackfillOwed_one": "{{count}} aktywność",
     "streamBackfillOwedSized_one": "{{count}} aktywność, {{size}}",

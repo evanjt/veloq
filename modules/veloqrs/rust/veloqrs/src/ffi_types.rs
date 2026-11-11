@@ -631,23 +631,6 @@ impl From<tracematch::RouteGroup> for FfiRouteGroup {
     }
 }
 
-impl From<FfiRouteGroup> for tracematch::RouteGroup {
-    fn from(g: FfiRouteGroup) -> Self {
-        Self {
-            group_id: g.group_id,
-            representative_id: g.representative_id,
-            activity_ids: g.activity_ids,
-            sport_type: String::new(),
-            bounds: g.bounds,
-            custom_name: g.custom_name,
-            best_time: g.best_time,
-            avg_time: g.avg_time,
-            best_pace: g.best_pace,
-            best_activity_id: g.best_activity_id,
-        }
-    }
-}
-
 // ============================================================================
 // Section Detection Types
 // ============================================================================
@@ -2314,21 +2297,6 @@ pub struct FfiHrvTrend {
 pub struct FfiRankedSectionsBySport {
     pub sport_type: String,
     pub sections: Vec<FfiRankedSection>,
-}
-
-/// A detected recurring training pattern from k-means clustering.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiActivityPattern {
-    /// Sport type (e.g., "Ride", "Run")
-    pub sport_type: String,
-    /// Most common day of week (0=Mon..6=Sun)
-    pub primary_day: u8,
-    /// Average moving time in seconds
-    pub avg_duration_secs: u32,
-    /// Average training load (TSS)
-    pub avg_tss: f64,
-    /// Number of activities in this pattern
-    pub activity_count: u32,
 }
 
 // ============================================================================

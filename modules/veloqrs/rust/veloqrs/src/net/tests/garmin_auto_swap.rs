@@ -380,3 +380,28 @@ fn the_window_is_judged_on_the_instant_across_offset_and_utc_stamps() {
 
     assert_eq!(ids, ["utc", "edge"]);
 }
+
+/// Scenario: a pass panics while it holds the latch, and a second start comes
+/// in while the first is still running.
+/// Expected behaviour: the second start is refused while the first holds the
+/// latch, and once the panicking pass has unwound the latch is free for the
+/// next start.
+#[test]
+fn a_pass_that_panics_frees_the_latch_for_the_next_start() {
+    static LATCH: AtomicBool = AtomicBool::new(false);
+    let (release, held) = std::sync::mpsc::channel::<()>();
+    let worker = spawn_pass(&LATCH, move || {
+        let _ = held.recv();
+        panic!("the swap failed");
+    })
+    .expect("the latch starts free");
+
+    assert!(spawn_pass(&LATCH, || {}).is_none(), "one pass at a time");
+    release.send(()).expect("the pass is waiting");
+    assert!(worker.join().is_err());
+
+    assert!(
+        spawn_pass(&LATCH, || {}).is_some(),
+        "the unwound pass released the latch"
+    );
+}

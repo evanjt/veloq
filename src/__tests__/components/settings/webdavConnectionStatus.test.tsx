@@ -25,7 +25,6 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
     url: 'https://files.example.org/dav/',
     username: 'keeper',
     password: 'lighthouse',
-    plainLan: false,
   }),
   setWebdavConfig: jest.fn(async () => {}),
   clearWebdavConfig: jest.fn(async () => {}),

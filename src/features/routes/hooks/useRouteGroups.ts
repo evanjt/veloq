@@ -6,8 +6,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { useGroupSummaries } from './useEngine';
-import { getEngine } from '@/shared/native/engine';
-import { toActivityType, type ActivityType } from '@/types';
+import type { ActivityType } from '@/types';
 import { groupCoversType } from '@/features/routes/lib/routeSportMembership';
 import type { LiveRouteOverlap } from 'veloqrs';
 import { routes } from 'veloqrs';
@@ -31,7 +30,6 @@ interface RouteGroupExtended {
   /** Display name for the route */
   name: string;
   representativeId: string;
-  activityIds: string[];
   bounds: {
     minLat: number;
     maxLat: number;
@@ -39,31 +37,17 @@ interface RouteGroupExtended {
     maxLng: number;
   } | null;
   activityCount: number;
-  type: ActivityType;
   /** All sport types present in this group's activities */
   sportTypes?: string[] | undefined;
   /** The representative activity's distance in metres, absent when unknown */
   distance?: number | undefined;
-  /** Best moving time in seconds (fastest completion) */
-  bestTime?: number | undefined;
-  /** Average moving time in seconds */
-  avgTime?: number | undefined;
-  /** Best pace/speed in m/s (from fastest activity) */
-  bestPace?: number | undefined;
-  /** Activity ID with the best performance */
-  bestActivityId?: string | undefined;
 }
 
 interface UseRouteGroupsResult {
   /** List of route groups */
   groups: RouteGroupExtended[];
-  /** Total number of groups (before filtering) */
-  totalCount: number;
   /** Number of processed activities */
   processedCount: number;
-  /** Whether the store is initialised */
-  /** Rename a route (triggers refresh via engine events) */
-  renameRoute: (routeId: string, name: string) => void;
   /** What the engine threw, when the read failed. Empty groups with no error is an empty library. */
   error?: unknown;
   /** Reads the groups again after a failure. */
@@ -76,22 +60,10 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
 
   // Use lightweight summaries instead of full groups (no activityIds arrays)
   // Activity-count filter + sort pushed into Rust.
-  const { totalCount, summaries, error, retry } = useGroupSummaries({
+  const { summaries, error, retry } = useGroupSummaries({
     minActivities,
     sortBy,
   });
-
-  // Rename a route - uses Rust engine as single source of truth
-  // The engine will persist the name and fire 'groups' event to trigger refresh
-  const renameRoute = useCallback((routeId: string, name: string) => {
-    const engine = getEngine();
-    if (!engine) {
-      throw new Error('Route engine not initialised');
-    }
-    routes.setRouteName(routeId, name);
-    // No need to manually refresh - engine fires 'groups' event which
-    // triggers useGroupSummaries subscriber to call refresh()
-  }, []);
 
   const measureLiveOverlap = useCallback((groupIds: string[], coordinates: number[]) => {
     return routes.liveRouteOverlaps(groupIds, coordinates);
@@ -106,19 +78,12 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
       return {
         id: g.groupId,
         representativeId: g.representativeId,
-        activityIds: [], // Not loaded in summaries
         bounds: g.bounds ?? null,
         // Names are stored in Rust (user-set or auto-generated on creation/migration)
         name: g.customName ?? '',
         activityCount: g.activityCount,
-        type: toActivityType(undefined),
         sportTypes: g.sportTypes,
         distance: g.distanceMeters > 0 ? g.distanceMeters : undefined,
-        // Performance stats not in summaries
-        bestTime: undefined,
-        avgTime: undefined,
-        bestPace: undefined,
-        bestActivityId: undefined,
       };
     });
 
@@ -131,14 +96,12 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
 
     return {
       groups: filtered,
-      totalCount,
       processedCount: summaries.reduce((sum, g) => sum + g.activityCount, 0),
-      renameRoute,
       error,
       retry,
       measureLiveOverlap,
     };
-  }, [summaries, type, totalCount, renameRoute, error, retry, measureLiveOverlap]);
+  }, [summaries, type, error, retry, measureLiveOverlap]);
 
   return result;
 }

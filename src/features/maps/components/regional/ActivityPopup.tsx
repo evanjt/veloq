@@ -3,6 +3,7 @@ import { Animated, type TextInstance } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { formatDistance, formatDuration, formatFullDateWithWeekday } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app';
+import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
 import { useFocusOnAppear } from '@/shared/ui/useFocusOnAppear';
@@ -56,7 +57,10 @@ export const ActivityPopup = memo(function ActivityPopup({
 
   // Memoize formatted values
   const formattedDate = useMemo(
-    () => (activityDate ? formatFullDateWithWeekday(activityDate) : ''),
+    () =>
+      activityDate === undefined
+        ? ''
+        : formatFullDateWithWeekday(wallClockSecondsToLocalDate(activityDate)),
     [activityDate]
   );
 

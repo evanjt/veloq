@@ -121,7 +121,7 @@ describe('useActivitySummary over a trimmed window', () => {
     latlng: [0, 1, 2, 3, 4, 5].map((i) => [1 + i * 0.001, 2] as [number, number]),
     altitude: [100, 112, 108, 130, 129, 140],
     heartrate: [0, 140, 152, 0, 168, 160],
-    power: [0, 200, 0, 250, 260, 0],
+    power: [null, 200, 0, 250, 260, null],
     cadence: [0, 0, 0, 0, 0, 0],
     speed: [0, 0, 0, 0, 0, 0],
     distance: [0, 100, 200, 300, 400, 500],
@@ -150,6 +150,11 @@ describe('useActivitySummary over a trimmed window', () => {
     return kept.length > 0 ? kept.reduce((sum, v) => sum + v, 0) / kept.length : null;
   };
 
+  const walkedPowerAverage = (values: (number | null)[]) => {
+    const kept = values.filter((v): v is number => v != null && v >= 0);
+    return kept.length > 0 ? kept.reduce((sum, v) => sum + v, 0) / kept.length : null;
+  };
+
   it.each([
     [0, 5],
     [1, 4],
@@ -164,7 +169,7 @@ describe('useActivitySummary over a trimmed window', () => {
       9
     );
     expect(summary.avgHeartrate).toEqual(walkedAverage(RICH.heartrate.slice(from, to + 1)));
-    expect(summary.avgPower).toEqual(walkedAverage(RICH.power.slice(from, to + 1)));
+    expect(summary.avgPower).toEqual(walkedPowerAverage(RICH.power.slice(from, to + 1)));
     expect(summary.distance).toBe(RICH.distance[to] - RICH.distance[from]);
     expect(summary.hasGps).toBe(true);
   });

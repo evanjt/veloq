@@ -2,7 +2,7 @@
   "display": {
     "chartLabels": {
       "fitness": "Condición física van 10555 naar 12345 en Affaticamento van 10712 naar 10987 in 30 dagen",
-      "form": "Formstatus de +475 à +1358 sur 42 jours, actuellement Transizione",
+      "form": "Forma (TSB) de +475 à +1358 sur 42 jours, actuellement Transizione",
       "hrv": "心率变异性 fra 62 til 58 over 30 dage"
     },
     "chartSpans": {
@@ -11,11 +11,11 @@
       "hrv": "30 giorni"
     },
     "formZone": "Transizione",
-    "impactLine": "Formstatus +1784 → +1571 · +12345 TSS",
+    "impactLine": "Forma (TSB) +1784 → +1571 · +12345 TSS",
     "metricLabels": {
       "fatigue": "Affaticamento",
       "fitness": "Condición física",
-      "form": "Formstatus",
+      "form": "Forma (TSB)",
       "hrv": "心率变异性",
       "ramp": "Stigningsrate",
       "rhr": "Ruehpuls"
@@ -628,7 +628,7 @@
     },
     "form": {
       "deltaVsYesterday": -213.0,
-      "spoken": "Formstatus +1358, en descenso",
+      "spoken": "Forma (TSB) +1358, en descenso",
       "text": "+1358",
       "trendDir": "down",
       "value": 1358.0,
@@ -926,8 +926,8 @@
     "hero": {
       "colorKey": "formZone",
       "id": "form",
-      "label": "Formstatus",
-      "spoken": "Formstatus +1358, en descenso",
+      "label": "Forma (TSB)",
+      "spoken": "Forma (TSB) +1358, en descenso",
       "trendDir": "down",
       "value": "+1358",
       "verdict": "moved"
@@ -1047,8 +1047,8 @@
     {
       "colorKey": "formZone",
       "id": "form",
-      "label": "Formstatus",
-      "spoken": "Formstatus +1358, en descenso",
+      "label": "Forma (TSB)",
+      "spoken": "Forma (TSB) +1358, en descenso",
       "trendDir": "down",
       "value": "+1358",
       "verdict": "moved"

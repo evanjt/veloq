@@ -13,11 +13,12 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { GarminConnector } from '@/features/settings/components/GarminConnector';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { GARMIN_KEY_STORAGE_KEY } from '@/shared/app/credentialKeychain';
+import { GARMIN_KEY_STORAGE_KEY, secureStoreIo } from '@/shared/app/credentialKeychain';
 import * as engineKey from '@/shared/native/garminKey';
 import { GarminKeyStatus } from 'veloqrs';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
+import { removeSetting, setSetting } from '@/shared/storage';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -41,12 +42,12 @@ jest.mock('@/shared/app/credentialKeychain', () => ({
   ...jest.requireActual('@/shared/app/credentialKeychain'),
   secureStoreIo: {
     read: async (key: string) => mockKeychain.get(key) ?? null,
-    write: async (key: string, value: string) => {
+    write: jest.fn(async (key: string, value: string) => {
       mockKeychain.set(key, value);
-    },
-    remove: async (key: string) => {
+    }),
+    remove: jest.fn(async (key: string) => {
       mockKeychain.delete(key);
-    },
+    }),
   },
 }));
 
@@ -115,6 +116,41 @@ describe('the Garmin connector duplicate warning', () => {
     await waitFor(() => expect(mockKeychain.has(GARMIN_KEY_STORAGE_KEY)).toBe(false));
     expect(engineKey.clearGarminKey).toHaveBeenCalledTimes(1);
   });
+
+  it('shows Connect again when a disconnect step fails after the key is gone, and nothing escapes unhandled', async () => {
+    const unhandled = jest.fn();
+    process.on('unhandledRejection', unhandled);
+    const screen = await connectedScreen(true);
+    (removeSetting as jest.Mock).mockRejectedValueOnce(new Error('invented storage failure'));
+    fireEvent.press(screen.getByTestId('garmin-disconnect'));
+    await waitFor(() => expect(screen.getByTestId('garmin-get-key')).toBeTruthy());
+    expect(screen.queryByTestId('garmin-disconnect')).toBeNull();
+    expect(mockKeychain.has(GARMIN_KEY_STORAGE_KEY)).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    process.off('unhandledRejection', unhandled);
+    expect(unhandled).not.toHaveBeenCalled();
+  });
+
+  it('shows the connected state still held when the key could not be removed', async () => {
+    const screen = await connectedScreen(true);
+    (secureStoreIo.remove as jest.Mock)
+      .mockRejectedValueOnce(new Error('invented keychain failure'))
+      .mockRejectedValueOnce(new Error('invented keychain failure'));
+    fireEvent.press(screen.getByTestId('garmin-disconnect'));
+    await waitFor(() => expect(engineKey.clearGarminKey).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId('garmin-disconnect')).toBeTruthy());
+    expect(mockKeychain.has(GARMIN_KEY_STORAGE_KEY)).toBe(true);
+  });
+
+  it('shows the stored feed choice again when saving the switch fails', async () => {
+    const screen = await connectedScreen(true);
+    (setSetting as jest.Mock).mockRejectedValueOnce(new Error('invented storage failure'));
+    fireEvent(screen.getByTestId('garmin-feed-switch'), 'valueChange', false);
+    await waitFor(() =>
+      expect(screen.getByTestId('garmin-feed-switch').props.accessibilityState.checked).toBe(true)
+    );
+    expect(mockSettings.has('veloq-garmin-feed')).toBe(false);
+  });
 });
 
 describe('the Garmin connector after a restore', () => {
@@ -165,6 +201,20 @@ describe('the Garmin connector upload switch', () => {
     fireEvent(screen.getByTestId('garmin-upload-switch'), 'valueChange', true);
     await waitFor(() => expect(mockSettings.get('veloq-garmin-upload')).toBe('true'));
     expect(mockUpgrade).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the upload switch off again when saving it fails', async () => {
+    useAuthStore.setState({ authMethod: 'apiKey' });
+    useUploadPermissionStore.setState({ isLoaded: true, hasWritePermission: null });
+    const screen = await connectedScreen(false);
+    (setSetting as jest.Mock).mockRejectedValueOnce(new Error('invented storage failure'));
+    fireEvent(screen.getByTestId('garmin-upload-switch'), 'valueChange', true);
+    await waitFor(() => expect(setSetting).toHaveBeenCalledWith('veloq-garmin-upload', 'true'));
+    await waitFor(() =>
+      expect(screen.getByTestId('garmin-upload-switch').props.accessibilityState.checked).toBe(
+        false
+      )
+    );
   });
 
   it('leaves the switch off and saves nothing when the OAuth upgrade is refused', async () => {
@@ -248,6 +298,20 @@ describe('the Garmin connector automatic swap switch', () => {
     expect(mockSettings.has('veloq-garmin-auto-swap-stopped')).toBe(false);
   });
 
+  it('shows the switch off again when saving it fails', async () => {
+    const screen = await connectedScreen(false);
+    (setSetting as jest.Mock).mockRejectedValueOnce(new Error('invented storage failure'));
+    fireEvent(screen.getByTestId('garmin-auto-swap-switch'), 'valueChange', true);
+    await waitFor(() =>
+      expect(setSetting).toHaveBeenCalledWith('veloq-garmin-auto-swap', expect.any(String))
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('garmin-auto-swap-switch').props.accessibilityState.checked).toBe(
+        false
+      )
+    );
+  });
+
   it('asks for write access first and stays off when it is refused', async () => {
     useAuthStore.setState({ authMethod: 'oauth' });
     mockUpgrade.mockResolvedValue({ granted: false, error: null });
@@ -305,5 +369,19 @@ describe('the Garmin connector account line after a paste', () => {
     await waitFor(() => expect(screen.getByText('garmin.statusNoActivityAccess')).toBeTruthy());
     expect(screen.queryByTestId('garmin-disconnect')).toBeNull();
     expect(mockKeychain.size).toBe(0);
+  });
+
+  it('says the key was not kept and clears the engine copy when the keychain write fails after Garmin accepted it', async () => {
+    (secureStoreIo.write as jest.Mock).mockRejectedValueOnce(
+      new Error('invented keychain failure')
+    );
+    const screen = await render(<GarminConnector />);
+    fireEvent.changeText(screen.getByTestId('garmin-key-input'), 'invented-key');
+    fireEvent.press(screen.getByTestId('garmin-connect'));
+    await waitFor(() => expect(screen.getByText('garmin.statusSaveFailed')).toBeTruthy());
+    expect(screen.queryByTestId('garmin-disconnect')).toBeNull();
+    expect(screen.getByTestId('garmin-key-input')).toBeTruthy();
+    expect(mockKeychain.size).toBe(0);
+    expect(engineKey.clearGarminKey).toHaveBeenCalledTimes(1);
   });
 });

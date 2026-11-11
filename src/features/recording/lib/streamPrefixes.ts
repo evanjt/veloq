@@ -29,24 +29,26 @@ export interface StreamPrefixes {
 export function buildStreamPrefixes(streams: {
   altitude: readonly number[];
   heartrate: readonly number[];
-  power: readonly number[];
+  power: readonly (number | null)[];
 }): StreamPrefixes {
   const length = streams.altitude.length;
 
-  const prefixOf = (values: readonly number[]) => {
+  // Heart rate records a missing reading as 0; power records it as null, so a
+  // 0 W reading is an observation there.
+  const prefixOf = (values: readonly (number | null)[], zeroIsReading: boolean) => {
     const sum = new Array<number>(values.length + 1).fill(0);
     const count = new Array<number>(values.length + 1).fill(0);
     for (let i = 0; i < values.length; i += 1) {
       const v = values[i];
-      const counts = v > 0;
+      const counts = v != null && (zeroIsReading ? v >= 0 : v > 0);
       sum[i + 1] = sum[i] + (counts ? v : 0);
       count[i + 1] = count[i] + (counts ? 1 : 0);
     }
     return { sum, count };
   };
 
-  const hr = prefixOf(streams.heartrate);
-  const power = prefixOf(streams.power);
+  const hr = prefixOf(streams.heartrate, false);
+  const power = prefixOf(streams.power, true);
 
   return {
     altitude: streams.altitude,
@@ -73,7 +75,7 @@ export function windowGain(prefixes: StreamPrefixes, start: number, end: number)
   return elevationOver(prefixes.altitude, window[0], window[1]).gain;
 }
 
-/** Mean of the positive values in `[start, end]`, or null when there are none. */
+/** Mean of the counted values in `[start, end]`, or null when there are none. */
 export function windowAverage(
   sum: readonly number[],
   count: readonly number[],

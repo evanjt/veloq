@@ -10,7 +10,7 @@ use super::{PersistentEngine, codec, sections};
 /// pass and read by the post-migration hooks. `PRAGMA user_version` is the
 /// other record, the one `rusqlite_migration` skips on, and it ends one for
 /// one with the migration list. Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 82;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 83;
 
 /// The migration that drops the cutover archive tables, counted from one. The
 /// open carries their rows into the ledger before it runs.
@@ -316,6 +316,7 @@ impl PersistentEngine {
             include_str!("../migrations/m20261103_090716_retired_ground_pairs.sql"),
             include_str!("../migrations/m20261108_130440_section_rep_reversed.sql"),
             include_str!("../migrations/m20261109_160800_climb_bests_spike_remeasure.sql"),
+            include_str!("../migrations/m20261109_173229_coverage_empty.sql"),
         ]
     }
 
@@ -1216,6 +1217,22 @@ impl PersistentEngine {
              AFTER UPDATE OF section_id ON section_activities BEGIN
                  UPDATE sections SET visit_count = ({new_count}) WHERE id = NEW.section_id;
                  UPDATE sections SET visit_count = ({old_count}) WHERE id = OLD.section_id;
+             END;
+             CREATE TRIGGER IF NOT EXISTS section_activities_coverage_empty_indices_au
+             AFTER UPDATE OF start_index, end_index ON section_activities
+             WHEN NEW.coverage_empty = 1 BEGIN
+                 UPDATE section_activities SET coverage_empty = 0
+                 WHERE rowid = NEW.rowid;
+             END;
+             CREATE TRIGGER IF NOT EXISTS section_activities_coverage_empty_track_ai
+             AFTER INSERT ON gps_tracks BEGIN
+                 UPDATE section_activities SET coverage_empty = 0
+                 WHERE activity_id = NEW.activity_id AND coverage_empty = 1;
+             END;
+             CREATE TRIGGER IF NOT EXISTS section_activities_coverage_empty_track_au
+             AFTER UPDATE OF track_data ON gps_tracks BEGIN
+                 UPDATE section_activities SET coverage_empty = 0
+                 WHERE activity_id = NEW.activity_id AND coverage_empty = 1;
              END;
              CREATE TRIGGER IF NOT EXISTS section_activities_visit_count_section_au
              AFTER UPDATE OF distance_meters ON sections BEGIN

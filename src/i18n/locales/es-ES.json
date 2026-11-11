@@ -61,9 +61,7 @@
   "errorState": {
     "defaultTitle": "Algo ha salido mal"
   },
-  "insights": {
-    "aboutRanking": "Las tarjetas se ordenan segun lo mucho que tengan que decir: como de reciente es, cuanto se sale de lo habitual en ti, cuanto ha cambiado y con que frecuencia lo haces."
-  },
+  "insights": {},
   "login": {
     "apiKeyConnect": "Conectar con clave API",
     "apiKeyDescription": "Para modo solo local. Tu clave nunca sale de tu dispositivo.",

@@ -14,8 +14,10 @@ import {
   scatterStanding,
 } from '@/features/routes/lib/scatterMarks';
 import { nearestScatterPointIndex } from '@/features/routes/lib/scatterData';
+import { fromWallClockSeconds } from '@/shared/ffi/ffiConversions';
 import type { PerformanceDataPoint } from '@/types';
 import type { FfiRecordStep } from 'veloqrs';
+import { atUtcOffset } from '../../__shared__/fixedOffsetDate';
 
 function attempt(overrides: Partial<PerformanceDataPoint>): PerformanceDataPoint {
   return {
@@ -121,7 +123,36 @@ function step(overrides: Partial<FfiRecordStep>): FfiRecordStep {
 }
 
 describe('placeRecordStaircase', () => {
-  const dates = { first: new Date('2026-02-01'), last: new Date('2026-04-01') };
+  const FIRST_SECONDS = Date.parse('2026-02-01') / 1000;
+  const LAST_SECONDS = Date.parse('2026-04-01') / 1000;
+  const dates = {
+    first: fromWallClockSeconds(FIRST_SECONDS)!,
+    last: fromWallClockSeconds(LAST_SECONDS)!,
+  };
+
+  it.each([-5, 10])(
+    'places a step on the same scale as the drawn dates at UTC offset %d',
+    (offsetHours) => {
+      atUtcOffset(offsetHours, () => {
+        const drawn = {
+          first: fromWallClockSeconds(FIRST_SECONDS)!,
+          last: fromWallClockSeconds(LAST_SECONDS)!,
+        };
+        const placed = placeRecordStaircase(
+          [
+            step({ activityDate: FIRST_SECONDS, speed: 5.1 }),
+            step({ activityDate: LAST_SECONDS, speed: 5.2 }),
+          ],
+          drawn,
+          'speed',
+          [4, 6]
+        );
+        expect(placed.carriedIn).toBeNull();
+        expect(placed.steps[0].x).toBeCloseTo(0.02, 12);
+        expect(placed.steps[1].x).toBeCloseTo(0.98, 12);
+      });
+    }
+  );
 
   it('carries the level of a record set before the range in from the left edge', () => {
     const placed = placeRecordStaircase(

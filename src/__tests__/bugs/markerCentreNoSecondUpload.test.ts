@@ -22,7 +22,7 @@ function activity(overrides: Partial<ActivityBoundsItem> = {}): ActivityBoundsIt
     ],
     type: 'Ride' as ActivityBoundsItem['type'],
     name: 'Morning Ride',
-    date: '2026-09-01T06:00:00.000Z',
+    date: Date.UTC(2026, 8, 1, 6, 0, 0) / 1000,
     distance: 30_000,
     duration: 3_600,
     ...overrides,

@@ -54,8 +54,7 @@ it('shows the refusal after a QR scan', async () => {
   expect(mockSave).toHaveBeenCalledWith(
     'https://x.example/remote.php/dav/files/a%20b/',
     'a b',
-    'p',
-    false
+    'p'
   );
   expect(await screen.findByText('backup.webdavSaveFailed')).toBeTruthy();
   expect(onConfigChange).not.toHaveBeenCalled();

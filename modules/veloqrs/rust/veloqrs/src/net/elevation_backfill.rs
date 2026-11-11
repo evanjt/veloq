@@ -2610,7 +2610,7 @@ fn start_final_detect(install: u64) -> bool {
     let mut guard = SECTION_DETECTION_HANDLE
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    if guard.is_some() {
+    if guard.is_some() || crate::objects::detection::start_window_open() {
         // Something took the slot between the drain and here. The winning run
         // covers the same pool.
         return false;
@@ -3912,7 +3912,7 @@ mod tests {
     mod offline {
         use super::*;
         use crate::net::connectivity;
-        use std::time::Instant;
+        use std::time::SystemTime;
 
         fn queue(n: usize) -> Vec<(String, String)> {
             (0..n)
@@ -4335,7 +4335,7 @@ mod tests {
         fn a_stale_offline_reads_as_try_rather_than_do_not() {
             let _serial = serial_global_state();
             connectivity::reset();
-            connectivity::set_online_at(false, Instant::now() - connectivity::STALE_AFTER);
+            connectivity::set_online_at(false, SystemTime::now() - connectivity::STALE_AFTER);
 
             let mut asked = 0usize;
             let walk = drain_queue_with(engine_install(), &queue(2 * BATCH), true, |ids, _ask| {
@@ -4359,7 +4359,7 @@ mod tests {
             let _serial = serial_global_state();
             connectivity::reset();
             let resting = *RESUME_WAITS.last().expect("the ladder has rungs");
-            connectivity::set_online_at(false, Instant::now() - resting);
+            connectivity::set_online_at(false, SystemTime::now() - resting);
 
             let mut asked = 0usize;
             let walk = drain_queue_with(engine_install(), &queue(2 * BATCH), true, |ids, _ask| {
@@ -4816,7 +4816,7 @@ mod tests {
         fn a_stale_online_still_reads_as_try() {
             let _serial = serial_global_state();
             connectivity::reset();
-            connectivity::set_online_at(true, Instant::now() - connectivity::STALE_AFTER);
+            connectivity::set_online_at(true, SystemTime::now() - connectivity::STALE_AFTER);
 
             let mut asked = 0usize;
             let walk = drain_queue_with(engine_install(), &queue(BATCH), true, |ids, _ask| {

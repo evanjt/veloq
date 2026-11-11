@@ -33,7 +33,7 @@ const SELECTED: SelectedActivity = {
     ],
     type: 'Ride',
     name: 'Lantern walk',
-    date: '2026-10-01T09:00:00Z',
+    date: Date.UTC(2026, 9, 1, 9, 0, 0) / 1000,
     distance: 12000,
     duration: 1800,
   },

@@ -191,6 +191,15 @@ impl PersistentEngine {
             crate::persistence::sections::SOURCE_CONSENSUS
         };
 
+        // The profile is the drawn line's own, so it is stored with the line
+        // rather than left for ranking. The lift flag is not: only the
+        // detector decides it.
+        let profile = if params.polyline.len() >= 2 {
+            tracematch::enrich(&params.polyline, params.distance_meters)
+        } else {
+            tracematch::Enrichment::default()
+        };
+
         self.in_write_txn(|engine| {
             engine.db.execute(
                 "INSERT INTO sections (
@@ -198,8 +207,11 @@ impl PersistentEngine {
                     representative_activity_id, source_activity_id, start_index, end_index,
                     rep_start_index, rep_end_index, geometry_source,
                     created_at, is_user_defined,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                    elevation_gain_m, avg_grade_percent, elevation_loss_m, max_grade_percent,
+                    straightness, klass
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                          ?, ?, ?, ?, ?, ?)",
                 params![
                     &id,
                     section_type.as_str(),
@@ -221,6 +233,12 @@ impl PersistentEngine {
                     bounds_max_lat,
                     bounds_min_lng,
                     bounds_max_lng,
+                    profile.elevation_gain_m,
+                    profile.avg_grade_percent,
+                    profile.elevation_loss_m,
+                    profile.max_grade_percent,
+                    profile.straightness,
+                    profile.klass.map(tracematch::SectionClass::as_str),
                 ],
             )
             .map_err(|e| format!("Failed to create section: {}", e))?;
@@ -1572,7 +1590,6 @@ impl PersistentEngine {
     /// Delete a section.
     pub fn delete_section(&mut self, section_id: &str) -> Result<(), String> {
         let restored = self.in_write_txn(|engine| {
-            engine.record_section_intent(section_id, "deleted");
             // A section with an archived state is the athlete's to bring back,
             // so it goes to the retired list rather than vanishing: into the
             // auto section on its ground when one is live, else dissolved.
@@ -1582,6 +1599,7 @@ impl PersistentEngine {
             .is_some()
             {
                 let into = engine.auto_section_on_ground(section_id)?;
+                engine.record_deleted_intent(section_id, into.is_some());
                 return match into {
                     Some(auto) => engine.retire_section_to_ledger(
                         section_id,
@@ -1591,6 +1609,7 @@ impl PersistentEngine {
                     None => engine.retire_section_to_ledger(section_id, "dissolved", None),
                 };
             }
+            engine.record_deleted_intent(section_id, false);
             let rows = engine
                 .db
                 .execute("DELETE FROM sections WHERE id = ?", params![section_id])

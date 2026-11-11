@@ -19,7 +19,6 @@
 //! many runs the cadence fired or which rides each one saw.
 
 use crate::objects::detection::{SlotWait, wait_on_slot};
-use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
@@ -245,13 +244,18 @@ pub fn try_start_conditioning() -> bool {
 }
 
 fn try_start_conditioning_inner(owed_only: bool, required_install: Option<u64>) -> bool {
+    try_start_conditioning_with(owed_only, required_install, || {})
+}
+
+pub(crate) fn try_start_conditioning_with(
+    owed_only: bool,
+    required_install: Option<u64>,
+    after_claim: impl FnOnce(),
+) -> bool {
     if detection_suspended() {
         return false;
     }
     let install = required_install.unwrap_or_else(crate::persistence::engine_install);
-    // Held across check, spawn and install. Releasing it to spawn lets a
-    // loser start a second worker that rewrites `route_groups` on its own
-    // connection beside the winner, with both track pools resident.
     // The same key the FFI start claims, so a run that failed holds the
     // conditioner back too: the pending count keeps standing and the next due
     // batch used to start another run at once, with nothing between a failing
@@ -259,14 +263,16 @@ fn try_start_conditioning_inner(owed_only: bool, required_install: Option<u64>) 
     let Ok(claim) = crate::objects::detection::claim_detect_guarded(install) else {
         return false;
     };
+    after_claim();
 
-    let mut guard = SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    if guard.is_some() {
+    // The slot is taken for the build and the mutex let go, so a status read
+    // never waits behind the engine hold. A second starter finds the window
+    // open and is refused, so no loser starts a worker of its own that
+    // rewrites `route_groups` on its own connection beside the winner.
+    let Some(window) = crate::objects::detection::StartWindow::open() else {
         drop(claim);
         return false;
-    }
+    };
 
     let handle = crate::persistence::with_persistent_engine_for(install, |engine| {
         if owed_only && !engine.detection_owed() {
@@ -294,10 +300,8 @@ fn try_start_conditioning_inner(owed_only: bool, required_install: Option<u64>) 
 
     let slot = handle.checkpoint_slot();
     slot.mark_detect_claimed();
-    crate::objects::detection::record_started_run(&slot);
-    *guard = Some(handle);
+    window.install(handle);
     claim.hand_over();
-    drop(guard);
     slot.mark_installed(spawn_install);
 
     spawn_conditioning_driver(spawn_install);

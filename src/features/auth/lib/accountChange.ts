@@ -127,7 +127,7 @@ export function confirmAccountChange(args: ConfirmAccountChangeArgs): Promise<bo
         : t('alerts.accountChangeMessage', {
             cachedAthleteId,
             defaultValue:
-              'This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.',
+              'This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account permanently deletes it. To keep it, go back and sign in to that account.',
           });
   const continueLabel = t('alerts.accountChangeContinue', {
     defaultValue: 'Continue and delete',

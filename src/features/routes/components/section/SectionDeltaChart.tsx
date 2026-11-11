@@ -15,6 +15,7 @@ import { Canvas } from '@/shared/ui/SkiaCanvas';
 import { GestureDetector } from 'react-native-gesture-handler';
 
 import { useMetricSystem } from '@/shared/app';
+import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import { DenseText } from '@/shared/ui/DenseText';
 import {
   formatDistance,
@@ -62,6 +63,8 @@ export interface SectionDeltaChartProps {
   highlightedActivityId?: string | undefined;
   /** The reference chosen in "Compare with". Absent, the chart opens on the engine's default. */
   reference?: FfiReferenceSource | undefined;
+  /** Called with the metres along the section under the scrub, and null when it ends. */
+  onScrubDistanceChange?: ((distanceM: number | null) => void) | undefined;
 }
 
 export function SectionDeltaChart({
@@ -71,6 +74,7 @@ export function SectionDeltaChart({
   isDark,
   highlightedActivityId,
   reference: requestedReference,
+  onScrubDistanceChange,
 }: SectionDeltaChartProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
@@ -126,8 +130,13 @@ export function SectionDeltaChart({
   } = useChartGestures({
     data: stops,
     describePoint: describeStop,
+    onSelect: (stop) => onScrubDistanceChange?.(stop.distanceM),
+    onInteractionChange: (active) => {
+      if (!active) onScrubDistanceChange?.(null);
+    },
     accessibilityLabel: t('sections.viewAheadOrBehind'),
   });
+  useEffect(() => () => onScrubDistanceChange?.(null), [onScrubDistanceChange]);
   useEffect(() => {
     if (chartWidth > 0) syncXCoords(stops, (stop) => plot.xForDistance(stop.distanceM));
   }, [chartWidth, stops, plot, syncXCoords]);
@@ -156,7 +165,7 @@ export function SectionDeltaChart({
     referenceDate !== undefined
       ? t('sections.deltaFlatLineDated', {
           reference: referencePhrase,
-          date: formatShortDateWithYear(new Date(referenceDate * 1000)),
+          date: formatShortDateWithYear(wallClockSecondsToLocalDate(referenceDate)),
         })
       : t('sections.deltaFlatLine', { reference: referencePhrase });
   // The axis runs from ahead at the top to behind at the bottom. The gutter places a label by

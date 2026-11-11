@@ -102,6 +102,14 @@ describe('the tab strip when labels are measured', () => {
     expect(StyleSheet.flatten(getByTestId('tab-one').props.style).width).toBe(60 + PADDING);
   });
 
+  it('keeps equal tabs until every label is measured, even when the measured one is too wide', async () => {
+    const { measure, queryByTestId } = await renderStrip();
+
+    await measure([AVAILABLE / TABS.length + 40]);
+
+    expect(queryByTestId('tab-strip-scroll')).toBeNull();
+  });
+
   it('gives the indicator the active tab width in the scrolling strip', async () => {
     const { measure, getByTestId } = await renderStrip('two');
     const wide = AVAILABLE / TABS.length + 40;

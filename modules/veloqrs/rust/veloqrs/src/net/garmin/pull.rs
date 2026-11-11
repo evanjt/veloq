@@ -446,14 +446,22 @@ pub(crate) async fn run_pass(
         Some(watermark) => watermark - Duration::days(OVERLAP_DAYS),
         None => today - Duration::days(FIRST_WINDOW_DAYS),
     };
-    if date_setting(store, CURSOR).is_none() {
-        set_date(store, CURSOR, from);
-    }
     let recent = pull_window(client, store, from, today, cancel).await?;
+    if date_setting(store, WATERMARK).is_none() {
+        start_backfill_at(store, from);
+    }
     if recent.settled {
         set_date(store, WATERMARK, today);
     }
     backfill(client, store, cancel).await
+}
+
+/// With no watermark, no window has yet carried the checkpoints forward, so
+/// the backfill starts from the window this pass listed. Called only after
+/// that window lists, so a pass that halts first leaves the cursor as it was.
+fn start_backfill_at(store: &dyn PullStore, from: NaiveDate) {
+    set_date(store, CURSOR, from);
+    store.set_setting(EMPTY_MONTHS, "0");
 }
 
 async fn backfill(

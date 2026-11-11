@@ -83,6 +83,8 @@ export interface SectionPerformanceSectionProps {
   onDeltaLineChange?: ((line: SectionDeltaLine | null) => void) | undefined;
   /** Called with the direction the chart is on while both are drawn, else null. */
   onShownDirectionChange?: ((direction: ChartDirection | null) => void) | undefined;
+  /** Called with the metres along the section the delta chart is scrubbed to, null when it ends. */
+  onScrubDistanceChange?: ((distanceM: number | null) => void) | undefined;
   forwardStats: DirectionSummaryStats | null;
   reverseStats: DirectionSummaryStats | null;
   bestForwardRecord: DirectionBestRecord | null;
@@ -126,6 +128,7 @@ export function SectionPerformanceSection({
   curves,
   onDeltaLineChange,
   onShownDirectionChange,
+  onScrubDistanceChange,
   forwardStats,
   reverseStats,
   bestForwardRecord,
@@ -213,6 +216,7 @@ export function SectionPerformanceSection({
           curves={curves}
           onDeltaLineChange={onDeltaLineChange}
           onShownDirectionChange={onShownDirectionChange}
+          onScrubDistanceChange={onScrubDistanceChange}
           activityType={sportType as ActivityType}
           isDark={isDark}
           useTimeAxis={isRoute}

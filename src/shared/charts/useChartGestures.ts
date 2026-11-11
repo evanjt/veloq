@@ -48,6 +48,7 @@ import { light as lightHaptic } from '@/shared/ui/haptics';
 import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 import { accessibleActions, type AccessibleAction } from '@/shared/ui/accessibleActions';
 import { CHART_CONFIG } from './constants';
+import { sameXCoords } from './sameXCoords';
 import { useScrubPan } from './useScrubPan';
 
 // ============================================================================
@@ -548,16 +549,9 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
   // where the layout has not moved.
   const syncXCoords = useCallback(
     <P>(points: readonly P[], getX: (point: P) => number) => {
-      const current = xCoordsShared.value;
-      const first = points.at(0);
-      const last = points.at(-1);
-      // First and last both: a resize moves the far end while leaving the first stop in place.
-      const unchanged =
-        points.length === current.length &&
-        (first === undefined ||
-          last === undefined ||
-          (getX(first) === current.at(0) && getX(last) === current.at(-1)));
-      if (!unchanged) xCoordsShared.value = points.map(getX);
+      if (!sameXCoords(xCoordsShared.value, points, getX)) {
+        xCoordsShared.value = points.map(getX);
+      }
     },
     [xCoordsShared]
   );

@@ -269,18 +269,6 @@ export function formatPrGap(seconds: number): string {
 }
 
 /**
- * How much a route PR beat the previous best by, signed: `-14 s` under a
- * minute and `-M:SS` from a minute up. Null when there is no improvement to
- * show (a first attempt, or under half a second).
- */
-export function formatPrImprovement(seconds: number | null | undefined): string | null {
-  if (seconds == null) return null;
-  const whole = Math.round(seconds);
-  if (whole <= 0) return null;
-  return whole >= 60 ? `-${formatMinSec(whole)}` : `-${formatSecondsValue(whole)}`;
-}
-
-/**
  * Format pace as minutes per kilometer (metric) or per mile (imperial).
  *
  * Shows running/cycling pace in MM:SS /km or /mi format.

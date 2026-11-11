@@ -167,8 +167,8 @@ export function useEngineMapActivities({
       type: a.sportType as ActivityBoundsItem['type'],
       name: a.name,
       isVirtual: a.isVirtual,
-      // Convert Unix timestamp in seconds to ISO string.
-      date: new Date(Number(a.date) * 1000).toISOString(),
+      // The engine's wall-clock seconds, passed through unread: a Date here would be an instant.
+      date: a.date,
       distance: a.distance,
       duration: a.duration,
       startPoint:

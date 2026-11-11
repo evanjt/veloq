@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { getISOWeekNumber, formatWeekRange } from '@/features/fitness';
 import { useTheme, useMetricSystem } from '@/shared/app';
+import { formatPercent } from '@/shared/format';
 import { Text } from 'react-native-paper';
 import type { ParseKeys, TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
@@ -90,7 +91,7 @@ function statDelta(stat: SummaryStat, move: StatMove | null): StatTileDelta | un
   const { verdict, direction } = glyphMove(STAT_METRIC[stat], move.glyph);
   return {
     glyph: move.glyph,
-    text: move.percent == null ? undefined : `${move.percent}%`,
+    text: move.percent == null ? undefined : formatPercent(move.percent),
     tone: verdictRung(verdict),
     spoken: spokenVerdict(verdict, direction),
   };

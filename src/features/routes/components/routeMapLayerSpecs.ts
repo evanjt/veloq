@@ -15,6 +15,7 @@ import {
   type MapSourceSpec,
   type MapSubjectSpecs,
 } from '@/features/maps';
+import { buildScrubLayers, SCRUB_SOURCE_ID, scrubMarkerCollection } from '../lib/scrubMarker';
 
 /** Room around the route's own line for traces that stray outside it, as a fraction of its span. */
 export const ROUTE_MAP_BOUNDS_PADDING = 0.1;
@@ -36,6 +37,8 @@ export interface RouteMapSpecInput {
   /** An attempt is picked, so the route itself is context. */
   routeContext: boolean;
   deltaBands: readonly LineBand[] | null;
+  /** The marker for the distance the delta chart is scrubbed to. Empty when none is. */
+  scrubGeoJSON?: GeoJSON.FeatureCollection;
 }
 
 /** Everything a route's map draws, and the extent it fits. */
@@ -47,6 +50,10 @@ export function routeMapSpecs(input: RouteMapSpecInput): MapSubjectSpecs {
         'highlighted-trace': { kind: 'geojson', data: input.highlightedTrace },
         endpoints: { kind: 'geojson', data: input.endpoints },
         [DELTA_GAPS_SOURCE_ID]: { kind: 'geojson', data: input.deltaGaps },
+        [SCRUB_SOURCE_ID]: {
+          kind: 'geojson',
+          data: input.scrubGeoJSON ?? scrubMarkerCollection(null),
+        },
       },
       input.routeLine
     ),
@@ -158,5 +165,6 @@ export function buildRouteLayers({
       paint: { 'line-color': palette.ink, 'line-width': 4 },
     },
     ...buildEndpointLayers(palette),
+    ...buildScrubLayers(palette),
   ];
 }
