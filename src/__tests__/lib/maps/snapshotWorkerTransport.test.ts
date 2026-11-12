@@ -17,10 +17,12 @@ import { buildRenderSnapshotScript } from '@/features/maps/lib/htmlBuilders/terr
 import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 
 const mockSetSourceTemplate = jest.fn();
+const mockSetCompositeSource = jest.fn();
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
     basemapStore: () => ({
       setSourceTemplate: mockSetSourceTemplate,
+      setCompositeSource: mockSetCompositeSource,
       tileListener: () => ({ ports: [41001, 41002], token: 'a1b2c3d4' }),
     }),
   })
@@ -73,11 +75,11 @@ describe('a preview render on Android', () => {
   it('draws its imagery through the loopback listener, not the page cache', () => {
     const script = buildRenderSnapshotScript(satelliteRequest, 0, 1);
 
-    expect(script).toContain('http://127.0.0.1:41001/a1b2c3d4/satellite-eox/');
-    expect(script).toContain('http://127.0.0.1:41002/a1b2c3d4/satellite-eox/');
+    expect(script).toContain('http://127.0.0.1:41001/a1b2c3d4/satellite-global/');
+    expect(script).toContain('http://127.0.0.1:41002/a1b2c3d4/satellite-global/');
     expect(script).not.toContain('cached-satellite://');
     expect(mockSetSourceTemplate).toHaveBeenCalledWith(
-      'satellite-swisstopo-1',
+      'satellite-swisstopo',
       expect.stringContaining('wmts.geo.admin.ch')
     );
   });

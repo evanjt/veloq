@@ -1295,7 +1295,11 @@
     "title": "Veloq",
     "demoCaption": "Sample rides. Nothing is kept, and the demo ends when the app closes.",
     "tryDemo": "Try demo",
-    "useApiKey": "Use API key instead"
+    "useApiKey": "Use API key instead",
+    "useGarminOnly": "Use with Garmin only",
+    "garminOnlyDescription": "No intervals.icu account needed. Veloq brings in your rides from Garmin with a Garmin key, and keeps them on this device.",
+    "garminOnlyConnect": "Connect with Garmin key",
+    "garminNoAccount": "Garmin accepted the key but did not say whose it is, so a library cannot be kept for it."
   },
   "mapScreen": {
     "loadingActivities": "Loading activities…",
@@ -2038,6 +2042,30 @@
     "legendEstimated": "Estimated time",
     "methodEstimated": "{{method}} A pass that starts or stops inside the section, near a gate, is timed to that gate at its own speed. It is marked estimated when the projection is 10 m or more. An estimate holds the record only if no pass in that direction was timed on the ground."
   },
+  "thresholds": {
+    "title": "Thresholds and profile",
+    "rowSubtitle": "FTP, heart rates and weight",
+    "description": "Each figure is the one you set here, else the one in your sport settings, else the newest one your activity files carry. Leave a field empty to use those.",
+    "cycling": "Cycling",
+    "running": "Running",
+    "fields": {
+      "ftp": "FTP",
+      "thresholdHr": "Threshold heart rate",
+      "maxHr": "Maximum heart rate",
+      "restingHr": "Resting heart rate",
+      "weightKg": "Weight"
+    },
+    "source": {
+      "athlete": "Set by you: {{value}}",
+      "sportSettings": "From your sport settings: {{value}}",
+      "file": "From your activity files: {{value}}"
+    },
+    "notSet": "Not set",
+    "loadFailed": "The figures could not be read.",
+    "invalid": "Enter a number above zero",
+    "zones": "Heart rate zones",
+    "zoneDefaults": "Veloq's default zones, used when your sport settings list none, end at {{percents}} percent of maximum heart rate."
+  },
   "settings": {
     "offlineRow": {
       "detail": "Saved activities and charts still open."
@@ -2318,6 +2346,7 @@
     "groupingFailed": "The grouping did not finish. Move a knob to try again.",
     "authApiKey": "API key",
     "authOAuth": "Signed in with intervals.icu",
+    "authGarmin": "Garmin key",
     "authDemo": "Demo mode",
     "scopeChats": "Chats",
     "scopeLibrary": "Library",
@@ -2369,6 +2398,7 @@
     "powerCurve": "Power curve",
     "powerZones": "Power zones",
     "rangeNotDownloaded": "Not downloaded yet",
+    "curveWorkedOutOnPhone": "Worked out on this phone from your own activities, with a straight-line fit through your 3 to 20 minute bests.",
     "rangePartlyDownloaded": "Part of this range is not downloaded yet",
     "calendarOlderOwed_one": "{{count}} older activity this year is not downloaded",
     "calendarOlderOwed_other": "{{count}} older activities this year are not downloaded",
@@ -3261,7 +3291,7 @@
     },
     "remoteLink": {
       "title": "Linked devices",
-      "blurb": "Browse this phone's activities in a web browser on a computer on the same Wi-Fi, while Veloq is open. Pair the browser by scanning a code, then manage it under Settings. Your data goes straight from the phone to the browser."
+      "blurb": "Browse this phone's activities in a web browser on a computer, while Veloq is open. It works on the same Wi-Fi and on most other networks, with your data going straight from the phone to the browser. Pair the browser by scanning a code, then manage it under Settings."
     }
   },
   "remoteLink": {
@@ -3288,6 +3318,13 @@
     "expired": "The browser didn't connect in time. Make a new code on the page and scan it again.",
     "connected_one": "A browser is connected",
     "connected_other": "{{count}} browsers are connected",
-    "disconnect": "Disconnect"
+    "disconnect": "Disconnect",
+    "headerConnected": "A linked browser is connected",
+    "headerWaiting": "Waiting for a linked browser to connect",
+    "headerUnreachable": "A linked browser cannot be reached",
+    "sheetTitle": "Linked browsers",
+    "connectedSince": "Connected since {{time}}",
+    "notConnected": "Not connected",
+    "manage": "Manage linked devices"
   }
 }

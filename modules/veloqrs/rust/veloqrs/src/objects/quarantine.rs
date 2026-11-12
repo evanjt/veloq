@@ -20,7 +20,8 @@ use crate::persistence::sections::SalvageCounts;
 /// Every count is a row a rebuild cannot re-derive. The catalogue is not here
 /// because it is a cache the next sync refills, which is the whole reason a
 /// quarantine is safe.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiQuarantineReport {
     /// Section lifecycle events carried over.
     pub history: u32,

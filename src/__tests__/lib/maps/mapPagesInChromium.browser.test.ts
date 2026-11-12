@@ -454,6 +454,69 @@ describe('the map pages in a headless Chromium', () => {
     PAGE_TIMEOUT_MS
   );
 
+  describe('the opening camera over terrain', () => {
+    // The pick is replaced by one that records its call and answers with a turned camera,
+    // so the page's decision to ask, and what it does with the answer, is what is measured.
+    const STUB_PICK = `
+      window.__picks = [];
+      window._pickUnhiddenCamera = function(map, camera, coords, spans) {
+        window.__picks.push({ coords: coords.length, spans: spans });
+        return { center: camera.center, zoom: camera.zoom, bearing: 180, pitch: camera.pitch };
+      };
+      true;
+    `;
+
+    async function terrainOn(terrain: Record<string, unknown>) {
+      const page = await openSurface(browser);
+      try {
+        await page.evaluate(STUB_PICK);
+        await page.evaluate(buildApplyScript({ terrain: { ...TILTED, ...terrain } }));
+        await page.evaluate(`window.__settle('terrain on')`);
+        await page.evaluate(`window.__settle('camera turned')`);
+        return {
+          bearing: await page.evaluate<number>('window.map.getBearing()'),
+          picks: await page.evaluate<{ coords: number; spans: number[] }[]>('window.__picks'),
+        };
+      } finally {
+        await page.close();
+      }
+    }
+
+    it(
+      'turns to the camera the pick chooses when the terrain has a subject line',
+      async () => {
+        const { bearing, picks } = await terrainOn({ subjectSource: 'ride' });
+
+        expect(picks).toHaveLength(1);
+        expect(picks[0].coords).toBe(ROUTE.length);
+        expect(bearing).toBeCloseTo(180, 0);
+      },
+      PAGE_TIMEOUT_MS
+    );
+
+    it(
+      'keeps the opening bearing when the camera is pinned',
+      async () => {
+        const { bearing, picks } = await terrainOn({ subjectSource: 'ride', cameraPinned: true });
+
+        expect(picks).toEqual([]);
+        expect(bearing).toBe(0);
+      },
+      PAGE_TIMEOUT_MS
+    );
+
+    it(
+      'never asks for a pick when the terrain names no subject',
+      async () => {
+        const { bearing, picks } = await terrainOn({});
+
+        expect(picks).toEqual([]);
+        expect(bearing).toBe(0);
+      },
+      PAGE_TIMEOUT_MS
+    );
+  });
+
   it(
     'the map surface reports a page with no elevation tiles',
     async () => {

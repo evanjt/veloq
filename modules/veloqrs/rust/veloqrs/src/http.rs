@@ -36,7 +36,8 @@ fn elapsed_ms(start: Instant) -> u64 {
 /// two activities and somebody is watching it arrive. `Bulk` is the sync's own
 /// pass over the window, hundreds of them, with nothing on screen waiting for
 /// any particular one.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, uniffi::Enum)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum DownloadPriority {
     Interactive,
     Bulk,

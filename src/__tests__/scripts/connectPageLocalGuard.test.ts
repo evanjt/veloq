@@ -21,7 +21,7 @@ const page = (head: string) => `<!doctype html>
 <html><head>${POLICY}
 <link rel="icon" href="../icon.png" />
 <link rel="stylesheet" href="connect.css" />
-<script type="module" src="app.js"></script>
+<script type="module" src="boot.ts"></script>
 ${head}</head><body></body></html>
 `;
 
@@ -41,10 +41,10 @@ function fixture(files: Record<string, string>): string {
   roots.push(root);
   runGit(['init', '-q'], root);
   const all: Record<string, string> = {
-    'docs/connect/index.html': page(''),
-    'docs/connect/app.js':
-      "import { step } from './link.js';\nconst RELAY = 'wss://auth.veloq.fit/link/';\n",
-    'docs/connect/connect.css': 'body { margin: 0; }\n',
+    'web/connect/index.html': page(''),
+    'web/connect/app.ts':
+      "import { step } from './link';\nconst RELAY = 'wss://auth.veloq.fit/link/';\n",
+    'web/connect/connect.css': 'body { margin: 0; }\n',
     ...files,
   };
   for (const [file, contents] of Object.entries(all)) put(root, file, contents);
@@ -66,42 +66,58 @@ describe('connect page local guard', () => {
     expect(guard(fixture({}))).toMatchObject({ status: 0 });
   });
 
+  it('passes a component importing the packages the build bundles', () => {
+    const root = fixture({
+      'web/connect/App.tsx':
+        "import { useState } from 'react';\nimport { createRoot } from 'react-dom/client';\nimport { step } from './link';\n",
+    });
+    expect(guard(root)).toMatchObject({ status: 0 });
+  });
+
   it.each([
     [
       'a script from a CDN',
-      { 'docs/connect/index.html': page('<script src="https://cdn.example.com/qr.js"></script>') },
+      { 'web/connect/index.html': page('<script src="https://cdn.example.com/qr.js"></script>') },
     ],
     [
       'a protocol-relative stylesheet',
       {
-        'docs/connect/index.html': page(
+        'web/connect/index.html': page(
           '<link rel="stylesheet" href="//fonts.example.com/a.css" />'
         ),
       },
     ],
     [
       'a module imported from another origin',
-      { 'docs/connect/app.js': "import qr from 'https://esm.example.com/qr';\n" },
+      { 'web/connect/app.ts': "import qr from 'https://esm.example.com/qr';\n" },
     ],
     [
       'a dynamic import from another origin',
-      { 'docs/connect/app.js': "await import('https://esm.example.com/qr');\n" },
+      { 'web/connect/app.ts': "await import('https://esm.example.com/qr');\n" },
     ],
-    ['a bare package import', { 'docs/connect/app.js': "import qr from 'qrcode';\n" }],
+    ['a bare package import', { 'web/connect/app.ts': "import qr from 'qrcode';\n" }],
+    [
+      'a bare package import in a component',
+      { 'web/connect/App.tsx': "import qr from 'qrcode';\n" },
+    ],
+    [
+      'an import of a bundled package by a path inside it',
+      { 'web/connect/App.tsx': "import { flushSync } from 'react-dom';\n" },
+    ],
     [
       'a stylesheet importing a web font',
-      { 'docs/connect/connect.css': "@import url('https://fonts.example.com/a.css');\n" },
+      { 'web/connect/connect.css': "@import url('https://fonts.example.com/a.css');\n" },
     ],
     [
       'a policy that lets in another script origin',
       {
-        'docs/connect/index.html': page('').replace(
+        'web/connect/index.html': page('').replace(
           "script-src 'self'",
           "script-src 'self' https://cdn.example.com"
         ),
       },
     ],
-    ['no policy at all', { 'docs/connect/index.html': page('').replace(POLICY, '') }],
+    ['no policy at all', { 'web/connect/index.html': page('').replace(POLICY, '') }],
   ])('fails %s', (_case, files) => {
     const result = guard(fixture(files));
     expect(result.status).toBe(1);
@@ -110,7 +126,7 @@ describe('connect page local guard', () => {
 
   it('reads the index, so an unstaged edit is not what it judges', () => {
     const root = fixture({});
-    put(root, 'docs/connect/app.js', "import qr from 'https://esm.example.com/qr';\n");
+    put(root, 'web/connect/app.ts', "import qr from 'https://esm.example.com/qr';\n");
     expect(guard(root)).toMatchObject({ status: 0 });
   });
 });

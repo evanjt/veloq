@@ -37,7 +37,27 @@ pub struct RouteManager {
     pub(crate) _private: (),
 }
 
-#[derive(uniffi::Record)]
+/// A route being followed by a ride. Built once by [`RouteManager::follow`]; each fix
+/// is then placed on the route with one `advance` call.
+#[derive(uniffi::Object)]
+pub struct RouteFollower {
+    core: std::sync::Mutex<crate::persistence::routes::follower::FollowerCore>,
+}
+
+#[uniffi::export]
+impl RouteFollower {
+    /// Place one fix. A fix that is not a recorded position answers the previous record.
+    pub fn advance(&self, latitude: f64, longitude: f64) -> crate::FfiRouteFollow {
+        let mut core = self
+            .core
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        core.advance(latitude, longitude).into()
+    }
+}
+
+#[derive(serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct LiveRouteOverlap {
     pub group_id: String,
     pub percentage: f64,
@@ -106,6 +126,26 @@ impl RouteManager {
                 .map(|points| crate::persistence::codec::encode_polyline(&points))
                 .unwrap_or_default()
         })
+    }
+
+    /// Follow the route's representative line: a handle whose `advance` places each fix of a
+    /// ride on it. Fails when the route is unknown or its track holds no line.
+    fn follow(&self, route_id: String) -> Result<Arc<RouteFollower>, VeloqError> {
+        let track = with_reader(|conn| {
+            crate::persistence::routes::pooled::representative_route(conn, &route_id)
+        })?
+        .ok_or_else(|| VeloqError::NotFound {
+            msg: format!("route {route_id} has no track"),
+        })?;
+        let core =
+            crate::persistence::routes::follower::FollowerCore::build(&track).map_err(|error| {
+                VeloqError::ParseError {
+                    msg: format!("route {route_id}: {error}"),
+                }
+            })?;
+        Ok(Arc::new(RouteFollower {
+            core: std::sync::Mutex::new(core),
+        }))
     }
 
     /// The saved routes of `sport`'s family near the fix, nearest first: each with its name,
@@ -618,3 +658,7 @@ mod side_pooled_tests;
 #[cfg(test)]
 #[path = "tests/route_representative_edit.rs"]
 mod route_representative_edit_tests;
+
+#[cfg(test)]
+#[path = "tests/route_follow.rs"]
+mod route_follow_tests;

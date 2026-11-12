@@ -57,6 +57,7 @@ if (apk) {
     process.exit(1);
   }
   refuseStub(apk, text, Buffer.byteLength(text), builtFrom(apk));
+  refuseCommitMark(apk, text, variantOf(apk));
   process.exit(0);
 }
 
@@ -96,6 +97,39 @@ if (bundle.mtimeMs < newest.at) {
   console.error(`    --bundle-output ${BUNDLE} \\`);
   console.error('    --assets-dest android/app/src/main/res');
   process.exit(1);
+}
+
+/** The build variant an APK's config carries, or null when it carries none. */
+function variantOf(path) {
+  try {
+    const config = execFileSync('unzip', ['-p', path, 'assets/app.config'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const variant = JSON.parse(config).extra?.variant;
+    return typeof variant === 'string' ? variant : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The commit-mark line is gated at run time on the variant the config carries, so the
+ * text is in every bundle and the variant is what decides. A dev build must carry the
+ * line a handset run greps for, and a variant that is neither dev nor production would
+ * be read as production by the gate while looking like a dev build to a person.
+ */
+function refuseCommitMark(label, text, variant) {
+  if (variant === null || variant === 'production') return;
+  if (variant !== 'dev') {
+    console.error(`${label} carries variant "${variant}", which is neither dev nor production.`);
+    process.exit(1);
+  }
+  if (!text.includes('[COMMIT]')) {
+    console.error(`${label} is a dev build whose bundle has no [COMMIT] line.`);
+    console.error('A handset timing reads that line from logcat; build it again from this tree.');
+    process.exit(1);
+  }
 }
 
 /**

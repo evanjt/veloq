@@ -105,7 +105,8 @@ pub fn origin_of(key: &str) -> ActivityOrigin {
 }
 
 /// Where an activity's data was filled from, as its screen says it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[uniffi(name = "FfiActivityProvenance")]
 pub enum ActivityProvenance {
     /// The copy intervals.icu holds itself, with nothing filled in from a Garmin file.

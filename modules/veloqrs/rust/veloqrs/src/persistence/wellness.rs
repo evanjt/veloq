@@ -20,7 +20,8 @@ const HRV_WORTHWHILE_SPREADS: f64 = 0.5;
 /// One wellness record - shape used by upsert and range queries, and the row
 /// the app hands over from an intervals.icu sync. Fields outside this subset
 /// (sleepQuality, spO2, etc.) aren't persisted yet.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 #[uniffi(name = "FfiWellnessRow")]
 pub struct WellnessRow {
     /// ISO-8601 YYYY-MM-DD

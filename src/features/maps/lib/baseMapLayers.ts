@@ -2,8 +2,11 @@ import type { MapPalette } from '@/theme';
 import type { MapLayerSpec } from '@/features/maps/lib/htmlBuilders';
 import { SUBJECT_CASING_WIDTH, SUBJECT_LINE_WIDTH } from '@/features/maps/lib/mapLineWidths';
 
-/** Layers a surface hands the fullscreen map, built for the base that map draws. */
-export type MapLayersForBase = (palette: MapPalette) => MapLayerSpec[];
+/**
+ * Layers a surface hands the fullscreen map, built for the base that map draws
+ * and for whether it is tilted over terrain, where widths are drawn smaller.
+ */
+export type MapLayersForBase = (palette: MapPalette, terrain: boolean) => MapLayerSpec[];
 
 /** A `line-gradient` for the fullscreen route line, built for the base that map draws. */
 export type MapGradientForBase = (palette: MapPalette) => unknown[] | null;

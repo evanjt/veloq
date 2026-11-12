@@ -92,6 +92,7 @@ export const queryKeys = {
   },
 
   experimentalExamples: ['experimentalExamples'] as const,
+  thresholdsScreen: ['thresholdsScreen'] as const,
 
   calendar: {
     oldestDate: ['oldestActivityDate'] as const,

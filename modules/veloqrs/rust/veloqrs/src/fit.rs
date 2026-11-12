@@ -318,6 +318,93 @@ pub struct FitTotals {
     pub calories: Option<f64>,
 }
 
+/// The athlete figures a device writes into an activity file, from its
+/// `zones_target`, `user_profile` and `time_in_zone` messages. A figure the
+/// file does not carry is `None`, never zero.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FitThresholds {
+    /// Functional threshold power, in watts.
+    pub ftp: Option<f64>,
+    /// Lactate threshold heart rate, in bpm.
+    pub threshold_hr: Option<f64>,
+    pub max_hr: Option<f64>,
+    pub resting_hr: Option<f64>,
+    pub weight_kg: Option<f64>,
+    /// The profile's `hr_calc_type` number: how the device derives its heart
+    /// rate zones (1 percent of max, 2 percent of reserve, 3 percent of LTHR).
+    pub hr_calc_type: Option<u8>,
+    /// The profile's `pwr_calc_type` number (1 is percent of FTP).
+    pub pwr_calc_type: Option<u8>,
+    /// The upper bpm edge of each heart rate zone, from `hr_zone_high_boundary`.
+    pub hr_zone_bounds: Vec<f64>,
+}
+
+impl FitThresholds {
+    fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+
+    /// Read a figure from `record` into every slot still unset: the first
+    /// message to carry a figure sets it.
+    fn read(&mut self, record: &fitparser::FitDataRecord) {
+        use fitparser::profile::MesgNum;
+        let kind = record.kind();
+        for field in record.fields() {
+            let value = field.value();
+            let positive = || finite_number(value).filter(|v| *v > 0.0);
+            let slot = match (kind, field.name()) {
+                (MesgNum::ZonesTarget | MesgNum::TimeInZone, "functional_threshold_power") => {
+                    &mut self.ftp
+                }
+                (MesgNum::ZonesTarget | MesgNum::TimeInZone, "threshold_heart_rate") => {
+                    &mut self.threshold_hr
+                }
+                (MesgNum::ZonesTarget | MesgNum::TimeInZone, "max_heart_rate") => &mut self.max_hr,
+                (MesgNum::UserProfile | MesgNum::TimeInZone, "resting_heart_rate") => {
+                    &mut self.resting_hr
+                }
+                (MesgNum::UserProfile, "weight") => &mut self.weight_kg,
+                (MesgNum::ZonesTarget | MesgNum::TimeInZone, "hr_calc_type") => {
+                    if self.hr_calc_type.is_none() {
+                        self.hr_calc_type = enum_number(value);
+                    }
+                    continue;
+                }
+                (MesgNum::ZonesTarget | MesgNum::TimeInZone, "pwr_calc_type") => {
+                    if self.pwr_calc_type.is_none() {
+                        self.pwr_calc_type = enum_number(value);
+                    }
+                    continue;
+                }
+                (MesgNum::TimeInZone, "hr_zone_high_boundary") => {
+                    if self.hr_zone_bounds.is_empty() {
+                        self.hr_zone_bounds = zone_bounds(value);
+                    }
+                    continue;
+                }
+                _ => continue,
+            };
+            if slot.is_none() {
+                *slot = positive();
+            }
+        }
+    }
+}
+
+/// The edges of a zone list, in order. A list holding anything but positive
+/// numbers is read as none, so a half-written list never shifts the zones.
+fn zone_bounds(value: &fitparser::Value) -> Vec<f64> {
+    let items = match value {
+        fitparser::Value::Array(items) => items.as_slice(),
+        single => std::slice::from_ref(single),
+    };
+    items
+        .iter()
+        .map(|item| finite_number(item).filter(|v| *v > 0.0))
+        .collect::<Option<Vec<_>>>()
+        .unwrap_or_default()
+}
+
 /// Everything an activity file holds that a stored activity is made of.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct FitActivity {
@@ -334,6 +421,8 @@ pub struct FitActivity {
     /// The recording device, from the file's `file_id` message: its product
     /// name, or its manufacturer when the product has none.
     pub device: Option<String>,
+    /// The athlete's thresholds and profile, `None` when the file carries none.
+    pub thresholds: Option<FitThresholds>,
 }
 
 /// Seconds from the Unix epoch to the FIT epoch, 1989-12-31T00:00:00Z.
@@ -362,8 +451,12 @@ pub fn parse_fit_activity(data: &[u8]) -> Result<FitActivity, FitParseError> {
     let mut activity = FitActivity::default();
     let mut sessions = Vec::new();
     let mut clock = (None, None);
+    let mut thresholds = FitThresholds::default();
     for record in &records {
         match record.kind() {
+            fitparser::profile::MesgNum::ZonesTarget
+            | fitparser::profile::MesgNum::UserProfile
+            | fitparser::profile::MesgNum::TimeInZone => thresholds.read(record),
             fitparser::profile::MesgNum::Record => {
                 if let Some(sample) = sample_of(record) {
                     activity.samples.push(sample);
@@ -387,6 +480,7 @@ pub fn parse_fit_activity(data: &[u8]) -> Result<FitActivity, FitParseError> {
             _ => {}
         }
     }
+    activity.thresholds = (!thresholds.is_empty()).then_some(thresholds);
     let session_start = sessions.first().and_then(|session| session.start);
     activity.sport = common_sport(&sessions);
     activity.sub_sport = sessions.first().and_then(|session| session.sub_sport);
@@ -1345,6 +1439,57 @@ pub(crate) mod tests {
     ///
     /// Expected behaviour: no `latlng` and no `altitude` series, and an invalid
     /// value is not read as a reading, while the sensors that did read stay.
+    fn ride_with(thresholds: Option<crate::fit_synthetic::Thresholds>) -> FitActivity {
+        let mut ride = crate::fit_synthetic::outdoor_ride();
+        ride.thresholds = thresholds;
+        parse_fit_activity(&ride.to_fit()).expect("a readable FIT")
+    }
+
+    #[test]
+    fn the_athletes_thresholds_and_profile_come_back_out_of_the_file() {
+        let activity = ride_with(Some(crate::fit_synthetic::Thresholds {
+            ftp: Some(251),
+            threshold_hr: Some(177),
+            max_hr: Some(199),
+            resting_hr: Some(56),
+            weight_kg: Some(79.0),
+            hr_calc_type: Some(3),
+            pwr_calc_type: Some(1),
+            hr_zone_bounds: vec![120, 140, 155, 170, 199],
+        }));
+
+        let found = activity.thresholds.expect("thresholds");
+        assert_eq!(found.ftp, Some(251.0));
+        assert_eq!(found.threshold_hr, Some(177.0));
+        assert_eq!(found.max_hr, Some(199.0));
+        assert_eq!(found.resting_hr, Some(56.0));
+        assert_eq!(found.weight_kg, Some(79.0));
+        assert_eq!(found.hr_calc_type, Some(3));
+        assert_eq!(found.pwr_calc_type, Some(1));
+        assert_eq!(found.hr_zone_bounds, [120.0, 140.0, 155.0, 170.0, 199.0]);
+    }
+
+    #[test]
+    fn a_figure_the_file_leaves_unset_is_none_not_zero() {
+        let activity = ride_with(Some(crate::fit_synthetic::Thresholds {
+            ftp: Some(251),
+            ..Default::default()
+        }));
+
+        let found = activity.thresholds.expect("thresholds");
+        assert_eq!(found.ftp, Some(251.0));
+        assert_eq!(found.threshold_hr, None);
+        assert_eq!(found.max_hr, None);
+        assert_eq!(found.weight_kg, None);
+        assert_eq!(found.resting_hr, None);
+        assert!(found.hr_zone_bounds.is_empty());
+    }
+
+    #[test]
+    fn a_file_with_none_of_the_messages_has_no_thresholds() {
+        assert_eq!(ride_with(None).thresholds, None);
+    }
+
     #[test]
     fn an_indoor_ride_has_no_position_or_altitude_series() {
         let ride = super::super::fit_synthetic::indoor_ride();

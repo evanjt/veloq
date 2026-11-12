@@ -3,6 +3,7 @@
 
 use std::collections::HashSet;
 use std::net::{IpAddr, Ipv4Addr, UdpSocket};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use str0m::config::DtlsCert;
@@ -14,8 +15,14 @@ use crate::persistence::{linked_devices, read_pool, settings_conn};
 /// The connections being served, each under the fingerprint it presented.
 static PEERS: Mutex<Vec<(Option<String>, Peer)>> = Mutex::new(Vec::new());
 
-/// The fingerprints whose connection is up.
-static CONNECTED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+/// The connections that are up, each with the Unix seconds it came up, in the
+/// order they came up.
+static CONNECTED: Mutex<Vec<(String, i64)>> = Mutex::new(Vec::new());
+
+/// Whether the app is in front. A linked browser's write is answered only
+/// while it is; reads are answered either way. True until the app says
+/// otherwise, so a build with no app around it behaves as before.
+static IN_FRONT: AtomicBool = AtomicBool::new(true);
 
 /// The one pairing in progress, from a scan until the next scan or a cancel.
 static PAIRING: Mutex<Option<Pairing>> = Mutex::new(None);
@@ -94,6 +101,15 @@ fn local_address() -> Result<IpAddr, String> {
     Ok(address)
 }
 
+/// The reply to a write made while the app is not in front. The page matches
+/// on this text to tell the athlete to unlock the phone.
+pub const PHONE_LOCKED: &str = "phone locked";
+
+/// Tell the engine whether the app is in front.
+pub fn set_in_front(in_front: bool) {
+    IN_FRONT.store(in_front, Ordering::Release);
+}
+
 struct EngineGate;
 
 impl Gate for EngineGate {
@@ -113,6 +129,18 @@ impl Gate for EngineGate {
         if !linked(presented) {
             return serde_json::json!({ "id": parsed["id"], "error": "not linked" }).to_string();
         }
+        if super::protocol::is_write(method) {
+            if !IN_FRONT.load(Ordering::Acquire) {
+                return serde_json::json!({ "id": parsed["id"], "error": PHONE_LOCKED })
+                    .to_string();
+            }
+            return crate::objects::error::with_engine(|engine| {
+                super::protocol::answer_write(engine, presented, request)
+            })
+            .unwrap_or_else(|error| {
+                serde_json::json!({ "id": parsed["id"], "error": error.to_string() }).to_string()
+            });
+        }
         read_pool::with_read_conn(|conn| super::protocol::answer(conn, request)).unwrap_or_else(
             || serde_json::json!({ "id": null, "error": "engine not initialised" }).to_string(),
         )
@@ -122,12 +150,12 @@ impl Gate for EngineGate {
         let now = now();
         let _ =
             settings_conn::with_settings_conn(|conn| linked_devices::touch(conn, fingerprint, now));
-        lock(&CONNECTED).push(fingerprint.to_owned());
+        lock(&CONNECTED).push((fingerprint.to_owned(), now));
     }
 
     fn disconnected(&self, fingerprint: &str) {
         let mut connected = lock(&CONNECTED);
-        if let Some(at) = connected.iter().position(|f| f == fingerprint) {
+        if let Some(at) = connected.iter().position(|(f, _)| f == fingerprint) {
             connected.remove(at);
         }
     }
@@ -248,11 +276,18 @@ pub fn linked_rooms() -> Result<Vec<String>, String> {
     if browsers.is_empty() {
         return Ok(Vec::new());
     }
-    let phone = pairing::fingerprint_of(&certificate()?.certificate);
-    Ok(browsers
+    Ok(rooms_for(&browsers, &certificate()?.certificate))
+}
+
+/// The room of each pinned browser, for the phone whose certificate is
+/// `certificate`. The one place the phone's side of a room is derived, from the
+/// same certificate every answer presents.
+fn rooms_for(browsers: &[String], certificate: &[u8]) -> Vec<String> {
+    let phone = pairing::fingerprint_of(certificate);
+    browsers
         .iter()
         .map(|browser| pairing::room_for(browser, &phone))
-        .collect())
+        .collect()
 }
 
 /// End every connection, or only those of one fingerprint.
@@ -276,6 +311,11 @@ pub fn disconnect(fingerprint: Option<&str>) {
 /// How many linked browsers are connected now.
 pub fn connected_count() -> u32 {
     lock(&CONNECTED).len() as u32
+}
+
+/// Every connection that is up, with the Unix seconds it came up.
+pub fn connections() -> Vec<(String, i64)> {
+    lock(&CONNECTED).clone()
 }
 
 #[cfg(test)]
@@ -310,6 +350,121 @@ mod tests {
             ours,
             format!("{} {}", hash.to_ascii_lowercase(), hex.to_ascii_uppercase())
         );
+    }
+
+    #[test]
+    fn a_linked_room_is_the_one_the_page_derives_from_the_answer() {
+        crate::remote::install_crypto();
+        let cert = str0m::crypto::from_feature_flags()
+            .dtls_provider
+            .generate_certificate()
+            .expect("a certificate");
+        let kept = decode(&encode(&cert)).expect("decodes");
+        let browser = "sha-256 AA:BB:CC";
+
+        let mut rtc = str0m::RtcConfig::new()
+            .set_dtls_cert(kept.clone())
+            .build(std::time::Instant::now());
+        let shown = rtc.direct_api().local_dtls_fingerprint().to_string();
+        let answered = peer::offered_fingerprint(&format!("a=fingerprint:{shown}\r\n"))
+            .expect("the answer names a fingerprint");
+
+        assert_eq!(
+            rooms_for(&[browser.into()], &kept.certificate),
+            vec![pairing::room_for(browser, &answered)]
+        );
+    }
+
+    #[test]
+    fn only_a_linked_browser_renames_a_section_through_the_gate() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("gate.db");
+        assert!(
+            crate::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work(
+                path.to_str().unwrap().to_string()
+            )
+        );
+        crate::objects::error::with_engine(|engine| {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                        distance_meters, is_user_defined, version, created_at,
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                     VALUES ('s_a', 'auto', 'Climb 1', 'Ride', '[[46.2,7.3],[46.21,7.3]]',
+                        400.0, 0, 1, '2026-01-01T00:00:00Z', 46.2, 46.21, 7.3, 7.31)",
+                    [],
+                )
+                .unwrap();
+            linked_devices::add(&engine.db, "Laptop", "sha-256 AA:BB", 1).unwrap();
+        })
+        .unwrap();
+        let rename = r#"{"id":1,"method":"section.rename","params":{"id":"s_a","name":"Col"}}"#;
+        let name = || {
+            crate::objects::error::with_engine(|engine| {
+                crate::persistence::sections::naming::pooled::all_section_names(&engine.db)
+                    .remove("s_a")
+            })
+            .unwrap()
+        };
+
+        let refused = EngineGate.answer("sha-256 FF:FF", "local", rename);
+        assert!(refused.contains("not linked"), "{refused}");
+        assert_eq!(name().as_deref(), Some("Climb 1"));
+
+        let done = EngineGate.answer("sha-256 AA:BB", "local", rename);
+        assert!(done.contains(r#""ok":true"#), "{done}");
+        assert_eq!(name().as_deref(), Some("Col"));
+    }
+
+    #[test]
+    fn a_write_waits_for_the_app_to_be_in_front_and_a_read_does_not() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("front.db");
+        assert!(
+            crate::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work(
+                path.to_str().unwrap().to_string()
+            )
+        );
+        crate::objects::error::with_engine(|engine| {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                        distance_meters, is_user_defined, version, created_at,
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                     VALUES ('s_a', 'auto', 'Climb 1', 'Ride', '[[46.2,7.3],[46.21,7.3]]',
+                        400.0, 0, 1, '2026-01-01T00:00:00Z', 46.2, 46.21, 7.3, 7.31)",
+                    [],
+                )
+                .unwrap();
+            linked_devices::add(&engine.db, "Laptop", "sha-256 AA:BB", 1).unwrap();
+        })
+        .unwrap();
+        let rename = r#"{"id":1,"method":"section.rename","params":{"id":"s_a","name":"Col"}}"#;
+        let feed = r#"{"id":2,"method":"feed.page","params":{"offset":0,"limit":5,"needle":""}}"#;
+        let name = || {
+            crate::objects::error::with_engine(|engine| {
+                crate::persistence::sections::naming::pooled::all_section_names(&engine.db)
+                    .remove("s_a")
+            })
+            .unwrap()
+        };
+
+        set_in_front(false);
+        let locked = EngineGate.answer("sha-256 AA:BB", "local", rename);
+        let read = EngineGate.answer("sha-256 AA:BB", "local", feed);
+        set_in_front(true);
+        assert!(locked.contains(r#""error":"phone locked""#), "{locked}");
+        assert_eq!(name().as_deref(), Some("Climb 1"));
+        assert!(!read.contains("phone locked"), "{read}");
+        assert!(read.contains("result"), "{read}");
+
+        let done = EngineGate.answer("sha-256 AA:BB", "local", rename);
+        assert!(done.contains(r#""ok":true"#), "{done}");
+        assert_eq!(name().as_deref(), Some("Col"));
     }
 
     #[test]

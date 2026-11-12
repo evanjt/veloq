@@ -103,8 +103,15 @@ export {
 } from './lib/notificationService';
 export { GarminConnector } from './components/GarminConnector';
 export { InfoButton } from './components/InfoButton';
-export { restoreGarminKey, type GarminConnectorState } from './lib/garminConnector';
+export {
+  GARMIN_KEY_PAGE,
+  restoreGarminKey,
+  type GarminConnectorState,
+} from './lib/garminConnector';
 export { useGarminConnectorState } from './hooks/useGarminConnectorState';
 export { LinkedDevices } from './components/LinkedDevices';
 export { RemoteLinkBanner } from './components/RemoteLinkBanner';
+export { RemoteLinkHeaderItem } from './components/RemoteLinkHeaderItem';
+export { RemoteLinkSheet } from './components/RemoteLinkSheet';
 export { remoteLink } from './lib/remoteLinkSession';
+export { AthleteThresholds } from './components/AthleteThresholds';

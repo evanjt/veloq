@@ -11,14 +11,20 @@
 
 import type { RecordingBackup } from '@/features/recording/types';
 
+import { pinModules } from '../__shared__/pinnedModules';
+
 jest.mock('@/features/recording/lib/storage/recordingBackup', () => ({
   ...jest.requireActual('@/features/recording/lib/storage/recordingBackup'),
   loadRecordingBackup: jest.fn(),
   saveRecordingBackup: jest.fn(),
 }));
 
+// The real modules behind the mocks are read once, not again for every fresh runtime.
+const mockActualLocation = jest.requireActual('expo-location');
+const mockActualTaskManager = jest.requireActual('expo-task-manager');
+
 jest.mock('expo-location', () => ({
-  ...jest.requireActual('expo-location'),
+  ...mockActualLocation,
   Accuracy: { BestForNavigation: 6 },
   ActivityType: { Fitness: 3 },
   getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
@@ -29,10 +35,21 @@ jest.mock('expo-location', () => ({
 }));
 
 jest.mock('expo-task-manager', () => ({
-  ...jest.requireActual('expo-task-manager'),
+  ...mockActualTaskManager,
   defineTask: jest.fn(),
   isTaskRegisteredAsync: jest.fn(async () => false),
 }));
+
+// Third-party modules hold none of the state a headless wake-up starts without,
+// so they load once for the file while every source module reloads per case.
+beforeAll(() => {
+  pinModules(['react', 'react-native', 'zustand', 'expo-secure-store']);
+  pinModules(['i18next', 'react-i18next']);
+  const theme = jest.requireActual('@/theme');
+  jest.doMock('@/theme', () => theme);
+  const i18n = jest.requireActual('@/i18n');
+  jest.doMock('@/i18n', () => i18n);
+});
 
 const START_TIME = 1_700_000_000_000;
 

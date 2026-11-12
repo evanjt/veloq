@@ -243,6 +243,14 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_clone_routefollower(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_routefollower(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_clone_routegroupingpreview(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -318,6 +326,7 @@ interface NativeModuleInterface {
     run: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_func_check_garmin_key(key: Uint8Array): bigint;
   ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap(
     coordsA: Uint8Array,
     coordsB: Uint8Array,
@@ -600,6 +609,12 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     budgetBytes: number,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_composite_source(
+    uniffiSelf: bigint,
+    source: Uint8Array,
+    members: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_set_path(
     uniffiSelf: bigint,
     path: Uint8Array,
@@ -930,6 +945,12 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_mapmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_mapmanager_activities_under_point(
+    uniffiSelf: bigint,
+    latitude: number,
+    longitude: number,
+    zoom: number,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_mapmanager_get_all_signatures(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1073,6 +1094,17 @@ interface NativeModuleInterface {
     id: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_set_in_front(
+    uniffiSelf: bigint,
+    inFront: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_routefollower_advance(
+    uniffiSelf: bigint,
+    latitude: number,
+    longitude: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_constructor_routegroupingpreview_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
@@ -1094,6 +1126,11 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_follow(
+    uniffiSelf: bigint,
+    routeId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_all(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1498,6 +1535,13 @@ interface NativeModuleInterface {
     days: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_set_threshold_override(
+    uniffiSelf: bigint,
+    sport: Uint8Array,
+    field: Uint8Array,
+    value: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_stream_retention_days(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1506,6 +1550,10 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_thresholds_screen_data(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_constructor_strengthmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
@@ -1867,6 +1915,7 @@ interface NativeModuleInterface {
   ubrn_ffi_veloqrs_uniffi_contract_version(): number;
   ubrn_uniffi_veloqrs_checksum_func_cancel_fetch_and_store(): number;
   ubrn_uniffi_veloqrs_checksum_func_cancel_run(): number;
+  ubrn_uniffi_veloqrs_checksum_func_check_garmin_key(): number;
   ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap(): number;
   ubrn_uniffi_veloqrs_checksum_func_consent_stream_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_convert_legacy_database_to_record_backup(): number;
@@ -1926,6 +1975,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_put_tile(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_reset_tile_counts(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_budget(): number;
+  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_composite_source(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_source_template(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_tile_counts(): number;
@@ -1996,6 +2046,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_priority_view(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_mapmanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_method_mapmanager_activities_under_point(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_recordingmanager_new(): number;
@@ -2024,11 +2075,14 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_list_linked_devices(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_pairing_request(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_remove_linked_device(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_set_in_front(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routefollower_advance(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_routegroupingpreview_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_run(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_routemanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_exclude_activity(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_follow(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_performance(): number;
@@ -2105,8 +2159,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_stream_retention_days(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_threshold_override(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_thresholds_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_strengthmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_owed_fit_files(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets(): number;
@@ -2224,6 +2280,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_remotemanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiGcObject;
+  ubrn_uniffi_internal_fn_method_routefollower_ffi__bless_pointer(
     pointer: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiGcObject;

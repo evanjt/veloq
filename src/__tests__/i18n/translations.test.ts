@@ -318,6 +318,14 @@ describe('Translation Key Usage', () => {
   });
 });
 
+// The Linked devices switch's description is read before the feature is turned on, so it names the reach the link has.
+describe('Linked devices reach', () => {
+  test('en-GB says the linked browser works on the same Wi-Fi and on most other networks', () => {
+    const blurb = getValueAtPath(referenceLocale(), 'experimental.remoteLink.blurb');
+    expect(blurb).toEqual(expect.stringContaining('most other networks'));
+  });
+});
+
 // Export for use in other scripts
 export {
   getAllKeys,

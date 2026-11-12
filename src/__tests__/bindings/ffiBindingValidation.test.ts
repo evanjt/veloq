@@ -76,6 +76,7 @@ const OBJECT_SOURCE_FILES: Record<string, string> = {
   SectionManager: 'sections.rs',
   ActivityManager: 'activities.rs',
   RouteManager: 'routes.rs',
+  RouteFollower: 'routes.rs',
   MapManager: 'maps.rs',
   FitnessManager: 'fitness.rs',
   SettingsManager: 'settings.rs',

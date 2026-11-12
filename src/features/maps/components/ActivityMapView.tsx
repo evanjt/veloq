@@ -40,7 +40,7 @@ import { cameraAfter3D } from '@/features/maps/lib/cameraAfter3D';
 import { TRACK_FIT_PADDING, visibleMapInset } from '@/features/maps/lib/activityCamera';
 import { useSettleCamera } from '@/features/maps/lib/useSettleCamera';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
-import { BaseMapView, type BaseMap3DLayer } from './BaseMapView';
+import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { type MapCameraState, type MapPressEvent } from './MapSurface';
 import { SlottedMapSurface, useInMapSurfaceSlot, useMapSurfaceSlotLive } from './MapSurfaceSlot';
@@ -856,20 +856,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     [overlayHasData]
   );
 
-  // The fullscreen 3D layer draws what fullscreen draws in 2D: the portions,
-  // the matched route and the PR markers, whose tap opens the section.
-  const fullscreenLayer3D = useMemo<BaseMap3DLayer>(
-    () => ({
-      ...buildActivity3DCollections({
-        portions: consolidatedPortionsGeoJSON,
-        matchedRoute: overlayGeoJSON,
-        markers: fullscreenPRMarkersGeoJSON,
-      }),
-      onSectionClick: handle3DSectionClick,
-    }),
-    [consolidatedPortionsGeoJSON, overlayGeoJSON, fullscreenPRMarkersGeoJSON, handle3DSectionClick]
-  );
-
   const handleFullscreenPress = useCallback(
     ({ feature }: MapPressEvent) => {
       const sectionId = feature?.properties?.sectionId;
@@ -1114,7 +1100,6 @@ export const ActivityMapView = memo(function ActivityMapView({
           overlayImages={ACTIVITY_MAP_IMAGES}
           interactiveLayers={FULLSCREEN_SECTION_MARKER_LAYER_IDS}
           onPress={handleFullscreenPress}
-          layer3D={fullscreenLayer3D}
         />
       </FullWindowModal>
 

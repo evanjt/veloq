@@ -67,6 +67,12 @@ pub struct Prepared {
     pub coords: Vec<GpsPoint>,
     pub streams: Vec<StreamDto>,
     pub clock: Vec<u32>,
+    /// The sport the row is stored under and the start in Unix seconds, UTC,
+    /// that the file's thresholds are dated by.
+    pub sport: String,
+    pub start_unix: i64,
+    /// The thresholds and profile the file carries, if any.
+    pub thresholds: Option<crate::fit::FitThresholds>,
 }
 
 /// The wall clock minus UTC in seconds from a list entry's two start times.
@@ -194,6 +200,9 @@ pub fn prepare(listed: &ListedActivity, fit: &[u8]) -> Result<Prepared, IngestEr
         coords,
         streams,
         clock,
+        sport: sport.to_string(),
+        start_unix: activity.start_unix,
+        thresholds: activity.thresholds,
     })
 }
 
@@ -226,6 +235,31 @@ pub fn store(
             // links it when this does not.
             if let Err(e) = engine.link_garmin_original(&prepared.key) {
                 log::warn!("veloqrs: [garmin] link of {} failed: {}", prepared.key, e);
+            }
+            let kept = prepared.thresholds.as_ref().map(|found| {
+                crate::persistence::fitness::sport_settings::record_file_thresholds(
+                    &engine.db,
+                    &prepared.sport,
+                    prepared.start_unix,
+                    found,
+                )
+            });
+            if let Some(Err(e)) = kept {
+                log::warn!(
+                    "veloqrs: [garmin] thresholds of {} not kept: {}",
+                    prepared.key,
+                    e
+                );
+            }
+            if let Err(e) = crate::persistence::fitness::curves_local::refresh(
+                &engine.db,
+                chrono::Utc::now().timestamp(),
+            ) {
+                log::warn!(
+                    "veloqrs: [garmin] curves after {} not worked out: {}",
+                    prepared.key,
+                    e
+                );
             }
             Ok(Ingested::Stored {
                 tracked: !prepared.coords.is_empty(),

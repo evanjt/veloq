@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "web/connect/**"
+      - "package-lock.json"
+      - "scripts/build-connect-page.mjs"
   workflow_dispatch:
 
 permissions:
@@ -25,6 +28,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-ci
+
+      # docs/connect/ is built from web/connect/ and is not tracked.
+      - name: Build the connect page
+        run: npm run build:connect
+
+      - name: Check the connect page loads only its own files
+        run: npm run check:connect-page-local
 
       - name: Setup Pages
         uses: actions/configure-pages@v6

@@ -192,6 +192,22 @@ export enum MaxHrSource {
   Default = 2,
 }
 
+/** `FfiThresholdField` as generated, a figure the thresholds screen sets. */
+export enum ThresholdField {
+  Ftp = 0,
+  ThresholdHr = 1,
+  MaxHr = 2,
+  RestingHr = 3,
+  WeightKg = 4,
+}
+
+/** `FfiThresholdSource` as generated, where a threshold figure came from. */
+export enum ThresholdSource {
+  Athlete = 0,
+  SportSettings = 1,
+  File = 2,
+}
+
 /** `FfiPoolSwimState` as generated, where a pool swim's lengths stand. */
 export enum PoolSwimState {
   Owed = 1,
@@ -483,6 +499,8 @@ export const streamBackfill = {
 
 export const settings = {
   getRecordScreenData: jest.fn(() => undefined),
+  getThresholdsScreenData: jest.fn(() => undefined),
+  setThresholdOverride: jest.fn(),
   getExperimentalExamples: jest.fn(() => undefined),
 };
 
@@ -596,6 +614,7 @@ export const remote = {
   linkedRooms: jest.fn(() => []),
   acceptOffer: jest.fn(),
   disconnectAll: jest.fn(),
+  setInFront: jest.fn(),
   connectedCount: jest.fn(() => 0),
   beginPairing: jest.fn(),
   pairingRequest: jest.fn(() => null),
@@ -670,6 +689,7 @@ export function namespacesOver(source: () => unknown): Record<string, Record<str
 export const basemap = {
   setPath: jest.fn(),
   setSourceTemplate: jest.fn(),
+  setCompositeSource: jest.fn(),
   tileListener: jest.fn(() => undefined),
   getTile: jest.fn(() => undefined),
   getOrFetchTile: jest.fn(() => undefined),
@@ -714,6 +734,8 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     LoadMetric,
     DayLoadStatus,
     MaxHrSource,
+    FfiThresholdField: ThresholdField,
+    FfiThresholdSource: ThresholdSource,
     PoolSwimState,
     PoolUnit,
     CadenceUnit,

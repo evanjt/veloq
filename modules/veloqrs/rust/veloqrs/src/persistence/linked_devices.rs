@@ -8,7 +8,8 @@
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 /// A browser linked to this phone.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 #[uniffi(name = "FfiLinkedDevice")]
 pub struct LinkedDevice {
     pub id: String,
@@ -18,6 +19,9 @@ pub struct LinkedDevice {
     pub created_at: f64,
     /// Unix seconds of its last connection, none before the first.
     pub last_seen_at: Option<f64>,
+    /// Unix seconds when its current connection came up, none while it is not
+    /// connected.
+    pub connected_since: Option<f64>,
 }
 
 /// Link a device by its certificate fingerprint, or rename it when that
@@ -33,7 +37,6 @@ pub fn add(conn: &Connection, name: &str, fingerprint: &str, now: i64) -> SqlRes
         .map(|id| id.to_string())
 }
 
-/// Every linked device, most recently linked first.
 /// Every pinned fingerprint, so the phone can wait for each linked browser.
 pub fn fingerprints(conn: &Connection) -> SqlResult<Vec<String>> {
     conn.prepare_cached("SELECT fingerprint FROM linked_devices ORDER BY id")?
@@ -41,17 +44,30 @@ pub fn fingerprints(conn: &Connection) -> SqlResult<Vec<String>> {
         .collect()
 }
 
-pub fn list(conn: &Connection) -> SqlResult<Vec<LinkedDevice>> {
+/// The Unix seconds a connection came up, from the connections that are up
+/// now, keyed by fingerprint. When one browser holds two, the earlier.
+pub fn connected_since(connections: &[(String, i64)], fingerprint: &str) -> Option<f64> {
+    connections
+        .iter()
+        .find(|(connected, _)| connected == fingerprint)
+        .map(|(_, since)| *since as f64)
+}
+
+/// Every linked device, most recently linked first, each with when its
+/// current connection came up according to `connections`.
+pub fn list(conn: &Connection, connections: &[(String, i64)]) -> SqlResult<Vec<LinkedDevice>> {
     conn.prepare_cached(
-        "SELECT id, name, created_at, last_seen_at FROM linked_devices
+        "SELECT id, fingerprint, name, created_at, last_seen_at FROM linked_devices
          ORDER BY created_at DESC, id DESC",
     )?
     .query_map([], |row| {
+        let fingerprint: String = row.get(1)?;
         Ok(LinkedDevice {
             id: row.get::<_, i64>(0)?.to_string(),
-            name: row.get(1)?,
-            created_at: row.get::<_, i64>(2)? as f64,
-            last_seen_at: row.get::<_, Option<i64>>(3)?.map(|at| at as f64),
+            connected_since: connected_since(connections, &fingerprint),
+            name: row.get(2)?,
+            created_at: row.get::<_, i64>(3)? as f64,
+            last_seen_at: row.get::<_, Option<i64>>(4)?.map(|at| at as f64),
         })
     })?
     .collect()
@@ -106,4 +122,34 @@ pub fn store_identity_if_absent(conn: &Connection, certificate: &[u8]) -> SqlRes
     conn.prepare_cached("INSERT OR IGNORE INTO remote_identity (id, certificate) VALUES (1, ?1)")?
         .execute(params![certificate])?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::connected_since;
+
+    #[test]
+    fn a_connected_browser_reads_when_its_connection_came_up() {
+        let up = vec![
+            ("aa".to_owned(), 1_700_000_100),
+            ("bb".to_owned(), 1_700_000_200),
+        ];
+        assert_eq!(connected_since(&up, "bb"), Some(1_700_000_200.0));
+    }
+
+    #[test]
+    fn a_browser_with_no_open_connection_reads_none() {
+        let up = vec![("aa".to_owned(), 1_700_000_100)];
+        assert_eq!(connected_since(&up, "cc"), None);
+        assert_eq!(connected_since(&[], "aa"), None);
+    }
+
+    #[test]
+    fn a_browser_with_two_open_connections_reads_the_earlier() {
+        let up = vec![
+            ("aa".to_owned(), 1_700_000_100),
+            ("aa".to_owned(), 1_700_000_300),
+        ];
+        assert_eq!(connected_since(&up, "aa"), Some(1_700_000_100.0));
+    }
 }

@@ -13,6 +13,11 @@
 //   all          the same as land, run by CI through `npm run audit`
 //   environment  the worktree checks alone, `npm run doctor`
 //
+// A guard may carry `paths`, prefixes of the files it judges. At the land gate, with
+// `VELOQ_MERGE_BASE` set, a guard whose paths the landed range does not touch is
+// skipped and printed as such. The `all` set, a hook and an unreadable range run every
+// guard.
+//
 // Usage: node scripts/run-guards.mjs [--set commit|land|all|environment] [--list | --json]
 // GUARD_WORKERS sets how many run at once, 4 when unset.
 // `--guards <file.json>` swaps the list for a test's own, the way `--root` does in
@@ -24,6 +29,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 import { guardWorkers } from './lib/guardWorkers.mjs';
+import { planGuards } from './lib/guardPaths.mjs';
 import { gitFreeEnv } from './lib/indexedSources.mjs';
 
 const node = (script, ...args) => ['node', `scripts/${script}`, ...args];
@@ -66,6 +72,7 @@ const GUARDS = [
   {
     name: 'check:bindings-fresh',
     kind: 'build',
+    paths: ['modules/veloqrs/', 'src/api/', 'src/__tests__/contracts/', 'package.json'],
     cmd: node('check-bindings-fresh.mjs'),
     catches:
       'stale generated bindings after a Rust signature or doc comment changes its UniFFI checksum',
@@ -228,12 +235,14 @@ const GUARDS = [
   {
     name: 'ffi:reach',
     kind: 'correctness',
+    paths: ['modules/veloqrs/', 'src/api/', 'src/__tests__/contracts/', 'package.json'],
     cmd: tsx('ffi-usage-report.ts', '--check'),
     catches: 'an engine export no TypeScript caller reaches and no list accounts for',
   },
   {
     name: 'ffi:client-reach',
     kind: 'correctness',
+    paths: ['modules/veloqrs/', 'src/api/', 'src/__tests__/contracts/', 'package.json'],
     cmd: tsx('ffi-usage-report.ts', '--client', '--check'),
     catches:
       'an EngineClient method no production code calls, left for the next caller to reach for a fact a screen read already serves',
@@ -241,6 +250,7 @@ const GUARDS = [
   {
     name: 'ffi:orphans:check',
     kind: 'correctness',
+    paths: ['modules/veloqrs/', 'src/api/', 'src/__tests__/contracts/', 'package.json'],
     cmd: node('engine-orphan-report.mjs', '--check'),
     catches:
       'an engine method only tests call, or none call, that the checked-in list does not account for',
@@ -370,6 +380,7 @@ const GUARDS = [
   {
     name: 'lint:engine-surface',
     kind: 'correctness',
+    paths: ['modules/veloqrs/', 'src/api/', 'src/__tests__/contracts/', 'package.json'],
     // Through npm, so the ceiling stays in the one place the ratchet tells you to
     // lower it.
     cmd: ['npm', 'run', '--silent', 'lint:engine-surface'],
@@ -450,6 +461,19 @@ const GUARDS = [
     cmd: node('lint-intervals-source.mjs'),
     catches:
       'an intervals.icu request that calls the endpoint module past the session, or the intervals.icu session named past the live source owner, bypassing the source boundary a second data source is put behind',
+  },
+  {
+    name: 'check:link-schema',
+    kind: 'correctness',
+    cmd: node('generate-link-schema.mjs', '--check'),
+    catches: "a page schema older than the engine's method table or records",
+  },
+  {
+    name: 'lint:link-serialize',
+    kind: 'style',
+    cmd: node('lint-link-serialize.mjs'),
+    catches:
+      'a uniffi::Record or Enum without serde::Serialize, or a Vec<u8> field without the base64 helper, which the link protocol would then refuse or bloat',
   },
   {
     name: 'lint:point-shapes',
@@ -1489,11 +1513,14 @@ function unstagedPaths() {
   ];
 }
 
-function run(guard) {
+function run(guard, set) {
   return new Promise((resolve) => {
     const [bin, ...args] = guard.cmd;
     const started = Date.now();
-    const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(bin, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, VELOQ_GUARD_SET: set },
+    });
     let output = '';
     child.stdout.on('data', (chunk) => (output += chunk));
     child.stderr.on('data', (chunk) => (output += chunk));
@@ -1502,11 +1529,28 @@ function run(guard) {
   });
 }
 
-async function runAll(guards, limit) {
+// The files the landing changes, or null when the range cannot be read: no base, a base
+// the repository lacks, or not a repository. Then every guard runs.
+function landedPaths(base) {
+  if (!base) return null;
+  try {
+    return execFileSync('git', ['diff', '--name-only', base, 'HEAD'], {
+      env: gitFreeEnv(),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .split('\n')
+      .filter(Boolean);
+  } catch {
+    return null;
+  }
+}
+
+async function runAll(guards, limit, set) {
   const results = [];
   let next = 0;
   async function worker() {
-    while (next < guards.length) results.push(await run(guards[next++]));
+    while (next < guards.length) results.push(await run(guards[next++], set));
   }
   await Promise.all(Array.from({ length: Math.min(limit, guards.length) }, worker));
   return results;
@@ -1544,9 +1588,20 @@ async function main() {
     }
   }
 
+  let toRun = guards;
+  if (set === 'land') {
+    const plan = planGuards(guards, landedPaths(process.env.VELOQ_MERGE_BASE));
+    toRun = plan.run;
+    for (const g of plan.skipped) {
+      console.log(
+        `run-guards: skipped ${g.name}, the landing touches none of ${g.paths.join(' ')}`
+      );
+    }
+  }
+
   const limit = guardWorkers();
   const started = Date.now();
-  const results = await runAll(guards, limit);
+  const results = await runAll(toRun, limit, set);
   const failed = results.filter((r) => r.code !== 0);
   for (const r of failed) {
     console.error(

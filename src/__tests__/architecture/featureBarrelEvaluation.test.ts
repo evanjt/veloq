@@ -52,130 +52,6 @@ function undefinedNames(mod: Record<string, unknown>, names: string[]): string[]
   return names.filter((name) => mod[name] === undefined);
 }
 
-describe('the activity barrel evaluates whole, whichever end the app enters from', () => {
-  beforeEach(() => {
-    jest.resetModules();
-  });
-
-  it('defines every name it publishes when it is the first feature loaded', () => {
-    const activity = require('@/features/activity');
-
-    expect(undefinedNames(activity, ACTIVITY_NAMES)).toStrictEqual([]);
-  });
-
-  it('defines them when a feature that imports it back is loaded first', () => {
-    require('@/features/routes');
-    const activity = require('@/features/activity');
-
-    expect(undefinedNames(activity, ACTIVITY_NAMES)).toStrictEqual([]);
-  });
-
-  it('defines them when the maps barrel is loaded first', () => {
-    require('@/features/maps');
-    const activity = require('@/features/activity');
-
-    expect(undefinedNames(activity, ACTIVITY_NAMES)).toStrictEqual([]);
-  });
-
-  it('leaves the shared activity helpers out, which is what splits the cycle', () => {
-    const activity = require('@/features/activity');
-    const shared = require('@/shared/activity/activityUtils');
-
-    expect(SHARED_HELPERS.filter((name) => activity[name] !== undefined)).toStrictEqual([]);
-    expect(SHARED_HELPERS.filter((name) => shared[name] === undefined)).toStrictEqual([]);
-  });
-});
-
-describe.each([
-  ['fitness', ['formatForm', 'formatEffortValue', 'useSportPreference', 'PRIMARY_SPORT_FAMILY']],
-  [
-    'home',
-    [
-      'useSummaryCardData',
-      'useStartupData',
-      'FeedFirstSyncStandby',
-      'summaryCardTarget',
-      'readPlannedWorkouts',
-    ],
-  ],
-  [
-    'insights',
-    [
-      'buildInsightsParams',
-      'readTaskRuns',
-      'confidenceFrom',
-      'registerBackgroundNotificationTask',
-      'isForSignedInAthlete',
-    ],
-  ],
-  ['strength', ['generateStrengthInsights', 'useStrengthScreenData']],
-  ['sensors', ['initialiseKnownSensors']],
-  [
-    'settings',
-    [
-      'HERO_METRICS',
-      'useMapPreferences',
-      'useDebugStore',
-      'initialiseDebugStore',
-      'getNotificationPreferences',
-      'initialiseNotificationPreferences',
-      'isPrivacyNoticeOwed',
-      'useNotificationPrompt',
-      'initialiseNotificationPrompt',
-      'initialiseWhatsNewStore',
-      'onAppForeground',
-      'initWebdavConfig',
-      'refreshPushTokenRegistration',
-      'registerPushToken',
-      'withDatabaseSnapshot',
-      'useGpxExport',
-      'useImportDatabaseBackup',
-      'WhatsNewModal',
-      'TourReturnPill',
-    ],
-  ],
-  [
-    'recording',
-    [
-      'useRecordingStore',
-      'useRecordingLibrary',
-      'useRecordingLiveStore',
-      'getRecordingMode',
-      'recordingFitExists',
-      'RecordingReturnPill',
-      'RecordingGate',
-      'RecordingTitle',
-      'useRecordingPreferences',
-      'useUploadPermissionStore',
-    ],
-  ],
-])('the %s barrel evaluates whole', (feature, names) => {
-  const others = [
-    'fitness',
-    'home',
-    'insights',
-    'strength',
-    'sensors',
-    'settings',
-    'routes',
-    'activity',
-    'recording',
-  ];
-
-  beforeEach(() => {
-    jest.resetModules();
-  });
-
-  it('defines every name it publishes when it is the first feature loaded', () => {
-    expect(undefinedNames(require(`@/features/${feature}`), names)).toStrictEqual([]);
-  });
-
-  it.each(others.filter((o) => o !== feature))('defines them when %s is loaded first', (first) => {
-    require(`@/features/${first}`);
-    expect(undefinedNames(require(`@/features/${feature}`), names)).toStrictEqual([]);
-  });
-});
-
 /** Every value the outside tree takes from routes. The barrel loads every
  *  component, hook and store behind them, and several of those reach the maps,
  *  activity, home and insights barrels, which import routes back. */
@@ -288,30 +164,135 @@ const ROUTES_NAMES = [
   'withoutRecordMarks',
 ];
 
-describe('the routes barrel evaluates whole, whichever end the app enters from', () => {
-  const others = [
-    'maps',
-    'activity',
-    'fitness',
+const OTHER_FEATURE_NAMES: [string, string[]][] = [
+  ['fitness', ['formatForm', 'formatEffortValue', 'useSportPreference', 'PRIMARY_SPORT_FAMILY']],
+  [
     'home',
+    [
+      'useSummaryCardData',
+      'useStartupData',
+      'FeedFirstSyncStandby',
+      'summaryCardTarget',
+      'readPlannedWorkouts',
+    ],
+  ],
+  [
     'insights',
-    'strength',
-    'sensors',
+    [
+      'buildInsightsParams',
+      'readTaskRuns',
+      'confidenceFrom',
+      'registerBackgroundNotificationTask',
+      'isForSignedInAthlete',
+    ],
+  ],
+  ['strength', ['generateStrengthInsights', 'useStrengthScreenData']],
+  ['sensors', ['initialiseKnownSensors']],
+  [
     'settings',
+    [
+      'HERO_METRICS',
+      'useMapPreferences',
+      'useDebugStore',
+      'initialiseDebugStore',
+      'getNotificationPreferences',
+      'initialiseNotificationPreferences',
+      'isPrivacyNoticeOwed',
+      'useNotificationPrompt',
+      'initialiseNotificationPrompt',
+      'initialiseWhatsNewStore',
+      'onAppForeground',
+      'initWebdavConfig',
+      'refreshPushTokenRegistration',
+      'registerPushToken',
+      'withDatabaseSnapshot',
+      'useGpxExport',
+      'useImportDatabaseBackup',
+      'WhatsNewModal',
+      'TourReturnPill',
+    ],
+  ],
+  [
     'recording',
-  ];
+    [
+      'useRecordingStore',
+      'useRecordingLibrary',
+      'useRecordingLiveStore',
+      'getRecordingMode',
+      'recordingFitExists',
+      'RecordingReturnPill',
+      'RecordingGate',
+      'RecordingTitle',
+      'useRecordingPreferences',
+      'useUploadPermissionStore',
+    ],
+  ],
+];
 
+/** Features whose barrels the app can enter from, besides maps. */
+const OTHER_FEATURES = [
+  'fitness',
+  'home',
+  'insights',
+  'strength',
+  'sensors',
+  'settings',
+  'routes',
+  'activity',
+  'recording',
+];
+
+const NAMES_BY_FEATURE: Record<string, string[]> = {
+  activity: ACTIVITY_NAMES,
+  routes: ROUTES_NAMES,
+  ...Object.fromEntries(OTHER_FEATURE_NAMES),
+};
+
+/** Every (barrel checked, barrel loaded first) case, grouped by the one that
+ *  loads first. A cycle bites the entry point that starts it, so each group
+ *  loads its entry once into a fresh registry and every barrel checked from
+ *  that entry is then read from it, instead of re-evaluating the app graph for
+ *  each pair. */
+function casesByEntry(): [string, string[]][] {
+  const byEntry = new Map<string, string[]>();
+  const add = (entry: string, checked: string) =>
+    byEntry.set(entry, [...(byEntry.get(entry) ?? []), checked]);
+  for (const checked of Object.keys(NAMES_BY_FEATURE)) {
+    const entries =
+      checked === 'activity'
+        ? ['activity', 'routes', 'maps']
+        : checked === 'routes'
+          ? ['routes', 'maps', ...OTHER_FEATURES.filter((o) => o !== 'routes')]
+          : [checked, ...OTHER_FEATURES.filter((o) => o !== checked)];
+    for (const entry of entries) add(entry, checked);
+  }
+  return [...byEntry];
+}
+
+describe.each(casesByEntry())('with the %s barrel loaded first', (entry, checked) => {
+  beforeAll(() => {
+    jest.resetModules();
+    require(`@/features/${entry}`);
+  });
+
+  it.each(checked)('the %s barrel defines every name it publishes', (feature) => {
+    expect(
+      undefinedNames(require(`@/features/${feature}`), NAMES_BY_FEATURE[feature])
+    ).toStrictEqual([]);
+  });
+});
+
+describe('the barrels keep the cycle split', () => {
   beforeEach(() => {
     jest.resetModules();
   });
 
-  it('defines every name it publishes when it is the first feature loaded', () => {
-    expect(undefinedNames(require('@/features/routes'), ROUTES_NAMES)).toStrictEqual([]);
-  });
+  it('leaves the shared activity helpers out, which is what splits the cycle', () => {
+    const activity = require('@/features/activity');
+    const shared = require('@/shared/activity/activityUtils');
 
-  it.each(others)('defines them when %s is loaded first', (first) => {
-    require(`@/features/${first}`);
-    expect(undefinedNames(require('@/features/routes'), ROUTES_NAMES)).toStrictEqual([]);
+    expect(SHARED_HELPERS.filter((name) => activity[name] !== undefined)).toStrictEqual([]);
+    expect(SHARED_HELPERS.filter((name) => shared[name] === undefined)).toStrictEqual([]);
   });
 
   it('stays out of the maps barrel, which routes reads from at module scope', () => {

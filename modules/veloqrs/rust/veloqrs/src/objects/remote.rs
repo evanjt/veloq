@@ -24,7 +24,8 @@ impl RemoteManager {
 
     /// Every linked browser, most recently linked first.
     fn list_linked_devices(&self) -> Result<Vec<LinkedDevice>, VeloqError> {
-        with_reader(|conn| linked_devices::list(conn).map_err(db))?
+        let connections = crate::remote::service::connections();
+        with_reader(|conn| linked_devices::list(conn, &connections).map_err(db))?
     }
 
     /// Unlink a browser so it can never reconnect, and end its connection
@@ -68,6 +69,12 @@ impl RemoteManager {
     /// End every linked browser's connection.
     fn disconnect_all(&self) {
         crate::remote::service::disconnect(None);
+    }
+
+    /// Say whether the app is in front. A linked browser's write is answered
+    /// only while it is; reads are answered either way.
+    fn set_in_front(&self, in_front: bool) {
+        crate::remote::service::set_in_front(in_front);
     }
 
     /// How many linked browsers are connected now, for the connected badge.

@@ -17,6 +17,7 @@ function runFormatCheck(
   mkdirSync(join(root, 'src'), { recursive: true });
   mkdirSync(join(root, 'scripts/lib'), { recursive: true });
   mkdirSync(join(root, 'modules/veloqrs/src/generated'), { recursive: true });
+  mkdirSync(join(root, 'web/connect'), { recursive: true });
   writeFileSync(join(root, 'package.json'), readFileSync(join(ROOT, 'package.json')));
   writeFileSync(join(root, 'config/.prettierrc'), readFileSync(join(ROOT, 'config/.prettierrc')));
   writeFileSync(
@@ -26,6 +27,7 @@ function runFormatCheck(
   writeFileSync(join(root, 'src/a.ts'), 'export const a = 1;\n');
   writeFileSync(join(root, 'scripts/guard.mjs'), scriptSource);
   writeFileSync(join(root, 'scripts/lib/helper.ts'), 'export const h = 1;\n');
+  writeFileSync(join(root, 'web/connect/a.ts'), 'export const w = 1;\n');
   writeFileSync(join(root, 'modules/veloqrs/src/a.ts'), moduleSource);
   writeFileSync(join(root, 'modules/veloqrs/src/generated/a.ts'), generatedSource);
   symlinkSync(join(ROOT, 'node_modules'), join(root, 'node_modules'));

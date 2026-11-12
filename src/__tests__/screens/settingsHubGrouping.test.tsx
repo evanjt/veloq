@@ -75,6 +75,8 @@ jest.mock('@/features/settings', () => ({
   BackgroundJobsHeaderItem: jest.requireActual(
     '@/features/settings/components/BackgroundJobsHeaderItem'
   ).BackgroundJobsHeaderItem,
+  RemoteLinkHeaderItem: jest.requireActual('@/features/settings/components/RemoteLinkHeaderItem')
+    .RemoteLinkHeaderItem,
   ActivityHistoryRow: () =>
     jest
       .requireActual('react')
@@ -180,6 +182,7 @@ describe('Settings hub grouping', () => {
       'settings-nav-summary-card',
       'settings-group-collects',
       'settings-nav-sync',
+      'settings-nav-thresholds',
       'settings-nav-recording',
       'settings-nav-sensors',
       'settings-nav-notifications',

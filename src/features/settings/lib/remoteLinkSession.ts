@@ -1,3 +1,4 @@
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { remote } from 'veloqrs';
 import { useRemoteLinkStatus } from '@/shared/app/remoteLinkStatus';
 import { experimentalOn } from './experimental';
@@ -6,16 +7,29 @@ import { createRemoteLink, type RelaySocket, type RemoteLink } from './remoteLin
 /** The link relay's rooms. Its worker shares the auth host and keeps nothing. */
 const LINK_RELAY_URL = 'wss://auth.veloq.fit/link/';
 
+/** Its own tag, so releasing it never releases recording's keep-awake. */
+const KEEP_AWAKE_TAG = 'veloq-remote-link';
+
 const link = createRemoteLink({
   enabled: () => experimentalOn('remoteLink'),
   engine: {
     linkedRooms: () => remote.linkedRooms(),
     acceptOffer: (offer) => remote.acceptOffer(offer),
     disconnectAll: () => remote.disconnectAll(),
+    setInFront: (inFront) => remote.setInFront(inFront),
     connectedCount: () => remote.connectedCount(),
   },
   relayUrl: LINK_RELAY_URL,
   open: relaySocket,
+  keepAwake: {
+    on: () => {
+      activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
+    },
+    off: () => {
+      deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
+    },
+  },
+  diagnose: __DEV__ ? (line) => console.warn(`[remote link] ${line}`) : undefined,
 });
 
 function relaySocket(url: string): RelaySocket {
@@ -31,7 +45,7 @@ function relaySocket(url: string): RelaySocket {
   return socket;
 }
 
-link.subscribe((connected) => useRemoteLinkStatus.setState({ connected }));
+link.subscribe(({ connected, rooms }) => useRemoteLinkStatus.setState({ connected, rooms }));
 
 function readLinked(): void {
   useRemoteLinkStatus.setState({ linked: remote.listLinkedDevices().length });

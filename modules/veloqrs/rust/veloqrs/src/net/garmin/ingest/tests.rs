@@ -501,3 +501,72 @@ fn each_refusal_to_store_an_original_says_why() {
     assert!(reasons[2].contains("locked"));
     assert_eq!(reasons[3], "the engine closed");
 }
+
+/// Scenario: a Garmin-only library ingests a ride whose file carries the
+/// athlete's thresholds, then the same ride again with a lower FTP.
+///
+/// Expected behaviour: the library answers the file's figures for the ride's
+/// sport and date, a file with none changes nothing.
+#[test]
+fn an_ingested_originals_thresholds_are_answered_for_its_sport_and_date() {
+    let (_dir, mut engine) = engine();
+    let mut ride = outdoor_ride();
+    ride.thresholds = Some(crate::fit_synthetic::Thresholds {
+        ftp: Some(251),
+        threshold_hr: Some(177),
+        ..Default::default()
+    });
+    ingest_into(&mut engine, None, &listed(GARMIN_ID), &ride.to_fit()).expect("stored");
+
+    let after = ride.start_unix + 3_600;
+    let found =
+        crate::persistence::fitness::sport_settings::thresholds_for(&engine.db, "Ride", after);
+    assert_eq!(found.ftp.map(|t| t.value), Some(251.0));
+    assert_eq!(found.threshold_hr.map(|t| t.value), Some(177.0));
+
+    let plain = outdoor_ride();
+    ingest_into(&mut engine, None, &listed(GARMIN_ID + 1), &plain.to_fit()).expect("stored");
+    let still =
+        crate::persistence::fitness::sport_settings::thresholds_for(&engine.db, "Ride", after);
+    assert_eq!(still.ftp.map(|t| t.value), Some(251.0));
+}
+
+/// Scenario: a Garmin-only library ingests a ride with a track and a power
+/// stream, whose clock lives in the track's own time stream.
+///
+/// Expected behaviour: the library's all-time power curve is written from the
+/// ride's power, marked as worked out on the phone, and names the ride at the
+/// durations it reached and none beyond its length.
+#[test]
+fn an_ingested_ride_with_power_draws_the_librarys_power_curve() {
+    let (_dir, mut engine) = engine();
+    let key = garmin_source_key(GARMIN_ID);
+
+    ingest_into(
+        &mut engine,
+        None,
+        &listed(GARMIN_ID),
+        &outdoor_ride().to_fit(),
+    )
+    .expect("stored");
+
+    let stored = engine
+        .get_stored_curve(
+            crate::persistence::bodies::CurveKind::Power,
+            "Ride",
+            crate::net::offline_prefetch::ALL_TIME_CURVE_DAYS,
+            false,
+        )
+        .unwrap()
+        .expect("the all-time curve is written");
+    let curve = crate::persistence::curves::parse_power_curve(&stored.raw, "Ride", 0).unwrap();
+    assert_eq!(curve.source, "veloq");
+    let five = curve.secs.iter().position(|s| *s == 5.0).unwrap();
+    assert!(curve.watts[five] > 0.0);
+    assert_eq!(curve.activity_ids.as_ref().unwrap()[five], key);
+    assert!(
+        curve.secs.iter().all(|s| *s <= 30.0),
+        "the ride is 30 s long: {:?}",
+        curve.secs
+    );
+}

@@ -86,7 +86,8 @@ pub(crate) fn check_record_athlete_from_conn(
     Ok(())
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 #[uniffi(name = "FfiUnplacedRecord")]
 pub struct UnplacedRecord {
     pub kind: String,

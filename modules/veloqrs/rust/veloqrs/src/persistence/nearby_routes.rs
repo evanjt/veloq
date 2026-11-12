@@ -68,17 +68,16 @@ pub(crate) mod pooled {
             let Some(group) = routes::group_by_id(conn, &summary.group_id) else {
                 continue;
             };
-            let in_family = |id: &str| {
-                activities::metrics_of(conn, id).filter(|m| family.contains(&m.sport_type.as_str()))
-            };
-            if !group.activity_ids.iter().any(|id| in_family(id).is_some()) {
+            let metrics = activities::metrics_for_ids(conn, &group.activity_ids);
+            let in_family = |m: &crate::ActivityMetrics| family.contains(&m.sport_type.as_str());
+            if !metrics.values().any(in_family) {
                 continue;
             }
             let performances = route_performances(
                 &group.activity_ids,
                 Some(&routes::match_info(conn, &group.group_id)),
                 &routes::excluded_route_activity_ids(conn, &group.group_id),
-                in_family,
+                |id| metrics.get(id).filter(|m| in_family(m)).cloned(),
                 None,
                 None,
             );

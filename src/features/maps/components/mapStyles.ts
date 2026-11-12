@@ -1,7 +1,12 @@
 // Shared map style definitions and constants
 // All sources are commercially licensed (MIT, BSD, OGD, CC BY, Public Domain)
 
-import { mapPageBaseUrl, nativeTileUrls } from '@/features/maps/lib/tileTransport';
+import {
+  mapPageBaseUrl,
+  nativeCompositeTileUrls,
+  nativeTileUrls,
+  type CompositeProvider,
+} from '@/features/maps/lib/tileTransport';
 import { TERRAIN_UPSTREAM_TEMPLATE } from '@/features/maps/lib/terrainTemplate';
 import { EOX_S2CLOUDLESS_TEMPLATE } from '@/features/maps/lib/eoxTemplate';
 import {
@@ -137,6 +142,9 @@ interface SatelliteSource {
  * need at zoom levels two deeper than declaring 64 does.
  */
 export const SATELLITE_TILE_SIZE = 128;
+
+/** Every provider serves JPEG, and the composite answers its tiles under that name. */
+const SATELLITE_TILE_EXTENSION = 'jpg';
 
 // Satellite tile sources - all commercially licensed
 export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
@@ -309,7 +317,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   },
 };
 
-// Type for combined satellite MapLibre style with multiple regional sources
+// The combined satellite MapLibre style: two composite raster sources.
 export interface CombinedSatelliteMapStyle {
   version: 8;
   glyphs?: string;
@@ -319,8 +327,8 @@ export interface CombinedSatelliteMapStyle {
       type: 'raster';
       tiles: string[];
       tileSize: number;
+      minzoom?: number;
       maxzoom: number;
-      bounds?: [number, number, number, number] | undefined;
     }
   >;
   layers: (
@@ -339,118 +347,107 @@ export interface CombinedSatelliteMapStyle {
   )[];
 }
 
-/**
- * One MapLibre source per box of a multi-box satellite source, named
- * `satellite-<id>-<n>`.
- *
- * MapLibre takes a single bbox per source and nothing finer, so a country
- * whose border a rectangle cannot follow is handed over as several sources
- * sharing one template. They are disjoint, so no tile is fetched or stored
- * twice, and Rust files each under its own directory.
- */
-function boxedSources(id: SatelliteSourceId): CombinedSatelliteMapStyle['sources'] {
-  const source = SATELLITE_SOURCES[id];
-  const boxes = source.boxes ?? [];
-  return Object.fromEntries(
-    boxes.map((bounds, i) => [
-      `satellite-${id}-${i + 1}`,
-      {
-        type: 'raster' as const,
-        tiles: source.tiles,
-        tileSize: source.tileSize,
-        maxzoom: source.maxzoom,
-        bounds,
-      },
-    ])
-  );
+/** The source name of a regional provider in the engine's tile store. */
+function providerName(id: SatelliteSourceId): string {
+  return `satellite-${id}`;
 }
 
-/** The layers those sources draw through, contiguous and all at one minzoom. */
-function boxedLayers(
-  id: SatelliteSourceId,
-  minzoom: number
-): Extract<CombinedSatelliteMapStyle['layers'][number], { type: 'raster' }>[] {
-  const boxes = SATELLITE_SOURCES[id].boxes ?? [];
-  return boxes.map((_, i) => ({
-    id: `satellite-layer-${id}-${i + 1}`,
-    type: 'raster' as const,
-    source: `satellite-${id}-${i + 1}`,
-    minzoom,
-    maxzoom: 22,
-  }));
+/**
+ * The regional providers, topmost first: where two cover the same ground the
+ * first listed draws. Each draws from its own map zoom, which is when its
+ * imagery is worth the request. The global provider sits under all of them.
+ */
+const REGIONAL_STACK: { id: SatelliteSourceId; minZoom: number }[] = [
+  { id: 'swisstopo', minZoom: 8 },
+  { id: 'luxembourg', minZoom: REGIONS.luxembourg.minZoom },
+  { id: 'austria', minZoom: REGIONS.austria.minZoom },
+  { id: 'netherlands', minZoom: REGIONS.netherlands.minZoom },
+  { id: 'czechia', minZoom: REGIONS.czechia.minZoom },
+  { id: 'naip', minZoom: REGIONS.usa.minZoom },
+  { id: 'ign', minZoom: REGIONS.france.minZoom },
+  { id: 'poland', minZoom: REGIONS.poland.minZoom },
+  { id: 'spain', minZoom: REGIONS.spain.minZoom },
+];
+
+/**
+ * The source that draws the whole range. Rust answers each of its tiles from
+ * the topmost regional provider that holds it, and from the global imagery
+ * where none does. Its `maxzoom` is the global imagery's, which MapLibre
+ * stretches past that.
+ */
+export const SATELLITE_GLOBAL_SOURCE = 'satellite-global';
+
+/**
+ * The source that draws deeper than the global imagery goes. Rust answers each
+ * of its tiles from the regional providers alone, and a tile no region holds is
+ * a 404 the layer beneath covers.
+ */
+export const SATELLITE_REGIONS_SOURCE = 'satellite-regions';
+
+/** MapLibre asks for tile zoom = map zoom + this, for the declared tile size. */
+const TILE_ZOOM_OFFSET = Math.log2(512 / SATELLITE_TILE_SIZE);
+
+/** The deepest tile zoom the global imagery serves. */
+const GLOBAL_MAXZOOM = SATELLITE_SOURCES.eox.maxzoom;
+
+/** The first tile zoom only the regional providers can draw. */
+const REGIONS_MINZOOM = GLOBAL_MAXZOOM + 1;
+
+/** The map zoom at which MapLibre first asks the regions source for a tile. */
+const REGIONS_LAYER_MINZOOM = REGIONS_MINZOOM - TILE_ZOOM_OFFSET;
+
+function regionalProvider(id: SatelliteSourceId, minZoom: number): CompositeProvider {
+  const source = SATELLITE_SOURCES[id];
+  const [template] = source.tiles;
+  if (!template) throw new Error(`Satellite source ${id} names no tile template`);
+  return {
+    source: providerName(id),
+    template,
+    minZoom,
+    maxZoom: source.maxzoom,
+    boxes: source.boxes ?? (source.bounds ? [source.bounds] : []),
+  };
+}
+
+/** What a composite source of the satellite style answers from, in priority order. */
+export function satelliteProviders(name: string): CompositeProvider[] {
+  if (name === SATELLITE_REGIONS_SOURCE) {
+    return REGIONAL_STACK.map(({ id, minZoom }) =>
+      regionalProvider(id, Math.max(minZoom + TILE_ZOOM_OFFSET, REGIONS_MINZOOM))
+    );
+  }
+  if (name === SATELLITE_GLOBAL_SOURCE) {
+    return [
+      ...REGIONAL_STACK.map(({ id, minZoom }) => regionalProvider(id, minZoom + TILE_ZOOM_OFFSET)),
+      { ...regionalProvider('eox', 0), boxes: [] },
+    ];
+  }
+  return [];
 }
 
 export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
+  const regionsMaxzoom = Math.max(
+    ...satelliteProviders(SATELLITE_REGIONS_SOURCE).map((p) => p.maxZoom)
+  );
   return {
     version: 8,
     glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+    // Each source's `tiles` is the global imagery's upstream template, which
+    // is what a page with no engine behind it draws. The engine's URLs
+    // replace it in `rewriteSatelliteUrls`.
     sources: {
-      // Global base layer (EOX Sentinel-2)
-      'satellite-eox': {
+      [SATELLITE_GLOBAL_SOURCE]: {
         type: 'raster',
         tiles: SATELLITE_SOURCES.eox.tiles,
-        tileSize: SATELLITE_SOURCES.eox.tileSize,
-        maxzoom: SATELLITE_SOURCES.eox.maxzoom,
+        tileSize: SATELLITE_TILE_SIZE,
+        maxzoom: GLOBAL_MAXZOOM,
       },
-      // Switzerland (Swisstopo) - one source per box of the border staircase
-      ...boxedSources('swisstopo'),
-      // France (IGN) - one source per box of the eastern staircase
-      ...boxedSources('ign'),
-      // USA (NAIP) - bounded to continental US
-      'satellite-naip': {
+      [SATELLITE_REGIONS_SOURCE]: {
         type: 'raster',
-        tiles: SATELLITE_SOURCES.naip.tiles,
-        tileSize: SATELLITE_SOURCES.naip.tileSize,
-        maxzoom: SATELLITE_SOURCES.naip.maxzoom,
-        bounds: SATELLITE_SOURCES.naip.bounds,
-      },
-      // Spain (PNOA) - mainland + Balearics
-      'satellite-spain': {
-        type: 'raster',
-        tiles: SATELLITE_SOURCES.spain.tiles,
-        tileSize: SATELLITE_SOURCES.spain.tileSize,
-        maxzoom: SATELLITE_SOURCES.spain.maxzoom,
-        bounds: SATELLITE_SOURCES.spain.bounds,
-      },
-      // Austria (basemap.at)
-      'satellite-austria': {
-        type: 'raster',
-        tiles: SATELLITE_SOURCES.austria.tiles,
-        tileSize: SATELLITE_SOURCES.austria.tileSize,
-        maxzoom: SATELLITE_SOURCES.austria.maxzoom,
-        bounds: SATELLITE_SOURCES.austria.bounds,
-      },
-      // Netherlands (PDOK)
-      'satellite-netherlands': {
-        type: 'raster',
-        tiles: SATELLITE_SOURCES.netherlands.tiles,
-        tileSize: SATELLITE_SOURCES.netherlands.tileSize,
-        maxzoom: SATELLITE_SOURCES.netherlands.maxzoom,
-        bounds: SATELLITE_SOURCES.netherlands.bounds,
-      },
-      // Czech Republic (CUZK)
-      'satellite-czechia': {
-        type: 'raster',
-        tiles: SATELLITE_SOURCES.czechia.tiles,
-        tileSize: SATELLITE_SOURCES.czechia.tileSize,
-        maxzoom: SATELLITE_SOURCES.czechia.maxzoom,
-        bounds: SATELLITE_SOURCES.czechia.bounds,
-      },
-      // Poland (GUGiK)
-      'satellite-poland': {
-        type: 'raster',
-        tiles: SATELLITE_SOURCES.poland.tiles,
-        tileSize: SATELLITE_SOURCES.poland.tileSize,
-        maxzoom: SATELLITE_SOURCES.poland.maxzoom,
-        bounds: SATELLITE_SOURCES.poland.bounds,
-      },
-      // Luxembourg (ACT)
-      'satellite-luxembourg': {
-        type: 'raster',
-        tiles: SATELLITE_SOURCES.luxembourg.tiles,
-        tileSize: SATELLITE_SOURCES.luxembourg.tileSize,
-        maxzoom: SATELLITE_SOURCES.luxembourg.maxzoom,
-        bounds: SATELLITE_SOURCES.luxembourg.bounds,
+        tiles: SATELLITE_SOURCES.eox.tiles,
+        tileSize: SATELLITE_TILE_SIZE,
+        minzoom: REGIONS_MINZOOM,
+        maxzoom: regionsMaxzoom,
       },
     },
     layers: [
@@ -460,81 +457,31 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
         type: 'background',
         paint: { 'background-color': '#0a1628' },
       },
-      // Base layer: EOX (global coverage, lowest resolution)
       {
-        id: 'satellite-layer-eox',
+        id: 'satellite-layer-global',
         type: 'raster',
-        source: 'satellite-eox',
+        source: SATELLITE_GLOBAL_SOURCE,
         minzoom: 0,
         maxzoom: 22,
       },
-      // Regional layers on top (higher resolution where available)
-      // Order: largest areas first, smallest on top (later = higher priority)
       {
-        id: 'satellite-layer-spain',
+        id: 'satellite-layer-regions',
         type: 'raster',
-        source: 'satellite-spain',
-        minzoom: REGIONS.spain.minZoom,
+        source: SATELLITE_REGIONS_SOURCE,
+        minzoom: REGIONS_LAYER_MINZOOM,
         maxzoom: 22,
       },
-      {
-        id: 'satellite-layer-poland',
-        type: 'raster',
-        source: 'satellite-poland',
-        minzoom: REGIONS.poland.minZoom,
-        maxzoom: 22,
-      },
-      ...boxedLayers('ign', REGIONS.france.minZoom),
-      {
-        id: 'satellite-layer-naip',
-        type: 'raster',
-        source: 'satellite-naip',
-        minzoom: REGIONS.usa.minZoom,
-        maxzoom: 22,
-      },
-      {
-        id: 'satellite-layer-czechia',
-        type: 'raster',
-        source: 'satellite-czechia',
-        minzoom: REGIONS.czechia.minZoom,
-        maxzoom: 22,
-      },
-      {
-        id: 'satellite-layer-netherlands',
-        type: 'raster',
-        source: 'satellite-netherlands',
-        minzoom: REGIONS.netherlands.minZoom,
-        maxzoom: 22,
-      },
-      {
-        id: 'satellite-layer-austria',
-        type: 'raster',
-        source: 'satellite-austria',
-        minzoom: REGIONS.austria.minZoom,
-        maxzoom: 22,
-      },
-      {
-        id: 'satellite-layer-luxembourg',
-        type: 'raster',
-        source: 'satellite-luxembourg',
-        minzoom: REGIONS.luxembourg.minZoom,
-        maxzoom: 22,
-      },
-      // Switzerland - highest priority, on top of Austria and France
-      ...boxedLayers('swisstopo', 8),
     ],
   };
 }
 
 /**
- * The satellite sources that draw only inside their own bounds. Their servers
- * answer 404 for a tile outside coverage, and the global layer beneath still
- * draws there, so such a 404 leaves no hole in the picture.
+ * The satellite sources whose 404 is a tile outside every region's coverage.
+ * The global layer beneath still draws there, so such a 404 leaves no hole in
+ * the picture.
  */
 export function regionalSatelliteSourceIds(): string[] {
-  return Object.entries(getCombinedSatelliteStyle().sources)
-    .filter(([, source]) => source.bounds !== undefined)
-    .map(([id]) => id);
+  return [SATELLITE_REGIONS_SOURCE];
 }
 
 // Check if a style should use dark UI elements
@@ -594,28 +541,12 @@ function sourceCovers(source: SatelliteSource, lng: number, lat: number): boolea
   return boundsContain(source.bounds, lng, lat);
 }
 
-const LAYER_PREFIX = 'satellite-layer-';
-
-/**
- * The satellite raster stack, top down, read off the style itself rather than
- * written out a second time. A source that moves in the layer list, or whose
- * `minzoom` changes, moves here with it.
- */
-let layerStack: { id: SatelliteSourceId; minzoom: number }[] | null = null;
-
+/** The satellite raster stack, top down, with the global imagery at the bottom. */
 function satelliteLayerStack(): { id: SatelliteSourceId; minzoom: number }[] {
-  if (!layerStack) {
-    layerStack = getCombinedSatelliteStyle()
-      .layers.filter((l) => l.id.startsWith(LAYER_PREFIX) && 'minzoom' in l)
-      .map((l) => ({
-        // A multi-box source draws through `satellite-layer-<id>-<n>`, and
-        // every one of those is the same source and the same credit.
-        id: l.id.slice(LAYER_PREFIX.length).replace(/-\d+$/, '') as SatelliteSourceId,
-        minzoom: 'minzoom' in l ? l.minzoom : 0,
-      }))
-      .reverse();
-  }
-  return layerStack;
+  return [
+    ...REGIONAL_STACK.map(({ id, minZoom }) => ({ id, minzoom: minZoom })),
+    { id: 'eox', minzoom: 0 },
+  ];
 }
 
 /** The source drawn at one point on this zoom: the topmost that covers it. */
@@ -679,9 +610,17 @@ export function getCombinedSatelliteAttribution(
 export function rewriteSatelliteUrls(style: CombinedSatelliteMapStyle): CombinedSatelliteMapStyle {
   const rewritten: CombinedSatelliteMapStyle = JSON.parse(JSON.stringify(style));
   for (const [key, source] of Object.entries(rewritten.sources)) {
-    if (source.type !== 'raster' || !source.tiles) continue;
-    const native = nativeTileUrls(key, source.tiles[0]);
-    if (native) source.tiles = native;
+    const native = nativeCompositeTileUrls(key, satelliteProviders(key), SATELLITE_TILE_EXTENSION);
+    if (native) {
+      source.tiles = native;
+    } else if (key === SATELLITE_REGIONS_SOURCE) {
+      // Only the engine can choose a region's tiles, so without it the global
+      // imagery is all there is to draw.
+      delete rewritten.sources[key];
+      rewritten.layers = rewritten.layers.filter(
+        (layer) => !('source' in layer) || layer.source !== key
+      );
+    }
   }
   return rewritten;
 }

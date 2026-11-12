@@ -5,12 +5,20 @@
  * Performance investigation utilities - enable PERF_DEBUG to see timing logs.
  */
 
+import Constants from 'expo-constants';
 import { AppState } from 'react-native';
 
 import { hermesStats } from './hermesStats';
 
 // Toggle this to enable/disable performance logging
 export const PERF_DEBUG = __DEV__;
+
+/**
+ * Whether this build is the dev variant, which `app.config.js` records in `extra.variant`. An
+ * installable debug APK is bundled with `__DEV__` false, so the build variant is the gate a
+ * handset run can rely on; a production build carries `production`.
+ */
+export const COMMIT_MARK_ENABLED = __DEV__ || Constants.expoConfig?.extra?.variant === 'dev';
 
 const renderCounts: Map<string, number> = new Map();
 
@@ -49,12 +57,14 @@ export function logScreenRender(screenName: string): () => void {
 
 /**
  * Stamp a commit with a performance mark and log it as one `[COMMIT]` line. A handset run
- * greps logcat for the line beside the frame capture's timestamps. Debug builds only.
+ * greps logcat for the line beside the frame capture's timestamps. Dev-variant builds only.
+ * The line goes out through `console.error` because the release Babel config strips every other
+ * console method from an embedded bundle.
  */
 export function logCommitMark(name: string, detail: string): void {
-  if (!PERF_DEBUG) return;
+  if (!COMMIT_MARK_ENABLED) return;
   performance.mark(name);
-  console.log(`⏱ [COMMIT] ${name} ${detail} at ${performance.now().toFixed(1)}ms`);
+  console.error(`⏱ [COMMIT] ${name} ${detail} at ${performance.now().toFixed(1)}ms`);
 }
 
 /**

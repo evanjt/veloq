@@ -34,7 +34,6 @@ import { useMapHeldFocus, useMapSheetHost } from '@/shared/app/MapSheetHost';
 import {
   useSettleCamera,
   BaseMapView,
-  type BaseMap3DLayer,
   boundsOfLngLat,
   featureCollection,
   getStyleIcon,
@@ -629,17 +628,6 @@ export const SectionMapView = memo(function SectionMapView({
     [isFullscreen, fullscreenSpecArgs]
   );
 
-  // Fullscreen in 3D draws the trim and the highlighted activity and lap the
-  // inline 3D map does, from the same collections.
-  const fullscreenLayer3D = useMemo<BaseMap3DLayer>(
-    () => ({
-      sectionTrimGeoJSON,
-      highlightedTraceGeoJSON: overlays3D.highlightGeoJSON,
-      highlightCoordinate: scrubCoordinate3D,
-    }),
-    [sectionTrimGeoJSON, overlays3D.highlightGeoJSON, scrubCoordinate3D]
-  );
-
   if (!bounds || displayPoints.length === 0) {
     return (
       <View
@@ -875,7 +863,6 @@ export const SectionMapView = memo(function SectionMapView({
           overlaySources={fullscreenSources}
           overlayLayers={fullscreenLayers}
           overlayImages={ENDPOINT_AND_DIRECTION_IMAGES}
-          layer3D={fullscreenLayer3D}
         />
         {hasLegendLayers(legendLayers) && (
           <DetailMapLegend

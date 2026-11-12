@@ -21,7 +21,9 @@
  * key on: the head window is seconds in, the settle is minutes.
  *
  * Demo mode holds no credential, so it skips the sync entirely and reads the
- * rows `seedDemoEngine` wrote.
+ * rows `seedDemoEngine` wrote. A Garmin-only session holds no intervals.icu
+ * credential either, so it asks for no sync: the root layout starts its Garmin
+ * pull once the key is back in the engine, and a wipe starts it again here.
  */
 import { useEffect, useRef, useState } from 'react';
 import { hasStarted, SyncState } from 'veloqrs';
@@ -29,6 +31,7 @@ import { hasStarted, SyncState } from 'veloqrs';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from '@/shared/app/NetworkContext';
+import { sourceFor } from '@/shared/app/source';
 
 import { scheduleWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 
@@ -36,11 +39,14 @@ import { cancelSyncRefresh } from './syncRefresh';
 
 import { getEngine } from './engine';
 import { subscribeToFallbackTick } from './eventFallback';
+import { pullGarminNow } from './garminPull';
 import { useSyncState } from './useSyncStatus';
 
 export function useEngineSync(): void {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
+  const authMethod = useAuthStore((s) => s.authMethod);
+  const garminOnly = sourceFor({ authMethod })?.id === 'garmin';
   const state = useSyncState();
   const { hasReading } = useNetwork();
   const engineReadyNonce = useEngineStatus((s) => s.readyNonce);
@@ -54,7 +60,7 @@ export function useEngineSync(): void {
     // The engine holds no network reading until the provider's first one has
     // been pushed, and a sync started before it would run believing it is
     // online. The reading's arrival brings the effect back.
-    if (!isAuthenticated || isDemoMode || startedRef.current || !hasReading) return;
+    if (!isAuthenticated || isDemoMode || garminOnly || startedRef.current || !hasReading) return;
     const engine = getEngine();
     if (!engine) return;
     // This hook mounts before the root layout has opened the engine, so the
@@ -64,7 +70,7 @@ export function useEngineSync(): void {
     // The profile is left to the engine's age gate, and a pull to refresh is
     // what forces it.
     startedRef.current = hasStarted(engine.syncNow(false));
-  }, [isAuthenticated, isDemoMode, hasReading, engineReadyNonce, resetNonce]);
+  }, [isAuthenticated, isDemoMode, garminOnly, hasReading, engineReadyNonce, resetNonce]);
 
   // Re-arm on logout so the next session syncs again. A pull-to-refresh held
   // for the settle that never came goes with it: the next athlete did not ask
@@ -111,9 +117,10 @@ export function useEngineSync(): void {
       // before it has nothing left to refresh.
       cancelSyncRefresh();
       setResetNonce((nonce) => nonce + 1);
+      if (garminOnly) pullGarminNow();
     });
     return () => unsubscribe?.();
-  }, [engineReadyNonce]);
+  }, [engineReadyNonce, garminOnly]);
 
   useEffect(() => {
     if (state === SyncState.Syncing) {

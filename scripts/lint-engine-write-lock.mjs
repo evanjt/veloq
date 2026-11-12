@@ -21,6 +21,7 @@ import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { treeSources } from './lib/indexedSources.mjs';
 import { withoutTestItems } from './lib/rustTestItems.mjs';
+import { settleRatchet } from './lib/baselineRatchet.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const flagValue = (name, fallback) => {
@@ -93,11 +94,11 @@ if (over.length > 0) {
     console.error(`  ${file}  ${n}, baseline ${allowed}`);
   }
 }
-if (under.length > 0) {
-  console.error('\nThe tree has beaten its baseline. Lower it, so the ground stays taken:');
-  for (const [file, n, allowed] of under) {
-    console.error(`  ${file}  ${n}, baseline ${allowed}`);
-  }
-  console.error('\n  npm run lint:engine-write-lock -- --write');
-}
-process.exit(1);
+process.exit(
+  settleRatchet({
+    over,
+    under,
+    line: ([file, n, allowed]) => `  ${file}  ${n}, baseline ${allowed}`,
+    writeCommand: 'npm run lint:engine-write-lock -- --write',
+  })
+);

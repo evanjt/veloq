@@ -24,6 +24,7 @@
     "src/**/*.tsx",
     "modules/**/*.ts",
     "modules/**/*.tsx",
+    "web/**/*.ts",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],

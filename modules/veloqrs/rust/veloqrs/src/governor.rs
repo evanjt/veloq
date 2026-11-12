@@ -491,7 +491,8 @@ pub struct BudgetSnapshot {
 
 /// The request budget as the Developer Dashboard shows it. Instants are
 /// seconds since the epoch, the unit every other date on the surface uses.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRequestBudget {
     pub user_today: u32,
     pub sync_today: u32,
@@ -528,7 +529,8 @@ impl From<BudgetSnapshot> for FfiRequestBudget {
 /// What the backfill has drawn of its daily allowance, as the sync settings
 /// show it. Instants are epoch milliseconds, the unit the background jobs read
 /// uses.
-#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiDailyLimit {
     /// Requests the backfill has drawn in this budget day.
     pub used: u32,
@@ -1146,6 +1148,10 @@ pub struct Governor {
     clock: fn() -> DateTime<Utc>,
     /// Announces that the day's counts moved, at most once per window.
     count_notice: CountNotice,
+    /// Whether a retry backoff is counted and not slept. Off in production.
+    skip_backoff_waits: bool,
+    /// The retry backoff not slept, in nanoseconds.
+    skipped_backoff_nanos: std::sync::atomic::AtomicU64,
 }
 
 /// No jitter, for a governor whose waits a test reads back.
@@ -1169,7 +1175,37 @@ impl Governor {
             jitter: no_jitter,
             clock: Utc::now,
             count_notice: CountNotice::new(COUNT_NOTICE_WINDOW, announce_count_moved),
+            skip_backoff_waits: false,
+            skipped_backoff_nanos: std::sync::atomic::AtomicU64::new(0),
         }
+    }
+
+    /// Count each retry backoff the transport would wait instead of sleeping
+    /// it, for a run that refuses requests on purpose and asserts on what
+    /// follows the refusal, not on how long the retry ladder takes.
+    pub fn without_backoff_waits(mut self) -> Self {
+        self.skip_backoff_waits = true;
+        self
+    }
+
+    /// The retry backoff counted and not slept since this governor was built.
+    pub fn skipped_backoff(&self) -> Duration {
+        Duration::from_nanos(
+            self.skipped_backoff_nanos
+                .load(std::sync::atomic::Ordering::SeqCst),
+        )
+    }
+
+    /// Wait out a retry backoff, or count it when this governor skips them.
+    pub(crate) async fn backoff_pause(&self, wait: Duration) {
+        if self.skip_backoff_waits {
+            self.skipped_backoff_nanos.fetch_add(
+                u64::try_from(wait.as_nanos()).unwrap_or(u64::MAX),
+                std::sync::atomic::Ordering::SeqCst,
+            );
+            return;
+        }
+        pause(wait).await;
     }
 
     /// Read every instant from `clock` rather than the wall clock, so a test

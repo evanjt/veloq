@@ -9,11 +9,24 @@
 //
 // Usage: node scripts/lint-source-rules.mjs --rule <name> [--root <dir>]
 
+import { createRequire } from 'node:module';
 import { posix } from 'node:path';
 
-import ts from 'typescript';
-
 import { indexedSources, refuseEmptyListing } from './lib/indexedSources.mjs';
+
+// The compiler takes most of this script's start-up, and most rules read lines
+// of text and never parse. It loads on the first use.
+const nodeRequire = createRequire(import.meta.url);
+let compiler;
+const ts = new Proxy(
+  {},
+  {
+    get: (_target, name) => {
+      compiler ??= nodeRequire('typescript');
+      return compiler[name];
+    },
+  }
+);
 
 const flag = (name) => {
   const i = process.argv.indexOf(name);

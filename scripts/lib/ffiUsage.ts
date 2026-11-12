@@ -395,6 +395,8 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
     'written back when the app backgrounds, through a lazy require the scan does not follow',
   'BasemapManager.setSourceTemplate':
     "handed each source's upstream template at style load, through a lazy require the scan does not follow",
+  'BasemapManager.setCompositeSource':
+    "handed each satellite composite's providers at style load, through a lazy require the scan does not follow",
   'BasemapManager.tileListener':
     "asked for the Android listener's ports and token at style load and on a return to the foreground, through a lazy require the scan does not follow",
   'BasemapManager.getOrFetchTile':

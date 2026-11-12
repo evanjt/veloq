@@ -73,11 +73,22 @@ fn retire(engine: &PersistentEngine, section_id: &str, kind: &str, details: &str
         .expect("the departure");
 }
 
-/// Bring the stored ground pairs level, as the background worker does.
-fn level(engine: &PersistentEngine) {
+/// Bring the stored ground pairs level, as the background worker does, and say
+/// how many passes wrote.
+///
+/// Takes the serial guard: a level writes against the process-wide install
+/// counter, and a serial test that opens or wipes an engine moves it, so a
+/// level running beside one is refused with `InvalidQuery`.
+fn level_passes(engine: &PersistentEngine) -> usize {
+    let _serial = crate::test_globals::serial_global_state();
     engine
         .level_retired_pairs()
-        .expect("level the ground pairs");
+        .expect("level the ground pairs")
+}
+
+/// Level the ground pairs and drop the read cache, so the next read sees them.
+fn level(engine: &PersistentEngine) {
+    level_passes(engine);
     crate::persistence::read_cache::clear();
 }
 
@@ -583,7 +594,7 @@ fn a_changed_line_rescans_only_its_own_pairs() {
     );
 
     reset_scans();
-    assert_eq!(engine.level_retired_pairs().expect("level"), 0);
+    assert_eq!(level_passes(&engine), 0);
     assert_eq!(scans(), 0, "a level table owes nothing");
 
     let incremental = stored_pairs(&engine);

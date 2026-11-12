@@ -57,6 +57,30 @@ impl MapManager {
         })
     }
 
+    /// The activities whose tracks pass under a point on the heatmap, grouped
+    /// by route and capped, newest first.
+    ///
+    /// Async because it decodes the tracks whose boxes hold the point: 7 to 9
+    /// ms in release at the densest cell of a 2,077-activity library, 33 to
+    /// 40 ms in debug, on a tap whose transition is already running. It takes
+    /// no engine lock. A heatmap that is off answers an empty result.
+    async fn activities_under_point(
+        &self,
+        latitude: f64,
+        longitude: f64,
+        zoom: u8,
+    ) -> Result<crate::FfiActivitiesUnderPoint, VeloqError> {
+        crate::runtime::ASYNC_RUNTIME
+            .spawn_blocking(move || {
+                crate::persistence::under_point::activities_under_point(latitude, longitude, zoom)
+            })
+            .await
+            .unwrap_or_else(|e| {
+                log::warn!("veloqrs: [MapManager] the under-point thread died: {e}");
+                Err(VeloqError::NotInitialized)
+            })
+    }
+
     fn get_all_signatures(&self) -> Result<Vec<crate::ffi_types::FfiMapSignature>, VeloqError> {
         with_reader(crate::persistence::activities::pooled::all_map_signatures)
     }
@@ -187,6 +211,27 @@ mod tests {
             "the total is the library, not the window"
         );
         assert!(outside.activities.is_empty());
+    }
+
+    /// Scenario: the athlete taps the map with the heatmap off.
+    ///
+    /// Expected behaviour: the export resolves with an empty result, not an
+    /// error, so the page opens nothing.
+    #[test]
+    fn a_tap_with_the_heatmap_off_answers_an_empty_result() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("under_point_off.db");
+        with_persistent_engine(|e| {
+            seed_box(e, "a1", 46.2, 7.3);
+            e.clear_heatmap_tiles_path();
+        })
+        .unwrap();
+
+        let found =
+            crate::runtime::block_on(MapManager::new().activities_under_point(46.2, 7.3, 14))
+                .expect("an empty answer");
+
+        assert_eq!(found, crate::FfiActivitiesUnderPoint::default());
     }
 
     /// Scenario: the athlete drags the map while a sync page commits.

@@ -23,8 +23,26 @@ fn departed_rides(
         .collect()
 }
 
+/// Give a section a name, or clear it with an empty one. The phone's rename
+/// and the linked browser's both end here, so a taken name is refused the
+/// same way on each.
+pub(crate) fn rename_section(
+    engine: &mut crate::persistence::PersistentEngine,
+    section_id: &str,
+    name: &str,
+) -> Result<(), VeloqError> {
+    let name = (!name.is_empty()).then_some(name);
+    engine
+        .set_section_name(section_id, name)
+        .map_err(|e| match e {
+            SectionNameError::Taken(name) => VeloqError::NameTaken { name },
+            SectionNameError::Failed(msg) => VeloqError::Database { msg },
+        })
+}
+
 /// One edit to a section's line, each re-matching the section's rides.
-#[derive(Debug, Clone, uniffi::Enum)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiSectionBoundsEdit {
     /// Cut the section's own line to `start_index..=end_index`.
     Trim {
@@ -341,18 +359,7 @@ impl SectionManager {
     }
 
     fn set_name(&self, section_id: String, name: String) -> Result<(), VeloqError> {
-        let name_opt = if name.is_empty() {
-            None
-        } else {
-            Some(name.as_str())
-        };
-        with_engine(|e| {
-            e.set_section_name(&section_id, name_opt)
-                .map_err(|e| match e {
-                    SectionNameError::Taken(name) => VeloqError::NameTaken { name },
-                    SectionNameError::Failed(msg) => VeloqError::Database { msg },
-                })
-        })?
+        with_engine(|e| rename_section(e, &section_id, &name))?
     }
 
     /// Mark or unmark a section as a lift.
@@ -720,15 +727,19 @@ impl SectionManager {
             use crate::persistence::sections::ranking::pooled as ranking;
             let names = named::pooled::overlay_names(conn);
             let candidates = ranking::workout_candidates(conn, &sport_type, limit, &names);
-            ranking::workout_sections(candidates, chrono::Utc::now().timestamp(), |id| {
-                crate::persistence::fitness::performances::pooled::cached_section_performances(
-                    conn,
-                    id,
-                    Some(&sport_type),
-                )
-                .as_ref()
-                .clone()
-            })
+            ranking::workout_sections(
+                candidates,
+                crate::persistence::sections::ranking::wall_now(),
+                |id| {
+                    crate::persistence::fitness::performances::pooled::cached_section_performances(
+                        conn,
+                        id,
+                        Some(&sport_type),
+                    )
+                    .as_ref()
+                    .clone()
+                },
+            )
         })
     }
 

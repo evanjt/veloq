@@ -2,3 +2,11 @@
 # lower count per key rather than as text. The driver is named in git config
 # by scripts/install-merge-drivers.mjs, which `prepare` runs.
 scripts/style-literal-baseline.json merge=ratchet-baseline
+
+# Generated from the link method table and the engine's exports. A merge keeps
+# this side's text and the landing regenerates all three over the merged tree
+# (scripts/regenerate-link-files.mjs), so two branches that each add a link
+# method never conflict here.
+web/connect/methods.json merge=regenerated
+web/connect/schema.d.ts merge=regenerated
+modules/veloqrs/src/generated/veloqrs.ts merge=regenerated

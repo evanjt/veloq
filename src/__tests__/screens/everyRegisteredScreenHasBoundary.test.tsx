@@ -18,10 +18,9 @@ describe('registered screens', () => {
   const names = Object.keys(SCREEN_HEADERS).filter((name) => name !== TAB_GROUP);
 
   it.each(names)('%s default export renders inside a screen boundary', (name) => {
-    let screen: { default: { displayName?: string } };
-    jest.isolateModules(() => {
-      screen = require(`@/app/${name}`);
-    });
-    expect(screen!.default.displayName).toMatch(/^withScreenBoundary\(/);
+    // One registry for the file: the screens share most of their imports, which
+    // load once instead of once per screen.
+    const screen: { default: { displayName?: string } } = require(`@/app/${name}`);
+    expect(screen.default.displayName).toMatch(/^withScreenBoundary\(/);
   });
 });

@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import type { Athlete } from '@/types';
 import { getEngine } from '@/shared/native/engine';
 import { DEMO_ATHLETE_ID, sourceFor, type AuthMethod } from '@/shared/app/source';
+import { garminAthleteId, resolveStoredSession } from '@/shared/app/storedSession';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import {
   CREDENTIAL_KEYCHAIN_OPTIONS,
@@ -56,6 +57,9 @@ export { DEMO_ATHLETE_ID, type AuthMethod } from '@/shared/app/source';
  * Safe to call before the engine exists: the delegate no-ops until
  * `initWithPath` has run, and the layout init effect calls this again once it
  * has. A credential the engine cannot use is cleared rather than left stale.
+ * A Garmin-only session and demo hold no intervals.icu credential, so both
+ * clear it. The engine's Garmin key is a separate credential and is not
+ * touched here.
  */
 export function pushCredentialsToEngine(): void {
   const engine = getEngine();
@@ -185,6 +189,11 @@ interface AuthState {
     athleteId: string,
     athleteName?: string
   ) => Promise<void>;
+  /**
+   * Sign in with a Garmin Personal key alone. `accountId` is the id Garmin
+   * keeps for the account, and names the library as `garmin:<id>`.
+   */
+  setGarminCredentials: (key: string, accountId: string) => Promise<void>;
   clearCredentials: () => Promise<void>;
   setAthlete: (athlete: Athlete) => void;
   enterDemoMode: () => void;
@@ -219,9 +228,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           ATHLETE_ID_STORAGE_KEY,
           ACCESS_TOKEN_STORAGE_KEY,
           API_KEY_ATHLETE_STORAGE_KEY,
+          GARMIN_KEY_STORAGE_KEY,
         ]
       );
-      const [apiKey, athleteId, accessToken, apiKeyAthleteId] = values;
+      const [apiKey, athleteId, accessToken, apiKeyAthleteId, garminKey] = values;
       if (failedKeys.length > 0 && __DEV__) {
         console.warn(`[AuthStore] Keychain would not read: ${failedKeys.join(', ')}`);
       }
@@ -229,17 +239,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         console.warn(`[AuthStore] Keychain moved to the shared group: ${migratedKeys.join(', ')}`);
       }
 
-      // Determine auth method: OAuth takes priority over API key
-      let authMethod: AuthMethod = null;
-      let isAuthenticated = false;
-
-      if (isValidCredential(accessToken) && isValidCredential(athleteId)) {
-        authMethod = 'oauth';
-        isAuthenticated = true;
-      } else if (isValidCredential(apiKey) && isValidCredential(athleteId)) {
-        authMethod = 'apiKey';
-        isAuthenticated = true;
-      }
+      // OAuth takes priority over an API key, and a Garmin key alone is a
+      // session only with the library identity its sign-in wrote.
+      const { authMethod, isAuthenticated } = resolveStoredSession({
+        apiKey,
+        accessToken,
+        athleteId,
+        garminKey,
+      });
 
       set({
         apiKey: isValidCredential(apiKey) ? apiKey.trim() : null,
@@ -295,7 +302,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }),
       // Clear OAuth token when using API key auth
       deleteCredential(secureStoreIo, ACCESS_TOKEN_STORAGE_KEY),
-      deleteCredential(secureStoreIo, GARMIN_KEY_STORAGE_KEY),
     ]);
 
     const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');
@@ -373,7 +379,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  setGarminCredentials: async (key: string, accountId: string) => {
+    const trimmedKey = key?.trim() ?? '';
+    const trimmedAccountId = accountId?.trim() ?? '';
+    if (!isValidCredential(trimmedKey) || !isValidCredential(trimmedAccountId)) {
+      if (__DEV__) {
+        console.warn('[AuthStore] Invalid Garmin credentials - empty or whitespace only');
+      }
+      return;
+    }
+    const athleteId = garminAthleteId(trimmedAccountId);
+
+    await Promise.all([
+      SecureStore.setItemAsync(GARMIN_KEY_STORAGE_KEY, trimmedKey, {
+        ...CREDENTIAL_KEYCHAIN_OPTIONS,
+      }),
+      SecureStore.setItemAsync(ATHLETE_ID_STORAGE_KEY, athleteId, {
+        ...CREDENTIAL_KEYCHAIN_OPTIONS,
+      }),
+      // No intervals.icu credential belongs to this session.
+      deleteCredential(secureStoreIo, API_KEY_STORAGE_KEY),
+      deleteCredential(secureStoreIo, API_KEY_ATHLETE_STORAGE_KEY),
+      deleteCredential(secureStoreIo, ACCESS_TOKEN_STORAGE_KEY),
+    ]);
+
+    const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');
+    await clearPendingApiKey();
+
+    set({
+      apiKey: null,
+      accessToken: null,
+      athleteId,
+      athlete: null,
+      isAuthenticated: true,
+      isDemoMode: false,
+      authMethod: 'garmin',
+      sessionExpired: null,
+    });
+    pushCredentialsToEngine();
+  },
+
   clearCredentials: async () => {
+    const endsGarminSession = get().authMethod === 'garmin';
     await holdOutgoingRecording(get().athleteId);
     await releasePushRegistration({ credentialEnds: true });
 
@@ -383,6 +430,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       deleteCredential(secureStoreIo, ATHLETE_ID_STORAGE_KEY),
       deleteCredential(secureStoreIo, ACCESS_TOKEN_STORAGE_KEY),
     ]);
+
+    // The Garmin key is a connector on an intervals.icu account and survives
+    // that account's sign-out. It is the session itself when it was the way in,
+    // and signing out of that session disconnects Garmin.
+    if (endsGarminSession) {
+      try {
+        const { disconnectGarmin } = require('@/features/settings/lib/garminConnector');
+        await disconnectGarmin();
+      } catch (error) {
+        // The identity is already gone, so a key that could not be removed signs nobody in.
+        if (__DEV__) console.warn(`[AuthStore] Garmin could not be disconnected: ${String(error)}`);
+      }
+    }
 
     const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');
     await clearPendingApiKey();

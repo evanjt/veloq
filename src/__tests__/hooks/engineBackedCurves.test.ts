@@ -69,6 +69,7 @@ function powerCurve(): PowerCurveRow {
     models: [],
     activities: {},
     fetchedAt: FETCHED_AT,
+    source: 'intervals',
   };
 }
 
@@ -80,6 +81,7 @@ function paceCurve(extra: Partial<PaceCurveRow> = {}): PaceCurveRow {
     pace: [5],
     activities: {},
     fetchedAt: FETCHED_AT,
+    source: 'intervals',
     ...extra,
   };
 }

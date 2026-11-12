@@ -46,6 +46,7 @@ export { demoEntryAction, resolveStoredActivityCount } from './lib/storedActivit
 
 export {
   useApiKeyLogin,
+  useGarminLogin,
   useOAuthLogin,
   useApiKeyPrefill,
   useSessionExpiryNotice,
@@ -56,5 +57,6 @@ export {
   LanguagePicker,
   OAuthLoginForm,
   ApiKeyLoginForm,
+  GarminLoginForm,
   SessionExpiredNotice,
 } from './components';

@@ -42,6 +42,9 @@ const IGNORED_BY_RULE = [
   'modules/veloqrs/android/src/main/jniLibs/',
   'modules/veloqrs/build/',
   'modules/veloqrs/ios/Frameworks/',
+  // The connect page, built from web/connect/ by the deploy workflow with
+  // Node alone, so a fresh clone and CI can both regenerate it.
+  'docs/connect/',
   // Expo's prebuild output, whole: see NATIVE_PROJECTS.
   'android/',
   'ios/',

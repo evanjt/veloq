@@ -1,5 +1,6 @@
 //! The remote link: a linked browser reading the library over WebRTC.
 
+pub mod bytes;
 pub mod digest;
 pub mod pairing;
 pub mod peer;

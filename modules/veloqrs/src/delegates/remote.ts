@@ -39,6 +39,12 @@ export function disconnectAll(host: DelegateHost): void {
   host.timed('disconnectAll', () => host.engine.remote().disconnectAll());
 }
 
+/** Say whether the app is in front; a linked browser's write is answered only while it is. */
+export function setInFront(host: DelegateHost, inFront: boolean): void {
+  if (!host.ready) return;
+  host.timed('setInFront', () => host.engine.remote().setInFront(inFront));
+}
+
 /** How many linked browsers are connected now. */
 export function connectedCount(host: DelegateHost): number {
   if (!host.ready) return 0;

@@ -48,7 +48,7 @@ export function findChromium(): string | null {
 }
 
 /** A 256 px square PNG of one grey, which decodes as a raster tile and a flat DEM. */
-function greyPng(): Buffer {
+export function greyPng(): Buffer {
   const size = 256;
   const chunk = (type: string, data: Buffer) => {
     const length = Buffer.alloc(4);
@@ -158,7 +158,7 @@ interface Pending {
 type Listener = (params: Record<string, unknown>, sessionId?: string) => void;
 
 /** A DevTools protocol connection over Chromium's `--remote-debugging-pipe`. */
-class Protocol {
+export class Protocol {
   private nextId = 1;
   private pending = new Map<number, Pending>();
   private listeners = new Map<string, Listener[]>();

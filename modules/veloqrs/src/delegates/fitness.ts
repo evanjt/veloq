@@ -335,6 +335,8 @@ interface CurveRow {
   days?: number;
   /** Epoch milliseconds, so callers compare it against `Date.now()`. */
   fetchedAt: number;
+  /** `intervals` for a body the server sent, `veloq` for one worked out on the phone. */
+  source: string;
 }
 
 /** A stored power curve, parsed by the engine. */

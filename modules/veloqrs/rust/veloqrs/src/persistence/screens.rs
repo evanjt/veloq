@@ -82,6 +82,63 @@ pub fn cache_screen_data(
     })
 }
 
+/// The sport families the thresholds screen offers, by the sport type that
+/// keys their figures.
+const THRESHOLD_SPORTS: [&str; 2] = ["Ride", "Run"];
+
+/// The thresholds screen's read: each offered sport's figures as they stand now.
+pub fn thresholds_screen_data(conn: &rusqlite::Connection) -> crate::FfiThresholdsScreenData {
+    thresholds_screen_at(conn, chrono::Utc::now().timestamp())
+}
+
+/// [`thresholds_screen_data`] as of `at`, in Unix seconds.
+pub(crate) fn thresholds_screen_at(
+    conn: &rusqlite::Connection,
+    at: i64,
+) -> crate::FfiThresholdsScreenData {
+    use crate::persistence::fitness::sport_settings::{ThresholdField, thresholds_for};
+    let fields = [
+        (crate::FfiThresholdField::Ftp, ThresholdField::Ftp),
+        (
+            crate::FfiThresholdField::ThresholdHr,
+            ThresholdField::ThresholdHr,
+        ),
+        (crate::FfiThresholdField::MaxHr, ThresholdField::MaxHr),
+        (
+            crate::FfiThresholdField::RestingHr,
+            ThresholdField::RestingHr,
+        ),
+        (crate::FfiThresholdField::WeightKg, ThresholdField::WeightKg),
+    ];
+    let sports = THRESHOLD_SPORTS
+        .iter()
+        .map(|sport| {
+            let found = thresholds_for(conn, sport, at);
+            crate::FfiSportThresholds {
+                sport: (*sport).to_string(),
+                figures: fields
+                    .iter()
+                    .map(|(ffi, field)| {
+                        let sourced = found.get(*field);
+                        crate::FfiThresholdFigure {
+                            field: *ffi,
+                            value: sourced.map(|s| s.value),
+                            source: sourced.map(|s| s.source.into()),
+                        }
+                    })
+                    .collect(),
+            }
+        })
+        .collect();
+    crate::FfiThresholdsScreenData {
+        sports,
+        hr_zone_default_percents: DEFAULT_HR_ZONE_UPPER_FRACTIONS
+            .iter()
+            .map(|f| (f * 100.0).round())
+            .collect(),
+    }
+}
+
 /// Most sections each feature's walk reads in full, busiest first. A full
 /// performance read is paid per section, so each walk is capped there.
 const EXAMPLE_SCAN_LIMIT: usize = 20;
@@ -1634,7 +1691,10 @@ where
     use crate::persistence::fitness::performances::laps;
     use crate::persistence::sections::{chart_from_cutoff, range_cutoff};
 
-    let cutoff = range_cutoff(time_range_days);
+    let cutoff = range_cutoff(
+        time_range_days,
+        crate::persistence::sections::ranking::wall_now(),
+    );
 
     // A sport is offered when it has a lap on the chart over the range, an
     // excluded lap to restore, or a pass that crosses no gate and is listed as
@@ -2778,11 +2838,14 @@ pub mod pooled {
         let group = routes::group_by_id(conn, &highlight.route_id)?;
         let excluded = routes::excluded_route_activity_ids(conn, &highlight.route_id);
         let match_info = routes::match_info(conn, &highlight.route_id);
+        let mut member_ids = group.activity_ids.clone();
+        member_ids.push(activity_id.to_string());
+        let metrics = activities::metrics_for_ids(conn, &member_ids);
         let result = route_performances(
             &group.activity_ids,
             Some(&match_info),
             &excluded,
-            |id| activities::metrics_of(conn, id),
+            |id| metrics.get(id).cloned(),
             Some(activity_id),
             None,
         );
@@ -2900,10 +2963,7 @@ pub mod pooled {
         let match_info = routes::match_info(conn, group_id);
         // Read once: every sport's included and excluded attempts are taken
         // from the same members.
-        let metrics: std::collections::HashMap<&str, crate::ActivityMetrics> = activity_ids
-            .iter()
-            .filter_map(|id| activities::metrics_of(conn, id).map(|m| (id.as_str(), m)))
-            .collect();
+        let metrics = activities::metrics_for_ids(conn, &activity_ids);
         let metrics_of = |id: &str| metrics.get(id).cloned();
         let route_distance = group
             .as_ref()

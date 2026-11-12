@@ -16,6 +16,7 @@ import { BaseMapView, type BaseMapViewProps } from '@/features/maps/components/B
 import { MapSurface, type MapCameraState } from '@/features/maps/components/MapSurface';
 import { CompassArrow } from '@/shared/ui';
 import { darkColors } from '@/theme';
+import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
 
 // The map page is hidden from screen readers, so a query reaching it includes hidden elements.
 const MAP_PAGE = { includeHiddenElements: true };
@@ -46,12 +47,23 @@ jest.mock('expo-location', () => ({
 // handed and the camera moves sent through its ref.
 const mockSurfaceProbe: {
   sources: Record<string, { data?: GeoJSON.FeatureCollection }>;
+  layers: { id: string; paint?: Record<string, unknown> }[];
+  interactiveLayers: string[] | undefined;
+  terrain: unknown;
+  mounts: number;
   initialCamera: unknown;
   setCamera: jest.Mock;
-} = { sources: {}, initialCamera: null, setCamera: jest.fn() };
+} = {
+  sources: {},
+  layers: [],
+  interactiveLayers: undefined,
+  terrain: null,
+  mounts: 0,
+  initialCamera: null,
+  setCamera: jest.fn(),
+};
 
-// The real 3D layer is rendered, wrapped so the test can read what it was
-// handed and drive the callbacks its page would.
+// The terrain page is wrapped only to see whether anything mounts it.
 const mockMap3DProbe: { props: Record<string, unknown> | null } = { props: null };
 
 jest.mock('@/features/maps/components/Map3DWebView', () => {
@@ -75,10 +87,22 @@ jest.mock('@/features/maps/components/MapSurface', () => {
     ...actual,
     MapSurface: ReactLocal.forwardRef(
       (
-        props: { sources: (typeof mockSurfaceProbe)['sources']; initialCamera: unknown },
+        props: {
+          sources: (typeof mockSurfaceProbe)['sources'];
+          layers: (typeof mockSurfaceProbe)['layers'];
+          interactiveLayers: string[] | undefined;
+          terrain: unknown;
+          initialCamera: unknown;
+        },
         ref: React.Ref<unknown>
       ) => {
         mockSurfaceProbe.sources = props.sources;
+        mockSurfaceProbe.layers = props.layers;
+        mockSurfaceProbe.interactiveLayers = props.interactiveLayers;
+        mockSurfaceProbe.terrain = props.terrain;
+        ReactLocal.useEffect(() => {
+          mockSurfaceProbe.mounts += 1;
+        }, []);
         // The surface builds its page from the camera it mounted with and
         // reads no later one, so that is the camera recorded.
         mockSurfaceProbe.initialCamera = ReactLocal.useRef(props.initialCamera).current;
@@ -280,18 +304,6 @@ describe('BaseMapView', () => {
     timing.mockRestore();
   });
 
-  it('swaps in the terrain view when 3D is enabled and back out again', async () => {
-    await renderMap({ routeCoordinates: ROUTE });
-
-    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
-
-    await fireEvent.press(screen.getByTestId('map-3d-toggle'));
-    expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
-
-    await fireEvent.press(screen.getByTestId('map-3d-toggle'));
-    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
-  });
-
   it('forwards map presses to the caller', async () => {
     const onPress = jest.fn();
     await renderMap({ routeCoordinates: ROUTE, onPress });
@@ -316,88 +328,55 @@ describe('BaseMapView', () => {
   });
 
   describe('in 3D', () => {
-    const TRIM: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: { kind: 'trimmed' },
-          geometry: { type: 'LineString', coordinates: ROUTE.slice(0, 2) },
-        },
-      ],
-    };
-    const HIGHLIGHT: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: { activityId: 'ride-a' },
-          geometry: { type: 'LineString', coordinates: ROUTE },
-        },
-      ],
-    };
-
     beforeEach(() => {
       mockMap3DProbe.props = null;
+      mockSurfaceProbe.mounts = 0;
     });
 
-    async function enter3D() {
-      await fireEvent.press(screen.getByTestId('map-3d-toggle'));
-      await act(() => {
-        (mockMap3DProbe.props!.onMapReady as () => void)();
-      });
-    }
+    it('tilts the one surface over terrain and mounts no separate terrain page', async () => {
+      await renderMap({ routeCoordinates: ROUTE });
+      expect(mockSurfaceProbe.terrain).toBeNull();
 
-    it('hands the terrain layer the overlays the caller drew in 2D', async () => {
+      await fireEvent.press(screen.getByTestId('map-3d-toggle'));
+
+      expect(mockSurfaceProbe.terrain).toEqual({
+        exaggeration: TERRAIN_3D_CONFIG.defaultExaggeration,
+        pitch: TERRAIN_3D_CONFIG.defaultPitch,
+      });
+      expect(mockMap3DProbe.props).toBeNull();
+      expect(screen.getAllByTestId('maplibre-map', MAP_PAGE)).toHaveLength(1);
+
+      await fireEvent.press(screen.getByTestId('map-3d-toggle'));
+      expect(mockSurfaceProbe.terrain).toBeNull();
+    });
+
+    it('keeps the surface, its camera and the caller overlays through the toggle', async () => {
       await renderMap({
         routeCoordinates: ROUTE,
-        layer3D: { sectionTrimGeoJSON: TRIM, highlightedTraceGeoJSON: HIGHLIGHT },
+        bounds: BOUNDS,
+        overlaySources: OVERLAY_SOURCES,
+        overlayLayers: OVERLAY_LAYERS,
+        interactiveLayers: ['marks-line'],
       });
+      const camera = mockSurfaceProbe.initialCamera;
 
-      await enter3D();
-
-      expect(mockMap3DProbe.props!.sectionTrimGeoJSON).toBe(TRIM);
-      expect(mockMap3DProbe.props!.highlightedTraceGeoJSON).toBe(HIGHLIGHT);
-    });
-
-    it('sends a section marker tap on the terrain layer to the caller', async () => {
-      const onSectionClick = jest.fn();
-      await renderMap({ routeCoordinates: ROUTE, layer3D: { onSectionClick } });
-
-      await enter3D();
-      await act(() => {
-        (mockMap3DProbe.props!.onSectionClick as (id: string) => void)('hill-climb');
-      });
-
-      expect(onSectionClick).toHaveBeenCalledWith('hill-climb');
-    });
-
-    it('brings the flat map back where the terrain camera was left', async () => {
-      await renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
-
-      await enter3D();
-      expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
-      await act(() => {
-        (mockMap3DProbe.props!.onCameraStateChange as (c: unknown, g: boolean) => void)(
-          { center: [7.6, 46.7], zoom: 14, bearing: 30, pitch: 60 },
-          true
-        );
-      });
       await fireEvent.press(screen.getByTestId('map-3d-toggle'));
 
-      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
-      expect(mockSurfaceProbe.initialCamera).toEqual({ center: [7.6, 46.7], zoom: 14 });
+      expect(mockSurfaceProbe.mounts).toBe(1);
+      expect(mockSurfaceProbe.initialCamera).toBe(camera);
+      expect(mockSurfaceProbe.layers.map((layer) => layer.id)).toContain('marks-line');
+      expect(mockSurfaceProbe.interactiveLayers).toEqual(['marks-line']);
+      expect(mockSurfaceProbe.sources.marks).toBe(OVERLAY_SOURCES.marks);
     });
 
-    it('fits the bounds again on a later visit when the terrain camera never moved', async () => {
-      await renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
+    it('hands the overlay builders whether the surface is over terrain', async () => {
+      const overlayLayers = jest.fn(() => []);
+      await renderMap({ routeCoordinates: ROUTE, overlayLayers });
+      expect(overlayLayers).toHaveBeenLastCalledWith(expect.anything(), false);
 
-      await enter3D();
       await fireEvent.press(screen.getByTestId('map-3d-toggle'));
 
-      expect(mockSurfaceProbe.initialCamera).toEqual(
-        expect.objectContaining({ bounds: { sw: BOUNDS.sw, ne: BOUNDS.ne } })
-      );
+      expect(overlayLayers).toHaveBeenLastCalledWith(expect.anything(), true);
     });
   });
 

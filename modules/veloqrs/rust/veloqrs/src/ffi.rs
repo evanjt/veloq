@@ -15,7 +15,8 @@ use crate::objects::observer::Announcement;
 
 use crate::objects::sync::TIME_STREAM_CONCURRENCY;
 
-#[derive(Debug, Clone, Copy, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum EngineLogLevel {
     Boot,
     Info,
@@ -42,7 +43,8 @@ async fn park_track_auth_failure(
 
 /// Result of polling download progress.
 /// Used by TypeScript to show real-time progress without cross-thread callbacks.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct DownloadProgressResult {
     /// Number of activities fetched so far
     pub completed: u32,
@@ -67,6 +69,19 @@ pub async fn validate_credentials(
     secret: String,
 ) -> crate::objects::FfiCallOutcome {
     crate::objects::sync::validate_credentials_detached(method, secret).await
+}
+
+/// Check a pasted Garmin Personal key and report the account it belongs to,
+/// without holding it.
+///
+/// Standalone for the same reason as [`validate_credentials`]: the sign-in
+/// screen that offers a Garmin key as the only credential has no engine yet.
+/// The key is sent to Garmin's token endpoint and nowhere else, and a refused
+/// key leaves nothing behind. The app keeps an accepted key in the keychain,
+/// and the engine is given it once the library is open.
+#[uniffi::export]
+pub async fn check_garmin_key(key: String) -> crate::objects::garmin_key::GarminKeyCheck {
+    crate::objects::garmin_key::check_garmin_key(key).await
 }
 
 /// Ask one fetch-and-store run to stop. Returns whether that run was still in
@@ -118,7 +133,8 @@ pub fn get_fetch_run_progress(run: f64) -> DownloadProgressResult {
 
 /// Result of the combined fetch and store operation.
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FetchAndStoreResult {
     /// Activity IDs that were successfully fetched and stored
     pub synced_ids: Vec<String>,
@@ -137,7 +153,8 @@ pub struct FetchAndStoreResult {
 
 /// Sport type mapping for activities.
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct ActivitySportMapping {
     pub activity_id: String,
     pub sport_type: String,
@@ -151,7 +168,8 @@ pub struct ActivitySportMapping {
 
 /// What a picked backup file says about itself, read without touching the
 /// global engine.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiBackupValidation {
     /// The file's own schema version, as it stores it. `"0"` when the file
     /// carries no `schema_info` row at all.
@@ -538,7 +556,8 @@ pub(crate) fn start_fetch_and_store_ending_with_fetcher(
 }
 
 /// What `start_gps_pass` answered.
-#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiGpsPassStart {
     /// `Started`, or why not: `Busy` keeps the pass owed until the running one
     /// ends, `Held` keeps it owed until the request budget's hold lifts,
@@ -1357,7 +1376,8 @@ pub fn take_fetch_and_store_result(run: f64) -> Option<FetchAndStoreResult> {
 /// The single re-cut that follows a conversion runs detached and reports
 /// through `DetectionManager::get_progress`, so this record covers the download
 /// alone rather than duplicating a second detection progress surface.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct ElevationBackfillProgress {
     /// idle, fetching, complete, partial, paused, failed or waiting.
     pub phase: String,
@@ -1537,7 +1557,8 @@ pub fn get_stream_backfill_progress() -> StreamBackfillProgress {
 }
 
 /// What a poller sees while the stream backfill runs and after it settles.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct StreamBackfillProgress {
     /// One of idle, fetching, complete, partial, stopped, failed,
     /// awaiting_consent, deferred, waiting.
@@ -1576,7 +1597,8 @@ pub fn is_cutover_held() -> bool {
 
 /// How far a detector cutover has got. The phase is the whole story: a cut has
 /// no unit of work to count, unlike the elevation queue.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct CutoverProgress {
     /// idle, draining, archiving, detecting, diffing, complete, failed, or
     /// failed_after_apply once the new catalogue had landed.
@@ -1605,7 +1627,8 @@ pub struct CutoverProgress {
 /// a tick landing while a sync write holds it stalls the caller for as long as
 /// that write runs; it changes only when activities land or a detect applies,
 /// which are both announced, so it is read on those channels instead.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRoutesStatusData {
     /// The running detection, or `None` when no run holds the slot.
     pub detection: Option<crate::FfiDetectionProgress>,

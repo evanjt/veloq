@@ -180,6 +180,11 @@ const SHEETS: Record<
     input: {},
     dismiss: 'cancel',
   },
+  'sheets/remote-link': {
+    load: () => require('@/app/sheets/remote-link').default,
+    input: {},
+    dismiss: 'close',
+  },
 };
 
 async function openRoute(route: string) {

@@ -43,6 +43,28 @@ afterAll(() => {
   rmSync(bin, { recursive: true, force: true });
 });
 
+it('treeState is unchanged by a watchman cookie appearing between two reads', () => {
+  const before = treeState();
+  const cookie = join(ROOT, '.watchman-cookie-probe-1-2-3');
+  writeFileSync(cookie, '');
+  try {
+    expect(treeState()).toBe(before);
+  } finally {
+    rmSync(cookie, { force: true });
+  }
+});
+
+it('treeState reports a real untracked file written between two reads', () => {
+  const before = treeState();
+  const file = join(ROOT, 'expo-config-side-effect-probe.tmp');
+  writeFileSync(file, '');
+  try {
+    expect(treeState()).not.toBe(before);
+  } finally {
+    rmSync(file, { force: true });
+  }
+});
+
 it.each([['--full'], ['--type', 'prebuild']])(
   'expo config --json %s prints parseable JSON and starts no native toolchain',
   (...flags) => {

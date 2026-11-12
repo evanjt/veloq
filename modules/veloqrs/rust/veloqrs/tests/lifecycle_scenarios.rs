@@ -743,6 +743,19 @@ fn drain(engine: &mut PersistentEngine, rides: usize) {
     }
 }
 
+/// The year expansion the convergence and backfill scenarios fold: four
+/// conditioning runs of rides, so a backfill killed after its third run still
+/// has a run and a sync-end detect to resume onto. Both compare two ways of
+/// reaching one library, and the comparison does not depend on how many rides
+/// the expansion holds.
+fn expansion_config() -> LifecycleConfig {
+    LifecycleConfig {
+        bucket_e_delta_count: 4
+            * veloqrs::persistence::sections::conditioning::CONDITIONING_BATCH_ADDS as usize,
+        ..LifecycleConfig::default()
+    }
+}
+
 /// The debounce's depth: the arrivals a pending change needs before it applies.
 const DEBOUNCE: usize = tracematch::sections::DEFAULT_K as usize;
 
@@ -756,8 +769,7 @@ const DEBOUNCE: usize = tracematch::sections::DEFAULT_K as usize;
 // 2026-09-13 on a busy machine.
 #[test]
 fn scenario_f_full_converges_to_incremental_baseline() {
-    let cfg = LifecycleConfig::default();
-    let corpus = LifecycleCorpus::generate(&cfg);
+    let corpus = LifecycleCorpus::generate(&expansion_config());
 
     // Path 1: incremental sequence A→B→C→D→E
     let (mut e_inc, _tmp1) = fresh_engine();
@@ -972,8 +984,7 @@ fn through_d_synced(engine: &mut PersistentEngine, corpus: &LifecycleCorpus) {
 // ids included, and so must a backfill killed after its third run and resumed.
 // One test per backfill, so each fits the per-test timeout on its own.
 fn backfill_ends_on_one_detect(kill_after: Option<usize>) {
-    let cfg = LifecycleConfig::default();
-    let corpus = LifecycleCorpus::generate(&cfg);
+    let corpus = LifecycleCorpus::generate(&expansion_config());
 
     let (mut reference, _reference_dir) = fresh_engine();
     through_d_synced(&mut reference, &corpus);

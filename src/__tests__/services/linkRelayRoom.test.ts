@@ -1,10 +1,11 @@
 import {
   MAX_MESSAGE_BYTES,
   MAX_MESSAGES_PER_PEER,
-  admits,
   admitsAddress,
   announce,
+  displaced,
   isRoomId,
+  nextJoin,
   relay,
   type AddressLimiter,
   type Peer,
@@ -48,10 +49,21 @@ describe('link relay room', () => {
     expect(phone.received).toEqual([]);
   });
 
-  it('admits two peers and refuses a third', () => {
-    expect(admits(0)).toBe(true);
-    expect(admits(1)).toBe(true);
-    expect(admits(2)).toBe(false);
+  it('displaces nobody while the room has a free seat', () => {
+    expect(displaced([])).toEqual([]);
+    expect(displaced([{ joined: 1 }])).toEqual([]);
+  });
+
+  it('displaces the oldest peer when a third joins, whatever order the room lists them in', () => {
+    const newer = { joined: 5 };
+    const oldest = { joined: 2 };
+    expect(displaced([newer, oldest])).toEqual([oldest]);
+    expect(displaced([oldest, newer])).toEqual([oldest]);
+  });
+
+  it('numbers each arrival after the most recent peer present', () => {
+    expect(nextJoin([])).toBe(1);
+    expect(nextJoin([{ joined: 3 }, { joined: 1 }])).toBe(4);
   });
 
   it('forwards a connection setup message to the other peer only', () => {

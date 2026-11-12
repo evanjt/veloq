@@ -1295,7 +1295,11 @@
     "title": "Veloq",
     "demoCaption": "Voorbeeldritten. Er wordt niets bewaard en de demo stopt wanneer de app sluit.",
     "tryDemo": "Demo proberen",
-    "useApiKey": "Gebruik API-sleutel"
+    "useApiKey": "Gebruik API-sleutel",
+    "useGarminOnly": "Alleen met Garmin gebruiken",
+    "garminOnlyDescription": "Geen intervals.icu-account nodig. Veloq haalt je ritten met een Garmin-sleutel op bij Garmin en bewaart ze op dit apparaat.",
+    "garminOnlyConnect": "Verbinden met Garmin-sleutel",
+    "garminNoAccount": "Garmin heeft de sleutel geaccepteerd maar niet gezegd van wie hij is, dus er kan geen bibliotheek voor worden bewaard."
   },
   "mapScreen": {
     "loadingActivities": "Activiteiten laden…",
@@ -2038,6 +2042,30 @@
     "legendEstimated": "Geschatte tijd",
     "methodEstimated": "{{method}} Een passage die binnen de sectie start of stopt, dicht bij een poort, wordt met de eigen snelheid tot die poort gemeten. Hij wordt als geschat gemarkeerd wanneer de projectie 10 m of meer is. Een schatting houdt het record alleen als in die richting geen passage op de grond is gemeten."
   },
+  "thresholds": {
+    "title": "Drempels en profiel",
+    "rowSubtitle": "FTP, hartslagen en gewicht",
+    "description": "Elke waarde is de hier ingestelde, anders die uit de sportinstellingen, anders de nieuwste uit de activiteitsbestanden. Een leeg veld gebruikt die laatste twee.",
+    "cycling": "Fietsen",
+    "running": "Hardlopen",
+    "fields": {
+      "ftp": "FTP",
+      "thresholdHr": "Drempelhartslag",
+      "maxHr": "Maximale hartslag",
+      "restingHr": "Rusthartslag",
+      "weightKg": "Gewicht"
+    },
+    "source": {
+      "athlete": "Door jou ingesteld: {{value}}",
+      "sportSettings": "Uit de sportinstellingen: {{value}}",
+      "file": "Uit de activiteitsbestanden: {{value}}"
+    },
+    "notSet": "Niet ingesteld",
+    "loadFailed": "De waarden konden niet worden gelezen.",
+    "invalid": "Voer een getal boven nul in",
+    "zones": "Hartslagzones",
+    "zoneDefaults": "De standaardzones van Veloq, die gelden als de sportinstellingen er geen hebben, eindigen bij {{percents}} procent van de maximale hartslag."
+  },
   "settings": {
     "offlineRow": {
       "detail": "Opgeslagen activiteiten en grafieken blijven beschikbaar."
@@ -2318,6 +2346,7 @@
     "groupingFailed": "De groepering is niet afgerond. Verschuif een regelaar om het opnieuw te proberen.",
     "authApiKey": "API-sleutel",
     "authOAuth": "Ingelogd met intervals.icu",
+    "authGarmin": "Garmin-sleutel",
     "authDemo": "Demomodus",
     "scopeChats": "Gesprekken",
     "scopeLibrary": "Bibliotheek",
@@ -2369,6 +2398,7 @@
     "powerCurve": "Vermogenscurve",
     "powerZones": "Vermogenszones",
     "rangeNotDownloaded": "Nog niet gedownload",
+    "curveWorkedOutOnPhone": "Berekend op deze telefoon uit je eigen activiteiten, met een lineaire fit door je beste prestaties van 3 tot 20 minuten.",
     "rangePartlyDownloaded": "Een deel van deze periode is nog niet gedownload",
     "calendarOlderOwed_one": "{{count}} oudere activiteit van dit jaar is niet gedownload",
     "calendarOlderOwed_other": "{{count}} oudere activiteiten van dit jaar zijn niet gedownload",
@@ -3261,7 +3291,7 @@
     },
     "remoteLink": {
       "title": "Gekoppelde apparaten",
-      "blurb": "Bekijk de activiteiten van deze telefoon in de browser van een computer op hetzelfde wifi-netwerk, zolang Veloq open is. Koppel de browser door een code te scannen en beheer hem in Instellingen. Je gegevens gaan rechtstreeks van de telefoon naar de browser."
+      "blurb": "Bekijk de activiteiten van deze telefoon in de browser van een computer, zolang Veloq open is. Het werkt op hetzelfde wifi-netwerk en op de meeste andere netwerken, en je gegevens gaan rechtstreeks van de telefoon naar de browser. Koppel de browser door een code te scannen en beheer hem in Instellingen."
     }
   },
   "remoteLink": {
@@ -3288,6 +3318,13 @@
     "expired": "De browser maakte niet op tijd verbinding. Maak een nieuwe code op de pagina en scan die opnieuw.",
     "connected_one": "Er is een browser verbonden",
     "connected_other": "Er zijn {{count}} browsers verbonden",
-    "disconnect": "Verbinding verbreken"
+    "disconnect": "Verbinding verbreken",
+    "headerConnected": "Een gekoppelde browser is verbonden",
+    "headerWaiting": "Wachten tot een gekoppelde browser verbinding maakt",
+    "headerUnreachable": "Een gekoppelde browser is niet bereikbaar",
+    "sheetTitle": "Gekoppelde browsers",
+    "connectedSince": "Verbonden sinds {{time}}",
+    "notConnected": "Niet verbonden",
+    "manage": "Gekoppelde apparaten beheren"
   }
 }

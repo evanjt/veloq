@@ -14,19 +14,18 @@
 import {
   SATELLITE_SOURCES,
   getCombinedSatelliteAttribution,
-  getCombinedSatelliteStyle,
+  satelliteProviders,
 } from '@/features/maps/components/mapStyles';
 
 type Point = { name: string; lat: number; lng: number };
 type Box = [number, number, number, number];
 
-/** Every bbox the style hands MapLibre for the swisstopo source. */
+/** Every bbox the engine is handed for the swisstopo provider. */
 function swisstopoBoxes(): Box[] {
-  const style = getCombinedSatelliteStyle();
-  return Object.entries(style.sources)
-    .filter(([id]) => /^satellite-swisstopo(-\d+)?$/.test(id))
-    .map(([, source]) => source.bounds)
-    .filter((b): b is Box => b !== undefined);
+  return (
+    satelliteProviders('satellite-regions').find((p) => p.source === 'satellite-swisstopo')
+      ?.boxes ?? []
+  );
 }
 
 function covered(boxes: Box[], p: Point): boolean {
@@ -129,7 +128,7 @@ describe('the swisstopo source is asked only for tiles over Switzerland', () => 
     expect(getCombinedSatelliteAttribution(47.503, 9.747, 14)).toContain('basemap.at');
   });
 
-  it('draws no box twice, so no tile is fetched or stored twice', () => {
+  it('has no two boxes overlap, so a tile is asked of one box alone', () => {
     const boxes = swisstopoBoxes();
     for (let i = 0; i < boxes.length; i++) {
       for (let j = i + 1; j < boxes.length; j++) {
@@ -142,13 +141,10 @@ describe('the swisstopo source is asked only for tiles over Switzerland', () => 
     }
   });
 
-  it('draws every swisstopo box from the same layer position, above IGN', () => {
-    const ids = getCombinedSatelliteStyle().layers.map((l) => l.id);
-    const swiss = ids.filter((id) => /^satellite-layer-swisstopo(-\d+)?$/.test(id));
+  it('ranks swisstopo above IGN where their boxes meet', () => {
+    const names = satelliteProviders('satellite-regions').map((p) => p.source);
 
-    expect(swiss.length).toBe(swisstopoBoxes().length);
-    expect(ids.indexOf(swiss[swiss.length - 1]) - ids.indexOf(swiss[0])).toBe(swiss.length - 1);
-    expect(ids.indexOf(swiss[0])).toBeGreaterThan(ids.indexOf('satellite-layer-ign-1'));
+    expect(names.indexOf('satellite-swisstopo')).toBeLessThan(names.indexOf('satellite-ign'));
   });
 
   it('keeps one swisstopo entry, one template and one credit behind the boxes', () => {

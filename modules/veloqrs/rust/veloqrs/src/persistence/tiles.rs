@@ -448,17 +448,17 @@ struct TileGeneration {
 /// holding the old one can tell, by identity, that what it drew from moved.
 static HEATMAP_SOURCE: RwLock<Option<Arc<HeatmapSource>>> = RwLock::new(None);
 
-struct HeatmapSource {
-    dir: String,
-    db_path: String,
-    bounds: Arc<rstar::RTree<super::ActivityBoundsEntry>>,
+pub(super) struct HeatmapSource {
+    pub(super) dir: String,
+    pub(super) db_path: String,
+    pub(super) bounds: Arc<rstar::RTree<super::ActivityBoundsEntry>>,
     /// The activities the athlete hid. The bounds are shared with readers that
     /// have no business with the choice, so a tile draw leaves these out
     /// itself.
-    hidden: Arc<HashSet<String>>,
+    pub(super) hidden: Arc<HashSet<String>>,
 }
 
-fn publish_heatmap_source(source: Option<HeatmapSource>) {
+pub(super) fn publish_heatmap_source(source: Option<HeatmapSource>) {
     let source = source.map(Arc::new);
     match HEATMAP_SOURCE.write() {
         Ok(mut held) => *held = source,
@@ -466,7 +466,7 @@ fn publish_heatmap_source(source: Option<HeatmapSource>) {
     }
 }
 
-fn heatmap_source() -> Option<Arc<HeatmapSource>> {
+pub(super) fn heatmap_source() -> Option<Arc<HeatmapSource>> {
     match HEATMAP_SOURCE.read() {
         Ok(held) => held.clone(),
         Err(poisoned) => poisoned.into_inner().clone(),
@@ -691,7 +691,7 @@ fn activities_reaching_tile(
 
 /// A read-only connection to `db_path`: the pool's when it is bound to that
 /// database, else one of the draw's own.
-fn with_track_reader<R>(db_path: &str, f: impl FnOnce(&Connection) -> R) -> Option<R> {
+pub(super) fn with_track_reader<R>(db_path: &str, f: impl FnOnce(&Connection) -> R) -> Option<R> {
     if super::read_pool::binding().is_some_and(|(_, bound)| bound == db_path) {
         return super::read_pool::with_read_conn(f);
     }
@@ -877,6 +877,10 @@ impl PersistentEngine {
         info!("[heatmap] Tiles path set to: {}", path);
         self.heatmap_tiles_path = Some(path.clone());
         self.publish_heatmap_source();
+        crate::atomic_file::sweep_stale_temp_files(
+            Path::new(&path),
+            crate::atomic_file::STALE_TEMP_AGE,
+        );
 
         // Check tile format version - clear stale tiles on upgrade
         let version_file = Path::new(&path).join("version.txt");

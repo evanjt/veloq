@@ -53,6 +53,7 @@ const toolingSuites = [
   'src/__tests__/bugs/indexReaderOddPaths.test.ts',
   'src/__tests__/bugs/jestCacheOffTmpfs.test.ts',
   'src/__tests__/bugs/jestWorkerCap.test.ts',
+  'src/__tests__/bugs/jobGates.test.ts',
   'src/__tests__/bugs/jsdocTagLint.test.ts',
   'src/__tests__/bugs/landBranchOffTheRefRace.test.ts',
   'src/__tests__/bugs/retiredHistoryRefusedAtMerge.test.ts',

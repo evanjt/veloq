@@ -388,6 +388,52 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       }
     }
 
+    // The athlete's own gesture, as opposed to a camera move the page made.
+    var _athleteMoved = false;
+
+    // Every vertex of the lines in a geojson source's data, or null when the
+    // data is a URL the page has not read.
+    function _subjectCoordinates(sourceId) {
+      var source = window._veloq.sources[sourceId];
+      var data = source && source.data;
+      if (!data || typeof data === 'string') return null;
+      var out = [];
+      (function collect(node) {
+        if (!node) return;
+        if (node.type === 'FeatureCollection') node.features.forEach(collect);
+        else if (node.type === 'Feature') collect(node.geometry);
+        else if (node.type === 'LineString') out.push.apply(out, node.coordinates);
+        else if (node.type === 'MultiLineString') node.coordinates.forEach(function(line) { out.push.apply(out, line); });
+      })(data);
+      return out;
+    }
+
+    // Once the terrain has drawn, turns the camera off a ridge that hides the
+    // subject line, as the 3D page does for its route.
+    function _turnSubjectCamera(spec) {
+      var map = window.map;
+      if (!window._veloq.terrain || window._veloq.terrain !== spec) return;
+      if (spec.cameraPinned || _athleteMoved || !window._pickUnhiddenCamera) return;
+      try {
+        var coordinates = _subjectCoordinates(spec.subjectSource);
+        if (!coordinates || coordinates.length < 2) return;
+        var west = Infinity, east = -Infinity, south = Infinity, north = -Infinity;
+        coordinates.forEach(function(c) {
+          west = Math.min(west, c[0]); east = Math.max(east, c[0]);
+          south = Math.min(south, c[1]); north = Math.max(north, c[1]);
+        });
+        var c0 = map.getCenter();
+        var opening = { center: [c0.lng, c0.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+        var picked = window._pickUnhiddenCamera(map, opening, coordinates, [east - west, north - south]);
+        if (picked === opening) return;
+        window._rn_log('Terrain hides the subject, turning to bearing ' + picked.bearing + ' pitch ' + picked.pitch);
+        if (window._veloqReduceMotion) map.jumpTo(picked);
+        else map.easeTo({ center: picked.center, zoom: picked.zoom, bearing: picked.bearing, pitch: picked.pitch, duration: ${motionDurationExpression(cameraMove.move)} });
+      } catch (e) {
+        window._rn_log('subject camera check failed: ' + e.message);
+      }
+    }
+
     function _applyTerrain(spec) {
       var map = window.map;
       var previous = window._veloq.terrain;
@@ -409,6 +455,9 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       var pitch = spec ? spec.pitch : 0;
       if (!previous !== !spec || (spec && previous.pitch !== spec.pitch)) {
         map.easeTo({ pitch: pitch, duration: ${motionDurationExpression(cameraMove.move)} });
+      }
+      if (spec && !previous && spec.subjectSource) {
+        map.once('idle', function() { _turnSubjectCamera(spec); });
       }
     }
 
@@ -516,6 +565,9 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
         _post(state);
       }
 
+      ['movestart', 'zoomstart', 'rotatestart', 'pitchstart'].forEach(function(name) {
+        map.on(name, function(e) { if (e && e.originalEvent) _athleteMoved = true; });
+      });
       map.on('move', postRegionIsChanging);
       map.on('rotate', function() {
         _post({ type: 'bearingChange', bearing: map.getBearing() });

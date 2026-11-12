@@ -479,7 +479,7 @@ impl Transport {
                             return Err(NetError::RateLimited);
                         }
                         last = Some(NetError::RateLimited);
-                        governor::pause(wait).await;
+                        self.governor.backoff_pause(wait).await;
                         continue;
                     }
                     let code = status.as_u16();
@@ -495,7 +495,7 @@ impl Transport {
                         if self.retry_fits(lane, started, wait) {
                             attempt += 1;
                             last = Some(failed);
-                            governor::pause(wait).await;
+                            self.governor.backoff_pause(wait).await;
                             continue;
                         }
                     }
@@ -516,7 +516,7 @@ impl Transport {
                         });
                     }
                     last = Some(NetError::Transport(e.to_string()));
-                    governor::pause(wait).await;
+                    self.governor.backoff_pause(wait).await;
                 }
             }
         }
@@ -1238,6 +1238,26 @@ mod tests {
         // 503-then-200, so the give-up path is what we can assert deterministically).
         assert!(matches!(res, Err(NetError::Http { status: 503, .. })));
         assert_eq!(mock.calls(), (MAX_RETRIES + 1) as usize);
+    }
+
+    #[test]
+    fn a_governor_that_skips_backoff_waits_counts_the_retry_ladder_and_sends_every_retry() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/z");
+            then.status(503);
+        });
+        let governor = Arc::new(Governor::new(1000, Box::new(NoopPolicy)).without_backoff_waits());
+        let t = Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), governor)
+            .expect("transport");
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/z", &[], Lane::Backfill));
+        assert!(matches!(res, Err(NetError::Http { status: 503, .. })));
+        assert_eq!(mock.calls(), (MAX_RETRIES + 1) as usize);
+        assert_eq!(
+            t.governor().skipped_backoff(),
+            Duration::from_millis(400 + 800 + 1600)
+        );
     }
 
     #[test]

@@ -11,7 +11,7 @@
 import {
   SATELLITE_SOURCES,
   getCombinedSatelliteAttribution,
-  getCombinedSatelliteStyle,
+  satelliteProviders,
 } from '@/features/maps/components/mapStyles';
 
 type Point = { name: string; lat: number; lng: number };
@@ -24,13 +24,11 @@ function tileCorner(z: number, x: number, y: number): { lat: number; lng: number
   return { lat: (rad * 180) / Math.PI, lng };
 }
 
-/** Every bbox the style hands MapLibre for the IGN source. */
+/** Every bbox the engine is handed for the IGN provider. */
 function ignBoxes(): [number, number, number, number][] {
-  const style = getCombinedSatelliteStyle();
-  return Object.entries(style.sources)
-    .filter(([id]) => /^satellite-ign(-\d+)?$/.test(id))
-    .map(([, source]) => source.bounds)
-    .filter((b): b is [number, number, number, number] => b !== undefined);
+  return (
+    satelliteProviders('satellite-regions').find((p) => p.source === 'satellite-ign')?.boxes ?? []
+  );
 }
 
 function covered(boxes: [number, number, number, number][], p: Point): boolean {
@@ -117,16 +115,10 @@ describe('the IGN source is asked only for tiles over France', () => {
     expect(covered(ignBoxes(), p)).toBe(true);
   });
 
-  it('draws every IGN box from the same layer position and at the same minzoom', () => {
-    const style = getCombinedSatelliteStyle();
-    const ids = style.layers.map((l) => l.id);
-    const ign = ids.filter((id) => /^satellite-layer-ign(-\d+)?$/.test(id));
+  it('ranks IGN under swisstopo, which covers the residual border overlap', () => {
+    const names = satelliteProviders('satellite-regions').map((p) => p.source);
 
-    expect(ign.length).toBe(ignBoxes().length);
-    // Contiguous: nothing else is stacked between two pieces of one source.
-    expect(ids.indexOf(ign[ign.length - 1]) - ids.indexOf(ign[0])).toBe(ign.length - 1);
-    // Under swisstopo, which is what covers the residual border overlap.
-    expect(ids.indexOf('satellite-layer-swisstopo-1')).toBeGreaterThan(ids.indexOf(ign[0]));
+    expect(names.indexOf('satellite-ign')).toBeGreaterThan(names.indexOf('satellite-swisstopo'));
   });
 
   it('keeps the valleys no rectangle can cut from the French side', () => {

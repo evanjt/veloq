@@ -9,6 +9,10 @@ const LIST_PATH: &str = "/activitylist-service/activities/search/activities";
 const SETTINGS_PATH: &str = "/userprofile-service/userprofile/settings";
 
 fn token_expiring_in(secs: i64) -> String {
+    token_with(secs, json!({}))
+}
+
+fn token_with(secs: i64, extra: serde_json::Value) -> String {
     let b64 = |v: serde_json::Value| {
         base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(v.to_string())
     };
@@ -16,8 +20,19 @@ fn token_expiring_in(secs: i64) -> String {
     format!(
         "{}.{}.sig",
         b64(json!({"alg": "RS256"})),
-        b64(json!({"iat": exp - 86_400, "exp": exp}))
+        b64(merge_claims(
+            json!({"iat": exp - 86_400, "exp": exp}),
+            extra
+        ))
     )
+}
+
+fn merge_claims(mut claims: serde_json::Value, extra: serde_json::Value) -> serde_json::Value {
+    claims
+        .as_object_mut()
+        .unwrap()
+        .extend(extra.as_object().unwrap().clone());
+    claims
 }
 
 fn client(server: &MockServer) -> GarminClient {
@@ -435,4 +450,72 @@ fn the_account_settings_are_read_with_the_token_and_name_the_account() {
     let name = crate::runtime::block_on(c.display_name(dispatch())).unwrap();
     assert_eq!(name.as_deref(), Some("Invented Athlete"));
     settings.assert_calls(1);
+}
+
+#[test]
+fn the_account_id_is_the_token_subject_and_costs_no_settings_request() {
+    let server = MockServer::start();
+    let token = token_with(day().num_seconds(), json!({"sub": "acct-9001"}));
+    server.mock(|when, then| {
+        when.method(POST).path(TOKEN_PATH);
+        then.status(200).body(&token);
+    });
+    let settings = server.mock(|when, then| {
+        when.method(GET).path(SETTINGS_PATH);
+        then.status(200).json_body(json!({"userId": 5}));
+    });
+    let c = client(&server);
+    let id = crate::runtime::block_on(c.account_id(dispatch())).unwrap();
+    assert_eq!(id.as_deref(), Some("acct-9001"));
+    settings.assert_calls(0);
+}
+
+#[test]
+fn the_account_id_comes_from_the_settings_when_the_token_names_nobody() {
+    let server = MockServer::start();
+    let token = token_expiring_in(day().num_seconds());
+    server.mock(|when, then| {
+        when.method(POST).path(TOKEN_PATH);
+        then.status(200).body(&token);
+    });
+    let settings = server.mock(|when, then| {
+        when.method(GET).path(SETTINGS_PATH);
+        then.status(200)
+            .json_body(json!({"userId": 5150, "displayName": "Invented Athlete"}));
+    });
+    let c = client(&server);
+    let id = crate::runtime::block_on(c.account_id(dispatch())).unwrap();
+    assert_eq!(id.as_deref(), Some("5150"));
+    settings.assert_calls(1);
+}
+
+#[test]
+fn an_account_with_no_id_anywhere_names_nobody_and_a_rejected_key_is_an_error() {
+    let server = MockServer::start();
+    let token = token_expiring_in(day().num_seconds());
+    server.mock(|when, then| {
+        when.method(POST).path(TOKEN_PATH);
+        then.status(200).body(&token);
+    });
+    server.mock(|when, then| {
+        when.method(GET).path(SETTINGS_PATH);
+        then.status(200)
+            .json_body(json!({"displayName": "Invented Athlete"}));
+    });
+    let c = client(&server);
+    assert_eq!(
+        crate::runtime::block_on(c.account_id(dispatch())).unwrap(),
+        None
+    );
+
+    let rejecting = MockServer::start();
+    rejecting.mock(|when, then| {
+        when.method(POST).path(TOKEN_PATH);
+        then.status(401);
+    });
+    let c = client(&rejecting);
+    assert!(matches!(
+        crate::runtime::block_on(c.account_id(dispatch())),
+        Err(GarminError::KeyRejected)
+    ));
 }

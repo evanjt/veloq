@@ -1295,7 +1295,11 @@
     "title": "Veloq",
     "demoCaption": "サンプルのライドです。何も保存されず、アプリを閉じるとデモは終了します。",
     "tryDemo": "デモを試す",
-    "useApiKey": "APIキーを使用"
+    "useApiKey": "APIキーを使用",
+    "useGarminOnly": "Garminのみで使う",
+    "garminOnlyDescription": "intervals.icuのアカウントは不要です。VeloqはGarminキーでGarminからアクティビティを取り込み、この端末に保存します。",
+    "garminOnlyConnect": "Garminキーで接続",
+    "garminNoAccount": "Garminはキーを受け付けましたが、誰のキーかを返さなかったため、ライブラリを保存できません。"
   },
   "mapScreen": {
     "loadingActivities": "アクティビティを読み込み中…",
@@ -2038,6 +2042,30 @@
     "legendEstimated": "推定タイム",
     "methodEstimated": "{{method}} セクションの内側で始まるか終わり、ゲートの近くにある通過は、ゲートまでを自身の速度で計測します。投影距離が10 m以上の場合は推定と表示されます。推定値は、その方向で実測された通過がない場合にのみ記録を保持します。"
   },
+  "thresholds": {
+    "title": "しきい値とプロフィール",
+    "rowSubtitle": "FTP、心拍数、体重",
+    "description": "各値は、ここで設定した値、なければスポーツ設定の値、それもなければアクティビティファイルにある最新の値です。空欄にすると後の二つが使われます。",
+    "cycling": "サイクリング",
+    "running": "ランニング",
+    "fields": {
+      "ftp": "FTP",
+      "thresholdHr": "しきい値心拍数",
+      "maxHr": "最大心拍数",
+      "restingHr": "安静時心拍数",
+      "weightKg": "体重"
+    },
+    "source": {
+      "athlete": "あなたが設定: {{value}}",
+      "sportSettings": "スポーツ設定から: {{value}}",
+      "file": "アクティビティファイルから: {{value}}"
+    },
+    "notSet": "未設定",
+    "loadFailed": "値を読み取れませんでした。",
+    "invalid": "0 より大きい数値を入力してください",
+    "zones": "心拍ゾーン",
+    "zoneDefaults": "スポーツ設定にゾーンがない場合に使われる Veloq の既定のゾーンは、最大心拍数の {{percents}} パーセントで終わります。"
+  },
   "settings": {
     "offlineRow": {
       "detail": "保存済みのアクティビティとグラフは引き続き利用できます。"
@@ -2318,6 +2346,7 @@
     "groupingFailed": "グループ化が完了しませんでした。つまみを動かすともう一度実行します。",
     "authApiKey": "APIキー",
     "authOAuth": "intervals.icu でサインイン中",
+    "authGarmin": "Garminキー",
     "authDemo": "デモモード",
     "scopeChats": "チャット",
     "scopeLibrary": "ライブラリ",
@@ -2369,6 +2398,7 @@
     "powerCurve": "パワーカーブ",
     "powerZones": "パワーゾーン",
     "rangeNotDownloaded": "まだダウンロードされていません",
+    "curveWorkedOutOnPhone": "この端末で、あなた自身のアクティビティから算出しています。3〜20分のベスト記録に直線を当てはめています。",
     "rangePartlyDownloaded": "この期間の一部はまだダウンロードされていません",
     "calendarOlderOwed_one": "今年のそれより前のアクティビティ{{count}}件はダウンロードされていません",
     "calendarOlderOwed_other": "今年のそれより前のアクティビティ{{count}}件はダウンロードされていません",
@@ -3261,7 +3291,7 @@
     },
     "remoteLink": {
       "title": "リンク済みデバイス",
-      "blurb": "Veloqを開いている間、同じWi-Fi上のパソコンのブラウザーでこのスマートフォンのアクティビティを閲覧できます。コードをスキャンしてブラウザーをリンクし、設定で管理します。データはスマートフォンからブラウザーへ直接送られます。"
+      "blurb": "Veloqを開いている間、パソコンのブラウザーでこのスマートフォンのアクティビティを閲覧できます。同じWi-Fi上や、ほかのほとんどのネットワークでも動作し、データはスマートフォンからブラウザーへ直接送られます。コードをスキャンしてブラウザーをリンクし、設定で管理します。"
     }
   },
   "remoteLink": {
@@ -3288,6 +3318,13 @@
     "expired": "ブラウザーが時間内に接続しませんでした。ページで新しいコードを作成して、もう一度スキャンしてください。",
     "connected_one": "{{count}}台のブラウザーが接続中",
     "connected_other": "{{count}}台のブラウザーが接続中",
-    "disconnect": "切断"
+    "disconnect": "切断",
+    "headerConnected": "リンク済みのブラウザーが接続中です",
+    "headerWaiting": "リンク済みのブラウザーの接続を待っています",
+    "headerUnreachable": "リンク済みのブラウザーに接続できません",
+    "sheetTitle": "リンク済みのブラウザー",
+    "connectedSince": "{{time}} から接続中",
+    "notConnected": "未接続",
+    "manage": "リンク済みデバイスを管理"
   }
 }

@@ -12,7 +12,8 @@
 ///
 /// All four are zero for an athlete whose census has never been pulled. Nothing
 /// is known about the account then, and a zero pair reads as nothing to report.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct LibraryCoverage {
     /// Activities the server says the account holds.
     pub upstream: u32,

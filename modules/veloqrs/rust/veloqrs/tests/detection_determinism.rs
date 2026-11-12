@@ -370,12 +370,23 @@ fn child_digest(exe: &std::path::Path, worker: &str, index: usize) -> String {
 fn assert_every_process_agrees(worker: &str) {
     let exe = std::env::current_exe().expect("path to this test binary");
 
+    // The children share nothing, so they run side by side and the wait is the
+    // slowest child, not the sum.
+    let digests: Vec<String> = std::thread::scope(|scope| {
+        let children: Vec<_> = (0..CHILDREN)
+            .map(|i| {
+                let exe = &exe;
+                scope.spawn(move || child_digest(exe, worker, i))
+            })
+            .collect();
+        children
+            .into_iter()
+            .map(|child| child.join().expect("a child's thread panicked"))
+            .collect()
+    });
     let mut by_digest: BTreeMap<String, Vec<usize>> = BTreeMap::new();
-    for i in 0..CHILDREN {
-        by_digest
-            .entry(child_digest(&exe, worker, i))
-            .or_default()
-            .push(i);
+    for (i, digest) in digests.into_iter().enumerate() {
+        by_digest.entry(digest).or_default().push(i);
     }
 
     assert_eq!(

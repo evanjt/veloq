@@ -321,6 +321,12 @@ export function PaceCurveChart({
         </Row>
       ) : null}
 
+      {curve?.source === 'veloq' ? (
+        <Text testID="pace-curve-source" style={styles.sourceNote}>
+          {t('stats.curveWorkedOutOnPhone')}
+        </Text>
+      ) : null}
+
       <CurveChart
         data={chartData}
         xDomain={xDomain}
@@ -385,6 +391,11 @@ const makeStyles = (palette: Palette) =>
     gapLabel: {
       ...typography.caption,
       color: palette.textSecondary,
+    },
+    sourceNote: {
+      ...typography.caption,
+      color: palette.textSecondary,
+      marginBottom: spacing.xs,
     },
     valuesRow: {
       flexDirection: 'row',

@@ -296,7 +296,8 @@ impl SectionPreview {
 }
 
 /// How one grouping-preview run ended.
-#[derive(Debug, Clone, uniffi::Enum)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiGroupingOutcome {
     /// The grouping the strictness produced.
     Grouped {
@@ -313,7 +314,8 @@ pub enum FfiGroupingOutcome {
 }
 
 /// One proposed route group at a previewed strictness.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRouteGroupPreview {
     /// The grouping's own key for this group. It is NOT a stable route id: the
     /// preview never runs the identity remap that assigns one, so this joins

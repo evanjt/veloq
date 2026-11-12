@@ -73,6 +73,7 @@ const MODEL_LABELS: Record<string, string> = {
   MORTON_3P: '3P',
   FFT_CURVES: 'FFT',
   ECP: 'ECP',
+  CP_LINEAR: 'CP',
 };
 
 /** `260 W` or `3.25 W/kg`, the way the header, the axis and the FTP line print a value. */
@@ -280,6 +281,16 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
         </View>
       ) : null}
 
+      {curve?.source === 'veloq' ? (
+        <Text
+          maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+          testID="power-curve-source"
+          style={styles.sourceNote}
+        >
+          {t('stats.curveWorkedOutOnPhone')}
+        </Text>
+      ) : null}
+
       <CurveChart
         data={chartData}
         yDomain={yDomain}
@@ -363,6 +374,11 @@ const makeStyles = (palette: Palette) =>
       justifyContent: 'center',
       marginTop: spacing.xs,
       columnGap: spacing.sm,
+    },
+    sourceNote: {
+      ...typography.label,
+      color: palette.textSecondary,
+      marginBottom: spacing.xs,
     },
     modelText: {
       fontSize: typography.label.fontSize,

@@ -13,9 +13,10 @@
 // `engine-date-reads-baseline.json`. A file above its count fails, and a file below it fails
 // too, so the list only shrinks.
 
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { settleRatchet } from './lib/baselineRatchet.mjs';
 import { refuseEmptyListing, treeSources } from './lib/indexedSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -62,6 +63,7 @@ try {
 }
 
 const problems = blank.map((at) => `${at}: a true-instant marker needs a reason`);
+const beaten = [];
 for (const [rel, n] of counts) {
   const allowed = baseline[rel] ?? 0;
   if (n > allowed) {
@@ -73,7 +75,7 @@ for (const [rel, n] of counts) {
 for (const [rel, allowed] of Object.entries(baseline)) {
   const n = counts.get(rel) ?? 0;
   if (n < allowed) {
-    problems.push(`${rel}: baseline records ${allowed} reads and ${n} remain, lower the entry`);
+    beaten.push([rel, allowed, n]);
   }
 }
 
@@ -86,8 +88,14 @@ if (problems.length > 0) {
     '\nUse formatEpochDayUtc, epochDayKeyUtc or wallClockSecondsToLocalDate. A true instant'
   );
   console.error('carries `// true-instant: <reason>` on the line.');
-  process.exit(1);
 }
+const code = settleRatchet({
+  over: problems,
+  under: beaten,
+  line: ([rel, allowed, n]) => `  ${rel}: baseline records ${allowed} reads and ${n} remain`,
+  writeCommand: `lower the entries in ${relative(ROOT, BASELINE_FILE)}`,
+});
+if (code !== 0) process.exit(code);
 console.log(
   `engine dates: ${[...counts.values()].reduce((a, b) => a + b, 0)} baseline reads, none new.`
 );

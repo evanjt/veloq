@@ -58,8 +58,93 @@ pub fn geo_answer(path: &str) -> Result<Vec<u8>, u16> {
     match kind {
         "track" => track(key),
         "route-lines" if key == ROUTE_LINES_KEY => route_lines(),
+        "under-point" => under_point_traces(key),
         _ => Err(NOT_FOUND),
     }
+}
+
+/// The group the activities in no route are asked for under.
+const NO_ROUTE_GROUP: &str = "_";
+
+/// A tap and the group asked for under it, from `<lat_e6>_<lng_e6>_<zoom>_<group>`.
+struct UnderPointKey<'a> {
+    latitude: f64,
+    longitude: f64,
+    zoom: u8,
+    group: Option<&'a str>,
+}
+
+/// The deepest zoom a tap is accepted at.
+const MAX_TAP_ZOOM: u8 = 24;
+
+impl<'a> UnderPointKey<'a> {
+    /// `None` for a key of another shape, a position off the globe, or a zoom
+    /// past [`MAX_TAP_ZOOM`]. A route id may hold underscores, so the group is
+    /// everything after the third one.
+    fn parse(key: &'a str) -> Option<Self> {
+        let mut parts = key.splitn(4, '_');
+        let micro = |part: &str| part.parse::<i64>().ok();
+        let latitude = micro(parts.next()?)?;
+        let longitude = micro(parts.next()?)?;
+        let zoom: u8 = parts.next()?.parse().ok()?;
+        let group = parts.next().filter(|group| !group.is_empty())?;
+        if latitude.abs() > 90_000_000 || longitude.abs() > 180_000_000 || zoom > MAX_TAP_ZOOM {
+            return None;
+        }
+        Some(Self {
+            latitude: latitude as f64 / MICRO,
+            longitude: longitude as f64 / MICRO,
+            zoom,
+            group: (group != NO_ROUTE_GROUP).then_some(group),
+        })
+    }
+}
+
+/// One group's traces under a tap, as one feature per activity.
+fn under_point_traces(key: &str) -> Result<Vec<u8>, u16> {
+    use crate::persistence::under_point::{TracesError, traces_under_point};
+    let key = UnderPointKey::parse(key).ok_or(BAD_PATH)?;
+    let traces =
+        traces_under_point(key.latitude, key.longitude, key.zoom, key.group).map_err(|error| {
+            match error {
+                TracesError::NoHeatmap => NOT_FOUND,
+                TracesError::NotOpen => NOT_OPEN,
+            }
+        })?;
+    let mut out = String::from(r#"{"type":"FeatureCollection","features":["#);
+    for (i, trace) in traces.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        let id = serde_json::to_string(&trace.activity_id).unwrap_or_else(|_| "null".to_string());
+        let _ = write!(
+            out,
+            r#"{{"type":"Feature","id":{id},"properties":{{"id":{id},"date":{}}},"geometry":"#,
+            trace.date
+        );
+        match trace.lines.as_slice() {
+            [line] => {
+                out.push_str(r#"{"type":"LineString","coordinates":["#);
+                push_positions(&mut out, line);
+                out.push_str("]}");
+            }
+            lines => {
+                out.push_str(r#"{"type":"MultiLineString","coordinates":["#);
+                for (j, line) in lines.iter().enumerate() {
+                    if j > 0 {
+                        out.push(',');
+                    }
+                    out.push('[');
+                    push_positions(&mut out, line);
+                    out.push(']');
+                }
+                out.push_str("]}");
+            }
+        }
+        out.push('}');
+    }
+    out.push_str("]}");
+    Ok(out.into_bytes())
 }
 
 /// One activity's stored line, read off the engine lock.

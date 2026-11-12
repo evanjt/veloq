@@ -81,6 +81,15 @@ pub mod settings_keys {
     /// Where the athlete lives, and how much of a track around it an export
     /// leaves behind. Absent or a zero radius means an export is exactly what
     /// it was before this existed.
+    /// The thresholds and profile figures read out of the athlete's own
+    /// activity files, as a dated list. It describes the files the library
+    /// holds, so a clear takes it and a backup leaves it: the files are read
+    /// again.
+    pub const FILE_THRESHOLDS: &str = "__file_thresholds";
+    /// The thresholds and profile figures the athlete set by hand, by sport.
+    /// They are the athlete's choice, so a backup carries them.
+    pub const THRESHOLD_OVERRIDES: &str = "__threshold_overrides";
+
     pub const EXPORT_HOME_LAT: &str = "__export_home_lat";
     pub const EXPORT_HOME_LNG: &str = "__export_home_lng";
     pub const EXPORT_PRIVACY_RADIUS_M: &str = "__export_privacy_radius_m";
@@ -445,7 +454,8 @@ pub fn athlete_profile_from(conn: &rusqlite::Connection) -> Option<String> {
 /// The body is stored as it arrived and carries far more. Each field is read
 /// leniently: missing, `null` or of another type reads as absent and costs the
 /// record nothing else.
-#[derive(Debug, Clone, Default, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct AthleteProfile {
     /// The intervals.icu athlete id, as `i123`. A number on the wire reads as its digits.
     pub id: Option<String>,

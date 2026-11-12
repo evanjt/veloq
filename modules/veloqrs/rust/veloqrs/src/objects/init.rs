@@ -17,7 +17,8 @@ use std::sync::atomic::{AtomicU8, Ordering};
 ///
 /// The wire carries the variant's position, so the order here is the contract:
 /// append, never reorder. The discriminants start at one so no member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiInitOutcome {
     /// The engine is open. A database that was quarantined and replaced ends
@@ -82,7 +83,8 @@ static LAST: AtomicU8 = AtomicU8::new(FfiInitOutcome::NotAttempted as u8);
 ///
 /// Bytes cross the boundary as `f64`, exact to 2^53, so TypeScript never
 /// holds a `bigint`.
-#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStorageShortfall {
     /// Free bytes the upgrade needs beside the library.
     pub needed_bytes: f64,

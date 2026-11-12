@@ -19,7 +19,15 @@ import {
   MAPLIBRE_GL_JS_SHA256,
 } from '@/features/maps/assets/maplibreRenderer.generated';
 
-import { STUN_SERVER } from '../../../docs/connect/link.js';
+import {
+  FLAG_GZIP,
+  FLAG_LAST,
+  FRAME_BYTES,
+  FRAME_HEADER_BYTES,
+  FRAME_VERSION,
+  PAGE_PROTOCOL,
+  STUN_SERVER,
+} from '../../../web/connect/link';
 import { VELOQ_TILE_SCHEME } from '@/features/maps/lib/tileTransport';
 import { PAGE_REVISION_META } from '@/features/maps/lib/htmlBuilders/shared';
 import {
@@ -2400,5 +2408,112 @@ describe('the connect page and the engine ask the same STUN server', () => {
     const engine = /pub const SERVER: &str = "([^"]+)";/.exec(rust)?.[1];
     expect(engine).toBeDefined();
     expect(STUN_SERVER).toBe(`stun:${engine}`);
+  });
+});
+
+describe('the connect page frames replies the way the engine does', () => {
+  const rust = fs.readFileSync(
+    path.join(__dirname, '../../../modules/veloqrs/rust/veloqrs/src/remote/protocol.rs'),
+    'utf8'
+  );
+
+  /** A constant the engine declares, its value a number or a product of numbers. */
+  function engine(name: string): number {
+    const value = new RegExp(`pub const ${name}: \\w+ = ([^;]+);`).exec(rust)?.[1];
+    expect(value).toBeDefined();
+    return value!
+      .split('*')
+      .map((factor) => Number(factor.trim()))
+      .reduce((product, factor) => product * factor, 1);
+  }
+
+  it('cuts frames at the size, with the header and flags, the engine writes', () => {
+    expect(FRAME_BYTES).toBe(engine('FRAME_BYTES'));
+    expect(FRAME_HEADER_BYTES).toBe(engine('FRAME_HEADER_BYTES'));
+    expect(FRAME_VERSION).toBe(engine('FRAME_VERSION'));
+    expect(FLAG_GZIP).toBe(engine('FRAME_GZIP'));
+    expect(FLAG_LAST).toBe(engine('FRAME_LAST'));
+  });
+});
+
+describe('the connect page schema follows the engine', () => {
+  const methods: { protocol: number; methods: { name: string; params: string; result: string }[] } =
+    JSON.parse(read('web/connect/methods.json'));
+  const schema = read('web/connect/schema.d.ts');
+
+  /** The sources that declare uniffi records and enums, with the attributes above each. */
+  function rustTypes() {
+    const found = new Map<string, { attributes: string; body: string }>();
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+        const child = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) walk(child);
+        else if (entry.name.endsWith('.rs')) {
+          const text = read(child);
+          const declaration =
+            /((?:\s*(?:#\[[^\]]*\]|\/\/\/[^\n]*))+)\s*pub (?:struct|enum) (\w+)[^{;]*\{/g;
+          for (let match = declaration.exec(text); match; match = declaration.exec(text)) {
+            if (!/uniffi::(Record|Enum)/.test(match[1])) continue;
+            let depth = 1;
+            let at = declaration.lastIndex;
+            while (depth > 0 && at < text.length) {
+              depth += text[at] === '{' ? 1 : text[at] === '}' ? -1 : 0;
+              at++;
+            }
+            const name = /uniffi\(name = "(\w+)"\)/.exec(match[1])?.[1] ?? match[2];
+            found.set(name, {
+              attributes: match[1],
+              body: text.slice(declaration.lastIndex, at),
+            });
+          }
+        }
+      }
+    };
+    walk(RUST);
+    return found;
+  }
+
+  const named = new Set(methods.methods.flatMap((method) => [method.params, method.result]));
+  const schemaTypes = [...schema.matchAll(/^export type (\w+) = (\{|')/gm)]
+    .map((m) => m[1])
+    .filter((name) => name !== 'Methods');
+
+  it('speaks the protocol the engine speaks', () => {
+    const engine = /pub const PROTOCOL_VERSION: u32 = (\d+);/.exec(
+      read(`${RUST}/remote/protocol.rs`)
+    )?.[1];
+    expect(methods.protocol).toBe(Number(engine));
+    expect(PAGE_PROTOCOL).toBe(methods.protocol);
+  });
+
+  it('names only records the generated bindings declare', () => {
+    expect(named.size).toBeGreaterThan(0);
+    for (const name of named) {
+      expect(read(GENERATED)).toMatch(new RegExp(`^export type ${name} = \\{$`, 'm'));
+    }
+  });
+
+  it('writes a type for every record the methods reach, and each derives Serialize in camelCase', () => {
+    const rust = rustTypes();
+    expect(schemaTypes.length).toBeGreaterThanOrEqual(named.size);
+    for (const name of schemaTypes) {
+      const declared = rust.get(name);
+      expect([name, declared !== undefined]).toEqual([name, true]);
+      expect(declared?.attributes).toMatch(/serde::Serialize|[(, ]Serialize/);
+      expect(declared?.attributes).toMatch(/rename_all = "camelCase"/);
+    }
+  });
+
+  it('says 64-bit integers as numbers, and lists the records that carry one', () => {
+    expect(schema).not.toContain('bigint');
+    const rust = rustTypes();
+    const wide = schemaTypes
+      .filter((name) => /\b(i64|u64|WholeNumber)\b/.test(rust.get(name)?.body ?? ''))
+      .sort();
+    // A value past 2^53 would lose digits as a JSON number. These records hold
+    // an instant in epoch milliseconds, which stays exact until the year 287396.
+    // A record added to a method that carries a count or an id of this width
+    // is a decision to make here, not a surprise on a page.
+    expect(wide).toEqual(['FfiActivitySyncFailure']);
   });
 });

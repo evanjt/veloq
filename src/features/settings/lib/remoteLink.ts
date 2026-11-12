@@ -6,6 +6,8 @@
  * browser not linked, and the answer goes back the same way. Nothing else is
  * read or sent here: the data itself flows over the WebRTC channel the engine
  * serves. Leaving the foreground closes every room and ends every connection.
+ * While at least one browser is connected the screen is kept awake, and it is
+ * released when the last one goes.
  */
 
 /** The relay socket the controller needs, which the platform WebSocket satisfies. */
@@ -20,7 +22,15 @@ export interface RemoteLinkEngine {
   linkedRooms(): string[];
   acceptOffer(offer: string): string;
   disconnectAll(): void;
+  /** Whether the app is in front; the engine answers a browser's write only while it is. */
+  setInFront(inFront: boolean): void;
   connectedCount(): number;
+}
+
+/** Keeps the screen awake from one `on` call until the matching `off`. */
+export interface KeepAwake {
+  on(): void;
+  off(): void;
 }
 
 interface RemoteLinkOptions {
@@ -29,6 +39,16 @@ interface RemoteLinkOptions {
   enabled?: () => boolean;
   relayUrl: string;
   open: (url: string) => RelaySocket;
+  keepAwake: KeepAwake;
+  /** Debug builds only: why an offer was not answered. Never a fingerprint. */
+  diagnose?: ((line: string) => void) | undefined;
+}
+
+export interface RemoteLinkState {
+  /** Browsers connected now. */
+  connected: number;
+  /** Rooms the phone is open in on the relay, waiting for a browser to join. */
+  rooms: number;
 }
 
 export interface RemoteLink {
@@ -39,8 +59,8 @@ export interface RemoteLink {
   /** Wait in a pairing room until `leave`, whether or not anything is linked. */
   join(room: string): void;
   leave(room: string): void;
-  /** Called with the number of connected browsers as it changes. */
-  subscribe(listener: (connected: number) => void): () => void;
+  /** Called with the connected and open-room counts whenever either changes. */
+  subscribe(listener: (state: RemoteLinkState) => void): () => void;
 }
 
 const FIRST_RETRY_MS = 5_000;
@@ -68,24 +88,48 @@ export function createRemoteLink({
   engine,
   relayUrl,
   open,
+  keepAwake,
   enabled = () => true,
+  diagnose,
 }: RemoteLinkOptions): RemoteLink {
   const seats = new Map<string, Seat>();
   const pairing = new Set<string>();
-  const listeners = new Set<(connected: number) => void>();
+  const listeners = new Set<(state: RemoteLinkState) => void>();
   let inFront = false;
   let poll: ReturnType<typeof setInterval> | null = null;
-  let connected = 0;
+  let state: RemoteLinkState = { connected: 0, rooms: 0 };
 
-  const report = (count: number) => {
-    if (count === connected) return;
-    connected = count;
-    for (const listener of listeners) listener(count);
+  const openRooms = () => {
+    let open = 0;
+    for (const seat of seats.values()) if (seat.socket !== null) open += 1;
+    return open;
+  };
+
+  const publish = (connected: number) => {
+    const rooms = openRooms();
+    if (connected === state.connected && rooms === state.rooms) return;
+    const before = state.connected;
+    state = { connected, rooms };
+    if (before === 0 && connected > 0) keepAwake.on();
+    else if (before > 0 && connected === 0) keepAwake.off();
+    for (const listener of listeners) listener(state);
+  };
+
+  const stopPoll = () => {
+    if (poll === null) return;
+    clearInterval(poll);
+    poll = null;
+  };
+
+  const tick = () => {
+    publish(engine.connectedCount());
+    if (seats.size === 0 && state.connected === 0) stopPoll();
   };
 
   const sit = (room: string, seat: Seat) => {
     const socket = open(relayUrl + room);
     seat.socket = socket;
+    publish(state.connected);
     socket.onmessage = ({ data }) => {
       seat.delay = FIRST_RETRY_MS;
       const offer = offerOf(data);
@@ -93,7 +137,8 @@ export function createRemoteLink({
       let answer: string;
       try {
         answer = engine.acceptOffer(offer);
-      } catch {
+      } catch (error) {
+        diagnose?.(`offer refused: ${error instanceof Error ? error.message : String(error)}`);
         return;
       }
       socket.send(answer);
@@ -103,6 +148,7 @@ export function createRemoteLink({
     socket.onclose = () => {
       if (seat.socket !== socket) return;
       seat.socket = null;
+      publish(state.connected);
       if (!inFront || seats.get(room) !== seat) return;
       seat.retry = setTimeout(() => {
         seat.retry = null;
@@ -122,13 +168,13 @@ export function createRemoteLink({
 
   const reconcile = () => {
     const on = inFront && enabled();
-    if (inFront && !on && seats.size > 0) {
+    if (inFront && !on && (seats.size > 0 || state.connected > 0)) {
       // Switched off while in front: nothing stays connected behind the switch.
       pairing.clear();
       for (const seat of seats.values()) unseat(seat);
       seats.clear();
       engine.disconnectAll();
-      report(0);
+      publish(0);
     }
     const wanted = new Set(on ? [...engine.linkedRooms(), ...pairing] : []);
     for (const [room, seat] of seats) {
@@ -142,25 +188,29 @@ export function createRemoteLink({
       seats.set(room, seat);
       sit(room, seat);
     }
-    if (on && seats.size > 0 && poll === null) {
-      poll = setInterval(() => report(engine.connectedCount()), POLL_MS);
-    } else if ((!on || seats.size === 0) && poll !== null) {
-      clearInterval(poll);
-      poll = null;
+    // The count is polled while a room is open, and also while a connection is
+    // still counted after its room closed, so the screen is released once it ends.
+    if (on && (seats.size > 0 || state.connected > 0)) {
+      if (poll === null) poll = setInterval(tick, POLL_MS);
+    } else {
+      stopPoll();
     }
+    publish(state.connected);
   };
 
   return {
     foreground() {
       inFront = true;
+      engine.setInFront(true);
       reconcile();
     },
     background() {
       inFront = false;
+      engine.setInFront(false);
       pairing.clear();
       reconcile();
       engine.disconnectAll();
-      report(0);
+      publish(0);
     },
     refresh: reconcile,
     join(room) {

@@ -29,7 +29,6 @@ import {
   useSettleCamera,
   AttributionOverlay,
   BaseMapView,
-  type BaseMap3DLayer,
   cutLineByProgress,
   deltaLineBands,
   lineBandExpression,
@@ -213,11 +212,6 @@ export function RouteMapView({
     useMemo(() => scrubMarkerCollection(scrubPoint), [scrubPoint]),
     HIGHLIGHT_THROTTLE_MS
   );
-  const scrubCoordinate3D = useMemo<[number, number] | null>(
-    () => (scrubPoint ? [scrubPoint.lng, scrubPoint.lat] : null),
-    [scrubPoint]
-  );
-
   const deltaBands = useMemo(
     () =>
       deltaLine
@@ -312,26 +306,15 @@ export function RouteMapView({
 
   // The fullscreen shell draws the route itself, banded through its own gradient.
   const fullscreenLayers = useCallback(
-    (fullscreenPalette: MapPalette) =>
+    (fullscreenPalette: MapPalette, terrain: boolean) =>
       buildRouteLayers({
         palette: fullscreenPalette,
         routeContext,
         fadedFilter,
         includeRoute: false,
+        terrain,
       }),
     [routeContext, fadedFilter]
-  );
-
-  const fullscreenLayer3D = useMemo(
-    () =>
-      buildRoute3DLayer({
-        fadedTraces,
-        highlightedTrace,
-        highlightedActivityId,
-        contextColor: palette.muted,
-        highlightCoordinate: scrubCoordinate3D,
-      }),
-    [fadedTraces, highlightedTrace, highlightedActivityId, palette, scrubCoordinate3D]
   );
 
   const handleMapPress = useCallback(() => {
@@ -457,7 +440,6 @@ export function RouteMapView({
           overlaySources={overlaySources}
           overlayLayers={fullscreenLayers}
           overlayImages={ENDPOINT_IMAGES}
-          layer3D={fullscreenLayer3D}
         />
         {hasLegendLayers(legendLayers) ? (
           <DetailMapLegend
@@ -472,40 +454,6 @@ export function RouteMapView({
       </FullWindowModal>
     </>
   );
-}
-
-/**
- * The fullscreen overlays as the 3D page takes them. The page has no context
- * trace collection, so the other attempts go in its sections collection, the
- * one that takes a colour per feature, in the context colour the flat map
- * draws them in and without the highlighted attempt, which draws in its own.
- */
-export function buildRoute3DLayer({
-  fadedTraces,
-  highlightedTrace,
-  highlightedActivityId,
-  contextColor,
-  highlightCoordinate,
-}: {
-  fadedTraces: GeoJSON.FeatureCollection;
-  highlightedTrace: GeoJSON.FeatureCollection;
-  highlightedActivityId: string | null;
-  /** The base's muted colour, which the flat map draws the other attempts in. */
-  contextColor: string;
-  /** The scrub marker as [lng, lat], null when idle. */
-  highlightCoordinate?: [number, number] | null;
-}): BaseMap3DLayer {
-  const color = contextColor;
-  return {
-    sectionsGeoJSON: {
-      type: 'FeatureCollection',
-      features: fadedTraces.features
-        .filter((f) => !highlightedActivityId || f.properties?.id !== highlightedActivityId)
-        .map((f) => ({ ...f, properties: { ...f.properties, color } })),
-    },
-    highlightedTraceGeoJSON: highlightedTrace,
-    highlightCoordinate,
-  };
 }
 
 const styles = StyleSheet.create({

@@ -165,3 +165,46 @@ fn test_background_jobs_data_carries_the_garmin_pull_only_while_a_key_is_held() 
     assert_eq!(pull.stored, 7);
     assert_eq!(pull.reached_month.as_deref(), Some("2025-03"));
 }
+
+#[test]
+fn a_threshold_set_by_hand_reaches_the_screen_and_a_non_positive_one_is_refused() {
+    let _guard = serial_global_state();
+    let _tmp = init_global_engine("settings.db");
+    let settings = SettingsManager::new();
+    let ftp = |data: &crate::FfiThresholdsScreenData| {
+        data.sports
+            .iter()
+            .find(|s| s.sport == "Ride")
+            .and_then(|s| {
+                s.figures
+                    .iter()
+                    .find(|f| f.field == crate::FfiThresholdField::Ftp)
+            })
+            .map(|f| (f.value, f.source))
+            .unwrap()
+    };
+
+    assert_eq!(
+        ftp(&settings.thresholds_screen_data().unwrap()),
+        (None, None)
+    );
+    settings
+        .set_threshold_override("Ride".into(), crate::FfiThresholdField::Ftp, Some(250.0))
+        .unwrap();
+    assert_eq!(
+        ftp(&settings.thresholds_screen_data().unwrap()),
+        (Some(250.0), Some(crate::FfiThresholdSource::Athlete))
+    );
+    assert!(
+        settings
+            .set_threshold_override("Ride".into(), crate::FfiThresholdField::Ftp, Some(0.0))
+            .is_err()
+    );
+    settings
+        .set_threshold_override("Ride".into(), crate::FfiThresholdField::Ftp, None)
+        .unwrap();
+    assert_eq!(
+        ftp(&settings.thresholds_screen_data().unwrap()),
+        (None, None)
+    );
+}

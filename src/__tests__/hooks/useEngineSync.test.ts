@@ -59,6 +59,9 @@ jest.mock('@/features/home/lib/widgetBridge', () => ({
 
 jest.mock('@/shared/native/syncRefresh', () => ({ cancelSyncRefresh: jest.fn() }));
 
+const mockPullGarminNow = jest.fn();
+jest.mock('@/shared/native/garminPull', () => ({ pullGarminNow: () => mockPullGarminNow() }));
+
 const mockCancelSyncRefresh = cancelSyncRefresh as jest.MockedFunction<typeof cancelSyncRefresh>;
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 const mockScheduleWidgetSnapshot = scheduleWidgetSnapshot as jest.MockedFunction<
@@ -113,7 +116,7 @@ describe('useEngineSync', () => {
     resetListeners.length = 0;
     storedListeners.length = 0;
     useEngineStatus.setState({ readyNonce: 0 });
-    useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
+    useAuthStore.setState({ isAuthenticated: true, isDemoMode: false, authMethod: null });
   });
 
   it('leaves the athlete profile to its age gate on launch', async () => {
@@ -123,6 +126,40 @@ describe('useEngineSync', () => {
     await renderHook(() => useEngineSync());
 
     expect(syncNow.mock.calls).toEqual([[false]]);
+  });
+
+  /**
+   * Scenario: the athlete signed in with a Garmin key alone, so there is no
+   * intervals.icu credential to sync with and a launch sync could only answer
+   * that it is not configured.
+   *
+   * Expected behaviour: no intervals.icu sync is asked for, and a wipe that
+   * empties the library starts the Garmin pull again, since the pull is what
+   * refills it.
+   */
+  it('asks no intervals.icu sync of a Garmin-only session and restarts the pull after a wipe', async () => {
+    useAuthStore.setState({ authMethod: 'garmin', athleteId: 'garmin:8841' });
+    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    mockGetEngine.mockReturnValue(engineWith(syncNow));
+
+    await renderHook(() => useEngineSync());
+    expect(syncNow).not.toHaveBeenCalled();
+    expect(mockPullGarminNow).not.toHaveBeenCalled();
+
+    await act(() => resetListeners.forEach((listener) => listener()));
+    expect(syncNow).not.toHaveBeenCalled();
+    expect(mockPullGarminNow).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the Garmin pull alone for an intervals.icu session', async () => {
+    useAuthStore.setState({ authMethod: 'apiKey', athleteId: 'i77' });
+    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    mockGetEngine.mockReturnValue(engineWith(syncNow));
+
+    await renderHook(() => useEngineSync());
+    await act(() => resetListeners.forEach((listener) => listener()));
+
+    expect(mockPullGarminNow).not.toHaveBeenCalled();
   });
 
   /**

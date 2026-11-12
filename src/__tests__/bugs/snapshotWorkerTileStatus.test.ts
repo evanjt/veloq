@@ -56,8 +56,8 @@ it('skips a 404 from a regional satellite source as out of coverage', () => {
   const page = bootWorkerPage();
 
   page.render(request, 1);
-  page.map.emit('error', tileError(404, 'satellite-spain'));
-  page.map.emit('error', tileError(404, 'satellite-spain'));
+  page.map.emit('error', tileError(404, 'satellite-regions'));
+  page.map.emit('error', tileError(404, 'satellite-regions'));
   jest.advanceTimersByTime(20);
   page.map.emit('idle');
   page.map.emit('idle');

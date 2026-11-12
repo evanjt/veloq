@@ -102,9 +102,11 @@ import {
   RemoteLinkBanner,
   useExperimental,
 } from '@/features/settings';
+import { sourceFor } from '@/shared/app/source';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
 import { reconsiderFallback } from '@/shared/native/eventFallback';
+import { pullGarminNow } from '@/shared/native/garminPull';
 import { readLibraryCount } from '@/shared/native/libraryCount';
 import {
   runEngineInit,
@@ -299,7 +301,15 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           // its credential push was a no-op. Repeat it now the engine is up.
           pushCredentialsToEngine();
           // The Garmin key lives in the keychain; the engine holds it in memory.
-          restoreGarminKey().catch(() => {});
+          // With no intervals.icu sync to end in a Garmin pull, a Garmin-only
+          // session starts its pull here, once the key is held.
+          restoreGarminKey()
+            .then(() => {
+              if (sourceFor({ authMethod: useAuthStore.getState().authMethod })?.id === 'garmin') {
+                pullGarminNow();
+              }
+            })
+            .catch(() => {});
           // A launch that finds nobody signed in writes the sample the engine
           // could not compose while it was closed.
           refreshSampleWidgets();

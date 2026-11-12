@@ -4,6 +4,9 @@
 //! within the radius, nearest first, each with its length, best time and line, capped at the
 //! limit; an empty library returns nothing.
 
+use std::hint::black_box;
+use std::sync::Mutex;
+
 use rusqlite::params;
 use tracematch::GpsPoint;
 
@@ -52,18 +55,32 @@ fn add_route(
     sport: &str,
     times: [u32; 2],
 ) {
+    add_route_of(engine, id, north_metres, sport, &times);
+}
+
+/// A route with one attempt per entry of `times`, its line `north_metres` north of the fix.
+fn add_route_of(
+    engine: &mut PersistentEngine,
+    id: &str,
+    north_metres: f64,
+    sport: &str,
+    times: &[u32],
+) {
     let lat = FIX_LAT + north_metres / METRES_PER_DEGREE;
-    let members = [format!("{id}-a"), format!("{id}-b")];
+    let members: Vec<String> = (0..times.len()).map(|i| format!("{id}-{i:03}")).collect();
     for member in &members {
         engine
             .add_activity(member.clone(), track(lat, FIX_LNG), sport.to_string())
             .expect("add activity");
     }
     engine
-        .set_activity_metrics(vec![
-            metrics(&members[0], sport, 5_000.0, times[0]),
-            metrics(&members[1], sport, 5_000.0, times[1]),
-        ])
+        .set_activity_metrics(
+            members
+                .iter()
+                .zip(times)
+                .map(|(member, &time)| metrics(member, sport, 5_000.0, time))
+                .collect(),
+        )
         .expect("metrics");
     let bounds = (lat, lat + 0.0019, FIX_LNG, FIX_LNG);
     engine
@@ -89,6 +106,35 @@ fn add_route(
 
 fn read(engine: &PersistentEngine, sport: &str) -> Vec<crate::ffi_types::FfiNearbyRoute> {
     recording_nearby_routes(&engine.db, FIX_LAT, FIX_LNG, sport, None)
+}
+
+static STATEMENTS: Mutex<usize> = Mutex::new(0);
+
+fn count(_sql: &str) {
+    *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()) += 1;
+}
+
+fn statements_of_read(engine: &PersistentEngine) -> usize {
+    *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()) = 0;
+    crate::test_trace::trace_statements!(engine.db, count);
+    black_box(read(engine, "Ride"));
+    crate::test_trace::untrace(&engine.db);
+    *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// A library of the nearest [`NEARBY_LIMIT`] routes, each with `attempts` attempts.
+fn library(attempts: usize) -> PersistentEngine {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    for i in 0..NEARBY_LIMIT {
+        add_route_of(
+            &mut engine,
+            &format!("r{i:02}"),
+            i as f64 * 50.0,
+            "Ride",
+            &std::iter::repeat_n(1_800, attempts).collect::<Vec<_>>(),
+        );
+    }
+    engine
 }
 
 #[test]
@@ -210,4 +256,19 @@ fn a_followed_route_that_is_not_there_adds_nothing() {
     let routes = recording_nearby_routes(&engine.db, FIX_LAT, FIX_LNG, "Ride", Some("gone"));
 
     assert_eq!(routes.len(), 1);
+}
+
+/// Each route group costs a fixed few statements, and the group listing costs a few more.
+/// Anything that grows with the attempts of a route is far above this bound.
+const GROUP_LEVEL_SLACK: usize = 10;
+
+#[test]
+fn the_statements_of_a_read_do_not_grow_with_the_attempts_of_each_route() {
+    let few = statements_of_read(&library(2));
+    let many = statements_of_read(&library(50));
+
+    assert!(
+        many <= few + GROUP_LEVEL_SLACK,
+        "a read over routes of 50 attempts issued {many} statements, against {few} over routes of 2"
+    );
 }

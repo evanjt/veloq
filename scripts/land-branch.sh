@@ -211,6 +211,8 @@ lower_baselines() {
   echo "land-branch: the candidate beat the $list baselines, written down at $(git -C "$LANDING" rev-parse --short HEAD)"
 }
 
+. "$SCRIPTS/lib/regenerate-link-files.sh"
+
 # Format and style fail on what the candidate's own lines hold, and the target
 # passed the same gates when it landed, so re-running its battery to attribute
 # them spent a quarter of an hour to learn what the gate name already said.
@@ -322,6 +324,7 @@ attempt=1
 while [ "$attempt" -le "$ATTEMPTS" ]; do
   if [ "$needs_gate" = 1 ]; then
     provision
+    regenerate_link_files
     lower_baselines
     candidate=$(git -C "$LANDING" rev-parse HEAD)
     if ! gate "$base" "$report"; then

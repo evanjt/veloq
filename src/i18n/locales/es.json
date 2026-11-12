@@ -1327,7 +1327,11 @@
     "title": "Veloq",
     "demoCaption": "Salidas de ejemplo. No se guarda nada y la demo termina al cerrar la app.",
     "tryDemo": "Probar Demo",
-    "useApiKey": "Usar Clave API"
+    "useApiKey": "Usar Clave API",
+    "useGarminOnly": "Usar solo con Garmin",
+    "garminOnlyDescription": "No hace falta una cuenta de intervals.icu. Veloq trae tus salidas desde Garmin con una clave de Garmin y las guarda en este dispositivo.",
+    "garminOnlyConnect": "Conectar con clave de Garmin",
+    "garminNoAccount": "Garmin aceptó la clave pero no indicó a quién pertenece, así que no se puede guardar una biblioteca para ella."
   },
   "mapScreen": {
     "loadingActivities": "Cargando actividades…",
@@ -2088,6 +2092,30 @@
     "legendEstimated": "Tiempo estimado",
     "methodEstimated": "{{method}} Un paso que empieza o termina dentro de la sección, cerca de una puerta, se cronometra hasta esa puerta a su propia velocidad. Se marca como estimado cuando la proyección es de 10 m o más. Una estimación solo mantiene el récord si ningún paso en esa dirección se cronometró en tierra."
   },
+  "thresholds": {
+    "title": "Umbrales y perfil",
+    "rowSubtitle": "FTP, frecuencias cardíacas y peso",
+    "description": "Cada valor es el que se fija aquí; si no, el de los ajustes del deporte; si no, el más reciente de los archivos de actividad. Un campo vacío usa estos dos últimos.",
+    "cycling": "Ciclismo",
+    "running": "Carrera",
+    "fields": {
+      "ftp": "FTP",
+      "thresholdHr": "Frecuencia cardíaca umbral",
+      "maxHr": "Frecuencia cardíaca máxima",
+      "restingHr": "Frecuencia cardíaca en reposo",
+      "weightKg": "Peso"
+    },
+    "source": {
+      "athlete": "Fijado por ti: {{value}}",
+      "sportSettings": "De los ajustes del deporte: {{value}}",
+      "file": "De los archivos de actividad: {{value}}"
+    },
+    "notSet": "Sin fijar",
+    "loadFailed": "No se pudieron leer los valores.",
+    "invalid": "Introduce un número mayor que cero",
+    "zones": "Zonas de frecuencia cardíaca",
+    "zoneDefaults": "Las zonas predeterminadas de Veloq, que se usan cuando los ajustes del deporte no incluyen ninguna, terminan en el {{percents}} por ciento de la frecuencia cardíaca máxima."
+  },
   "settings": {
     "offlineRow": {
       "detail": "Las actividades guardadas y los gráficos siguen disponibles."
@@ -2385,6 +2413,7 @@
     "groupingFailed": "La agrupación no terminó. Mueve un control para intentarlo de nuevo.",
     "authApiKey": "Clave API",
     "authOAuth": "Sesión iniciada con intervals.icu",
+    "authGarmin": "Clave de Garmin",
     "authDemo": "Modo demo",
     "scopeChats": "Conversaciones",
     "scopeLibrary": "Biblioteca",
@@ -2438,6 +2467,7 @@
     "powerCurve": "Curva de potencia",
     "powerZones": "Zonas de potencia",
     "rangeNotDownloaded": "Aun no descargado",
+    "curveWorkedOutOnPhone": "Calculada en este teléfono a partir de tus propias actividades, con un ajuste lineal sobre tus mejores marcas de 3 a 20 minutos.",
     "rangePartlyDownloaded": "Parte de este período aún no se ha descargado",
     "calendarOlderOwed_one": "{{count}} actividad anterior de este año no se ha descargado",
     "calendarOlderOwed_other": "{{count}} actividades anteriores de este año no se han descargado",
@@ -3356,7 +3386,7 @@
     },
     "remoteLink": {
       "title": "Dispositivos vinculados",
-      "blurb": "Explora las actividades de este teléfono en el navegador de un ordenador conectado a la misma wifi mientras Veloq esté abierto. Vincula el navegador escaneando un código y gestiónalo en Ajustes. Tus datos van directamente del teléfono al navegador."
+      "blurb": "Explora las actividades de este teléfono en el navegador de un ordenador, mientras Veloq esté abierto. Funciona en la misma wifi y en la mayoría de las demás redes, y tus datos van directamente del teléfono al navegador. Vincula el navegador escaneando un código y gestiónalo en Ajustes."
     }
   },
   "remoteLink": {
@@ -3383,6 +3413,13 @@
     "expired": "El navegador no se conectó a tiempo. Genera un código nuevo en la página y vuelve a escanearlo.",
     "connected_one": "Hay un navegador conectado",
     "connected_other": "Hay {{count}} navegadores conectados",
-    "disconnect": "Desconectar"
+    "disconnect": "Desconectar",
+    "headerConnected": "Hay un navegador vinculado conectado",
+    "headerWaiting": "Esperando a que se conecte un navegador vinculado",
+    "headerUnreachable": "No se puede acceder a un navegador vinculado",
+    "sheetTitle": "Navegadores vinculados",
+    "connectedSince": "Conectado desde {{time}}",
+    "notConnected": "No conectado",
+    "manage": "Gestionar dispositivos vinculados"
   }
 }

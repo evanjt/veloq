@@ -34,6 +34,9 @@ yarn-error.*
 .env
 .env*.local
 
+# The connect page, built from web/connect by npm run build:connect in the deploy
+docs/connect/
+
 # typescript
 *.tsbuildinfo
 
@@ -46,6 +49,8 @@ yarn-error.*
 
 # misc
 .syncthing.*
+# Watchman writes a cookie file into each tree it watches, for the length of a query.
+.watchman-cookie-*
 .wrangler/
 google-services.json
 *-firebase-adminsdk-*.json

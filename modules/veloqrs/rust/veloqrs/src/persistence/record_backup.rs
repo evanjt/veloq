@@ -74,7 +74,8 @@ pub(crate) struct RecordPayload {
 /// The wire carries the variant's position, so the order here is the contract:
 /// append, never reorder. The discriminants start at one so no member is
 /// falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum RecordScope {
     /// Everything the record carries, for a file the athlete exports and
@@ -525,6 +526,7 @@ const RECORD_INTERNAL_SETTINGS: &[&str] = &[
     "__stream_retention_days",
     "__auto_backup_enabled",
     super::settings_keys::GARMIN_CONNECTOR_ENABLED,
+    super::settings_keys::THRESHOLD_OVERRIDES,
 ];
 
 /// The export privacy home, which an automatic record leaves out.

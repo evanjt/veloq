@@ -5,6 +5,12 @@ interface RemoteLinkStatus {
   connected: number;
   /** How many browsers are linked, as the settings row last read it. */
   linked: number;
+  /** How many rooms the phone is open in on the relay, waiting for a browser. */
+  rooms: number;
 }
 
-export const useRemoteLinkStatus = create<RemoteLinkStatus>(() => ({ connected: 0, linked: 0 }));
+export const useRemoteLinkStatus = create<RemoteLinkStatus>(() => ({
+  connected: 0,
+  linked: 0,
+  rooms: 0,
+}));

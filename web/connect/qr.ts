@@ -1,3 +1,4 @@
+// @ts-nocheck
 // toqr 0.1.1, vendored unchanged from its npm build so the page loads no
 // third-party script. MIT License. Copyright (c) Phil Pluckthun,
 // Copyright (c) 650 Industries, Inc. (aka Expo). Full notice: qr.LICENSE.txt.

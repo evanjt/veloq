@@ -184,11 +184,15 @@ it('names which phrases the bundle is missing', () => {
  * matters, whatever the working tree holds.
  */
 describe('--apk', () => {
-  function apk(root: string, body: string | null, stamp?: string): string {
+  function apk(root: string, body: string | null, stamp?: string, variant?: string): string {
     const staging = join(root, 'staging');
     rmSync(staging, { recursive: true, force: true });
     mkdirSync(join(staging, 'assets'), { recursive: true });
-    const config = stamp === undefined ? {} : { extra: { buildCommit: stamp } };
+    const extra = {
+      ...(stamp === undefined ? {} : { buildCommit: stamp }),
+      ...(variant === undefined ? {} : { variant }),
+    };
+    const config = Object.keys(extra).length === 0 ? {} : { extra };
     writeFileSync(join(staging, 'assets/app.config'), JSON.stringify(config));
     if (body !== null) writeFileSync(join(staging, 'assets/index.android.bundle'), body);
     const path = join(root, 'app-debug.apk');
@@ -210,6 +214,40 @@ describe('--apk', () => {
     const body = `var x = ${JSON.stringify(PHRASES.join(' '))};`;
 
     expect(runGuard(root, ['--apk', apk(root, body)]).status).toBe(0);
+  });
+
+  describe('commit mark', () => {
+    const app = `var x = ${JSON.stringify(PHRASES.join(' '))};`;
+
+    it('refuses a dev-variant APK whose bundle lost the commit-mark line', () => {
+      const root = fixture({ phrases: PHRASES });
+      const { status, output } = runGuard(root, ['--apk', apk(root, app, undefined, 'dev')]);
+
+      expect(status).toBe(1);
+      expect(output).toContain('[COMMIT]');
+    });
+
+    it('passes a dev-variant APK whose bundle carries the commit-mark line', () => {
+      const root = fixture({ phrases: PHRASES });
+      const body = `${app}\nconsole.error("⏱ [COMMIT] x");`;
+
+      expect(runGuard(root, ['--apk', apk(root, body, undefined, 'dev')]).status).toBe(0);
+    });
+
+    it('passes a production-variant APK, which prints nothing at runtime', () => {
+      const root = fixture({ phrases: PHRASES });
+
+      expect(runGuard(root, ['--apk', apk(root, app, undefined, 'production')]).status).toBe(0);
+    });
+
+    it('refuses an APK stamped with a variant that gates nothing', () => {
+      const root = fixture({ phrases: PHRASES });
+      const body = `${app}\n"[COMMIT]"`;
+      const { status, output } = runGuard(root, ['--apk', apk(root, body, undefined, 'staging')]);
+
+      expect(status).toBe(1);
+      expect(output).toContain('staging');
+    });
   });
 
   it('refuses an APK with no embedded bundle at all', () => {

@@ -20,6 +20,8 @@ import type {
   FfiExperimentalExamples,
   FfiRecordScreenData,
   FfiBackgroundJobsData,
+  FfiThresholdField,
+  FfiThresholdsScreenData,
 } from '../generated/veloqrs';
 
 export function setNameTranslations(
@@ -79,6 +81,29 @@ export function getRecordScreenData(host: DelegateHost): FfiRecordScreenData | u
 export function getCacheScreenData(host: DelegateHost): FfiCacheScreenData | undefined {
   if (!host.ready) return undefined;
   return host.timed('getCacheScreenData', () => host.engine.settings().cacheScreenData());
+}
+
+/** Each offered sport's threshold figures with their sources, and the default heart rate zone percentages. */
+export function getThresholdsScreenData(host: DelegateHost): FfiThresholdsScreenData | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getThresholdsScreenData', () => host.engine.settings().thresholdsScreenData());
+}
+
+/**
+ * Set one threshold figure for a sport's family, or clear it with `null` so the
+ * activity files answer again. Throws the engine's error for a value that is not
+ * a positive number, and when the engine is not open.
+ */
+export function setThresholdOverride(
+  host: DelegateHost,
+  sport: string,
+  field: FfiThresholdField,
+  value: number | null
+): void {
+  if (!host.ready) throw new Error('The engine is not open');
+  host.timed('setThresholdOverride', () =>
+    host.engine.settings().setThresholdOverride(sport, field, value ?? undefined)
+  );
 }
 
 /** How many activities widening the library's start from `from` to `to` (`YYYY-MM-DD`) would download. */

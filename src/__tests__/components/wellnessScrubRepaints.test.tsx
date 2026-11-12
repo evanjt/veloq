@@ -105,7 +105,8 @@ describe('wellness trends scrub', () => {
     const year = yearOfDays();
     const built = capturePans();
     const mark = jest.spyOn(performance, 'mark');
-    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+    log.mockClear();
     const commits = () => mark.mock.calls.filter(([name]) => name === WINDOW_COMMIT_MARK).length;
     const commitLines = () => log.mock.calls.filter(([line]) => String(line).includes(COMMIT_TAG));
 

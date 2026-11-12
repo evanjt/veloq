@@ -15,7 +15,11 @@ fail-fast = false
 filter = 'binary_id(veloqrs::app_synthetic) & test(/^lifecycle_scenarios::scenario_[fg]_/)'
 threads-required = 4
 
+# A landing's run stays inside the cargo job budget: without a cap nextest
+# starts one test per core, and a run of the whole crate took the host's load
+# average from 17 to 242.
 [profile.ci]
+test-threads = 16
 slow-timeout = { period = "60s", terminate-after = 4 }
 fail-fast = false
 

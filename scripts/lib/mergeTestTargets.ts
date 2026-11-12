@@ -75,6 +75,13 @@ export interface MergeTargets {
   related: string[];
   /** Whether the whole app project has to run, for a data file no test can be placed on. */
   jestApp: boolean;
+  /**
+   * Whether the whole tooling project has to run: a change to the files every
+   * tooling suite reads (the package manifest, the Jest, hook, workflow and
+   * Maestro configuration, the shared script libraries), or to a script data
+   * file no suite names.
+   */
+  tooling: boolean;
   androidJvm: boolean;
   iosProject: boolean;
   rustLint: boolean;
@@ -537,6 +544,25 @@ function isNativeSource(path: string): boolean {
 interface JestPlan {
   related: string[];
   app: boolean;
+  /** A data file under a tooling root that no suite can be placed on. */
+  unplacedTooling: boolean;
+}
+
+/** Paths and roots whose change can fail any suite of the tooling project. */
+const TOOLING_FILES = ['package.json', 'package-lock.json'];
+const TOOLING_ROOTS = ['config/', '.husky/', '.github/', 'maestro/', '.maestro/', 'scripts/lib/'];
+
+function touchesToolingRoot(path: string): boolean {
+  return TOOLING_FILES.includes(path) || TOOLING_ROOTS.some((root) => path.startsWith(root));
+}
+
+/** Whether a path is a suite of the tooling Jest project, from the project's own list. */
+function isToolingSuite(path: string): boolean {
+  const { toolingDirectories, toolingSuites } = require('../../config/jest.tooling.js') as {
+    toolingDirectories: string[];
+    toolingSuites: string[];
+  };
+  return toolingSuites.includes(path) || toolingDirectories.some((dir) => path.startsWith(dir));
 }
 
 /**
@@ -550,7 +576,8 @@ function jestPlan(changed: string[]): JestPlan {
   const data = changed.filter(isReadableData);
   const native = changed.filter(isNativeSource);
   const related = new Set(changed.filter(isImportableData));
-  if (data.length === 0 && native.length === 0) return { related: [...related], app: false };
+  if (data.length === 0 && native.length === 0)
+    return { related: [...related], app: false, unplacedTooling: false };
   const tests = JEST_ROOTS.flatMap((root) =>
     filesUnder(root.slice(0, -1), (name) => /\.test\.tsx?$/.test(name))
   ).map((file) => ({ file, source: readRepoFile(file) }));
@@ -561,6 +588,7 @@ function jestPlan(changed: string[]): JestPlan {
     for (const { file, source } of tests) if (namesFile(source, path)) related.add(file);
   }
   let app = false;
+  let unplacedTooling = false;
   for (const path of data) {
     const named = tests.filter(({ source }) => namesFile(source, path));
     // A test that scans a directory names the directory and not each file in
@@ -576,8 +604,9 @@ function jestPlan(changed: string[]): JestPlan {
     for (const { file } of [...named, ...inDirectory]) related.add(file);
     const placed = named.length > 0 || inDirectory.length > 0 || isImportableData(path);
     if (!placed && path.startsWith('src/')) app = true;
+    if (!placed && path.startsWith('scripts/')) unplacedTooling = true;
   }
-  return { related: [...related].sort(), app };
+  return { related: [...related].sort(), app, unplacedTooling };
 }
 
 /**
@@ -647,6 +676,7 @@ export function mergeTestTargets(changed: string[]): MergeTargets {
   const manifest = changed.includes(`${CRATE}Cargo.toml`) ? ['app'] : [];
   const layout = changed.some(touchesTestLayout) ? [LAYOUT_SUITE] : [];
   const jest = jestPlan(changed);
+  const tooling = changed.some(touchesToolingRoot) || jest.unplacedTooling;
   const rustAll = changed.some((path) =>
     [
       'modules/veloqrs/rust/Cargo.toml',
@@ -664,9 +694,15 @@ export function mergeTestTargets(changed: string[]): MergeTargets {
       readers.length > 0 ||
       (unplaced.length > 0 && namesFixtureDir),
     tracematchLib: changed.some(touchesTracematch),
-    typescript: changed.filter(isTypeScript).sort(),
-    related: jest.related,
+    // When the whole tooling project runs, its suites are not run a second time
+    // through the related-tests command.
+    typescript: changed
+      .filter(isTypeScript)
+      .filter((path) => !(tooling && isToolingSuite(path)))
+      .sort(),
+    related: jest.related.filter((path) => !(tooling && isToolingSuite(path))),
     jestApp: jest.app,
+    tooling,
     androidJvm: changed.some((path) =>
       ANDROID_JVM_MODULES.some((module) => path.startsWith(`modules/${module}/android/`))
     ),
@@ -694,6 +730,7 @@ export function hasTargets(targets: MergeTargets): boolean {
     targets.typescript.length > 0 ||
     targets.related.length > 0 ||
     targets.jestApp ||
+    targets.tooling ||
     targets.androidJvm ||
     targets.iosProject ||
     targets.rustLint ||
@@ -818,6 +855,9 @@ export function mergeTestCommands(
   }
   if (targets.jestApp) {
     commands.push('npx jest --config config/jest.config.js --selectProjects app');
+  }
+  if (targets.tooling) {
+    commands.push('npx jest --config config/jest.config.js --selectProjects tooling');
   }
   if (targets.androidJvm) commands.push('./scripts/check-android-jvm.sh');
   if (targets.iosProject) {

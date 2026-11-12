@@ -10,6 +10,13 @@
 // ratchet-baseline: the style baseline holds a ceiling per file, and a sweep
 // only ever lowers one, so two sweeps that touched it merge by the lower count
 // per key (`merge-ratchet-baseline.mjs`).
+//
+// regenerated: a file whose right content is its generator's output over the
+// merged tree (the link method table, the page schema, the bindings). Two
+// branches that each add a method change the same lines of all three, and a
+// text merge of them is a conflict nobody can resolve better than the
+// generator can. The driver keeps this side's text and reports success, and the
+// landing runs `regenerate-link-files.mjs` over the merged tree afterwards.
 
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
@@ -25,6 +32,11 @@ const DRIVERS = {
     name: 'a ratchet baseline, merged by the lower count per key',
     driver: `node ${shellQuote(join(HERE, 'merge-ratchet-baseline.mjs'))} %O %A %B`,
   },
+};
+
+DRIVERS.regenerated = {
+  name: 'a generated file, kept as this side has it and regenerated after the merge',
+  driver: 'true',
 };
 
 const git = (args) =>

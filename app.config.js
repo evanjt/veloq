@@ -70,6 +70,7 @@ module.exports = ({ config: input }) => {
     extra: {
       ...config.extra,
       buildCommit: buildStamp(__dirname),
+      variant: identity.variant,
     },
   };
 };

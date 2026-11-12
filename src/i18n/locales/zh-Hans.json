@@ -1295,7 +1295,11 @@
     "title": "Veloq",
     "demoCaption": "示例骑行。不会保存任何内容，关闭应用后演示即结束。",
     "tryDemo": "试用演示",
-    "useApiKey": "使用API密钥"
+    "useApiKey": "使用API密钥",
+    "useGarminOnly": "仅与 Garmin 搭配使用",
+    "garminOnlyDescription": "无需 intervals.icu 账号。Veloq 使用 Garmin 密钥从 Garmin 获取你的骑行记录，并保存在此设备上。",
+    "garminOnlyConnect": "使用 Garmin 密钥连接",
+    "garminNoAccount": "Garmin 接受了该密钥，但没有说明它属于谁，因此无法为它保存资料库。"
   },
   "mapScreen": {
     "loadingActivities": "加载活动中…",
@@ -2038,6 +2042,30 @@
     "legendEstimated": "估算用时",
     "methodEstimated": "{{method}} 在路段内开始或结束、靠近关卡的通过，会以其自身速度计时到该关卡。当预测距离为10米或以上时标记为估计。只有在该方向上没有实际计时的通过时，估计值才会保持纪录。"
   },
+  "thresholds": {
+    "title": "阈值与个人资料",
+    "rowSubtitle": "FTP、心率和体重",
+    "description": "每个数值取你在此设置的值；没有则取运动设置中的值；再没有则取活动文件中最新的值。留空即使用后两者。",
+    "cycling": "骑行",
+    "running": "跑步",
+    "fields": {
+      "ftp": "FTP",
+      "thresholdHr": "阈值心率",
+      "maxHr": "最大心率",
+      "restingHr": "静息心率",
+      "weightKg": "体重"
+    },
+    "source": {
+      "athlete": "你设置的：{{value}}",
+      "sportSettings": "来自运动设置：{{value}}",
+      "file": "来自活动文件：{{value}}"
+    },
+    "notSet": "未设置",
+    "loadFailed": "无法读取这些数值。",
+    "invalid": "请输入大于零的数字",
+    "zones": "心率区间",
+    "zoneDefaults": "运动设置未列出心率区间时，Veloq 的默认区间上限为最大心率的以下百分比：{{percents}}。"
+  },
   "settings": {
     "offlineRow": {
       "detail": "已保存的活动和图表仍可查看。"
@@ -2318,6 +2346,7 @@
     "groupingFailed": "分组未能完成。移动滑块可再试一次。",
     "authApiKey": "API 密钥",
     "authOAuth": "已通过 intervals.icu 登录",
+    "authGarmin": "Garmin 密钥",
     "authDemo": "演示模式",
     "scopeChats": "聊天",
     "scopeLibrary": "资料库",
@@ -2369,6 +2398,7 @@
     "powerCurve": "功率曲线",
     "powerZones": "功率区间",
     "rangeNotDownloaded": "尚未下载",
+    "curveWorkedOutOnPhone": "由本机根据你自己的活动数据计算，采用对 3 至 20 分钟最佳成绩的线性拟合。",
     "rangePartlyDownloaded": "此范围的部分内容尚未下载",
     "calendarOlderOwed_one": "今年较早的 {{count}} 项活动尚未下载",
     "calendarOlderOwed_other": "今年较早的 {{count}} 项活动尚未下载",
@@ -3261,7 +3291,7 @@
     },
     "remoteLink": {
       "title": "已关联的设备",
-      "blurb": "在 Veloq 打开期间，可在同一 Wi-Fi 下电脑的浏览器中浏览这部手机上的活动。扫描二维码即可关联浏览器，并在设置中管理。你的数据直接从手机发送到浏览器。"
+      "blurb": "在 Veloq 打开期间，可在电脑的浏览器中浏览这部手机上的活动。在同一 Wi-Fi 下以及大多数其他网络中都可使用，你的数据直接从手机发送到浏览器。扫描二维码即可关联浏览器，并在设置中管理。"
     }
   },
   "remoteLink": {
@@ -3288,6 +3318,13 @@
     "expired": "浏览器未能及时连接。请在页面上生成新的二维码，然后重新扫描。",
     "connected_one": "已连接 {{count}} 个浏览器",
     "connected_other": "已连接 {{count}} 个浏览器",
-    "disconnect": "断开连接"
+    "disconnect": "断开连接",
+    "headerConnected": "已关联的浏览器已连接",
+    "headerWaiting": "正在等待已关联的浏览器连接",
+    "headerUnreachable": "无法连接到已关联的浏览器",
+    "sheetTitle": "已关联的浏览器",
+    "connectedSince": "自 {{time}} 起已连接",
+    "notConnected": "未连接",
+    "manage": "管理已关联的设备"
   }
 }

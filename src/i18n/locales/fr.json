@@ -1327,7 +1327,11 @@
     "title": "Veloq",
     "demoCaption": "Sorties d'exemple. Rien n'est conservé, et la démo se termine à la fermeture de l'application.",
     "tryDemo": "Essayer la Démo",
-    "useApiKey": "Utiliser la Clé API"
+    "useApiKey": "Utiliser la Clé API",
+    "useGarminOnly": "Utiliser avec Garmin seulement",
+    "garminOnlyDescription": "Aucun compte intervals.icu nécessaire. Veloq récupère vos sorties depuis Garmin avec une clé Garmin et les garde sur cet appareil.",
+    "garminOnlyConnect": "Connecter avec une clé Garmin",
+    "garminNoAccount": "Garmin a accepté la clé sans indiquer à qui elle appartient : une bibliothèque ne peut donc pas lui être attribuée."
   },
   "mapScreen": {
     "loadingActivities": "Chargement des activités…",
@@ -2088,6 +2092,30 @@
     "legendEstimated": "Temps estimé",
     "methodEstimated": "{{method}} Un passage qui commence ou se termine dans la section, près d'une porte, est chronométré jusqu'à cette porte à sa propre vitesse. Il est marqué comme estimé lorsque la projection est de 10 m ou plus. Une estimation ne détient le record que si aucun passage dans ce sens n'a été chronométré au sol."
   },
+  "thresholds": {
+    "title": "Seuils et profil",
+    "rowSubtitle": "FTP, fréquences cardiaques et poids",
+    "description": "Chaque valeur est celle fixée ici, sinon celle des réglages du sport, sinon la plus récente des fichiers d'activité. Un champ vide utilise ces deux dernières.",
+    "cycling": "Cyclisme",
+    "running": "Course à pied",
+    "fields": {
+      "ftp": "FTP",
+      "thresholdHr": "Fréquence cardiaque au seuil",
+      "maxHr": "Fréquence cardiaque maximale",
+      "restingHr": "Fréquence cardiaque au repos",
+      "weightKg": "Poids"
+    },
+    "source": {
+      "athlete": "Fixée par vous : {{value}}",
+      "sportSettings": "Des réglages du sport : {{value}}",
+      "file": "Des fichiers d'activité : {{value}}"
+    },
+    "notSet": "Non définie",
+    "loadFailed": "Les valeurs n'ont pas pu être lues.",
+    "invalid": "Saisissez un nombre supérieur à zéro",
+    "zones": "Zones de fréquence cardiaque",
+    "zoneDefaults": "Les zones par défaut de Veloq, utilisées quand les réglages du sport n'en listent aucune, s'arrêtent à {{percents}} pour cent de la fréquence cardiaque maximale."
+  },
   "settings": {
     "offlineRow": {
       "detail": "Les activités enregistrées et les graphiques restent disponibles."
@@ -2385,6 +2413,7 @@
     "groupingFailed": "Le regroupement n'a pas abouti. Déplace un curseur pour réessayer.",
     "authApiKey": "Clé API",
     "authOAuth": "Connecté avec intervals.icu",
+    "authGarmin": "Clé Garmin",
     "authDemo": "Mode démo",
     "scopeChats": "Discussions",
     "scopeLibrary": "Bibliothèque",
@@ -2438,6 +2467,7 @@
     "powerCurve": "Courbe de puissance",
     "powerZones": "Zones de puissance",
     "rangeNotDownloaded": "Pas encore telecharge",
+    "curveWorkedOutOnPhone": "Calculée sur ce téléphone à partir de vos propres activités, avec un ajustement linéaire sur vos meilleurs efforts de 3 à 20 minutes.",
     "rangePartlyDownloaded": "Une partie de cette période n'est pas encore téléchargée",
     "calendarOlderOwed_one": "{{count}} activité plus ancienne de cette année n'est pas téléchargée",
     "calendarOlderOwed_other": "{{count}} activités plus anciennes de cette année ne sont pas téléchargées",
@@ -3356,7 +3386,7 @@
     },
     "remoteLink": {
       "title": "Appareils associés",
-      "blurb": "Parcourez les activités de ce téléphone dans le navigateur d'un ordinateur sur le même Wi-Fi, tant que Veloq est ouvert. Associez le navigateur en scannant un code, puis gérez-le dans les Réglages. Vos données vont directement du téléphone au navigateur."
+      "blurb": "Parcourez les activités de ce téléphone dans le navigateur d'un ordinateur, tant que Veloq est ouvert. Cela fonctionne sur le même Wi-Fi et sur la plupart des autres réseaux, et vos données vont directement du téléphone au navigateur. Associez le navigateur en scannant un code, puis gérez-le dans les Réglages."
     }
   },
   "remoteLink": {
@@ -3383,6 +3413,13 @@
     "expired": "Le navigateur ne s'est pas connecté à temps. Créez un nouveau code sur la page et scannez-le à nouveau.",
     "connected_one": "Un navigateur est connecté",
     "connected_other": "{{count}} navigateurs sont connectés",
-    "disconnect": "Déconnecter"
+    "disconnect": "Déconnecter",
+    "headerConnected": "Un navigateur associé est connecté",
+    "headerWaiting": "En attente de la connexion d’un navigateur associé",
+    "headerUnreachable": "Un navigateur associé est injoignable",
+    "sheetTitle": "Navigateurs associés",
+    "connectedSince": "Connecté depuis {{time}}",
+    "notConnected": "Non connecté",
+    "manage": "Gérer les appareils associés"
   }
 }

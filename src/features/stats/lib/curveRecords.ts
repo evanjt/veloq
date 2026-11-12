@@ -33,6 +33,7 @@ export function powerCurveOf(row: PowerCurveRow): PowerCurve {
     startDate: row.startDate,
     endDate: row.endDate,
     days: row.days,
+    source: row.source,
   };
 }
 
@@ -51,5 +52,6 @@ export function paceCurveOf(row: PaceCurveRow): PaceCurve {
     startDate: row.startDate,
     endDate: row.endDate,
     days: row.days,
+    source: row.source,
   };
 }

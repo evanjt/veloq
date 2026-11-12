@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { FfiRouteFollow } from 'veloqrs';
 
 /**
  * Live values the recording session produces and the screen only displays.
@@ -29,6 +30,12 @@ interface RecordingLiveState {
   backupFailures: number;
   /** The saved route the athlete chose for a sport; a null routeId is "no route". */
   routeChoice: { activityType: string; routeId: string | null } | null;
+  /**
+   * The latest placement of a fix on the followed route, or null while no route is
+   * followed or no fix has been placed on it yet.
+   */
+  guidance: FfiRouteFollow | null;
+  setGuidance: (guidance: FfiRouteFollow | null) => void;
   setRouteChoice: (activityType: string, routeId: string | null) => void;
   setFix: (location: { latitude: number; longitude: number }, accuracy: number | null) => void;
   setAutoPaused: (autoPaused: boolean) => void;
@@ -45,6 +52,9 @@ export const useRecordingLiveStore = create<RecordingLiveState>((set) => ({
   backgroundTrackingFailed: false,
   backupFailures: 0,
   routeChoice: null,
+  guidance: null,
+
+  setGuidance: (guidance) => set({ guidance }),
 
   setRouteChoice: (activityType, routeId) => set({ routeChoice: { activityType, routeId } }),
 
@@ -68,5 +78,6 @@ export const useRecordingLiveStore = create<RecordingLiveState>((set) => ({
       backgroundTrackingFailed: false,
       backupFailures: 0,
       routeChoice: null,
+      guidance: null,
     }),
 }));

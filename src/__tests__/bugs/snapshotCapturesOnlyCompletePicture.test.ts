@@ -136,7 +136,7 @@ describe('a render with a failed tile', () => {
     ]);
   });
 
-  it.each(['terrain', 'openmaptiles', 'satellite-eox'])('fails on a 404 from %s', (sourceId) => {
+  it.each(['terrain', 'openmaptiles', 'satellite-global'])('fails on a 404 from %s', (sourceId) => {
     const page = bootWorkerPage();
 
     page.render(request(), 1);
@@ -148,7 +148,7 @@ describe('a render with a failed tile', () => {
     ]);
   });
 
-  it.each(['satellite-spain', 'satellite-swisstopo-2'])(
+  it.each(['satellite-regions'])(
     'is captured over a 404 from the regional source %s, which is out of coverage',
     (sourceId) => {
       const page = bootWorkerPage();

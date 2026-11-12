@@ -34,6 +34,7 @@ export {
 export { useActivitySummary } from './hooks/useActivitySummary';
 export { useAlwaysLocationPrompt } from './hooks/useAlwaysLocationPrompt';
 export { useCanRecord } from './hooks/useCanRecord';
+export { useRouteGuidance } from './hooks/useRouteGuidance';
 export { useEntryLocation } from './hooks/useEntryLocation';
 export { useGpsSessionEffect } from './hooks/useGpsSessionEffect';
 export { useGpsWarningClearEffect } from './hooks/useGpsWarningClearEffect';

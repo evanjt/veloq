@@ -153,7 +153,12 @@ export function sameFields(a: MapSourceSpec, b: MapSourceSpec): boolean {
 function sameTerrain(a: MapTerrainSpec | null, b: MapTerrainSpec | null): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  return a.exaggeration === b.exaggeration && a.pitch === b.pitch;
+  return (
+    a.exaggeration === b.exaggeration &&
+    a.pitch === b.pitch &&
+    a.subjectSource === b.subjectSource &&
+    a.cameraPinned === b.cameraPinned
+  );
 }
 
 /** Stands in for an absent list, so an absent one keeps its identity too. */

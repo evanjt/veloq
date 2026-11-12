@@ -236,6 +236,33 @@ impl GarminClient {
         Ok(account::display_name_in(&settings))
     }
 
+    /// The id Garmin keeps for the account the key belongs to, `None` when
+    /// neither the token nor the account settings carry one. It is read from
+    /// the token's claims when they name the account, and only otherwise from
+    /// the settings, which costs a request.
+    pub async fn account_id(
+        &self,
+        dispatch: impl Into<Dispatch>,
+    ) -> Result<Option<String>, GarminError> {
+        let dispatch = dispatch.into();
+        let token = match self.cached_token() {
+            Some(token) => token,
+            None => self.exchange(dispatch).await?,
+        };
+        if let Some(id) = token_claims(&token)
+            .as_ref()
+            .and_then(account::account_id_in)
+        {
+            return Ok(Some(id));
+        }
+        let settings = self
+            .with_token(dispatch, |t| async move {
+                endpoints::fetch_user_settings(&t, dispatch).await
+            })
+            .await?;
+        Ok(account::account_id_in(&settings))
+    }
+
     /// Every activity from `start_date` to `end_date` (local days, inclusive),
     /// paged until a page comes back short.
     pub async fn list_activities(
@@ -289,13 +316,19 @@ pub fn dispatch() -> Dispatch {
     Lane::Garmin.into()
 }
 
-/// The `exp` claim of a JWT, as a time.
-fn token_expiry(token: &str) -> Option<DateTime<Utc>> {
+/// The claims of a JWT, unverified: the token came from Garmin's own endpoint
+/// over TLS, and nothing here trusts it for more than reading its fields.
+fn token_claims(token: &str) -> Option<serde_json::Value> {
     let payload = token.split('.').nth(1)?;
     let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(payload.trim_end_matches('='))
         .ok()?;
-    let claims: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+/// The `exp` claim of a JWT, as a time.
+fn token_expiry(token: &str) -> Option<DateTime<Utc>> {
+    let claims = token_claims(token)?;
     Utc.timestamp_opt(claims.get("exp")?.as_i64()?, 0).single()
 }
 

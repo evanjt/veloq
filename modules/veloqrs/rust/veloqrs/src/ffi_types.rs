@@ -35,9 +35,11 @@ pub(crate) fn uint_from_wire(value: f64) -> u64 {
 
 /// Extension track for expanding section bounds.
 /// Contains the representative activity's full GPS track with section start/end indices.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionExtensionTrack {
     /// Delta+varint encoded coordinates of the full representative activity track
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_track: Vec<u8>,
     /// Index in the track where the current section starts
     pub section_start_idx: u32,
@@ -46,7 +48,8 @@ pub struct FfiSectionExtensionTrack {
 }
 
 /// Section detection progress info.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiDetectionProgress {
     /// Current phase, such as "loading", "analyzing" or "saving".
     pub phase: String,
@@ -59,7 +62,8 @@ pub struct FfiDetectionProgress {
 }
 
 /// Section reference info: combines reference activity ID and user-defined flag.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionReferenceInfo {
     pub activity_id: String,
     pub is_user_defined: bool,
@@ -67,7 +71,8 @@ pub struct FfiSectionReferenceInfo {
 
 /// A ride a section edit took out of the section: its library name and its
 /// start as seconds since the epoch.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiDepartedRide {
     pub activity_id: String,
     pub name: String,
@@ -75,7 +80,8 @@ pub struct FfiDepartedRide {
 }
 
 /// A merge's result: the section kept and the rides that left it.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMergeOutcome {
     pub section_id: String,
     pub departed: Vec<FfiDepartedRide>,
@@ -87,38 +93,91 @@ pub struct FfiMergeOutcome {
 /// engine's one track encoding, unframed. A series the activity does not have
 /// is an empty buffer. All the series share one index space, so sample `i` of
 /// one is sample `i` of every other.
-#[derive(Debug, Clone, Default, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityStreams {
+    #[serde(with = "crate::remote::bytes")]
     pub latlng: Vec<u8>,
+    #[serde(with = "crate::remote::bytes")]
     pub time: Vec<u8>,
+    #[serde(with = "crate::remote::bytes")]
     pub altitude: Vec<u8>,
+    #[serde(with = "crate::remote::bytes")]
     pub heartrate: Vec<u8>,
+    #[serde(with = "crate::remote::bytes")]
     pub watts: Vec<u8>,
     /// Cadence in the sport's cadence unit, so steps a minute on foot.
+    #[serde(with = "crate::remote::bytes")]
     pub cadence: Vec<u8>,
+    #[serde(with = "crate::remote::bytes")]
     pub velocity_smooth: Vec<u8>,
+    #[serde(with = "crate::remote::bytes")]
     pub distance: Vec<u8>,
+    #[serde(with = "crate::remote::bytes")]
     pub grade_smooth: Vec<u8>,
+    #[serde(with = "crate::remote::bytes")]
     pub temp: Vec<u8>,
     /// W' balance in joules remaining.
+    #[serde(with = "crate::remote::bytes")]
     pub wbal: Vec<u8>,
     /// Grade-adjusted pace in minutes per kilometre.
+    #[serde(with = "crate::remote::bytes")]
     pub gap: Vec<u8>,
 }
 
 /// Lightweight map signature for rendering activity traces on the map.
 /// Contains simplified GPS points (max ~100 via Douglas-Peucker) as encoded coords.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMapSignature {
     pub activity_id: String,
     /// Delta+varint encoded coordinates (simplified, max ~100 points)
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_coords: Vec<u8>,
     pub center_lat: f64,
     pub center_lng: f64,
 }
 
+/// Where a ride stands against the route it follows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum FfiFollowStatus {
+    /// No fix has yet come within the joining distance of the route.
+    NotJoined,
+    OnRoute,
+    OffRoute,
+}
+
+/// The direction a ride runs a route in, decided once enough of it is ridden.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum FfiFollowDirection {
+    Undecided,
+    Forward,
+    Reverse,
+}
+
+/// One fix placed on a followed route.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiRouteFollow {
+    /// Metres from the route's start to the matched point.
+    pub along_m: f64,
+    /// Metres to the route's end, or to its start once the ride is decided reverse.
+    pub remaining_m: f64,
+    /// Metres from the fix to the matched point.
+    pub cross_track_m: f64,
+    /// Bearing of the route at the matched point in the ride's direction, degrees from north.
+    pub route_bearing_deg: f64,
+    /// Bearing from the fix to the matched point, degrees from north.
+    pub bearing_to_route_deg: f64,
+    pub status: FfiFollowStatus,
+    pub direction: FfiFollowDirection,
+}
+
 /// One saved route near the recording fix, with what the record screen shows for it.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiNearbyRoute {
     pub group_id: String,
     pub name: String,
@@ -129,11 +188,63 @@ pub struct FfiNearbyRoute {
     /// The best counted time in the route's sport, `None` when no attempt has one.
     pub best_time_seconds: Option<u32>,
     /// The representative's simplified line, empty when it has no stored signature.
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_coords: Vec<u8>,
 }
 
+/// The activities whose tracks pass under a point on the map, grouped by route.
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiActivitiesUnderPoint {
+    /// Every activity that passes under the point, before the cap.
+    pub total: u32,
+    /// The cap left some of them out of `groups`.
+    pub truncated: bool,
+    /// The most traces the map draws for one group under the point, so the
+    /// sheet can say how many of a group are drawn. Zero when nothing is under
+    /// the point.
+    pub trace_cap: u32,
+    /// One group per route the activities belong to, the biggest first, then
+    /// the group of activities in no route.
+    pub groups: Vec<FfiUnderPointGroup>,
+}
+
+/// The activities under a point that belong to one route, or to none.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiUnderPointGroup {
+    /// The route, `None` for the activities in no route.
+    pub route_id: Option<String>,
+    /// The name the athlete gave the route.
+    pub name: Option<String>,
+    /// The number an unnamed route is shown under.
+    pub number: Option<u32>,
+    /// How many activities of this group pass under the point, before the cap.
+    pub count: u32,
+    /// The group's activities that fit under the cap, newest first.
+    pub activities: Vec<FfiUnderPointActivity>,
+}
+
+/// One activity under the point.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiUnderPointActivity {
+    pub id: String,
+    pub name: String,
+    pub sport_type: String,
+    /// Unix seconds.
+    pub date: f64,
+    /// Metres.
+    pub distance: f64,
+    /// Moving time in seconds.
+    pub duration: u32,
+    /// How close the track comes to the point, in metres.
+    pub nearest_m: f64,
+}
+
 /// Distance range selected for the map in the current unit system.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum MapDistanceBand {
     All,
     XShort,
@@ -236,7 +347,8 @@ impl From<FfiActivityMetrics> for crate::ActivityMetrics {
 // ============================================================================
 
 /// One week's totals and when the week starts.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiWeeklyTotal {
     /// Epoch seconds of the week's first instant.
     pub start: f64,
@@ -246,7 +358,8 @@ pub struct FfiWeeklyTotal {
 }
 
 /// Aggregated stats for a date range.
-#[derive(Debug, Clone, uniffi::Record, Default)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPeriodStats {
     /// Number of activities
     pub count: u32,
@@ -259,7 +372,8 @@ pub struct FfiPeriodStats {
 }
 
 /// Whether a local day's recorded activity load can be totalled.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiDayLoadStatus {
     /// Every activity that day carries a recorded load, an explicit zero included.
     Complete,
@@ -272,7 +386,8 @@ pub enum FfiDayLoadStatus {
 }
 
 /// One local calendar day's recorded activity training load.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiDayLoad {
     /// Local date, `YYYY-MM-DD`.
     pub date: String,
@@ -286,7 +401,8 @@ pub struct FfiDayLoad {
 /// Which total a period comparison was taken on. A week with no training load
 /// recorded still has moving time, so the comparison falls back rather than
 /// reading zero against zero.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiLoadMetric {
     /// Training load, when both periods carry some.
     Tss,
@@ -298,7 +414,8 @@ pub enum FfiLoadMetric {
 ///
 /// The card's threshold test is the reader's: this says how far apart the two
 /// periods are and on what, not whether that is worth saying.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPeriodComparison {
     /// The total both values are under.
     pub metric: FfiLoadMetric,
@@ -314,7 +431,8 @@ pub struct FfiPeriodComparison {
 }
 
 /// A sport's time in each zone, with the athlete's own name for each zone.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiZoneDistribution {
     /// Seconds per zone, lowest zone first. Empty for an unknown zone type.
     pub seconds: Vec<f64>,
@@ -328,7 +446,8 @@ pub struct FfiZoneDistribution {
 }
 
 /// One calendar month's totals, for the season chart's month bars.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMonthlyStats {
     /// Calendar year, in the athlete's own timezone.
     pub year: i32,
@@ -342,7 +461,8 @@ pub struct FfiMonthlyStats {
 /// entries of `wellness.raw`, not from the configured FTP setting (`icu_ftp`)
 /// or the per-activity estimate (`icu_pm_ftp_watts`). The latest and previous
 /// values are days of that series and are not activity starts.
-#[derive(Debug, Clone, uniffi::Record, Default)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiFtpTrend {
     /// eFTP of the newest day carrying one
     pub latest_ftp: Option<u16>,
@@ -383,7 +503,8 @@ pub struct FfiFtpTrend {
 ///
 /// The estimate an activity produced is not a change: only a non-zero delta on
 /// the rolling value is, which is what intervals.icu marks on its own plot.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiEftpChange {
     pub activity_id: String,
     /// Activity start (Unix timestamp seconds).
@@ -396,7 +517,8 @@ pub struct FfiEftpChange {
 }
 
 /// Pace trend data (critical speed for running/swimming).
-#[derive(Debug, Clone, uniffi::Record, Default)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPaceTrend {
     /// Most recent critical speed in m/s
     pub latest_pace: Option<f64>,
@@ -429,7 +551,8 @@ pub struct FfiPaceTrend {
 /// What a trend or verdict was measured against and how much evidence stood
 /// behind it, so a surface can state the method and the engine can withhold a
 /// claim its evidence cannot carry (`crate::claim`).
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiClaimBasis {
     /// What the reading is compared with, as a key a surface translates:
     /// `earlierReading` is the newest reading at least `lookback_days` before it.
@@ -448,7 +571,8 @@ pub struct FfiClaimBasis {
 /// read (Unix timestamp seconds of that day's midnight, UTC, as `FfiFtpTrend`
 /// dates its estimates), and `*_basis` the evidence behind the claim. A metric
 /// with no baseline row carries no previous value and no date.
-#[derive(Debug, Clone, uniffi::Record, Default)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiWellnessSummary {
     pub fitness: Option<f64>,
     pub fitness_trend: Option<String>,
@@ -559,7 +683,8 @@ pub struct WidgetSummaryCardData {
 
 /// Summary card batch data: combines period stats, FTP trend, and pace trends.
 /// Reduces Home screen FFI calls from 5 to 1.
-#[derive(Debug, Clone, uniffi::Record, Default)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSummaryCardData {
     pub wellness: FfiWellnessSummary,
     pub current_week: FfiPeriodStats,
@@ -575,7 +700,8 @@ pub struct FfiSummaryCardData {
 }
 
 /// Section summaries with total count: combines count + summaries in one call.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionSummariesResult {
     /// Total section count (unfiltered)
     pub total_count: u32,
@@ -584,7 +710,8 @@ pub struct FfiSectionSummariesResult {
 }
 
 /// Group summaries with total count: combines count + summaries in one call.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiGroupSummariesResult {
     /// Total group count
     pub total_count: u32,
@@ -709,6 +836,7 @@ impl From<tracematch::SectionPortion> for FfiSectionPortion {
 pub struct FfiNamedCorridor {
     pub intent_id: String,
     pub name: String,
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_footprint: Vec<u8>,
     pub sport_type: Option<String>,
     pub created_at: String,
@@ -741,7 +869,8 @@ impl From<crate::persistence::sections::NamedCorridor> for FfiNamedCorridor {
 ///
 /// One record rather than a call per narrowing: every read returns the same
 /// list, and the corridor-name overlay is applied once behind it.
-#[derive(Debug, Clone, Default, uniffi::Record)]
+#[derive(Debug, Clone, Default, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionFilter {
     /// Only this sport's sections.
     #[uniffi(default = None)]
@@ -768,6 +897,7 @@ pub struct FfiSection {
     /// Every sport whose included outings have taken the section, sorted. A
     /// section has no sport of its own, so this set is the whole answer.
     pub sport_types: Vec<String>,
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_polyline: Vec<u8>,
     pub distance_meters: f64,
     pub representative_activity_id: Option<String>,
@@ -1067,7 +1197,8 @@ pub struct FfiSectionGeometryVersion {
     pub pinned: bool,
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiBackupScreenData {
     pub home_lat: Option<String>,
     pub home_lng: Option<String>,
@@ -1085,22 +1216,74 @@ pub struct FfiBackupScreenData {
 }
 
 /// What the record screen offers before a recording starts.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRecordScreenData {
     /// Sport types the library holds, the one with most activities first, ties
     /// in name order. Empty for a library with no activity.
     pub library_sports: Vec<String>,
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiCacheScreenData {
     pub stream_retention_days: f64,
     pub stream_store_bytes: f64,
     pub activity_year_counts: Vec<FfiYearCount>,
 }
 
+/// Where a threshold figure shown on the thresholds screen came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+pub enum FfiThresholdSource {
+    /// The athlete set it in the app.
+    Athlete,
+    /// The sport settings body the athlete's account holds.
+    SportSettings,
+    /// The newest figure the athlete's own activity files carry.
+    File,
+}
+
+/// One of the figures the thresholds screen lets the athlete set.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+pub enum FfiThresholdField {
+    Ftp,
+    ThresholdHr,
+    MaxHr,
+    RestingHr,
+    WeightKg,
+}
+
+/// One figure with its value and source, both unset when nothing gives it.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiThresholdFigure {
+    pub field: FfiThresholdField,
+    pub value: Option<f64>,
+    pub source: Option<FfiThresholdSource>,
+}
+
+/// The figures of one sport family.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSportThresholds {
+    /// The family's first sport type, the key a write names.
+    pub sport: String,
+    pub figures: Vec<FfiThresholdFigure>,
+}
+
+/// What the thresholds settings screen shows.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiThresholdsScreenData {
+    pub sports: Vec<FfiSportThresholds>,
+    /// The upper edge of each heart rate zone, as a percent of maximum heart
+    /// rate, used when the athlete's sport settings list no zones of their own.
+    pub hr_zone_default_percents: Vec<f64>,
+}
+
 /// The sections where each experimental feature has something to show.
-#[derive(Debug, Clone, Default, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiExperimentalExamples {
     /// A section whose page carries an efficiency trend, if any does.
     pub efficiency_trend_section_id: Option<String>,
@@ -1109,14 +1292,16 @@ pub struct FfiExperimentalExamples {
 }
 
 /// What widening the library's start to an earlier date would download.
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiHistoryRangeEstimate {
     pub count: u32,
     /// True when only per-year counts were known and the figure is prorated.
     pub approximate: bool,
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiYearCount {
     pub year: u32,
     pub count: u32,
@@ -1125,7 +1310,8 @@ pub struct FfiYearCount {
 /// What the background jobs have done and still owe, read once each time a job
 /// settles or activities land. The running progress is not here: it moves on
 /// every item and stays on the routes status poll.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiBackgroundJobsData {
     /// The last run of each job that has run on this install.
     pub runs: Vec<crate::persistence::job_runs::JobRun>,
@@ -1163,7 +1349,8 @@ pub struct FfiBackgroundJobsData {
 
 /// The library at a staged cut, as tracks with a decided elevation out of all
 /// the tracks the download can ask about.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStagedHistory {
     pub done: u32,
     pub total: u32,
@@ -1173,7 +1360,8 @@ pub struct FfiStagedHistory {
 }
 
 /// What Retry now did.
-#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRetryNow {
     /// Both downloads were restarted.
     pub started: bool,
@@ -1184,7 +1372,8 @@ pub struct FfiRetryNow {
 }
 
 /// Where the Garmin pull stands.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiGarminPullPhase {
     /// No pass has run in this process; the next sync starts one.
     Idle,
@@ -1198,7 +1387,8 @@ pub enum FfiGarminPullPhase {
 }
 
 /// Why a Garmin pass stopped.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiGarminHalt {
     KeyRejected,
     Unreachable,
@@ -1206,7 +1396,8 @@ pub enum FfiGarminHalt {
 }
 
 /// The Garmin pull's count, month and terminal state, for the settings screen.
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiGarminPull {
     pub phase: FfiGarminPullPhase,
     /// Milliseconds since the epoch that a paused pass resumes at.
@@ -1234,6 +1425,7 @@ pub struct FfiSectionChange {
     pub at: String,
     /// The section's line as it now stands, delta+varint encoded and thinned
     /// as `FfiRecentPR.encoded_polyline` is. Empty when it cannot be read.
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_polyline: Vec<u8>,
 }
 
@@ -1316,7 +1508,8 @@ pub struct FfiRoutePerformanceResult {
 }
 
 /// One wellness variable's relationship to attempt speed in one direction.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionCorrelation {
     /// `same` or `reverse`.
     pub direction: String,
@@ -1331,7 +1524,8 @@ pub struct FfiSectionCorrelation {
 
 /// A correlation, or the reason there is none. An enum so a coefficient cannot
 /// be read off a state that has none.
-#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiCorrelation {
     /// Fewer complete pairs than the floor.
     TooFew { n: u32 },
@@ -1379,7 +1573,8 @@ impl From<crate::RoutePerformanceResult> for FfiRoutePerformanceResult {
 // ============================================================================
 
 /// Pre-computed daily activity intensity for the activity heatmap.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiHeatmapDay {
     /// Date string in YYYY-MM-DD format
     pub date: String,
@@ -1397,7 +1592,8 @@ pub struct FfiHeatmapDay {
 
 /// Group summary with the representative polyline for the Routes screen.
 /// Avoids N separate getRepresentativeRoute() calls.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiGroupWithPolyline {
     pub group_id: String,
     pub representative_id: String,
@@ -1407,6 +1603,7 @@ pub struct FfiGroupWithPolyline {
     /// Distance in meters (from representative activity's metrics)
     pub distance_meters: f64,
     /// Delta+varint encoded coordinates
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_polyline: Vec<u8>,
     /// All sport types present in this group's activities
     pub sport_types: Vec<String>,
@@ -1436,6 +1633,7 @@ pub struct FfiMapSection {
     /// Steepest grade (%) held over 300 m of the slice.
     pub max_grade_percent: Option<f64>,
     /// Delta+varint encoded coordinates, as every other track leaves the engine.
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_polyline: Vec<u8>,
 }
 
@@ -1446,6 +1644,7 @@ pub struct FfiMapSection {
 pub struct FfiRetiredMapSection {
     pub section: crate::persistence::sections::RetiredSection,
     /// Delta+varint encoded coordinates; `None` when no stored version decodes.
+    #[serde(with = "crate::remote::bytes::option")]
     pub encoded_polyline: Option<Vec<u8>>,
 }
 
@@ -1466,6 +1665,7 @@ pub struct FfiCurrentMapSection {
     /// Traversals, one per pass.
     pub visit_count: u32,
     /// Delta+varint encoded coordinates.
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_polyline: Vec<u8>,
 }
 
@@ -1506,7 +1706,8 @@ pub struct FfiRetiredMapData {
 
 /// Section summary with embedded polyline for the Routes screen.
 /// Carries each section's line so the screen needs no per-section read.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionWithPolyline {
     pub id: String,
     pub section_type: String,
@@ -1518,6 +1719,7 @@ pub struct FfiSectionWithPolyline {
     pub scale: Option<String>,
     pub bounds: Option<Bounds>,
     /// Delta+varint encoded coordinates
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_polyline: Vec<u8>,
     /// Every sport whose included outings have taken the section, sorted.
     pub sport_types: Vec<String>,
@@ -1543,7 +1745,8 @@ pub struct FfiSectionWithPolyline {
 /// The order the routes list is in. `Nearby` is the engine's own distance
 /// ranking, which is why the order is an argument rather than something the
 /// list redoes after it has been paged.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiGroupSort {
     Nearby,
     Activities,
@@ -1553,7 +1756,8 @@ pub enum FfiGroupSort {
 
 /// The order the sections list is in. `Signature` is the engine's
 /// interestingness percentile, pooled or within one sport.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiSectionSort {
     Nearby,
     Signature,
@@ -1564,7 +1768,8 @@ pub enum FfiSectionSort {
 
 /// The four kinds the sections list can hide. Each is true when that kind is
 /// hidden, which is how the screen holds them.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionFilters {
     pub hide_custom: bool,
     pub hide_auto: bool,
@@ -1576,7 +1781,8 @@ pub struct FfiSectionFilters {
 /// the filters are arguments because they have to be applied before the page is
 /// taken: a sort over the page returns the longest route of the first fifty,
 /// not of the library.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRoutesScreenQuery {
     pub group_limit: u32,
     pub group_offset: u32,
@@ -1630,7 +1836,8 @@ impl Default for FfiRoutesScreenQuery {
 
 /// All data needed by the Routes screen in a single FFI call.
 /// Supports pagination via limit/offset for groups and sections.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRoutesScreenData {
     pub activity_count: u32,
     /// How many routes the minimum activity count leaves, before the search and
@@ -1698,7 +1905,8 @@ pub struct FfiRoutesScreenData {
 
 /// Why a routes or sections catalogue is empty, so the list states its cause
 /// rather than promising rows that cannot come.
-#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiCatalogueEmptyReason {
     /// No stored activity in the synced range has a GPS track, so detection
     /// has nothing to compare: trainer, pool or strength sessions only.
@@ -1716,7 +1924,8 @@ pub enum FfiCatalogueEmptyReason {
 }
 
 /// What is refusing a detect that is owed.
-#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiDetectionHold {
     /// The athlete paused the elevation download, and only resuming it lifts
     /// the hold.
@@ -1734,7 +1943,8 @@ pub enum FfiDetectionHold {
 // ============================================================================
 
 /// What an improvement change was measured between.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiImprovementBasis {
     /// Median of the latest three efforts against the median of the three before.
     MedianOfThree,
@@ -1744,7 +1954,8 @@ pub enum FfiImprovementBasis {
 
 /// A section ranked by composite relevance score combining recency, improvement,
 /// anomaly detection, and engagement signals.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRankedSection {
     pub section_id: String,
     pub section_name: String,
@@ -1777,7 +1988,8 @@ pub struct FfiRankedSection {
 /// Per-exercise contribution to a muscle group, aggregated across all active
 /// sets of one activity. Role reflects whether the muscle is primary or
 /// secondary for the exercise.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiExerciseContribution {
     pub name: String,
     /// "primary" | "secondary"
@@ -1790,7 +2002,8 @@ pub struct FfiExerciseContribution {
 /// Full muscle-group breakdown for one activity, one muscle slug. Rust groups
 /// exercise sets by display name, classifies primary/secondary, and returns
 /// totals - replacing the useMemo grouping/reducing in `useMuscleDetail`.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMuscleGroupDetail {
     pub slug: String,
     pub exercises: Vec<FfiExerciseContribution>,
@@ -1803,7 +2016,8 @@ pub struct FfiMuscleGroupDetail {
 
 /// One renderable chart point on the section-detail chart. One entry per
 /// lap traversal (activities with multiple laps expand into multiple points).
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionChartPoint {
     pub lap_id: String,
     pub activity_id: String,
@@ -1850,7 +2064,8 @@ pub struct FfiSectionChartPoint {
 }
 
 /// Where a scatter point lies against its direction's focus range.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiOffScale {
     /// Inside the range.
     None,
@@ -1863,7 +2078,8 @@ pub enum FfiOffScale {
 
 /// The range a direction's scatter axis draws, in the axis's own unit: metres
 /// per second on a section, seconds on a route.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiFocusRange {
     pub low: f64,
     pub high: f64,
@@ -1874,7 +2090,8 @@ pub struct FfiFocusRange {
 }
 
 /// The focus range per direction. `None` for a direction with no point.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiScatterFocus {
     pub forward: Option<FfiFocusRange>,
     pub reverse: Option<FfiFocusRange>,
@@ -1882,7 +2099,8 @@ pub struct FfiScatterFocus {
 
 /// One step of a direction's record progression: an eligible lap strictly
 /// faster than every eligible lap before it.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRecordStep {
     pub activity_id: String,
     pub lap_id: String,
@@ -1901,7 +2119,8 @@ pub struct FfiRecordStep {
 
 /// The record progression per direction, oldest step first, over the whole
 /// included history. Empty in a direction that holds no record.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRecordProgressions {
     pub forward: Vec<FfiRecordStep>,
     pub reverse: Vec<FfiRecordStep>,
@@ -1910,7 +2129,8 @@ pub struct FfiRecordProgressions {
 /// Bundled chart payload for the section-detail screen. Rust composes
 /// per-lap points, ranks, and summary stats from the performance records
 /// it already owns so the TS hook stops iterating + sorting multiple times.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionChartData {
     pub points: Vec<FfiSectionChartPoint>,
     pub min_speed: f64,
@@ -1930,7 +2150,8 @@ pub struct FfiSectionChartData {
 /// Enriched workout section for the home-screen "Sections for you" list.
 /// Composes ranking + performance lookups server-side so the TS hook is a
 /// thin pass-through instead of a per-section FFI loop.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiWorkoutSection {
     pub id: String,
     pub name: String,
@@ -1952,7 +2173,8 @@ pub struct FfiWorkoutSection {
 /// One Monday-anchored week of training totals, derived from
 /// `activity_metrics`. Replaces the intervals.icu athlete-summary endpoint:
 /// the screens read only these four numbers.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiWeeklySummary {
     /// Monday of the week, epoch seconds at local midnight.
     pub week_start: f64,
@@ -1966,7 +2188,8 @@ pub struct FfiWeeklySummary {
 }
 
 /// One untyped calendar event payload, keyed by id and day.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiCalendarEventBody {
     pub event_id: String,
     /// Event day as epoch seconds.
@@ -1976,7 +2199,8 @@ pub struct FfiCalendarEventBody {
 
 /// One untyped activity payload, keyed by id and start time. Demo seeding
 /// writes these; a live sync writes them from the same shape.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityBody {
     pub activity_id: String,
     /// Start time as epoch seconds.
@@ -1988,7 +2212,8 @@ pub struct FfiActivityBody {
 /// One stored activity as the detail screen reads it, typed from the body
 /// intervals.icu sent. A figure the body does not carry is `None`; the three
 /// the screen always draws are zero instead, as a manual entry sends them.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityRecord {
     /// The key the body is stored under, which is the id the screen asked for.
     pub id: String,
@@ -2046,7 +2271,8 @@ pub struct FfiActivityRecord {
 
 /// The rows of a sample library, in the shapes the stores take them, for the
 /// widgets to draw while no account is signed in.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSampleLibrary {
     pub athlete_json: String,
     pub sport_settings_json: String,
@@ -2059,7 +2285,8 @@ pub struct FfiSampleLibrary {
 /// The family a sport is drawn and filtered in, in stack order. The feed's
 /// chips and the map's counts are one per family, and Other takes every
 /// sport no family lists, so a sport nobody listed still answers to a chip.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiSportFamily {
     Ride,
     Winter,
@@ -2108,7 +2335,8 @@ impl FfiSportFamily {
 /// and a sport chip, then paged. The match runs before the page is taken,
 /// because the feed's own windows hold a few months and a search has to reach
 /// every activity the library holds.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityBodiesQuery {
     /// Inclusive start time in epoch seconds. None reaches the oldest.
     pub oldest_ts: Option<f64>,
@@ -2190,7 +2418,8 @@ pub struct FfiFeedCardsPage {
 /// One activity's display name, for a caller that holds ids and has to draw
 /// something an athlete recognises. Only the ids the engine knows are
 /// answered, so the caller falls back to the id itself.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityName {
     pub activity_id: String,
     pub name: String,
@@ -2200,7 +2429,8 @@ pub struct FfiActivityName {
 
 /// One sport's contribution to a day's load, as intervals.icu's `sportInfo`
 /// carries it. The fitness chart's daily load bar is the sum of these.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSportLoad {
     /// The sport the entry stands for, as the API spells it ("Ride", "Run").
     pub sport_group: Option<String>,
@@ -2213,7 +2443,8 @@ pub struct FfiSportLoad {
 /// The untyped body stays in the `raw` column for the Rust-side eFTP
 /// derivation, which reads fields no screen does. It no longer crosses the
 /// FFI, so no screen parses JSON to draw a chart.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiWellnessDay {
     /// ISO-8601 YYYY-MM-DD
     pub date: String,
@@ -2239,7 +2470,8 @@ pub struct FfiWellnessDay {
 ///
 /// An empty `days` is either a window the account holds nothing in or one the
 /// device never downloaded, and the charts drawing it said the same for both.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiWellnessDays {
     /// Oldest first.
     pub days: Vec<FfiWellnessDay>,
@@ -2249,7 +2481,8 @@ pub struct FfiWellnessDays {
 /// Sparkline payload for the SummaryCard: rounded integer arrays, oldest
 /// first, forward-filled where needed so renderers produce continuous lines.
 /// Empty arrays mean "not enough data" (TS renders `undefined` / skips).
-#[derive(Debug, Clone, uniffi::Record, Default)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiWellnessSparklines {
     pub fitness: Vec<i32>,
     pub fatigue: Vec<i32>,
@@ -2272,7 +2505,8 @@ pub struct FfiWellnessSparklines {
 
 /// HRV trend summary over a trailing window. `label` is the i18n key suffix
 /// ("trendingUp" | "stable" | "trendingDown") - TS resolves translations.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiHrvTrend {
     pub label: String,
     /// Which rule produced `label`: `halves` for the window's two halves
@@ -2295,7 +2529,8 @@ pub struct FfiHrvTrend {
 
 /// Ranked sections for one sport, paired with the sport label. One element
 /// per input sport in `get_ranked_sections_batch`.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRankedSectionsBySport {
     pub sport_type: String,
     pub sections: Vec<FfiRankedSection>,
@@ -2312,7 +2547,8 @@ pub struct FfiRankedSectionsBySport {
 /// a card either drew nothing or the sheet behind it read the engine again per
 /// open. One shape serves all of them: a lap time against its activity date, an
 /// eFTP against its day, a critical speed against its snapshot.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSeriesPoint {
     pub value: f64,
     /// Epoch seconds.
@@ -2324,7 +2560,8 @@ pub struct FfiSeriesPoint {
 }
 
 /// A recent section PR detected in the last 7 days.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRecentPR {
     pub section_id: String,
     pub section_name: String,
@@ -2356,6 +2593,7 @@ pub struct FfiRecentPR {
     /// leaves the engine, thinned to what a thumbnail can draw. A record on
     /// "section 6" says nothing about which stretch of road that is, and the
     /// summary this row is built from already holds the geometry.
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_polyline: Vec<u8>,
     /// The activity the record was set in, so the section opens at its best
     /// effort. Absent when the record's activity cannot be named.
@@ -2365,7 +2603,8 @@ pub struct FfiRecentPR {
 /// One route's standing in one sport and one direction, for the insights
 /// panel. A route ridden and run is two rows, and forward and reverse are two
 /// more, because none of those attempts is measured against another's.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRouteInsight {
     pub route_id: String,
     pub route_name: String,
@@ -2395,7 +2634,8 @@ pub struct FfiRouteInsight {
 
 /// Batch insights data: combines period stats, trends, patterns, and recent PRs.
 /// Reduces Insights hook FFI calls from 13-16 to 1.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiInsightsData {
     /// Current week stats
     pub current_week: FfiPeriodStats,
@@ -2463,7 +2703,8 @@ pub struct FfiInsightsData {
 }
 
 /// Scalar inputs for the insights bundle.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiInsightsParams {
     /// Start of the current week, filled by the engine from current_end
     pub current_start: f64,
@@ -2527,7 +2768,8 @@ pub struct FfiInsightsParams {
 /// The two were derived per recompute by sorting the window's rows, over rows
 /// that had crossed the boundary only to be reduced to these. The day is carried so a stale reading can be named rather than
 /// passed off as today's.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiInsightForm {
     /// The day the reading is from, `YYYY-MM-DD`
     pub date: String,
@@ -2542,10 +2784,12 @@ pub struct FfiInsightForm {
 // ============================================================================
 
 /// GPS track for a single activity (for feed map previews).
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPreviewTrack {
     pub activity_id: String,
     /// Delta+varint encoded coordinates
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_coords: Vec<u8>,
 }
 
@@ -2554,7 +2798,8 @@ pub struct FfiPreviewTrack {
 /// The insights record and the cached metric id list used to ride along here.
 /// Neither reached the screen: the insights tab fetches its own copy when it
 /// opens, and nothing ever read the id list.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStartupData {
     /// Summary card data (replaces getSummaryCardData)
     pub summary_card: FfiSummaryCardData,
@@ -2572,17 +2817,20 @@ pub struct FfiStartupData {
 // ============================================================================
 
 /// One activity's portion of a single section, delta+varint encoded.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionTrace {
     /// Section the trace belongs to
     pub section_id: String,
     /// Delta+varint encoded coordinates of the activity's portion
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_coords: Vec<u8>,
 }
 
 /// All data needed to paint the activity detail screen in one call.
 /// Replaces a fan-out that grew one trace extraction per matched section.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityDetailData {
     /// Exercise groups for this activity, with best sets and rest intervals.
     pub exercise_groups: Vec<FfiExerciseGroup>,
@@ -2603,6 +2851,7 @@ pub struct FfiActivityDetailData {
     /// The stored signature of that group's representative activity, delta+varint
     /// encoded: the line the Routes tab draws over the map. Empty when the
     /// activity is in no group or the representative has no signature.
+    #[serde(with = "crate::remote::bytes")]
     pub representative_signature: Vec<u8>,
     /// Visible sections this activity traverses, most-visited first.
     ///
@@ -2663,7 +2912,8 @@ pub struct FfiActivityDetailData {
 
 /// An activity the athlete hid from the heatmap, as the list that shows it
 /// again names it.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiHeatmapHiddenActivity {
     pub activity_id: String,
     pub name: String,
@@ -2674,7 +2924,8 @@ pub struct FfiHeatmapHiddenActivity {
 
 /// Where a pool swim's lengths stand, read from its FIT file. The
 /// discriminants start at one so no member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiPoolSwimState {
     /// The file has not been read yet: no verdict is stored for it.
@@ -2688,7 +2939,8 @@ pub enum FfiPoolSwimState {
 
 /// The unit a pool is measured in, inferred from its length. The
 /// discriminants start at one so no member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiPoolUnit {
     Metres = 1,
@@ -2696,7 +2948,8 @@ pub enum FfiPoolUnit {
 }
 
 /// A pool swim's lengths as the activity detail screen paints them.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPoolSwim {
     pub state: FfiPoolSwimState,
     /// The pool length in metres, whichever unit the device showed.
@@ -2711,7 +2964,8 @@ pub struct FfiPoolSwim {
 }
 
 /// One length of the pool, or one rest.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPoolLength {
     /// The length's place in the file, from zero, rests counted.
     pub index: u32,
@@ -2733,7 +2987,8 @@ pub struct FfiPoolLength {
 }
 
 /// One stroke's share of a pool swim, over its active lengths.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPoolStrokeTotal {
     pub stroke: Option<u8>,
     pub stroke_key: String,
@@ -2780,7 +3035,8 @@ pub enum FfiCadenceUnit {
 }
 
 /// Where an activity's max HR came from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiMaxHrSource {
     /// The top bound of the activity's own heart rate zones.
     ActivityZones,
@@ -2791,7 +3047,8 @@ pub enum FfiMaxHrSource {
 }
 
 /// An activity's contribution against a rest day, before display rounding.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityFitnessImpact {
     pub fitness: f64,
     pub fatigue: f64,
@@ -2803,7 +3060,8 @@ pub struct FfiActivityFitnessImpact {
 }
 
 /// One heart rate zone of a saved activity.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiHrZoneBand {
     /// Zone number, from 1
     pub zone: u32,
@@ -2820,7 +3078,8 @@ pub struct FfiHrZoneBand {
 }
 
 /// One power zone of a saved activity.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPowerZoneBand {
     /// Zone number, from 1
     pub zone: u32,
@@ -2841,7 +3100,8 @@ pub struct FfiPowerZoneBand {
 // ============================================================================
 
 /// How a section left the catalogue, for the page that can no longer show it.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionRetirement {
     /// dissolved, merged or superseded
     pub kind: String,
@@ -2853,7 +3113,8 @@ pub struct FfiSectionRetirement {
 }
 
 /// An activity row in the section detail read.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionActivityRow {
     pub activity_id: String,
     pub name: String,
@@ -2867,7 +3128,8 @@ pub struct FfiSectionActivityRow {
 }
 
 /// The section detail reads that do not depend on time streams.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionDetailData {
     /// Total activities held by the engine
     pub activity_count: u32,
@@ -2897,7 +3159,8 @@ pub struct FfiSectionDetailData {
 }
 
 /// How many traversals of a section one sport made over the chosen range.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionSportCount {
     pub sport_type: String,
     /// Laps the chart would plot under this sport, not activities.
@@ -2906,7 +3169,8 @@ pub struct FfiSectionSportCount {
 
 /// The section detail reads that need lap times, all for one sport and one
 /// range, so no two figures on the screen disagree about which laps count.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionPerformanceData {
     /// The sport this answer is for: the one asked for, or with none asked
     /// on ground more than one sport has taken, the one with the most
@@ -2969,7 +3233,8 @@ pub struct FfiSectionPerformanceData {
 
 /// Whose attempts a performance read answers: a section's laps, or a route's
 /// whole activities in the section read's shape.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiPerformanceSubject {
     Section,
     Route,
@@ -2978,7 +3243,8 @@ pub enum FfiPerformanceSubject {
 /// Which lap a direction's deltas are measured against. The stored curves are
 /// measured against `Record` or `AthleteSet`; the others are references a
 /// chart re-bases onto.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiReferenceSource {
     /// The direction's record over the whole included history.
     Record,
@@ -2991,7 +3257,8 @@ pub enum FfiReferenceSource {
 }
 
 /// Why a lap in range has no delta curve.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiLapDeltaMissingReason {
     /// The activity has no stored time stream.
     NoTimeStream,
@@ -3057,6 +3324,14 @@ impl From<Vec<f32>> for FfiFloat32Array {
     }
 }
 
+/// The link carries the floats as the same little-endian bytes the bridge
+/// does, written as one base64 string like every other byte field.
+impl serde::Serialize for FfiFloat32Array {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        crate::remote::bytes::serialize(&self.to_le_bytes(), serializer)
+    }
+}
+
 uniffi::custom_type!(FfiFloat32Array, Vec<u8>, {
     lower: |floats| floats.to_le_bytes(),
     try_lift: |bytes| match FfiFloat32Array::from_le_bytes(&bytes) {
@@ -3066,7 +3341,8 @@ uniffi::custom_type!(FfiFloat32Array, Vec<u8>, {
 });
 
 /// The distance-domain deltas of one sport's laps on a section, per direction.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionLapCurves {
     /// Metres between two points of a lap's `delta_secs`.
     pub grid_step_m: f64,
@@ -3080,7 +3356,8 @@ pub struct FfiSectionLapCurves {
 
 /// One direction's laps measured against its reference, on an axis running
 /// in the direction of travel.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiDirectionDeltas {
     pub reference_activity_id: String,
     pub reference_source: FfiReferenceSource,
@@ -3113,7 +3390,8 @@ pub struct FfiDirectionDeltas {
 /// the reference left out, in travel order. A split's median is NaN under
 /// the laps a typical lap needs and its quartiles NaN under the laps a spread
 /// needs.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSplitSummary {
     pub median_secs: FfiFloat32Array,
     pub lower_quartile_secs: FfiFloat32Array,
@@ -3124,7 +3402,8 @@ pub struct FfiSplitSummary {
 }
 
 /// One lap's time against the reference along the section.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiLapDelta {
     pub activity_id: String,
     /// Joins the curve to its chart point and lap row.
@@ -3147,7 +3426,8 @@ pub struct FfiLapDelta {
 }
 
 /// A lap inside the range with no curve.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiLapDeltaMissing {
     pub activity_id: String,
     pub start_index: u32,
@@ -3221,7 +3501,8 @@ pub struct FfiAttemptHistogram {
 /// range do not change. It carries this route and nothing of any other, so it
 /// stays the same size as the library grows; the attempt times come from the
 /// route detail performance read.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRouteDetailData {
     /// Total activities held by the engine
     pub activity_count: u32,
@@ -3236,6 +3517,7 @@ pub struct FfiRouteDetailData {
     /// unknown.
     pub elevation_gain_meters: f64,
     /// Representative activity's polyline, delta+varint encoded
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_representative: Vec<u8>,
     /// Activities the user excluded from this route
     pub excluded_activity_ids: Vec<String>,
@@ -3324,7 +3606,8 @@ pub struct WidgetRouteStanding {
 // ============================================================================
 
 /// Everything the Best Efforts screen paints with, over one period.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiBestEffortsData {
     /// Ride power, then Run and Swim pace.
     pub sports: Vec<FfiBestEffortsSport>,
@@ -3333,7 +3616,8 @@ pub struct FfiBestEffortsData {
 }
 
 /// One sport's bests at the screen's checkpoints, read from its stored curve.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiBestEffortsSport {
     pub sport: String,
     /// False when the curve for this period was never fetched, which is the
@@ -3344,7 +3628,8 @@ pub struct FfiBestEffortsSport {
 
 /// What a best effort's checkpoint measures. The front end words it in the
 /// athlete's language and units, so the engine sends no display string.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiBestEffortKind {
     /// A duration in seconds, for power.
     Duration,
@@ -3358,7 +3643,8 @@ pub enum FfiBestEffortKind {
     Marathon,
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiBestEffort {
     pub kind: FfiBestEffortKind,
     /// Seconds for power, metres for pace.
@@ -3381,7 +3667,8 @@ pub struct FfiBestEffort {
 }
 
 /// A climbing family's best window per stored length.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiClimbBests {
     pub sport: String,
     /// Activities in the period whose climb rows are still being computed.
@@ -3393,7 +3680,8 @@ pub struct FfiClimbBests {
     pub bests: Vec<FfiClimbBest>,
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiClimbBest {
     pub label: String,
     pub window_s: u32,
@@ -3413,7 +3701,8 @@ pub struct FfiClimbBest {
 /// The windows the fitness tab's calendar, week and year cards draw, each
 /// fixed for as long as it stays mounted. The front end names them because
 /// its grid and its season cards lay out the same days.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiFitnessScreenWindows {
     /// The first day the heatmap may draw, its cap, and its last drawn day,
     /// `YYYY-MM-DD`, inclusive. The read answers the first day it draws.
@@ -3434,7 +3723,8 @@ pub struct FfiFitnessScreenWindows {
 
 /// One total of a period against the same elapsed part of the period before,
 /// judged once in the engine.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStatTrend {
     /// The glyph `trend_table::glyph` draws for the move.
     pub glyph: String,
@@ -3450,7 +3740,8 @@ pub struct FfiStatTrend {
 /// trend is absent when the earlier period has none of that total, so nothing
 /// is compared with zero, and every trend is absent while either period is
 /// not fully on the device.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSummaryComparison {
     pub current: FfiTimestampRange,
     pub previous: FfiTimestampRange,
@@ -3466,7 +3757,8 @@ pub struct FfiSummaryComparison {
 }
 
 /// Every range the weekly card offers, so a tap between them reads nothing.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSummaryComparisons {
     /// Monday to now, against the same weekday and hour of last week.
     pub week: FfiSummaryComparison,
@@ -3489,7 +3781,8 @@ pub struct FfiSummaryComparisons {
 /// is chosen with a tap, so the reads over it are their own; the parts that
 /// follow the range carry every span, and the weekly card every range, so a
 /// tap reads nothing.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiFitnessScreenData {
     /// The cycling eFTP compared across the chart's three months, with the
     /// daily series of that window and every activity that moved it.
@@ -3542,7 +3835,8 @@ pub struct FfiFitnessScreenData {
 }
 
 /// The ride the decoupling card names for one span of the range picker.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSpanDecoupling {
     /// The span's length in days, back from today.
     pub days: u32,
@@ -3552,7 +3846,8 @@ pub struct FfiSpanDecoupling {
 
 /// The newest cycling activity of half an hour or more with power, heart rate
 /// and a finite decoupling stored by intervals.icu, and that value.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiDecouplingSource {
     pub activity_id: String,
     pub name: String,
@@ -3563,7 +3858,8 @@ pub struct FfiDecouplingSource {
 }
 
 /// One activity as the fitness strip marks it and its day picker lists it.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiLoadDot {
     pub activity_id: String,
     pub name: String,
@@ -3579,7 +3875,8 @@ pub struct FfiLoadDot {
 }
 
 /// The latest activities by the three sports the fitness tab draws.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSportMix {
     pub rides: u32,
     pub runs: u32,
@@ -3594,7 +3891,8 @@ pub struct FfiSportMix {
 // ============================================================================
 
 /// Everything the map tab paints with in one call.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMapScreenData {
     /// Total activities held by the engine, before the date and sport filters
     pub activity_count: u32,
@@ -3624,7 +3922,8 @@ pub struct FfiMapScreenData {
 }
 
 /// The activities a map read keeps but cannot draw, by why.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMapUnmapped {
     /// No track is owed: no GPS upstream, a track refused for good, or one the
     /// download gave up on, as `FfiMapEmptyReason::NoGps` reads it.
@@ -3635,7 +3934,8 @@ pub struct FfiMapUnmapped {
 
 /// Why the map draws no activity, so the tab names its cause rather than
 /// showing a bare basemap.
-#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiMapEmptyReason {
     /// No activity falls inside the date window.
     NoActivities,
@@ -3652,7 +3952,8 @@ pub enum FfiMapEmptyReason {
 
 /// The route-line layer the map draws, with the generation it was built from
 /// so the front end can keep what it decoded while the generation is unchanged.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRouteLineLayer {
     /// The route group generation the lines were built from. Declared as a
     /// double, which holds every generation a library reaches exactly.
@@ -3668,7 +3969,8 @@ pub struct FfiRouteLineLayer {
 
 /// The section overlay the map draws, stamped so a filter change that re-reads
 /// the map does not ship a catalogue the caller already holds.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMapSectionLayer {
     /// The database state the overlay was read in, passed back to say the
     /// caller still holds it. `None` when the read could not vouch for one.
@@ -3677,7 +3979,8 @@ pub struct FfiMapSectionLayer {
     pub sections: Option<Vec<FfiMapSection>>,
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRouteLine {
     pub route_id: String,
     /// The number the route is shown under, absent until one is minted
@@ -3691,10 +3994,12 @@ pub struct FfiRouteLine {
     /// shows, read when the map is
     pub distance_meters: f64,
     /// The representative's signature in `codec::encode_polyline` form
+    #[serde(with = "crate::remote::bytes")]
     pub polyline: Vec<u8>,
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMapCategoryCount {
     pub family: FfiSportFamily,
     pub count: u32,
@@ -4366,7 +4671,8 @@ mod tests {
 // ============================================================================
 
 /// A single exercise set from a FIT file, exposed to TypeScript.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiExerciseSet {
     pub activity_id: String,
     pub set_order: u32,
@@ -4383,7 +4689,8 @@ pub struct FfiExerciseSet {
 }
 
 /// Consecutive active sets of one exercise within a session.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiExerciseGroup {
     pub name: String,
     pub exercise_category: u16,
@@ -4394,7 +4701,8 @@ pub struct FfiExerciseGroup {
 }
 
 /// One session of an exercise, with its heaviest active set.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiExerciseHistorySession {
     pub activity_id: String,
     pub activity_name: String,
@@ -4404,7 +4712,8 @@ pub struct FfiExerciseHistorySession {
 }
 
 /// The sessions and estimated one-rep-max trend for one exercise category.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiExerciseDetailData {
     pub exercise_category: u16,
     pub exercise_name: String,
@@ -4412,7 +4721,8 @@ pub struct FfiExerciseDetailData {
 }
 
 /// One session's stored sets with the totals every surface shows for it.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiExerciseSession {
     /// Every stored set, rest and warmup included, in recorded order.
     pub sets: Vec<FfiExerciseSet>,
@@ -4428,7 +4738,8 @@ pub struct FfiExerciseSession {
 }
 
 /// A muscle group activation, matching react-native-body-highlighter slug format.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMuscleGroup {
     /// Slug matching react-native-body-highlighter (e.g., "biceps", "chest")
     pub slug: String,
@@ -4437,7 +4748,8 @@ pub struct FfiMuscleGroup {
 }
 
 /// What one strength feed card paints, read for a batch of activities at once.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStrengthCardSummary {
     pub activity_id: String,
     /// Stored sets exist, or the FIT file has a recorded outcome. False means a
@@ -4454,7 +4766,8 @@ pub struct FfiStrengthCardSummary {
 }
 
 /// Aggregated muscle group volume over a time period.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMuscleVolume {
     /// Slug matching react-native-body-highlighter
     pub slug: String,
@@ -4481,7 +4794,8 @@ pub struct FfiMuscleVolume {
 /// they are rather than per screen mount. The pair's name and the muscles'
 /// display names are copy and stay in TypeScript, which is where the seventeen
 /// locales are.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStrengthBalancePair {
     /// Stable id the front end keys its copy on, e.g. `biceps_triceps`
     pub id: String,
@@ -4500,7 +4814,8 @@ pub struct FfiStrengthBalancePair {
 }
 
 /// Summary of strength training volume over a time period.
-#[derive(Debug, Clone, Default, uniffi::Record)]
+#[derive(Debug, Clone, Default, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStrengthSummary {
     /// Start of the summary's range in Unix seconds, or zero for an undated aggregate.
     pub start_ts: f64,
@@ -4518,7 +4833,8 @@ pub struct FfiStrengthSummary {
 }
 
 /// Inclusive Unix-second range used for batched summary requests.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiTimestampRange {
     pub start_ts: f64,
     pub end_ts: f64,
@@ -4527,7 +4843,8 @@ pub struct FfiTimestampRange {
 /// Everything the strength tab paints with. All four are aggregates of the
 /// same sets over the same windows, so they are one read rather than four: a
 /// scrub across the diagram then costs no engine call at all.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStrengthScreenData {
     /// The chosen period aggregated by muscle, with the balance verdicts.
     pub summary: FfiStrengthSummary,
@@ -4543,7 +4860,8 @@ pub struct FfiStrengthScreenData {
 }
 
 /// One muscle's exercises over the period, for the list under the diagram.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMuscleExercises {
     pub muscle_slug: String,
     /// Sorted by activity count descending, then by sets.
@@ -4553,7 +4871,8 @@ pub struct FfiMuscleExercises {
 /// Bundled strength aggregation for the insights hook: one monthly summary
 /// plus N weekly summaries, each keyed to the corresponding input range.
 /// Collapses 5+ separate `getStrengthSummary` FFI calls into one round-trip.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStrengthInsightSeries {
     pub monthly: FfiStrengthSummary,
     pub weekly: Vec<FfiStrengthSummary>,
@@ -4565,7 +4884,8 @@ pub struct FfiStrengthInsightSeries {
 /// against the first two. Ranked here rather than in the reader, so the
 /// weekly summaries are never walked again to re-find figures this call
 /// already had.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStrengthProgression {
     pub muscle_slug: String,
     /// Weighted sets for each week of `weekly`, oldest first, rounded to one
@@ -4590,7 +4910,8 @@ pub struct FfiStrengthProgression {
 // ============================================================================
 
 /// Exercise summary for a specific muscle group within a date range.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiExerciseSummary {
     /// Human-readable exercise name
     pub exercise_name: String,
@@ -4609,7 +4930,8 @@ pub struct FfiExerciseSummary {
 }
 
 /// An activity containing a specific exercise, with per-activity stats.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiExerciseActivity {
     /// Activity ID for navigation
     pub activity_id: String,
@@ -4628,7 +4950,8 @@ pub struct FfiExerciseActivity {
 }
 
 /// Activities for a specific exercise, sorted by date DESC.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiExerciseActivities {
     pub activities: Vec<FfiExerciseActivity>,
 }
@@ -4637,7 +4960,8 @@ pub struct FfiExerciseActivities {
 /// section indicators (PRs + trends) and route highlights for the same
 /// activity IDs, and the strength cards among them, delivered in a single FFI
 /// round-trip.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityHighlightsBundle {
     pub indicators: Vec<FfiActivityIndicator>,
     pub route_highlights: Vec<FfiActivityRouteHighlight>,
@@ -4649,7 +4973,8 @@ pub struct FfiActivityHighlightsBundle {
 
 /// How much of an activity's ground no earlier activity had covered, counted
 /// in z17 tiles. It is coverage of a fixed grid, not metres of new road.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityNewGround {
     pub activity_id: String,
     /// `new_tiles` over `tiles`, from 0 to 1.
@@ -4665,7 +4990,8 @@ pub struct FfiActivityNewGround {
 // ============================================================================
 
 /// Lightweight route highlight for an activity: was this a PR on the route?
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityRouteHighlight {
     pub activity_id: String,
     pub route_id: String,
@@ -4689,7 +5015,8 @@ pub struct FfiActivityRouteHighlight {
 
 /// Pre-computed PR or trend indicator for an activity.
 /// Read from the `activity_indicators` table - no on-demand computation.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityIndicator {
     pub activity_id: String,
     /// "section_pr", "section_trend", "route_trend"
@@ -4705,7 +5032,8 @@ pub struct FfiActivityIndicator {
 
 /// A section encounter: one (section, direction) pair for a given activity.
 /// This is the canonical unit for displaying section data in the activity detail.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionEncounter {
     pub section_id: String,
     pub section_type: String,
@@ -4743,7 +5071,8 @@ pub struct FfiSectionEncounter {
 // ============================================================================
 
 /// Result of matching an activity's GPS track against existing sections.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSectionMatch {
     pub section_id: String,
     pub section_name: Option<String>,
@@ -4760,7 +5089,8 @@ pub struct FfiSectionMatch {
 }
 
 /// Result of cheap per-activity section indexing after ingest.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiIndexActivitySummary {
     pub matched_sections: u32,
     pub inserted_portions: u32,
@@ -4778,7 +5108,8 @@ impl From<crate::sections::IndexActivitySummary> for FfiIndexActivitySummary {
 }
 
 /// Candidate for merging with another section.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMergeCandidate {
     pub section_id: String,
     pub name: Option<String>,
@@ -4790,12 +5121,14 @@ pub struct FfiMergeCandidate {
     pub center_distance_meters: f64,
     /// The candidate's line thinned to what a row thumbnail draws, delta+varint
     /// encoded as `FfiRecentPR.encoded_polyline` is. Empty when it cannot be read.
+    #[serde(with = "crate::remote::bytes")]
     pub encoded_polyline: Vec<u8>,
 }
 
 /// A ride a merge would take out of the section it is merged into. The ride
 /// stays in the library.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMergeDropped {
     pub activity_id: String,
     pub name: String,
@@ -4805,7 +5138,8 @@ pub struct FfiMergeDropped {
 
 /// User-tunable match strictness, persisted in the settings table.
 /// Read by Rust on engine load; written by `DetectionManager.set_match_strictness`.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiMatchStrictness {
     pub min_match_pct: f64,
     pub endpoint_threshold: f64,
@@ -4815,7 +5149,8 @@ pub struct FfiMatchStrictness {
 /// the user's threshold fitness (FTP for cycling, critical speed for run/swim)
 /// has improved since the PR was set, and the section hasn't been visited
 /// recently. Pure pattern recognition - TS formats as an Insight.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStalePrOpportunity {
     pub section_id: String,
     pub section_name: String,
@@ -4882,7 +5217,8 @@ pub struct FfiCatalogueCounts {
 
 /// One section in a preview payload, in the same shape the live catalogue and
 /// a run's result both use.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPreviewSection {
     pub id: String,
     /// The live section this one was paired with, when it was paired.
@@ -4893,6 +5229,7 @@ pub struct FfiPreviewSection {
     /// Delta+varint encoded coordinates (`codec::encode_polyline`). Bytes
     /// rather than the base64 the JSON payload carried, since a record has no
     /// reason to spell them.
+    #[serde(with = "crate::remote::bytes")]
     pub polyline: Vec<u8>,
     pub visits: u32,
     pub distance_m: f64,
@@ -4902,7 +5239,8 @@ pub struct FfiPreviewSection {
 }
 
 /// What the run had to detect over.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPreviewPool {
     pub activities: u32,
     pub empty: u32,
@@ -4910,7 +5248,8 @@ pub struct FfiPreviewPool {
 }
 
 /// One preview run's result.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPreviewResult {
     pub pool: FfiPreviewPool,
     /// `f64` rather than `u64`, since a record field TypeScript lifts as a
@@ -4935,7 +5274,8 @@ pub struct FfiCutoverSettingsReset {
 /// indices of a pass over it, so a row per section put both catalogues'
 /// geometry in a settings row for the life of the install. An older payload
 /// still carries those rows and is read past rather than rejected.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiCutoverDiff {
     pub token: String,
     /// None while elevation is owed: a promotion over a partial library stores

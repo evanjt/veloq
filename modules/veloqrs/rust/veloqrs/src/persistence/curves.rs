@@ -15,7 +15,8 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 /// A model the server finished fitting.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPowerModel {
     /// `MS_2P`, `MORTON_3P`, `FFT_CURVES` or `ECP`.
     pub kind: String,
@@ -28,7 +29,8 @@ pub struct FfiPowerModel {
 }
 
 /// An activity a curve point came from, as the body names it.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiCurveActivity {
     pub id: String,
     pub name: String,
@@ -41,7 +43,8 @@ pub struct FfiCurveActivity {
 }
 
 /// A power curve for one sport and window, and when its body was fetched.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPowerCurve {
     pub sport: String,
     /// Durations, in seconds.
@@ -63,10 +66,14 @@ pub struct FfiPowerCurve {
     pub days: Option<f64>,
     /// Epoch seconds at the fetch that stored the body.
     pub fetched_at: f64,
+    /// `intervals` for a body the server sent, `veloq` for one worked out on
+    /// the phone from the library's own streams, which the chart says.
+    pub source: String,
 }
 
 /// A pace curve for one sport and window, and when its body was fetched.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPaceCurve {
     pub sport: String,
     /// Distances, in metres.
@@ -86,7 +93,13 @@ pub struct FfiPaceCurve {
     pub days: Option<f64>,
     /// Epoch seconds at the fetch that stored the body.
     pub fetched_at: f64,
+    /// `intervals` for a body the server sent, `veloq` for one worked out on
+    /// the phone from the library's own streams, which the chart says.
+    pub source: String,
 }
+
+/// What a body that names no source of its own was made by.
+const SERVER_SOURCE: &str = "intervals";
 
 #[derive(Debug, Deserialize)]
 struct RawCurveActivity {
@@ -153,12 +166,14 @@ struct RawPaceWindow {
 
 #[derive(Debug, Deserialize)]
 struct RawPowerCurve {
+    source: Option<String>,
     list: Option<Vec<RawPowerWindow>>,
     activities: Option<HashMap<String, RawCurveActivity>>,
 }
 
 #[derive(Debug, Deserialize)]
 struct RawPaceCurve {
+    source: Option<String>,
     list: Option<Vec<RawPaceWindow>>,
     activities: Option<HashMap<String, RawCurveActivity>>,
 }
@@ -257,6 +272,7 @@ pub fn parse_power_curve(body: &str, sport: &str, fetched_at: i64) -> Option<Ffi
         end_date: end,
         days: days.map(|v| v as f64),
         fetched_at: fetched_at as f64,
+        source: parsed.source.unwrap_or_else(|| SERVER_SOURCE.to_string()),
     })
 }
 
@@ -304,6 +320,7 @@ pub fn parse_pace_curve(body: &str, sport: &str, fetched_at: i64) -> Option<FfiP
         end_date: end,
         days: days.map(|v| v as f64),
         fetched_at: fetched_at as f64,
+        source: parsed.source.unwrap_or_else(|| SERVER_SOURCE.to_string()),
     })
 }
 

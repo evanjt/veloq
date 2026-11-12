@@ -7,7 +7,8 @@ use std::sync::Arc;
 /// What the clear-cache wipe removed.
 /// What the Developer Dashboard reads that no other screen does: the native
 /// push worker's recent runs and the request budget.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiDashboardData {
     /// What each recent native push run did, newest first.
     pub push_runs: Vec<crate::push::FfiPushRun>,
@@ -15,14 +16,16 @@ pub struct FfiDashboardData {
     pub request_budget: Option<crate::governor::FfiRequestBudget>,
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct DerivedClearCounts {
     pub sections_removed: u32,
     pub activities_removed: u32,
     pub activities_kept: u32,
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRecordRestoreResult {
     pub placed: u32,
     pub unplaced: u32,
@@ -40,7 +43,8 @@ pub struct FfiRecordRestoreResult {
 
 /// A record to check: a record zip on disk, or record JSON such as an older
 /// `.veloq` file converts to.
-#[derive(Debug, Clone, uniffi::Enum)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiRecordSource {
     Zip { path: String },
     Json { json: String },
@@ -49,7 +53,8 @@ pub enum FfiRecordSource {
 /// What a check of a record learnt about it, once it found nothing the
 /// restore would refuse, so the question before a restore can say what the
 /// restore would replace.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRecordCheck {
     /// When the record was written, RFC 3339 in UTC, from its own content.
     /// `None` for a record written before records carried the time.
@@ -285,7 +290,8 @@ fn finish_partial_clear(interrupted: Option<crate::objects::sync::Interrupted>) 
 /// How far an export has got. Read on a timer while one runs, which is
 /// what a progress bar is: an event per activity would park the writing thread
 /// on the JS thread once per file.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiBulkExportProgress {
     /// Whether an export is running at all.
     pub running: bool,

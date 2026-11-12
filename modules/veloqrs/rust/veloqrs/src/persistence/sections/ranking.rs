@@ -1,7 +1,5 @@
 //! Weighted section relevance ranking.
 
-use chrono::Utc;
-
 use super::super::PersistentEngine;
 
 /// A ranked section's median has to move by this fraction before the chip
@@ -141,7 +139,7 @@ impl PersistentEngine {
         sport_type: &str,
         stale_threshold_days: u32,
     ) -> Vec<crate::FfiRankedSection> {
-        let cutoff = Utc::now().timestamp() - i64::from(stale_threshold_days) * 86_400;
+        let cutoff = stale_cutoff(wall_now(), stale_threshold_days);
         self.ranked_sections(sport_type, u32::MAX, Some(cutoff))
     }
 
@@ -200,7 +198,7 @@ impl PersistentEngine {
         self.ensure_named_overlay();
         let names = self.named_overlay_cached_names();
         let candidates = pooled::workout_candidates(&self.db, sport_type, limit, &names);
-        pooled::workout_sections(candidates, Utc::now().timestamp(), |id| {
+        pooled::workout_sections(candidates, wall_now(), |id| {
             self.get_section_performances_filtered(id, Some(sport_type))
         })
     }
@@ -423,18 +421,32 @@ pub(crate) fn chart_from(
     perf: &crate::SectionPerformanceResult,
     time_range_days: u32,
 ) -> crate::FfiSectionChartData {
-    chart_from_cutoff(perf, range_cutoff(time_range_days))
+    chart_from_cutoff(perf, range_cutoff(time_range_days, wall_now()))
 }
 
 /// The earliest activity date a range admits: 0 days is all time, any other
 /// value the last that many days. One cutoff serves every ranged figure on
 /// the section screen, so none of them can disagree about a lap on its edge.
-pub(crate) fn range_cutoff(time_range_days: u32) -> i64 {
+///
+/// `now_wall` is the wall-clock now, the zone the activity dates are stamped in.
+pub(crate) fn range_cutoff(time_range_days: u32, now_wall: i64) -> i64 {
     if time_range_days == 0 {
         i64::MIN
     } else {
-        chrono::Utc::now().timestamp() - (time_range_days as i64 * 86_400)
+        now_wall - (time_range_days as i64 * 86_400)
     }
+}
+
+/// The wall-clock now: activity dates hold the athlete's wall clock stamped as
+/// UTC, so every comparison with them starts from this and never from the true
+/// UTC instant.
+pub(crate) fn wall_now() -> i64 {
+    crate::widget_snapshot::Clock::now().now_wall_seconds
+}
+
+/// The latest traversal date a section may have and still count as stale.
+pub(crate) fn stale_cutoff(now_wall: i64, stale_threshold_days: u32) -> i64 {
+    now_wall - i64::from(stale_threshold_days) * 86_400
 }
 
 /// [`chart_from`] over a cutoff already taken.
@@ -1311,7 +1323,7 @@ pub(crate) mod pooled {
 
     use rusqlite::Connection;
 
-    use chrono::Utc;
+    use super::{stale_cutoff, wall_now};
 
     use super::complete_traversal_clause;
 
@@ -1926,7 +1938,7 @@ pub(crate) mod pooled {
             }
         }
         inputs.sort_by(|a, b| a.section_id.cmp(&b.section_id));
-        let now_secs = Utc::now().timestamp();
+        let now_secs = wall_now();
         // Ensure ln(max) > 0
         let max_traversal_count = inputs
             .iter()
@@ -2013,7 +2025,7 @@ pub(crate) mod pooled {
         stale_threshold_days: u32,
         names: &BTreeMap<String, String>,
     ) -> Vec<(crate::FfiRankedSection, Option<f64>)> {
-        let cutoff = Utc::now().timestamp() - i64::from(stale_threshold_days) * 86_400;
+        let cutoff = stale_cutoff(wall_now(), stale_threshold_days);
         let inputs = read_inputs(conn).remove(sport_type).unwrap_or_default();
         rank_sport_with_dates(conn, sport_type, inputs, u32::MAX, Some(cutoff), names)
     }
@@ -2060,7 +2072,7 @@ pub(crate) mod pooled {
             return HashMap::new();
         }
         let ids: std::collections::HashSet<&str> = section_ids.iter().copied().collect();
-        let now = chrono::Utc::now().timestamp();
+        let now = wall_now();
         let mut chosen: HashMap<String, (u32, String, i8)> = HashMap::new();
         for chunk in section_ids.chunks(400) {
             let marks = vec!["?"; chunk.len()].join(",");
@@ -2160,7 +2172,7 @@ pub(crate) mod pooled {
             .max()
             .unwrap_or(1)
             .max(2);
-        let now_secs = Utc::now().timestamp();
+        let now_secs = wall_now();
         let mut ranked: Vec<crate::FfiRankedSection> = inputs
             .iter()
             .map(|i| {
@@ -2213,3 +2225,35 @@ mod latest_direction_tests;
 #[cfg(test)]
 #[path = "tests/lap_order.rs"]
 mod lap_order_tests;
+
+/// Scenario: activity dates are the athlete's wall clock stamped as UTC, so a
+/// cutoff taken from them has to start from the wall-clock now.
+///
+/// Expected behaviour: the cutoffs are the wall-clock now less the span, and
+/// a ride from the previous wall-clock evening is one day old at breakfast.
+#[cfg(test)]
+mod wall_clock_cutoff_tests {
+    use super::{range_cutoff, stale_cutoff};
+
+    // 2023-11-15 08:00 on the athlete's clock, stamped as UTC.
+    const WALL_NOW: i64 = 1_700_035_200;
+    // 2023-11-14 20:00 on the athlete's clock, stamped as UTC.
+    const EVENING_BEFORE: i64 = 1_699_992_000;
+
+    #[test]
+    fn the_range_edge_is_the_wall_clock_now_less_the_span() {
+        assert_eq!(range_cutoff(30, WALL_NOW), WALL_NOW - 30 * 86_400);
+        assert_eq!(range_cutoff(0, WALL_NOW), i64::MIN);
+    }
+
+    #[test]
+    fn the_stale_edge_is_the_wall_clock_now_less_the_threshold() {
+        assert_eq!(stale_cutoff(WALL_NOW, 14), WALL_NOW - 14 * 86_400);
+        assert_eq!(stale_cutoff(WALL_NOW, 0), WALL_NOW);
+    }
+
+    #[test]
+    fn an_evening_ride_is_one_day_old_the_next_morning() {
+        assert_eq!(crate::calendar_days_between(EVENING_BEFORE, WALL_NOW), 1);
+    }
+}

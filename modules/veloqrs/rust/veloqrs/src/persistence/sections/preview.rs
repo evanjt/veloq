@@ -45,7 +45,8 @@ pub static SECTION_PREVIEW_HANDLE: LazyLock<Mutex<Option<SectionPreviewHandle>>>
     LazyLock::new(|| Mutex::new(None));
 
 /// A ranked riding area: one connected region of the user's library.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 #[uniffi(name = "FfiPreviewCentre")]
 pub struct PreviewCentre {
     /// "lat_bin:lng_bin" of the area's centre at ~5 km, an order-free ranking key.

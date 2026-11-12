@@ -29,12 +29,14 @@ import {
 } from '@/features/maps/lib/tileTransport';
 
 const mockSetSourceTemplate = jest.fn();
+const mockSetCompositeSource = jest.fn();
 const LISTENER = { ports: [41001, 41002, 41003, 41004], token: 'a1b2c3d4' };
 const mockTileListener = jest.fn<typeof LISTENER | undefined, []>(() => LISTENER);
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
     basemapStore: () => ({
       setSourceTemplate: mockSetSourceTemplate,
+      setCompositeSource: mockSetCompositeSource,
       tileListener: mockTileListener,
     }),
   })
@@ -59,6 +61,7 @@ function onPlatform(os: 'android' | 'ios') {
 
 beforeEach(() => {
   mockSetSourceTemplate.mockClear();
+  mockSetCompositeSource.mockClear();
   mockTileListener.mockClear();
   onPlatform('android');
 });
@@ -66,28 +69,21 @@ beforeEach(() => {
 afterEach(() => onPlatform('ios'));
 
 describe('on Android, where the loopback listener serves the tiles', () => {
-  it('points every satellite raster at every listener port and tells Rust where it comes from', () => {
+  it('points both satellite composites at every listener port and tells Rust their providers', () => {
     const out = rewriteSatelliteUrls(getCombinedSatelliteStyle());
 
-    let rewritten = 0;
-    for (const [key, source] of Object.entries(out.sources)) {
-      if (source.type !== 'raster' || !source.tiles) continue;
-      const extension = source.tiles[0].split('.').pop() ?? '';
-      expect(source.tiles).toEqual(shards(key, extension));
-      rewritten++;
-    }
-    expect(rewritten).toBeGreaterThan(1);
-    // The extension is the upstream template's own, which is what the store
-    // files the bytes under and what the listener types them from. A host
-    // that carries z/x/y in query parameters names none, so it falls back.
-    expect(out.sources['satellite-swisstopo-1'].tiles?.[0].endsWith('.jpeg')).toBe(true);
-    // IGN is several sources, one per box of its eastern staircase, and each
-    // of them carries the same template and so the same fallback extension.
-    expect(out.sources['satellite-ign-1'].tiles?.[0].endsWith('.bin')).toBe(true);
+    expect(Object.keys(out.sources)).toEqual(['satellite-global', 'satellite-regions']);
+    expect(out.sources['satellite-global'].tiles).toEqual(shards('satellite-global', 'jpg'));
+    expect(out.sources['satellite-regions'].tiles).toEqual(shards('satellite-regions', 'jpg'));
     expect(mockSetSourceTemplate).toHaveBeenCalledWith(
-      'satellite-swisstopo-1',
+      'satellite-swisstopo',
       expect.stringContaining('wmts.geo.admin.ch')
     );
+    expect(mockSetCompositeSource).toHaveBeenCalledTimes(2);
+    expect(mockSetCompositeSource.mock.calls.map(([name]) => name)).toEqual([
+      'satellite-global',
+      'satellite-regions',
+    ]);
   });
 
   it('points the shaded-relief ground at every listener port under its own source name', () => {
@@ -159,17 +155,17 @@ describe('on iOS, where the scheme handler answers the page own origin', () => {
     expect(mockTileListener).not.toHaveBeenCalled();
   });
 
-  it('points every satellite raster at the handler', () => {
+  it('points both satellite composites at the handler', () => {
     const out = rewriteSatelliteUrls(getCombinedSatelliteStyle());
 
-    for (const [key, source] of Object.entries(out.sources)) {
-      if (source.type !== 'raster' || !source.tiles) continue;
-      expect(source.tiles[0]).toMatch(
-        new RegExp(`^veloq-tile://map/veloq-tile/${key}/\\{z\\}/\\{x\\}/\\{y\\}\\.[a-z0-9]+$`)
-      );
-    }
+    expect(out.sources['satellite-global'].tiles).toEqual([
+      'veloq-tile://map/veloq-tile/satellite-global/{z}/{x}/{y}.jpg',
+    ]);
+    expect(out.sources['satellite-regions'].tiles).toEqual([
+      'veloq-tile://map/veloq-tile/satellite-regions/{z}/{x}/{y}.jpg',
+    ]);
     expect(mockSetSourceTemplate).toHaveBeenCalledWith(
-      'satellite-swisstopo-1',
+      'satellite-swisstopo',
       expect.stringContaining('wmts.geo.admin.ch')
     );
   });
@@ -237,10 +233,12 @@ describe('where the store cannot be reached, which is the test bench', () => {
     expect(terrain3DSource().tiles).toEqual([TERRAIN_UPSTREAM_TEMPLATE]);
   });
 
-  it('keeps the satellite rasters on theirs', () => {
+  it('keeps the global imagery on its upstream host and draws no regions', () => {
     const out = rewriteSatelliteUrls(getCombinedSatelliteStyle());
 
-    expect(out.sources['satellite-swisstopo-1'].tiles?.[0]).toMatch(/^https:\/\//);
+    expect(out.sources['satellite-global'].tiles?.[0]).toMatch(/^https:\/\//);
+    expect(out.sources['satellite-regions']).toBeUndefined();
+    expect(out.layers.map((layer) => layer.id)).toEqual(['background', 'satellite-layer-global']);
   });
 });
 

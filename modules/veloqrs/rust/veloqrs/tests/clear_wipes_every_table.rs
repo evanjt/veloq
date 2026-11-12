@@ -289,6 +289,8 @@ fn clear_forgets_the_athletes_home_and_sync_history() {
         "__wellness_answered",
         "sync.last_success_at",
         "__garmin_connector_enabled",
+        "__file_thresholds",
+        "__threshold_overrides",
     ];
     for key in athlete_keys {
         engine.set_setting(key, "athlete-a").expect("seed");

@@ -88,12 +88,26 @@ function callers(name, files) {
   let count = 0;
   const re = new RegExp(`(?:\\.|\\b[A-Za-z_][A-Za-z0-9_]*::)${name}\\s*\\(`);
   for (const file of files) {
-    const text = fs.readFileSync(file, 'utf8');
-    for (const line of text.split('\n')) {
+    const source = sourceOf(file);
+    // A file that never spells the name has no call to it, so its lines are not read.
+    if (!source.text.includes(name)) continue;
+    for (const line of source.lines) {
       if (re.test(line) && !line.trim().startsWith('//')) count += 1;
     }
   }
   return count;
+}
+
+// Each file is read and split once, however many methods are asked about.
+const sources = new Map();
+function sourceOf(file) {
+  let source = sources.get(file);
+  if (source === undefined) {
+    const text = fs.readFileSync(file, 'utf8');
+    source = { text, lines: text.split('\n') };
+    sources.set(file, source);
+  }
+  return source;
 }
 
 const methods = engineMethods();

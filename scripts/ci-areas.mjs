@@ -71,6 +71,8 @@ const RULES = [
   { prefix: 'scripts/lib/build-stamp.js', areas: ['native', 'appJs'] },
   { prefix: 'src/theme/appColours.json', areas: ['native', 'appJs'] },
   { prefix: 'react-native.config.js', areas: ['native', 'appJs'] },
+  // The connect page's source; docs/connect/ is its built output.
+  { prefix: 'web/', areas: ['appJs'] },
   { prefix: 'docs/', areas: [] },
 ];
 

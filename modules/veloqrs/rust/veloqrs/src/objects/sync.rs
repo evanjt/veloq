@@ -66,7 +66,8 @@ const ASKED_WINDOW: Dispatch = Dispatch::new(Lane::Backfill, Intent::User);
 /// Crosses as an enum: the word was stringified here and spelt again in a
 /// TypeScript mirror, and every reader only ever branches on it. Wire order
 /// is declaration order, so append and never reorder.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum SyncState {
     Idle = 1,
@@ -112,7 +113,8 @@ struct Credentials {
 }
 
 /// The status fields TypeScript reads / subscribes to.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSyncStatus {
     pub state: SyncState,
     pub in_flight: u32,
@@ -161,7 +163,8 @@ pub struct FfiSyncStatus {
 ///
 /// The wire carries the variant's position, so the order here is the contract:
 /// append, never reorder. The discriminants start at one so no member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiSyncErrorReason {
     /// The credential was refused, 401.
@@ -199,7 +202,8 @@ pub enum FfiSyncErrorReason {
 ///
 /// The wire carries the variant's position, so the order here is the contract:
 /// append, never reorder. The discriminants start at one so no member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiSyncStep {
     /// The athlete profile: FTP, zones, the name on the settings screen.
@@ -283,7 +287,8 @@ impl From<&NetError> for SyncFailure {
 /// against a generated member and not a string it spelt itself. The wire
 /// carries the variant's position, so the order here is the contract: append,
 /// never reorder. The discriminants start at one so no member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiCallKind {
     /// The server accepted the call.
@@ -311,7 +316,8 @@ pub enum FfiCallKind {
 /// the queue's next attempt, and a 400 parks the recording for the athlete to
 /// look at. Getting that wrong costs someone a ride, so the classification is
 /// explicit here rather than inferred from an error message downstream.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiCallOutcome {
     pub kind: FfiCallKind,
     /// The id the call produced or confirmed, when `kind` is `Ok`.
@@ -5062,10 +5068,12 @@ impl SyncManager {
         give_credentials(&method, secret, athlete_id)
     }
 
-    /// Forget the credential (logout), and the Garmin key with it.
+    /// Forget the intervals.icu credential (logout). The Garmin key is a
+    /// separate credential for a separate source and stays held: a Garmin-only
+    /// session has no intervals.icu credential at all, and `clear_garmin_key`
+    /// is the one way to drop the key.
     fn clear_credentials(&self) {
         SYNC_SERVICE.clear_credentials();
-        super::garmin_key::clear_garmin_key();
     }
 
     /// Ask Garmin whether a pasted Personal key works, with one token
@@ -5438,6 +5446,18 @@ mod tests {
             None
         );
         assert_eq!(detail_body_date("not json"), None);
+    }
+
+    #[test]
+    fn clearing_the_sync_credential_leaves_the_garmin_key_held() {
+        let _serial = crate::test_globals::serial_global_state();
+        super::super::garmin_key::hold_garmin_key("kept-key");
+
+        SyncManager::new().clear_credentials();
+        let held = super::super::garmin_key::GARMIN_KEY.client().is_some();
+        super::super::garmin_key::clear_garmin_key();
+
+        assert!(held, "the Garmin key outlives the intervals.icu credential");
     }
 
     fn transport_to(base: String) -> Transport {

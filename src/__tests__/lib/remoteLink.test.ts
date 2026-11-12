@@ -5,9 +5,15 @@ import {
 } from '@/features/settings/lib/remoteLink';
 import { remoteLink } from '@/features/settings/lib/remoteLinkSession';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { remote } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
+jest.mock('expo-keep-awake', () => ({
+  ...jest.requireActual('expo-keep-awake'),
+  activateKeepAwakeAsync: jest.fn(async () => {}),
+  deactivateKeepAwake: jest.fn(async () => {}),
+}));
 jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn(async () => null),
   setSetting: jest.fn(async () => {}),
@@ -39,9 +45,10 @@ class FakeSocket implements RelaySocket {
   }
 }
 
-function harness(rooms: string[], switchedOn = true) {
+function harness(rooms: string[], switchedOn = true, diagnose?: (line: string) => void) {
   const opened: FakeSocket[] = [];
   const toggle = { on: switchedOn };
+  const keepAwake = { on: jest.fn(), off: jest.fn() };
   const engine: RemoteLinkEngine & { rooms: string[] } = {
     rooms,
     linkedRooms: jest.fn(() => engine.rooms),
@@ -50,20 +57,23 @@ function harness(rooms: string[], switchedOn = true) {
       return JSON.stringify({ type: 'answer', sdp: 'v=0 answer' });
     }),
     disconnectAll: jest.fn(),
+    setInFront: jest.fn(),
     connectedCount: jest.fn(() => 0),
   };
   const link = createRemoteLink({
     engine,
     enabled: () => toggle.on,
+    diagnose,
     relayUrl: RELAY,
     open: (url) => {
       const socket = new FakeSocket(url);
       opened.push(socket);
       return socket;
     },
+    keepAwake,
   });
   const live = () => opened.filter((socket) => !socket.closed);
-  return { engine, link, opened, live, toggle };
+  return { engine, keepAwake, link, opened, live, toggle };
 }
 
 beforeEach(() => jest.useFakeTimers());
@@ -95,6 +105,24 @@ describe('remote link', () => {
     expect(live()).toHaveLength(0);
   });
 
+  it('tells the engine the app has left the front before it ends the connections, and that it is back before a room opens', () => {
+    const { engine, link, opened } = harness([ROOM_A]);
+    const order: string[] = [];
+    (engine.setInFront as jest.Mock).mockImplementation((front: boolean) =>
+      order.push(`front:${front}`)
+    );
+    (engine.disconnectAll as jest.Mock).mockImplementation(() => order.push('disconnect'));
+    (engine.linkedRooms as jest.Mock).mockImplementation(() => {
+      order.push('rooms');
+      return engine.rooms;
+    });
+    link.foreground();
+    link.background();
+    expect(order.slice(0, 2)).toEqual(['front:true', 'rooms']);
+    expect(order.indexOf('front:false')).toBeLessThan(order.indexOf('disconnect'));
+    expect(opened).toHaveLength(1);
+  });
+
   it('answers a linked browser and sends nothing to one the engine refuses', () => {
     const { engine, link, live } = harness([ROOM_A]);
     link.foreground();
@@ -108,6 +136,14 @@ describe('remote link', () => {
     socket.receive('not json');
     socket.receive(JSON.stringify({ type: 'ice' }));
     expect(socket.sent).toHaveLength(1);
+  });
+
+  it('reports why an offer was refused instead of dropping it silently', () => {
+    const lines: string[] = [];
+    const { link, live } = harness([ROOM_A], true, (line) => lines.push(line));
+    link.foreground();
+    live()[0].receive(JSON.stringify({ type: 'offer', sdp: 'v=0 stranger' }));
+    expect(lines).toEqual(['offer refused: not linked']);
   });
 
   it('closes the room of a browser that was removed', () => {
@@ -153,7 +189,7 @@ describe('remote link', () => {
   it('reports the connected count while in front and zero once it leaves', () => {
     const { engine, link } = harness([ROOM_A]);
     const seen: number[] = [];
-    link.subscribe((count) => seen.push(count));
+    link.subscribe(({ connected }) => seen.push(connected));
     (engine.connectedCount as jest.Mock).mockReturnValue(1);
     link.foreground();
     jest.advanceTimersByTime(5_000);
@@ -163,6 +199,27 @@ describe('remote link', () => {
     const polls = (engine.connectedCount as jest.Mock).mock.calls.length;
     jest.advanceTimersByTime(60_000);
     expect((engine.connectedCount as jest.Mock).mock.calls.length).toBe(polls);
+  });
+
+  it('reports the rooms it waits in as each opens, closes and reopens', () => {
+    const { link, opened } = harness([ROOM_A]);
+    const seen: { connected: number; rooms: number }[] = [];
+    link.subscribe((state) => seen.push(state));
+    link.foreground();
+    expect(seen.at(-1)).toEqual({ connected: 0, rooms: 1 });
+    opened[0].drop();
+    expect(seen.at(-1)).toEqual({ connected: 0, rooms: 0 });
+    jest.advanceTimersByTime(5_000);
+    expect(seen.at(-1)).toEqual({ connected: 0, rooms: 1 });
+  });
+
+  it('reports no open room once the app leaves the foreground', () => {
+    const { link } = harness([ROOM_A]);
+    const seen: { connected: number; rooms: number }[] = [];
+    link.foreground();
+    link.subscribe((state) => seen.push(state));
+    link.background();
+    expect(seen.at(-1)).toEqual({ connected: 0, rooms: 0 });
   });
 
   it('never reaches the relay while its switch is off, even with a browser linked', () => {
@@ -183,6 +240,91 @@ describe('remote link', () => {
     link.refresh();
     expect(live()).toHaveLength(0);
     expect(engine.disconnectAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the screen awake from the first connected browser until the last one leaves', () => {
+    const { engine, keepAwake, link } = harness([ROOM_A, ROOM_B]);
+    const count = engine.connectedCount as jest.Mock;
+    link.foreground();
+
+    count.mockReturnValue(1);
+    jest.advanceTimersByTime(2_000);
+    expect(keepAwake.on).toHaveBeenCalledTimes(1);
+
+    count.mockReturnValue(2);
+    jest.advanceTimersByTime(2_000);
+    expect(keepAwake.on).toHaveBeenCalledTimes(1);
+    expect(keepAwake.off).not.toHaveBeenCalled();
+
+    count.mockReturnValue(0);
+    jest.advanceTimersByTime(2_000);
+    expect(keepAwake.off).toHaveBeenCalledTimes(1);
+    expect(keepAwake.on).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the screen sleep when the app leaves the foreground with a browser connected', () => {
+    const { engine, keepAwake, link } = harness([ROOM_A]);
+    (engine.connectedCount as jest.Mock).mockReturnValue(1);
+    link.foreground();
+    jest.advanceTimersByTime(2_000);
+    expect(keepAwake.on).toHaveBeenCalledTimes(1);
+
+    link.background();
+    expect(keepAwake.off).toHaveBeenCalledTimes(1);
+    link.background();
+    expect(keepAwake.off).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the screen sleep when the switch turns off with a browser connected', () => {
+    const { engine, keepAwake, link, toggle } = harness([ROOM_A]);
+    (engine.connectedCount as jest.Mock).mockReturnValue(1);
+    link.foreground();
+    jest.advanceTimersByTime(2_000);
+    expect(keepAwake.on).toHaveBeenCalledTimes(1);
+
+    toggle.on = false;
+    link.refresh();
+    expect(keepAwake.off).toHaveBeenCalledTimes(1);
+  });
+
+  it('holds the screen awake while a connected browser outlives its room closing and reopening', () => {
+    const { engine, keepAwake, link, opened } = harness([ROOM_A]);
+    (engine.connectedCount as jest.Mock).mockReturnValue(1);
+    link.foreground();
+    jest.advanceTimersByTime(2_000);
+    const seen: { connected: number; rooms: number }[] = [];
+    link.subscribe((state) => seen.push(state));
+
+    opened[0].drop();
+    expect(seen.at(-1)).toEqual({ connected: 1, rooms: 0 });
+    jest.advanceTimersByTime(5_000);
+    expect(seen.at(-1)).toEqual({ connected: 1, rooms: 1 });
+    expect(keepAwake.on).toHaveBeenCalledTimes(1);
+    expect(keepAwake.off).not.toHaveBeenCalled();
+  });
+
+  it('lets the screen sleep when the last linked browser is removed while connected', () => {
+    const { engine, keepAwake, link } = harness([ROOM_A]);
+    const count = engine.connectedCount as jest.Mock;
+    count.mockReturnValue(1);
+    link.foreground();
+    jest.advanceTimersByTime(2_000);
+    expect(keepAwake.on).toHaveBeenCalledTimes(1);
+
+    engine.rooms = [];
+    link.refresh();
+    count.mockReturnValue(0);
+    jest.advanceTimersByTime(2_000);
+    expect(keepAwake.off).toHaveBeenCalledTimes(1);
+  });
+
+  it('never keeps the screen awake while no browser is connected', () => {
+    const { keepAwake, link } = harness([ROOM_A]);
+    link.foreground();
+    jest.advanceTimersByTime(60_000);
+    link.background();
+    expect(keepAwake.on).not.toHaveBeenCalled();
+    expect(keepAwake.off).not.toHaveBeenCalled();
   });
 });
 
@@ -205,5 +347,26 @@ describe("the app's remote link", () => {
     jest.advanceTimersByTime(60_000);
 
     expect(sockets).not.toHaveBeenCalled();
+  });
+
+  it('keeps the screen awake under the remote link tag while a browser is connected', () => {
+    global.WebSocket = jest.fn(() => ({
+      send: jest.fn(),
+      close: jest.fn(),
+    })) as unknown as typeof WebSocket;
+    useDebugStore.setState({ experimentalFeatures: { remoteLink: true } });
+    (remote.linkedRooms as jest.Mock).mockReturnValue([ROOM_A]);
+    (remote.connectedCount as jest.Mock).mockReturnValue(1);
+
+    remoteLink.foreground();
+    jest.advanceTimersByTime(2_000);
+    expect(activateKeepAwakeAsync).toHaveBeenCalledWith('veloq-remote-link');
+
+    remoteLink.background();
+    expect(deactivateKeepAwake).toHaveBeenCalledWith('veloq-remote-link');
+
+    useDebugStore.setState({ experimentalFeatures: {} });
+    (remote.linkedRooms as jest.Mock).mockReturnValue([]);
+    (remote.connectedCount as jest.Mock).mockReturnValue(0);
   });
 });

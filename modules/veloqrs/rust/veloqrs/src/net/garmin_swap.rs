@@ -24,7 +24,8 @@ const GARMIN_IMPORT_SOURCE: &str = "GARMIN_CONNECT";
 const SWAP_DIR: &str = "garmin-swap";
 
 /// Whether the athlete is offered the swap, or an undo, on an activity.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiSwapState {
     /// Nothing is offered: no Garmin key, or not Garmin's import.
@@ -58,7 +59,8 @@ pub enum FfiStubVerdict {
 }
 
 /// How a swap or an undo ended.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiSwapOutcome {
     /// intervals.icu's file is now Garmin's, read back byte for byte.
@@ -86,7 +88,8 @@ pub enum FfiSwapOutcome {
     Restored = 10,
 }
 
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiSwapResult {
     pub outcome: FfiSwapOutcome,
     pub detail: Option<String>,

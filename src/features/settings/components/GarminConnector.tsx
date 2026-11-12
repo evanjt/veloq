@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { GarminKeyStatus, type GarminAccount } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { INTERVALS_URLS } from '@/shared/app/constants';
+import { sourceFor } from '@/shared/app/source';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { Badge, Button, InlineNotice, StatusLine, TextField } from '@/shared/ui';
@@ -63,6 +65,11 @@ export function GarminConnector() {
   const { data: athlete } = useAthlete();
   const { upgradePermissions } = usePermissionUpgrade();
   const writeAccessMissing = useWriteAccessMissing();
+  // With no intervals.icu account there is nothing to read its Garmin switches
+  // from, no write permission to ask for and no copy of a ride to replace, and
+  // the key is the session, so only signing out removes it.
+  const authMethod = useAuthStore((state) => state.authMethod);
+  const garminOnly = sourceFor({ authMethod })?.id === 'garmin';
 
   const [connected, setConnected] = useState(false);
   const [keyNeeded, setKeyNeeded] = useState(false);
@@ -199,28 +206,36 @@ export function GarminConnector() {
 
   return (
     <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-      <View style={styles.content}>
-        <Text style={[styles.text, secondary]}>{t('garmin.intro')}</Text>
-        <ExternalLinkRow
-          url={GARMIN_FORUM_THREAD}
-          label={t('garmin.readMore')}
-          icon="open-in-new"
-          testID="garmin-read-more"
-        />
-      </View>
-      <RowDivider />
+      {garminOnly ? null : (
+        <>
+          <View style={styles.content}>
+            <Text style={[styles.text, secondary]}>{t('garmin.intro')}</Text>
+            <ExternalLinkRow
+              url={GARMIN_FORUM_THREAD}
+              label={t('garmin.readMore')}
+              icon="open-in-new"
+              testID="garmin-read-more"
+            />
+          </View>
+          <RowDivider />
+        </>
+      )}
       {connected ? (
         <View style={styles.content}>
           <StatusLine tone="success" message={connectedLine}>
             <Text style={{ color: palette.textPrimary }}>{connectedLine}</Text>
           </StatusLine>
-          <Text style={[styles.text, secondary]}>{t('garmin.disconnectHint')}</Text>
-          <Button
-            label={t('garmin.disconnect')}
-            variant="destructive"
-            onPress={() => void disconnect()}
-            testID="garmin-disconnect"
-          />
+          {garminOnly ? null : (
+            <>
+              <Text style={[styles.text, secondary]}>{t('garmin.disconnectHint')}</Text>
+              <Button
+                label={t('garmin.disconnect')}
+                variant="destructive"
+                onPress={() => void disconnect()}
+                testID="garmin-disconnect"
+              />
+            </>
+          )}
         </View>
       ) : (
         <View style={styles.content}>
@@ -271,17 +286,21 @@ export function GarminConnector() {
             onValueChange={(value) => void changeFeed(value)}
             testID="garmin-feed-switch"
           />
-          <RowDivider />
-          <View style={styles.content}>
-            <Button
-              label={t('garmin.moreOptions')}
-              variant="ghost"
-              onPress={() => setShowMore((open) => !open)}
-              expanded={showMore}
-              testID="garmin-more-options"
-            />
-          </View>
-          {showMore ? (
+          {garminOnly ? null : (
+            <>
+              <RowDivider />
+              <View style={styles.content}>
+                <Button
+                  label={t('garmin.moreOptions')}
+                  variant="ghost"
+                  onPress={() => setShowMore((open) => !open)}
+                  expanded={showMore}
+                  testID="garmin-more-options"
+                />
+              </View>
+            </>
+          )}
+          {showMore && !garminOnly ? (
             <>
               <SwitchRow
                 title={t('garmin.uploadTitle')}

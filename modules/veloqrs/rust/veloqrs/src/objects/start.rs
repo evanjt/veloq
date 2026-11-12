@@ -11,7 +11,8 @@
 ///
 /// The wire carries the variant's position, so the order here is the contract:
 /// append, never reorder. The discriminants start at one so no member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiStartOutcome {
     /// The job is running.
@@ -45,7 +46,8 @@ pub enum FfiStartOutcome {
 ///
 /// Only an attempt-store backoff has a deadline. Other `Held` refusals wait
 /// for work whose end is not known when the start is refused.
-#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStartResult {
     pub outcome: FfiStartOutcome,
     /// Epoch milliseconds. A floating-point wire value keeps this readable

@@ -79,7 +79,8 @@ pub struct Templates {
 /// A screen has room the lock screen does not and must say the same thing, so
 /// one ladder and one set of templates answer both: `body` is capped and gives
 /// the place name back until the clause fits, `sentence` gives up nothing.
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityNotification {
     /// `pr`, `faster` or `recorded`: which rung won, and so which title.
     pub tier: String,

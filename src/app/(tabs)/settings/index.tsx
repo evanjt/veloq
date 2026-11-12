@@ -28,6 +28,7 @@ import {
   useNotificationPreferences,
   SettingsNavRow,
   BackgroundJobsHeaderItem,
+  RemoteLinkHeaderItem,
   ActivityHistoryRow,
   OfflineRow,
   RecordingPermissionSection,
@@ -267,7 +268,16 @@ function SettingsScreenContent() {
       testID="settings-screen"
       style={[styles.container, isDark && styles.containerDark]}
     >
-      <Stack.Screen options={{ headerRight: () => <BackgroundJobsHeaderItem /> }} />
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <View style={styles.headerRight}>
+              <RemoteLinkHeaderItem />
+              <BackgroundJobsHeaderItem />
+            </View>
+          ),
+        }}
+      />
       <ScreenScrollView
         ref={scrollRef}
         testID="settings-scrollview"
@@ -321,6 +331,12 @@ function SettingsScreenContent() {
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <RowGroup>
             <ActivityHistoryRow />
+            <SpokeRow
+              route="athlete-thresholds"
+              icon="speedometer"
+              subtitle={t('thresholds.rowSubtitle')}
+              testID="settings-nav-thresholds"
+            />
             <SpokeRow
               route="recording-settings"
               icon="record-circle-outline"
@@ -387,6 +403,11 @@ function SettingsScreenContent() {
 }
 
 const styles = StyleSheet.create({
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.surfacePage,

@@ -10,7 +10,8 @@ use serde_json::Value;
 use super::fitness::sport_settings::SportSettings;
 
 /// What kind of entry a calendar event is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiPlannedCategory {
     Workout,
     Race,
@@ -22,7 +23,8 @@ pub enum FfiPlannedCategory {
 }
 
 /// The measure a planned workout is prescribed in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiPlanTarget {
     Power,
     HeartRate,
@@ -30,14 +32,16 @@ pub enum FfiPlanTarget {
 }
 
 /// Whether a plan line is effort or recovery.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiPlanLineKind {
     Work,
     Rest,
 }
 
 /// The measure one step target is set in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiTargetMetric {
     Power,
     HeartRate,
@@ -45,14 +49,16 @@ pub enum FfiTargetMetric {
 }
 
 /// The unit a relative target converts to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiAbsoluteUnits {
     Watts,
     Bpm,
 }
 
 /// A relative target converted by the threshold the plan carries.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiAbsoluteTarget {
     pub low: f64,
     pub high: f64,
@@ -60,7 +66,8 @@ pub struct FfiAbsoluteTarget {
 }
 
 /// A step's target as the plan supplied it, a single value being a range of one.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStepTarget {
     pub metric: FfiTargetMetric,
     pub low: f64,
@@ -72,7 +79,8 @@ pub struct FfiStepTarget {
 }
 
 /// One line of the flat list the athlete follows.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPlanLine {
     pub kind: FfiPlanLineKind,
     pub text: String,
@@ -83,7 +91,8 @@ pub struct FfiPlanLine {
 }
 
 /// One block of the step bar, one per plan line.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStepBlock {
     /// The width the block takes, in seconds of the plan.
     pub seconds: f64,
@@ -95,7 +104,8 @@ pub struct FfiStepBlock {
 }
 
 /// A calendar event as the screens read it.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPlannedEvent {
     /// The upstream event id.
     pub id: f64,

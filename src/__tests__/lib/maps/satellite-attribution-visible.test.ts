@@ -10,7 +10,7 @@
 
 import {
   getCombinedSatelliteAttribution,
-  getCombinedSatelliteStyle,
+  satelliteProviders,
 } from '@/features/maps/components/mapStyles';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
@@ -33,16 +33,13 @@ describe('satellite attribution names only what is drawn', () => {
     expect(getCombinedSatelliteAttribution(-37.8136, 144.9631, 14)).toMatch(/EOX|Sentinel/i);
   });
 
-  it('follows the layer minzoom, not the region minzoom', () => {
-    // The swisstopo layers declare minzoom 8 while REGIONS.switzerland says 6,
+  it('follows the provider minzoom, not the region minzoom', () => {
+    // Swisstopo is asked for from map zoom 8 while REGIONS.switzerland says 6,
     // so between the two nothing swiss is drawn and nothing swiss is credited.
-    const layers = getCombinedSatelliteStyle().layers.filter((l) =>
-      /^satellite-layer-swisstopo-\d+$/.test(l.id)
+    const swisstopo = satelliteProviders('satellite-global').find(
+      (p) => p.source === 'satellite-swisstopo'
     );
-    expect(layers.length).toBeGreaterThan(0);
-    for (const layer of layers) {
-      expect('minzoom' in layer ? layer.minzoom : null).toBe(8);
-    }
+    expect(swisstopo?.minZoom).toBe(10);
 
     expect(getCombinedSatelliteAttribution(46.23, 7.36, 7)).not.toContain('swisstopo');
     expect(getCombinedSatelliteAttribution(46.23, 7.36, 8)).toContain('swisstopo');

@@ -22,7 +22,7 @@ export {
   MapControlButton,
   type MapControlButtonProps,
 } from './components/MapControlButton';
-export { BaseMapView, type BaseMap3DLayer } from './components/BaseMapView';
+export { BaseMapView } from './components/BaseMapView';
 export { ACTIVITY_COUNT_GLYPH, DIRECTION_GLYPH, FIT_GLYPH, LOCATE_GLYPH } from './lib/mapGlyphs';
 export {
   HOME_RADIUS_MAP_HEIGHT,
@@ -196,4 +196,5 @@ export {
   noDataRanges,
   type LineBand,
 } from './lib/deltaLineColor';
+export { MAP_3D_SCALE } from './lib/mapLineWidths';
 export { cutLineByProgress } from './lib/lineProgressCut';

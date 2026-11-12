@@ -76,7 +76,8 @@ pub struct TileCounts {
 ///
 /// The counts are `f64` because a `u64` crosses the binding as a bigint, which
 /// the JavaScript side cannot add to a number.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct SourceTileCounts {
     pub source: String,
     pub hits: f64,

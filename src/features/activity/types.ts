@@ -171,6 +171,8 @@ export interface PowerCurve {
   startDate?: string | undefined;
   endDate?: string | undefined;
   days?: number | undefined;
+  /** `veloq` when the phone worked the curve and its models out; absent or `intervals` for the server's. */
+  source?: string | undefined;
 }
 
 // Pace curve response (for running)
@@ -191,6 +193,8 @@ export interface PaceCurve {
   startDate?: string | undefined; // Start date of the curve period (ISO string)
   endDate?: string | undefined; // End date of the curve period (ISO string)
   days?: number | undefined; // Number of days in the period
+  /** `veloq` when the phone worked the curve and its model out; absent or `intervals` for the server's. */
+  source?: string | undefined;
 }
 
 // Zone distribution for a time period

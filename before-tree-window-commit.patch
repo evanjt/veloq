@@ -1,0 +1,62 @@
+--- a/src/shared/debug/renderTimer.ts
++++ b/src/shared/debug/renderTimer.ts
+@@ -48,6 +48,16 @@
+ }
+ 
+ /**
++ * Stamp a commit with a performance mark and log it as one `[COMMIT]` line. A handset run
++ * greps logcat for the line beside the frame capture's timestamps. Debug builds only.
++ */
++export function logCommitMark(name: string, detail: string): void {
++  if (!PERF_DEBUG) return;
++  performance.mark(name);
++  console.log(`⏱ [COMMIT] ${name} ${detail} at ${performance.now().toFixed(1)}ms`);
++}
++
++/**
+  * Log Hermes JS heap stats for memory pressure investigation.
+  * Usage: logMemory('FitnessScreen:mount');
+  */
+--- a/src/features/wellness/components/WellnessTrendsChart.tsx
++++ b/src/features/wellness/components/WellnessTrendsChart.tsx
+@@ -1,4 +1,4 @@
+-import React, { useEffect, useMemo, useState, useCallback } from 'react';
++import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react';
+ import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
+ import { Text } from 'react-native-paper';
+ import { RangeCoverage } from 'veloqrs';
+@@ -48,6 +48,7 @@
+ import { wellnessRowDomain, wellnessRowMarker, wellnessRowReading, wellnessRowStats } from '../lib';
+ import { EmptyState } from '@/shared/ui/EmptyState';
+ import { formatDecimal } from '@/shared/format';
++import { logCommitMark } from '@/shared/debug/renderTimer';
+ 
+ interface WellnessTrendsChartProps {
+   data?: WellnessData[] | undefined;
+@@ -78,6 +79,8 @@
+ 
+ const SPARKLINE_PADDING = { left: 4, right: 4, top: 8, bottom: 8 } as const;
+ 
++const WINDOW_COMMIT_MARK = 'wellness:window-commit';
++
+ interface MetricConfig {
+   key: string;
+   data: MetricChartData[];
+@@ -175,6 +178,17 @@
+     [smoothingWindow, timeRange]
+   );
+ 
++  // A window change runs the five smoothing passes below. The mark sits on the commit that
++  // shows them, so a debug frame capture can attribute the change. The mark's `[COMMIT]` line
++  // is the handset reader. Dev builds only: both are absent from release. The first window is
++  // not a change, and a scrub leaves it unmoved.
++  const committedWindow = useRef(effectiveWindow);
++  useLayoutEffect(() => {
++    if (committedWindow.current === effectiveWindow) return;
++    committedWindow.current = effectiveWindow;
++    logCommitMark(WINDOW_COMMIT_MARK, `window=${effectiveWindow}`);
++  }, [effectiveWindow]);
++
+   // Process data for each metric
+   const { sortedData, hrvData, rhrData, sleepData, sleepScoreData, weightData, totalDays } =
+     useMemo(() => {

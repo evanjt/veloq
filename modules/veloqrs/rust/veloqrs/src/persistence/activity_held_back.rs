@@ -16,7 +16,8 @@ use crate::net::intervals::wire::ActivityRecord;
 use crate::persistence::settings::{setting_from, settings_keys};
 
 /// An activity intervals.icu holds but does not serve, and where it got it.
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 #[uniffi(name = "FfiActivityHeldBack")]
 pub struct ActivityHeldBack {
     /// The service the activity was imported from, as intervals.icu names it.

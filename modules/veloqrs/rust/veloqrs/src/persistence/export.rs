@@ -215,7 +215,8 @@ impl BulkExportResult {
 /// The wire carries the variant's position, so the order here is the contract:
 /// append, never reorder. The discriminants start at one so no member is
 /// falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum BulkExportFormat {
     /// A ZIP of one GPX file per activity, plus its metadata and skip list.
@@ -314,7 +315,8 @@ fn run_bulk_export_for_test(
 }
 
 /// A GPX file ready to share: the name to save it under and its XML.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct GpxFile {
     pub filename: String,
     pub content: String,
@@ -940,7 +942,8 @@ impl PrivacyTrim {
 /// A radius in metres means nothing on its own. The number that makes the
 /// setting concrete is how many rides it reaches, and how many it would leave
 /// out of the archive altogether.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportPrivacyPreview {
     /// Activities an export would write at all, the denominator.
     pub with_track: u32,
@@ -1248,7 +1251,8 @@ mod privacy_trim_tests {
 }
 
 /// A home the athlete can confirm, and how sure the guess is.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct SuggestedHome {
     pub latitude: f64,
     pub longitude: f64,

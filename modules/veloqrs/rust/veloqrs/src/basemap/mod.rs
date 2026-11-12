@@ -22,6 +22,7 @@
 
 mod bundled;
 mod c;
+mod composite;
 mod encoding;
 mod fetch;
 mod geo;
@@ -34,6 +35,7 @@ mod preseed;
 mod store;
 mod throttle;
 
+pub use composite::{CompositeMember, GeoBox};
 pub use fetch::{FILL_PACE, TileFetchError, TileFetcher};
 pub use geo::geo_answer;
 #[cfg(test)]
@@ -47,7 +49,7 @@ pub use store::{SourceTileCounts, TileCounts, TileStore, is_kept_offline};
 
 use crate::atomic_file::write_atomically;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
@@ -62,6 +64,10 @@ static STORE: LazyLock<Mutex<Option<Arc<TileStore>>>> = LazyLock::new(|| Mutex::
 
 /// Point the store at a directory. Called once at engine init from JS.
 pub fn set_path(path: String) {
+    crate::atomic_file::sweep_stale_temp_files(
+        std::path::Path::new(&path),
+        crate::atomic_file::STALE_TEMP_AGE,
+    );
     let store = Arc::new(TileStore::new(PathBuf::from(&path)));
     let mut guard = STORE.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(previous) = guard.take() {
@@ -116,6 +122,14 @@ pub fn set_template(source: String, template: String) {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .insert(source, template);
+}
+
+/// Record the providers a composite source chooses among, in priority order.
+/// Each member is a source of its own whose template is registered with
+/// [`set_template`]. Registering the composite is what admits its name.
+pub fn set_composite(name: String, members: Vec<CompositeMember>) {
+    log::info!("[basemap] {} <- {} providers", name, members.len());
+    composite::set(name, members);
 }
 
 /// Where a source's tiles are named: by a template the page handed over, or by
@@ -601,6 +615,14 @@ pub fn template_for(source: &str) -> Option<String> {
 /// which is the same host for every source whose TileJSON names its own tiles.
 /// A source with no template, the heatmap among them, has no host to warm.
 pub async fn warm_source(source: String) {
+    // A composite warms the hosts that hold every position, which is the
+    // fallback. A regional host is warmed by the first tile it is asked for.
+    if let Some(members) = composite::everywhere_of(&source) {
+        for member in members {
+            Box::pin(warm_source(member)).await;
+        }
+        return;
+    }
     let Some(template) = tile_template_for(&source).or_else(|| template_for(&source)) else {
         return;
     };
@@ -734,6 +756,10 @@ pub struct TileMiss {
     z: u8,
     x: u32,
     y: u32,
+    /// The providers of a composite still to try if this one has no tile.
+    rest: VecDeque<String>,
+    /// The first status a passed-over provider gave that was not a refusal.
+    failed: Option<u16>,
 }
 
 /// Answer a tile from what is already held, and say when the host has to be
@@ -742,6 +768,57 @@ pub struct TileMiss {
 /// naming a TileJSON that is not resolved, or is due a refresh, resolves it in
 /// [`TileMiss::fetch`] on the runtime.
 pub fn lookup_tile(source: &str, z: u8, x: u32, y: u32) -> TileLookup {
+    match composite::candidates_of(source, z, x, y) {
+        Some(candidates) => {
+            let mut failed = None;
+            match next_candidate(&mut candidates.into(), z, x, y, &mut failed) {
+                Candidate::Ready(bytes) => TileLookup::Ready(bytes),
+                Candidate::Miss(miss) => TileLookup::Miss(miss),
+                Candidate::Exhausted => TileLookup::Refused(failed.unwrap_or(NO_TILE)),
+            }
+        }
+        None => lookup_provider(source, z, x, y),
+    }
+}
+
+/// What the next provider of a composite can say about a tile.
+enum Candidate {
+    Ready(Vec<u8>),
+    Miss(TileMiss),
+    Exhausted,
+}
+
+/// Walk a composite's candidates until one has the tile in hand or has to be
+/// asked. A provider that has no tile is passed over, so ground a regional
+/// host refuses is drawn by the next one. `failed` keeps the first status that
+/// was not a plain refusal, which is what the page is told if none answers.
+fn next_candidate(
+    rest: &mut VecDeque<String>,
+    z: u8,
+    x: u32,
+    y: u32,
+    failed: &mut Option<u16>,
+) -> Candidate {
+    while let Some(source) = rest.pop_front() {
+        match lookup_provider(&source, z, x, y) {
+            TileLookup::Ready(bytes) => return Candidate::Ready(bytes),
+            TileLookup::Refused(status) => {
+                if status != NO_TILE && failed.is_none() {
+                    *failed = Some(status);
+                }
+            }
+            TileLookup::Miss(mut miss) => {
+                miss.rest = std::mem::take(rest);
+                miss.failed = *failed;
+                return Candidate::Miss(miss);
+            }
+        }
+    }
+    Candidate::Exhausted
+}
+
+/// [`lookup_tile`] for a source that holds its own tiles.
+fn lookup_provider(source: &str, z: u8, x: u32, y: u32) -> TileLookup {
     // The heatmap is drawn here rather than fetched from a host, so it is not a
     // basemap source and has no template: a deep tile is drawn on the miss,
     // and any other miss means the pass has not reached that tile, which is a
@@ -810,6 +887,8 @@ pub fn lookup_tile(source: &str, z: u8, x: u32, y: u32) -> TileLookup {
         z,
         x,
         y,
+        rest: VecDeque::new(),
+        failed: None,
     })
 }
 
@@ -817,7 +896,34 @@ impl TileMiss {
     /// Resolve the TileJSON if the source names one that is not in hand, ask
     /// the host, and keep what it sends. A 404 is remembered as refused
     /// ground, and a 429 or a 503 holds the source's next misses.
-    pub async fn fetch(self) -> Result<Vec<u8>, u16> {
+    ///
+    /// A composite's miss that its provider has no tile for goes on to the next
+    /// provider, and the page is answered by the last one asked.
+    pub async fn fetch(mut self) -> Result<Vec<u8>, u16> {
+        let (z, x, y) = (self.z, self.x, self.y);
+        let mut rest = std::mem::take(&mut self.rest);
+        let mut failed = self.failed;
+        let mut current = self;
+        loop {
+            let status = match current.fetch_provider().await {
+                Ok(bytes) => return Ok(bytes),
+                Err(status) => status,
+            };
+            if status != NO_TILE && failed.is_none() {
+                failed = Some(status);
+            }
+            match next_candidate(&mut rest, z, x, y, &mut failed) {
+                Candidate::Ready(bytes) => return Ok(bytes),
+                Candidate::Miss(mut miss) => {
+                    rest = std::mem::take(&mut miss.rest);
+                    current = miss;
+                }
+                Candidate::Exhausted => return Err(failed.unwrap_or(status)),
+            }
+        }
+    }
+
+    async fn fetch_provider(self) -> Result<Vec<u8>, u16> {
         let Self {
             store,
             source,
@@ -825,6 +931,7 @@ impl TileMiss {
             z,
             x,
             y,
+            ..
         } = self;
         let template = match template {
             Some(template) => template,

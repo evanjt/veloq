@@ -2,6 +2,23 @@ use super::error::{VeloqError, with_engine, with_reader};
 use crate::persistence::sections::conditioning;
 use std::sync::Arc;
 
+/// What the activity list paints under its cards for a batch of ids: the one
+/// function the phone's highlight read and the link's answer both call.
+pub(crate) fn highlights_bundle(
+    conn: &rusqlite::Connection,
+    activity_ids: &[String],
+) -> crate::FfiActivityHighlightsBundle {
+    crate::FfiActivityHighlightsBundle {
+        indicators: crate::persistence::indicators::pooled::activity_indicators(conn, activity_ids),
+        route_highlights: crate::persistence::fitness::derivations::pooled::route_highlights(
+            conn,
+            activity_ids,
+        ),
+        new_ground: crate::persistence::new_ground::pooled::new_ground_of(conn, activity_ids),
+        strength_cards: super::strength::strength_cards(conn, activity_ids),
+    }
+}
+
 #[derive(uniffi::Object)]
 pub struct ActivityManager {
     pub(crate) _private: (),
@@ -480,18 +497,7 @@ impl ActivityManager {
         &self,
         activity_ids: Vec<String>,
     ) -> Result<crate::FfiActivityHighlightsBundle, VeloqError> {
-        with_reader(|conn| crate::FfiActivityHighlightsBundle {
-            indicators: crate::persistence::indicators::pooled::activity_indicators(
-                conn,
-                &activity_ids,
-            ),
-            route_highlights: crate::persistence::fitness::derivations::pooled::route_highlights(
-                conn,
-                &activity_ids,
-            ),
-            new_ground: crate::persistence::new_ground::pooled::new_ground_of(conn, &activity_ids),
-            strength_cards: super::strength::strength_cards(conn, &activity_ids),
-        })
+        with_reader(|conn| highlights_bundle(conn, &activity_ids))
     }
 
     /// Everything the activity detail screen paints with, in one engine lock:

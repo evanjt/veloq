@@ -38,5 +38,6 @@
   "modules/veloqrs/rust/veloqrs/src/persistence/tiles.rs": 2,
   "modules/veloqrs/rust/veloqrs/src/push/garmin.rs": 1,
   "modules/veloqrs/rust/veloqrs/src/push/mod.rs": 1,
-  "modules/veloqrs/rust/veloqrs/src/push/runs.rs": 1
+  "modules/veloqrs/rust/veloqrs/src/push/runs.rs": 1,
+  "modules/veloqrs/rust/veloqrs/src/remote/service.rs": 1
 }

@@ -244,6 +244,8 @@ fn a_library_upgraded_with_stored_groups_reads_its_lines_after_the_load() {
                  ALTER TABLE push_runs DROP COLUMN posted_title;
                  ALTER TABLE push_runs DROP COLUMN posted_body;
                  DROP TABLE activity_sync_failures;
+                 DROP TABLE activity_curves;
+                 ALTER TABLE curve_bodies DROP COLUMN source;
                  DROP TABLE linked_devices;
                  DROP TABLE remote_identity;
                  DROP TABLE activity_held_back;

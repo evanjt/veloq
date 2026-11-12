@@ -50,7 +50,8 @@ impl PushRunOutcome {
 const KEPT: i64 = 20;
 
 /// One run of `activity_push_json`, as the dashboard shows it.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiPushRun {
     /// Seconds since the epoch, the unit every other date on the surface uses.
     pub ts: f64,

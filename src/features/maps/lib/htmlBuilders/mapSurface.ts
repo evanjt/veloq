@@ -21,6 +21,7 @@ import {
   setReduceMotionStatement,
   setStyleStatement,
   terrainReportScript,
+  terrainVisibilityScript,
   tileHostWarmScript,
   tileProtocolsScript,
   visibleInsetScript,
@@ -132,10 +133,18 @@ export interface MapImageSpec {
  * The map draped over the elevation model. On, the page adds the DEM, the
  * base's sky and relief shading, takes pitch and rotate gestures and eases to
  * `pitch`; off, it takes each away and eases back to flat.
+ *
+ * With `subjectSource`, the id of a geojson source whose line the camera must
+ * keep in view, the page checks once per terrain-on whether relief hides that
+ * line and turns the camera to a clearer one. `cameraPinned` skips the check
+ * for a camera the athlete chose or one already shown, and so does a gesture
+ * since the page opened.
  */
 export interface MapTerrainSpec {
   exaggeration: number;
   pitch: number;
+  subjectSource?: string | undefined;
+  cameraPinned?: boolean | undefined;
 }
 
 export interface MapSurfaceSpec {
@@ -228,6 +237,7 @@ ${consoleBridgeScript()}
 ${tileProtocolsScript()}
 
 ${terrainReportScript()}
+${terrainVisibilityScript()}
 ${tileHostWarmScript()}
 
     ${HILLSHADE_INSERT_INDEX_SCRIPT}

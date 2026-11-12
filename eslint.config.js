@@ -135,7 +135,9 @@ module.exports = [
       // The vendored map renderer, written by scripts/fetch-maplibre-renderer.mjs.
       'modules/veloqrs/assets/basemap/renderer/**',
       // The connect page's QR encoder, vendored unchanged from its npm build.
-      'docs/connect/qr.js',
+      'web/connect/qr.ts',
+      // The connect page's built, minified output, written by `npm run build:connect`.
+      'docs/connect/**',
       'coverage/**',
       'dist/**',
       '.expo/**',
@@ -269,6 +271,11 @@ module.exports = [
   {
     files: ['scripts/**/*.mjs'],
     languageOptions: { sourceType: 'module' },
+  },
+  {
+    // The connect page runs in a browser, outside the app bundle.
+    files: ['web/**/*.{ts,tsx}'],
+    languageOptions: { globals: { ...globals.browser }, sourceType: 'module' },
   },
   {
     files: ['**/*.test.{js,jsx,ts,tsx}', 'src/__tests__/**'],

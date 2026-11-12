@@ -22,7 +22,7 @@ import { colors, darkColors, iconSize, layout, spacing, typography } from '@/the
 import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';
 import { clearAccountData } from '@/shared/storage';
-import { RestoreChooser } from '@/features/settings';
+import { GARMIN_KEY_PAGE, RestoreChooser } from '@/features/settings';
 import {
   useAuthStore,
   INTERVALS_URLS,
@@ -31,12 +31,14 @@ import {
   getCachedAthleteId,
   UNNAMED_LIBRARY,
   useApiKeyLogin,
+  useGarminLogin,
   useOAuthLogin,
   useApiKeyPrefill,
   useSessionExpiryNotice,
   LanguagePicker,
   OAuthLoginForm,
   ApiKeyLoginForm,
+  GarminLoginForm,
   SessionExpiredNotice,
 } from '@/features/auth';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -71,6 +73,7 @@ function LoginScreenContent() {
     setError: reportError,
     discardQueuedKey,
   });
+  const { handleGarminLogin, isGarminLoading } = useGarminLogin({ setError: reportError });
 
   const handleTryDemo = async () => {
     // Warn before destroying a real account's cached data. Engine holds at
@@ -123,6 +126,10 @@ function LoginScreenContent() {
 
   const handleOpenDeveloperSettings = useCallback(() => {
     void openExternal(INTERVALS_URLS.developerSettings);
+  }, []);
+
+  const handleOpenGarminKeyPage = useCallback(() => {
+    void openExternal(GARMIN_KEY_PAGE);
   }, []);
 
   return (
@@ -221,6 +228,14 @@ function LoginScreenContent() {
               disabled={isLoading}
               onOpenDeveloperSettings={handleOpenDeveloperSettings}
               prefillApiKey={prefillApiKey}
+            />
+
+            {/* Garmin key only */}
+            <GarminLoginForm
+              onLogin={handleGarminLogin}
+              isLoading={isGarminLoading}
+              disabled={isLoading || isApiKeyLoading}
+              onOpenKeyPage={handleOpenGarminKeyPage}
             />
           </Card>
         </View>

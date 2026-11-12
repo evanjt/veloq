@@ -15,7 +15,9 @@ import type {
   FfiRoutesScreenQuery,
   FfiSectionPerformanceData,
   GroupSummary,
+  FfiRouteFollow,
   LiveRouteOverlap,
+  RouteFollowerInterface,
 } from '../generated/veloqrs';
 import { FfiPerformanceSubject } from '../generated/veloqrs';
 import { validateId, validateName } from '../conversions';
@@ -79,6 +81,28 @@ export function getRepresentativeRoute(host: DelegateHost, groupId: string): Arr
   return host.timed('getRepresentativeRoute', () =>
     host.engine.routes().getRepresentativeRoute(groupId)
   );
+}
+
+/**
+ * A handle on one followed route. Built once, then `advanceRouteFollower` places each fix of
+ * the ride on it. Undefined while the engine is not ready.
+ */
+export type RouteFollower = RouteFollowerInterface;
+
+/** Throws the engine's refusal when the route is unknown or its track holds no line. */
+export function followRoute(host: DelegateHost, routeId: string): RouteFollower | undefined {
+  if (!host.ready) return undefined;
+  validateId(routeId, 'route ID');
+  return host.timed('followRoute', () => host.engine.routes().follow(routeId));
+}
+
+export function advanceRouteFollower(
+  host: DelegateHost,
+  routeFollower: RouteFollower,
+  latitude: number,
+  longitude: number
+): FfiRouteFollow {
+  return host.timed('advanceRouteFollower', () => routeFollower.advance(latitude, longitude));
 }
 
 export function liveRouteOverlaps(

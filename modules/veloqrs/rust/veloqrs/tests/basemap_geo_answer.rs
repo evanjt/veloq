@@ -271,3 +271,73 @@ fn the_ios_entry_answers_the_same_bytes_and_statuses() {
     assert!(null.is_null());
     assert_eq!((len, status), (0, 400));
 }
+
+#[test]
+fn a_malformed_under_point_key_is_refused() {
+    let _serial_state = super::serial_state();
+    let (_dir, _path) = init_global_engine();
+
+    for path in [
+        "under-point/abc",
+        "under-point/1_2_3",
+        "under-point/46200000_7350000_99_x",
+        "under-point/46200000_7350000_14_",
+        "under-point/95000000_7350000_14__",
+        "under-point/46200000_7350000_x_group",
+    ] {
+        assert_eq!(geo_answer(path), Err(400), "{path:?}");
+    }
+}
+
+#[test]
+fn under_point_traces_are_not_found_while_the_heatmap_is_off() {
+    let _serial_state = super::serial_state();
+    let (_dir, _path) = init_global_engine();
+    with_persistent_engine(|engine| engine.clear_heatmap_tiles_path()).expect("engine open");
+
+    assert_eq!(geo_answer("under-point/46200000_7350000_14__"), Err(404));
+}
+
+#[test]
+fn under_point_answers_the_traces_of_the_named_group_as_a_feature_collection() {
+    let _serial_state = super::serial_state();
+    let (dir, _path) = init_global_engine();
+    let tiles = dir.path().join("heat");
+    let line = |east: f64| -> Vec<GpsPoint> {
+        (0..100)
+            .map(|i| GpsPoint::new(46.19 + f64::from(i) * 0.0002, 7.35 + east))
+            .collect()
+    };
+    with_persistent_engine(|engine| {
+        engine.set_heatmap_tiles_path(tiles.to_string_lossy().into_owned());
+        for (id, date) in [("one-old", 1_700_000_000), ("one-new", 1_700_000_100)] {
+            engine
+                .add_activity(id.to_string(), line(0.0), "Ride".to_string())
+                .expect("track stored");
+            engine
+                .set_activity_metrics(vec![veloqrs::ActivityMetrics {
+                    activity_id: id.to_string(),
+                    name: id.to_string(),
+                    date,
+                    sport_type: "Ride".to_string(),
+                    ..Default::default()
+                }])
+                .expect("metrics stored");
+        }
+    })
+    .expect("the engine is open");
+
+    let body = geo_answer("under-point/46200000_7350000_14__?v=2").expect("answer");
+
+    let value = json(&body);
+    assert_eq!(value["type"], "FeatureCollection");
+    let features = value["features"].as_array().expect("features");
+    let ids: Vec<&str> = features
+        .iter()
+        .map(|f| f["properties"]["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["one-new", "one-old"]);
+    assert_eq!(features[0]["properties"]["date"], 1_700_000_100);
+    assert_eq!(features[0]["geometry"]["type"], "LineString");
+    assert_eq!(features[0]["id"], "one-new");
+}

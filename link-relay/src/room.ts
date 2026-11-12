@@ -2,9 +2,11 @@
  * What a link room lets through.
  *
  * A room joins a phone and a browser long enough to swap the offer, the answer
- * and their ICE candidates. Everything else stays out: a third peer, a message
- * of any other type, a binary frame, a message past the size cap, and a peer
- * past its message budget. The relay keeps nothing it forwards.
+ * and their ICE candidates. A third peer displaces the oldest, since a socket
+ * that vanished without a close frame holds its seat until the room expires.
+ * Everything else stays out: a message of any other type, a binary frame, a
+ * message past the size cap, and a peer past its message budget. The relay
+ * keeps nothing it forwards.
  */
 
 /** The phone and the browser. */
@@ -34,9 +36,29 @@ export function isRoomId(id: string): boolean {
   return ROOM_ID.test(id);
 }
 
-/** Whether a room holding `present` peers takes another. */
-export function admits(present: number): boolean {
-  return present < MAX_PEERS;
+/** A peer that has joined a room, numbered in the order it joined. */
+export interface Seated {
+  joined: number;
+}
+
+/**
+ * The number an arriving peer takes: one past the latest present. Numbers
+ * come from the peers themselves, not from a counter the room keeps, so they
+ * survive the room hibernating.
+ */
+export function nextJoin(present: readonly Seated[]): number {
+  return present.reduce((latest, seat) => Math.max(latest, seat.joined), 0) + 1;
+}
+
+/**
+ * The peers an arriving peer displaces, oldest first. A room keeps its
+ * `MAX_PEERS` most recent: a socket that vanished without a close frame holds
+ * its seat until the room alarm, so refusing the newcomer would strand both ends.
+ */
+export function displaced<T extends Seated>(present: readonly T[]): T[] {
+  const excess = present.length - MAX_PEERS + 1;
+  if (excess <= 0) return [];
+  return [...present].sort((a, b) => a.joined - b.joined).slice(0, excess);
 }
 
 /** The Workers rate limiting binding, which counts per key and holds nothing else. */
@@ -67,7 +89,7 @@ function isSetupMessage(message: string | ArrayBuffer): message is string {
 }
 
 /**
- * Tell every peer that the room is full, once the second joins. The browser
+ * Tell every peer that the room holds two, once the second joins. The browser
  * sends its offer on this notice, so neither side has to guess the other is
  * there. Peers never send it themselves: `relay` drops the type.
  */

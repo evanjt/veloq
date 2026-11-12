@@ -5,7 +5,11 @@
  * index. Date inputs are converted to Unix seconds before crossing the FFI.
  */
 
-import type { FfiMapScreenData, MapDistanceBand } from '../generated/veloqrs';
+import type {
+  FfiActivitiesUnderPoint,
+  FfiMapScreenData,
+  MapDistanceBand,
+} from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
 /**
@@ -58,4 +62,21 @@ export function getAllMapSignatures(host: DelegateHost): {
 }[] {
   if (!host.ready) return [];
   return host.timed('getAllMapSignatures', () => host.engine.maps().getAllSignatures());
+}
+
+/**
+ * The activities whose tracks pass under a point on the heatmap, grouped by
+ * route and capped, newest first. Resolves with no groups when the heatmap is
+ * off or the engine is not ready.
+ */
+export async function getActivitiesUnderPoint(
+  host: DelegateHost,
+  latitude: number,
+  longitude: number,
+  zoom: number
+): Promise<FfiActivitiesUnderPoint> {
+  if (!host.ready) return { total: 0, truncated: false, traceCap: 0, groups: [] };
+  return host.timedAsync('getActivitiesUnderPoint', () =>
+    host.engine.maps().activitiesUnderPoint(latitude, longitude, zoom)
+  );
 }

@@ -3,7 +3,7 @@
 //! A STUN server learns only the public address a packet came from. The
 //! data the two devices exchange never goes through it: it stays encrypted
 //! end to end between the browser and the phone. The browser page names the
-//! same server in `docs/connect/link.js`.
+//! same server in `web/connect/link.ts`.
 
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher, Hasher};

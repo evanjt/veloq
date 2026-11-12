@@ -9,6 +9,7 @@ import {
   DELTA_GAPS_SOURCE_ID,
   ENDPOINT_IMAGES,
   lineBandExpression,
+  MAP_3D_SCALE,
   type LineBand,
   type LngLat,
   type MapLayerSpec,
@@ -39,6 +40,8 @@ export interface RouteMapSpecInput {
   deltaBands: readonly LineBand[] | null;
   /** The marker for the distance the delta chart is scrubbed to. Empty when none is. */
   scrubGeoJSON?: GeoJSON.FeatureCollection;
+  /** The map is tilted over terrain, where lines are drawn at `MAP_3D_SCALE`. */
+  terrain?: boolean;
 }
 
 /** Everything a route's map draws, and the extent it fits. */
@@ -63,6 +66,7 @@ export function routeMapSpecs(input: RouteMapSpecInput): MapSubjectSpecs {
       fadedFilter: input.fadedFilter,
       includeRoute: true,
       deltaBands: input.deltaBands,
+      terrain: input.terrain ?? false,
     }),
     images: ENDPOINT_IMAGES,
     interactiveLayers: undefined,
@@ -91,6 +95,7 @@ export function buildRouteLayers({
   fadedFilter,
   includeRoute,
   deltaBands = null,
+  terrain = false,
 }: {
   /** The colours of the base map drawn under the layers. */
   palette: MapPalette;
@@ -106,7 +111,10 @@ export function buildRouteLayers({
    * base's route colour.
    */
   deltaBands?: readonly LineBand[] | null;
+  /** The map is tilted over terrain, so every line is drawn at `MAP_3D_SCALE`. */
+  terrain?: boolean;
 }): MapLayerSpec[] {
+  const scale = terrain ? MAP_3D_SCALE : 1;
   const routeLayers: MapLayerSpec[] = includeRoute
     ? [
         {
@@ -118,7 +126,7 @@ export function buildRouteLayers({
             'line-color': palette.casing,
             // Context lines carry no casing.
             'line-opacity': routeContext ? 0 : 1,
-            'line-width': 5,
+            'line-width': 5 * scale,
           },
         },
         {
@@ -130,7 +138,7 @@ export function buildRouteLayers({
             ...(deltaBands
               ? { 'line-gradient': lineBandExpression(deltaBands, palette) }
               : { 'line-color': routeContext ? palette.muted : palette.route }),
-            'line-width': 4,
+            'line-width': 4 * scale,
           },
         },
       ]
@@ -145,24 +153,24 @@ export function buildRouteLayers({
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': palette.muted,
-        'line-width': 2,
+        'line-width': 2 * scale,
       },
     },
     ...routeLayers,
-    buildDeltaGapLayer(palette, 4),
+    buildDeltaGapLayer(palette, 4 * scale),
     {
       id: 'highlighted-casing',
       type: 'line',
       source: 'highlighted-trace',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': palette.casing, 'line-width': 5 },
+      paint: { 'line-color': palette.casing, 'line-width': 5 * scale },
     },
     {
       id: 'highlighted-line',
       type: 'line',
       source: 'highlighted-trace',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': palette.ink, 'line-width': 4 },
+      paint: { 'line-color': palette.ink, 'line-width': 4 * scale },
     },
     ...buildEndpointLayers(palette),
     ...buildScrubLayers(palette),

@@ -298,6 +298,29 @@ describe('recordingSession auto-pause', () => {
     });
   });
 
+  describe('the GPS watch under each preset', () => {
+    it.each(['high', 'balanced', 'batterySaver'] as const)(
+      'asks for a fix at every interval under the %s preset, so a standing receiver keeps delivering and a stop can be paused',
+      async (mode) => {
+        useRecordingPreferences.setState({ gpsAccuracyMode: mode });
+        (Location.watchPositionAsync as jest.Mock).mockClear();
+        (Location.startLocationUpdatesAsync as jest.Mock).mockClear();
+
+        useRecordingStore.getState().startRecording('Ride', 'gps');
+        for (let i = 0; i < 20; i++) await Promise.resolve();
+
+        expect(Location.watchPositionAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ distanceInterval: 0 }),
+          expect.any(Function)
+        );
+        expect(Location.startLocationUpdatesAsync).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({ distanceInterval: 0 })
+        );
+      }
+    );
+  });
+
   describe('a batch handled after its fixes were taken', () => {
     let now: jest.SpyInstance<number, []>;
 

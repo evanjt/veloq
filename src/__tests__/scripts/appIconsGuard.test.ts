@@ -80,29 +80,50 @@ function png(size: number, pixel: (x: number, y: number) => Rgba): Buffer {
   return image(size, size, pixel);
 }
 
+/** The same arguments give the same image, and drawing a 1024 square pixel by
+ *  pixel is most of a case's time, so each fixture is drawn once per file. A
+ *  case that edits a fixture replaces the entry in its own table, never the buffer. */
+function drawnOnce<A extends unknown[]>(draw: (...args: A) => Buffer): (...args: A) => Buffer {
+  const drawn = new Map<string, Buffer>();
+  return (...args) => {
+    const key = JSON.stringify(args);
+    let image = drawn.get(key);
+    if (image === undefined) {
+      image = draw(...args);
+      drawn.set(key, image);
+    }
+    return image;
+  };
+}
+
 const SIZE = 1024;
 const inMark = (x: number, y: number) => x > 400 && x < 600 && y > 400 && y < 600;
 
 const GROUND: Rgba = [32, 64, 96, 255];
-const tile = (size = SIZE) => png(size, () => GROUND);
-const roundedTile = () =>
+const tile = drawnOnce((size: number = SIZE) => png(size, () => GROUND));
+const roundedTile = drawnOnce(() =>
   png(SIZE, (x, y) => {
     const r = 192;
     const cx = Math.min(Math.max(x, r), SIZE - 1 - r);
     const cy = Math.min(Math.max(y, r), SIZE - 1 - r);
     return (x - cx) ** 2 + (y - cy) ** 2 > r * r ? [0, 0, 0, 0] : GROUND;
-  });
+  })
+);
 /** A 48 favicon on a rounded tile, the way the generator draws the website's icon. */
-const roundedFavicon = (colour: Rgba = GROUND) =>
+const roundedFavicon = drawnOnce((colour: Rgba = GROUND) =>
   png(48, (x, y) => {
     const r = 9;
     const cx = Math.min(Math.max(x, r), 47 - r);
     const cy = Math.min(Math.max(y, r), 47 - r);
     return (x - cx) ** 2 + (y - cy) ** 2 > r * r ? [0, 0, 0, 0] : colour;
-  });
-const markOnClear = (colour: Rgba) => png(SIZE, (x, y) => (inMark(x, y) ? colour : [0, 0, 0, 0]));
-const markOnBlack = () =>
-  png(SIZE, (x, y) => (inMark(x, y) ? [255, 255, 255, 255] : [0, 0, 0, 255]));
+  })
+);
+const markOnClear = drawnOnce((colour: Rgba) =>
+  png(SIZE, (x, y) => (inMark(x, y) ? colour : [0, 0, 0, 0]))
+);
+const markOnBlack = drawnOnce(() =>
+  png(SIZE, (x, y) => (inMark(x, y) ? [255, 255, 255, 255] : [0, 0, 0, 255]))
+);
 
 const BRAND = {
   appColour: '#204060',
@@ -112,8 +133,9 @@ const BRAND = {
   markGoldDeep: '#D0A030',
 };
 
-const splash = (width = 400, alpha = true) =>
-  image(width, 156, (x) => (x > 100 && x < 300 ? [208, 160, 48, 255] : [0, 0, 0, 0]), alpha);
+const splash = drawnOnce((width: number = 400, alpha: boolean = true) =>
+  image(width, 156, (x) => (x > 100 && x < 300 ? [208, 160, 48, 255] : [0, 0, 0, 0]), alpha)
+);
 
 function gradient(id: string, from: string, to: string): string {
   return [

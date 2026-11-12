@@ -12,7 +12,8 @@ use crate::net::garmin::{GarminClient, GarminError};
 use crate::net::transport::NetError;
 
 /// What Garmin said about a key the athlete pasted.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum GarminKeyStatus {
     /// Garmin exchanged the key for a token.
     Connected,
@@ -103,31 +104,92 @@ impl GarminKeyHolder {
                 return GarminKeyStatus::Malformed;
             }
             let client = make_client(key);
-            match client.check_key(crate::net::garmin::dispatch()).await {
-                Ok(()) => match client
-                    .check_activity_access(crate::net::garmin::dispatch())
-                    .await
-                {
-                    Ok(()) => {
-                        if self.hold_unless_cleared_since(clears, client) {
-                            GarminKeyStatus::Connected
-                        } else {
-                            GarminKeyStatus::Unreachable
-                        }
-                    }
-                    Err(GarminError::KeyRejected)
-                    | Err(GarminError::Net(NetError::Http { status: 403, .. })) => {
-                        GarminKeyStatus::NoActivityAccess
-                    }
-                    Err(GarminError::KeyMalformed) => GarminKeyStatus::Malformed,
-                    Err(GarminError::Net(_)) => GarminKeyStatus::Unreachable,
-                },
-                Err(GarminError::KeyRejected) => GarminKeyStatus::Rejected,
-                Err(GarminError::KeyMalformed) => GarminKeyStatus::Malformed,
-                Err(GarminError::Net(_)) => GarminKeyStatus::Unreachable,
+            let status = key_status(&client).await;
+            if status != GarminKeyStatus::Connected {
+                return status;
+            }
+            if self.hold_unless_cleared_since(clears, client) {
+                GarminKeyStatus::Connected
+            } else {
+                GarminKeyStatus::Unreachable
             }
         }
     }
+}
+
+/// What Garmin says about the key `client` carries: whether it exchanges for a
+/// token and whether that token can read the account's activities.
+async fn key_status(client: &GarminClient) -> GarminKeyStatus {
+    match client.check_key(crate::net::garmin::dispatch()).await {
+        Ok(()) => match client
+            .check_activity_access(crate::net::garmin::dispatch())
+            .await
+        {
+            Ok(()) => GarminKeyStatus::Connected,
+            Err(GarminError::KeyRejected)
+            | Err(GarminError::Net(NetError::Http { status: 403, .. })) => {
+                GarminKeyStatus::NoActivityAccess
+            }
+            Err(GarminError::KeyMalformed) => GarminKeyStatus::Malformed,
+            Err(GarminError::Net(_)) => GarminKeyStatus::Unreachable,
+        },
+        Err(GarminError::KeyRejected) => GarminKeyStatus::Rejected,
+        Err(GarminError::KeyMalformed) => GarminKeyStatus::Malformed,
+        Err(GarminError::Net(_)) => GarminKeyStatus::Unreachable,
+    }
+}
+
+/// A pasted key checked on its own, before any library is open: what Garmin
+/// said and, when it accepted the key, the id it keeps for the account.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct GarminKeyCheck {
+    pub status: GarminKeyStatus,
+    /// The account's id. `None` unless the key was accepted, and also when
+    /// Garmin accepted it but names no account id anywhere the app reads.
+    pub account_id: Option<String>,
+}
+
+impl GarminKeyHolder {
+    /// Check `pasted` with a client of its own and hold nothing. A sign-in screen
+    /// has no engine and no key held, and a refused key must leave nothing
+    /// behind.
+    pub(crate) async fn inspect<F>(pasted: &str, make_client: F) -> GarminKeyCheck
+    where
+        F: FnOnce(String) -> GarminClient,
+    {
+        let key = pasted.trim().to_string();
+        if key.is_empty() {
+            return GarminKeyCheck {
+                status: GarminKeyStatus::Malformed,
+                account_id: None,
+            };
+        }
+        let client = make_client(key);
+        let status = key_status(&client).await;
+        let account_id = if status == GarminKeyStatus::Connected {
+            client
+                .account_id(crate::net::garmin::dispatch())
+                .await
+                .ok()
+                .flatten()
+        } else {
+            None
+        };
+        GarminKeyCheck { status, account_id }
+    }
+}
+
+/// [`GarminKeyHolder::inspect`] with the live client, on the runtime.
+pub(crate) async fn check_garmin_key(pasted: String) -> GarminKeyCheck {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    crate::runtime::spawn(async move {
+        let _ = tx.send(GarminKeyHolder::inspect(&pasted, GarminClient::new).await);
+    });
+    rx.await.unwrap_or(GarminKeyCheck {
+        status: GarminKeyStatus::Unreachable,
+        account_id: None,
+    })
 }
 
 pub(crate) static GARMIN_KEY: LazyLock<GarminKeyHolder> = LazyLock::new(Default::default);
@@ -380,5 +442,45 @@ mod tests {
         holder.clear();
         assert_eq!(connect(&holder, &server, "k"), GarminKeyStatus::Connected);
         assert!(holder.client().is_some());
+    }
+
+    #[test]
+    fn a_key_checked_on_its_own_reports_the_account_and_holds_nothing() {
+        let server = MockServer::start();
+        let b64 = |v: serde_json::Value| {
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(v.to_string())
+        };
+        let exp = (Utc::now() + Duration::hours(24)).timestamp();
+        let named = format!(
+            "{}.{}.sig",
+            b64(json!({"alg": "RS256"})),
+            b64(json!({"exp": exp, "sub": "acct-31"}))
+        );
+        server.mock(|when, then| {
+            when.method(POST).path(TOKEN_PATH);
+            then.status(200).body(named);
+        });
+        mock_list(&server, 200);
+        let check = crate::runtime::block_on(GarminKeyHolder::inspect(" pasted ", maker(&server)));
+        assert_eq!(check.status, GarminKeyStatus::Connected);
+        assert_eq!(check.account_id.as_deref(), Some("acct-31"));
+    }
+
+    #[test]
+    fn a_refused_or_blank_key_checked_on_its_own_names_no_account() {
+        let server = MockServer::start();
+        let exchange = server.mock(|when, then| {
+            when.method(POST).path(TOKEN_PATH);
+            then.status(401);
+        });
+        let check = crate::runtime::block_on(GarminKeyHolder::inspect("nope", maker(&server)));
+        assert_eq!(check.status, GarminKeyStatus::Rejected);
+        assert_eq!(check.account_id, None);
+        exchange.assert_calls(1);
+
+        let blank = crate::runtime::block_on(GarminKeyHolder::inspect("  \n", maker(&server)));
+        assert_eq!(blank.status, GarminKeyStatus::Malformed);
+        assert_eq!(blank.account_id, None);
+        exchange.assert_calls(1);
     }
 }

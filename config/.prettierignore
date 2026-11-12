@@ -14,3 +14,4 @@ rust/
 basemap*.generated.ts
 maplibreRenderer.generated.ts
 .tsbuild/
+**/web/connect/qr.ts

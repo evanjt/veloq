@@ -5,11 +5,9 @@ import { useTheme } from '@/shared/app';
 // app shell still has to draw, and the barrel is what such a caller stubs.
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { darkColors, duration, layers, mapPalette, spacing } from '@/theme';
+import { darkColors, layers, mapPalette, spacing } from '@/theme';
 import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
-import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
-import { ComponentErrorBoundary } from '@/shared/ui';
 import { MAP_CONTROL_GAP, MAP_CONTROL_SIZE, MapControlButton } from './MapControlButton';
 import {
   featureCollection,
@@ -18,15 +16,19 @@ import {
   type LngLat,
   type LngLatBounds,
 } from '@/features/maps/lib/coordinates';
-import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
-import { type MapStyleType, getStyleIcon } from './mapStyles';
+import type {
+  MapImageSpec,
+  MapLayerSpec,
+  MapSourceSpec,
+  MapTerrainSpec,
+} from '@/features/maps/lib/htmlBuilders';
+import { type MapStyleType, TERRAIN_3D_CONFIG, getStyleIcon } from './mapStyles';
 import {
   composeBaseMapLayers,
   type MapGradientForBase,
   type MapLayersForBase,
 } from '@/features/maps/lib/baseMapLayers';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import { cameraAfter3D, type Camera3DState } from '@/features/maps/lib/cameraAfter3D';
 import { useMapStyleToggle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { useLocateUser } from '@/features/maps/hooks/useLocateUser';
 import { useTerrainFallback } from '@/features/maps/hooks/useTerrainFallback';
@@ -35,29 +37,10 @@ import {
   buildUserLocationCollection,
   buildUserLocationLayers,
 } from '@/features/maps/lib/userLocationLayer';
-import { motionTiming } from '@/shared/ui/reduceMotion';
 import { LOCATE_GLYPH } from '@/features/maps/lib/mapGlyphs';
 
 /** Room left around fitted bounds, in pixels. Extra on top for the controls. */
 const DEFAULT_FIT_PADDING = { top: 80, right: 40, bottom: 40, left: 40 } as const;
-
-/**
- * What the caller draws over the route in 3D, in the terrain page's own
- * collections, and the section tap it answers. The page cannot read the flat
- * map's layer specs, so a caller that draws overlays in 2D hands the same data
- * here in this form.
- */
-export type BaseMap3DLayer = Pick<
-  React.ComponentProps<typeof Map3DWebView>,
-  | 'routesGeoJSON'
-  | 'sectionsGeoJSON'
-  | 'tracesGeoJSON'
-  | 'sectionMarkersGeoJSON'
-  | 'sectionTrimGeoJSON'
-  | 'highlightedTraceGeoJSON'
-  | 'highlightCoordinate'
-  | 'onSectionClick'
->;
 
 export interface BaseMapViewProps {
   /** Route coordinates as [lng, lat] pairs for GeoJSON */
@@ -106,8 +89,6 @@ export interface BaseMapViewProps {
   overlayImages?: MapImageSpec[] | undefined;
   /** Overlay layers that respond to a tap, most specific first. */
   interactiveLayers?: string[] | undefined;
-  /** The overlays and the section tap in the form the 3D layer takes. */
-  layer3D?: BaseMap3DLayer | undefined;
   /** Custom control buttons to add to the control stack */
   extraControls?: ReactNode | undefined;
   /** Close button handler (for fullscreen maps) */
@@ -136,7 +117,6 @@ export function BaseMapView({
   underRouteLayers = NO_LAYERS,
   overlayImages,
   interactiveLayers,
-  layer3D,
   extraControls,
   onClose,
 }: BaseMapViewProps) {
@@ -153,19 +133,13 @@ export function BaseMapView({
     cycle: toggleStyle,
   } = useMapStyleToggle(chosenStyle, setChosenStyle);
   const [is3DMode, setIs3DMode] = useState(false);
-  const [is3DReady, setIs3DReady] = useState(false);
-  const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(() => {
-    setIs3DReady(false);
-    setIs3DMode(false);
-  });
+  const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(() => setIs3DMode(false));
   const [currentCenter, setCurrentCenter] = useState<LngLat | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
   const [currentBounds, setCurrentBounds] = useState<LngLatBounds | null>(null);
 
   const surfaceRef = useRef<MapSurfaceRef>(null);
-  const map3DRef = useRef<Map3DWebViewRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
-  const map3DOpacity = useRef(new Animated.Value(0)).current;
 
   const routeCoords = useMemo(
     () => (routeCoordinates ? lngLatFromTuples(routeCoordinates) : []),
@@ -173,35 +147,12 @@ export function BaseMapView({
   );
   const has3DRoute = routeCoords.length > 0;
 
-  // Stop in-flight animations on unmount to prevent updates on unmounted component
+  // Stop the in-flight animation on unmount to prevent updates on an unmounted component
   useEffect(() => {
     return () => {
-      map3DOpacity.stopAnimation();
       bearingAnim.stopAnimation();
     };
-  }, [map3DOpacity, bearingAnim]);
-
-  // Reset 3D ready state when toggling off. The flag is dropped while
-  // rendering so no frame commits as ready with 3D already off; the fade is an
-  // animation and stays in the effect.
-  if (!is3DMode && is3DReady) {
-    setIs3DReady(false);
-  }
-  useEffect(() => {
-    if (!is3DMode) {
-      map3DOpacity.setValue(0);
-    }
-  }, [is3DMode, map3DOpacity]);
-
-  // Handle 3D map ready - fade in the 3D view
-  const handleMap3DReady = useCallback(() => {
-    setIs3DReady(true);
-    motionTiming(map3DOpacity, {
-      toValue: 1,
-      duration: duration.slow,
-      useNativeDriver: true,
-    }).start();
-  }, [map3DOpacity]);
+  }, [bearingAnim]);
 
   const handleBearingChange = useCallback(
     (bearing: number) => {
@@ -215,53 +166,23 @@ export function BaseMapView({
   }, []);
 
   const resetOrientation = useCallback(() => {
-    if (is3DMode && is3DReady) {
-      map3DRef.current?.resetOrientation();
-    } else {
-      surfaceRef.current?.resetOrientation();
-    }
-  }, [is3DMode, is3DReady]);
+    surfaceRef.current?.resetOrientation();
+  }, []);
 
   // Track centre and zoom so satellite attribution follows the viewport.
-  // Also kept in a ref: the surface is unmounted whenever the 3D layer covers
-  // it, and it has to come back on the viewport the user left rather than on
-  // the fitted track again.
-  const settledCameraRef = useRef<{ center: LngLat; zoom: number } | null>(null);
   const handleRegionDidChange = useCallback(
     (state: { center: LngLat; zoom: number; bounds?: LngLatBounds }) => {
       setCurrentCenter(state.center);
       setCurrentBounds(state.bounds ?? null);
       setCurrentZoom(state.zoom);
-      settledCameraRef.current = { center: state.center, zoom: state.zoom };
     },
     []
   );
 
-  // The camera on screen is the one the locate flow moves; the dot is drawn
-  // on the 2D surface only.
   const { userLocation, locationLoading, locate } = useLocateUser();
   const handleGetLocation = useCallback(() => {
-    void locate(is3DMode && is3DReady ? map3DRef.current : surfaceRef.current);
-  }, [locate, is3DMode, is3DReady]);
-
-  // The 2D surface comes down once the 3D layer covers it, so where it was is
-  // captured on the way out. The remount opens where the 3D camera was left,
-  // or where 2D was if the 3D one never reported. The surface reads its camera
-  // only when it mounts, so the 3D one is read from the ref at that render and
-  // a pan in 3D re-renders nothing.
-  const show2DSurface = !(is3DMode && is3DReady);
-  const [cameraOnHide, setCameraOnHide] = useState<{ center: LngLat; zoom: number } | null>(null);
-  const camera3DRef = useRef<Camera3DState | null>(null);
-  useEffect(() => {
-    if (!show2DSurface) setCameraOnHide(settledCameraRef.current);
-  }, [show2DSurface]);
-  // A camera from an earlier 3D visit is not where this one was left.
-  useEffect(() => {
-    if (is3DMode) camera3DRef.current = null;
-  }, [is3DMode]);
-  const handleCamera3DChange = useCallback((camera: Camera3DState) => {
-    camera3DRef.current = camera;
-  }, []);
+    void locate(surfaceRef.current);
+  }, [locate]);
 
   const fitCamera = useMemo(() => {
     const fitBounds: LngLatBounds | undefined = bounds
@@ -290,6 +211,17 @@ export function BaseMapView({
     [routeCoords, overlaySources, userLocationCollection]
   );
 
+  const terrain = useMemo<MapTerrainSpec | null>(
+    () =>
+      is3DMode
+        ? {
+            exaggeration: TERRAIN_3D_CONFIG.defaultExaggeration,
+            pitch: TERRAIN_3D_CONFIG.defaultPitch,
+          }
+        : null,
+    [is3DMode]
+  );
+
   const palette = mapPalette(mapStyle);
   const routeLineGradient = useMemo(
     () => routeGradient?.(palette) ?? null,
@@ -302,8 +234,8 @@ export function BaseMapView({
         routeColor,
         routeContext,
         routeGradient: routeLineGradient,
-        underRouteLayers: underRouteLayers(palette),
-        overlayLayers: overlayLayers(palette),
+        underRouteLayers: underRouteLayers(palette, is3DMode),
+        overlayLayers: overlayLayers(palette, is3DMode),
         userLocationLayers: buildUserLocationLayers(userLocation !== null, palette),
       }),
     [
@@ -313,6 +245,7 @@ export function BaseMapView({
       routeLineGradient,
       underRouteLayers,
       overlayLayers,
+      is3DMode,
       userLocation,
     ]
   );
@@ -335,7 +268,7 @@ export function BaseMapView({
     attributionRef.current?.setAttribution(attributionText);
   }, [attributionText]);
 
-  // Render controls (shared between 2D and 3D)
+  // Render controls
   const renderControls = () => (
     <>
       {/* Close button */}
@@ -415,49 +348,22 @@ export function BaseMapView({
 
   return (
     <View style={styles.container}>
-      {/* 2D Map. Unmounted once the 3D layer covers it: a hidden WebView keeps
-          its GL context and its tile textures alive for nobody. */}
-      {show2DSurface ? (
-        <View style={styles.mapLayer}>
-          <MapSurface
-            ref={surfaceRef}
-            mapStyle={mapStyle}
-            initialCamera={cameraAfter3D(camera3DRef.current, cameraOnHide) ?? fitCamera}
-            sources={sources}
-            layers={mapLayers}
-            images={overlayImages}
-            interactiveLayers={interactiveLayers}
-            onPress={onPress}
-            onRegionIsChanging={(state) => handleBearingChange(state.bearing)}
-            onRegionDidChange={handleRegionDidChange}
-          />
-        </View>
-      ) : null}
-
-      {/* 3D Map - rendered when 3D mode is on, fades in when ready */}
-      {/* Error boundary prevents a 3D crash from taking out the entire map */}
-      {is3DMode && has3DRoute ? (
-        <ComponentErrorBoundary part="map3d" debugName="3D Map" onError={() => setIs3DMode(false)}>
-          <Animated.View
-            style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}
-            pointerEvents={is3DReady ? 'auto' : 'none'}
-          >
-            <Map3DWebView
-              {...layer3D}
-              ref={map3DRef}
-              coordinates={routeCoords}
-              mapStyle={mapStyle}
-              routeColor={routeColor ?? (routeContext ? palette.muted : palette.route)}
-              routeGradient={routeLineGradient}
-              onMapReady={handleMap3DReady}
-              onMapFailed={() => setIs3DMode(false)}
-              onTerrainUnavailable={onTerrainUnavailable}
-              onBearingChange={handleBearingChange}
-              onCameraStateChange={handleCamera3DChange}
-            />
-          </Animated.View>
-        </ComponentErrorBoundary>
-      ) : null}
+      <View style={styles.mapLayer}>
+        <MapSurface
+          ref={surfaceRef}
+          mapStyle={mapStyle}
+          initialCamera={fitCamera}
+          sources={sources}
+          layers={mapLayers}
+          images={overlayImages}
+          interactiveLayers={interactiveLayers}
+          terrain={terrain}
+          onPress={onPress}
+          onRegionIsChanging={(state) => handleBearingChange(state.bearing)}
+          onRegionDidChange={handleRegionDidChange}
+          onTerrainUnavailable={onTerrainUnavailable}
+        />
+      </View>
 
       {terrainNotice}
 
@@ -474,9 +380,6 @@ const styles = StyleSheet.create({
   },
   mapLayer: {
     ...StyleSheet.absoluteFill,
-  },
-  map3DLayer: {
-    zIndex: layers.raised,
   },
   button: {
     position: 'absolute',

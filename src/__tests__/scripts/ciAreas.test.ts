@@ -82,6 +82,11 @@ function bump(key: string, version: string): Lock {
 }
 
 describe('ciAreas', () => {
+  it('reads the connect page source as app code and its built output as nothing', () => {
+    expect(classify(['web/connect/app.ts'])).toEqual({ ...NONE, appJs: true });
+    expect(classify(['docs/connect/index.html'])).toEqual(NONE);
+  });
+
   it('reads a pure JavaScript package bump as app code and not native', () => {
     const head = bump('node_modules/zod', '4.6.5');
     expect(classify(['package.json', 'package-lock.json'], head)).toEqual({

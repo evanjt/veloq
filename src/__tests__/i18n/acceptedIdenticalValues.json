@@ -115,7 +115,8 @@
     "navigation.offline": "Established Danish loanword or technical term.",
     "cache.stageProgress": "A stage and its percentage, no words to translate.",
     "common.progressAnnouncement": "Numeric percentage template.",
-    "backgroundJobs.progressPercent": "Numeric percentage template."
+    "backgroundJobs.progressPercent": "Numeric percentage template.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -220,7 +221,8 @@
     "navigation.offline": "Established Swiss German loanword or technical term.",
     "cache.stageProgress": "A stage and its percentage, no words to translate.",
     "common.progressAnnouncement": "Numeric percentage template.",
-    "backgroundJobs.progressPercent": "Numeric percentage template."
+    "backgroundJobs.progressPercent": "Numeric percentage template.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "de-DE": {
     "backup.entryAppVersion": "German word or phrase with the same spelling.",
@@ -351,7 +353,8 @@
     "navigation.offline": "Established German loanword or technical term.",
     "cache.stageProgress": "A stage and its percentage, no words to translate.",
     "common.progressAnnouncement": "Numeric percentage template.",
-    "backgroundJobs.progressPercent": "Numeric percentage template."
+    "backgroundJobs.progressPercent": "Numeric percentage template.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -435,7 +438,8 @@
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
-    "common.progressAnnouncement": "Numeric percentage template."
+    "common.progressAnnouncement": "Numeric percentage template.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "es-ES": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -524,7 +528,8 @@
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
-    "common.progressAnnouncement": "Numeric percentage template."
+    "common.progressAnnouncement": "Numeric percentage template.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "es": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -606,7 +611,8 @@
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
-    "common.progressAnnouncement": "Numeric percentage template."
+    "common.progressAnnouncement": "Numeric percentage template.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "fr": {
     "backup.entryAppVersion": "French word or phrase with the same spelling.",
@@ -756,7 +762,8 @@
     "bestEffortsScreen.checkpoint.mile": "The unit is written Mile in French.",
     "cache.stageProgress": "A stage and its percentage, no words to translate.",
     "common.progressAnnouncement": "Numeric percentage template.",
-    "backgroundJobs.progressPercent": "Numeric percentage template."
+    "backgroundJobs.progressPercent": "Numeric percentage template.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "it": {
     "activity.stats.maxLabel": "Abbreviation of the Italian label with the same spelling.",
@@ -856,7 +863,8 @@
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "sections.sportFilter": "Italian word or phrase with the same spelling.",
-    "navigation.offline": "Established Italian loanword or technical term."
+    "navigation.offline": "Established Italian loanword or technical term.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "ja": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -903,7 +911,8 @@
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
-    "activity.garminSwap.compare.intervals": "Product name, kept as written."
+    "activity.garminSwap.compare.intervals": "Product name, kept as written.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "nl": {
     "backup.carrierGoogleDrive": "Service and product names.",
@@ -1063,7 +1072,8 @@
     "activity.garminSwap.compare.start": "Dutch word or phrase with the same spelling.",
     "sections.sportFilter": "Dutch word or phrase with the same spelling.",
     "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language.",
-    "navigation.offline": "Established Dutch loanword or technical term."
+    "navigation.offline": "Established Dutch loanword or technical term.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "pl": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -1152,7 +1162,8 @@
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "activity.garminSwap.compare.start": "Polish word or phrase with the same spelling.",
     "sections.sportFilter": "Polish word or phrase with the same spelling.",
-    "navigation.offline": "Established Polish loanword or technical term."
+    "navigation.offline": "Established Polish loanword or technical term.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "pt-BR": {
     "activity.stats.maxLabel": "Abbreviation of the Brazilian Portuguese label with the same spelling.",
@@ -1248,7 +1259,8 @@
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
-    "navigation.offline": "Established Brazilian Portuguese loanword or technical term."
+    "navigation.offline": "Established Brazilian Portuguese loanword or technical term.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "pt": {
     "activity.stats.maxLabel": "Abbreviation of the Portuguese label with the same spelling.",
@@ -1344,7 +1356,8 @@
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
-    "navigation.offline": "Established Portuguese loanword or technical term."
+    "navigation.offline": "Established Portuguese loanword or technical term.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "zh-Hans": {
     "backgroundJobs.progressPercent": "Numeric percentage template.",
@@ -1380,6 +1393,7 @@
     "poolSwim.columns.swolf": "Conventional training or recording abbreviation.",
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
-    "activity.garminSwap.compare.intervals": "Product name, kept as written."
+    "activity.garminSwap.compare.intervals": "Product name, kept as written.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   }
 }

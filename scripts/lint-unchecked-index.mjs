@@ -32,6 +32,7 @@ import { createRequire } from 'node:module';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isIndexAccessError } from './lib/uncheckedIndexErrors.mjs';
+import { settleRatchet } from './lib/baselineRatchet.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const flagValue = (name, fallback) => {
@@ -148,11 +149,11 @@ if (over.length > 0) {
   }
   console.error(`\n  npx tsc --noEmit --noUncheckedIndexedAccess | grep '^${over[0][0]}/'`);
 }
-if (under.length > 0) {
-  console.error('\nThe tree has beaten its baseline. Lower it, so the ground stays taken:');
-  for (const [dir, n, allowed] of under) {
-    console.error(`  ${dir}  ${n}, baseline ${allowed}`);
-  }
-  console.error('\n  npm run lint:unchecked-index -- --write');
-}
-process.exit(1);
+process.exit(
+  settleRatchet({
+    over,
+    under,
+    line: ([dir, n, allowed]) => `  ${dir}  ${n}, baseline ${allowed}`,
+    writeCommand: 'npm run lint:unchecked-index -- --write',
+  })
+);

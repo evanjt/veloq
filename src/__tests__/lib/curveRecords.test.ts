@@ -40,6 +40,7 @@ const POWER: PowerCurveRow = {
   endDate: '2026-09-06T00:00:00',
   days: 91,
   fetchedAt: 1_757_000_000_000,
+  source: 'veloq',
 };
 
 const PACE: PaceCurveRow = {
@@ -56,6 +57,7 @@ const PACE: PaceCurveRow = {
   endDate: '2026-09-06T00:00:00',
   days: 91,
   fetchedAt: 1_757_000_000_000,
+  source: 'veloq',
 };
 
 describe('a power curve on its way to the chart', () => {
@@ -84,6 +86,11 @@ describe('a power curve on its way to the chart', () => {
     expect(curve.activities?.i2).toEqual(ACTIVITY);
   });
 
+  it('says whether the phone or the server worked the curve out', () => {
+    expect(curve.source).toBe('veloq');
+    expect(paceCurveOf(PACE).source).toBe('veloq');
+  });
+
   it('keeps the window and says which sport it is', () => {
     expect(curve.startDate).toBe('2026-06-08T00:00:00');
     expect(curve.endDate).toBe('2026-09-06T00:00:00');
@@ -100,6 +107,7 @@ describe('a power curve on its way to the chart', () => {
       models: [],
       activities: {},
       fetchedAt: 0,
+      source: 'intervals',
     });
 
     expect(bare.watts).toEqual([500]);

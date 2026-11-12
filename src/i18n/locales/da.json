@@ -1295,7 +1295,11 @@
     "title": "Veloq",
     "demoCaption": "Eksempelture. Intet gemmes, og demoen slutter, når appen lukkes.",
     "tryDemo": "Prøv demo",
-    "useApiKey": "Brug API-nøgle i stedet"
+    "useApiKey": "Brug API-nøgle i stedet",
+    "useGarminOnly": "Brug kun med Garmin",
+    "garminOnlyDescription": "Ingen intervals.icu-konto nødvendig. Veloq henter dine ture fra Garmin med en Garmin-nøgle og gemmer dem på denne enhed.",
+    "garminOnlyConnect": "Opret forbindelse med Garmin-nøgle",
+    "garminNoAccount": "Garmin accepterede nøglen, men oplyste ikke, hvem den tilhører, så der kan ikke gemmes et bibliotek til den."
   },
   "mapScreen": {
     "loadingActivities": "Indlæser aktiviteter…",
@@ -2038,6 +2042,30 @@
     "legendEstimated": "Estimeret tid",
     "methodEstimated": "{{method}} En passage, der starter eller stopper inde i sektionen, tæt på en port, tidsmåles til porten med sin egen hastighed. Den markeres som estimeret, når projektionen er 10 m eller mere. Et estimat holder kun rekorden, hvis ingen passage i den retning blev tidsmålt på jorden."
   },
+  "thresholds": {
+    "title": "Tærskler og profil",
+    "rowSubtitle": "FTP, puls og vægt",
+    "description": "Hver værdi er den, der er sat her, ellers den fra sportsindstillingerne, ellers den nyeste i aktivitetsfilerne. Et tomt felt bruger de to sidste.",
+    "cycling": "Cykling",
+    "running": "Løb",
+    "fields": {
+      "ftp": "FTP",
+      "thresholdHr": "Tærskelpuls",
+      "maxHr": "Maksimalpuls",
+      "restingHr": "Hvilepuls",
+      "weightKg": "Vægt"
+    },
+    "source": {
+      "athlete": "Sat af dig: {{value}}",
+      "sportSettings": "Fra sportsindstillingerne: {{value}}",
+      "file": "Fra aktivitetsfilerne: {{value}}"
+    },
+    "notSet": "Ikke sat",
+    "loadFailed": "Værdierne kunne ikke læses.",
+    "invalid": "Angiv et tal over nul",
+    "zones": "Pulszoner",
+    "zoneDefaults": "Veloqs standardzoner, der bruges når sportsindstillingerne ingen har, slutter ved {{percents}} procent af maksimalpulsen."
+  },
   "settings": {
     "offlineRow": {
       "detail": "Gemte aktiviteter og diagrammer er stadig tilgængelige."
@@ -2318,6 +2346,7 @@
     "groupingFailed": "Grupperingen blev ikke færdig. Flyt en indstilling for at prøve igen.",
     "authApiKey": "API-nøgle",
     "authOAuth": "Logget ind med intervals.icu",
+    "authGarmin": "Garmin-nøgle",
     "authDemo": "Demotilstand",
     "scopeChats": "Samtaler",
     "scopeLibrary": "Bibliotek",
@@ -2369,6 +2398,7 @@
     "powerCurve": "Kraftkurve",
     "powerZones": "Kraftzoner",
     "rangeNotDownloaded": "Ikke hentet endnu",
+    "curveWorkedOutOnPhone": "Beregnet på denne telefon ud fra dine egne aktiviteter, med en lineær tilpasning gennem dine bedste præstationer på 3 til 20 minutter.",
     "rangePartlyDownloaded": "En del af perioden er ikke hentet endnu",
     "calendarOlderOwed_one": "{{count}} ældre aktivitet fra i år er ikke hentet",
     "calendarOlderOwed_other": "{{count}} ældre aktiviteter fra i år er ikke hentet",
@@ -3261,7 +3291,7 @@
     },
     "remoteLink": {
       "title": "Tilknyttede enheder",
-      "blurb": "Gennemse telefonens aktiviteter i browseren på en computer på samme wi-fi, mens Veloq er åben. Tilknyt browseren ved at scanne en kode, og administrer den under Indstillinger. Dine data går direkte fra telefonen til browseren."
+      "blurb": "Gennemse telefonens aktiviteter i browseren på en computer, mens Veloq er åben. Det virker på samme wi-fi og på de fleste andre netværk, og dine data går direkte fra telefonen til browseren. Tilknyt browseren ved at scanne en kode, og administrer den under Indstillinger."
     }
   },
   "remoteLink": {
@@ -3288,6 +3318,13 @@
     "expired": "Browseren forbandt ikke i tide. Lav en ny kode på siden, og scan den igen.",
     "connected_one": "En browser er forbundet",
     "connected_other": "{{count}} browsere er forbundet",
-    "disconnect": "Afbryd"
+    "disconnect": "Afbryd",
+    "headerConnected": "En tilknyttet browser er forbundet",
+    "headerWaiting": "Venter på, at en tilknyttet browser forbinder",
+    "headerUnreachable": "En tilknyttet browser kan ikke nås",
+    "sheetTitle": "Tilknyttede browsere",
+    "connectedSince": "Forbundet siden {{time}}",
+    "notConnected": "Ikke forbundet",
+    "manage": "Administrér tilknyttede enheder"
   }
 }

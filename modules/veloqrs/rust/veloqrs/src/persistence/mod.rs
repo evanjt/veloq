@@ -100,6 +100,7 @@ pub(crate) mod record_backup;
 pub(crate) mod record_restore;
 pub mod recordings;
 pub(crate) mod records;
+pub(crate) mod under_point;
 pub use recordings::{FfiRecordingEntry, MAX_AUTO_RETRIES};
 #[doc(hidden)]
 pub use records::complete_traversal_clause;
@@ -3112,7 +3113,8 @@ fn sort_pooled_groups(
 
 /// Statistics for the persistent engine.
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct PersistentEngineStats {
     /// Activities with a mirrored GPS-backed row.
     pub activity_count: u32,
@@ -4360,6 +4362,10 @@ mod nearby_routes_tests;
 #[cfg(test)]
 #[path = "tests/nearby_routes_cost.rs"]
 mod nearby_routes_cost;
+
+#[cfg(test)]
+#[path = "tests/under_point.rs"]
+mod under_point_tests;
 
 #[cfg(test)]
 #[path = "tests/production_index_plans.rs"]

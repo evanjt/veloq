@@ -147,3 +147,51 @@ fn a_body_read_that_fails_is_an_error_and_not_an_absent_body() {
         Some("Hill loop".to_string())
     );
 }
+
+#[test]
+fn metrics_for_ids_answers_every_id_across_the_chunk_boundary() {
+    use crate::persistence::activities::pooled as activities;
+
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    let ids: Vec<String> = (0..501).map(|i| format!("m{i:03}")).collect();
+    let track: Vec<GpsPoint> = (0..20)
+        .map(|i| GpsPoint {
+            latitude: 46.0 + i as f64 * 0.0001,
+            longitude: 7.0,
+            elevation: None,
+        })
+        .collect();
+    let batch = ids
+        .iter()
+        .map(|id| (id.clone(), track.clone(), "Ride".to_string()))
+        .collect();
+    engine.add_activities_batch(batch).expect("activities");
+    engine
+        .set_activity_metrics(
+            ids.iter()
+                .enumerate()
+                .map(|(i, id)| crate::ActivityMetrics {
+                    activity_id: id.clone(),
+                    name: id.clone(),
+                    moving_time: i as u32 + 1,
+                    sport_type: "Ride".into(),
+                    ..Default::default()
+                })
+                .collect(),
+        )
+        .expect("metrics");
+
+    let mut wanted = ids.clone();
+    wanted.push("absent".into());
+    let rows = activities::metrics_for_ids(&engine.db, &wanted);
+
+    assert_eq!(rows.len(), 501);
+    assert!(!rows.contains_key("absent"));
+    assert_eq!(rows["m000"].moving_time, 1);
+    assert_eq!(rows["m500"].moving_time, 501);
+    assert_eq!(
+        activities::metrics_of(&engine.db, "m250").map(|m| m.moving_time),
+        Some(251)
+    );
+    assert!(activities::metrics_for_ids(&engine.db, &[]).is_empty());
+}

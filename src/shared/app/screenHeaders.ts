@@ -61,6 +61,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'sheets/section-chooser': null,
   'sheets/explainer': null,
   'sheets/history-range': null,
+  'sheets/remote-link': null,
 
   'activity/[id]': { overMap: true },
   'exercise/[category]': { titleKey: 'strength.history', largeTitle: true },
@@ -72,6 +73,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
 
   about: { titleKey: 'about.title', largeTitle: true },
   account: { titleKey: 'settings.account', largeTitle: true },
+  'athlete-thresholds': { titleKey: 'thresholds.title', largeTitle: true },
   'background-jobs': { titleKey: 'backgroundJobs.title', largeTitle: true },
   'backup-settings': { titleKey: 'backup.title', largeTitle: true },
   'best-efforts': { titleKey: 'bestEffortsScreen.title' },
@@ -178,6 +180,7 @@ export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
   'sheets/section-chooser': 'fitToContents',
   'sheets/explainer': 'fitToContents',
   'sheets/history-range': 'fitToContents',
+  'sheets/remote-link': 'fitToContents',
 };
 
 /**

@@ -1327,7 +1327,11 @@
     "title": "Veloq",
     "demoCaption": "Uscite di esempio. Non viene salvato nulla e la demo termina alla chiusura dell'app.",
     "tryDemo": "Prova Demo",
-    "useApiKey": "Usa chiave API"
+    "useApiKey": "Usa chiave API",
+    "useGarminOnly": "Usa solo con Garmin",
+    "garminOnlyDescription": "Non serve un account intervals.icu. Veloq importa le tue uscite da Garmin con una chiave Garmin e le conserva su questo dispositivo.",
+    "garminOnlyConnect": "Collega con chiave Garmin",
+    "garminNoAccount": "Garmin ha accettato la chiave ma non ha indicato a chi appartiene, quindi non è possibile conservare una libreria per essa."
   },
   "mapScreen": {
     "loadingActivities": "Caricamento attività…",
@@ -2088,6 +2092,30 @@
     "legendEstimated": "Tempo stimato",
     "methodEstimated": "{{method}} Un passaggio che inizia o finisce dentro la sezione, vicino a un varco, viene cronometrato fino a quel varco alla sua velocità. Viene contrassegnato come stimato quando la proiezione è di 10 m o più. Una stima mantiene il record solo se nessun passaggio in quella direzione è stato cronometrato a terra."
   },
+  "thresholds": {
+    "title": "Soglie e profilo",
+    "rowSubtitle": "FTP, frequenze cardiache e peso",
+    "description": "Ogni valore è quello impostato qui, altrimenti quello delle impostazioni dello sport, altrimenti il più recente dei file delle attività. Un campo vuoto usa questi ultimi due.",
+    "cycling": "Ciclismo",
+    "running": "Corsa",
+    "fields": {
+      "ftp": "FTP",
+      "thresholdHr": "Frequenza cardiaca di soglia",
+      "maxHr": "Frequenza cardiaca massima",
+      "restingHr": "Frequenza cardiaca a riposo",
+      "weightKg": "Peso"
+    },
+    "source": {
+      "athlete": "Impostato da te: {{value}}",
+      "sportSettings": "Dalle impostazioni dello sport: {{value}}",
+      "file": "Dai file delle attività: {{value}}"
+    },
+    "notSet": "Non impostato",
+    "loadFailed": "Impossibile leggere i valori.",
+    "invalid": "Inserisci un numero maggiore di zero",
+    "zones": "Zone di frequenza cardiaca",
+    "zoneDefaults": "Le zone predefinite di Veloq, usate quando le impostazioni dello sport non ne elencano, terminano al {{percents}} per cento della frequenza cardiaca massima."
+  },
   "settings": {
     "offlineRow": {
       "detail": "Attività salvate e grafici restano disponibili."
@@ -2385,6 +2413,7 @@
     "groupingFailed": "Il raggruppamento non è terminato. Sposta un controllo per riprovare.",
     "authApiKey": "Chiave API",
     "authOAuth": "Accesso con intervals.icu",
+    "authGarmin": "Chiave Garmin",
     "authDemo": "Modalità demo",
     "scopeChats": "Chat",
     "scopeLibrary": "Libreria",
@@ -2438,6 +2467,7 @@
     "powerCurve": "Curva di potenza",
     "powerZones": "Zone di potenza",
     "rangeNotDownloaded": "Non ancora scaricato",
+    "curveWorkedOutOnPhone": "Calcolata su questo telefono dalle tue attività, con un adattamento lineare sui tuoi migliori risultati da 3 a 20 minuti.",
     "rangePartlyDownloaded": "Una parte di questo periodo non è ancora scaricata",
     "calendarOlderOwed_one": "{{count}} attività precedente di quest'anno non è scaricata",
     "calendarOlderOwed_other": "{{count}} attività precedenti di quest'anno non sono scaricate",
@@ -3355,7 +3385,7 @@
     },
     "remoteLink": {
       "title": "Dispositivi collegati",
-      "blurb": "Sfoglia le attività di questo telefono nel browser di un computer sulla stessa rete Wi-Fi, mentre Veloq è aperta. Collega il browser scansionando un codice e gestiscilo in Impostazioni. I tuoi dati vanno direttamente dal telefono al browser."
+      "blurb": "Sfoglia le attività di questo telefono nel browser di un computer, mentre Veloq è aperta. Funziona sulla stessa rete Wi-Fi e sulla maggior parte delle altre reti, e i tuoi dati vanno direttamente dal telefono al browser. Collega il browser scansionando un codice e gestiscilo in Impostazioni."
     }
   },
   "remoteLink": {
@@ -3382,6 +3412,13 @@
     "expired": "Il browser non si è connesso in tempo. Crea un nuovo codice nella pagina e scansionalo di nuovo.",
     "connected_one": "Un browser è connesso",
     "connected_other": "{{count}} browser sono connessi",
-    "disconnect": "Disconnetti"
+    "disconnect": "Disconnetti",
+    "headerConnected": "Un browser collegato è connesso",
+    "headerWaiting": "In attesa che un browser collegato si connetta",
+    "headerUnreachable": "Un browser collegato non è raggiungibile",
+    "sheetTitle": "Browser collegati",
+    "connectedSince": "Connesso dal {{time}}",
+    "notConnected": "Non connesso",
+    "manage": "Gestisci i dispositivi collegati"
   }
 }

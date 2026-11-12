@@ -2,9 +2,11 @@
 //!
 //! Derived fitness data (trends, aggregates, calendars, highlights) lives in
 //! [`derivations`]. Route and section performance queries live in
-//! [`performances`], the stale-PR selection in [`stale_pr`], and the typed
+//! [`performances`], the curves a library with no intervals.icu account works
+//! out for itself in [`curves_local`], the stale-PR selection in [`stale_pr`], and the typed
 //! sport settings every reader looks an entry up through in [`sport_settings`].
 
+pub(crate) mod curves_local;
 pub(crate) mod derivations;
 pub(crate) mod performances;
 pub(crate) mod sport_settings;

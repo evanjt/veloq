@@ -1285,11 +1285,14 @@ pub(crate) fn route_performances_of(
         );
         return empty_route_performances();
     };
+    let mut member_ids = group.activity_ids.clone();
+    member_ids.extend(current_activity_id.map(str::to_string));
+    let metrics = activities::metrics_for_ids(conn, &member_ids);
     route_performances(
         &group.activity_ids,
         Some(&routes::match_info(conn, route_group_id)),
         &routes::excluded_route_activity_ids(conn, route_group_id),
-        |id| activities::metrics_of(conn, id),
+        |id| metrics.get(id).cloned(),
         current_activity_id,
         sport_type_filter,
     )

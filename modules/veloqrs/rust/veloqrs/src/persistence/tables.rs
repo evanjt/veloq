@@ -171,7 +171,16 @@ static TABLES: &[Table] = &[
         Mirror,
         "planned workouts as the server sent them",
     ),
-    t("curve_bodies", Mirror, "the server's power and pace curves"),
+    t(
+        "activity_curves",
+        Derived,
+        "each ride's best figure at the standard durations and distances, rebuilt from its streams",
+    ),
+    t(
+        "curve_bodies",
+        Mirror,
+        "the server's power and pace curves, and in a library with no intervals.icu account the ones worked out on the phone",
+    ),
     t(
         "evidence_cache",
         Derived,

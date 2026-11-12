@@ -547,6 +547,48 @@ describe('the commands a merge runs', () => {
     ]);
   });
 
+  describe('the tooling Jest project', () => {
+    const TOOLING = 'npx jest --config config/jest.config.js --selectProjects tooling';
+
+    it.each([
+      'config/jest.tooling.js',
+      'package.json',
+      '.husky/pre-commit',
+      'scripts/lib/jestPlan.ts',
+    ])('runs the whole project for a change to %s', (path) => {
+      const targets = mergeTestTargets([path]);
+
+      expect(targets.tooling).toBe(true);
+      expect(mergeTestCommands(targets, NO_CORPORA)).toContain(TOOLING);
+    });
+
+    it('plans neither project for a change under docs/connect', () => {
+      const targets = mergeTestTargets(['docs/connect/app.js', 'docs/connect/link.js']);
+      const commands = mergeTestCommands(targets, NO_CORPORA);
+
+      expect(targets.tooling).toBe(false);
+      expect(commands.join('\n')).not.toContain('--selectProjects');
+    });
+
+    it('selects only the suites that name a changed script, not the whole project', () => {
+      const targets = mergeTestTargets(['scripts/land-branch.sh']);
+      const commands = mergeTestCommands(targets, NO_CORPORA);
+
+      expect(targets.related.length).toBeGreaterThan(0);
+      expect(targets.tooling).toBe(false);
+      expect(commands).not.toContain(TOOLING);
+      expect(commands.some((c) => c.includes('--findRelatedTests'))).toBe(true);
+    });
+
+    it('leaves the tooling suites out of the related run when the project runs whole', () => {
+      const suite = 'src/__tests__/bugs/mergeTestTargets.test.ts';
+      const commands = mergeTestCommands(mergeTestTargets(['package.json', suite]), NO_CORPORA);
+
+      expect(commands).toContain(TOOLING);
+      expect(commands.join('\n')).not.toContain(`'${suite}'`);
+    });
+  });
+
   it('has no commands for a merge of documents alone', () => {
     expect(mergeTestCommands(mergeTestTargets(['README.md']))).toEqual([]);
   });

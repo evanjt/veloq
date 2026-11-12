@@ -48,6 +48,12 @@ impl BackgroundJob {
     }
 }
 
+impl serde::Serialize for BackgroundJob {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.token())
+    }
+}
+
 // The app keys its rows on the token, so the job crosses as it.
 uniffi::custom_type!(BackgroundJob, String, {
     lower: |job| job.token().to_string(),
@@ -104,6 +110,12 @@ impl RunOutcome {
     }
 }
 
+impl serde::Serialize for RunOutcome {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.token())
+    }
+}
+
 // The app reads the outcome by its token, so it crosses as it.
 uniffi::custom_type!(RunOutcome, String, {
     lower: |outcome| outcome.token().to_string(),
@@ -114,7 +126,8 @@ uniffi::custom_type!(RunOutcome, String, {
 });
 
 /// One job's last run. A job leaves at zero the counts it has no measure of.
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 #[uniffi(name = "FfiJobRun")]
 pub struct JobRun {
     /// detection, elevationBackfill, streamBackfill, cutover or passRecount.

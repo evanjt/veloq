@@ -30,7 +30,8 @@ use crate::persistence::{FfiRecordingEntry, PersistentEngine, with_persistent_en
 ///
 /// The wire carries the variant's position, so the order is the contract:
 /// append, never reorder. The discriminants start at one so no member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiUploadOutcome {
     /// intervals.icu took the ride.
@@ -65,7 +66,8 @@ impl FfiUploadOutcome {
 }
 
 /// One upload's outcome and the detail the athlete is shown for a failure.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiUploadResult {
     pub outcome: FfiUploadOutcome,
     pub error_detail: Option<String>,

@@ -1327,7 +1327,11 @@
     "title": "Veloq",
     "demoCaption": "Pedais de exemplo. Nada é salvo, e a demo termina quando o aplicativo fecha.",
     "tryDemo": "Experimentar Demo",
-    "useApiKey": "Usar chave API"
+    "useApiKey": "Usar chave API",
+    "useGarminOnly": "Usar só com Garmin",
+    "garminOnlyDescription": "Não é preciso ter uma conta intervals.icu. O Veloq traz suas atividades do Garmin com uma chave Garmin e as guarda neste dispositivo.",
+    "garminOnlyConnect": "Conectar com chave Garmin",
+    "garminNoAccount": "O Garmin aceitou a chave, mas não disse a quem ela pertence, então não é possível guardar uma biblioteca para ela."
   },
   "mapScreen": {
     "loadingActivities": "Carregando atividades…",
@@ -2068,6 +2072,30 @@
     "bestValue": "{{value}} Melhor",
     "maxGradeValue": "Inclinação máx. {{grade}}"
   },
+  "thresholds": {
+    "title": "Limiares e perfil",
+    "rowSubtitle": "FTP, frequências cardíacas e peso",
+    "description": "Cada valor é o definido aqui; se não houver, o das configurações do esporte; se não houver, o mais recente dos arquivos de atividade. Um campo vazio usa estes dois últimos.",
+    "cycling": "Ciclismo",
+    "running": "Corrida",
+    "fields": {
+      "ftp": "FTP",
+      "thresholdHr": "Frequência cardíaca limiar",
+      "maxHr": "Frequência cardíaca máxima",
+      "restingHr": "Frequência cardíaca de repouso",
+      "weightKg": "Peso"
+    },
+    "source": {
+      "athlete": "Definido por você: {{value}}",
+      "sportSettings": "Das configurações do esporte: {{value}}",
+      "file": "Dos arquivos de atividade: {{value}}"
+    },
+    "notSet": "Não definido",
+    "loadFailed": "Não foi possível ler os valores.",
+    "invalid": "Informe um número maior que zero",
+    "zones": "Zonas de frequência cardíaca",
+    "zoneDefaults": "As zonas padrão do Veloq, usadas quando as configurações do esporte não trazem nenhuma, terminam em {{percents}} por cento da frequência cardíaca máxima."
+  },
   "settings": {
     "offlineRow": {
       "detail": "As atividades salvas e os gráficos continuam disponíveis."
@@ -2365,6 +2393,7 @@
     "groupingFailed": "O agrupamento não terminou. Mova um controle para tentar de novo.",
     "authApiKey": "Chave API",
     "authOAuth": "Conectado com intervals.icu",
+    "authGarmin": "Chave Garmin",
     "authDemo": "Modo demo",
     "scopeChats": "Conversas",
     "scopeLibrary": "Biblioteca",
@@ -2418,6 +2447,7 @@
     "powerCurve": "Curva de potência",
     "powerZones": "Zonas de potência",
     "rangeNotDownloaded": "Ainda não baixado",
+    "curveWorkedOutOnPhone": "Calculada neste celular a partir das suas atividades, com um ajuste linear pelos seus melhores esforços de 3 a 20 minutos.",
     "rangePartlyDownloaded": "Parte deste período ainda não foi baixada",
     "calendarOlderOwed_one": "{{count}} atividade anterior deste ano não foi baixada",
     "calendarOlderOwed_other": "{{count}} atividades anteriores deste ano não foram baixadas",
@@ -3336,7 +3366,7 @@
     },
     "remoteLink": {
       "title": "Dispositivos vinculados",
-      "blurb": "Navegue pelas atividades deste celular no navegador de um computador na mesma rede Wi-Fi, enquanto o Veloq estiver aberto. Vincule o navegador escaneando um código e gerencie em Ajustes. Seus dados vão direto do celular para o navegador."
+      "blurb": "Navegue pelas atividades deste celular no navegador de um computador, enquanto o Veloq estiver aberto. Funciona na mesma rede Wi-Fi e na maioria das outras redes, e seus dados vão direto do celular para o navegador. Vincule o navegador escaneando um código e gerencie em Ajustes."
     }
   },
   "remoteLink": {
@@ -3363,6 +3393,13 @@
     "expired": "O navegador não se conectou a tempo. Gere um novo código na página e escaneie de novo.",
     "connected_one": "Um navegador está conectado",
     "connected_other": "{{count}} navegadores estão conectados",
-    "disconnect": "Desconectar"
+    "disconnect": "Desconectar",
+    "headerConnected": "Um navegador vinculado está conectado",
+    "headerWaiting": "Aguardando um navegador vinculado se conectar",
+    "headerUnreachable": "Não é possível acessar um navegador vinculado",
+    "sheetTitle": "Navegadores vinculados",
+    "connectedSince": "Conectado desde {{time}}",
+    "notConnected": "Não conectado",
+    "manage": "Gerenciar dispositivos vinculados"
   }
 }

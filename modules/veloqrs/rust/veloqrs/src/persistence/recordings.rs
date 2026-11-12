@@ -249,7 +249,8 @@ impl UploadMove {
 /// that reached it started. The FFI call runs it under that install, so an
 /// outcome that outlived a restore is refused rather than written into
 /// another library.
-#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum UploadTransition {
     /// The request is about to go out.
     Begin,
@@ -309,7 +310,8 @@ impl UploadTransition {
 }
 
 /// Why a transition wrote nothing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum UploadRefusal {
     /// No recording has the id.
     NoRecording,
@@ -323,7 +325,8 @@ pub enum UploadRefusal {
 
 /// What a transition did. A refusal is an answer, not an error, and writes
 /// nothing, so a caller can stop on it.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiUploadTransitionAnswer {
     pub applied: bool,
     pub refusal: Option<UploadRefusal>,

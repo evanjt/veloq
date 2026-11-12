@@ -50,6 +50,24 @@ pub(crate) struct SessionTotals {
     pub calories: Option<u16>,
 }
 
+/// The athlete figures a device writes in its `zones_target`, `user_profile`
+/// and `time_in_zone` messages. A message with none of its figures set is not
+/// written.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Thresholds {
+    pub ftp: Option<u16>,
+    pub threshold_hr: Option<u8>,
+    pub max_hr: Option<u8>,
+    pub resting_hr: Option<u8>,
+    pub weight_kg: Option<f64>,
+    /// The profile's `hr_calc_type` number.
+    pub hr_calc_type: Option<u8>,
+    /// The profile's `pwr_calc_type` number.
+    pub pwr_calc_type: Option<u8>,
+    /// The upper bpm edge of each heart rate zone.
+    pub hr_zone_bounds: Vec<u8>,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct Activity {
     /// The start in Unix seconds, UTC.
@@ -68,6 +86,8 @@ pub(crate) struct Activity {
     /// Further session messages written after the first, which is how a
     /// multisport recording holds its later legs.
     pub legs: Vec<Leg>,
+    /// The athlete figures the device holds, written before the session.
+    pub thresholds: Option<Thresholds>,
 }
 
 /// One further session message.
@@ -83,6 +103,7 @@ impl Activity {
     pub(crate) fn to_fit(&self) -> Vec<u8> {
         let mut data = Vec::new();
         self.write_file_id(&mut data);
+        self.write_thresholds(&mut data);
         self.write_records(&mut data);
         self.write_session(&mut data);
         self.write_activity(&mut data);
@@ -103,6 +124,48 @@ impl Activity {
         out.push(4);
         out.extend_from_slice(&manufacturer.to_le_bytes());
         out.extend_from_slice(&product.to_le_bytes());
+    }
+
+    fn write_thresholds(&self, out: &mut Vec<u8>) {
+        let Some(t) = &self.thresholds else {
+            return;
+        };
+        if t.ftp.is_some() || t.threshold_hr.is_some() || t.max_hr.is_some() {
+            definition(
+                out,
+                4,
+                7,
+                &[
+                    (1, 1, BASE_UINT8),
+                    (2, 1, BASE_UINT8),
+                    (3, 2, BASE_UINT16),
+                    (5, 1, BASE_ENUM),
+                    (7, 1, BASE_ENUM),
+                ],
+            );
+            out.push(4);
+            out.push(t.max_hr.unwrap_or(INVALID_UINT8));
+            out.push(t.threshold_hr.unwrap_or(INVALID_UINT8));
+            out.extend_from_slice(&t.ftp.unwrap_or(INVALID_UINT16).to_le_bytes());
+            out.push(t.hr_calc_type.unwrap_or(INVALID_UINT8));
+            out.push(t.pwr_calc_type.unwrap_or(INVALID_UINT8));
+        }
+        if t.weight_kg.is_some() || t.resting_hr.is_some() {
+            definition(out, 5, 3, &[(4, 2, BASE_UINT16), (8, 1, BASE_UINT8)]);
+            out.push(5);
+            out.extend_from_slice(&scaled_u16(t.weight_kg.map(|v| v * 10.0)).to_le_bytes());
+            out.push(t.resting_hr.unwrap_or(INVALID_UINT8));
+        }
+        if !t.hr_zone_bounds.is_empty() {
+            definition(
+                out,
+                6,
+                216,
+                &[(6, t.hr_zone_bounds.len() as u8, BASE_UINT8)],
+            );
+            out.push(6);
+            out.extend_from_slice(&t.hr_zone_bounds);
+        }
     }
 
     fn fit_time(&self, offset: i64) -> u32 {
@@ -309,6 +372,7 @@ pub(crate) fn outdoor_ride() -> Activity {
         samples,
         device: None,
         legs: Vec::new(),
+        thresholds: None,
         totals: SessionTotals {
             elapsed_secs: Some(30.0),
             timer_secs: Some(28.0),

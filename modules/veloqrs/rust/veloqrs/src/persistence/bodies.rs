@@ -296,7 +296,8 @@ impl CurveKind {
 /// The two travel together because a curve drawn offline says nothing about
 /// its own age, and reading the time as a second call would be a second FFI
 /// hop on a screen that already makes one per mount.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiStoredCurve {
     /// The body the server sent, unparsed.
     pub raw: String,
@@ -331,11 +332,12 @@ impl PersistentEngine {
     ) -> SqlResult<()> {
         let transaction = self.db.unchecked_transaction()?;
         transaction.execute(
-            "INSERT INTO curve_bodies (kind, sport, days, gap, raw, updated_at)
-             VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'))
+            "INSERT INTO curve_bodies (kind, sport, days, gap, raw, updated_at, source)
+             VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'), 'intervals')
              ON CONFLICT(kind, sport, days, gap) DO UPDATE SET
                 raw = excluded.raw,
-                updated_at = excluded.updated_at",
+                updated_at = excluded.updated_at,
+                source = excluded.source",
             params![kind.as_str(), sport, days, gap as i64, raw],
         )?;
         if kind == CurveKind::Pace

@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 import { treeView } from './lib/indexedSources.mjs';
+import { settleRatchet } from './lib/baselineRatchet.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const flagValue = (name, fallback) => {
@@ -169,11 +170,11 @@ if (over.length > 0) {
     console.error(`  ${file}  ${n}, baseline ${allowed}  (${KINDS[kind]})`);
   }
 }
-if (under.length > 0) {
-  console.error('\nThe tree has beaten its baseline. Lower it, so the ground stays taken:');
-  for (const [kind, file, n, allowed] of under) {
-    console.error(`  ${file}  ${n}, baseline ${allowed}  (${KINDS[kind]})`);
-  }
-  console.error('\n  npm run lint:light-only-roles -- --write');
-}
-process.exit(1);
+process.exit(
+  settleRatchet({
+    over,
+    under,
+    line: ([kind, file, n, allowed]) => `  ${file}  ${n}, baseline ${allowed}  (${KINDS[kind]})`,
+    writeCommand: 'npm run lint:light-only-roles -- --write',
+  })
+);

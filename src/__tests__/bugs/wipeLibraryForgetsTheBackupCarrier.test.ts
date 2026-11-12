@@ -1153,7 +1153,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
   {
     confirm: [],
     where: 'the Garmin Personal key and the connector choices',
-    writers: ['src/features/settings/lib/garminConnector.ts'],
+    writers: ['src/features/settings/lib/garminConnector.ts', 'src/shared/app/AuthStore.ts'],
     holds:
       "the athlete's Garmin key, the feed, upload and automatic swap switches, why the swap switched itself off, the rides it has dealt with, the held-back count the feed offer was declined at, and whether a key was connected",
     wiped: {

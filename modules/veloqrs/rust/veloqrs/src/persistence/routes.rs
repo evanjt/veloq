@@ -9,6 +9,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use super::record_restore::HELD_NUMBER_PREFIX;
 use super::{GroupSummary, PersistentEngine, codec, get_route_word};
 
+pub(crate) mod follower;
+
 /// The engine-lock visit in which the groups were last announced, so a flag
 /// cleared later in the same hold is not announced twice.
 static GROUPS_ANNOUNCED_IN_HOLD: AtomicU64 = AtomicU64::new(u64::MAX);
@@ -620,6 +622,10 @@ mod measurement_scope_tests;
 #[cfg(test)]
 #[path = "tests/live_route_overlap.rs"]
 mod live_route_overlap_tests;
+
+#[cfg(test)]
+#[path = "tests/route_follower.rs"]
+mod route_follower_tests;
 
 #[cfg(test)]
 #[path = "tests/regroup_on_reopen.rs"]

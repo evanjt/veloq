@@ -80,7 +80,8 @@ fn drain_detection() {
 }
 
 fn transport(base: String) -> Transport {
-    let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+    // The refused rides would otherwise wait out the whole retry ladder each.
+    let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)).without_backoff_waits());
     Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).expect("transport")
 }
 

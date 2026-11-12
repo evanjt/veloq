@@ -9,7 +9,8 @@ use std::sync::Arc;
 /// to choose: a basemap tile cannot be redrawn from local data, so it must not
 /// be handed a path the OS purges.
 /// The loopback listener's ports and the token its paths start with.
-#[derive(uniffi::Record)]
+#[derive(serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct TileListenerAddress {
     pub ports: Vec<u16>,
     pub token: String,
@@ -44,6 +45,14 @@ impl BasemapManager {
     /// satellite choice are both decided in the page, not compiled in.
     fn set_source_template(&self, source: String, url_template: String) {
         basemap::set_template(source, url_template);
+    }
+
+    /// The providers one composite source answers from, in priority order.
+    /// The page asks for the composite's name and Rust picks, per tile, the
+    /// first member whose boxes and zoom range hold it. Each member is a
+    /// source of its own with a template set by `set_source_template`.
+    fn set_composite_source(&self, source: String, members: Vec<basemap::CompositeMember>) {
+        basemap::set_composite(source, members);
     }
 
     /// Where the Android map page asks for basemap tiles: the loopback ports

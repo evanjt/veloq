@@ -1113,7 +1113,12 @@ fn preferring_a_section_over_itself_or_an_absent_one_is_refused() {
 }
 
 /// Whether the retired map pairs `a` and `b` once its ground pairs are level.
+///
+/// Takes the serial guard: a level writes against the process-wide install
+/// counter, and a serial test that opens or wipes an engine moves it, so a
+/// level running beside one is refused with `InvalidQuery`.
 fn map_pair(engine: &PersistentEngine, a: &str, b: &str) -> bool {
+    let _serial = crate::test_globals::serial_global_state();
     engine
         .level_retired_pairs()
         .expect("level the ground pairs");

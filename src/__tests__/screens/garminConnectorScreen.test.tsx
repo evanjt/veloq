@@ -12,9 +12,13 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { GarminKeyStatus } from 'veloqrs';
 
 import { GarminConnector } from '@/features/settings/components/GarminConnector';
-import { GARMIN_FORUM_THREAD } from '@/features/settings/lib/garminConnector';
+import {
+  GARMIN_FORUM_THREAD,
+  readGarminConnectorState,
+} from '@/features/settings/lib/garminConnector';
 import { openExternal } from '@/shared/app/openExternal';
 import { setSetting } from '@/shared/storage';
+import { useAuthStore } from '@/shared/app/AuthStore';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -58,5 +62,43 @@ describe('the Garmin connector screen', () => {
     await waitFor(() => expect(screen.queryByTestId('garmin-disconnect')).not.toBeNull());
     const written = (setSetting as jest.Mock).mock.calls.map(([key]) => key);
     expect(written).not.toContain('veloq-garmin-key-expiry');
+  });
+
+  describe('as the only source', () => {
+    beforeEach(() => {
+      useAuthStore.setState({ authMethod: 'garmin', athleteId: 'garmin:8841' });
+      (readGarminConnectorState as jest.Mock).mockResolvedValue('connected');
+    });
+    afterEach(() => {
+      useAuthStore.setState({ authMethod: null, athleteId: null });
+      (readGarminConnectorState as jest.Mock).mockResolvedValue('off');
+    });
+
+    it('offers nothing that belongs to an intervals.icu account', async () => {
+      const screen = render(<GarminConnector />);
+      await screen.findByTestId('garmin-feed-switch');
+      expect(screen.queryByTestId('garmin-read-more')).toBeNull();
+      expect(screen.queryByTestId('garmin-more-options')).toBeNull();
+      expect(screen.queryByTestId('garmin-upload-switch')).toBeNull();
+      expect(screen.queryByTestId('garmin-auto-swap-switch')).toBeNull();
+      expect(screen.queryByTestId('garmin-duplicate-warning')).toBeNull();
+    });
+
+    it('leaves disconnecting to signing out, which ends the session the key is', async () => {
+      const screen = render(<GarminConnector />);
+      await screen.findByTestId('garmin-feed-switch');
+      expect(screen.queryByTestId('garmin-disconnect')).toBeNull();
+    });
+  });
+
+  it('still offers the intervals.icu options beside an intervals.icu account', async () => {
+    useAuthStore.setState({ authMethod: 'apiKey', athleteId: 'i77' });
+    (readGarminConnectorState as jest.Mock).mockResolvedValue('connected');
+    const screen = render(<GarminConnector />);
+    await screen.findByTestId('garmin-feed-switch');
+    expect(screen.queryByTestId('garmin-more-options')).not.toBeNull();
+    expect(screen.queryByTestId('garmin-disconnect')).not.toBeNull();
+    useAuthStore.setState({ authMethod: null, athleteId: null });
+    (readGarminConnectorState as jest.Mock).mockResolvedValue('off');
   });
 });

@@ -33,11 +33,11 @@ fn an_upgraded_library_pins_a_linked_device_until_it_is_removed() {
     let _serial_state = super::serial_state();
     let (_dir, conn) = upgraded_release_library();
 
-    assert!(linked_devices::list(&conn).unwrap().is_empty());
+    assert!(linked_devices::list(&conn, &[]).unwrap().is_empty());
     assert!(!linked_devices::is_pinned(&conn, LAPTOP).unwrap());
 
     let id = linked_devices::add(&conn, "Firefox on Linux", LAPTOP, 1_700_000_000).unwrap();
-    let listed = linked_devices::list(&conn).unwrap();
+    let listed = linked_devices::list(&conn, &[]).unwrap();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].id, id);
     assert_eq!(listed[0].name, "Firefox on Linux");
@@ -48,13 +48,13 @@ fn an_upgraded_library_pins_a_linked_device_until_it_is_removed() {
 
     linked_devices::touch(&conn, LAPTOP, 1_700_000_500).unwrap();
     assert_eq!(
-        linked_devices::list(&conn).unwrap()[0].last_seen_at,
+        linked_devices::list(&conn, &[]).unwrap()[0].last_seen_at,
         Some(1_700_000_500.0)
     );
 
     assert!(linked_devices::remove(&conn, &id).unwrap());
     assert!(!linked_devices::is_pinned(&conn, LAPTOP).unwrap());
-    assert!(linked_devices::list(&conn).unwrap().is_empty());
+    assert!(linked_devices::list(&conn, &[]).unwrap().is_empty());
     assert!(linked_devices::fingerprints(&conn).unwrap().is_empty());
     assert!(!linked_devices::remove(&conn, &id).unwrap());
 }
@@ -66,7 +66,7 @@ fn linking_the_same_certificate_twice_keeps_one_device() {
 
     linked_devices::add(&conn, "Old name", LAPTOP, 1).unwrap();
     linked_devices::add(&conn, "New name", LAPTOP, 2).unwrap();
-    let listed = linked_devices::list(&conn).unwrap();
+    let listed = linked_devices::list(&conn, &[]).unwrap();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].name, "New name");
 }
@@ -100,7 +100,7 @@ fn signing_out_unlinks_every_device() {
 
     let conn = Connection::open(&path).expect("reopen");
     assert!(!linked_devices::is_pinned(&conn, LAPTOP).unwrap());
-    assert!(linked_devices::list(&conn).unwrap().is_empty());
+    assert!(linked_devices::list(&conn, &[]).unwrap().is_empty());
     assert_eq!(
         linked_devices::identity(&conn).unwrap().as_deref(),
         Some(&b"phone"[..])

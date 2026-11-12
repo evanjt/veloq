@@ -1,0 +1,47 @@
+{
+  "methods": [
+    {
+      "name": "link.hello",
+      "params": "FfiLinkHello",
+      "result": "FfiLinkHelloAnswer",
+      "write": false
+    },
+    {
+      "name": "feed.page",
+      "params": "FfiLinkFeedPageAsk",
+      "result": "FfiFeedCardsPage",
+      "write": false
+    },
+    {
+      "name": "feed.summary",
+      "params": "FfiLinkSummaryAsk",
+      "result": "FfiSummaryCardData",
+      "write": false
+    },
+    {
+      "name": "feed.sparklines",
+      "params": "FfiLinkSparklinesAsk",
+      "result": "FfiWellnessSparklines",
+      "write": false
+    },
+    {
+      "name": "feed.highlights",
+      "params": "FfiLinkHighlightsAsk",
+      "result": "FfiActivityHighlightsBundle",
+      "write": false
+    },
+    {
+      "name": "activity.summary",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiActivitySummary",
+      "write": false
+    },
+    {
+      "name": "section.rename",
+      "params": "FfiLinkSectionRenameAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    }
+  ],
+  "protocol": 3
+}

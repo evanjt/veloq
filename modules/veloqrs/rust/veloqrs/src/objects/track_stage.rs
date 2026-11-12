@@ -14,7 +14,8 @@ use crate::persistence::sections::detection::PHASE_CANCELLED;
 ///
 /// The wire carries the variant's position, so the order here is the contract:
 /// append, never reorder. The discriminants start at one so no member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiTrackStep {
     /// The GPS pass is downloading tracks.
@@ -29,7 +30,8 @@ pub enum FfiTrackStep {
 }
 
 /// The running piece of the track work and how far it has got.
-#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiTrackStage {
     pub step: FfiTrackStep,
     /// Items the step has handled, of `total`: tracks for the download, tiles

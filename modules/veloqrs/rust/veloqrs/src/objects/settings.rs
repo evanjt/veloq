@@ -2,7 +2,8 @@ use super::error::{VeloqError, engine_refused, with_engine, with_reader};
 use std::sync::Arc;
 
 /// One key and the value to store under it.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct SettingPair {
     pub key: String,
     pub value: String,
@@ -94,6 +95,34 @@ impl SettingsManager {
     /// The stream history readout shown when cache settings opens.
     fn cache_screen_data(&self) -> Result<crate::FfiCacheScreenData, VeloqError> {
         with_reader(crate::persistence::screens::cache_screen_data)?
+    }
+
+    /// The threshold figures of each offered sport, each with its source, and
+    /// the default heart rate zone percentages.
+    fn thresholds_screen_data(&self) -> Result<crate::FfiThresholdsScreenData, VeloqError> {
+        with_reader(crate::persistence::screens::thresholds_screen_data)
+    }
+
+    /// Set one threshold figure for a sport's family by hand, or clear it with
+    /// `None` so the activity files answer again. A value that is not a
+    /// positive number is refused.
+    fn set_threshold_override(
+        &self,
+        sport: String,
+        field: crate::FfiThresholdField,
+        value: Option<f64>,
+    ) -> Result<(), VeloqError> {
+        with_settings_writer(|conn| {
+            Ok(
+                crate::persistence::fitness::sport_settings::set_threshold_override(
+                    conn,
+                    &sport,
+                    field.into(),
+                    value,
+                ),
+            )
+        })?
+        .map_err(|msg| VeloqError::ParseError { msg })
     }
 
     /// How many activities widening the library's start from `from` to `to`

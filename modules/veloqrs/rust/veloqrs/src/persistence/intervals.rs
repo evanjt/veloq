@@ -15,7 +15,8 @@ use serde::Deserialize;
 use super::bodies::pooled::interval_body;
 
 /// What an interval is, as intervals.icu labels it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 pub enum FfiIntervalKind {
     Work,
     Recovery,
@@ -42,7 +43,8 @@ impl FfiIntervalKind {
 }
 
 /// One lap of an activity.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityInterval {
     pub id: u32,
     pub kind: FfiIntervalKind,
@@ -70,7 +72,8 @@ pub struct FfiActivityInterval {
 
 /// An activity's laps, in the order the server sent them. Empty is a fetched
 /// activity with no laps.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiActivityIntervals {
     pub intervals: Vec<FfiActivityInterval>,
 }

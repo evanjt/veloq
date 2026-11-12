@@ -6,7 +6,7 @@
 //! leniently: a key that is missing, `null` or of another type reads as unset
 //! rather than failing the entry, and keys not modelled here are ignored.
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 /// One entry of the athlete's sport settings, as the athlete endpoint sends it.
@@ -139,6 +139,298 @@ pub(crate) fn running_lthr(settings: &SportSettings) -> Option<f64> {
         .family_entry_for("Run")
         .and_then(|entry| entry.lthr)
         .filter(|lthr| lthr.is_finite() && *lthr > 0.0)
+}
+
+/// Where a threshold figure came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ThresholdSource {
+    /// The athlete set it.
+    Athlete,
+    /// The sport settings body intervals.icu holds.
+    SportSettings,
+    /// The newest figure the athlete's own activity files carry.
+    File,
+}
+
+/// A threshold figure and where it came from.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Sourced {
+    pub value: f64,
+    pub source: ThresholdSource,
+}
+
+/// The thresholds and profile figures a sport is judged against on a date.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(crate) struct AthleteThresholds {
+    pub ftp: Option<Sourced>,
+    pub threshold_hr: Option<Sourced>,
+    pub max_hr: Option<Sourced>,
+    pub resting_hr: Option<Sourced>,
+    pub weight_kg: Option<Sourced>,
+}
+
+/// One of the figures [`AthleteThresholds`] holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ThresholdField {
+    Ftp,
+    ThresholdHr,
+    MaxHr,
+    RestingHr,
+    WeightKg,
+}
+
+impl From<ThresholdSource> for crate::FfiThresholdSource {
+    fn from(source: ThresholdSource) -> Self {
+        match source {
+            ThresholdSource::Athlete => Self::Athlete,
+            ThresholdSource::SportSettings => Self::SportSettings,
+            ThresholdSource::File => Self::File,
+        }
+    }
+}
+
+impl From<crate::FfiThresholdField> for ThresholdField {
+    fn from(field: crate::FfiThresholdField) -> Self {
+        match field {
+            crate::FfiThresholdField::Ftp => Self::Ftp,
+            crate::FfiThresholdField::ThresholdHr => Self::ThresholdHr,
+            crate::FfiThresholdField::MaxHr => Self::MaxHr,
+            crate::FfiThresholdField::RestingHr => Self::RestingHr,
+            crate::FfiThresholdField::WeightKg => Self::WeightKg,
+        }
+    }
+}
+
+impl AthleteThresholds {
+    pub(crate) fn get(&self, field: ThresholdField) -> Option<Sourced> {
+        match field {
+            ThresholdField::Ftp => self.ftp,
+            ThresholdField::ThresholdHr => self.threshold_hr,
+            ThresholdField::MaxHr => self.max_hr,
+            ThresholdField::RestingHr => self.resting_hr,
+            ThresholdField::WeightKg => self.weight_kg,
+        }
+    }
+}
+
+/// The figures one source gives, each unset where it gives none.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+struct Figures {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ftp: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    threshold_hr: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_hr: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resting_hr: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    weight_kg: Option<f64>,
+}
+
+impl Figures {
+    fn slot(&mut self, field: ThresholdField) -> &mut Option<f64> {
+        match field {
+            ThresholdField::Ftp => &mut self.ftp,
+            ThresholdField::ThresholdHr => &mut self.threshold_hr,
+            ThresholdField::MaxHr => &mut self.max_hr,
+            ThresholdField::RestingHr => &mut self.resting_hr,
+            ThresholdField::WeightKg => &mut self.weight_kg,
+        }
+    }
+
+    fn get(&self, field: ThresholdField) -> Option<f64> {
+        let mut copy = *self;
+        *copy.slot(field)
+    }
+
+    fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+const FIELDS: [ThresholdField; 5] = [
+    ThresholdField::Ftp,
+    ThresholdField::ThresholdHr,
+    ThresholdField::MaxHr,
+    ThresholdField::RestingHr,
+    ThresholdField::WeightKg,
+];
+
+/// The profile figures belong to the athlete rather than to a sport, so they
+/// are answered from any sport's file when the asked sport's holds none.
+const PROFILE_FIELDS: [ThresholdField; 2] = [ThresholdField::RestingHr, ThresholdField::WeightKg];
+
+const FILE_KEY: &str = crate::persistence::settings::settings_keys::FILE_THRESHOLDS;
+const OVERRIDE_KEY: &str = crate::persistence::settings::settings_keys::THRESHOLD_OVERRIDES;
+
+/// One dated set of figures read from an activity file.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct FileRecord {
+    sport: String,
+    /// The activity's start in Unix seconds.
+    at: i64,
+    #[serde(flatten)]
+    figures: Figures,
+}
+
+/// The key a sport's figures are filed under: its family's first sport, so a
+/// gravel ride and a road ride share one set of thresholds.
+fn sport_key(sport: &str) -> String {
+    crate::sport::family_of(sport)
+        .first()
+        .copied()
+        .unwrap_or(sport)
+        .to_string()
+}
+
+fn positive(value: Option<f64>) -> Option<f64> {
+    value.filter(|v| v.is_finite() && *v > 0.0)
+}
+
+fn load<T: serde::de::DeserializeOwned + Default>(conn: &rusqlite::Connection, key: &str) -> T {
+    crate::persistence::settings::setting_from(conn, key)
+        .ok()
+        .flatten()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default()
+}
+
+fn store<T: Serialize>(conn: &rusqlite::Connection, key: &str, value: &T) -> rusqlite::Result<()> {
+    let raw = serde_json::to_string(value)
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    crate::persistence::settings::set_settings_on(conn, &[(key.to_string(), raw)]).map(|_| ())
+}
+
+/// The file figure for `field` in force at `at`: the newest record at or
+/// before `at` that carries it, else the earliest after it. `sport` of `None`
+/// reads every sport's records.
+fn file_figure(
+    records: &[FileRecord],
+    sport: Option<&str>,
+    field: ThresholdField,
+    at: i64,
+) -> Option<f64> {
+    let carrying = || {
+        records
+            .iter()
+            .filter(|r| sport.is_none_or(|s| r.sport == s))
+            .filter_map(|r| positive(r.figures.get(field)).map(|v| (r.at, v)))
+    };
+    carrying()
+        .filter(|(when, _)| *when <= at)
+        .max_by_key(|(when, _)| *when)
+        .or_else(|| carrying().min_by_key(|(when, _)| *when))
+        .map(|(_, value)| value)
+}
+
+/// Keep what an activity file at `at` says of the athlete's thresholds. A file
+/// that carries none, or none that differ from the figures already in force at
+/// its date, writes nothing, so the list grows by changes rather than by
+/// activities.
+pub(crate) fn record_file_thresholds(
+    conn: &rusqlite::Connection,
+    sport: &str,
+    at: i64,
+    found: &crate::fit::FitThresholds,
+) -> rusqlite::Result<()> {
+    let figures = Figures {
+        ftp: positive(found.ftp),
+        threshold_hr: positive(found.threshold_hr),
+        max_hr: positive(found.max_hr),
+        resting_hr: positive(found.resting_hr),
+        weight_kg: positive(found.weight_kg),
+    };
+    if figures.is_empty() {
+        return Ok(());
+    }
+    let sport = sport_key(sport);
+    let mut records: Vec<FileRecord> = load(conn, FILE_KEY);
+    let unchanged = FIELDS.iter().all(|field| {
+        figures
+            .get(*field)
+            .is_none_or(|new| file_figure(&records, Some(&sport), *field, at) == Some(new))
+    });
+    if unchanged {
+        return Ok(());
+    }
+    records.retain(|r| !(r.sport == sport && r.at == at));
+    records.push(FileRecord { sport, at, figures });
+    records.sort_by(|a, b| a.at.cmp(&b.at).then_with(|| a.sport.cmp(&b.sport)));
+    store(conn, FILE_KEY, &records)
+}
+
+/// The thresholds and profile `sport` is judged against on `at`, each with its
+/// source. The athlete's own figure wins, then the sport settings body
+/// intervals.icu holds, then the files: resting heart rate and weight, which
+/// are the athlete's rather than a sport's, fall back to any sport's file.
+/// Zone bounds are not answered here.
+pub(crate) fn thresholds_for(
+    conn: &rusqlite::Connection,
+    sport: &str,
+    at: i64,
+) -> AthleteThresholds {
+    let key = sport_key(sport);
+    let records: Vec<FileRecord> = load(conn, FILE_KEY);
+    let overrides: std::collections::BTreeMap<String, Figures> = load(conn, OVERRIDE_KEY);
+    let body = SportSettings::read(conn);
+    let entry = body.entry_for(sport);
+    let mut out = AthleteThresholds::default();
+    let put = |field: ThresholdField, slot: &mut Option<Sourced>| {
+        let athlete = overrides.get(&key).and_then(|f| positive(f.get(field)));
+        let icu = entry.and_then(|e| match field {
+            ThresholdField::Ftp => positive(e.ftp),
+            ThresholdField::ThresholdHr => positive(e.lthr),
+            ThresholdField::MaxHr => positive(e.max_hr),
+            _ => None,
+        });
+        let file = file_figure(&records, Some(&key), field, at).or_else(|| {
+            PROFILE_FIELDS
+                .contains(&field)
+                .then(|| file_figure(&records, None, field, at))
+                .flatten()
+        });
+        *slot = athlete
+            .map(|value| Sourced {
+                value,
+                source: ThresholdSource::Athlete,
+            })
+            .or(icu.map(|value| Sourced {
+                value,
+                source: ThresholdSource::SportSettings,
+            }))
+            .or(file.map(|value| Sourced {
+                value,
+                source: ThresholdSource::File,
+            }));
+    };
+    put(ThresholdField::Ftp, &mut out.ftp);
+    put(ThresholdField::ThresholdHr, &mut out.threshold_hr);
+    put(ThresholdField::MaxHr, &mut out.max_hr);
+    put(ThresholdField::RestingHr, &mut out.resting_hr);
+    put(ThresholdField::WeightKg, &mut out.weight_kg);
+    out
+}
+
+/// Set one figure for `sport`'s family by hand, or clear it with `None` so the
+/// files answer again. A value that is not a positive number is refused.
+pub(crate) fn set_threshold_override(
+    conn: &rusqlite::Connection,
+    sport: &str,
+    field: ThresholdField,
+    value: Option<f64>,
+) -> Result<(), String> {
+    if let Some(v) = value.filter(|v| !(v.is_finite() && *v > 0.0)) {
+        return Err(format!("{v} is not a positive number"));
+    }
+    let mut overrides: std::collections::BTreeMap<String, Figures> = load(conn, OVERRIDE_KEY);
+    let key = sport_key(sport);
+    *overrides.entry(key.clone()).or_default().slot(field) = value;
+    if overrides.get(&key).is_some_and(Figures::is_empty) {
+        overrides.remove(&key);
+    }
+    store(conn, OVERRIDE_KEY, &overrides).map_err(|e| e.to_string())
 }
 
 fn strings<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<String>, D::Error> {
@@ -319,5 +611,231 @@ mod tests {
             assert!(settings.entry_for("Ride").is_none(), "{raw:?}");
             assert!(settings.family_entry_for("Ride").is_none(), "{raw:?}");
         }
+    }
+
+    fn settings_db() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER);
+             CREATE TABLE sport_settings (id TEXT PRIMARY KEY, data TEXT);",
+        )
+        .unwrap();
+        conn
+    }
+
+    fn read(ftp: f64, lthr: f64) -> crate::fit::FitThresholds {
+        crate::fit::FitThresholds {
+            ftp: Some(ftp),
+            threshold_hr: Some(lthr),
+            max_hr: Some(199.0),
+            weight_kg: Some(79.0),
+            ..Default::default()
+        }
+    }
+
+    const DAY: i64 = 86_400;
+
+    #[test]
+    fn a_library_with_only_files_answers_the_newest_files_figures() {
+        let conn = settings_db();
+        record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
+        record_file_thresholds(&conn, "Ride", 20 * DAY, &read(251.0, 177.0)).unwrap();
+
+        let now = thresholds_for(&conn, "GravelRide", 30 * DAY);
+        assert_eq!(
+            now.ftp,
+            Some(Sourced {
+                value: 251.0,
+                source: ThresholdSource::File
+            })
+        );
+        assert_eq!(now.threshold_hr.map(|t| t.value), Some(177.0));
+        assert_eq!(now.max_hr.map(|t| t.value), Some(199.0));
+        assert_eq!(now.weight_kg.map(|t| t.value), Some(79.0));
+        assert_eq!(now.resting_hr, None);
+    }
+
+    #[test]
+    fn a_date_between_two_files_answers_the_earlier_file() {
+        let conn = settings_db();
+        record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
+        record_file_thresholds(&conn, "Ride", 20 * DAY, &read(251.0, 177.0)).unwrap();
+
+        assert_eq!(
+            thresholds_for(&conn, "Ride", 15 * DAY).ftp.map(|t| t.value),
+            Some(240.0)
+        );
+        assert_eq!(
+            thresholds_for(&conn, "Ride", 10 * DAY).ftp.map(|t| t.value),
+            Some(240.0)
+        );
+    }
+
+    #[test]
+    fn a_date_before_every_file_answers_the_earliest_file() {
+        let conn = settings_db();
+        record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
+        assert_eq!(
+            thresholds_for(&conn, "Ride", DAY).ftp.map(|t| t.value),
+            Some(240.0)
+        );
+    }
+
+    #[test]
+    fn a_sport_with_no_file_figures_answers_none_but_the_profile_follows_the_athlete() {
+        let conn = settings_db();
+        record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
+
+        let run = thresholds_for(&conn, "Run", 20 * DAY);
+        assert_eq!(run.ftp, None);
+        assert_eq!(run.threshold_hr, None);
+        assert_eq!(run.weight_kg.map(|t| t.value), Some(79.0));
+    }
+
+    #[test]
+    fn a_file_with_no_figures_records_nothing() {
+        let conn = settings_db();
+        record_file_thresholds(&conn, "Ride", DAY, &crate::fit::FitThresholds::default()).unwrap();
+        assert_eq!(
+            crate::persistence::settings::setting_from(&conn, FILE_KEY).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn a_file_repeating_the_figures_in_force_adds_no_record() {
+        let conn = settings_db();
+        record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
+        let once = crate::persistence::settings::setting_from(&conn, FILE_KEY).unwrap();
+        record_file_thresholds(&conn, "Ride", 20 * DAY, &read(240.0, 170.0)).unwrap();
+        assert_eq!(
+            crate::persistence::settings::setting_from(&conn, FILE_KEY).unwrap(),
+            once
+        );
+    }
+
+    #[test]
+    fn an_older_file_ingested_late_does_not_replace_a_newer_figure() {
+        let conn = settings_db();
+        record_file_thresholds(&conn, "Ride", 20 * DAY, &read(251.0, 177.0)).unwrap();
+        record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
+
+        assert_eq!(
+            thresholds_for(&conn, "Ride", 30 * DAY).ftp.map(|t| t.value),
+            Some(251.0)
+        );
+        assert_eq!(
+            thresholds_for(&conn, "Ride", 12 * DAY).ftp.map(|t| t.value),
+            Some(240.0)
+        );
+    }
+
+    #[test]
+    fn what_the_athlete_sets_wins_over_the_files_and_clears_back_to_them() {
+        let conn = settings_db();
+        record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
+
+        set_threshold_override(&conn, "GravelRide", ThresholdField::Ftp, Some(265.0)).unwrap();
+        let set = thresholds_for(&conn, "Ride", 20 * DAY);
+        assert_eq!(
+            set.ftp,
+            Some(Sourced {
+                value: 265.0,
+                source: ThresholdSource::Athlete
+            })
+        );
+        assert_eq!(
+            set.threshold_hr.map(|t| t.source),
+            Some(ThresholdSource::File)
+        );
+
+        set_threshold_override(&conn, "Ride", ThresholdField::Ftp, None).unwrap();
+        let cleared = thresholds_for(&conn, "Ride", 20 * DAY);
+        assert_eq!(
+            cleared.ftp,
+            Some(Sourced {
+                value: 240.0,
+                source: ThresholdSource::File
+            })
+        );
+    }
+
+    #[test]
+    fn an_override_that_is_not_a_positive_number_is_refused_and_changes_nothing() {
+        let conn = settings_db();
+        for bad in [0.0, -5.0, f64::NAN, f64::INFINITY] {
+            assert!(set_threshold_override(&conn, "Ride", ThresholdField::Ftp, Some(bad)).is_err());
+        }
+        assert_eq!(thresholds_for(&conn, "Ride", DAY).ftp, None);
+    }
+
+    #[test]
+    fn the_sport_settings_body_answers_before_the_files() {
+        let conn = settings_db();
+        conn.execute(
+            "INSERT INTO sport_settings (id, data) VALUES ('current', ?)",
+            [r#"[{"types":["Ride"],"ftp":300}]"#],
+        )
+        .unwrap();
+        record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
+
+        let found = thresholds_for(&conn, "Ride", 20 * DAY);
+        assert_eq!(
+            found.ftp,
+            Some(Sourced {
+                value: 300.0,
+                source: ThresholdSource::SportSettings
+            })
+        );
+        assert_eq!(
+            found.threshold_hr.map(|t| t.source),
+            Some(ThresholdSource::File)
+        );
+    }
+
+    fn figure(
+        screen: &crate::FfiThresholdsScreenData,
+        sport: &str,
+        field: crate::FfiThresholdField,
+    ) -> (Option<f64>, Option<crate::FfiThresholdSource>) {
+        let found = screen
+            .sports
+            .iter()
+            .find(|s| s.sport == sport)
+            .and_then(|s| s.figures.iter().find(|f| f.field == field))
+            .unwrap();
+        (found.value, found.source)
+    }
+
+    #[test]
+    fn the_thresholds_screen_shows_the_files_then_the_athletes_figure_then_the_files_again() {
+        use crate::{FfiThresholdField as Field, FfiThresholdSource as Source};
+        let conn = settings_db();
+        record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
+
+        let screen = crate::persistence::screens::thresholds_screen_at(&conn, 20 * DAY);
+        assert_eq!(
+            figure(&screen, "Ride", Field::Ftp),
+            (Some(240.0), Some(Source::File))
+        );
+        assert_eq!(figure(&screen, "Run", Field::Ftp), (None, None));
+        assert_eq!(
+            screen.hr_zone_default_percents,
+            vec![60.0, 70.0, 80.0, 90.0, 100.0]
+        );
+
+        set_threshold_override(&conn, "Ride", ThresholdField::Ftp, Some(265.0)).unwrap();
+        let screen = crate::persistence::screens::thresholds_screen_at(&conn, 20 * DAY);
+        assert_eq!(
+            figure(&screen, "Ride", Field::Ftp),
+            (Some(265.0), Some(Source::Athlete))
+        );
+
+        set_threshold_override(&conn, "Ride", ThresholdField::Ftp, None).unwrap();
+        let screen = crate::persistence::screens::thresholds_screen_at(&conn, 20 * DAY);
+        assert_eq!(
+            figure(&screen, "Ride", Field::Ftp),
+            (Some(240.0), Some(Source::File))
+        );
     }
 }

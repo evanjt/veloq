@@ -2,6 +2,7 @@ export { ActivitySyncRow } from './ActivitySyncRow';
 export { ActivityHistoryRow } from './ActivityHistoryRow';
 export { BackgroundJobsActivityBar } from './BackgroundJobsActivityBar';
 export { BackgroundJobsHeaderItem } from './BackgroundJobsHeaderItem';
+export { RemoteLinkHeaderItem } from './RemoteLinkHeaderItem';
 export { BackupSection } from './BackupSection';
 export { CacheManagementPanel } from './CacheManagementPanel';
 export { DataCacheSection } from './DataCacheSection';

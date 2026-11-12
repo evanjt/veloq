@@ -20,7 +20,8 @@
 /// The wire carries the variant's position, so the order here is the
 /// contract: append, never reorder. The discriminants start at one so no
 /// member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiRunState {
     /// No run holds the slot, and none has finished untaken.
@@ -51,7 +52,8 @@ impl FfiRunState {
 /// The counters describe the current phase only. `percent` is the run's own
 /// estimate across every phase, so a bar can move monotonically while the
 /// counters restart at each phase.
-#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiRunProgress {
     pub state: FfiRunState,
     /// The phase the run is in, such as "loading" or "analyzing". Empty when

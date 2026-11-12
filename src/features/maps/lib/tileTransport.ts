@@ -99,6 +99,56 @@ export function nativeTileUrls(
   return prefixes.map((prefix) => `${prefix}${source}/${file}`);
 }
 
+/** One source a composite may answer a tile from. */
+export interface CompositeProvider {
+  /** The provider's own source name, which the store files its tiles under. */
+  source: string;
+  /** The provider's upstream tile template. */
+  template: string;
+  /** The shallowest tile zoom it is asked for. */
+  minZoom: number;
+  /** The deepest tile zoom it serves. */
+  maxZoom: number;
+  /** The ground it covers as [west, south, east, north], or none for everywhere. */
+  boxes: [number, number, number, number][];
+}
+
+/**
+ * Hand Rust the providers of one composite source, in priority order, and give
+ * back the URLs the page should ask for the composite under. Rust picks the
+ * provider per tile, so the page sees one source and the style carries one
+ * layer for all of them. Null where Rust cannot be reached, as
+ * [`nativeTileUrls`] is.
+ */
+export function nativeCompositeTileUrls(
+  source: string,
+  providers: CompositeProvider[],
+  extension: string
+): string[] | null {
+  let prefixes: string[] | null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { basemapStore } = require('veloqrs') as typeof import('veloqrs');
+    prefixes = tilePrefixes();
+    if (!prefixes) return null;
+    const store = basemapStore();
+    for (const provider of providers) store.setSourceTemplate(provider.source, provider.template);
+    store.setCompositeSource(
+      source,
+      providers.map((provider) => ({
+        source: provider.source,
+        minZoom: provider.minZoom,
+        maxZoom: provider.maxZoom,
+        boxes: provider.boxes.map(([west, south, east, north]) => ({ west, south, east, north })),
+      }))
+    );
+  } catch {
+    return null;
+  }
+  const file = `{z}/{x}/{y}.${extension}`;
+  return prefixes.map((prefix) => `${prefix}${source}/${file}`);
+}
+
 /**
  * Ask the engine for its listener each time the app comes back to the
  * foreground on Android, which is what makes it probe its own ports and bind
@@ -132,8 +182,14 @@ export function nativeHeatmapTileUrl(base: MapBase): string {
   return `${nativeTilePrefix()}/heatmap-${base}/{z}/{x}/{y}.png`;
 }
 
-/** What the engine answers GeoJSON for at a `veloq-geo` URL. */
-export type NativeGeoKind = 'track' | 'route-lines';
+/**
+ * What the engine answers GeoJSON for at a `veloq-geo` URL.
+ *
+ * An `under-point` key is `<lat_e6>_<lng_e6>_<zoom>_<group>`: the tap in
+ * micro-degrees, the zoom it was made at, and a route id or `_` for the
+ * activities in no route.
+ */
+export type NativeGeoKind = 'track' | 'route-lines' | 'under-point';
 
 /**
  * Where the page asks for GeoJSON the engine writes from what it stores, such

@@ -9,22 +9,27 @@ export interface GpsWatchOptions {
   distanceInterval: number;
 }
 
-/** Sampling presets: accuracy and rate vs battery cost. */
+/**
+ * Sampling presets: accuracy and time interval. The distance filter is zero in
+ * every preset, so the platform delivers a fix each interval whether or not the
+ * device has moved. Auto-pause and the signal watchdog both read those fixes,
+ * and a distance filter would deliver none while the rider is stopped.
+ */
 const GPS_MODE_OPTIONS: Record<GpsAccuracyMode, GpsWatchOptions> = {
   high: {
     accuracy: Location.Accuracy.BestForNavigation,
     timeInterval: 1000,
-    distanceInterval: 5,
+    distanceInterval: 0,
   },
   balanced: {
     accuracy: Location.Accuracy.High,
     timeInterval: 2000,
-    distanceInterval: 10,
+    distanceInterval: 0,
   },
   batterySaver: {
     accuracy: Location.Accuracy.Balanced,
     timeInterval: 5000,
-    distanceInterval: 20,
+    distanceInterval: 0,
   },
 };
 

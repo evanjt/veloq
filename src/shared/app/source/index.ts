@@ -11,7 +11,7 @@ import { INTERVALS_URLS } from '@/shared/app/constants';
 /** The athlete id demo mode signs in as. */
 export const DEMO_ATHLETE_ID = 'demo';
 
-export type AuthMethod = 'oauth' | 'apiKey' | 'demo' | null;
+export type AuthMethod = 'oauth' | 'apiKey' | 'garmin' | 'demo' | null;
 
 export interface SourceCapabilities {
   /** Registers a push token. The server proves the athlete with an OAuth token alone. */
@@ -27,7 +27,7 @@ export interface SourceCapabilities {
 }
 
 export interface Source {
-  id: 'intervals' | 'demo';
+  id: 'intervals' | 'garmin' | 'demo';
   scheme: Exclude<AuthMethod, null>;
   /** The source's own pages, or null when it has none to send an athlete to. */
   links: typeof INTERVALS_URLS | null;
@@ -52,6 +52,12 @@ const SOURCES = Object.freeze({
     links: INTERVALS_URLS,
     can: { push: false, scoped: false, uploads: true },
   }),
+  garmin: source({
+    id: 'garmin',
+    scheme: 'garmin',
+    links: null,
+    can: { push: false, scoped: false, uploads: false },
+  }),
   demo: source({
     id: 'demo',
     scheme: 'demo',
@@ -67,6 +73,7 @@ const SOURCES = Object.freeze({
 export const SCHEME_LABEL_KEY = Object.freeze({
   oauth: 'settings.authOAuth',
   apiKey: 'settings.authApiKey',
+  garmin: 'settings.authGarmin',
   demo: 'settings.authDemo',
 } as const);
 
@@ -89,5 +96,6 @@ export function sourceFor({
   if (authMethod === 'demo' || isDemoMode || athleteId === DEMO_ATHLETE_ID) return SOURCES.demo;
   if (authMethod === 'oauth') return SOURCES.oauth;
   if (authMethod === 'apiKey') return SOURCES.apiKey;
+  if (authMethod === 'garmin') return SOURCES.garmin;
   return null;
 }

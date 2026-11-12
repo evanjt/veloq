@@ -1391,7 +1391,11 @@
     "title": "Veloq",
     "demoCaption": "Przykładowe jazdy. Nic nie jest zapisywane, a demo kończy się po zamknięciu aplikacji.",
     "tryDemo": "Wypróbuj demo",
-    "useApiKey": "Użyj klucza API"
+    "useApiKey": "Użyj klucza API",
+    "useGarminOnly": "Używaj tylko z Garminem",
+    "garminOnlyDescription": "Konto intervals.icu nie jest potrzebne. Veloq pobiera Twoje przejazdy z Garmina za pomocą klucza Garmin i zapisuje je na tym urządzeniu.",
+    "garminOnlyConnect": "Połącz kluczem Garmin",
+    "garminNoAccount": "Garmin zaakceptował klucz, ale nie podał, do kogo należy, więc nie można zachować dla niego biblioteki."
   },
   "mapScreen": {
     "loadingActivities": "Wczytywanie aktywności…",
@@ -2206,6 +2210,30 @@
     "legendEstimated": "Czas szacowany",
     "methodEstimated": "{{method}} Przejazd, który zaczyna się lub kończy wewnątrz odcinka, w pobliżu bramki, jest mierzony do tej bramki z własną prędkością. Jest oznaczany jako szacunkowy, gdy rzut wynosi 10 m lub więcej. Szacunek utrzymuje rekord tylko wtedy, gdy żaden przejazd w tym kierunku nie został zmierzony na miejscu."
   },
+  "thresholds": {
+    "title": "Progi i profil",
+    "rowSubtitle": "FTP, tętno i waga",
+    "description": "Każda wartość to ta ustawiona tutaj, a jeśli jej nie ma, ta z ustawień sportu, a jeśli i jej nie ma, najnowsza z plików aktywności. Puste pole używa dwóch ostatnich.",
+    "cycling": "Kolarstwo",
+    "running": "Bieganie",
+    "fields": {
+      "ftp": "FTP",
+      "thresholdHr": "Tętno progowe",
+      "maxHr": "Tętno maksymalne",
+      "restingHr": "Tętno spoczynkowe",
+      "weightKg": "Waga"
+    },
+    "source": {
+      "athlete": "Ustawione przez Ciebie: {{value}}",
+      "sportSettings": "Z ustawień sportu: {{value}}",
+      "file": "Z plików aktywności: {{value}}"
+    },
+    "notSet": "Nie ustawiono",
+    "loadFailed": "Nie udało się odczytać wartości.",
+    "invalid": "Wpisz liczbę większą od zera",
+    "zones": "Strefy tętna",
+    "zoneDefaults": "Domyślne strefy Veloq, używane gdy ustawienia sportu żadnych nie podają, kończą się na {{percents}} procentach tętna maksymalnego."
+  },
   "settings": {
     "offlineRow": {
       "detail": "Zapisane aktywności i wykresy są nadal dostępne."
@@ -2532,6 +2560,7 @@
     "groupingFailed": "Grupowanie nie zakończyło się. Przesuń suwak, aby spróbować ponownie.",
     "authApiKey": "Klucz API",
     "authOAuth": "Zalogowano przez intervals.icu",
+    "authGarmin": "Klucz Garmin",
     "authDemo": "Tryb demo",
     "scopeChats": "Czaty",
     "scopeLibrary": "Biblioteka",
@@ -2587,6 +2616,7 @@
     "powerCurve": "Krzywa mocy",
     "powerZones": "Strefy mocy",
     "rangeNotDownloaded": "Jeszcze nie pobrano",
+    "curveWorkedOutOnPhone": "Obliczone na tym telefonie na podstawie Twoich aktywności, z dopasowaniem liniowym do Twoich najlepszych wyników z zakresu 3–20 minut.",
     "rangePartlyDownloaded": "Część tego okresu nie została jeszcze pobrana",
     "calendarOlderOwed_one": "{{count}} starsza aktywność z tego roku nie została pobrana",
     "calendarOlderOwed_few": "{{count}} starsze aktywności z tego roku nie zostały pobrane",
@@ -3569,7 +3599,7 @@
     },
     "remoteLink": {
       "title": "Połączone urządzenia",
-      "blurb": "Przeglądaj aktywności z tego telefonu w przeglądarce komputera w tej samej sieci Wi-Fi, gdy Veloq jest otwarty. Połącz przeglądarkę, skanując kod, i zarządzaj nią w Ustawieniach. Twoje dane trafiają prosto z telefonu do przeglądarki."
+      "blurb": "Przeglądaj aktywności z tego telefonu w przeglądarce komputera, gdy Veloq jest otwarty. Działa w tej samej sieci Wi-Fi i w większości innych sieci, a Twoje dane trafiają prosto z telefonu do przeglądarki. Połącz przeglądarkę, skanując kod, i zarządzaj nią w Ustawieniach."
     }
   },
   "remoteLink": {
@@ -3600,6 +3630,13 @@
     "connected_few": "Połączone są {{count}} przeglądarki",
     "connected_many": "Połączonych jest {{count}} przeglądarek",
     "connected_other": "Połączonych jest {{count}} przeglądarek",
-    "disconnect": "Rozłącz"
+    "disconnect": "Rozłącz",
+    "headerConnected": "Połączona przeglądarka jest podłączona",
+    "headerWaiting": "Oczekiwanie, aż połączy się połączona przeglądarka",
+    "headerUnreachable": "Nie można połączyć się z połączoną przeglądarką",
+    "sheetTitle": "Połączone przeglądarki",
+    "connectedSince": "Połączona od {{time}}",
+    "notConnected": "Niepołączona",
+    "manage": "Zarządzaj połączonymi urządzeniami"
   }
 }

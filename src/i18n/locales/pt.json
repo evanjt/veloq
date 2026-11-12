@@ -1327,7 +1327,11 @@
     "title": "Veloq",
     "demoCaption": "Voltas de exemplo. Nada é guardado e a demo termina quando a aplicação fecha.",
     "tryDemo": "Experimentar Demo",
-    "useApiKey": "Usar chave API"
+    "useApiKey": "Usar chave API",
+    "useGarminOnly": "Usar só com Garmin",
+    "garminOnlyDescription": "Não é preciso uma conta intervals.icu. O Veloq traz as tuas atividades do Garmin com uma chave Garmin e guarda-as neste dispositivo.",
+    "garminOnlyConnect": "Ligar com chave Garmin",
+    "garminNoAccount": "O Garmin aceitou a chave mas não disse a quem pertence, por isso não é possível guardar uma biblioteca para ela."
   },
   "mapScreen": {
     "loadingActivities": "A carregar atividades…",
@@ -2088,6 +2092,30 @@
     "legendEstimated": "Tempo estimado",
     "methodEstimated": "{{method}} Uma passagem que começa ou termina dentro do troço, perto de uma porta, é cronometrada até essa porta à sua própria velocidade. É marcada como estimada quando a projeção é de 10 m ou mais. Uma estimativa só mantém o recorde se nenhuma passagem nessa direção tiver sido cronometrada no terreno."
   },
+  "thresholds": {
+    "title": "Limiares e perfil",
+    "rowSubtitle": "FTP, frequências cardíacas e peso",
+    "description": "Cada valor é o definido aqui; se não houver, o das definições do desporto; se não houver, o mais recente dos ficheiros de atividade. Um campo vazio usa estes dois últimos.",
+    "cycling": "Ciclismo",
+    "running": "Corrida",
+    "fields": {
+      "ftp": "FTP",
+      "thresholdHr": "Frequência cardíaca limiar",
+      "maxHr": "Frequência cardíaca máxima",
+      "restingHr": "Frequência cardíaca em repouso",
+      "weightKg": "Peso"
+    },
+    "source": {
+      "athlete": "Definido por si: {{value}}",
+      "sportSettings": "Das definições do desporto: {{value}}",
+      "file": "Dos ficheiros de atividade: {{value}}"
+    },
+    "notSet": "Não definido",
+    "loadFailed": "Não foi possível ler os valores.",
+    "invalid": "Introduza um número superior a zero",
+    "zones": "Zonas de frequência cardíaca",
+    "zoneDefaults": "As zonas predefinidas do Veloq, usadas quando as definições do desporto não indicam nenhuma, terminam em {{percents}} por cento da frequência cardíaca máxima."
+  },
   "settings": {
     "offlineRow": {
       "detail": "As atividades guardadas e os gráficos continuam disponíveis."
@@ -2385,6 +2413,7 @@
     "groupingFailed": "O agrupamento não terminou. Move um controlo para tentar de novo.",
     "authApiKey": "Chave API",
     "authOAuth": "Sessão iniciada com intervals.icu",
+    "authGarmin": "Chave Garmin",
     "authDemo": "Modo demo",
     "scopeChats": "Conversas",
     "scopeLibrary": "Biblioteca",
@@ -2438,6 +2467,7 @@
     "powerCurve": "Curva de potência",
     "powerZones": "Zonas de potência",
     "rangeNotDownloaded": "Ainda não transferido",
+    "curveWorkedOutOnPhone": "Calculada neste telemóvel a partir das suas atividades, com um ajuste linear pelos seus melhores esforços de 3 a 20 minutos.",
     "rangePartlyDownloaded": "Parte deste período ainda não foi transferida",
     "calendarOlderOwed_one": "{{count}} atividade anterior deste ano não foi transferida",
     "calendarOlderOwed_other": "{{count}} atividades anteriores deste ano não foram transferidas",
@@ -3333,7 +3363,7 @@
     },
     "remoteLink": {
       "title": "Dispositivos associados",
-      "blurb": "Explore as atividades deste telemóvel no navegador de um computador na mesma rede Wi-Fi, enquanto o Veloq estiver aberto. Associe o navegador lendo um código e faça a gestão nas Definições. Os seus dados vão diretamente do telemóvel para o navegador."
+      "blurb": "Explore as atividades deste telemóvel no navegador de um computador, enquanto o Veloq estiver aberto. Funciona na mesma rede Wi-Fi e na maioria das outras redes, e os seus dados vão diretamente do telemóvel para o navegador. Associe o navegador lendo um código e faça a gestão nas Definições."
     }
   },
   "remoteLink": {
@@ -3360,6 +3390,13 @@
     "expired": "O navegador não se ligou a tempo. Crie um novo código na página e leia-o novamente.",
     "connected_one": "Está ligado um navegador",
     "connected_other": "Estão ligados {{count}} navegadores",
-    "disconnect": "Desligar"
+    "disconnect": "Desligar",
+    "headerConnected": "Um navegador associado está ligado",
+    "headerWaiting": "A aguardar que um navegador associado se ligue",
+    "headerUnreachable": "Não é possível aceder a um navegador associado",
+    "sheetTitle": "Navegadores associados",
+    "connectedSince": "Ligado desde {{time}}",
+    "notConnected": "Não ligado",
+    "manage": "Gerir dispositivos associados"
   }
 }

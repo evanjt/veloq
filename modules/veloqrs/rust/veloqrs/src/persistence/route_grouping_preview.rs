@@ -40,7 +40,8 @@ pub struct PreviewGroup {
 /// A route whose members land in more than one preview group is one the
 /// setting would split. Members the preview leaves in no group are not
 /// counted: they are a drop, not a split.
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 #[uniffi(name = "FfiRouteSpread")]
 pub struct RouteSpread {
     /// The route's own stable id, as the routes read carries it.

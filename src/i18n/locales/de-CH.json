@@ -1280,7 +1280,11 @@
     "title": "Veloq",
     "demoCaption": "Biispiilfahrte. Nüt wird gspeicheret, und d Demo hört uf, wenn d App zue gaht.",
     "tryDemo": "Demo aluege",
-    "useApiKey": "Mit API-Schlüssel"
+    "useApiKey": "Mit API-Schlüssel",
+    "useGarminOnly": "Nur mit Garmin verwenden",
+    "garminOnlyDescription": "Kein intervals.icu-Konto nötig. Veloq holt deine Fahrten mit einem Garmin-Schlüssel von Garmin und speichert sie auf diesem Gerät.",
+    "garminOnlyConnect": "Mit Garmin-Schlüssel verbinden",
+    "garminNoAccount": "Garmin hat den Schlüssel akzeptiert, aber nicht gesagt, wem er gehört. Deshalb kann keine Bibliothek dafür angelegt werden."
   },
   "mapScreen": {
     "loadingActivities": "Am Lade…",
@@ -2238,6 +2242,7 @@
     "groupingFailed": "Die Gruppierung wurde nicht fertig. Bewege einen Regler, um es erneut zu versuchen.",
     "authApiKey": "API-Schlüssel",
     "authOAuth": "Aagmäldet mit intervals.icu",
+    "authGarmin": "Garmin-Schlüssel",
     "authDemo": "Demomodus",
     "scopeChats": "Unterhaltungen",
     "scopeLibrary": "Bibliothek",
@@ -3131,6 +3136,13 @@
     "expired": "De Browser het sich nöd rächtziitig verbunde. Mach uf de Siite en neue Code und scann en nomal.",
     "connected_one": "En Browser isch verbunde",
     "connected_other": "{{count}} Browser sind verbunde",
-    "disconnect": "Trenne"
+    "disconnect": "Trenne",
+    "headerConnected": "En verchnüpfte Browser isch verbunde",
+    "headerWaiting": "Wartet uf en verchnüpfte Browser",
+    "headerUnreachable": "En verchnüpfte Browser isch nid erreichbar",
+    "sheetTitle": "Verchnüpfti Browser",
+    "connectedSince": "Verbunde syt {{time}}",
+    "notConnected": "Nid verbunde",
+    "manage": "Verchnüpfti Grät verwalte"
   }
 }

@@ -277,7 +277,8 @@ const REFERENCE_ACTIVITY_EXCLUSION: &str = "id NOT IN (SELECT representative_act
     WHERE json_extract(value, '$.ground.rep_activity_id') IS NOT NULL)";
 
 /// What a derived-data clear removed and what it kept.
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct DerivedClear {
     pub sections_removed: u32,
     pub activities_removed: u32,
@@ -749,6 +750,7 @@ pub(crate) mod pooled {
         signature_from_parts,
     };
     use rusqlite::{Connection, OptionalExtension, params};
+    use std::collections::HashMap;
     use tracematch::GpsPoint;
 
     /// Every activity id the library holds: the rows the engine's in-memory
@@ -1517,6 +1519,10 @@ pub(crate) mod pooled {
         super::TrackRead::from_blob(&blob?).into_option("gps_track", activity_id)
     }
 
+    /// The columns [`metrics_from_row`] reads, in its order.
+    const METRICS_COLUMNS: &str = "activity_id, name, date, distance, moving_time, elapsed_time, \
+        elevation_gain, avg_hr, avg_power, sport_type, training_load, ftp";
+
     /// One `activity_metrics` row, in the shape the engine's own tier holds.
     fn metrics_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<crate::ActivityMetrics> {
         Ok(crate::ActivityMetrics {
@@ -1537,22 +1543,76 @@ pub(crate) mod pooled {
         })
     }
 
+    /// The metrics rows of `ids`, keyed by activity id. An id with no row is absent.
+    ///
+    /// One statement per chunk of ids, so a read over a route's attempts issues the
+    /// same statements whatever the number of attempts.
+    pub(crate) fn metrics_for_ids(
+        conn: &Connection,
+        ids: &[String],
+    ) -> HashMap<String, crate::ActivityMetrics> {
+        const CHUNK: usize = 500;
+
+        let mut rows = HashMap::with_capacity(ids.len());
+        for chunk in ids.chunks(CHUNK) {
+            let placeholders = std::iter::repeat_n("?", chunk.len())
+                .collect::<Vec<_>>()
+                .join(",");
+            let sql = format!(
+                "SELECT {METRICS_COLUMNS} FROM activity_metrics WHERE activity_id IN ({placeholders})"
+            );
+            let Ok(mut stmt) = conn.prepare(&sql) else {
+                continue;
+            };
+            let params_vec: Vec<&dyn rusqlite::ToSql> =
+                chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+            let Ok(found) = stmt.query_map(params_vec.as_slice(), metrics_from_row) else {
+                continue;
+            };
+            rows.extend(found.flatten().map(|m| (m.activity_id.clone(), m)));
+        }
+        rows
+    }
+
     /// One activity's metrics row.
     pub(crate) fn metrics_of(
         conn: &Connection,
         activity_id: &str,
     ) -> Option<crate::ActivityMetrics> {
-        conn.query_row(
-            "SELECT activity_id, name, date, distance, moving_time, elapsed_time,
-                    elevation_gain, avg_hr, avg_power, sport_type,
-                    training_load, ftp
-             FROM activity_metrics WHERE activity_id = ?",
-            params![activity_id],
-            metrics_from_row,
-        )
-        .optional()
-        .ok()
-        .flatten()
+        metrics_for_ids(conn, &[activity_id.to_string()]).remove(activity_id)
+    }
+
+    /// The metrics rows of these activities, read in chunked `IN` statements.
+    /// An activity with no row is simply absent from the map.
+    pub(crate) fn metrics_of_many(
+        conn: &Connection,
+        activity_ids: &[&str],
+    ) -> std::collections::HashMap<String, crate::ActivityMetrics> {
+        // Under SQLite's default limit of 999 bound parameters.
+        const CHUNK: usize = 500;
+        let mut found = std::collections::HashMap::with_capacity(activity_ids.len());
+        for chunk in activity_ids.chunks(CHUNK) {
+            let marks = vec!["?"; chunk.len()].join(",");
+            let sql = format!(
+                "SELECT activity_id, name, date, distance, moving_time, elapsed_time,
+                        elevation_gain, avg_hr, avg_power, sport_type,
+                        training_load, ftp
+                 FROM activity_metrics WHERE activity_id IN ({marks})"
+            );
+            let read = conn.prepare(&sql).and_then(|mut stmt| {
+                stmt.query_map(rusqlite::params_from_iter(chunk.iter()), metrics_from_row)?
+                    .collect::<rusqlite::Result<Vec<_>>>()
+            });
+            match read {
+                Ok(rows) => {
+                    for metrics in rows {
+                        found.insert(metrics.activity_id.clone(), metrics);
+                    }
+                }
+                Err(e) => log::warn!("[metrics_of_many] query failed: {e}"),
+            }
+        }
+        found
     }
 
     /// Which of these activities has no usable stored time stream.
@@ -2673,6 +2733,7 @@ impl PersistentEngine {
              DELETE FROM activity_stream_backfill;
              DELETE FROM interval_bodies;
              DELETE FROM curve_bodies;
+             DELETE FROM activity_curves;
              DELETE FROM calendar_event_bodies;
              DELETE FROM exercise_sets;
              DELETE FROM swim_lengths;
@@ -2738,6 +2799,8 @@ impl PersistentEngine {
             super::settings_keys::EXPORT_HOME_LNG,
             super::settings_keys::EXPORT_PRIVACY_RADIUS_M,
             super::settings_keys::GARMIN_CONNECTOR_ENABLED,
+            super::settings_keys::FILE_THRESHOLDS,
+            super::settings_keys::THRESHOLD_OVERRIDES,
             super::settings_keys::SYNC_LAST_SUCCESS_AT,
             super::settings_keys::HELD_BACK_IN_LAST_DOWNLOAD,
             super::settings_keys::FITNESS_MODEL_EVENTS,
@@ -6867,6 +6930,7 @@ mod tests {
             "activity_new_ground",
             "push_runs",
             "heatmap_hidden_activities",
+            "activity_curves",
         ];
         let uncovered: Vec<&String> = tables
             .iter()

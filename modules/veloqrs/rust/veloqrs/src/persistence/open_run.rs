@@ -19,7 +19,8 @@ use crate::objects::start::FfiStartOutcome;
 ///
 /// The wire carries the variant's position, so the order here is the contract:
 /// append, never reorder. The discriminants start at one so no member is falsy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum FfiOpenPhase {
     /// No open has been started in this process.
@@ -31,7 +32,8 @@ pub enum FfiOpenPhase {
 }
 
 /// What a poll of the off-thread open reads.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Record)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct FfiOpenProgress {
     pub phase: FfiOpenPhase,
     /// How the open ended. Present only once `phase` is `Finished`.

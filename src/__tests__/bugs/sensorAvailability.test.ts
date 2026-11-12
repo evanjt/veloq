@@ -21,6 +21,14 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+// The manager reads the recording store through the feature barrel, which loads
+// the whole recording feature. The store itself is the real one, from its own
+// file, so a fresh registry still gives each case a fresh store.
+jest.mock('@/features/recording', () => ({
+  useRecordingStore: jest.requireActual('@/features/recording/stores/RecordingStore')
+    .useRecordingStore,
+}));
+
 const mockRequestLocation = jest.fn();
 const mockReadLocation = jest.fn();
 const mockLocationServicesOn = jest.fn();
