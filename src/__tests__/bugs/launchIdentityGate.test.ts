@@ -31,6 +31,9 @@ const steps = () => {
           answer = resolve;
         })
     ),
+    adopt: jest.fn(() => {
+      order.push('adopt');
+    }),
     proceed: jest.fn(() => {
       order.push('proceed');
     }),
@@ -126,6 +129,16 @@ describe('completeLaunchIdentity', () => {
     await expect(completeLaunchIdentity('proceed', s)).resolves.toBe(true);
 
     expect(s.order).toEqual(['proceed']);
+    expect(s.ask).not.toHaveBeenCalled();
+    expect(s.wipe).not.toHaveBeenCalled();
+  });
+
+  it('names the library for the incoming athlete, then proceeds, when the library is adopted', async () => {
+    const s = steps();
+
+    await expect(completeLaunchIdentity('adopt', s)).resolves.toBe(true);
+
+    expect(s.order).toEqual(['adopt', 'proceed']);
     expect(s.ask).not.toHaveBeenCalled();
     expect(s.wipe).not.toHaveBeenCalled();
   });

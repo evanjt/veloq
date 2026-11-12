@@ -7,7 +7,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
 import { SCHEME_LABEL_KEY, sourceFor } from '@/shared/app/source';
-import { INTERVALS_URLS } from '@/shared/app/constants';
 import { useUploadPermissionStore } from '@/features/recording';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { clearAccountData, clearAuthOnly, wipeConfirmMessage } from '@/shared/storage';
@@ -187,7 +186,9 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   // The OAuth label already names intervals.icu, so only an API key session
   // carries the source beside its method.
   const accountLine =
-    isDemo || source?.scheme === 'oauth' ? authBadge : `intervals.icu · ${authBadge}`;
+    source != null && (source.id !== 'intervals' || source.scheme === 'oauth')
+      ? authBadge
+      : `intervals.icu · ${authBadge}`;
   const isOAuth = source?.can.scoped === true;
   const parsedScopes = isOAuth && grantedScopes ? parseScopes(grantedScopes) : [];
   const profile = (
@@ -242,12 +243,12 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       testID="settings-profile-section"
       style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}
     >
-      {/* Profile row: the athlete's intervals.icu page, which a demo account has none of. */}
-      {isDemo ? (
+      {/* Profile row: the athlete's page at the source, which a source without pages has none of. */}
+      {!source?.links ? (
         <Row>{profile}</Row>
       ) : (
         <ExternalLinkRow
-          url={INTERVALS_URLS.athletePage(getStoredCredentials().athleteId ?? '')}
+          url={source.links.athletePage(getStoredCredentials().athleteId ?? '')}
           label={athlete?.name || t('settings.athleteFallback', 'Athlete')}
         >
           {profile}

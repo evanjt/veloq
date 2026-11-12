@@ -2,6 +2,7 @@
 
 use super::error::{VeloqError, engine_refused, with_reader};
 use crate::persistence::linked_devices::{self, LinkedDevice};
+use crate::remote::DisconnectReason;
 use std::sync::Arc;
 
 fn db(error: rusqlite::Error) -> VeloqError {
@@ -41,7 +42,7 @@ impl RemoteManager {
             .ok_or_else(engine_refused)?
             .map_err(db)?;
         if let Some(fingerprint) = fingerprint {
-            crate::remote::service::disconnect(Some(&fingerprint));
+            crate::remote::service::disconnect(Some(&fingerprint), DisconnectReason::Removed);
         }
         Ok(removed)
     }
@@ -66,15 +67,21 @@ impl RemoteManager {
         crate::remote::service::linked_rooms().map_err(|msg| VeloqError::Database { msg })
     }
 
-    /// End every linked browser's connection.
-    fn disconnect_all(&self) {
-        crate::remote::service::disconnect(None);
+    /// End every linked browser's connection, telling each why first.
+    fn disconnect_all(&self, reason: DisconnectReason) {
+        crate::remote::service::disconnect(None, reason);
     }
 
     /// Say whether the app is in front. A linked browser's write is answered
     /// only while it is; reads are answered either way.
     fn set_in_front(&self, in_front: bool) {
         crate::remote::service::set_in_front(in_front);
+    }
+
+    /// Set the name this phone gives a linked browser in its hello. A blank
+    /// name sends none.
+    fn set_device_name(&self, name: String) {
+        crate::remote::protocol::set_device_name(&name);
     }
 
     /// How many linked browsers are connected now, for the connected badge.

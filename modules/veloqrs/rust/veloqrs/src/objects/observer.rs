@@ -77,6 +77,10 @@ pub trait EngineObserver: Send + Sync {
     /// no payload: the reader takes a budget snapshot. The governor announces at
     /// most once a second, and the last change in a burst always goes out.
     fn request_budget_changed(&self);
+    /// A linked browser changed something the phone shows. `kind` names the
+    /// fact that moved, the channel a screen re-reads: `sections`, `groups`,
+    /// `activities` or `settings`.
+    fn remote_wrote(&self, kind: String);
 }
 
 /// One queued event, ready to hand to the observer.
@@ -105,6 +109,7 @@ pub(crate) enum Announcement {
     RecordingsChanged,
     UploadPermissionRefused,
     RequestBudgetChanged,
+    RemoteWrote(String),
 }
 
 impl Announcement {
@@ -131,6 +136,7 @@ impl Announcement {
             Self::RecordingsChanged => observer.recordings_changed(),
             Self::UploadPermissionRefused => observer.upload_permission_refused(),
             Self::RequestBudgetChanged => observer.request_budget_changed(),
+            Self::RemoteWrote(kind) => observer.remote_wrote(kind.clone()),
         }
     }
 }
@@ -157,6 +163,7 @@ impl Announcement {
             Self::RecordingsChanged => "recordings_changed",
             Self::UploadPermissionRefused => "upload_permission_refused",
             Self::RequestBudgetChanged => "request_budget_changed",
+            Self::RemoteWrote(_) => "remote_wrote",
         }
     }
 }
@@ -587,6 +594,9 @@ pub(crate) mod recorder {
         fn request_budget_changed(&self) {
             self.push("request_budget_changed");
         }
+        fn remote_wrote(&self, kind: String) {
+            self.push(&format!("remote_wrote:{kind}"));
+        }
     }
 }
 
@@ -708,6 +718,7 @@ mod tests {
         }
 
         impl EngineObserver for Slow {
+            fn remote_wrote(&self, _kind: String) {}
             fn sync_progress(&self) {
                 self.note("sync_progress");
             }
@@ -1238,6 +1249,7 @@ mod tests {
         }
 
         impl EngineObserver for Exploding {
+            fn remote_wrote(&self, _kind: String) {}
             explode! {
                 sync_progress();
                 sync_settled();

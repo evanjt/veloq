@@ -258,14 +258,10 @@ impl FitnessManager {
         newest: String,
     ) -> Result<crate::FfiWellnessDays, VeloqError> {
         with_reader(|conn| {
-            let days = crate::persistence::wellness::pooled::wellness_days(conn, &oldest, &newest)
+            crate::persistence::wellness::pooled::days_with_coverage(conn, &oldest, &newest)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
-                })?;
-            Ok(crate::FfiWellnessDays {
-                days,
-                coverage: crate::persistence::wellness::pooled::coverage(conn, &oldest, &newest),
-            })
+                })
         })?
     }
 

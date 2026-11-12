@@ -23,6 +23,7 @@ import { formFromLoads } from '@/shared/math';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { formatLocalDate, formatShortDate } from '@/shared/format/format';
 import { ChartErrorBoundary, EmptyState, PressTarget } from '@/shared/ui';
+import { useSource } from '@/shared/app/source/useSource';
 import {
   ChartCanvas,
   ChartCrosshair,
@@ -125,6 +126,7 @@ export const FitnessChart = React.memo(function FitnessChart({
   onAxisWidth,
 }: FitnessChartProps) {
   const { t } = useTranslation();
+  const fromGarmin = useSource()?.id === 'garmin';
   const { isDark } = useTheme();
   const styles = themedStyles(makeStyles, isDark);
   const largeText = useLargeText();
@@ -281,7 +283,7 @@ export const FitnessChart = React.memo(function FitnessChart({
           <EmptyState
             variant="inline"
             title={t('fitness.noData')}
-            description={t('fitness.noDataCause')}
+            description={t(fromGarmin ? 'fitness.noDataCauseGarmin' : 'fitness.noDataCause')}
           />
         )}
       </View>

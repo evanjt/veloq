@@ -20,6 +20,7 @@ import {
   stopIndoorRecordingService,
   updateRecordingNotification,
 } from './recordingNotification';
+import { sessionGuidanceCue } from './guidanceCue';
 import { fixAltitude, getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
 import { buildAutoPauseDetector, evaluateAutoPause, setAutoPauseDetector } from './manualPause';
 import { writeRideBackup, writeRideBackupIfDue } from './rideBackup';
@@ -63,7 +64,7 @@ function isLive(status: RecordingStatus): boolean {
 
 function ingestFix(coords: Location.LocationObjectCoords, timestamp: number): void {
   const { latitude, longitude, accuracy, speed, heading } = coords;
-  useRecordingLiveStore.getState().setFix({ latitude, longitude }, accuracy);
+  useRecordingLiveStore.getState().setFix({ latitude, longitude }, accuracy, heading);
 
   // Drop low-accuracy points to reduce GPS noise (the threshold is a preference)
   if (accuracy != null && accuracy > getAccuracyRejectThreshold()) return;
@@ -414,6 +415,15 @@ function startSession(): void {
         startSampling(state.mode);
       }
     }),
+    // The followed route's off-route line reaches the screen-off surfaces on the state
+    // change only: the notification re-posts with the line (and, once, the vibration) and the
+    // card takes the same line.
+    useRecordingLiveStore.subscribe((state, previous) => {
+      if (state.guidance === previous.guidance) return;
+      if (!sessionGuidanceCue.observe(state.guidance).changed) return;
+      updateRecordingNotification();
+      refreshLiveActivity();
+    }),
     installRecordingNotificationActions()
   );
 
@@ -431,6 +441,7 @@ function stopSession(): void {
 
   for (const unsubscribe of sessionUnsubscribes) unsubscribe();
   sessionUnsubscribes = [];
+  sessionGuidanceCue.reset();
   setAutoPauseDetector(null);
 
   if (backupTimer) {

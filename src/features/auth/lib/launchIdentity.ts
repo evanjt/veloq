@@ -8,15 +8,18 @@
  * question goes to the athlete, and nothing may run until it is answered.
  */
 
-/** The three shapes launch can find, once the engine is open. */
-export type LaunchIdentityAction = 'proceed' | 'wipe-then-proceed' | 'ask-first';
+import { adoptsGarminLibrary } from '@/shared/app/storedSession';
+
+/** The four shapes launch can find, once the engine is open. */
+export type LaunchIdentityAction = 'proceed' | 'adopt' | 'wipe-then-proceed' | 'ask-first';
 
 /**
  * Whose library is on disk against who signed in.
  *
  * An empty engine has nothing to lose and takes the new identity as it stands.
  * A library with activities in it is the athlete's only copy, so it is never
- * wiped without being asked.
+ * wiped without being asked. A library named for a Garmin account is adopted
+ * by the intervals.icu athlete who signs in over it, with nothing asked.
  */
 export function launchIdentityAction(
   cachedAthleteId: string | null | undefined,
@@ -25,10 +28,13 @@ export function launchIdentityAction(
 ): LaunchIdentityAction {
   if (!cachedAthleteId || !credentialsAthleteId) return 'proceed';
   if (cachedAthleteId === credentialsAthleteId) return 'proceed';
+  if (adoptsGarminLibrary(cachedAthleteId, credentialsAthleteId)) return 'adopt';
   return storedActivityCount > 0 ? 'ask-first' : 'wipe-then-proceed';
 }
 
 interface LaunchIdentitySteps {
+  /** Name the library for the athlete signed in, keeping every row. */
+  adopt: () => void;
   /** Empty the library and re-open it. Resolves once the wipe has finished. */
   wipe: () => Promise<void>;
   /** Re-open the database. Returns whether it opened. */
@@ -56,6 +62,11 @@ export async function completeLaunchIdentity(
   steps: LaunchIdentitySteps
 ): Promise<boolean> {
   if (action === 'proceed') {
+    steps.proceed();
+    return true;
+  }
+  if (action === 'adopt') {
+    steps.adopt();
     steps.proceed();
     return true;
   }

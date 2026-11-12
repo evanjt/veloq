@@ -38,6 +38,8 @@ const providerIsGone = (output: string) =>
   evaluate<boolean>(`m.providerIsGone(${JSON.stringify(output)})`);
 const retryCommands = (fix: Fix, output: string) =>
   evaluate<string[][]>(`m.retryCommands(${JSON.stringify(fix)}, ${JSON.stringify(output)})`);
+const parseOrigin = (args: string[]) =>
+  evaluate<{ lat: number; lng: number } | null>(`m.parseOrigin(${JSON.stringify(args)})`);
 
 const origin = { lat: -33.85, lng: 151.2 };
 const metres = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
@@ -82,10 +84,32 @@ describe('mock GPS route', () => {
     expect(all.slice(-cleanup.length)).toEqual(cleanup);
     expect(cleanup.map((c) => c.join(' '))).toEqual([
       expect.stringContaining('remove-test-provider gps'),
-      expect.stringContaining('appops set com.android.shell android:mock_location default'),
+      expect.stringContaining('appops set --uid com.android.shell MOCK_LOCATION default'),
     ]);
     expect(all.slice(0, setupCommands().length)).toEqual(setupCommands());
-    expect(setupCommands().join('|')).toContain('android:mock_location,allow');
+    // The package-level appop leaves the uid mode at default, and the location service then
+    // refuses the shell's test provider on newer Android.
+    expect(setupCommands()[0].join(' ')).toBe(
+      'shell appops set --uid com.android.shell MOCK_LOCATION allow'
+    );
+  });
+
+  it('starts at the default origin when no coordinates are given', () => {
+    expect(parseOrigin([])).toEqual({ lat: -33.85, lng: 151.2 });
+  });
+
+  it('starts the ride at the coordinates given, so it can join a route off the default', () => {
+    expect(parseOrigin(['-22.974073', '-43.186348'])).toEqual({
+      lat: -22.974073,
+      lng: -43.186348,
+    });
+  });
+
+  it('refuses a single coordinate, a non-number and an out-of-range latitude or longitude', () => {
+    expect(parseOrigin(['-22.97'])).toBeNull();
+    expect(parseOrigin(['south', '-43.18'])).toBeNull();
+    expect(parseOrigin(['91', '0'])).toBeNull();
+    expect(parseOrigin(['0', '181'])).toBeNull();
   });
 
   it('restores a provider a flow removed and resends the refused fix once', () => {

@@ -1,12 +1,27 @@
 // The connect page's screens. Each reads the session's snapshot and the
 // address; nothing here talks to the phone.
 
-import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import type { ParseKeys } from 'i18next';
+import { useTranslation } from 'react-i18next';
 
+import { chartDataOf, factsOfDetail } from './activity';
 import { ActivityPage } from './ActivityPage';
+import { ConnectionChip } from './ConnectionChip';
+import { FitnessPane } from './FitnessPane';
+import { LanguageMenu } from './LanguageMenu';
 import { compareColour, compareRows, select, type Mode } from './compare';
 import { clock, km, kmh } from './format';
-import type { SportFamily, State } from './link';
+import {
+  deviceLines,
+  settingRows,
+  strengthPeriodDays,
+  type Notice,
+  type SportFamily,
+  type State,
+} from './link';
+import { MapScreen } from './map/MapScreen';
+import { sportMark, THUMB, trackShape } from './preview';
 import { toQR } from './qr';
 import { ON_THE_PHONE, PANE_NOTE, SETTINGS_GROUPS, pane, type Pane } from './settings';
 import {
@@ -20,7 +35,17 @@ import {
   type Route,
   type Tab,
 } from './router';
-import type { Card, Detail, Session, Sparklines, Summary } from './session';
+import type { Methods } from './schema';
+import {
+  activityParts,
+  type ActivityParts,
+  type Card,
+  type Detail,
+  type Session,
+  type SettingsReads,
+  type Sparklines,
+  type Summary,
+} from './session';
 import {
   COLUMNS,
   RANGES,
@@ -36,30 +61,19 @@ import {
   type Sort,
 } from './table';
 
-const STATUS: Record<State['name'], string> = {
-  unpaired: 'Not linked',
-  inviting: 'Waiting for the code to be scanned',
-  proving: 'Checking the phone',
-  confirming: 'Confirm on your phone',
-  waiting: 'Waiting for your phone',
-  connecting: 'Connecting',
-  connected: 'Connected',
-  update: 'Update Veloq on your phone',
+const NOTICE: Record<Notice, ParseKeys> = {
+  refused: 'connectPage.notice.refused',
+  declined: 'connectPage.notice.declined',
+  removed: 'connectPage.notice.removed',
+  unreachable: 'connectPage.notice.unreachable',
 };
 
-const UNSUPPORTED = 'This browser cannot link to the phone. Try a current Chrome, Edge or Firefox.';
-
-const NOTICE: Record<'refused' | 'declined', string> = {
-  refused: 'The phone refused this browser. Link it again with a new code.',
-  declined: 'Linking was declined on the phone.',
-};
-
-const SCREEN_NAMES: Record<Tab, string> = {
-  feed: 'Feed',
-  fitness: 'Fitness',
-  insights: 'Insights',
-  map: 'Map',
-  settings: 'Settings',
+const SCREEN_NAMES: Record<Tab, ParseKeys> = {
+  feed: 'connectPage.screens.feed',
+  fitness: 'connectPage.screens.fitness',
+  insights: 'connectPage.screens.insights',
+  map: 'connectPage.screens.map',
+  settings: 'connectPage.screens.settings',
 };
 
 const RAIL: { tab: Tab; icon: string }[] = [
@@ -70,14 +84,14 @@ const RAIL: { tab: Tab; icon: string }[] = [
   { tab: 'settings', icon: 'S' },
 ];
 
-const FAMILIES: [family: SportFamily, label: string][] = [
-  ['ride', 'Ride'],
-  ['run', 'Run'],
-  ['winter', 'Winter'],
-  ['water', 'Water'],
-  ['foot', 'Foot'],
-  ['strength', 'Strength'],
-  ['other', 'Other'],
+const FAMILIES: [family: SportFamily, label: ParseKeys][] = [
+  ['ride', 'connectPage.families.ride'],
+  ['run', 'connectPage.families.run'],
+  ['winter', 'connectPage.families.winter'],
+  ['water', 'connectPage.families.water'],
+  ['foot', 'connectPage.families.foot'],
+  ['strength', 'connectPage.families.strength'],
+  ['other', 'connectPage.families.other'],
 ];
 
 /** How long typing pauses before the search is asked of the phone. */
@@ -110,7 +124,14 @@ function openedId(route: Route): string | null {
   return route.screen === 'feed' ? queryValue(route, 'id') : null;
 }
 
-export function App({ session }: { session: Session }) {
+export function App({
+  session,
+  onLanguage,
+}: {
+  session: Session;
+  onLanguage: (tag: string) => void;
+}) {
+  const { t } = useTranslation();
   const snapshot = useSyncExternalStore(session.subscribe, session.get);
   const hash = useSyncExternalStore(subscribeToHash, () => location.hash);
   const [search, setSearch] = useState(snapshot.filter.needle);
@@ -118,12 +139,34 @@ export function App({ session }: { session: Session }) {
   const [previewId, setPreviewId] = useState<string | null>(null);
 
   const { state } = snapshot;
+  /** Bumped when the phone says its library changed, so each screen on view asks again. */
+  const changes = snapshot.libraryChanges;
   const connected = state.name === 'connected';
   const pairing = PAIRING.has(state.name);
   const route = resolve(state.name, hash, null).shown ?? FEED;
   const tab = tabOf(route);
   const onFeed = connected && route.screen === 'feed';
   const onActivity = connected && route.screen === 'activity';
+  const onMap = connected && route.screen === 'map';
+  const onFitness = connected && route.screen === 'fitness';
+  const onSettings = connected && route.screen === 'settings';
+  const onStrength =
+    connected && route.screen === 'insights' && queryValue(route, 'type') === 'strength';
+  const onExercise = connected && route.screen === 'exercise' && route.id !== null;
+  const onRecordings = connected && route.screen === 'recordings';
+  const onRecording = connected && route.screen === 'recording' && route.id !== null;
+  const ownPane =
+    onFeed ||
+    onActivity ||
+    onMap ||
+    onSettings ||
+    onFitness ||
+    onStrength ||
+    onExercise ||
+    onRecordings ||
+    onRecording;
+  const strengthDays = strengthPeriodDays(queryValue(route, 'period'));
+  const exerciseCategory = onExercise ? exerciseOf(route.id) : null;
   const pinnedId = onFeed || onActivity ? openedId(route) : null;
   const shownId = onFeed && previewId ? previewId : pinnedId;
   const feedState = readFeedQuery(route);
@@ -135,7 +178,44 @@ export function App({ session }: { session: Session }) {
 
   useEffect(() => {
     if (shownId) session.requestDetail(shownId);
-  }, [session, shownId, state]);
+  }, [session, shownId, state, changes]);
+
+  const openedActivity = onActivity ? route.id : null;
+  useEffect(() => {
+    if (openedActivity) session.requestActivityParts(openedActivity);
+  }, [session, openedActivity, state, changes]);
+  const parts = openedActivity
+    ? (snapshot.screens[activityParts(openedActivity)] as ActivityParts | undefined)
+    : undefined;
+
+  useEffect(() => {
+    if (onSettings) session.requestSettings();
+  }, [session, onSettings, state, changes]);
+
+  useEffect(() => {
+    if (onStrength) session.requestStrength(strengthDays);
+    if (exerciseCategory !== null) {
+      session.request(`exercise:${exerciseCategory}`, 'strength.exercise', { exerciseCategory });
+    }
+    if (onRecordings) session.request('recordings', 'recordings.list', {});
+    if (onRecording && route.id !== null) {
+      session.request(`recording:${route.id}`, 'recordings.get', { id: route.id });
+    }
+  }, [
+    session,
+    state,
+    changes,
+    onStrength,
+    strengthDays,
+    exerciseCategory,
+    onRecordings,
+    onRecording,
+    route.id,
+  ]);
+
+  useEffect(() => {
+    if (onFitness) session.requestFitness();
+  }, [session, onFitness, state, changes]);
 
   const comparedKey = onFeed ? feedState.ids.join('\n') : '';
   useEffect(() => {
@@ -225,13 +305,17 @@ export function App({ session }: { session: Session }) {
     <>
       <header>
         <h1>Veloq</h1>
-        <p id="status" role="status" aria-live="polite">
-          {snapshot.failed ? UNSUPPORTED : STATUS[state.name]}
-        </p>
+        <ConnectionChip
+          session={session}
+          state={state}
+          failed={snapshot.failed}
+          since={snapshot.connectedSince}
+        />
+        <LanguageMenu onChange={onLanguage} />
       </header>
 
       {connected ? (
-        <nav id="rail" aria-label="Screens">
+        <nav id="rail" aria-label={t('connectPage.railLabel')}>
           <ul>
             {RAIL.map((entry) => (
               <li key={entry.tab}>
@@ -239,7 +323,7 @@ export function App({ session }: { session: Session }) {
                   <span className="icon" aria-hidden="true">
                     {entry.icon}
                   </span>
-                  <span className="label">{SCREEN_NAMES[entry.tab]}</span>
+                  <span className="label">{t(SCREEN_NAMES[entry.tab])}</span>
                 </a>
               </li>
             ))}
@@ -248,31 +332,41 @@ export function App({ session }: { session: Session }) {
             <input
               id="search"
               type="search"
-              placeholder="Search (/)"
-              aria-label="Search activities"
+              placeholder={t('connectPage.library.searchPlaceholder')}
+              aria-label={t('connectPage.library.searchLabel')}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
           ) : null}
-          <p className="phone">Your phone</p>
+          <p className="phone">
+            {state.name === 'connected' && state.device ? state.device : t('connectPage.yourPhone')}
+          </p>
         </nav>
       ) : null}
 
       <main>
+        {snapshot.failed ? (
+          <p className="notice" role="status">
+            {t('connectPage.unsupported')}
+          </p>
+        ) : null}
         {pairing ? <PairPane state={state} code={snapshot.code} /> : null}
         {snapshot.writeNotice ? (
           <p id="write-notice" className="notice" role="status">
             {snapshot.writeNotice}
           </p>
         ) : null}
-        {(state.name === 'waiting' || state.name === 'connecting') && <WaitingPane />}
+        {(state.name === 'waiting' || state.name === 'connecting') && (
+          <WaitingPane unreachable={!!state.unreachable} />
+        )}
         {state.name === 'update' && <UpdatePane />}
         {onActivity && route.id ? (
           <ActivityPage
             id={route.id}
             card={snapshot.feed?.find((row) => row.id === route.id)}
             detail={snapshot.details[route.id]}
-            data={null}
+            data={chartDataOf(parts?.streams)}
+            facts={factsOfDetail(parts?.laps, parts?.data)}
           />
         ) : null}
         {onFeed ? (
@@ -282,6 +376,7 @@ export function App({ session }: { session: Session }) {
             summary={snapshot.summary}
             sparklines={snapshot.sparklines}
             highlights={snapshot.highlights}
+            previews={snapshot.previews}
             onMore={session.loadMore}
             detail={shownId ? snapshot.details[shownId] : undefined}
             shownId={shownId}
@@ -291,23 +386,65 @@ export function App({ session }: { session: Session }) {
             details={snapshot.details}
           />
         ) : null}
-        {connected && route.screen === 'settings' ? <SettingsPane id={route.id} /> : null}
-        {connected && !onFeed && !onActivity && route.screen !== 'settings' ? (
+        {onMap ? (
+          <MapScreen
+            read={session.read}
+            methods={state.name === 'connected' ? (state.methods ?? []) : []}
+          />
+        ) : null}
+        {onSettings ? <SettingsPane id={route.id} reads={snapshot.settings} /> : null}
+        {onStrength ? (
+          <StrengthPane
+            days={strengthDays}
+            screen={
+              snapshot.screens[`strength:${strengthDays}`] as
+                Methods['strength.screen']['result'] | undefined
+            }
+          />
+        ) : null}
+        {onExercise ? (
+          <ExercisePane
+            known={exerciseCategory !== null}
+            detail={
+              snapshot.screens[`exercise:${exerciseCategory}`] as
+                Methods['strength.exercise']['result'] | undefined
+            }
+          />
+        ) : null}
+        {onRecordings ? (
+          <RecordingsPane
+            answer={snapshot.screens.recordings as Methods['recordings.list']['result'] | undefined}
+          />
+        ) : null}
+        {onRecording ? (
+          <RecordingPane
+            answer={
+              snapshot.screens[`recording:${route.id}`] as
+                Methods['recordings.get']['result'] | undefined
+            }
+          />
+        ) : null}
+        {onFitness ? (
+          <FitnessPane
+            snapshot={snapshot}
+            onRange={session.setFitnessRange}
+            onBestPeriod={session.setBestEffortDays}
+          />
+        ) : null}
+        {connected && !ownPane ? (
           <section id="later">
-            <h2 id="later-title">{SCREEN_NAMES[tab]}</h2>
-            <p>This screen is not on the browser yet. Open it on your phone.</p>
+            <h2 id="later-title">{t(SCREEN_NAMES[tab])}</h2>
+            <p>{t('connectPage.laterScreen')}</p>
           </section>
         ) : null}
         {connected && keysOpen ? <KeysPane /> : null}
       </main>
 
       <footer>
-        <p>
-          Your data goes straight from your phone to this page and is kept only while it is open.
-        </p>
+        <p>{t('connectPage.footer')}</p>
         {!pairing && (
           <button id="forget" type="button" onClick={session.unlink}>
-            Unlink this browser
+            {t('connectPage.unlink')}
           </button>
         )}
       </footer>
@@ -316,6 +453,7 @@ export function App({ session }: { session: Session }) {
 }
 
 function PairPane({ state, code }: { state: State; code: string | null }) {
+  const { t } = useTranslation();
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     if (code && canvas.current) drawCode(canvas.current, code);
@@ -323,16 +461,22 @@ function PairPane({ state, code }: { state: State; code: string | null }) {
   const notice = state.name === 'unpaired' || state.name === 'inviting' ? state.notice : undefined;
   return (
     <section id="pair">
-      <h2>Link this browser</h2>
+      <h2>{t('connectPage.pair.heading')}</h2>
       <ol>
-        <li>Open Veloq on your phone.</li>
-        <li>Go to Settings, then Linked devices, then Link a device.</li>
-        <li>Scan this code.</li>
+        <li>{t('connectPage.pair.step1')}</li>
+        <li>{t('connectPage.pair.step2')}</li>
+        <li>{t('connectPage.pair.step3')}</li>
       </ol>
-      <canvas ref={canvas} id="code" width={360} height={360} aria-label="Link code" />
+      <canvas
+        ref={canvas}
+        id="code"
+        width={360}
+        height={360}
+        aria-label={t('connectPage.pair.codeLabel')}
+      />
       {notice ? (
         <p id="pair-notice" className="notice">
-          {NOTICE[notice]}
+          {t(NOTICE[notice])}
         </p>
       ) : null}
     </section>
@@ -357,53 +501,481 @@ function drawCode(canvas: HTMLCanvasElement, text: string) {
   }
 }
 
-function WaitingPane() {
+function WaitingPane({ unreachable }: { unreachable: boolean }) {
+  const { t } = useTranslation();
   return (
     <section id="waiting">
-      <h2>Waiting for your phone</h2>
-      <p>
-        Open Veloq on your phone. This page connects on its own, on the same Wi-Fi or across
-        networks.
-      </p>
+      <h2>{t('connectPage.waiting.heading')}</h2>
+      <p>{t(unreachable ? 'connectPage.waiting.unreachable' : 'connectPage.waiting.body')}</p>
     </section>
   );
 }
 
 function UpdatePane() {
+  const { t } = useTranslation();
   return (
     <section id="update">
-      <h2>Update Veloq on your phone</h2>
-      <p>
-        This page and the Veloq on your phone do not speak the same version of the link. Update
-        Veloq on your phone, then open this page again.
-      </p>
+      <h2>{t('connectPage.update.heading')}</h2>
+      <p>{t('connectPage.update.body')}</p>
+    </section>
+  );
+}
+
+/** A definition list of the facts that have a value. */
+function Facts({ id, facts }: { id: string; facts: [label: string, value: string | null][] }) {
+  return (
+    <dl id={id}>
+      {facts
+        .filter(([, value]) => value)
+        .map(([label, value]) => (
+          <Fragment key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </Fragment>
+        ))}
+    </dl>
+  );
+}
+
+/** The settings each readable screen shows, by the screen's address. */
+const SCREEN_SETTINGS: Readonly<Record<string, readonly string[]>> = {
+  'display-settings': [
+    'veloq-theme-preference',
+    'veloq-language-preference',
+    'veloq-unit-preference',
+    'veloq-primary-sport',
+    'veloq-wellness-smoothing',
+  ],
+  'map-settings': ['veloq-map-preferences'],
+  'summary-card-settings': ['dashboard_summary_card'],
+  'notification-settings': ['veloq-notification-preferences'],
+  'detection-settings': ['veloq-route-settings'],
+};
+
+/** The readable screens whose values the page reads from the phone. */
+const READ_SCREENS = new Set(['linked-devices', 'backup-settings', 'cache-settings']);
+
+const readsScreen = (screen: string) => screen in SCREEN_SETTINGS || READ_SCREENS.has(screen);
+
+/** The values the phone holds for `keys`, read-only. */
+function SettingValues({
+  keys,
+  reads,
+}: {
+  keys: readonly string[];
+  reads: Readonly<SettingsReads>;
+}) {
+  const rows = settingRows(reads['settings.get']).filter((row) => keys.includes(row.key));
+  return (
+    <dl id="settings-rows" className="readonly">
+      {rows.map((row) => (
+        <Fragment key={row.key}>
+          <dt>{row.label}</dt>
+          <dd>{row.value}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
+
+/** The library's state on the phone: sync, what is downloaded, the cache and detection. */
+function LibraryStatus({ reads }: { reads: Readonly<SettingsReads> }) {
+  const { t } = useTranslation();
+  const coverage = reads['status.coverage'];
+  const cache = reads['status.cache'];
+  const jobs = reads['status.backgroundJobs'];
+  const sync = reads['status.sync'];
+  return (
+    <Facts
+      id="settings-status"
+      facts={[
+        [t('connectPage.settings.sync'), sync?.state ?? null],
+        [
+          t('connectPage.settings.activitiesOnPhone'),
+          coverage && coverage.upstream > 0 ? `${coverage.fetched} of ${coverage.upstream}` : null,
+        ],
+        [
+          t('connectPage.settings.tracksOnPhone'),
+          coverage && coverage.tracksUpstream > 0
+            ? `${coverage.tracksStored} of ${coverage.tracksUpstream}`
+            : null,
+        ],
+        [
+          t('connectPage.settings.streamCache'),
+          cache ? `${(cache.streamStoreBytes / 1e6).toFixed(1)} MB` : null,
+        ],
+        [
+          t('connectPage.settings.awaitingDetection'),
+          jobs?.detectionAwaiting == null ? null : String(jobs.detectionAwaiting),
+        ],
+      ]}
+    />
+  );
+}
+
+/**
+ * What the phone holds for a readable screen, read-only, or nothing when the
+ * page does not read that screen's values.
+ */
+function ScreenReadout({ screen, reads }: { screen: string; reads: Readonly<SettingsReads> }) {
+  const { t } = useTranslation();
+  const keys = SCREEN_SETTINGS[screen];
+  if (keys) return <SettingValues keys={keys} reads={reads} />;
+  if (screen === 'linked-devices') {
+    const devices = reads['status.linkedDevices'];
+    return (
+      <ul id="settings-devices">
+        {(devices ? deviceLines(devices) : []).map((line, at) => (
+          <li key={at}>{line}</li>
+        ))}
+      </ul>
+    );
+  }
+  if (screen === 'backup-settings') {
+    return (
+      <Facts
+        id="settings-backup"
+        facts={[
+          [
+            t('connectPage.settings.backup'),
+            reads['status.backup'] ? t('connectPage.settings.backupSetUp') : null,
+          ],
+        ]}
+      />
+    );
+  }
+  return <LibraryStatus reads={reads} />;
+}
+
+/** The athlete's profile as the phone holds it. */
+function Profile({ reads }: { reads: Readonly<SettingsReads> }) {
+  const { t } = useTranslation();
+  const profile = reads['settings.profile'];
+  return (
+    <Facts
+      id="settings-profile"
+      facts={[
+        [t('connectPage.settings.name'), profile?.name ?? null],
+        [t('connectPage.settings.units'), profile?.measurementPreference ?? null],
+        [
+          t('connectPage.settings.weight'),
+          profile?.weightKg == null ? null : `${profile.weightKg} kg`,
+        ],
+      ]}
+    />
+  );
+}
+
+/** The exercise category a route names, or null when it is not one. */
+function exerciseOf(id: string | null): number | null {
+  const category = Number(id);
+  return id !== null && Number.isInteger(category) && category >= 0 && category <= 65535
+    ? category
+    : null;
+}
+
+/** A muscle slug as a label: `upper-back` reads `Upper back`. */
+function slugLabel(slug: string) {
+  const text = slug.replace(/[-_]/g, ' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** A week or session start, read as the local date the engine stamped it with. */
+const dayOf = (wallSecondsValue: number) =>
+  new Date(wallSecondsValue * 1000).toISOString().slice(0, 10);
+
+/** Sets, which may be a half where a secondary muscle counts half. */
+const setCount = (sets: number) => String(Math.round(sets * 10) / 10);
+
+const STRENGTH_PERIODS: [period: string, days: number, label: ParseKeys][] = [
+  ['7d', 7, 'connectPage.strength.period7d'],
+  ['1m', 30, 'connectPage.strength.period1m'],
+  ['3m', 90, 'connectPage.strength.period3m'],
+  ['6m', 180, 'connectPage.strength.period6m'],
+  ['1y', 365, 'connectPage.strength.period1y'],
+];
+
+/** A table of rows of cell texts under a header. */
+function Table({
+  id,
+  head,
+  rows,
+  bodyId,
+}: {
+  id: string;
+  head: string[];
+  rows: (string | ReactNode)[][];
+  bodyId: string;
+}) {
+  return (
+    <table id={id}>
+      <thead>
+        <tr>
+          {head.map((title) => (
+            <th key={title} scope="col">
+              {title}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody id={bodyId}>
+        {rows.map((cells, row) => (
+          <tr key={row}>
+            {cells.map((cell, at) => (
+              <td key={at}>{cell}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** The strength tab: the period's muscles, the trailing weeks and the exercises behind each muscle. */
+function StrengthPane({
+  days,
+  screen,
+}: {
+  days: number;
+  screen: Methods['strength.screen']['result'] | undefined;
+}) {
+  const { t } = useTranslation();
+  const owed = screen?.owedCount ?? 0;
+  return (
+    <section id="strength">
+      <h2>{t('connectPage.strength.heading')}</h2>
+      <nav id="strength-periods" aria-label={t('connectPage.strength.period')}>
+        {STRENGTH_PERIODS.map(([period, span, label]) => (
+          <a
+            key={period}
+            href={`#/insights?type=strength&period=${period}`}
+            data-days={span}
+            aria-current={span === days}
+          >
+            {t(label)}
+          </a>
+        ))}
+      </nav>
+      {owed > 0 ? (
+        <p id="strength-owed">{t('connectPage.strength.owed', { count: owed })}</p>
+      ) : null}
+      <h3>{t('connectPage.strength.muscles')}</h3>
+      <Table
+        id="strength-muscles"
+        bodyId="strength-muscle-rows"
+        head={[
+          t('connectPage.strength.colMuscle'),
+          t('connectPage.strength.colWeightedSets'),
+          t('connectPage.strength.colReps'),
+          t('connectPage.strength.colVolume'),
+          t('connectPage.strength.colExercises'),
+        ]}
+        rows={(screen?.summary.muscleVolumes ?? []).map((muscle) => [
+          slugLabel(muscle.slug),
+          setCount(muscle.weightedSets),
+          String(muscle.totalReps),
+          String(Math.round(muscle.volumeKg)),
+          muscle.exerciseNames.join(', '),
+        ])}
+      />
+      <h3>{t('connectPage.strength.weeks')}</h3>
+      <Table
+        id="strength-weeks"
+        bodyId="strength-week-rows"
+        head={[
+          t('connectPage.strength.colWeekOf'),
+          t('connectPage.strength.colSessions'),
+          t('connectPage.strength.colSets'),
+          t('connectPage.strength.colMostWorked'),
+        ]}
+        rows={(screen?.weekly ?? []).map((week) => [
+          dayOf(week.startTs),
+          String(week.activityCount),
+          String(week.totalSets),
+          setCount(week.maxWeightedSets),
+        ])}
+      />
+      <h3>{t('connectPage.strength.exercises')}</h3>
+      <div id="strength-exercises">
+        {(screen?.exercises ?? []).map((group) => (
+          <section key={group.muscleSlug}>
+            <h3>{slugLabel(group.muscleSlug)}</h3>
+            <ul>
+              {group.exercises.map((exercise) => (
+                <li key={exercise.exerciseCategory}>
+                  <a
+                    href={write({
+                      screen: 'exercise',
+                      id: String(exercise.exerciseCategory),
+                      query: [],
+                    })}
+                  >
+                    {exercise.exerciseName}
+                  </a>
+                  <span className="meta">
+                    {t('connectPage.strength.line', {
+                      sets: exercise.totalSets,
+                      reps: exercise.totalReps,
+                      kg: Math.round(exercise.volumeKg),
+                    })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** One exercise: the sessions it was done in, each with its best set and estimated one-rep max. */
+function ExercisePane({
+  known,
+  detail,
+}: {
+  known: boolean;
+  detail: Methods['strength.exercise']['result'] | undefined;
+}) {
+  const { t } = useTranslation();
+  return (
+    <section id="exercise">
+      <h2 id="exercise-title">
+        {known
+          ? (detail?.exerciseName ?? t('connectPage.strength.exercise'))
+          : t('connectPage.strength.unknownExercise')}
+      </h2>
+      <Table
+        id="exercise-sessions"
+        bodyId="exercise-session-rows"
+        head={[
+          t('connectPage.strength.colDate'),
+          t('connectPage.strength.colActivity'),
+          t('connectPage.strength.colBestSet'),
+          t('connectPage.strength.colOneRepMax'),
+        ]}
+        rows={(known ? (detail?.sessions ?? []) : []).map((entry) => {
+          const best = entry.bestSet;
+          const weight = best.weightKg == null ? null : `${best.weightKg} kg`;
+          const reps =
+            best.repetitions == null
+              ? null
+              : t('connectPage.strength.bestSetReps', { count: best.repetitions });
+          return [
+            dayOf(entry.date),
+            entry.activityName,
+            [weight, reps].filter(Boolean).join(' × '),
+            entry.estimatedOneRepMaxKg == null
+              ? ''
+              : `${Math.round(entry.estimatedOneRepMaxKg)} kg`,
+          ];
+        })}
+      />
+    </section>
+  );
+}
+
+/** The recordings on this phone that the signed-in athlete may see, newest first. */
+function RecordingsPane({ answer }: { answer: Methods['recordings.list']['result'] | undefined }) {
+  const { t } = useTranslation();
+  return (
+    <section id="recordings">
+      <h2>{t('connectPage.recordings.heading')}</h2>
+      <p>{t('connectPage.recordings.intro')}</p>
+      <ul id="recordings-list">
+        {(answer?.recordings ?? []).map((row) => (
+          <li key={row.id}>
+            <a href={write({ screen: 'recording', id: row.id, query: [] })}>{row.name}</a>
+            <span className="meta">
+              {[
+                new Date(row.startTime).toLocaleDateString(),
+                row.activityType,
+                km(row.distanceMeters),
+                clock(row.durationSeconds),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** One recording's facts. The track is drawn by the map, and nothing here uploads or deletes. */
+function RecordingPane({ answer }: { answer: Methods['recordings.get']['result'] | undefined }) {
+  const { t } = useTranslation();
+  const recording = answer?.recording;
+  if (!recording) {
+    return (
+      <section id="recording">
+        <h2 id="recording-title">
+          {answer ? t('connectPage.recordings.notFound') : t('connectPage.recordings.one')}
+        </h2>
+        <dl id="recording-facts" />
+      </section>
+    );
+  }
+  const facts: [label: string, value: string | null][] = [
+    [t('connectPage.recordings.activityType'), recording.activityType],
+    [t('connectPage.recordings.started'), new Date(recording.startTime).toLocaleString()],
+    [t('connectPage.recordings.duration'), clock(recording.durationSeconds)],
+    [t('connectPage.facts.distance'), km(recording.distanceMeters)],
+    [
+      t('connectPage.facts.climbing'),
+      recording.elevationGain == null ? null : `${Math.round(recording.elevationGain)} m`,
+    ],
+    [
+      t('connectPage.facts.averageHr'),
+      recording.avgHeartrate == null ? null : `${Math.round(recording.avgHeartrate)} bpm`,
+    ],
+    [t('connectPage.recordings.upload'), recording.uploadStatus],
+    [t('connectPage.recordings.lastError'), recording.lastError],
+    [t('connectPage.recordings.notes'), recording.notes],
+  ];
+  return (
+    <section id="recording">
+      <h2 id="recording-title">{recording.name}</h2>
+      <dl id="recording-facts">
+        {facts
+          .filter(([, value]) => value)
+          .map(([label, value]) => (
+            <Fragment key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </Fragment>
+          ))}
+      </dl>
     </section>
   );
 }
 
 function KeysPane() {
+  const { t } = useTranslation();
   return (
     <section id="keys">
-      <h2>Keys</h2>
+      <h2>{t('connectPage.keys.heading')}</h2>
       <dl>
-        <dt>1 to 5</dt>
-        <dd>Feed, Fitness, Insights, Map, Settings</dd>
+        <dt>{t('connectPage.keys.range')}</dt>
+        <dd>{t('connectPage.keys.tabs')}</dd>
         <dt>/</dt>
-        <dd>Search the feed</dd>
+        <dd>{t('connectPage.keys.search')}</dd>
         <dt>Esc</dt>
-        <dd>Close the activity</dd>
+        <dd>{t('connectPage.keys.close')}</dd>
         <dt>?</dt>
-        <dd>This list</dd>
+        <dd>{t('connectPage.keys.list')}</dd>
       </dl>
     </section>
   );
 }
 
 /** The phone's settings hub as a list on the left and the chosen screen on the right. */
-function SettingsPane({ id }: { id: string | null }) {
+function SettingsPane({ id, reads }: { id: string | null; reads: Readonly<SettingsReads> }) {
+  const { t } = useTranslation();
   return (
     <section id="settings">
-      <nav id="settings-list" aria-label="Settings">
+      <nav id="settings-list" aria-label={t('connectPage.screens.settings')}>
         {SETTINGS_GROUPS.map((group) => (
           <div key={group.title} className="settings-group">
             <h2>{group.title}</h2>
@@ -419,7 +991,7 @@ function SettingsPane({ id }: { id: string | null }) {
           </div>
         ))}
         <div className="settings-group">
-          <h2>On the phone</h2>
+          <h2>{t('connectPage.settings.onThePhone')}</h2>
           <ul>
             {ON_THE_PHONE.map((entry) => (
               <li key={entry.title}>
@@ -436,19 +1008,32 @@ function SettingsPane({ id }: { id: string | null }) {
         </div>
       </nav>
       <div id="settings-pane">
-        <SettingsBody shown={pane(id)} />
+        <SettingsBody shown={pane(id)} screen={id} reads={reads} />
       </div>
     </section>
   );
 }
 
-function SettingsBody({ shown }: { shown: Pane }) {
+function SettingsBody({
+  shown,
+  screen,
+  reads,
+}: {
+  shown: Pane;
+  screen: string | null;
+  reads: Readonly<SettingsReads>;
+}) {
+  const { t } = useTranslation();
   if (shown.kind === 'readable') {
     return (
       <>
         <h2 id="settings-title">{shown.title}</h2>
         <p className="note">{shown.note}</p>
-        <p>{shown.body}</p>
+        {screen && readsScreen(screen) ? (
+          <ScreenReadout screen={screen} reads={reads} />
+        ) : (
+          <p>{shown.body}</p>
+        )}
       </>
     );
   }
@@ -457,22 +1042,26 @@ function SettingsBody({ shown }: { shown: Pane }) {
       <>
         <h2 id="settings-title">{shown.title}</h2>
         <p>{shown.why}</p>
-        <p className="note">Open it on your phone.</p>
+        <p className="note">{t('connectPage.settings.openOnPhone')}</p>
       </>
     );
   }
   if (shown.kind === 'unknown') {
     return (
       <>
-        <h2 id="settings-title">Not on the browser yet</h2>
-        <p>This setting is not on the browser yet. Open it on your phone.</p>
+        <h2 id="settings-title">{t('connectPage.settings.notOnBrowser')}</h2>
+        <p>{t('connectPage.settings.notOnBrowserBody')}</p>
       </>
     );
   }
   return (
     <>
-      <h2 id="settings-title">Pick a setting</h2>
+      <h2 id="settings-title">{t('connectPage.settings.pick')}</h2>
       <p className="note">{PANE_NOTE}</p>
+      <h3>{t('connectPage.settings.profile')}</h3>
+      <Profile reads={reads} />
+      <h3>{t('connectPage.settings.libraryStatus')}</h3>
+      <LibraryStatus reads={reads} />
     </>
   );
 }
@@ -483,6 +1072,7 @@ function Library(props: {
   summary: Summary | null;
   sparklines: Sparklines | null;
   highlights: Readonly<Record<string, string[]>>;
+  previews: Readonly<Record<string, string>>;
   onMore: () => void;
   detail: Detail | undefined;
   shownId: string | null;
@@ -491,6 +1081,7 @@ function Library(props: {
   onPreview: (id: string | null) => void;
   details: Readonly<Record<string, Detail | undefined>>;
 }) {
+  const { t } = useTranslation();
   const [dropped, setDropped] = useState<string[]>([]);
   const compared = props.query.ids
     .map((id) => props.cards.find((row) => row.id === id))
@@ -502,17 +1093,18 @@ function Library(props: {
     <section id="library">
       <div id="list-pane">
         {props.summary ? <SummaryCard card={props.summary} lines={props.sparklines} /> : null}
-        <h2>Activities</h2>
+        <h2>{t('connectPage.library.activities')}</h2>
         <RangeChips query={props.query} />
         <FamilyChips query={props.query} />
         {props.query.sort && props.more ? (
           <p id="sort-note" role="note">
-            Sorted over the {props.cards.length} activities loaded so far; more load as you scroll.
+            {t('connectPage.library.sortNote', { count: props.cards.length })}
           </p>
         ) : null}
         <FeedTable
           rows={rows}
           highlights={props.highlights}
+          previews={props.previews}
           query={props.query}
           onPreview={props.onPreview}
           onDropped={setDropped}
@@ -528,7 +1120,7 @@ function Library(props: {
           />
         ) : (
           <>
-            <h2 id="detail-title">{card ? card.name : 'Pick an activity'}</h2>
+            <h2 id="detail-title">{card ? card.name : t('connectPage.library.pick')}</h2>
             <DetailFacts card={card} detail={props.detail} />
           </>
         )}
@@ -544,21 +1136,37 @@ function goFeed(query: FeedQuery) {
 
 /** The week's totals, the wellness headlines and the fitness line above the list. */
 function SummaryCard({ card, lines }: { card: Summary; lines: Sparklines | null }) {
+  const { t } = useTranslation();
   const { wellness } = card;
   const facts: [label: string, value: string | null][] = [
     [
-      'This week',
-      `${clock(card.currentWeek.totalDuration)} · ${card.currentWeek.count} activities`,
+      t('connectPage.facts.thisWeek'),
+      t('connectPage.weekTotal', {
+        time: clock(card.currentWeek.totalDuration),
+        count: card.currentWeek.count,
+      }),
     ],
-    ['Last week', `${clock(card.prevWeek.totalDuration)} · ${card.prevWeek.count} activities`],
-    ['Fitness', wellness.fitness == null ? null : String(Math.round(wellness.fitness))],
-    ['Form', wellness.form == null ? null : String(Math.round(wellness.form))],
-    ['HRV', wellness.hrv == null ? null : String(Math.round(wellness.hrv))],
-    ['Resting heart rate', wellness.rhr == null ? null : `${Math.round(wellness.rhr)} bpm`],
+    [
+      t('connectPage.facts.lastWeek'),
+      t('connectPage.weekTotal', {
+        time: clock(card.prevWeek.totalDuration),
+        count: card.prevWeek.count,
+      }),
+    ],
+    [
+      t('connectPage.facts.fitness'),
+      wellness.fitness == null ? null : String(Math.round(wellness.fitness)),
+    ],
+    [t('connectPage.facts.form'), wellness.form == null ? null : String(Math.round(wellness.form))],
+    [t('connectPage.facts.hrv'), wellness.hrv == null ? null : String(Math.round(wellness.hrv))],
+    [
+      t('connectPage.facts.restingHr'),
+      wellness.rhr == null ? null : `${Math.round(wellness.rhr)} bpm`,
+    ],
   ];
   return (
     <section id="summary">
-      <h2>Summary</h2>
+      <h2>{t('connectPage.library.summary')}</h2>
       <dl id="summary-facts">
         {facts
           .filter(([, value]) => value)
@@ -573,7 +1181,7 @@ function SummaryCard({ card, lines }: { card: Summary; lines: Sparklines | null 
         id="summary-spark"
         viewBox="0 0 120 32"
         role="img"
-        aria-label="Fitness over the last 30 days"
+        aria-label={t('connectPage.library.fitnessTrend')}
       >
         <polyline
           id="summary-line"
@@ -602,8 +1210,9 @@ function sparkPoints(series: readonly number[]) {
 
 /** The range presets; the chosen one is pressed, and pressing it again clears it. */
 function RangeChips({ query }: { query: FeedQuery }) {
+  const { t } = useTranslation();
   return (
-    <div id="ranges" role="group" aria-label="Range">
+    <div id="ranges" role="group" aria-label={t('connectPage.library.range')}>
       {RANGES.map((preset: RangePreset) => {
         const on = query.range === preset;
         return (
@@ -623,8 +1232,9 @@ function RangeChips({ query }: { query: FeedQuery }) {
 
 /** The sport chips under the heading; each narrows the feed to its family. */
 function FamilyChips({ query }: { query: FeedQuery }) {
+  const { t } = useTranslation();
   return (
-    <div id="families" role="group" aria-label="Sport">
+    <div id="families" role="group" aria-label={t('connectPage.library.sportLabel')}>
       {FAMILIES.map(([family, label]) => {
         const on = query.families.includes(family);
         return (
@@ -641,7 +1251,7 @@ function FamilyChips({ query }: { query: FeedQuery }) {
               })
             }
           >
-            {label}
+            {t(label)}
           </button>
         );
       })}
@@ -651,6 +1261,7 @@ function FamilyChips({ query }: { query: FeedQuery }) {
 
 /** Reads the next page when clicked or when it scrolls into view. */
 function MoreButton({ onMore }: { onMore: () => void }) {
+  const { t } = useTranslation();
   const button = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const node = button.current;
@@ -663,7 +1274,7 @@ function MoreButton({ onMore }: { onMore: () => void }) {
   }, [onMore]);
   return (
     <button ref={button} id="feed-more" type="button" onClick={onMore}>
-      Load more
+      {t('connectPage.library.loadMore')}
     </button>
   );
 }
@@ -700,12 +1311,14 @@ const cell = (card: Card, key: ColumnKey): string | null => {
 function FeedTable({
   rows,
   highlights,
+  previews,
   query,
   onPreview,
   onDropped,
 }: {
   rows: Card[];
   highlights: Readonly<Record<string, string[]>>;
+  previews: Readonly<Record<string, string>>;
   query: FeedQuery;
   onPreview: (id: string | null) => void;
   onDropped: (ids: string[]) => void;
@@ -789,6 +1402,7 @@ function FeedTable({
               {COLUMNS.map((column) =>
                 column.key === 'name' ? (
                   <td key="name">
+                    <Thumbnail card={card} preview={previews[card.id]} />
                     <button type="button" className="name">
                       {card.name}
                     </button>
@@ -816,19 +1430,45 @@ function FeedTable({
   );
 }
 
+/** The track as a static line, or the sport's mark where the card has no track. */
+export function Thumbnail({ card, preview }: { card: Card; preview: string | undefined }) {
+  const shape = card.hasGps && preview ? trackShape(preview) : null;
+  const sport = sportMark(card.sportType);
+  if (!shape) {
+    return (
+      <span className="thumb thumb-sport" data-sport={sport.family} aria-hidden="true">
+        {sport.mark}
+      </span>
+    );
+  }
+  return (
+    <svg
+      className="thumb"
+      data-sport={sport.family}
+      viewBox={`0 0 ${THUMB} ${THUMB}`}
+      aria-hidden="true"
+    >
+      <path d={shape.path} className="thumb-line" />
+      <circle cx={shape.start[0]} cy={shape.start[1]} r="2.5" className="thumb-start" />
+      <circle cx={shape.end[0]} cy={shape.end[1]} r="2.5" className="thumb-end" />
+    </svg>
+  );
+}
+
 /** One column per compared activity, the best value in each row marked. */
 function CompareTable(props: {
   cards: Card[];
   details: Readonly<Record<string, Detail | undefined>>;
   dropped: string[];
 }) {
+  const { t } = useTranslation();
   const rows = compareRows(props.cards, props.details);
   return (
     <section id="compare">
-      <h2 id="detail-title">Comparing {props.cards.length} activities</h2>
+      <h2 id="detail-title">{t('connectPage.compare.heading', { count: props.cards.length })}</h2>
       {props.dropped.length ? (
         <p id="compare-note" role="status">
-          Four activities at most: {props.dropped.join(', ')} was dropped.
+          {t('connectPage.compare.dropped', { names: props.dropped.join(', ') })}
         </p>
       ) : null}
       <table id="compare-table">
@@ -860,19 +1500,29 @@ function CompareTable(props: {
 }
 
 function DetailFacts({ card, detail }: { card: Card | undefined; detail: Detail | undefined }) {
+  const { t } = useTranslation();
   const facts: [label: string, value: string | null][] =
     card && detail
       ? [
-          ['Distance', km(card.distance)],
-          ['Moving time', clock(detail.movingTime)],
-          ['Elapsed time', clock(detail.elapsedTime)],
-          ['Average speed', kmh(detail.averageSpeed)],
-          ['Top speed', kmh(detail.maxSpeed)],
-          ['Climbing', card.elevationGain == null ? null : `${Math.round(card.elevationGain)} m`],
-          ['Average heart rate', card.avgHr == null ? null : `${Math.round(card.avgHr)} bpm`],
-          ['Average power', card.avgPower == null ? null : `${Math.round(card.avgPower)} W`],
+          [t('connectPage.facts.distance'), km(card.distance)],
+          [t('connectPage.facts.movingTime'), clock(detail.movingTime)],
+          [t('connectPage.facts.elapsedTime'), clock(detail.elapsedTime)],
+          [t('connectPage.facts.averageSpeed'), kmh(detail.averageSpeed)],
+          [t('connectPage.facts.topSpeed'), kmh(detail.maxSpeed)],
           [
-            'Training load',
+            t('connectPage.facts.climbing'),
+            card.elevationGain == null ? null : `${Math.round(card.elevationGain)} m`,
+          ],
+          [
+            t('connectPage.facts.averageHr'),
+            card.avgHr == null ? null : `${Math.round(card.avgHr)} bpm`,
+          ],
+          [
+            t('connectPage.facts.averagePower'),
+            card.avgPower == null ? null : `${Math.round(card.avgPower)} W`,
+          ],
+          [
+            t('connectPage.facts.trainingLoad'),
             card.trainingLoad == null ? null : String(Math.round(card.trainingLoad)),
           ],
         ]

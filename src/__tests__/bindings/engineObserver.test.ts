@@ -212,3 +212,19 @@ it('keeps mounted reads unchanged after a refused restore and refreshes on retry
   expect(read).toHaveBeenCalledTimes(1);
   off();
 });
+
+it('routes a browser write onto the channel of the fact it moved', async () => {
+  const { client, observer } = clientWithFakeEngine();
+  const seen: string[] = [];
+  const offs = ['settings', 'sections', 'groups', 'activities'].map((channel) =>
+    client.subscribe(channel, () => seen.push(channel))
+  );
+
+  observer.remoteWrote('settings');
+  observer.remoteWrote('sections');
+  observer.remoteWrote('a kind this build does not know');
+  await flush();
+
+  expect(seen.sort()).toEqual(['sections', 'settings']);
+  offs.forEach((off) => off());
+});

@@ -7,6 +7,14 @@
 // its styles must be relative, and its content security policy must allow
 // scripts and styles from itself only.
 //
+// The map reaches two places beyond the page: the relay, and the host the
+// basemap's tiles, glyphs and sprite come from. The policy names those two in
+// `connect-src`, beside `'self'` for the page's own locale chunks, and nothing
+// else, so a tile host added by hand, which would see the athlete's viewport,
+// fails here. Workers and decoded images come from
+// `blob:` and `data:`, which hold nothing the page did not fetch. Any other
+// directive allows nothing beyond the page itself.
+//
 // The page's source, `web/connect/`, is read as the index holds it, so a
 // commit that adds a foreign load fails there. The built output,
 // `docs/connect/`, is not tracked: it is read off the disk when a build has
@@ -29,10 +37,34 @@ const FOREIGN = /^\s*(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
  * Packages the build bundles into the page's own files. A source may import
  * them; the built output, which is read too, may not import anything.
  */
-const BUNDLED = new Set(['react', 'react/jsx-runtime', 'react-dom/client']);
+const BUNDLED = new Set([
+  'react',
+  'react/jsx-runtime',
+  'react-dom/client',
+  'i18next',
+  'react-i18next',
+]);
 
-/** A module specifier that is neither a relative file nor a bundled package. */
-const notRelative = (specifier) => !/^\.{1,2}\//.test(specifier) && !BUNDLED.has(specifier);
+/** The app's source, which the build resolves `@/` to and bundles into the page's own files. */
+const APP_SOURCE = /^@\//;
+
+/** A module specifier that is neither a relative file, the app's source nor a bundled package. */
+const notRelative = (specifier) =>
+  !/^\.{1,2}\//.test(specifier) && !APP_SOURCE.test(specifier) && !BUNDLED.has(specifier);
+
+/** The relay the page links through, and the host the basemap is drawn from. */
+const RELAY = 'wss://auth.veloq.fit';
+const BASEMAP = 'https://tiles.openfreemap.org';
+
+/** What each directive of the policy may name, beyond `'none'`. Any directive not listed may name `'self'`. */
+const ALLOWED_SOURCES = {
+  'default-src': [],
+  'script-src': ["'self'"],
+  'style-src': ["'self'"],
+  'worker-src': ['blob:'],
+  'img-src': ["'self'", 'data:', 'blob:'],
+  'connect-src': ["'self'", RELAY, BASEMAP],
+};
 
 /** The policy's sources for one directive, or undefined when it has none. */
 function directive(policy, name) {
@@ -59,6 +91,23 @@ function htmlProblems(path, text) {
     const sources = directive(content, name) ?? directive(content, 'default-src');
     if (!sources || sources.some((source) => source !== "'self'")) {
       problems.push(`${path}: ${name} allows more than 'self'`);
+    }
+  }
+  problems.push(...policyProblems(path, content));
+  return problems;
+}
+
+/** Each directive's sources against what it may name; the fallback is `default-src`. */
+function policyProblems(path, policy) {
+  const problems = [];
+  for (const piece of policy.split(';')) {
+    const [name, ...sources] = piece.trim().split(/\s+/);
+    if (!name) continue;
+    const allowed = ALLOWED_SOURCES[name] ?? ["'self'"];
+    for (const source of sources) {
+      if (source !== "'none'" && !allowed.includes(source)) {
+        problems.push(`${path}: ${name} allows ${source}, which the page does not need`);
+      }
     }
   }
   return problems;
@@ -113,7 +162,9 @@ function builtSources(root) {
   const sources = new Map();
   let names;
   try {
-    names = readdirSync(join(root, BUILT));
+    names = readdirSync(join(root, BUILT), { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name);
   } catch {
     return sources;
   }

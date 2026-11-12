@@ -24,6 +24,26 @@ pub struct ActivityManager {
     pub(crate) _private: (),
 }
 
+/// The chart series an activity has for a series selection, and whether the
+/// cached body is old enough to be touched. The phone's read and the link's
+/// are this one: the series are `None` when neither the cached body nor the
+/// stored points and times can answer the selection.
+pub(crate) fn chart_streams_read(
+    conn: &rusqlite::Connection,
+    activity_id: &str,
+    types: &str,
+) -> rusqlite::Result<(Option<crate::FfiActivityStreams>, bool)> {
+    let (body, stale) = crate::persistence::bodies::pooled::stream_body(conn, activity_id, types)?;
+    let sport = crate::persistence::activities::pooled::activity_sport(conn, activity_id);
+    let streams = body.and_then(|body| {
+        crate::net::chart_streams::chart_streams_from_body(
+            &body,
+            sport.as_deref().unwrap_or_default(),
+        )
+    });
+    Ok((streams, stale))
+}
+
 #[uniffi::export]
 impl ActivityManager {
     #[uniffi::constructor]
@@ -353,14 +373,10 @@ impl ActivityManager {
         types: String,
     ) -> Result<Option<crate::FfiActivityStreams>, VeloqError> {
         let install = crate::persistence::engine_install();
-        let (body, stale, sport) = with_reader(|conn| {
-            let (body, stale) =
-                crate::persistence::bodies::pooled::stream_body(conn, &activity_id, &types)
-                    .map_err(|err| VeloqError::Database {
-                        msg: format!("{}", err),
-                    })?;
-            let sport = crate::persistence::activities::pooled::activity_sport(conn, &activity_id);
-            Ok::<_, VeloqError>((body, stale, sport))
+        let (streams, stale) = with_reader(|conn| {
+            chart_streams_read(conn, &activity_id, &types).map_err(|err| VeloqError::Database {
+                msg: format!("{}", err),
+            })
         })??;
         if stale {
             let touched = crate::persistence::try_with_persistent_engine_for(install, |engine| {
@@ -377,12 +393,7 @@ impl ActivityManager {
                 });
             }
         }
-        Ok(body.and_then(|body| {
-            crate::net::chart_streams::chart_streams_from_body(
-                &body,
-                sport.as_deref().unwrap_or_default(),
-            )
-        }))
+        Ok(streams)
     }
 
     fn set_time_streams(

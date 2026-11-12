@@ -7,6 +7,22 @@ export const ACCURACY_METRES = 5;
 const RADIUS = LOOP_METRES / (2 * Math.PI);
 const METRES_PER_DEGREE = 111_320;
 
+export const DEFAULT_ORIGIN = { lat: -33.85, lng: 151.2 };
+
+/**
+ * The ride's start from the command line, as `lat lng` after the seconds and the speed.
+ * None given keeps the default. Anything else is `null`, so the caller refuses the run.
+ */
+export function parseOrigin(args) {
+  if (args.length === 0) return DEFAULT_ORIGIN;
+  if (args.length !== 2) return null;
+  const [lat, lng] = args.map(Number);
+  const numeric = args.every((arg) => arg.trim() !== '');
+  if (!numeric || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { lat, lng };
+}
+
 /** One fix per second around a circle of `LOOP_METRES`, starting at `origin`. */
 export function routeFixes(origin, speed, seconds) {
   const fixes = [];
@@ -30,7 +46,7 @@ const provider = (...args) => ['shell', 'cmd', 'location', 'providers', ...args]
 
 export function setupCommands() {
   return [
-    ['shell', 'appops', 'set', 'com.android.shell', 'android:mock_location', 'allow'],
+    ['shell', 'appops', 'set', '--uid', 'com.android.shell', 'MOCK_LOCATION', 'allow'],
     provider('add-test-provider', 'gps'),
     provider('set-test-provider-enabled', 'gps', 'true'),
   ];
@@ -60,7 +76,7 @@ export function retryCommands(fix, output) {
 export function cleanupCommands() {
   return [
     provider('remove-test-provider', 'gps'),
-    ['shell', 'appops', 'set', 'com.android.shell', 'android:mock_location', 'default'],
+    ['shell', 'appops', 'set', '--uid', 'com.android.shell', 'MOCK_LOCATION', 'default'],
   ];
 }
 

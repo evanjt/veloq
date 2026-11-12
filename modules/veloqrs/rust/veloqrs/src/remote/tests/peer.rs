@@ -5,7 +5,7 @@ use super::super::protocol::{
 };
 use super::*;
 use std::sync::Mutex;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicU64, AtomicUsize};
 
 use str0m::change::SdpPendingOffer;
 
@@ -20,6 +20,10 @@ struct TestGate {
     allow_checks: Option<AtomicUsize>,
     connected: AtomicUsize,
     disconnected: AtomicUsize,
+    /// Calls of `answer` that returned.
+    answered: AtomicUsize,
+    /// The stamp `changed` reports.
+    stamp: AtomicU64,
 }
 
 impl TestGate {
@@ -29,6 +33,8 @@ impl TestGate {
             allow_checks: None,
             connected: AtomicUsize::new(0),
             disconnected: AtomicUsize::new(0),
+            answered: AtomicUsize::new(0),
+            stamp: AtomicU64::new(1),
         })
     }
 }
@@ -45,6 +51,38 @@ impl Gate for TestGate {
         self.pinned.lock().unwrap().iter().any(|p| p == fingerprint)
     }
     fn answer(&self, _presented: &str, _local: &str, request: &str) -> String {
+        let reply = self.reply(request);
+        self.answered.fetch_add(1, Ordering::SeqCst);
+        reply
+    }
+    fn connected(&self, _fingerprint: &str) {
+        self.connected.fetch_add(1, Ordering::SeqCst);
+    }
+    fn disconnected(&self, _fingerprint: &str) {
+        self.disconnected.fetch_add(1, Ordering::SeqCst);
+    }
+    fn changed(&self) -> Option<u64> {
+        Some(self.stamp.load(Ordering::SeqCst))
+    }
+}
+
+impl TestGate {
+    fn reply(&self, request: &str) -> String {
+        if let Ok(ask) = serde_json::from_str::<serde_json::Value>(request) {
+            match ask["method"].as_str() {
+                Some("sleep") => {
+                    std::thread::sleep(Duration::from_millis(
+                        ask["params"]["ms"].as_u64().unwrap(),
+                    ));
+                    return serde_json::json!({ "id": ask["id"], "result": "slept" }).to_string();
+                }
+                Some("echo") => {
+                    return serde_json::json!({ "id": ask["id"], "result": "echoed" }).to_string();
+                }
+                Some("explode") => panic!("a read that panics"),
+                _ => {}
+            }
+        }
         if let Ok(ask) = serde_json::from_str::<serde_json::Value>(request)
             && ask["method"] == "blob"
         {
@@ -56,12 +94,6 @@ impl Gate for TestGate {
             return serde_json::json!({ "id": ask["id"], "result": text }).to_string();
         }
         format!("answered {request}")
-    }
-    fn connected(&self, _fingerprint: &str) {
-        self.connected.fetch_add(1, Ordering::SeqCst);
-    }
-    fn disconnected(&self, _fingerprint: &str) {
-        self.disconnected.fetch_add(1, Ordering::SeqCst);
     }
 }
 
@@ -137,9 +169,23 @@ impl Browser {
     /// As `run`, sending every ask once the channel opens and stopping once
     /// `want` replies are complete, a reply being complete at its last frame.
     fn run_asks(&mut self, asks: &[String], want: usize, until: Duration) -> (bool, Vec<Vec<u8>>) {
+        self.run_script(asks, &[], Duration::ZERO, want, until)
+    }
+
+    /// As `run_asks`, and `late` is sent once the channel has been open for
+    /// `late_after`.
+    fn run_script(
+        &mut self,
+        asks: &[String],
+        late: &[String],
+        late_after: Duration,
+        want: usize,
+        until: Duration,
+    ) -> (bool, Vec<Vec<u8>>) {
         let mut complete = 0;
         let started = Instant::now();
         let mut opened = false;
+        let mut open_at: Option<(ChannelId, Instant)> = None;
         let mut replies = Vec::new();
         let mut buf = vec![0u8; 2000];
         let local = self.socket.local_addr().unwrap();
@@ -150,6 +196,7 @@ impl Browser {
                 }
                 Output::Event(Event::ChannelOpen(id, _)) => {
                     opened = true;
+                    open_at = Some((id, Instant::now()));
                     for ask in asks {
                         self.rtc
                             .channel(id)
@@ -167,6 +214,19 @@ impl Browser {
                 }
                 Output::Event(_) => {}
                 Output::Timeout(at) => {
+                    if let Some((id, since)) = open_at
+                        && !late.is_empty()
+                        && since.elapsed() >= late_after
+                    {
+                        open_at = None;
+                        for ask in late {
+                            self.rtc
+                                .channel(id)
+                                .unwrap()
+                                .write(false, ask.as_bytes())
+                                .unwrap();
+                        }
+                    }
                     let wait = at
                         .saturating_duration_since(Instant::now())
                         .clamp(Duration::from_millis(1), Duration::from_millis(50));
@@ -214,7 +274,7 @@ fn a_pinned_browser_gets_an_answer_over_the_channel() {
     assert_eq!(joined(&replies)[&0], format!("answered {ASK}"));
     assert_eq!(gate.connected.load(Ordering::SeqCst), 1);
 
-    peer.stop();
+    peer.stop(DisconnectReason::Disconnected);
     assert_eq!(gate.disconnected.load(Ordering::SeqCst), 1);
 }
 
@@ -228,10 +288,11 @@ fn stop_ends_a_read_that_would_otherwise_never_return() {
     });
     Peer {
         stop: Arc::new(AtomicBool::new(false)),
+        reason: Arc::new(Mutex::new(None)),
         thread: Some(thread),
         wake,
     }
-    .stop();
+    .stop(DisconnectReason::Disconnected);
 }
 
 #[test]
@@ -267,7 +328,7 @@ fn stop_returns_on_a_connection_whose_poll_is_an_hour() {
     let (opened, _) = browser.run(ASK, Duration::from_secs(10));
     assert!(opened);
 
-    peer.stop();
+    peer.stop(DisconnectReason::Disconnected);
     assert_eq!(gate.disconnected.load(Ordering::SeqCst), 1);
 }
 
@@ -336,7 +397,7 @@ fn a_reply_larger_than_the_send_buffer_arrives_whole() {
     assert!(messages.len() > 8);
     let replies = joined(&messages);
     assert_eq!(result_of(&replies[&1]), noise(size));
-    peer.stop();
+    peer.stop(DisconnectReason::Disconnected);
 }
 
 /// Scenario: sixteen asks go out back to back and every reply outgrows the
@@ -355,7 +416,7 @@ fn sixteen_large_replies_sent_back_to_back_all_arrive() {
     for id in 1..=16u32 {
         assert_eq!(result_of(&replies[&id]), noise(16 * 1024));
     }
-    peer.stop();
+    peer.stop(DisconnectReason::Disconnected);
 }
 
 #[test]
@@ -378,7 +439,7 @@ fn a_one_megabyte_reply_travels_gzipped_in_fewer_bytes_than_it_measures() {
         "0123456789".repeat(1024 * 1024 / 10)
     );
     assert!(wire < replies[&1].len(), "{wire} bytes on the channel");
-    peer.stop();
+    peer.stop(DisconnectReason::Disconnected);
 }
 
 #[test]
@@ -398,6 +459,8 @@ fn a_device_removed_while_it_connects_gets_no_byte() {
         allow_checks: Some(AtomicUsize::new(1)),
         connected: AtomicUsize::new(0),
         disconnected: AtomicUsize::new(0),
+        answered: AtomicUsize::new(0),
+        stamp: AtomicU64::new(1),
     });
     let (answer, peer) =
         accept(&offer, certificate(), loopback(), gate.clone(), None).expect("accepted");
@@ -409,7 +472,7 @@ fn a_device_removed_while_it_connects_gets_no_byte() {
         "a removed device was answered: {replies:?}"
     );
     assert_eq!(gate.connected.load(Ordering::SeqCst), 0);
-    peer.stop();
+    peer.stop(DisconnectReason::Disconnected);
 }
 
 #[test]
@@ -429,4 +492,255 @@ fn an_offered_fingerprint_is_read_in_one_spelling() {
         Some("sha-256 AB:CD:EF")
     );
     assert_eq!(offered_fingerprint("v=0\r\n"), None);
+}
+
+fn sleep(id: u64, ms: u64) -> String {
+    serde_json::json!({ "id": id, "method": "sleep", "params": { "ms": ms } }).to_string()
+}
+
+fn echo(id: u64) -> String {
+    serde_json::json!({ "id": id, "method": "echo" }).to_string()
+}
+
+fn cancel(id: u64) -> String {
+    serde_json::json!({ "method": "cancel", "params": { "id": id } }).to_string()
+}
+
+/// The worker threads are shared by every connection in the process, so a
+/// test that counts on them being free holds this while it runs.
+static WORKERS: Mutex<()> = Mutex::new(());
+
+/// A pinned browser and the connection serving it, with the workers held.
+fn linked() -> (
+    Browser,
+    Arc<TestGate>,
+    Peer,
+    std::sync::MutexGuard<'static, ()>,
+) {
+    let held = WORKERS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let (mut browser, offer) = Browser::new();
+    let gate = TestGate::pinning(Some(&browser.fingerprint));
+    let (answer, peer) =
+        accept(&offer, certificate(), loopback(), gate.clone(), None).expect("accepted");
+    browser.take_answer(&answer);
+    (browser, gate, peer, held)
+}
+
+/// The ids of the replies a browser holds, in the order their last frames came.
+fn order_of(messages: &[Vec<u8>]) -> Vec<u32> {
+    messages
+        .iter()
+        .filter(|frame| frame[1] & FRAME_LAST != 0)
+        .map(|frame| u32::from_be_bytes(frame[2..6].try_into().unwrap()))
+        .collect()
+}
+
+/// Scenario: a read that takes half a second is asked, then a quick one.
+/// Expected behaviour: the quick one is answered first and the slow one's
+/// reply still arrives.
+#[test]
+fn a_quick_ask_is_answered_while_a_slow_one_runs() {
+    let (mut browser, gate, peer, _held) = linked();
+
+    let asks = [sleep(1, 500), echo(2)];
+    let (_opened, messages) = browser.run_asks(&asks, 2, Duration::from_secs(10));
+    assert_eq!(order_of(&messages), vec![2, 1]);
+    assert_eq!(gate.answered.load(Ordering::SeqCst), 2);
+    peer.stop(DisconnectReason::Disconnected);
+}
+
+/// Scenario: seventeen asks arrive back to back. Expected behaviour: sixteen
+/// are answered and the seventeenth is told the connection is busy.
+#[test]
+fn an_ask_past_sixteen_outstanding_is_answered_busy() {
+    let (mut browser, _gate, peer, _held) = linked();
+
+    let asks: Vec<String> = (1..=17).map(|id| sleep(id, 100)).collect();
+    let (_opened, messages) = browser.run_asks(&asks, 17, Duration::from_secs(20));
+    let replies = joined(&messages);
+    assert_eq!(replies.len(), 17);
+    let busy: Vec<u32> = replies
+        .iter()
+        .filter(|(_, text)| text.contains("\"error\":\"busy\""))
+        .map(|(id, _)| *id)
+        .collect();
+    assert_eq!(busy, vec![17]);
+    assert_eq!(order_of(&messages)[0], 17, "busy answers at once");
+    peer.stop(DisconnectReason::Disconnected);
+}
+
+/// Scenario: both workers are held by slow asks, a third ask waits in the
+/// queue and is cancelled, and a fourth follows. Expected behaviour: the third
+/// is never run and never answered, the fourth is.
+#[test]
+fn a_cancelled_ask_still_in_the_queue_is_never_run() {
+    let (mut browser, gate, peer, _held) = linked();
+
+    let asks = [sleep(1, 500), sleep(2, 500), echo(3), cancel(3), echo(4)];
+    let (_opened, messages) = browser.run_asks(&asks, 4, Duration::from_millis(2500));
+    let mut ids = order_of(&messages);
+    ids.sort_unstable();
+    assert_eq!(ids, vec![1, 2, 4]);
+    assert_eq!(gate.answered.load(Ordering::SeqCst), 3);
+    peer.stop(DisconnectReason::Disconnected);
+}
+
+/// Scenario: an ask is running when it is cancelled. Expected behaviour: it
+/// finishes, because a read cannot be taken back, and no frame of its reply is
+/// sent; an ask made after the cancel is answered.
+#[test]
+fn a_cancelled_ask_already_running_sends_no_frame() {
+    let (mut browser, gate, peer, _held) = linked();
+
+    let (_opened, messages) = browser.run_script(
+        &[sleep(1, 600)],
+        &[cancel(1), echo(2)],
+        Duration::from_millis(200),
+        2,
+        Duration::from_millis(2500),
+    );
+    assert_eq!(order_of(&messages), vec![2]);
+    assert!(
+        messages
+            .iter()
+            .all(|frame| frame[2..6] != 1u32.to_be_bytes())
+    );
+    assert_eq!(gate.answered.load(Ordering::SeqCst), 2);
+    peer.stop(DisconnectReason::Disconnected);
+}
+
+/// Scenario: a cancel names an id nothing is waiting on. Expected behaviour:
+/// it is ignored and the connection goes on answering.
+#[test]
+fn a_cancel_for_an_unknown_ask_changes_nothing() {
+    let (mut browser, _gate, peer, _held) = linked();
+
+    let asks = [cancel(99), echo(1)];
+    let (_opened, messages) = browser.run_asks(&asks, 1, Duration::from_secs(10));
+    assert_eq!(order_of(&messages), vec![1]);
+    peer.stop(DisconnectReason::Disconnected);
+}
+
+/// Scenario: a read panics on a worker. Expected behaviour: that ask is
+/// answered with an error and the connection answers the next one.
+#[test]
+fn a_read_that_panics_is_an_error_and_the_connection_survives() {
+    let (mut browser, _gate, peer, _held) = linked();
+
+    let explode = serde_json::json!({ "id": 1, "method": "explode" }).to_string();
+    let (_opened, messages) = browser.run_script(
+        &[explode],
+        &[echo(2)],
+        Duration::from_millis(300),
+        2,
+        Duration::from_secs(10),
+    );
+    let replies = joined(&messages);
+    assert!(replies[&1].contains("\"error\""), "{}", replies[&1]);
+    assert!(replies[&2].contains("echoed"));
+    peer.stop(DisconnectReason::Disconnected);
+}
+
+/// Scenario: the library moves while a browser is connected.
+/// Expected behaviour: the browser receives one event frame under request id
+/// 0 for the new stamp, and none while the stamp stays.
+#[test]
+fn a_new_stamp_sends_one_changed_event_and_an_unchanged_one_sends_none() {
+    let (mut browser, offer) = Browser::new();
+    let gate = TestGate::pinning(Some(&browser.fingerprint));
+    let (answer, peer) =
+        accept(&offer, certificate(), loopback(), gate.clone(), None).expect("accepted");
+    browser.take_answer(&answer);
+
+    let (_opened, quiet) = browser.run_asks(&[], 1, Duration::from_secs(3));
+    assert!(quiet.is_empty(), "an event with no change: {quiet:?}");
+
+    let mover = Arc::clone(&gate);
+    let moved = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(300));
+        mover.stamp.store(2, Ordering::SeqCst);
+    });
+    let (_opened, messages) = browser.run_asks(&[], 1, Duration::from_secs(10));
+    moved.join().unwrap();
+    let events = joined(&messages);
+    assert_eq!(events.len(), 1);
+    let event: serde_json::Value = serde_json::from_str(&events[&0]).unwrap();
+    assert_eq!(
+        event,
+        serde_json::json!({ "event": "changed", "generation": 2 })
+    );
+
+    let (_opened, after) = browser.run_asks(&[], 1, Duration::from_secs(3));
+    assert!(after.is_empty(), "a second event for one change: {after:?}");
+    peer.stop(DisconnectReason::Disconnected);
+}
+
+/// Scenario: the phone stops a connection that is up, with a reason.
+/// Expected behaviour: the browser reads one farewell frame under request id
+/// 0 naming the reason while its connection is still alive, so it need not
+/// wait for the network to time out.
+#[test]
+fn a_stopped_peer_says_why_before_it_hangs_up() {
+    for (reason, named) in [
+        (DisconnectReason::Background, "background"),
+        (DisconnectReason::SwitchedOff, "switchedOff"),
+        (DisconnectReason::Removed, "removed"),
+        (DisconnectReason::Disconnected, "disconnected"),
+        (DisconnectReason::Declined, "declined"),
+    ] {
+        let (mut browser, offer) = Browser::new();
+        let gate = TestGate::pinning(Some(&browser.fingerprint));
+        let (answer, peer) =
+            accept(&offer, certificate(), loopback(), gate.clone(), None).expect("accepted");
+        browser.take_answer(&answer);
+        let (opened, replies) = browser.run(ASK, Duration::from_secs(10));
+        assert!(opened);
+        assert_eq!(replies.len(), 1);
+
+        let stopping = std::thread::spawn(move || peer.stop(reason));
+        let (_opened, frames) = browser.run_asks(&[], 1, Duration::from_secs(10));
+        assert!(
+            browser.rtc.is_alive(),
+            "the browser was told before it was cut off"
+        );
+        stopping.join().unwrap();
+
+        let events = joined(&frames);
+        let event: serde_json::Value = serde_json::from_str(&events[&0]).unwrap();
+        assert_eq!(
+            event,
+            serde_json::json!({ "event": "farewell", "reason": named })
+        );
+        assert_eq!(gate.disconnected.load(Ordering::SeqCst), 1);
+    }
+}
+
+/// Scenario: the phone stops a connection whose browser is no longer reading.
+/// Expected behaviour: the stop still returns and the connection is counted
+/// as ended, whether or not the farewell was read.
+#[test]
+fn a_stop_does_not_wait_for_a_browser_that_never_reads_the_farewell() {
+    let (mut browser, offer) = Browser::new();
+    let gate = TestGate::pinning(Some(&browser.fingerprint));
+    let (answer, peer) =
+        accept(&offer, certificate(), loopback(), gate.clone(), None).expect("accepted");
+    browser.take_answer(&answer);
+    let (opened, _) = browser.run(ASK, Duration::from_secs(10));
+    assert!(opened);
+
+    peer.stop(DisconnectReason::Background);
+    assert_eq!(gate.disconnected.load(Ordering::SeqCst), 1);
+}
+
+/// A connection that never came up has no channel to say anything on, and
+/// stops without waiting on one.
+#[test]
+fn a_stop_before_any_channel_opens_ends_without_a_farewell() {
+    let (mut browser, offer) = Browser::new();
+    let gate = TestGate::pinning(Some(&browser.fingerprint));
+    let (answer, peer) = accept(&offer, certificate(), loopback(), gate, None).expect("accepted");
+    browser.take_answer(&answer);
+    peer.stop(DisconnectReason::Removed);
 }

@@ -2,7 +2,7 @@ import React, { useCallback, useRef } from 'react';
 import { View, StyleSheet, type ViewInstance } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
-import { INTERVALS_URLS } from '@/shared/app/constants';
+import { useSource } from '@/shared/app/source/useSource';
 import { useTranslation } from 'react-i18next';
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { openExternal } from '@/shared/app/openExternal';
@@ -22,6 +22,7 @@ import { Icon } from '@/shared/ui/Icon';
 
 export function SupportSection() {
   const { isDark } = useTheme();
+  const links = useSource()?.links ?? null;
   const palette = themePalette(isDark);
   const { t } = useTranslation();
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
@@ -119,21 +120,25 @@ export function SupportSection() {
 
           {/* intervals.icu row */}
           {/* The card's own padding is the row's inset, so the row runs to its edges. */}
-          <View style={styles.bleed}>
-            <ExternalLinkRow url={INTERVALS_URLS.subscription} label={t('settings.subscribe')}>
-              <Icon name="heart" size={iconSize.md} color={colors.chartPink} />
-              <View style={styles.rowTextGroup}>
-                <Text style={[styles.rowText, { color: textColor }]}>intervals.icu</Text>
-                <Text style={[styles.rowSubtext, { color: mutedColor }]}>
-                  {t('settings.subscribe')}
-                </Text>
-              </View>
-            </ExternalLinkRow>
-          </View>
+          {links ? (
+            <View style={styles.bleed}>
+              <ExternalLinkRow url={links.subscription} label={t('settings.subscribe')}>
+                <Icon name="heart" size={iconSize.md} color={colors.chartPink} />
+                <View style={styles.rowTextGroup}>
+                  <Text style={[styles.rowText, { color: textColor }]}>intervals.icu</Text>
+                  <Text style={[styles.rowSubtext, { color: mutedColor }]}>
+                    {t('settings.subscribe')}
+                  </Text>
+                </View>
+              </ExternalLinkRow>
+            </View>
+          ) : null}
 
-          <View style={styles.dividerGap}>
-            <RowDivider inset="none" />
-          </View>
+          {links ? (
+            <View style={styles.dividerGap}>
+              <RowDivider inset="none" />
+            </View>
+          ) : null}
 
           <PressTarget
             ref={crashLogAnchor}

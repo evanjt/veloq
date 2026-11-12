@@ -10,7 +10,7 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { INTERVALS_URLS } from '@/shared/app/constants';
+import { useSource } from '@/shared/app/source/useSource';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { useTranslation } from 'react-i18next';
 import { openExternal } from '@/shared/app/openExternal';
@@ -62,6 +62,7 @@ export function InsightfulStats({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const openSheet = useSheetOpener();
+  const links = useSource()?.links ?? null;
 
   // Use extracted hook for stats computation
   const isMetric = useMetricSystem();
@@ -86,9 +87,9 @@ export function InsightfulStats({
 
   // Open activity in intervals.icu website
   const openInIntervalsICU = useCallback(() => {
-    if (!intervalsId) return;
-    void openExternal(INTERVALS_URLS.activityPage(intervalsId));
-  }, [intervalsId]);
+    if (!intervalsId || !links) return;
+    void openExternal(links.activityPage(intervalsId));
+  }, [intervalsId, links]);
 
   if (stats.length === 0) return null;
 
@@ -98,7 +99,7 @@ export function InsightfulStats({
         variant="raised"
         title={t('activity.activityStats')}
         titleAccessory={
-          intervalsId ? (
+          intervalsId && links ? (
             <Button
               label={t('activity.viewInIntervalsICU')}
               variant="ghost"

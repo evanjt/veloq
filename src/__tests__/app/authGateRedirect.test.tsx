@@ -118,6 +118,9 @@ jest.mock('@/features/recording', () =>
 jest.mock('@/features/routes/hooks/useRouteReoptimisation', () => ({
   useRouteReoptimisation: () => undefined,
 }));
+jest.mock('@/features/routes/hooks/useRouteSettingsFollowsEngine', () => ({
+  useRouteSettingsFollowsEngine: () => undefined,
+}));
 jest.mock('@/shared/app/appBackground', () => ({ handleAppBackground: jest.fn() }));
 jest.mock('@/features/settings/lib/autobackup', () => ({
   onAppForeground: jest.fn(),

@@ -74,6 +74,7 @@ fn test_feed_cards_carry_every_card_field_from_the_stored_body() {
             avg_hr: Some(143.6),
             avg_power: Some(211.7),
             training_load: Some(96.2),
+            metrics_source: None,
             calories: Some(1234.0),
             has_weather: true,
             average_weather_temp: Some(17.5),

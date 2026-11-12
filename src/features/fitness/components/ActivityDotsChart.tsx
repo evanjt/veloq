@@ -17,7 +17,7 @@ import {
   useChartGestures,
   type SummaryDay,
 } from '@/shared/charts';
-import { colors, darkColors, spacing, iconSize, typography } from '@/theme';
+import { colors, darkColors, spacing, controlHeight, iconSize, typography } from '@/theme';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { sportFamilyIcon, sportFamilyLabel } from '@/shared/activity/sportCategories';
 import type { DayLoad } from 'veloqrs';
@@ -267,7 +267,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
 
   return (
     <View style={styles.container}>
-      <View style={styles.chipRow}>
+      <View testID="fitness-strip-chip-row" style={styles.chipRow}>
         {openable ? (
           <Button
             testID="fitness-strip-chip"
@@ -354,6 +354,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
+    // The chip is a button on a day with activities and plain text otherwise; one height keeps the plots below still while scrubbing.
+    minHeight: controlHeight.buttonSm,
     columnGap: spacing.sm,
     rowGap: spacing.xs,
     marginBottom: spacing.xs,

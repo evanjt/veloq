@@ -1852,9 +1852,11 @@ const RULES = {
 
   // Every key in the reference locale is reached, by its full dotted path in
   // the source or by a template prefix built at runtime from a last segment the
-  // sweep cannot see. A new orphan fails here, in all locales at once.
+  // sweep cannot see. The connect page reads the same bundles from
+  // `web/connect/`, so its source counts too. A new orphan fails here, in all
+  // locales at once.
   'unused-i18n-keys': {
-    pathspec: ['src'],
+    pathspec: ['src', 'web/connect'],
     check(sources) {
       const reference = sources.get(REFERENCE_LOCALE);
       if (reference === undefined) return [`${REFERENCE_LOCALE}  is not tracked`];

@@ -9,7 +9,7 @@
     {
       "name": "feed.page",
       "params": "FfiLinkFeedPageAsk",
-      "result": "FfiFeedCardsPage",
+      "result": "FfiLinkFeedPage",
       "write": false
     },
     {
@@ -34,6 +34,216 @@
       "name": "activity.summary",
       "params": "FfiLinkActivityAsk",
       "result": "FfiActivitySummary",
+      "write": false
+    },
+    {
+      "name": "activity.detail",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiActivityDetailData",
+      "write": false
+    },
+    {
+      "name": "activity.record",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiLinkActivityRecord",
+      "write": false
+    },
+    {
+      "name": "activity.streams",
+      "params": "FfiLinkStreamsAsk",
+      "result": "FfiActivityStreams",
+      "write": false
+    },
+    {
+      "name": "activity.intervals",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiLinkActivityIntervals",
+      "write": false
+    },
+    {
+      "name": "activity.sections",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiLinkActivitySections",
+      "write": false
+    },
+    {
+      "name": "activity.exerciseSets",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiExerciseSession",
+      "write": false
+    },
+    {
+      "name": "routes.screen",
+      "params": "FfiRoutesScreenQuery",
+      "result": "FfiRoutesScreenData",
+      "write": false
+    },
+    {
+      "name": "route.detail",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiRouteDetailData",
+      "write": false
+    },
+    {
+      "name": "route.performance",
+      "params": "FfiLinkPerformanceAsk",
+      "result": "FfiSectionPerformanceData",
+      "write": false
+    },
+    {
+      "name": "route.attempts",
+      "params": "FfiLinkRouteAttemptsAsk",
+      "result": "FfiRoutePerformanceResult",
+      "write": false
+    },
+    {
+      "name": "section.detail",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiSectionDetailData",
+      "write": false
+    },
+    {
+      "name": "section.performance",
+      "params": "FfiLinkPerformanceAsk",
+      "result": "FfiSectionPerformanceData",
+      "write": false
+    },
+    {
+      "name": "section.history",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiLinkSectionHistory",
+      "write": false
+    },
+    {
+      "name": "section.excluded",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiLinkSectionExcluded",
+      "write": false
+    },
+    {
+      "name": "sections.retired",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiRetiredMapData",
+      "write": false
+    },
+    {
+      "name": "fitness.screen",
+      "params": "FfiLinkFitnessScreenAsk",
+      "result": "FfiFitnessScreenData",
+      "write": false
+    },
+    {
+      "name": "fitness.wellness",
+      "params": "FfiLinkWellnessAsk",
+      "result": "FfiWellnessDays",
+      "write": false
+    },
+    {
+      "name": "fitness.loads",
+      "params": "FfiLinkLoadsAsk",
+      "result": "FfiLinkDayLoads",
+      "write": false
+    },
+    {
+      "name": "fitness.zones",
+      "params": "FfiLinkZonesAsk",
+      "result": "FfiZoneDistribution",
+      "write": false
+    },
+    {
+      "name": "fitness.powerCurve",
+      "params": "FfiLinkPowerCurveAsk",
+      "result": "FfiLinkPowerCurve",
+      "write": false
+    },
+    {
+      "name": "fitness.paceCurve",
+      "params": "FfiLinkPaceCurveAsk",
+      "result": "FfiLinkPaceCurve",
+      "write": false
+    },
+    {
+      "name": "fitness.bestEfforts",
+      "params": "FfiLinkBestEffortsAsk",
+      "result": "FfiBestEffortsData",
+      "write": false
+    },
+    {
+      "name": "strength.screen",
+      "params": "FfiLinkStrengthAsk",
+      "result": "FfiStrengthScreenData",
+      "write": false
+    },
+    {
+      "name": "strength.exercise",
+      "params": "FfiLinkExerciseAsk",
+      "result": "FfiExerciseDetailData",
+      "write": false
+    },
+    {
+      "name": "strength.muscle",
+      "params": "FfiLinkMuscleAsk",
+      "result": "FfiMuscleGroupDetail",
+      "write": false
+    },
+    {
+      "name": "recordings.list",
+      "params": "FfiLinkRecordingsAsk",
+      "result": "FfiLinkRecordingsAnswer",
+      "write": false
+    },
+    {
+      "name": "recordings.get",
+      "params": "FfiLinkRecordingAsk",
+      "result": "FfiLinkRecordingAnswer",
+      "write": false
+    },
+    {
+      "name": "settings.get",
+      "params": "FfiLinkSettingsAsk",
+      "result": "FfiLinkSettingsAnswer",
+      "write": false
+    },
+    {
+      "name": "settings.profile",
+      "params": "FfiLinkNoAsk",
+      "result": "AthleteProfile",
+      "write": false
+    },
+    {
+      "name": "status.backgroundJobs",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiBackgroundJobsData",
+      "write": false
+    },
+    {
+      "name": "status.cache",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiCacheScreenData",
+      "write": false
+    },
+    {
+      "name": "status.backup",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiBackupScreenData",
+      "write": false
+    },
+    {
+      "name": "status.linkedDevices",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiLinkDevicesAnswer",
+      "write": false
+    },
+    {
+      "name": "status.coverage",
+      "params": "FfiLinkNoAsk",
+      "result": "LibraryCoverage",
+      "write": false
+    },
+    {
+      "name": "status.sync",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiSyncStatus",
       "write": false
     },
     {

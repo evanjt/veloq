@@ -448,6 +448,16 @@ describe('unused-i18n-keys', () => {
     expect(runRule('unused-i18n-keys', root).status).toBe(0);
   });
 
+  it('counts a key the connect page reads from the same bundles', () => {
+    const root = fixture({
+      'src/i18n/locales/en-GB.json': locale({ connectPage: { unlink: 'Unlink' } }),
+      'web/connect/App.tsx': "t('connectPage.unlink');\n",
+      'src/app/a.tsx': 'export {};\n',
+    });
+
+    expect(runRule('unused-i18n-keys', root).status).toBe(0);
+  });
+
   it('does not count a mention in a JavaScript file outside the plugins', () => {
     const root = fixture({
       'src/i18n/locales/en-GB.json': locale({ gallery: { name: 'Name' } }),

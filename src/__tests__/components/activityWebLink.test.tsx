@@ -11,6 +11,7 @@ import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as WebBrowser from 'expo-web-browser';
 
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { InsightfulStats } from '@/features/activity/components/stats/InsightfulStats';
 
 import { activityRecord } from '../__shared__/activityRecord';
@@ -38,7 +39,10 @@ const recording = activityRecord({
   avgHr: 150,
 });
 
-beforeEach(() => openBrowser.mockClear());
+beforeEach(() => {
+  openBrowser.mockClear();
+  useAuthStore.setState({ authMethod: 'oauth' });
+});
 
 describe('InsightfulStats web link', () => {
   it('offers no link when intervals.icu has not named the activity', () => {
@@ -49,6 +53,12 @@ describe('InsightfulStats web link', () => {
 
   it('offers no link before the detail read has answered', () => {
     const card = render(<InsightfulStats activity={recording} />);
+    expect(card.queryByText('activity.viewInIntervalsICU')).toBeNull();
+  });
+
+  it('offers no link on a Garmin source even for an id', () => {
+    useAuthStore.setState({ authMethod: 'garmin' });
+    const card = render(<InsightfulStats activity={recording} intervalsId="i900" />);
     expect(card.queryByText('activity.viewInIntervalsICU')).toBeNull();
   });
 

@@ -18,6 +18,9 @@ impl Gate for OpenGate {
     }
     fn connected(&self, _fingerprint: &str) {}
     fn disconnected(&self, _fingerprint: &str) {}
+    fn changed(&self) -> Option<u64> {
+        None
+    }
 }
 
 fn success(request: &[u8], mapped: SocketAddr) -> Vec<u8> {
@@ -88,7 +91,7 @@ fn answer_with(stun: Option<Stun>) -> String {
         stun,
     )
     .expect("accepted");
-    peer.stop();
+    peer.stop(crate::remote::DisconnectReason::Disconnected);
     answer
 }
 

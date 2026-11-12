@@ -9,6 +9,7 @@
  */
 import { colourIndexExpression, type MapBase, type MapPalette } from '@/theme';
 import type { MapGeoJSONData, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
+import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
 import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
@@ -63,6 +64,12 @@ interface RegionalSourceInput {
   userLocationGeoJSON: GeoJSON.FeatureCollection;
   /** The selected activity's line, or the engine's URL for it. */
   routeGeoJSON: MapGeoJSONData;
+  /**
+   * The traces of the group chosen under a heatmap tap, as the engine's URL for
+   * them or the empty collection when none is drawn. The source stays declared
+   * either way.
+   */
+  underPointGeoJSON?: MapGeoJSONData;
   spiderPointsGeoJSON: GeoJSON.FeatureCollection;
   spiderLinesGeoJSON: GeoJSON.FeatureCollection;
   heatmapEnabled: boolean;
@@ -87,6 +94,7 @@ export function buildRegionalSources(input: RegionalSourceInput): Record<string,
     sections: { kind: 'geojson', data: input.sectionsGeoJSON },
     routes: { kind: 'geojson', data: input.routesGeoJSON },
     'selected-route': { kind: 'geojson', data: input.routeGeoJSON },
+    'under-point': { kind: 'geojson', data: input.underPointGeoJSON ?? EMPTY_FEATURE_COLLECTION },
     'spider-legs': { kind: 'geojson', data: input.spiderLinesGeoJSON },
     'spider-markers': { kind: 'geojson', data: input.spiderPointsGeoJSON },
     [USER_LOCATION_SOURCE_ID]: { kind: 'geojson', data: input.userLocationGeoJSON },
@@ -281,6 +289,22 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
         'line-width': size(5),
         'line-opacity': hasRouteData ? 1 : 0,
       },
+    },
+    // The group chosen under a heatmap tap. The heatmap is drawn under it, so
+    // the line is the base's ink on its casing, as the selected activity's is.
+    {
+      id: 'under-point-outline',
+      type: 'line',
+      source: 'under-point',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': palette.casing, 'line-width': size(6) },
+    },
+    {
+      id: 'under-point-line',
+      type: 'line',
+      source: 'under-point',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': palette.ink, 'line-width': size(3) },
     },
     {
       id: CLUSTER_CIRCLE_LAYER_ID,

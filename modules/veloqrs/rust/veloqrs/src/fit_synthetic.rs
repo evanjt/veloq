@@ -88,6 +88,22 @@ pub(crate) struct Activity {
     pub legs: Vec<Leg>,
     /// The athlete figures the device holds, written before the session.
     pub thresholds: Option<Thresholds>,
+    /// The `lap` messages, written between the records and the session.
+    pub laps: Vec<Lap>,
+}
+
+/// One `lap` message. `None` is written as invalid.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Lap {
+    /// Seconds after the ride's start.
+    pub start: u32,
+    pub elapsed_secs: f64,
+    pub timer_secs: Option<f64>,
+    pub distance: Option<f64>,
+    pub avg_speed: Option<f64>,
+    pub avg_heart_rate: Option<u8>,
+    pub avg_power: Option<u16>,
+    pub max_power: Option<u16>,
 }
 
 /// One further session message.
@@ -105,6 +121,7 @@ impl Activity {
         self.write_file_id(&mut data);
         self.write_thresholds(&mut data);
         self.write_records(&mut data);
+        self.write_laps(&mut data);
         self.write_session(&mut data);
         self.write_activity(&mut data);
         wrap(data)
@@ -205,6 +222,41 @@ impl Activity {
             out.extend_from_slice(&scaled_u32(s.distance.map(|d| d * 100.0)).to_le_bytes());
             out.extend_from_slice(&scaled_u16(s.speed.map(|v| v * 1000.0)).to_le_bytes());
             out.extend_from_slice(&s.power.unwrap_or(INVALID_UINT16).to_le_bytes());
+        }
+    }
+
+    fn write_laps(&self, out: &mut Vec<u8>) {
+        if self.laps.is_empty() {
+            return;
+        }
+        definition(
+            out,
+            5,
+            19,
+            &[
+                (253, 4, BASE_UINT32),
+                (2, 4, BASE_UINT32),
+                (7, 4, BASE_UINT32),
+                (8, 4, BASE_UINT32),
+                (9, 4, BASE_UINT32),
+                (13, 2, BASE_UINT16),
+                (15, 1, BASE_UINT8),
+                (19, 2, BASE_UINT16),
+                (20, 2, BASE_UINT16),
+            ],
+        );
+        for lap in &self.laps {
+            out.push(5);
+            let end = i64::from(lap.start) + lap.elapsed_secs.round() as i64;
+            out.extend_from_slice(&self.fit_time(end).to_le_bytes());
+            out.extend_from_slice(&self.fit_time(i64::from(lap.start)).to_le_bytes());
+            out.extend_from_slice(&scaled_u32(Some(lap.elapsed_secs * 1000.0)).to_le_bytes());
+            out.extend_from_slice(&scaled_u32(lap.timer_secs.map(|v| v * 1000.0)).to_le_bytes());
+            out.extend_from_slice(&scaled_u32(lap.distance.map(|v| v * 100.0)).to_le_bytes());
+            out.extend_from_slice(&scaled_u16(lap.avg_speed.map(|v| v * 1000.0)).to_le_bytes());
+            out.push(lap.avg_heart_rate.unwrap_or(INVALID_UINT8));
+            out.extend_from_slice(&lap.avg_power.unwrap_or(INVALID_UINT16).to_le_bytes());
+            out.extend_from_slice(&lap.max_power.unwrap_or(INVALID_UINT16).to_le_bytes());
         }
     }
 
@@ -373,6 +425,7 @@ pub(crate) fn outdoor_ride() -> Activity {
         device: None,
         legs: Vec::new(),
         thresholds: None,
+        laps: Vec::new(),
         totals: SessionTotals {
             elapsed_secs: Some(30.0),
             timer_secs: Some(28.0),

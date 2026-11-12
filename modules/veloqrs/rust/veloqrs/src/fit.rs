@@ -423,6 +423,61 @@ pub struct FitActivity {
     pub device: Option<String>,
     /// The athlete's thresholds and profile, `None` when the file carries none.
     pub thresholds: Option<FitThresholds>,
+    /// The `lap` messages, in file order.
+    pub laps: Vec<FitLap>,
+}
+
+/// One `lap` message: a stretch of the recording the device closed, by the
+/// athlete's press or by its own rule. A figure the device did not write is
+/// `None`, never zero.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FitLap {
+    /// Unix seconds.
+    pub start_unix: i64,
+    /// The wall-clock span in seconds.
+    pub elapsed_secs: Option<f64>,
+    /// The timer's seconds, which pauses do not run.
+    pub timer_secs: Option<f64>,
+    /// Metres.
+    pub distance: Option<f64>,
+    /// Metres per second.
+    pub avg_speed: Option<f64>,
+    pub max_speed: Option<f64>,
+    pub avg_heart_rate: Option<f64>,
+    pub max_heart_rate: Option<f64>,
+    pub avg_cadence: Option<f64>,
+    pub avg_power: Option<f64>,
+    pub max_power: Option<f64>,
+}
+
+fn read_lap(record: &fitparser::FitDataRecord) -> Option<FitLap> {
+    let mut lap = FitLap::default();
+    let mut start = None;
+    let (mut avg_speed, mut enhanced_avg_speed) = (None, None);
+    let (mut max_speed, mut enhanced_max_speed) = (None, None);
+    for field in record.fields() {
+        let value = field.value();
+        match field.name() {
+            "start_time" => start = timestamp_of(value),
+            "total_elapsed_time" => lap.elapsed_secs = finite_number(value),
+            "total_timer_time" => lap.timer_secs = finite_number(value),
+            "total_distance" => lap.distance = finite_number(value),
+            "avg_speed" => avg_speed = finite_number(value),
+            "enhanced_avg_speed" => enhanced_avg_speed = finite_number(value),
+            "max_speed" => max_speed = finite_number(value),
+            "enhanced_max_speed" => enhanced_max_speed = finite_number(value),
+            "avg_heart_rate" => lap.avg_heart_rate = finite_number(value),
+            "max_heart_rate" => lap.max_heart_rate = finite_number(value),
+            "avg_cadence" => lap.avg_cadence = finite_number(value),
+            "avg_power" => lap.avg_power = finite_number(value),
+            "max_power" => lap.max_power = finite_number(value),
+            _ => {}
+        }
+    }
+    lap.start_unix = start?;
+    lap.avg_speed = enhanced_avg_speed.or(avg_speed);
+    lap.max_speed = enhanced_max_speed.or(max_speed);
+    Some(lap)
 }
 
 /// Seconds from the Unix epoch to the FIT epoch, 1989-12-31T00:00:00Z.
@@ -463,6 +518,7 @@ pub fn parse_fit_activity(data: &[u8]) -> Result<FitActivity, FitParseError> {
                 }
             }
             fitparser::profile::MesgNum::Session => sessions.push(read_session(record)),
+            fitparser::profile::MesgNum::Lap => activity.laps.extend(read_lap(record)),
             fitparser::profile::MesgNum::FileId if activity.device.is_none() => {
                 activity.device = device_of(record);
             }
@@ -1443,6 +1499,47 @@ pub(crate) mod tests {
         let mut ride = crate::fit_synthetic::outdoor_ride();
         ride.thresholds = thresholds;
         parse_fit_activity(&ride.to_fit()).expect("a readable FIT")
+    }
+
+    #[test]
+    fn the_laps_of_a_file_come_back_in_order_with_their_figures() {
+        use crate::fit_synthetic::Lap;
+        let mut ride = crate::fit_synthetic::outdoor_ride();
+        ride.laps = vec![
+            Lap {
+                start: 0,
+                elapsed_secs: 10.0,
+                timer_secs: Some(9.0),
+                distance: Some(60.0),
+                avg_speed: Some(6.0),
+                avg_heart_rate: Some(125),
+                avg_power: Some(205),
+                max_power: Some(209),
+            },
+            Lap {
+                start: 10,
+                elapsed_secs: 20.0,
+                ..Lap::default()
+            },
+        ];
+        let laps = parse_fit_activity(&ride.to_fit()).unwrap().laps;
+        assert_eq!(laps.len(), 2);
+        assert_eq!(laps[0].start_unix, ride.start_unix);
+        assert_eq!(laps[0].elapsed_secs, Some(10.0));
+        assert_eq!(laps[0].timer_secs, Some(9.0));
+        assert_eq!(laps[0].distance, Some(60.0));
+        assert_eq!(laps[0].avg_speed, Some(6.0));
+        assert_eq!(laps[0].avg_heart_rate, Some(125.0));
+        assert_eq!(laps[0].avg_power, Some(205.0));
+        assert_eq!(laps[0].max_power, Some(209.0));
+        assert_eq!(laps[1].start_unix, ride.start_unix + 10);
+        assert_eq!(laps[1].distance, None);
+        assert_eq!(laps[1].avg_power, None);
+    }
+
+    #[test]
+    fn a_file_with_no_lap_message_has_no_laps() {
+        assert!(ride_with(None).laps.is_empty());
     }
 
     #[test]

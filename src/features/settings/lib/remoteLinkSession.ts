@@ -1,5 +1,6 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { remote } from 'veloqrs';
+import { Platform } from 'react-native';
+import { DisconnectReason, remote } from 'veloqrs';
 import { useRemoteLinkStatus } from '@/shared/app/remoteLinkStatus';
 import { experimentalOn } from './experimental';
 import { createRemoteLink, type RelaySocket, type RemoteLink } from './remoteLink';
@@ -15,7 +16,7 @@ const link = createRemoteLink({
   engine: {
     linkedRooms: () => remote.linkedRooms(),
     acceptOffer: (offer) => remote.acceptOffer(offer),
-    disconnectAll: () => remote.disconnectAll(),
+    disconnectAll: (reason) => remote.disconnectAll(reason),
     setInFront: (inFront) => remote.setInFront(inFront),
     connectedCount: () => remote.connectedCount(),
   },
@@ -37,13 +38,33 @@ function relaySocket(url: string): RelaySocket {
   const socket: RelaySocket = {
     send: (message) => ws.send(message),
     close: () => ws.close(),
+    onopen: null,
     onmessage: null,
     onclose: null,
   };
+  ws.onopen = () => socket.onopen?.();
   ws.onmessage = (event) => socket.onmessage?.({ data: event.data });
   ws.onclose = () => socket.onclose?.();
   return socket;
 }
+
+/**
+ * The name this phone gives a linked browser: the manufacturer and model
+ * Android reports. iOS exposes no device name to an app, so it sends none and
+ * the page keeps its generic words.
+ */
+export function deviceName(constants: { Brand?: string; Model?: string } | undefined): string {
+  const model = constants?.Model?.trim() ?? '';
+  const brand = constants?.Brand?.trim() ?? '';
+  if (!model) return brand;
+  return model.toLowerCase().startsWith(brand.toLowerCase()) ? model : `${brand} ${model}`.trim();
+}
+
+remote.setDeviceName(
+  Platform.OS === 'android'
+    ? deviceName(Platform.constants as { Brand?: string; Model?: string })
+    : ''
+);
 
 link.subscribe(({ connected, rooms }) => useRemoteLinkStatus.setState({ connected, rooms }));
 
@@ -69,6 +90,6 @@ export const remoteLink: RemoteLink = {
 
 /** End every browser's connection now, as the connected banner's action. */
 export function disconnectRemoteLink(): void {
-  remote.disconnectAll();
+  remote.disconnectAll(DisconnectReason.Disconnected);
   useRemoteLinkStatus.setState({ connected: remote.connectedCount() });
 }

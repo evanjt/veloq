@@ -40,7 +40,8 @@
       "connectGarmin": "Garmin koppelen"
     },
     "provenance": {
-      "garminOnPhone": "Aangevuld uit je Garmin-bestand"
+      "garminOnPhone": "Aangevuld uit je Garmin-bestand",
+      "veloqNumbers": "Door Veloq op deze telefoon berekend uit je Garmin-bestanden."
     },
     "syncFailed": {
       "title": "Synchroniseren mislukt",
@@ -132,7 +133,8 @@
       "pace": "Tempo",
       "cadence": "Cadans",
       "movingTime": "Bewegingstijd",
-      "elapsedTime": "Verstreken tijd"
+      "elapsedTime": "Verstreken tijd",
+      "needsIntervals": "Vereist intervals.icu"
     },
     "hrZoneTotal": "Tijd met hartslag: {{duration}}",
     "powerZoneTotal": "Tijd met vermogen: {{duration}}",
@@ -216,7 +218,8 @@
       "route": "Route",
       "sections": "Secties",
       "exercises": "Oefeningen",
-      "lengths": "Banen"
+      "lengths": "Banen",
+      "laps": "Rondes"
     },
     "primary": "Primair",
     "secondary": "Secundair",
@@ -768,6 +771,10 @@
     "other": {
       "short": "Overig",
       "long": "Overig"
+    },
+    "lap": {
+      "short": "Ronde",
+      "long": "Ronde"
     }
   },
   "export": {
@@ -817,7 +824,8 @@
       "failedBody": "De laatste synchronisatie stopte voordat er iets binnenkwam.",
       "emptyTitle": "Nog geen activiteiten",
       "emptyBody": "Activiteiten komen uit je intervals.icu-account, of van een opname hier.",
-      "record": "Activiteit opnemen"
+      "record": "Activiteit opnemen",
+      "emptyBodyGarmin": "Activiteiten komen uit je Garmin-account of uit een opname die je hier maakt."
     },
     "noActivitiesFor": "Geen activiteiten voor {{filters}}",
     "searchPlaceholder": "Activiteiten zoeken…",
@@ -861,7 +869,8 @@
     "noData": "Geen fitheidsgegevens beschikbaar",
     "noDataCause": "Fitheid, vermoeidheid en vorm komen van intervals.icu, waar voor deze periode niets is opgeslagen.",
     "restDay": "Rustdag",
-    "selectActivity": "Activiteit selecteren"
+    "selectActivity": "Activiteit selecteren",
+    "noDataCauseGarmin": "Fitheid, vermoeidheid en vorm hebben trainingsbelasting nodig, en Veloq heeft die niet voor deze periode."
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -882,7 +891,9 @@
       "calendar": "Kalender",
       "performance": "Prestaties",
       "trends": "Trends"
-    }
+    },
+    "provenanceGarmin": "Op deze telefoon berekend uit je Garmin-ritten.",
+    "methodGarmin": "Garmin-bestanden bevatten geen trainingsbelasting, dus Veloq berekent de belasting van elke rit op deze telefoon, en fitheid, vermoeidheid en vorm worden uit die belastingen berekend."
   },
   "formZones": {
     "transition": "Overgang",
@@ -1392,7 +1403,10 @@
       "peek": "Glimp",
       "half": "Half",
       "full": "Volledig"
-    }
+    },
+    "underPointRoute": "Route {{number}}",
+    "underPointNoRoute": "Niet in een route",
+    "underPointDrawn": "{{drawn}} van {{total}} getekend"
   },
   "metrics": {
     "activityCount": "Activiteiten",
@@ -1676,6 +1690,14 @@
       "nearby": "In de buurt",
       "allRoutes": "Alle routes"
     },
+    "guidance": {
+      "remaining": "Nog {{distance}}",
+      "notJoined": "Route op {{distance}}",
+      "offRoute": "Van de route · {{distance}}",
+      "turnLeft": "Links over {{distance}}",
+      "turnRight": "Rechts over {{distance}}",
+      "turnBack": "Keer om over {{distance}}"
+    },
     "returnToRecording": "Terug naar de opname",
     "batteryOptNudge": "Lange opnames werken het best met batterijoptimalisatie uitgeschakeld voor Veloq.",
     "batteryOptOpenSettings": "Batterij-instellingen openen",
@@ -1711,7 +1733,8 @@
     },
     "recentTypes": "Recent",
     "caloriesMethod": "Geschat uit de gemiddelde hartslag met een sensor, bij een aangenomen leeftijd van {{age}}, anders uit de sport en de beweegtijd.",
-    "caloriesDefaultWeight": "Je profiel heeft geen gewicht, dus wordt {{weight}} kg aangenomen."
+    "caloriesDefaultWeight": "Je profiel heeft geen gewicht, dus wordt {{weight}} kg aangenomen.",
+    "savedLocallyNoUploadGarmin": "Rit opgeslagen op dit apparaat. Er wordt niets geüpload."
   },
   "routeDetail": {
     "routeNotFound": "Route niet gevonden"
@@ -3326,5 +3349,248 @@
     "connectedSince": "Verbonden sinds {{time}}",
     "notConnected": "Niet verbonden",
     "manage": "Gekoppelde apparaten beheren"
+  },
+  "connectPage": {
+    "title": "Veloq Connect",
+    "language": "Taal",
+    "status": {
+      "unpaired": "Niet gekoppeld",
+      "inviting": "Wachten tot de code is gescand",
+      "proving": "Telefoon controleren",
+      "confirming": "Bevestig op je telefoon",
+      "waiting": "Wachten op je telefoon",
+      "connecting": "Verbinden",
+      "connected": "Verbonden",
+      "update": "Werk Veloq bij op je telefoon",
+      "unsupported": "Niet ondersteund"
+    },
+    "unsupported": "Deze browser kan niet met de telefoon koppelen. Probeer een actuele versie van Chrome, Edge of Firefox.",
+    "notice": {
+      "refused": "De telefoon heeft deze browser geweigerd. Koppel opnieuw met een nieuwe code.",
+      "declined": "Het koppelen is op de telefoon geweigerd.",
+      "removed": "Deze browser is op de telefoon verwijderd. Koppel opnieuw met een nieuwe code.",
+      "unreachable": "Je telefoon is vanaf hier niet bereikbaar. Zet beide op hetzelfde wifi-netwerk en scan de nieuwe code."
+    },
+    "screens": {
+      "feed": "Overzicht",
+      "fitness": "Fitness",
+      "insights": "Inzichten",
+      "map": "Kaart",
+      "settings": "Instellingen"
+    },
+    "railLabel": "Schermen",
+    "yourPhone": "Je telefoon",
+    "laterScreen": "Dit scherm staat nog niet in de browser. Open het op je telefoon.",
+    "footer": "Je gegevens gaan rechtstreeks van je telefoon naar deze pagina en blijven alleen bewaard zolang de pagina openstaat.",
+    "unlink": "Deze browser ontkoppelen",
+    "pair": {
+      "heading": "Deze browser koppelen",
+      "step1": "Open Veloq op je telefoon.",
+      "step2": "Ga naar Instellingen, dan Gekoppelde apparaten, dan Apparaat koppelen.",
+      "step3": "Scan deze code.",
+      "codeLabel": "Koppelcode"
+    },
+    "waiting": {
+      "heading": "Wachten op je telefoon",
+      "body": "Open Veloq op je telefoon. Deze pagina maakt zelf verbinding, via hetzelfde wifi-netwerk en via de meeste andere netwerken.",
+      "unreachable": "Je telefoon is vanaf hier niet bereikbaar. Zet beide op hetzelfde wifi-netwerk."
+    },
+    "update": {
+      "heading": "Werk Veloq bij op je telefoon",
+      "body": "Deze pagina en Veloq op je telefoon spreken niet dezelfde versie van de koppeling. Werk Veloq bij op je telefoon en open deze pagina daarna opnieuw."
+    },
+    "keys": {
+      "heading": "Toetsen",
+      "tabs": "Overzicht, Fitness, Inzichten, Kaart, Instellingen",
+      "search": "Zoeken in het overzicht",
+      "close": "De activiteit sluiten",
+      "list": "Deze lijst",
+      "range": "1 tot 5"
+    },
+    "library": {
+      "activities": "Activiteiten",
+      "searchPlaceholder": "Zoeken (/)",
+      "searchLabel": "Activiteiten zoeken",
+      "pick": "Kies een activiteit",
+      "loadMore": "Meer laden",
+      "sportLabel": "Sport",
+      "summary": "Samenvatting",
+      "fitnessTrend": "Fitness over de afgelopen 30 dagen",
+      "range": "Periode",
+      "sortNote_one": "Gesorteerd over de {{count}} tot nu toe geladen activiteit; bij het scrollen worden er meer geladen.",
+      "sortNote_other": "Gesorteerd over de {{count}} tot nu toe geladen activiteiten; bij het scrollen worden er meer geladen."
+    },
+    "families": {
+      "ride": "Fietsen",
+      "run": "Hardlopen",
+      "winter": "Wintersport",
+      "water": "Watersport",
+      "foot": "Te voet",
+      "strength": "Kracht",
+      "other": "Overig"
+    },
+    "facts": {
+      "thisWeek": "Deze week",
+      "lastWeek": "Vorige week",
+      "fitness": "Conditie",
+      "form": "Vorm",
+      "hrv": "HRV",
+      "restingHr": "Rustpols",
+      "distance": "Afstand",
+      "movingTime": "Beweegtijd",
+      "elapsedTime": "Verstreken tijd",
+      "averageSpeed": "Gemiddelde snelheid",
+      "topSpeed": "Topsnelheid",
+      "climbing": "Hoogtemeters",
+      "averageHr": "Gemiddelde hartslag",
+      "averagePower": "Gemiddeld vermogen",
+      "trainingLoad": "Trainingsbelasting",
+      "time": "Tijd"
+    },
+    "weekTotal_one": "{{time}} · {{count}} activiteit",
+    "weekTotal_other": "{{time}} · {{count}} activiteiten",
+    "connection": {
+      "heading": "Verbinding",
+      "connectedFor": "Verbonden gedurende",
+      "path": "Route",
+      "thisBrowser": "Deze browser",
+      "phone": "Telefoon",
+      "roundTrip": "Heen en terug",
+      "checking": "Controleren",
+      "notMeasured": "Niet gemeten",
+      "pathDirect": "Direct, op hetzelfde netwerk",
+      "pathStun": "Tussen netwerken, via STUN",
+      "pathUnknown": "Nog niet bekend",
+      "trafficLabel": "Bytes per seconde in de afgelopen drie minuten",
+      "traffic": "Ontvangen {{received}}, verzonden {{sent}}"
+    },
+    "activity": {
+      "back": "Terug naar de feed",
+      "untitled": "Activiteit",
+      "map": "Kaart",
+      "facts": "Gegevens van de activiteit",
+      "charts": "Grafieken",
+      "noSeries": "Deze activiteit heeft geen opgenomen reeksen.",
+      "sections": "Secties",
+      "routes": "Routes",
+      "intervals": "Intervallen"
+    },
+    "chart": {
+      "series": "Reeksen",
+      "axis": "As",
+      "label": "Reeksen van de activiteit",
+      "elevation": "Hoogte",
+      "heartRate": "Hartslag",
+      "power": "Vermogen",
+      "cadence": "Cadans",
+      "speed": "Snelheid",
+      "grade": "Helling",
+      "temperature": "Temperatuur"
+    },
+    "fitness": {
+      "range": "Periode",
+      "days_one": "{{count}} dag",
+      "days_other": "{{count}} dagen",
+      "allTime": "Altijd",
+      "period": "Periode",
+      "bestEfforts": "Beste prestaties",
+      "thresholds": "Drempels",
+      "fitnessFatigue": "Conditie en vermoeidheid",
+      "fatigue": "Vermoeidheid",
+      "dailyLoad": "Dagelijkse belasting",
+      "powerZones": "Vermogenszones",
+      "powerCurve": "Vermogenscurve",
+      "paceCurve": "Tempocurve",
+      "noData": "Geen gegevens in deze periode.",
+      "noWellness": "De telefoon heeft geen welzijnsdagen voor deze periode.",
+      "wellnessNotFetched": "Welzijn voor deze periode is niet gedownload op de telefoon.",
+      "none": "geen",
+      "loadReadout": "{{date}} · belasting {{load}}",
+      "noActivities": "Geen activiteiten in deze periode.",
+      "totalLoad": "Totale belasting {{load}}",
+      "noZones": "Geen zonetijd in deze periode.",
+      "zone": "Zone {{n}}",
+      "curveMissing": "Deze curve is niet gedownload op de telefoon.",
+      "effortSport": "Sport",
+      "effortEffort": "Inspanning",
+      "effortBest": "Beste",
+      "effortActivity": "Activiteit",
+      "effortsMissing": "Niet gedownload op de telefoon.",
+      "cyclingFtp": "FTP fietsen",
+      "estimatedFtp": "Geschatte FTP",
+      "runningLthr": "LTHR hardlopen",
+      "recentRides": "Recente ritten",
+      "recentRuns": "Recente runs",
+      "recentSwims": "Recente zwemsessies",
+      "failed": "De telefoon kon hierop niet antwoorden."
+    },
+    "strength": {
+      "heading": "Kracht",
+      "period": "Periode",
+      "period7d": "7 dagen",
+      "period1m": "30 dagen",
+      "period3m": "3 maanden",
+      "period6m": "6 maanden",
+      "period1y": "1 jaar",
+      "owed_one": "{{count}} krachtactiviteit heeft nog geen sets op je telefoon.",
+      "owed_other": "{{count}} krachtactiviteiten hebben nog geen sets op je telefoon.",
+      "muscles": "Spieren",
+      "weeks": "Weken",
+      "exercises": "Oefeningen",
+      "colMuscle": "Spier",
+      "colWeightedSets": "Gewogen sets",
+      "colReps": "Herhalingen",
+      "colVolume": "Volume (kg)",
+      "colExercises": "Oefeningen",
+      "colWeekOf": "Week van",
+      "colSessions": "Sessies",
+      "colSets": "Sets",
+      "colMostWorked": "Meest getrainde spier (gewogen sets)",
+      "exercise": "Oefening",
+      "unknownExercise": "Onbekende oefening",
+      "colDate": "Datum",
+      "colActivity": "Activiteit",
+      "colBestSet": "Beste set",
+      "colOneRepMax": "Geschatte 1RM",
+      "line": "{{sets}} sets · {{reps}} herhalingen · {{kg}} kg",
+      "bestSetReps_one": "{{count}} herhaling",
+      "bestSetReps_other": "{{count}} herhalingen"
+    },
+    "recordings": {
+      "heading": "Opnames",
+      "intro": "Ritten en invoeren die op deze telefoon zijn opgeslagen. Uploaden en verwijderen gebeurt op je telefoon.",
+      "notFound": "Opname niet gevonden",
+      "one": "Opname",
+      "activityType": "Activiteitstype",
+      "started": "Gestart",
+      "duration": "Duur",
+      "upload": "Upload",
+      "lastError": "Laatste fout",
+      "notes": "Notities"
+    },
+    "settings": {
+      "onThePhone": "Op de telefoon",
+      "openOnPhone": "Open het op je telefoon.",
+      "notOnBrowser": "Nog niet in de browser",
+      "notOnBrowserBody": "Deze instelling is nog niet in de browser. Open haar op je telefoon.",
+      "pick": "Kies een instelling",
+      "profile": "Profiel",
+      "libraryStatus": "Status van de bibliotheek",
+      "sync": "Synchronisatie",
+      "activitiesOnPhone": "Activiteiten op de telefoon",
+      "tracksOnPhone": "GPS-tracks op de telefoon",
+      "streamCache": "Streamcache",
+      "awaitingDetection": "Wachten op detectie",
+      "backup": "Back-up",
+      "backupSetUp": "Ingesteld op de telefoon",
+      "name": "Naam",
+      "units": "Eenheden",
+      "weight": "Gewicht"
+    },
+    "compare": {
+      "heading_one": "Vergelijking van {{count}} activiteit",
+      "heading_other": "Vergelijking van {{count}} activiteiten",
+      "dropped": "Maximaal vier activiteiten: {{names}} is verwijderd."
+    }
   }
 }

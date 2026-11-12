@@ -9,6 +9,7 @@ import {
   resumeRecordingManually,
 } from '@/features/recording/lib/manualPause';
 
+import { sessionGuidanceCue } from '@/features/recording/lib/guidanceCue';
 import { buildContentState, type LiveActivityContentState } from './contentState';
 import {
   endAllNativeLiveActivities,
@@ -52,6 +53,7 @@ function composeState(now: number, endedLabel?: string): LiveActivityContentStat
     distanceLabel: formatDistance(distance, isMetric),
     speedLabel: formatRecordingSpeed(activityType, avgSpeed, isMetric),
     gps: streams.latlng,
+    guidance: sessionGuidanceCue.line,
     endedLabel,
   });
 }

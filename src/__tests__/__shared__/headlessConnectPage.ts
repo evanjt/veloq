@@ -17,8 +17,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 
-import { Protocol, greyPng } from './headlessMapPage';
 import { PAGE_PROTOCOL } from '../../../web/connect/link';
+import { Protocol, greyPng } from './headlessMapPage';
 
 export { findChromium } from './headlessMapPage';
 
@@ -28,12 +28,16 @@ const ROOT = resolve(__dirname, '../../..');
 export const PAGE_URL = 'https://veloq.fit/connect/';
 const PAGE_ORIGIN = 'https://veloq.fit';
 
+/** The basemap host the page's map draws from, answered here so a run reaches no network. */
+const BASEMAP_ORIGIN = 'https://tiles.openfreemap.org';
+
 const TYPES: Record<string, string> = {
   html: 'text/html; charset=utf-8',
   js: 'text/javascript; charset=utf-8',
   css: 'text/css; charset=utf-8',
   txt: 'text/plain; charset=utf-8',
   map: 'application/json',
+  json: 'application/json',
 };
 
 /** The room the page makes for its first invitation, under the fixed random bytes below. */
@@ -53,6 +57,12 @@ export interface Script {
   methods: string[];
   /** What the phone answers each method with, by method name. */
   results: Record<string, unknown>;
+  /** What the phone answers `heatmap.tile` with, as base64 by `z/x/y`; a tile not listed holds no heat. */
+  tiles?: Record<string, string>;
+  /** The name the phone gives itself in its hello, if it gives one. */
+  device?: string;
+  /** The rows the browser's own `getStats()` report holds for the open connection. */
+  stats: Record<string, unknown>[];
 }
 
 export interface ConnectPage {
@@ -66,7 +76,7 @@ export interface ConnectPage {
 }
 
 export interface ConnectBrowser {
-  open: (script: Script) => Promise<ConnectPage>;
+  open: (script: Script, languages?: string) => Promise<ConnectPage>;
   close: () => Promise<void>;
 }
 
@@ -136,8 +146,11 @@ function instrument(script: Script): string {
       var result;
       if (ask.method === 'pair.prove') result = { phoneProof: script.phoneProof };
       else if (ask.method === 'pair.status') result = ++fake.statusPolls < 2 ? 'waiting' : 'confirmed';
-      else if (ask.method === 'link.hello') result = { protocol: ${PAGE_PROTOCOL}, app: 'test', methods: script.methods };
-      else result = script.results[ask.method];
+      else if (ask.method === 'link.hello') result = { protocol: ${PAGE_PROTOCOL}, app: 'test', methods: script.methods, device: script.device };
+      else if (ask.method === 'heatmap.tile') {
+        var key = ask.params.z + '/' + ask.params.x + '/' + ask.params.y;
+        result = (script.tiles || {})[key] || null;
+      } else result = script.results[ask.method];
       var reply = result === undefined
         ? { id: ask.id, error: 'unknown method ' + ask.method }
         : { id: ask.id, result: result };
@@ -189,6 +202,9 @@ function instrument(script: Script): string {
     var channel = this.channel;
     if (channel) setTimeout(function() { channel.open(); }, 0);
     return Promise.resolve();
+  };
+  FakePeer.prototype.getStats = function() {
+    return Promise.resolve(new Map(script.stats.map(function(row) { return [row.id, row]; })));
   };
   FakePeer.prototype.addEventListener = function() {};
   FakePeer.prototype.close = function() { this.connectionState = 'closed'; };
@@ -291,17 +307,39 @@ export async function launchConnectBrowser(
     const url = new URL(request.url);
     let status = 200;
     let contentType = 'text/plain';
+    const headers: { name: string; value: string }[] = [];
     let body: Buffer | string = '';
     const name = url.pathname.startsWith('/connect/')
       ? url.pathname.slice('/connect/'.length)
       : null;
-    if (url.origin === PAGE_ORIGIN && url.pathname === '/icon.png') {
+    if (url.origin === BASEMAP_ORIGIN) {
+      // The basemap host allows any origin to read its tiles, glyphs and sprite.
+      headers.push({ name: 'Access-Control-Allow-Origin', value: '*' });
+      const path = url.pathname;
+      if (/\.(pbf|mvt)$/i.test(path)) contentType = 'application/x-protobuf';
+      else if (/\.png$/i.test(path)) {
+        contentType = 'image/png';
+        body = icon;
+      } else {
+        contentType = 'application/json';
+        body = /^\/(planet|natural_earth)$/.test(path)
+          ? JSON.stringify({
+              tilejson: '3.0.0',
+              tiles: [`${BASEMAP_ORIGIN}${path}/20260101/{z}/{x}/{y}.pbf`],
+              minzoom: 0,
+              maxzoom: 14,
+            })
+          : '{}';
+      }
+    } else if (url.origin === PAGE_ORIGIN && url.pathname === '/icon.png') {
       contentType = 'image/png';
       body = icon;
     } else if (url.origin === PAGE_ORIGIN && name !== null) {
       const file = name === '' ? 'index.html' : name;
       try {
-        if (file.includes('/') || file.includes('..')) throw new Error('outside the page');
+        const chunk = /^locales\/[A-Za-z0-9-]+\.json$/.test(file);
+        if ((file.includes('/') && !chunk) || file.includes('..'))
+          throw new Error('outside the page');
         body = readFileSync(join(distribution, file));
         contentType = TYPES[file.slice(file.lastIndexOf('.') + 1)] ?? 'application/octet-stream';
       } catch {
@@ -318,7 +356,7 @@ export async function launchConnectBrowser(
         {
           requestId: params.requestId,
           responseCode: status,
-          responseHeaders: [{ name: 'Content-Type', value: contentType }],
+          responseHeaders: [{ name: 'Content-Type', value: contentType }, ...headers],
           body: Buffer.from(body).toString('base64'),
         },
         sessionId
@@ -327,7 +365,7 @@ export async function launchConnectBrowser(
   });
 
   return {
-    async open(script) {
+    async open(script, languages) {
       const { targetId } = await protocol.send('Target.createTarget', { url: 'about:blank' });
       const { sessionId } = (await protocol.send('Target.attachToTarget', {
         targetId,
@@ -348,6 +386,13 @@ export async function launchConnectBrowser(
         deviceScaleFactor: 1,
         mobile: false,
       });
+      if (languages) {
+        // The header and navigator.languages both come from the override's acceptLanguage.
+        await send('Emulation.setUserAgentOverride', {
+          userAgent: (await protocol.send('Browser.getVersion')).userAgent as string,
+          acceptLanguage: languages,
+        });
+      }
       await send('Page.addScriptToEvaluateOnNewDocument', { source: instrument(script) });
 
       const loaded = new Promise<void>((resolveLoaded) => {

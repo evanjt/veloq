@@ -40,7 +40,8 @@
       "connectGarmin": "Collega Garmin"
     },
     "provenance": {
-      "garminOnPhone": "Completata dal tuo file Garmin"
+      "garminOnPhone": "Completata dal tuo file Garmin",
+      "veloqNumbers": "Calcolato da Veloq su questo telefono dai tuoi file Garmin."
     },
     "syncFailed": {
       "title": "Sincronizzazione non riuscita",
@@ -132,7 +133,8 @@
       "pace": "Passo",
       "cadence": "Cadenza",
       "movingTime": "Tempo in movimento",
-      "elapsedTime": "Tempo totale"
+      "elapsedTime": "Tempo totale",
+      "needsIntervals": "Richiede intervals.icu"
     },
     "hrZoneTotal": "Tempo con frequenza cardiaca: {{duration}}",
     "powerZoneTotal": "Tempo con potenza: {{duration}}",
@@ -217,7 +219,8 @@
       "route": "Percorso",
       "sections": "Tratti",
       "exercises": "Esercizi",
-      "lengths": "Vasche"
+      "lengths": "Vasche",
+      "laps": "Giri"
     },
     "primary": "Primario",
     "secondary": "Secondario",
@@ -784,6 +787,10 @@
     "other": {
       "short": "Altro",
       "long": "Altro"
+    },
+    "lap": {
+      "short": "Giro",
+      "long": "Giro"
     }
   },
   "export": {
@@ -835,7 +842,8 @@
       "failedBody": "L'ultima sincronizzazione si è fermata prima che ne arrivasse qualcuna.",
       "emptyTitle": "Ancora nessuna attività",
       "emptyBody": "Le attività arrivano dal tuo account intervals.icu, oppure registrandone una qui.",
-      "record": "Registra un'attività"
+      "record": "Registra un'attività",
+      "emptyBodyGarmin": "Le attività arrivano dal tuo account Garmin o da una registrazione fatta qui."
     },
     "noActivitiesFor": "Nessuna attività per {{filters}}",
     "searchPlaceholder": "Cerca attività…",
@@ -882,7 +890,8 @@
     "noData": "Nessun dato forma disponibile",
     "noDataCause": "Forma fisica, fatica e forma vengono da intervals.icu, che non ha nulla di salvato per questo periodo.",
     "restDay": "Giorno di riposo",
-    "selectActivity": "Seleziona attività"
+    "selectActivity": "Seleziona attività",
+    "noDataCauseGarmin": "Forma, fatica e freschezza richiedono il carico di allenamento, di cui Veloq non ha nulla per questo periodo."
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -903,7 +912,9 @@
       "calendar": "Calendario",
       "performance": "Prestazioni",
       "trends": "Tendenze"
-    }
+    },
+    "provenanceGarmin": "Calcolato su questo telefono dalle tue uscite Garmin.",
+    "methodGarmin": "I file Garmin non contengono il carico di allenamento, quindi Veloq calcola il carico di ogni uscita su questo telefono, e forma, fatica e freschezza si ricavano da quei carichi."
   },
   "formZones": {
     "transition": "Transizione",
@@ -1425,7 +1436,10 @@
       "peek": "Anteprima",
       "half": "Metà",
       "full": "Pieno"
-    }
+    },
+    "underPointRoute": "Percorso {{number}}",
+    "underPointNoRoute": "Senza percorso",
+    "underPointDrawn": "{{drawn}} di {{total}} tracciate"
   },
   "metrics": {
     "activityCount": "Attività",
@@ -1711,6 +1725,14 @@
       "nearby": "Nelle vicinanze",
       "allRoutes": "Tutti i percorsi"
     },
+    "guidance": {
+      "remaining": "{{distance}} rimanenti",
+      "notJoined": "Percorso a {{distance}}",
+      "offRoute": "Fuori percorso · {{distance}}",
+      "turnLeft": "A sinistra tra {{distance}}",
+      "turnRight": "A destra tra {{distance}}",
+      "turnBack": "Inversione tra {{distance}}"
+    },
     "returnToRecording": "Torna alla registrazione",
     "batteryOptNudge": "Le registrazioni lunghe funzionano meglio con l'ottimizzazione della batteria disattivata per Veloq.",
     "batteryOptOpenSettings": "Apri impostazioni batteria",
@@ -1746,7 +1768,8 @@
     },
     "recentTypes": "Recenti",
     "caloriesMethod": "Stimate dalla frequenza cardiaca media con un sensore, con un’età presunta di {{age}} anni, altrimenti dallo sport e dal tempo in movimento.",
-    "caloriesDefaultWeight": "Il tuo profilo non ha un peso, quindi si presumono {{weight}} kg."
+    "caloriesDefaultWeight": "Il tuo profilo non ha un peso, quindi si presumono {{weight}} kg.",
+    "savedLocallyNoUploadGarmin": "Uscita salvata su questo dispositivo. Nulla la carica online."
   },
   "routeDetail": {
     "routeNotFound": "Percorso non trovato"
@@ -3420,5 +3443,248 @@
     "connectedSince": "Connesso dal {{time}}",
     "notConnected": "Non connesso",
     "manage": "Gestisci i dispositivi collegati"
+  },
+  "connectPage": {
+    "title": "Veloq Connect",
+    "language": "Lingua",
+    "status": {
+      "unpaired": "Non collegato",
+      "inviting": "In attesa della scansione del codice",
+      "proving": "Verifica del telefono",
+      "confirming": "Conferma sul telefono",
+      "waiting": "In attesa del telefono",
+      "connecting": "Connessione in corso",
+      "connected": "Connesso",
+      "update": "Aggiorna Veloq sul telefono",
+      "unsupported": "Non supportato"
+    },
+    "unsupported": "Questo browser non può collegarsi al telefono. Prova una versione recente di Chrome, Edge o Firefox.",
+    "notice": {
+      "refused": "Il telefono ha rifiutato questo browser. Collegalo di nuovo con un nuovo codice.",
+      "declined": "Il collegamento è stato rifiutato sul telefono.",
+      "removed": "Questo browser è stato rimosso sul telefono. Collegalo di nuovo con un nuovo codice.",
+      "unreachable": "Impossibile raggiungere il telefono da qui. Collega entrambi alla stessa rete Wi-Fi e scansiona il nuovo codice."
+    },
+    "screens": {
+      "feed": "Feed",
+      "fitness": "Forma",
+      "insights": "Analisi",
+      "map": "Mappa",
+      "settings": "Impostazioni"
+    },
+    "railLabel": "Schermate",
+    "yourPhone": "Il tuo telefono",
+    "laterScreen": "Questa schermata non è ancora disponibile nel browser. Aprila sul telefono.",
+    "footer": "I tuoi dati passano direttamente dal telefono a questa pagina e vengono conservati solo finché resta aperta.",
+    "unlink": "Scollega questo browser",
+    "pair": {
+      "heading": "Collega questo browser",
+      "step1": "Apri Veloq sul telefono.",
+      "step2": "Vai in Impostazioni, poi Dispositivi collegati, poi Collega un dispositivo.",
+      "step3": "Inquadra questo codice.",
+      "codeLabel": "Codice di collegamento"
+    },
+    "waiting": {
+      "heading": "In attesa del telefono",
+      "body": "Apri Veloq sul telefono. Questa pagina si collega da sola, sulla stessa rete Wi-Fi e sulla maggior parte delle altre reti.",
+      "unreachable": "Impossibile raggiungere il telefono da qui. Collega entrambi alla stessa rete Wi-Fi."
+    },
+    "update": {
+      "heading": "Aggiorna Veloq sul telefono",
+      "body": "Questa pagina e Veloq sul telefono non usano la stessa versione del collegamento. Aggiorna Veloq sul telefono, poi riapri questa pagina."
+    },
+    "keys": {
+      "heading": "Tasti",
+      "tabs": "Feed, Forma, Analisi, Mappa, Impostazioni",
+      "search": "Cerca nel feed",
+      "close": "Chiudi l'attività",
+      "list": "Questo elenco",
+      "range": "Da 1 a 5"
+    },
+    "library": {
+      "activities": "Attività",
+      "searchPlaceholder": "Cerca (/)",
+      "searchLabel": "Cerca attività",
+      "pick": "Scegli un'attività",
+      "loadMore": "Carica altro",
+      "sportLabel": "Sport",
+      "summary": "Riepilogo",
+      "fitnessTrend": "Forma negli ultimi 30 giorni",
+      "range": "Intervallo",
+      "sortNote_one": "Ordinato tra l'{{count}} attività caricata finora; altre si caricano scorrendo.",
+      "sortNote_other": "Ordinato tra le {{count}} attività caricate finora; altre si caricano scorrendo."
+    },
+    "families": {
+      "ride": "Ciclismo",
+      "run": "Corsa",
+      "winter": "Sport invernali",
+      "water": "Sport acquatici",
+      "foot": "A piedi",
+      "strength": "Forza",
+      "other": "Altro"
+    },
+    "facts": {
+      "thisWeek": "Questa settimana",
+      "lastWeek": "Settimana scorsa",
+      "fitness": "Forma fisica",
+      "form": "Freschezza",
+      "hrv": "HRV",
+      "restingHr": "Frequenza cardiaca a riposo",
+      "distance": "Distanza",
+      "movingTime": "Tempo in movimento",
+      "elapsedTime": "Tempo trascorso",
+      "averageSpeed": "Velocità media",
+      "topSpeed": "Velocità massima",
+      "climbing": "Dislivello positivo",
+      "averageHr": "Frequenza cardiaca media",
+      "averagePower": "Potenza media",
+      "trainingLoad": "Carico di allenamento",
+      "time": "Tempo"
+    },
+    "weekTotal_one": "{{time}} · {{count}} attività",
+    "weekTotal_other": "{{time}} · {{count}} attività",
+    "connection": {
+      "heading": "Connessione",
+      "connectedFor": "Connesso da",
+      "path": "Percorso",
+      "thisBrowser": "Questo browser",
+      "phone": "Telefono",
+      "roundTrip": "Andata e ritorno",
+      "checking": "Verifica in corso",
+      "notMeasured": "Non misurato",
+      "pathDirect": "Diretta, sulla stessa rete",
+      "pathStun": "Tra reti diverse, tramite STUN",
+      "pathUnknown": "Non ancora noto",
+      "trafficLabel": "Byte al secondo negli ultimi tre minuti",
+      "traffic": "Ricevuti {{received}}, inviati {{sent}}"
+    },
+    "activity": {
+      "back": "Torna al feed",
+      "untitled": "Attività",
+      "map": "Mappa",
+      "facts": "Dati dell'attività",
+      "charts": "Grafici",
+      "noSeries": "Questa attività non ha serie registrate.",
+      "sections": "Sezioni",
+      "routes": "Percorsi",
+      "intervals": "Intervalli"
+    },
+    "chart": {
+      "series": "Serie",
+      "axis": "Asse",
+      "label": "Serie dell'attività",
+      "elevation": "Altitudine",
+      "heartRate": "Frequenza cardiaca",
+      "power": "Potenza",
+      "cadence": "Cadenza",
+      "speed": "Velocità",
+      "grade": "Pendenza",
+      "temperature": "Temperatura"
+    },
+    "fitness": {
+      "range": "Intervallo",
+      "days_one": "{{count}} giorno",
+      "days_other": "{{count}} giorni",
+      "allTime": "Sempre",
+      "period": "Periodo",
+      "bestEfforts": "Migliori prestazioni",
+      "thresholds": "Soglie",
+      "fitnessFatigue": "Forma e affaticamento",
+      "fatigue": "Affaticamento",
+      "dailyLoad": "Carico giornaliero",
+      "powerZones": "Zone di potenza",
+      "powerCurve": "Curva di potenza",
+      "paceCurve": "Curva del passo",
+      "noData": "Nessun dato in questo intervallo.",
+      "noWellness": "Il telefono non contiene giorni di benessere per questo intervallo.",
+      "wellnessNotFetched": "Il benessere di questo intervallo non è stato scaricato sul telefono.",
+      "none": "nessuno",
+      "loadReadout": "{{date}} · carico {{load}}",
+      "noActivities": "Nessuna attività in questo intervallo.",
+      "totalLoad": "Carico totale {{load}}",
+      "noZones": "Nessun tempo in zona in questo intervallo.",
+      "zone": "Zona {{n}}",
+      "curveMissing": "Questa curva non è stata scaricata sul telefono.",
+      "effortSport": "Sport",
+      "effortEffort": "Sforzo",
+      "effortBest": "Migliore",
+      "effortActivity": "Attività",
+      "effortsMissing": "Non scaricato sul telefono.",
+      "cyclingFtp": "FTP ciclismo",
+      "estimatedFtp": "FTP stimato",
+      "runningLthr": "LTHR corsa",
+      "recentRides": "Uscite recenti",
+      "recentRuns": "Corse recenti",
+      "recentSwims": "Nuotate recenti",
+      "failed": "Il telefono non ha potuto rispondere."
+    },
+    "strength": {
+      "heading": "Forza",
+      "period": "Periodo",
+      "period7d": "7 giorni",
+      "period1m": "30 giorni",
+      "period3m": "3 mesi",
+      "period6m": "6 mesi",
+      "period1y": "1 anno",
+      "owed_one": "{{count}} attività di forza non ha ancora serie sul tuo telefono.",
+      "owed_other": "{{count}} attività di forza non hanno ancora serie sul tuo telefono.",
+      "muscles": "Muscoli",
+      "weeks": "Settimane",
+      "exercises": "Esercizi",
+      "colMuscle": "Muscolo",
+      "colWeightedSets": "Serie ponderate",
+      "colReps": "Ripetizioni",
+      "colVolume": "Volume (kg)",
+      "colExercises": "Esercizi",
+      "colWeekOf": "Settimana del",
+      "colSessions": "Sessioni",
+      "colSets": "Serie",
+      "colMostWorked": "Muscolo più allenato (serie ponderate)",
+      "exercise": "Esercizio",
+      "unknownExercise": "Esercizio sconosciuto",
+      "colDate": "Data",
+      "colActivity": "Attività",
+      "colBestSet": "Serie migliore",
+      "colOneRepMax": "Massimale stimato per una ripetizione",
+      "line": "{{sets}} serie · {{reps}} ripetizioni · {{kg}} kg",
+      "bestSetReps_one": "{{count}} ripetizione",
+      "bestSetReps_other": "{{count}} ripetizioni"
+    },
+    "recordings": {
+      "heading": "Registrazioni",
+      "intro": "Uscite e voci salvate su questo telefono. Caricamenti ed eliminazioni si fanno sul tuo telefono.",
+      "notFound": "Registrazione non trovata",
+      "one": "Registrazione",
+      "activityType": "Tipo di attività",
+      "started": "Inizio",
+      "duration": "Durata",
+      "upload": "Caricamento",
+      "lastError": "Ultimo errore",
+      "notes": "Note"
+    },
+    "settings": {
+      "onThePhone": "Sul telefono",
+      "openOnPhone": "Aprilo sul tuo telefono.",
+      "notOnBrowser": "Non ancora nel browser",
+      "notOnBrowserBody": "Questa impostazione non è ancora nel browser. Aprila sul tuo telefono.",
+      "pick": "Scegli un'impostazione",
+      "profile": "Profilo",
+      "libraryStatus": "Stato della libreria",
+      "sync": "Sincronizzazione",
+      "activitiesOnPhone": "Attività sul telefono",
+      "tracksOnPhone": "Tracce GPS sul telefono",
+      "streamCache": "Cache dei flussi",
+      "awaitingDetection": "In attesa del rilevamento",
+      "backup": "Backup",
+      "backupSetUp": "Configurato sul telefono",
+      "name": "Nome",
+      "units": "Unità",
+      "weight": "Peso"
+    },
+    "compare": {
+      "heading_one": "Confronto di {{count}} attività",
+      "heading_other": "Confronto di {{count}} attività",
+      "dropped": "Al massimo quattro attività: {{names}} è stata rimossa."
+    }
   }
 }

@@ -19,6 +19,7 @@ import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { isPositioned } from '@/shared/geo/routePreview';
 import { debug } from '@/shared/debug/debug';
 import { formatDistance, formatDuration } from '@/shared/format/format';
+import { sessionGuidanceCue } from '@/features/recording/lib/guidanceCue';
 import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
 import { formatRecordingSpeed } from '@/features/recording/lib/formatRecordingSpeed';
 import { movingMsAt, useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -56,6 +57,10 @@ export interface RecordingNotificationPayload {
   elapsedText: string;
   running: boolean;
   actions: { id: RecordingNotificationAction; label: string }[];
+  /** The followed route's off-route line, or null when the ride has none. */
+  guidance: string | null;
+  /** True on the one payload that follows a departure from the route: the module vibrates once. */
+  vibrate: boolean;
   /** The card is colourised with this. */
   accentColor: string;
   /**
@@ -184,6 +189,7 @@ interface PayloadOptions {
   translate: (key: string, fallback: string) => string;
   isMetric: boolean;
   now: number;
+  guidance?: { line: string | null; vibrate: boolean };
 }
 
 type PayloadState = Pick<
@@ -197,7 +203,7 @@ function isLive(status: RecordingStatus): status is 'recording' | 'paused' {
 
 export function buildRecordingNotificationPayload(
   state: PayloadState,
-  { translate, isMetric, now }: PayloadOptions
+  { translate, isMetric, now, guidance }: PayloadOptions
 ): RecordingNotificationPayload | null {
   const { status, startTime, streams } = state;
   if (!isLive(status) || startTime == null) return null;
@@ -231,6 +237,8 @@ export function buildRecordingNotificationPayload(
     elapsedText: `${translate('recording.status.paused', 'Paused')} · ${elapsedText}`,
     running: status === 'recording',
     actions,
+    guidance: guidance?.line ?? null,
+    vibrate: guidance?.vibrate ?? false,
     accentColor: recording.light,
     traceColor: colors.textOnFill,
     trace: decimateTrace(streams.latlng),
@@ -308,7 +316,12 @@ export function updateRecordingNotification(now = Date.now()): void {
     const t = i18n.t as unknown as (key: string, fallback: string) => string;
     const payload = buildRecordingNotificationPayload(
       useRecordingStore.getState() as PayloadState,
-      { translate: (key, fallback) => t(key, fallback), isMetric: getIsMetric(), now }
+      {
+        translate: (key, fallback) => t(key, fallback),
+        isMetric: getIsMetric(),
+        now,
+        guidance: { line: sessionGuidanceCue.line, vibrate: sessionGuidanceCue.takeVibration() },
+      }
     );
     if (!payload) {
       VeloqRecordingNotification.clear();

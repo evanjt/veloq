@@ -358,11 +358,9 @@ impl StrengthManager {
     /// Returns empty vec if not yet downloaded/parsed.
     fn get_exercise_sets(&self, activity_id: String) -> Result<FfiExerciseSession, VeloqError> {
         with_reader(|conn| {
-            let sets =
-                pooled::exercise_sets(conn, &activity_id).map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })?;
-            Ok(summarise_session(sets_to_ffi(&activity_id, &sets)))
+            exercise_session_from(conn, &activity_id).map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
         })?
     }
 
@@ -572,13 +570,7 @@ impl StrengthManager {
         activity_id: String,
         muscle_slug: String,
     ) -> Result<FfiMuscleGroupDetail, VeloqError> {
-        with_reader(|conn| {
-            let sets =
-                pooled::exercise_sets(conn, &activity_id).map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })?;
-            Ok(aggregate_muscle_detail(&muscle_slug, &sets))
-        })?
+        with_reader(|conn| muscle_detail_from(conn, &activity_id, &muscle_slug))?
     }
 }
 
@@ -669,6 +661,16 @@ impl StrengthManager {
             Ok(FfiExerciseActivities { activities })
         })?
     }
+}
+
+/// One session's cached sets with their totals, empty when none are stored.
+/// The phone's read and the link's are this one.
+pub(crate) fn exercise_session_from(
+    conn: &rusqlite::Connection,
+    activity_id: &str,
+) -> rusqlite::Result<FfiExerciseSession> {
+    let sets = pooled::exercise_sets(conn, activity_id)?;
+    Ok(summarise_session(sets_to_ffi(activity_id, &sets)))
 }
 
 /// Convert internal FitExerciseSet to FFI-safe FfiExerciseSet with display names.
@@ -1036,6 +1038,45 @@ pub fn exercises_by_muscle(
     // The order is the reader's own, by slug, so two reads of one library agree.
     muscles.sort_by(|a, b| a.muscle_slug.cmp(&b.muscle_slug));
     muscles
+}
+
+/// One activity's muscle detail, on a connection the caller holds.
+pub(crate) fn muscle_detail_from(
+    conn: &rusqlite::Connection,
+    activity_id: &str,
+    muscle_slug: &str,
+) -> Result<crate::FfiMuscleGroupDetail, VeloqError> {
+    let sets = pooled::exercise_sets(conn, activity_id).map_err(|err| VeloqError::Database {
+        msg: format!("{}", err),
+    })?;
+    Ok(aggregate_muscle_detail(muscle_slug, &sets))
+}
+
+/// The period and the trailing weeks the strength screen reads, from the
+/// phone's wall clock in seconds: the wall-clock-as-UTC space activity dates are
+/// stamped in, so no time zone enters. The period is `period_days` days ending
+/// tonight. The weeks are seven days each, oldest first, the last ending tonight,
+/// so they meet with no gap and no overlap.
+pub(crate) fn screen_windows(
+    now_wall: i64,
+    period_days: u32,
+    weeks: u32,
+) -> (i64, i64, Vec<FfiTimestampRange>) {
+    const DAY: i64 = 86_400;
+    let today = now_wall.div_euclid(DAY);
+    let end = today * DAY + DAY - 1;
+    let start = (today - i64::from(period_days.max(1)) + 1) * DAY;
+    let ranges = (0..weeks)
+        .rev()
+        .map(|back| {
+            let last_day = today - i64::from(back) * 7;
+            FfiTimestampRange {
+                start_ts: ((last_day - 6) * DAY) as f64,
+                end_ts: (last_day * DAY + DAY - 1) as f64,
+            }
+        })
+        .collect();
+    (start, end, ranges)
 }
 
 /// The strength screen read over one period and its trailing weeks, on a

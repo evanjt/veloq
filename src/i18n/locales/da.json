@@ -40,7 +40,8 @@
       "connectGarmin": "Forbind Garmin"
     },
     "provenance": {
-      "garminOnPhone": "Udfyldt fra din Garmin-fil"
+      "garminOnPhone": "Udfyldt fra din Garmin-fil",
+      "veloqNumbers": "Beregnet af Veloq på denne telefon ud fra dine Garmin-filer."
     },
     "syncFailed": {
       "title": "Kunne ikke synkronisere",
@@ -132,7 +133,8 @@
       "pace": "Tempo",
       "cadence": "Kadence",
       "movingTime": "Bevægelsestid",
-      "elapsedTime": "Samlet tid"
+      "elapsedTime": "Samlet tid",
+      "needsIntervals": "Kræver intervals.icu"
     },
     "hrZoneTotal": "Tid med puls: {{duration}}",
     "powerZoneTotal": "Tid med effekt: {{duration}}",
@@ -216,7 +218,8 @@
       "route": "Rute",
       "sections": "Sektioner",
       "exercises": "Øvelser",
-      "lengths": "Baner"
+      "lengths": "Baner",
+      "laps": "Omgange"
     },
     "primary": "Primær",
     "secondary": "Sekundær",
@@ -768,6 +771,10 @@
     "other": {
       "short": "Andet",
       "long": "Andet"
+    },
+    "lap": {
+      "short": "Omgang",
+      "long": "Omgang"
     }
   },
   "export": {
@@ -817,7 +824,8 @@
       "failedBody": "Den seneste synkronisering stoppede, før nogen nåede frem.",
       "emptyTitle": "Ingen aktiviteter endnu",
       "emptyBody": "Aktiviteter kommer fra din intervals.icu-konto eller fra en optagelse her.",
-      "record": "Optag en aktivitet"
+      "record": "Optag en aktivitet",
+      "emptyBodyGarmin": "Aktiviteter kommer fra din Garmin-konto eller fra en optagelse her."
     },
     "noActivitiesFor": "Ingen aktiviteter for {{filters}}",
     "searchPlaceholder": "Søg i aktiviteter…",
@@ -861,7 +869,8 @@
     "noData": "Ingen fitnessdata tilgængelig",
     "noDataCause": "Form, træthed og balance kommer fra intervals.icu, som ikke har noget gemt for dette interval.",
     "restDay": "Hviledag",
-    "selectActivity": "Vælg aktivitet"
+    "selectActivity": "Vælg aktivitet",
+    "noDataCauseGarmin": "Kondition, træthed og form kræver træningsbelastning, som Veloq ikke har for denne periode."
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -882,7 +891,9 @@
       "calendar": "Kalender",
       "performance": "Præstation",
       "trends": "Tendenser"
-    }
+    },
+    "provenanceGarmin": "Beregnet på denne telefon ud fra dine Garmin-ture.",
+    "methodGarmin": "Garmin-filer indeholder ingen træningsbelastning, så Veloq beregner hver turs belastning på denne telefon, og form, træthed og balance udledes af disse belastninger."
   },
   "formZones": {
     "transition": "Overgang",
@@ -1392,7 +1403,10 @@
       "peek": "Glimt",
       "half": "Halv",
       "full": "Fuld"
-    }
+    },
+    "underPointRoute": "Rute {{number}}",
+    "underPointNoRoute": "Ikke på en rute",
+    "underPointDrawn": "{{drawn}} af {{total}} tegnet"
   },
   "metrics": {
     "activityCount": "Aktiviteter",
@@ -1676,6 +1690,14 @@
       "nearby": "I nærheden",
       "allRoutes": "Alle ruter"
     },
+    "guidance": {
+      "remaining": "{{distance}} tilbage",
+      "notJoined": "Ruten er {{distance}} væk",
+      "offRoute": "Af ruten · {{distance}}",
+      "turnLeft": "Drej til venstre om {{distance}}",
+      "turnRight": "Drej til højre om {{distance}}",
+      "turnBack": "Vend om efter {{distance}}"
+    },
     "returnToRecording": "Tilbage til optagelsen",
     "batteryOptNudge": "Lange optagelser fungerer bedst med batterioptimering slået fra for Veloq.",
     "batteryOptOpenSettings": "Åbn batteriindstillinger",
@@ -1711,7 +1733,8 @@
     },
     "recentTypes": "Seneste",
     "caloriesMethod": "Anslået ud fra gennemsnitlig puls med en sensor ved en antaget alder på {{age}}, ellers ud fra sporten og bevægelsestiden.",
-    "caloriesDefaultWeight": "Din profil har ingen vægt, så der antages {{weight}} kg."
+    "caloriesDefaultWeight": "Din profil har ingen vægt, så der antages {{weight}} kg.",
+    "savedLocallyNoUploadGarmin": "Turen er gemt på denne enhed. Intet uploader den."
   },
   "routeDetail": {
     "routeNotFound": "Rute ikke fundet"
@@ -3326,5 +3349,248 @@
     "connectedSince": "Forbundet siden {{time}}",
     "notConnected": "Ikke forbundet",
     "manage": "Administrér tilknyttede enheder"
+  },
+  "connectPage": {
+    "title": "Veloq Connect",
+    "language": "Sprog",
+    "status": {
+      "unpaired": "Ikke tilknyttet",
+      "inviting": "Venter på, at koden bliver scannet",
+      "proving": "Tjekker telefonen",
+      "confirming": "Bekræft på din telefon",
+      "waiting": "Venter på din telefon",
+      "connecting": "Forbinder",
+      "connected": "Forbundet",
+      "update": "Opdater Veloq på din telefon",
+      "unsupported": "Ikke understøttet"
+    },
+    "unsupported": "Denne browser kan ikke tilknyttes telefonen. Prøv en aktuel version af Chrome, Edge eller Firefox.",
+    "notice": {
+      "refused": "Telefonen afviste denne browser. Tilknyt den igen med en ny kode.",
+      "declined": "Tilknytningen blev afvist på telefonen.",
+      "removed": "Denne browser blev fjernet på telefonen. Tilknyt den igen med en ny kode.",
+      "unreachable": "Kunne ikke nå din telefon herfra. Sæt begge på samme Wi-Fi, og scan den nye kode."
+    },
+    "screens": {
+      "feed": "Feed",
+      "fitness": "Form",
+      "insights": "Indsigt",
+      "map": "Kort",
+      "settings": "Indstillinger"
+    },
+    "railLabel": "Skærme",
+    "yourPhone": "Din telefon",
+    "laterScreen": "Denne skærm er ikke i browseren endnu. Åbn den på din telefon.",
+    "footer": "Dine data går direkte fra din telefon til denne side og gemmes kun, mens den er åben.",
+    "unlink": "Fjern tilknytningen til denne browser",
+    "pair": {
+      "heading": "Tilknyt denne browser",
+      "step1": "Åbn Veloq på din telefon.",
+      "step2": "Gå til Indstillinger, derefter Tilknyttede enheder og så Tilknyt en enhed.",
+      "step3": "Scan denne kode.",
+      "codeLabel": "Tilknytningskode"
+    },
+    "waiting": {
+      "heading": "Venter på din telefon",
+      "body": "Åbn Veloq på din telefon. Denne side forbinder af sig selv, på samme Wi-Fi og på de fleste andre netværk.",
+      "unreachable": "Kunne ikke nå din telefon herfra. Sæt begge på samme Wi-Fi."
+    },
+    "update": {
+      "heading": "Opdater Veloq på din telefon",
+      "body": "Denne side og Veloq på din telefon bruger ikke samme version af forbindelsen. Opdater Veloq på din telefon, og åbn derefter siden igen."
+    },
+    "keys": {
+      "heading": "Taster",
+      "tabs": "Feed, Form, Indsigt, Kort, Indstillinger",
+      "search": "Søg i feedet",
+      "close": "Luk aktiviteten",
+      "list": "Denne liste",
+      "range": "1 til 5"
+    },
+    "library": {
+      "activities": "Aktiviteter",
+      "searchPlaceholder": "Søg (/)",
+      "searchLabel": "Søg i aktiviteter",
+      "pick": "Vælg en aktivitet",
+      "loadMore": "Indlæs flere",
+      "sportLabel": "Sport",
+      "summary": "Oversigt",
+      "fitnessTrend": "Form de seneste 30 dage",
+      "range": "Periode",
+      "sortNote_one": "Sorteret blandt den {{count}} aktivitet, der er indlæst indtil videre; flere indlæses, når du ruller.",
+      "sortNote_other": "Sorteret blandt de {{count}} aktiviteter, der er indlæst indtil videre; flere indlæses, når du ruller."
+    },
+    "families": {
+      "ride": "Cykling",
+      "run": "Løb",
+      "winter": "Vintersport",
+      "water": "Vandsport",
+      "foot": "Til fods",
+      "strength": "Styrke",
+      "other": "Andet"
+    },
+    "facts": {
+      "thisWeek": "Denne uge",
+      "lastWeek": "Sidste uge",
+      "fitness": "Kondition",
+      "form": "Dagsform",
+      "hrv": "HRV",
+      "restingHr": "Hvilepuls",
+      "distance": "Distance",
+      "movingTime": "Bevægelsestid",
+      "elapsedTime": "Forløbet tid",
+      "averageSpeed": "Gennemsnitlig hastighed",
+      "topSpeed": "Tophastighed",
+      "climbing": "Højdemeter",
+      "averageHr": "Gennemsnitlig puls",
+      "averagePower": "Gennemsnitlig effekt",
+      "trainingLoad": "Træningsbelastning",
+      "time": "Tid"
+    },
+    "weekTotal_one": "{{time}} · {{count}} aktivitet",
+    "weekTotal_other": "{{time}} · {{count}} aktiviteter",
+    "connection": {
+      "heading": "Forbindelse",
+      "connectedFor": "Forbundet i",
+      "path": "Rute",
+      "thisBrowser": "Denne browser",
+      "phone": "Telefon",
+      "roundTrip": "Rundtur",
+      "checking": "Kontrollerer",
+      "notMeasured": "Ikke målt",
+      "pathDirect": "Direkte, på samme netværk",
+      "pathStun": "Mellem netværk, via STUN",
+      "pathUnknown": "Endnu ikke kendt",
+      "trafficLabel": "Bytes pr. sekund de seneste tre minutter",
+      "traffic": "Modtaget {{received}}, sendt {{sent}}"
+    },
+    "activity": {
+      "back": "Tilbage til feedet",
+      "untitled": "Aktivitet",
+      "map": "Kort",
+      "facts": "Aktivitetens nøgletal",
+      "charts": "Diagrammer",
+      "noSeries": "Denne aktivitet har ingen optagede dataserier.",
+      "sections": "Sektioner",
+      "routes": "Ruter",
+      "intervals": "Intervaller"
+    },
+    "chart": {
+      "series": "Dataserier",
+      "axis": "Akse",
+      "label": "Aktivitetens dataserier",
+      "elevation": "Højde",
+      "heartRate": "Puls",
+      "power": "Effekt",
+      "cadence": "Kadence",
+      "speed": "Hastighed",
+      "grade": "Stigning",
+      "temperature": "Temperatur"
+    },
+    "fitness": {
+      "range": "Periode",
+      "days_one": "{{count}} dag",
+      "days_other": "{{count}} dage",
+      "allTime": "Altid",
+      "period": "Periode",
+      "bestEfforts": "Bedste præstationer",
+      "thresholds": "Tærskler",
+      "fitnessFatigue": "Form og træthed",
+      "fatigue": "Træthed",
+      "dailyLoad": "Daglig belastning",
+      "powerZones": "Effektzoner",
+      "powerCurve": "Effektkurve",
+      "paceCurve": "Tempokurve",
+      "noData": "Ingen data i denne periode.",
+      "noWellness": "Telefonen har ingen velværedage for denne periode.",
+      "wellnessNotFetched": "Velvære for denne periode er ikke hentet på telefonen.",
+      "none": "ingen",
+      "loadReadout": "{{date}} · belastning {{load}}",
+      "noActivities": "Ingen aktiviteter i denne periode.",
+      "totalLoad": "Samlet belastning {{load}}",
+      "noZones": "Ingen zonetid i denne periode.",
+      "zone": "Zone {{n}}",
+      "curveMissing": "Denne kurve er ikke hentet på telefonen.",
+      "effortSport": "Sport",
+      "effortEffort": "Indsats",
+      "effortBest": "Bedste",
+      "effortActivity": "Aktivitet",
+      "effortsMissing": "Ikke hentet på telefonen.",
+      "cyclingFtp": "FTP til cykling",
+      "estimatedFtp": "Estimeret FTP",
+      "runningLthr": "LTHR til løb",
+      "recentRides": "Seneste ture",
+      "recentRuns": "Seneste løbeture",
+      "recentSwims": "Seneste svømninger",
+      "failed": "Telefonen kunne ikke svare på dette."
+    },
+    "strength": {
+      "heading": "Styrke",
+      "period": "Periode",
+      "period7d": "7 dage",
+      "period1m": "30 dage",
+      "period3m": "3 måneder",
+      "period6m": "6 måneder",
+      "period1y": "1 år",
+      "owed_one": "{{count}} styrkeaktivitet har endnu ingen sæt på din telefon.",
+      "owed_other": "{{count}} styrkeaktiviteter har endnu ingen sæt på din telefon.",
+      "muscles": "Muskler",
+      "weeks": "Uger",
+      "exercises": "Øvelser",
+      "colMuscle": "Muskel",
+      "colWeightedSets": "Vægtede sæt",
+      "colReps": "Gentagelser",
+      "colVolume": "Volumen (kg)",
+      "colExercises": "Øvelser",
+      "colWeekOf": "Uge fra",
+      "colSessions": "Sessioner",
+      "colSets": "Sæt",
+      "colMostWorked": "Mest trænede muskel (vægtede sæt)",
+      "exercise": "Øvelse",
+      "unknownExercise": "Ukendt øvelse",
+      "colDate": "Dato",
+      "colActivity": "Aktivitet",
+      "colBestSet": "Bedste sæt",
+      "colOneRepMax": "Estimeret 1RM",
+      "line": "{{sets}} sæt · {{reps}} gentagelser · {{kg}} kg",
+      "bestSetReps_one": "{{count}} gentagelse",
+      "bestSetReps_other": "{{count}} gentagelser"
+    },
+    "recordings": {
+      "heading": "Optagelser",
+      "intro": "Ture og indtastninger gemt på denne telefon. Upload og sletning sker på din telefon.",
+      "notFound": "Optagelsen blev ikke fundet",
+      "one": "Optagelse",
+      "activityType": "Aktivitetstype",
+      "started": "Startet",
+      "duration": "Varighed",
+      "upload": "Upload",
+      "lastError": "Seneste fejl",
+      "notes": "Noter"
+    },
+    "settings": {
+      "onThePhone": "På telefonen",
+      "openOnPhone": "Åbn den på din telefon.",
+      "notOnBrowser": "Endnu ikke i browseren",
+      "notOnBrowserBody": "Denne indstilling findes endnu ikke i browseren. Åbn den på din telefon.",
+      "pick": "Vælg en indstilling",
+      "profile": "Profil",
+      "libraryStatus": "Bibliotekets status",
+      "sync": "Synkronisering",
+      "activitiesOnPhone": "Aktiviteter på telefonen",
+      "tracksOnPhone": "GPS-spor på telefonen",
+      "streamCache": "Datastrøm-cache",
+      "awaitingDetection": "Venter på registrering",
+      "backup": "Sikkerhedskopi",
+      "backupSetUp": "Sat op på telefonen",
+      "name": "Navn",
+      "units": "Enheder",
+      "weight": "Vægt"
+    },
+    "compare": {
+      "heading_one": "Sammenligner {{count}} aktivitet",
+      "heading_other": "Sammenligner {{count}} aktiviteter",
+      "dropped": "Højst fire aktiviteter: {{names}} blev fjernet."
+    }
   }
 }

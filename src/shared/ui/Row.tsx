@@ -42,6 +42,7 @@ export type RowProps =
       accessibilityLabel?: undefined;
       accessibilityValue?: undefined;
       busy?: undefined;
+      selected?: undefined;
       behaviour?: undefined;
     })
   | (RowBaseProps & {
@@ -55,6 +56,8 @@ export type RowProps =
       accessibilityValue?: string | undefined;
       /** The row's own action is running. */
       busy?: boolean | undefined;
+      /** The row is the one chosen among its siblings, announced as selected. */
+      selected?: boolean | undefined;
       behaviour: RowBehaviour;
     });
 
@@ -68,6 +71,7 @@ export function Row({
   accessory,
   behaviour,
   busy,
+  selected,
   inset = 'row',
   ref,
 }: RowProps) {
@@ -91,7 +95,13 @@ export function Row({
       accessibilityLabel={accessibilityLabel}
       accessibilityValue={accessibilityValue ? { text: accessibilityValue } : undefined}
       accessibilityState={
-        disabled || busy ? { disabled: !!disabled, ...(busy && { busy: true }) } : undefined
+        disabled || busy || selected !== undefined
+          ? {
+              disabled: !!disabled,
+              ...(busy && { busy: true }),
+              ...(selected !== undefined && { selected }),
+            }
+          : undefined
       }
       onPress={onPress}
       disabled={disabled}

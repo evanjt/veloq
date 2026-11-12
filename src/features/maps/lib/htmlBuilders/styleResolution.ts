@@ -5,10 +5,9 @@ import {
   rewriteVectorUrls,
   rewriteGroundRasterUrls,
   rewriteBundledAssets,
-  MAP_STYLE_URLS,
 } from '@/features/maps/components/mapStyles';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
-import { DARK_MATTER_STYLE } from '@/features/maps/styles/darkMatter';
+import { upstreamStyle } from './upstreamStyle';
 
 /** Hosted Liberty style. Used where MapLibre should resolve TileJSON itself. */
 export const LIGHT_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
@@ -51,14 +50,16 @@ export function resolveStyleForWebView(
   }
 
   if (style === 'dark') {
-    const dark = cacheVectorTiles ? rewriteVectorUrls(DARK_MATTER_STYLE) : DARK_MATTER_STYLE;
+    const dark = cacheVectorTiles
+      ? rewriteVectorUrls(upstreamStyle('dark'))
+      : upstreamStyle('dark');
     return { inline: withAssets(dark), url: null };
   }
 
   if (bundledLightStyle) {
     const light = cacheVectorTiles
-      ? rewriteGroundRasterUrls(rewriteVectorUrls(MAP_STYLE_URLS.light))
-      : MAP_STYLE_URLS.light;
+      ? rewriteGroundRasterUrls(rewriteVectorUrls(upstreamStyle('light')))
+      : upstreamStyle('light');
     return { inline: withAssets(light), url: null };
   }
 

@@ -4,6 +4,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import { FITNESS_DEFAULT_PERIOD } from '@/shared/app/period';
 import type { FitnessEntry } from '@/shared/app/fitnessEntry';
 import { useChartInteraction } from '@/shared/charts/useChartInteraction';
+import { FLOW_FITNESS_RANGE, completeFlowAfterFrame, markFlow } from '@/shared/debug/flowTiming';
 import type { TimeRange } from '@/features/wellness';
 
 /**
@@ -47,6 +48,7 @@ export function useFitnessWindow(entry: FitnessEntry, clearEntry: () => void) {
 
   const changeTimeRange = useCallback(
     (next: TimeRange) => {
+      markFlow(FLOW_FITNESS_RANGE);
       setTimeRange(next);
       sharedSelectedIdx.set(-1);
       setSelectedDate(null);
@@ -54,6 +56,11 @@ export function useFitnessWindow(entry: FitnessEntry, clearEntry: () => void) {
     },
     [setSelectedDate, setSelectedValues, sharedSelectedIdx]
   );
+
+  // Runs after the commit that shows the range; with no mark pending it records nothing.
+  useEffect(() => {
+    completeFlowAfterFrame(FLOW_FITNESS_RANGE);
+  }, [timeRange]);
 
   return { ...interaction, timeRange, changeTimeRange, sharedSelectedIdx };
 }

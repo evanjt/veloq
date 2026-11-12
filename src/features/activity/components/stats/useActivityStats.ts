@@ -33,6 +33,7 @@ import {
 import type { StatDetail } from './types';
 import type { ActivityNewGround } from '../../hooks/useActivitySectionHighlights';
 import { FEELS_LIKE_THRESHOLD } from '@/constants';
+import { useSource } from '@/shared/app/source/useSource';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formFromLoads } from '@/shared/math';
 import { formatDecimal, formatPercent, formatSigned } from '@/shared/format';
@@ -99,6 +100,9 @@ export function useActivityStats({
   heldBack,
 }: UseActivityStatsOptions): UseActivityStatsResult {
   const { t } = useTranslation();
+  // A Garmin-only library has Veloq's own load and no strain, heart rate
+  // recovery or weather, which only intervals.icu supplies.
+  const fromGarmin = useSource()?.id === 'garmin';
   // Subscribed, so the form card follows the setting when the athlete record
   // lands after this screen has mounted.
   const asPercent = useFormPreference((s) => s.formAsPercent) === true;
@@ -108,6 +112,7 @@ export function useActivityStats({
     const result: StatDetail[] = [];
     const held = heldBack != null;
     const notShared = t('activity.heldBack.title');
+    const needsIntervals = t('activity.stats.needsIntervals');
 
     // Training Load with context. A held ride has no load to show, so its card
     // says it is not shared rather than printing a zero.
@@ -126,6 +131,7 @@ export function useActivityStats({
             ? undefined
             : t('activity.stats.intensityContext', { percent: formatPercent(intensity, 0) }),
         explanation: t(METRIC_EXPLANATION_KEYS['Training Load'] as never),
+        provenance: fromGarmin && !held ? t('activity.provenance.veloqNumbers') : undefined,
         details: [
           held
             ? { label: t('activity.stats.intensityFactor'), value: notShared }
@@ -146,7 +152,9 @@ export function useActivityStats({
                 label: t('activity.stats.strain'),
                 value: `${Math.round(activity.strainScore)}`,
               }
-            : null,
+            : fromGarmin
+              ? { label: t('activity.stats.strain'), value: needsIntervals }
+              : null,
           wellness?.ctl
             ? {
                 label: t('activity.stats.fitnessThatDay'),
@@ -283,7 +291,9 @@ export function useActivityStats({
                   value: activity.hrRecovery,
                 }),
               }
-            : null,
+            : fromGarmin
+              ? { label: t('activity.stats.hrRecovery'), value: needsIntervals }
+              : null,
           wellness?.restingHR
             ? {
                 label: t('activity.stats.restingHRThatDay'),
@@ -404,8 +414,21 @@ export function useActivityStats({
                 label: t('activity.stats.wind'),
                 value: formatSpeed(activity.windSpeed, isMetric),
               }
-            : null,
+            : fromGarmin && !activity.hasWeather
+              ? { label: t('activity.stats.conditions'), value: needsIntervals }
+              : null,
         ].filter(Boolean) as { label: string; value: string }[],
+      });
+    }
+
+    // A Garmin file carries no weather, so the card names where it comes from.
+    if (fromGarmin && temp == null && !activity.hasWeather) {
+      result.push({
+        title: t('activity.stats.conditions'),
+        value: needsIntervals,
+        icon: 'weather-partly-cloudy',
+        explanation: t(METRIC_EXPLANATION_KEYS['Conditions'] as never),
+        details: [{ label: t('activity.stats.conditions'), value: needsIntervals }],
       });
     }
 
@@ -527,6 +550,7 @@ export function useActivityStats({
     maxHR,
     maxHrSource,
     asPercent,
+    fromGarmin,
   ]);
 
   return { stats };

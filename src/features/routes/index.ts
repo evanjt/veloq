@@ -106,6 +106,7 @@ export { SectionDetailCard } from './screens/SectionDetailCard';
 export { SectionHistoryCard } from './screens/SectionHistoryCard';
 export { SectionLapsCard } from './screens/SectionLapsCard';
 export { useRouteReoptimisation } from './hooks/useRouteReoptimisation';
+export { useRouteSettingsFollowsEngine } from './hooks/useRouteSettingsFollowsEngine';
 export {
   useSectionDetailData,
   useSectionDetailPerformance,

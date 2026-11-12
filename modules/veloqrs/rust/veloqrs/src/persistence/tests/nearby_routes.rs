@@ -246,6 +246,8 @@ fn the_followed_route_is_returned_beyond_the_radius_and_past_the_limit() {
     assert_eq!(followed.group_id, "faraway");
     assert_eq!(followed.best_time_seconds, Some(1_400));
     assert!(followed.away_meters > 5_000.0);
+    assert!(!followed.offered);
+    assert!(with[..NEARBY_LIMIT].iter().all(|r| r.offered));
 }
 
 #[test]

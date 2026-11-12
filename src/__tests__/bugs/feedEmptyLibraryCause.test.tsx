@@ -165,3 +165,12 @@ it('tells an account with no activities where they come from and offers to recor
   await fireEvent.press(screen.getByText('feed.emptyLibrary.record'));
   expect(navigateTo).toHaveBeenCalledWith('/record');
 });
+
+it('names Garmin, not intervals.icu, as where a Garmin library comes from', async () => {
+  useAuthStore.setState({ authMethod: 'garmin' });
+  await renderFeedAfterSync(SyncState.Idle, null);
+
+  expect(screen.getByText('feed.emptyLibrary.emptyBodyGarmin')).toBeTruthy();
+  expect(screen.queryByText('feed.emptyLibrary.emptyBody')).toBeNull();
+  useAuthStore.setState({ authMethod: null });
+});

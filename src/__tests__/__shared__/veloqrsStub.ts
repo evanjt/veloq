@@ -140,7 +140,8 @@ export enum IntervalKind {
   Warmup = 3,
   Cooldown = 4,
   ActiveRecovery = 5,
-  Other = 6,
+  Lap = 6,
+  Other = 7,
 }
 
 export enum MapDistanceBand {
@@ -162,6 +163,20 @@ export enum FfiOffScale {
   None,
   Slow,
   Fast,
+}
+
+/** `FfiFollowStatus` as generated, where a fix lies against the followed route. */
+export enum FfiFollowStatus {
+  NotJoined,
+  OnRoute,
+  OffRoute,
+}
+
+/** `FfiFollowDirection` as generated, which way the ride goes along the followed route. */
+export enum FfiFollowDirection {
+  Undecided,
+  Forward,
+  Reverse,
 }
 
 /** `FfiLoadMetric` as generated, the metric a period comparison was taken on. */
@@ -297,6 +312,15 @@ export enum RetiredPairLink {
   Ledger,
   Supersedes,
   Ground,
+}
+
+/** `DisconnectReason` as generated, held to the source by the same test. */
+export enum DisconnectReason {
+  Background,
+  SwitchedOff,
+  Removed,
+  Disconnected,
+  Declined,
 }
 
 /** `RangeCoverage` as generated, held to the source by the same test. */
@@ -512,6 +536,7 @@ export const connectivity = {
 export const maps = {
   getMapScreenData: jest.fn(),
   getAllMapSignatures: jest.fn(),
+  getActivitiesUnderPoint: jest.fn(),
 };
 
 export const launch = {
@@ -615,6 +640,7 @@ export const remote = {
   acceptOffer: jest.fn(),
   disconnectAll: jest.fn(),
   setInFront: jest.fn(),
+  setDeviceName: jest.fn(),
   connectedCount: jest.fn(() => 0),
   beginPairing: jest.fn(),
   pairingRequest: jest.fn(() => null),
@@ -730,6 +756,8 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     MapDistanceBand,
     EfficiencyDirection,
     FfiOffScale,
+    FfiFollowStatus,
+    FfiFollowDirection,
     SectionSort,
     LoadMetric,
     DayLoadStatus,
@@ -748,6 +776,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     FfiGarminPullPhase,
     FfiGarminHalt,
     RetiredPairLink,
+    DisconnectReason,
     FfiReferenceSource,
     FfiPlannedCategory,
     FfiPlanTarget,

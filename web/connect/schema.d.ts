@@ -7,6 +7,228 @@
 export type Base64 = string;
 
 /**
+ * The fields of the stored intervals.icu athlete body that the screens and
+ * the widget read, typed once here.
+ *
+ * The body is stored as it arrived and carries far more. Each field is read
+ * leniently: missing, `null` or of another type reads as absent and costs the
+ * record nothing else.
+ */
+export type AthleteProfile = {
+  /**
+   * The intervals.icu athlete id, as `i123`. A number on the wire reads as its digits.
+   */
+  id: string | null;
+  name: string | null;
+  /**
+   * The URL of the athlete's medium profile photo.
+   */
+  profileMedium: string | null;
+  /**
+   * `M` or `F` as intervals.icu sends it.
+   */
+  sex: string | null;
+  /**
+   * `meters` or `feet`, the units the athlete chose on intervals.icu.
+   */
+  measurementPreference: string | null;
+  /**
+   * Whether the athlete reads form as a share of fitness rather than as
+   * absolute TSB, from `icu_form_as_percent`. Absent on a body from before
+   * the setting existed.
+   */
+  formAsPercent: boolean | null;
+  /**
+   * The athlete's weight in kilograms: `icu_weight`, which is where the body
+   * sends it, else `weight`. Absent unless positive.
+   */
+  weightKg: number | null;
+  /**
+   * `icu_garmin_sync_activities`: intervals.icu imports the athlete's Garmin
+   * activities itself.
+   */
+  garminSyncsActivities: boolean | null;
+  /**
+   * `icu_garmin_download_wellness`: intervals.icu pulls Garmin wellness.
+   */
+  garminDownloadsWellness: boolean | null;
+  /**
+   * `icu_garmin_upload_workouts`: intervals.icu sends planned workouts to Garmin.
+   */
+  garminUploadsWorkouts: boolean | null;
+};
+
+export type BackgroundJob = string;
+
+/**
+ * Direction of the ratio's trend over matched section efforts.
+ */
+export type EfficiencyDirection = 'improving' | 'flat' | 'worsening';
+
+/**
+ * All data needed to paint the activity detail screen in one call.
+ * Replaces a fan-out that grew one trace extraction per matched section.
+ */
+export type FfiActivityDetailData = {
+  /**
+   * Exercise groups for this activity, with best sets and rest intervals.
+   */
+  exerciseGroups: FfiExerciseGroup[];
+  /**
+   * This activity's addition to the daily fitness, fatigue and form loads.
+   */
+  fitnessImpact: FfiActivityFitnessImpact | null;
+  /**
+   * Total activities held by the engine
+   */
+  activityCount: number;
+  /**
+   * Whether the engine holds this activity's track. The map then draws the
+   * line from the engine's `veloq-geo` URL rather than receiving it as text;
+   * without one it is sent inline from the streams.
+   */
+  hasGpsTrack: boolean;
+  /**
+   * Total sections held by the engine
+   */
+  sectionCount: number;
+  /**
+   * The route group this activity belongs to, if it meets the caller's
+   * minimum. At most one: the screen asks which group holds this activity,
+   * so the catalogue was what it searched rather than what it needed.
+   */
+  routeGroups: FfiRouteGroup[];
+  /**
+   * The stored signature of that group's representative activity, delta+varint
+   * encoded: the line the Routes tab draws over the map. Empty when the
+   * activity is in no group or the representative has no signature.
+   */
+  representativeSignature: Base64;
+  /**
+   * Visible sections this activity traverses, most-visited first.
+   *
+   * The light record: the screen draws the line, the name and the counts
+   * and never reads the member list, which on a 30-section activity was
+   * several hundred id strings lifted across JSI on the mount.
+   */
+  matchedSections: FfiSectionWithPolyline[];
+  /**
+   * Visible custom sections naming this activity that `matched_sections`
+   * does not already carry. Not the whole custom catalogue: the screen
+   * filtered it to exactly this on the far side of the call.
+   */
+  customSections: FfiSection[];
+  /**
+   * One entry per (section, direction) this activity encountered
+   */
+  encounters: FfiSectionEncounter[];
+  /**
+   * Section indicators and route highlights for this activity
+   */
+  highlights: FfiActivityHighlightsBundle;
+  /**
+   * This activity's portion of every section it matches
+   */
+  sectionTraces: FfiSectionTrace[];
+  /**
+   * Sections where this activity currently holds the best record
+   */
+  prSectionIds: string[];
+  /**
+   * The max HR this activity's heart rate is read against: the top of its
+   * own zones, then the sport setting for its type, then 190. The stat card
+   * and the zones chart both divide by it.
+   */
+  maxHr: number;
+  /**
+   * Which of those `max_hr` came from, so a screen can tell the athlete's
+   * own maximum from the default.
+   */
+  maxHrSource: FfiMaxHrSource;
+  /**
+   * The heart rate zone bands for this activity and the time in each, from
+   * the same resolver live recording classifies with. Empty when the
+   * activity has no heart rate time to show.
+   */
+  hrZones: FfiHrZoneBand[];
+  /**
+   * The summary stored with the activity, read whether or not its streams
+   * were ever fetched.
+   */
+  summary: FfiActivitySummary;
+  /**
+   * The power zone bands in watts for this activity and the time in each,
+   * from its own zones and FTP. Empty when the activity has no power zone
+   * time or no zones to place it in.
+   */
+  powerZones: FfiPowerZoneBand[];
+  /**
+   * Section changes whose ledger rows name this activity, newest first.
+   */
+  ledgerChanges: FfiActivityLedgerChange[];
+  /**
+   * The intervals.icu id a web link may name. None for a demo row and for
+   * a recording no server has named, which have no page there.
+   */
+  intervalsId: string | null;
+  /**
+   * A pool swim's lengths, rests, SWOLF and per-stroke totals. None for
+   * every sport but `Swim`.
+   */
+  poolSwim: FfiPoolSwim | null;
+  /**
+   * The fault the last sync met readying this activity, which the screen
+   * marks with a retry. None when its last readying was clean.
+   */
+  syncFailure: FfiActivitySyncFailure | null;
+  /**
+   * Set when intervals.icu holds this activity but does not serve it to
+   * apps, which is why its figures are empty. None for a served activity.
+   */
+  heldBack: FfiActivityHeldBack | null;
+  /**
+   * Where the activity's data was filled from, so the screen can say so.
+   */
+  provenance: FfiActivityProvenance;
+  /**
+   * Whether the athlete hid this activity from the heatmap. It stays in
+   * every list, statistic and section and on its own map.
+   */
+  heatmapHidden: boolean;
+};
+
+/**
+ * An activity's contribution against a rest day, before display rounding.
+ */
+export type FfiActivityFitnessImpact = {
+  fitness: number;
+  fatigue: number;
+  form: number;
+  /**
+   * The fitness time constant in days in effect on the activity's date
+   */
+  fitnessDays: number;
+  /**
+   * The fatigue time constant in days in effect on the activity's date
+   */
+  fatigueDays: number;
+};
+
+/**
+ * An activity intervals.icu holds but does not serve, and where it got it.
+ */
+export type FfiActivityHeldBack = {
+  /**
+   * The service the activity was imported from, as intervals.icu names it.
+   */
+  source: string | null;
+  /**
+   * The id the activity has at that service.
+   */
+  externalId: string | null;
+};
+
+/**
  * Combined payload for batched activity-list highlights: pre-computed
  * section indicators (PRs + trends) and route highlights for the same
  * activity IDs, and the strength cards among them, delivered in a single FFI
@@ -49,6 +271,155 @@ export type FfiActivityIndicator = {
 };
 
 /**
+ * One lap of an activity.
+ */
+export type FfiActivityInterval = {
+  id: number;
+  kind: FfiIntervalKind;
+  /**
+   * The training zone the server placed a work interval in, from 1.
+   */
+  zone: number | null;
+  /**
+   * Elapsed seconds from the activity start. Index-free, so it survives a
+   * reduction of the streams, which the indices below do not. Every body
+   * measured carries them; the indices place a lap that comes without.
+   */
+  startTime: number | null;
+  endTime: number | null;
+  /**
+   * Positions in the server's own streams.
+   */
+  startIndex: number;
+  endIndex: number;
+  averageWatts: number | null;
+  averageHeartrate: number | null;
+  /**
+   * Metres per second.
+   */
+  averageSpeed: number | null;
+  /**
+   * Seconds.
+   */
+  movingTime: number | null;
+  /**
+   * Metres.
+   */
+  distance: number | null;
+  /**
+   * The name the athlete gave the interval, when they gave one.
+   */
+  label: string | null;
+};
+
+/**
+ * An activity's laps, in the order the server sent them. Empty is a fetched
+ * activity with no laps.
+ */
+export type FfiActivityIntervals = {
+  intervals: FfiActivityInterval[];
+};
+
+/**
+ * A ledger row that names one activity, with the section it sits on.
+ *
+ * `relation` says how the row names it: `around` and `fork_around` for the
+ * lists a change attributes, `reanchored_from` and `reanchored_to` for the
+ * two ends of a reference re-anchor. None of them says the activity caused
+ * the change.
+ * It is where the activity was around the change, never a cause.
+ */
+export type FfiActivityLedgerChange = {
+  eventId: WholeNumber;
+  sectionId: string;
+  /**
+   * The section's name now, absent when it has none.
+   */
+  sectionName: string | null;
+  /**
+   * `auto` or `custom`.
+   */
+  sectionType: string;
+  at: string;
+  /**
+   * The ledger kind of the change, as in `FfiSectionHistoryEvent`.
+   */
+  kind: string;
+  /**
+   * How the row names the activity: around, fork_around, reanchored_from or
+   * reanchored_to.
+   */
+  relation: string;
+  /**
+   * What the change did to the line and why, as the section's own ledger
+   * reads it. Absent on a row that is not a detector change.
+   */
+  summary: FfiSectionChangeSummary | null;
+};
+
+/**
+ * Activity metrics for FFI
+ */
+export type FfiActivityMetrics = {
+  activityId: string;
+  name: string;
+  /**
+   * Unix timestamp (seconds since epoch)
+   */
+  date: number;
+  /**
+   * Distance in meters
+   */
+  distance: number;
+  /**
+   * Moving time in seconds
+   */
+  movingTime: number;
+  /**
+   * Elapsed time in seconds
+   */
+  elapsedTime: number;
+  /**
+   * Total elevation gain in meters
+   */
+  elevationGain: number;
+  /**
+   * Average heart rate (optional)
+   */
+  avgHr: number | null;
+  /**
+   * Average power in watts (optional)
+   */
+  avgPower: number | null;
+  /**
+   * Sport type (e.g., "Ride", "Run")
+   */
+  sportType: string;
+  /**
+   * Training load / TSS (optional)
+   */
+  trainingLoad: number | null;
+  /**
+   * FTP used for this activity (optional)
+   */
+  ftp: number | null;
+};
+
+/**
+ * One activity's display name, for a caller that holds ids and has to draw
+ * something an athlete recognises. Only the ids the engine knows are
+ * answered, so the caller falls back to the id itself.
+ */
+export type FfiActivityName = {
+  activityId: string;
+  name: string;
+  /**
+   * Start time as epoch seconds, so a caller can order what it draws.
+   */
+  date: number;
+};
+
+/**
  * How much of an activity's ground no earlier activity had covered, counted
  * in z17 tiles. It is coverage of a fixed grid, not metres of new road.
  */
@@ -66,6 +437,118 @@ export type FfiActivityNewGround = {
    * Tiles no earlier activity touched.
    */
   newTiles: number;
+};
+
+/**
+ * Where an activity's data was filled from, as its screen says it.
+ */
+export type FfiActivityProvenance = 'intervals' | 'garminOnPhone';
+
+/**
+ * One stored activity as the detail screen reads it, typed from the body
+ * intervals.icu sent. A figure the body does not carry is `None`; the three
+ * the screen always draws are zero instead, as a manual entry sends them.
+ */
+export type FfiActivityRecord = {
+  /**
+   * The key the body is stored under, which is the id the screen asked for.
+   */
+  id: string;
+  /**
+   * Whether the body is the detail form rather than the list row, which
+   * lacks most of the figures below until the detail fetch replaces it.
+   */
+  isDetail: boolean;
+  name: string | null;
+  /**
+   * The sport as the body names it, absent when it names none.
+   */
+  sportType: string | null;
+  /**
+   * The wall-clock start, as stored.
+   */
+  startDateLocal: string | null;
+  description: string | null;
+  deviceName: string | null;
+  /**
+   * Seconds.
+   */
+  movingTime: number;
+  /**
+   * Metres.
+   */
+  distance: number;
+  /**
+   * Metres climbed.
+   */
+  elevationGain: number;
+  /**
+   * Beats per minute.
+   */
+  avgHr: number | null;
+  maxHr: number | null;
+  /**
+   * Watts.
+   */
+  avgPower: number | null;
+  maxPower: number | null;
+  /**
+   * Kilocalories.
+   */
+  calories: number | null;
+  trainingLoad: number | null;
+  /**
+   * Intensity factor as a percentage.
+   */
+  intensity: number | null;
+  /**
+   * The FTP the activity was scored against, and the eFTP it estimated.
+   */
+  ftp: number | null;
+  eftp: number | null;
+  trimp: number | null;
+  strainScore: number | null;
+  /**
+   * Heart rate recovery, the drop in beats per minute.
+   */
+  hrRecovery: number | null;
+  efficiencyFactor: number | null;
+  /**
+   * Aerobic decoupling in percent, `None` when intervals.icu stored no
+   * finite value.
+   */
+  decoupling: number | null;
+  /**
+   * `veloq` when the load, intensity, normalised power, efficiency factor,
+   * decoupling and zone times above were worked out on the phone from the
+   * activity's streams, `None` when intervals.icu supplied them or none
+   * exist.
+   */
+  metricsSource: string | null;
+  /**
+   * Whether the temperatures below include intervals.icu's weather.
+   */
+  hasWeather: boolean;
+  /**
+   * Degrees Celsius from the weather.
+   */
+  weatherTemp: number | null;
+  /**
+   * Degrees Celsius from the device's own sensor.
+   */
+  sensorTemp: number | null;
+  /**
+   * Degrees Celsius, from whichever of its names the body carries.
+   */
+  feelsLike: number | null;
+  /**
+   * Metres a second.
+   */
+  windSpeed: number | null;
+  /**
+   * The stream kinds intervals.icu holds for the activity.
+   */
+  streamTypes: string[];
 };
 
 /**
@@ -94,6 +577,38 @@ export type FfiActivityRouteHighlight = {
    * this is the only timed attempt, when times tie, or when not a PR.
    */
   prImprovementSeconds: number | null;
+};
+
+/**
+ * An activity's chart series as they cross the bridge: no JSON, no per-value
+ * objects. Every series but `latlng` is its samples as little-endian 64-bit
+ * floats, read through a `Float64Array`, and a gap is NaN. `latlng` is the
+ * engine's one track encoding, unframed. A series the activity does not have
+ * is an empty buffer. All the series share one index space, so sample `i` of
+ * one is sample `i` of every other.
+ */
+export type FfiActivityStreams = {
+  latlng: Base64;
+  time: Base64;
+  altitude: Base64;
+  heartrate: Base64;
+  watts: Base64;
+  /**
+   * Cadence in the sport's cadence unit, so steps a minute on foot.
+   */
+  cadence: Base64;
+  velocitySmooth: Base64;
+  distance: Base64;
+  gradeSmooth: Base64;
+  temp: Base64;
+  /**
+   * W' balance in joules remaining.
+   */
+  wbal: Base64;
+  /**
+   * Grade-adjusted pace in minutes per kilometre.
+   */
+  gap: Base64;
 };
 
 /**
@@ -144,9 +659,363 @@ export type FfiActivitySyncFailure = {
 };
 
 /**
+ * Equal-width bins of attempt time. Bin `i` covers
+ * `[start_secs + i * bin_width_secs, start_secs + (i + 1) * bin_width_secs)`
+ * and the last bin is closed.
+ */
+export type FfiAttemptHistogram = {
+  startSecs: number;
+  binWidthSecs: number;
+  counts: number[];
+  /**
+   * A section's speed in m/s over each bin edge, `counts.len() + 1` values,
+   * so the axis is labelled in the scatter's unit. `None` for a route,
+   * whose attempts differ in length and whose scatter plots time. An edge
+   * at zero seconds reads 0.
+   */
+  edgeSpeeds: number[] | null;
+  /**
+   * Attempts in the bins.
+   */
+  binned: number;
+  /**
+   * Route attempts the scatter draws that the bins leave out for lying
+   * outside the distance band. Zero for a section.
+   */
+  unbinnedOutsideBand: number;
+};
+
+/**
+ * The counted attempts' times binned for the histogram plot, per direction.
+ * `None` for a direction with fewer than three counted attempts. Excluded
+ * attempts are never in it.
+ */
+export type FfiAttemptHistograms = {
+  forward: FfiAttemptHistogram | null;
+  reverse: FfiAttemptHistogram | null;
+};
+
+/**
+ * What the background jobs have done and still owe, read once each time a job
+ * settles or activities land. The running progress is not here: it moves on
+ * every item and stays on the routes status poll.
+ */
+export type FfiBackgroundJobsData = {
+  /**
+   * The last run of each job that has run on this install.
+   */
+  runs: FfiJobRun[];
+  /**
+   * Stored activities no detect has seen. `None` when it cannot be counted,
+   * which must not read as nothing left to do.
+   */
+  detectionAwaiting: number | null;
+  /**
+   * Whether a section rebuild is still owed.
+   */
+  cutoverOwed: boolean;
+  /**
+   * Whole days the stream backfill's daily allowance takes to draw what it
+   * owes, when that is more than one day. `None` when the queue fits in a
+   * day, is empty, or cannot be counted.
+   */
+  streamDaysToFinish: number | null;
+  /**
+   * The activities the backfill draws in one budget day, the figure
+   * `stream_days_to_finish` counts against. `None` when it has no daily cap.
+   */
+  backfillDayShare: number | null;
+  /**
+   * The Garmin pull, `None` while no Garmin key is held.
+   */
+  garminPull: FfiGarminPull | null;
+  /**
+   * When the elevation and stream downloads may next be asked again, in
+   * epoch milliseconds, while a refusal's cooldown or the request budget
+   * holds them. `None` when nothing holds them.
+   */
+  downloadsHeldUntilMs: number | null;
+  /**
+   * Whether intervals.icu asked for that wait, rather than this install's
+   * own request budget.
+   */
+  downloadsHeldByUpstream: boolean;
+  /**
+   * What the backfill has drawn of today's allowance and when it resets.
+   * `None` where the governor only paces.
+   */
+  dailyLimit: FfiDailyLimit | null;
+  /**
+   * Whether the one-time pass recount is running on its own thread now.
+   */
+  passRecountRunning: boolean;
+  /**
+   * How much of the library at the staged cut has its elevation decided,
+   * while older activities are still joining. `None` once the counts are
+   * written, and for a library that never staged.
+   */
+  stagedHistory: FfiStagedHistory | null;
+};
+
+export type FfiBackupScreenData = {
+  homeLat: string | null;
+  homeLng: string | null;
+  radiusM: string | null;
+  suggestion: SuggestedHome | null;
+  /**
+   * History rows the latest restore left in its backup file because no
+   * section here covers their ground.
+   */
+  notRestored: number;
+  /**
+   * Route names the latest restore gave up on because the grouping here
+   * merged their routes into one that already took a restored name.
+   */
+  namesNotRestored: number;
+  /**
+   * The running record backup's id, for `cancel_run`, or nothing running.
+   * Read from the job, not the database: a backup is single-flight.
+   */
+  recordBackupRun: number | null;
+};
+
+export type FfiBestEffort = {
+  kind: FfiBestEffortKind;
+  /**
+   * Seconds for power, metres for pace.
+   */
+  checkpoint: number;
+  /**
+   * Watts for power, metres per second for pace. Empty when the curve
+   * holds no sample within tolerance of the checkpoint.
+   */
+  value: number | null;
+  /**
+   * Seconds taken to cover the distance, for pace only.
+   */
+  time: number | null;
+  activityId: string | null;
+  /**
+   * Watts per kilogram for power, from the curve's own per-kilogram series.
+   */
+  wattsPerKg: number | null;
+  /**
+   * The activity holding the per-kilogram best, which need not be the one
+   * holding the watts.
+   */
+  wkgActivityId: string | null;
+  /**
+   * The name and start of the activity holding the best, when the device
+   * holds that activity. Empty for one it does not, which the screen shows
+   * as not cached.
+   */
+  activity: FfiActivityName | null;
+};
+
+/**
+ * What a best effort's checkpoint measures. The front end words it in the
+ * athlete's language and units, so the engine sends no display string.
+ */
+export type FfiBestEffortKind = 'duration' | 'distance' | 'mile' | 'halfMarathon' | 'marathon';
+
+/**
+ * Everything the Best Efforts screen paints with, over one period.
+ */
+export type FfiBestEffortsData = {
+  /**
+   * Ride power, then Run and Swim pace.
+   */
+  sports: FfiBestEffortsSport[];
+  /**
+   * The Ride and Run climbing families.
+   */
+  climbing: FfiClimbBests[];
+};
+
+/**
+ * One sport's bests at the screen's checkpoints, read from its stored curve.
+ */
+export type FfiBestEffortsSport = {
+  sport: string;
+  /**
+   * False when the curve for this period was never fetched, which is the
+   * cue to ask for it. Every value is then empty.
+   */
+  fetched: boolean;
+  efforts: FfiBestEffort[];
+};
+
+/**
+ * One reason the detector gave for where a section's line was cut.
+ */
+export type FfiBoundaryReason = {
+  /**
+   * The reason's serde tag: usage_change, fork, traffic_cliff, trim,
+   * low_support, terminus, pass_end or seam_clip.
+   */
+  kind: string;
+  /**
+   * How much of the drawn line a seam clip took off, in metres; absent on
+   * every other reason.
+   */
+  clippedMetres: number | null;
+};
+
+/**
+ * A bounding box in degrees.
+ */
+export type FfiBounds = {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+};
+
+export type FfiCacheScreenData = {
+  streamRetentionDays: number;
+  streamStoreBytes: number;
+  activityYearCounts: FfiYearCount[];
+};
+
+/**
  * The unit a sport's cadence is shown in.
  */
 export type FfiCadenceUnit = 'rpm' | 'stepsPerMinute' | 'strokesPerMinute';
+
+/**
+ * Best performance in one direction for a calendar period.
+ */
+export type FfiCalendarDirectionBest = {
+  /**
+   * Number of traversals in this direction
+   */
+  count: number;
+  /**
+   * Best time in seconds
+   */
+  bestTime: number;
+  /**
+   * Best pace in m/s
+   */
+  bestPace: number;
+  /**
+   * Activity ID of best traversal
+   */
+  bestActivityId: string;
+  /**
+   * Name of best activity
+   */
+  bestActivityName: string;
+};
+
+/**
+ * Best performance in a calendar month, split by direction.
+ */
+export type FfiCalendarMonthSummary = {
+  /**
+   * Month number (1-12)
+   */
+  month: number;
+  /**
+   * Total traversals in this month (both directions), one per lap
+   */
+  traversalCount: number;
+  /**
+   * Distinct activities those traversals came from
+   */
+  activityCount: number;
+  /**
+   * Best forward/same direction performance (None if no forward traversals)
+   */
+  forward: FfiCalendarDirectionBest | null;
+  /**
+   * Best reverse direction performance (None if no reverse traversals)
+   */
+  reverse: FfiCalendarDirectionBest | null;
+};
+
+/**
+ * Calendar-aligned performance summary for a section.
+ */
+export type FfiCalendarSummary = {
+  /**
+   * Year summaries (newest first)
+   */
+  years: FfiCalendarYearSummary[];
+  /**
+   * The forward record's outing, absent when no outing holds the record
+   */
+  forwardPr: FfiCalendarDirectionBest | null;
+  /**
+   * The reverse record's outing, absent when no outing holds the record
+   */
+  reversePr: FfiCalendarDirectionBest | null;
+  /**
+   * Section distance in meters
+   */
+  sectionDistance: number;
+};
+
+/**
+ * Best performance in a calendar year, with monthly breakdown.
+ */
+export type FfiCalendarYearSummary = {
+  /**
+   * Calendar year
+   */
+  year: number;
+  /**
+   * Total traversals in this year, one per lap
+   */
+  traversalCount: number;
+  /**
+   * Distinct activities those traversals came from
+   */
+  activityCount: number;
+  /**
+   * Best forward/same direction performance this year
+   */
+  forward: FfiCalendarDirectionBest | null;
+  /**
+   * Best reverse direction performance this year
+   */
+  reverse: FfiCalendarDirectionBest | null;
+  /**
+   * Monthly breakdowns (only months with traversals, sorted 1-12)
+   */
+  months: FfiCalendarMonthSummary[];
+};
+
+/**
+ * Why a routes or sections catalogue is empty, so the list states its cause
+ * rather than promising rows that cannot come.
+ */
+export type FfiCatalogueEmptyReason =
+  | 'noGpsActivities'
+  | { notYetRun: { awaiting: number } }
+  | { running: { phase: string; percent: number } }
+  | { held: { hold: FfiDetectionHold } }
+  | { noneFound: { minActivities: number } };
+
+/**
+ * One boundary record, reduced to its counts. `count` of `of` is the share
+ * of the line's rides the record names: the rides that turn back, leave or
+ * take the branch out of the rides through the join. A low-support reason
+ * carries the support floor in `of` and no `count`.
+ */
+export type FfiChangeReason = {
+  kind: string;
+  count: number | null;
+  of: number | null;
+  /**
+   * Metres a trim removed or a seam clip shortened.
+   */
+  metres: number | null;
+  /**
+   * The neighbouring section the record names, with its standing now.
+   */
+  neighbour: FfiSectionLink | null;
+};
 
 /**
  * What a trend or verdict was measured against and how much evidence stood
@@ -163,6 +1032,306 @@ export type FfiClaimBasis = {
    * The earlier readings inside the window.
    */
   population: number;
+};
+
+export type FfiClimbBest = {
+  label: string;
+  windowS: number;
+  /**
+   * Vertical metres per hour. Empty when no activity measured the window.
+   */
+  vam: number | null;
+  wattsPerKg: number | null;
+  activityId: string | null;
+  /**
+   * The name and start of the activity holding the best, when the device
+   * holds that activity.
+   */
+  activity: FfiActivityName | null;
+};
+
+/**
+ * A climbing family's best window per stored length.
+ */
+export type FfiClimbBests = {
+  sport: string;
+  /**
+   * Activities in the period whose climb rows are still being computed.
+   */
+  owed: number;
+  /**
+   * Activities in the period holding climb rows whose elevation is not the
+   * corrected series, so they are left out of the bests.
+   */
+  sourceExcluded: number;
+  /**
+   * One per stored window length, shortest first.
+   */
+  bests: FfiClimbBest[];
+};
+
+/**
+ * A correlation, or the reason there is none. An enum so a coefficient cannot
+ * be read off a state that has none.
+ */
+export type FfiCorrelation =
+  | { tooFew: { n: number } }
+  | { undefined: { n: number } }
+  | { inconclusive: { r: number; n: number; low: number; high: number } }
+  | { mover: { r: number; n: number; low: number; high: number } };
+
+/**
+ * A catalogue row as the old-versus-new map draws it, hidden rows included.
+ * A row whose line will not decode has nothing to draw and is left out.
+ */
+export type FfiCurrentMapSection = {
+  id: string;
+  name: string | null;
+  isUserDefined: boolean;
+  pinned: boolean;
+  /**
+   * Disabled, or hidden behind the section `superseded_by` names.
+   */
+  hidden: boolean;
+  supersededBy: string | null;
+  /**
+   * Its stored length.
+   */
+  distanceMeters: number;
+  /**
+   * Traversals, one per pass.
+   */
+  visitCount: number;
+  /**
+   * Delta+varint encoded coordinates.
+   */
+  encodedPolyline: Base64;
+};
+
+/**
+ * An activity a curve point came from, as the body names it.
+ */
+export type FfiCurveActivity = {
+  id: string;
+  name: string;
+  distance: number;
+  movingTime: number;
+  trainingLoad: number;
+  weight: number;
+  startDateLocal: string;
+  race: boolean;
+};
+
+/**
+ * What the backfill has drawn of its daily allowance, as the sync settings
+ * show it. Instants are epoch milliseconds, the unit the background jobs read
+ * uses.
+ */
+export type FfiDailyLimit = {
+  /**
+   * Requests the backfill has drawn in this budget day.
+   */
+  used: number;
+  /**
+   * The backfill's requests for a budget day.
+   */
+  perDay: number;
+  /**
+   * When this install's daily count next resets.
+   */
+  resetsAtMs: number;
+};
+
+/**
+ * One local calendar day's recorded activity training load.
+ */
+export type FfiDayLoad = {
+  /**
+   * Local date, `YYYY-MM-DD`.
+   */
+  date: string;
+  status: FfiDayLoadStatus;
+  /**
+   * Sum of the recorded loads, absent when none is recorded.
+   */
+  total: number | null;
+  /**
+   * Activities on the day, loaded or not.
+   */
+  activityCount: number;
+};
+
+/**
+ * Whether a local day's recorded activity load can be totalled.
+ */
+export type FfiDayLoadStatus = 'complete' | 'partial' | 'unavailable' | 'rest';
+
+/**
+ * The newest cycling activity of half an hour or more with power, heart rate
+ * and a finite decoupling stored by intervals.icu, and that value.
+ */
+export type FfiDecouplingSource = {
+  activityId: string;
+  name: string;
+  /**
+   * Wall-clock start, `YYYY-MM-DDTHH:MM:SS`.
+   */
+  startDateLocal: string;
+  /**
+   * Percentage, as intervals.icu computed it.
+   */
+  decoupling: number;
+};
+
+/**
+ * What is refusing a detect that is owed.
+ */
+export type FfiDetectionHold =
+  'elevationPaused' | 'elevationRunning' | { elevationWaiting: { remaining: number } } | 'cutover';
+
+/**
+ * One direction's laps measured against its reference, on an axis running
+ * in the direction of travel.
+ */
+export type FfiDirectionDeltas = {
+  referenceActivityId: string;
+  referenceSource: FfiReferenceSource;
+  /**
+   * Oldest first. The reference is among them, level with itself, when it
+   * is inside the range.
+   */
+  laps: FfiLapDelta[];
+  /**
+   * Laps inside the range that could not be drawn, and why.
+   */
+  missing: FfiLapDeltaMissing[];
+  /**
+   * The largest number of seconds any of `laps` is behind or ahead of the
+   * reference, 0 when none has a finite delta.
+   */
+  peakDeltaSecs: number;
+  /**
+   * The typical lap's time against the reference per split, over the laps
+   * other than the reference. `None` when no split has enough laps.
+   */
+  splitSummary: FfiSplitSummary | null;
+  /**
+   * The typical lap's delta at each grid point, the median over the laps
+   * other than the reference that reach it. NaN at a point fewer laps
+   * reach than a typical lap needs, and `None` when no point has enough.
+   */
+  typicalDeltaSecs: FfiFloat32Array | null;
+  /**
+   * The lap that held the record before the current one, measured against
+   * the reference like every lap, whatever the range. `None` when the
+   * record has never been beaten or that lap has no curve.
+   */
+  previousRecord: FfiLapDelta | null;
+  /**
+   * The reference the chart opens on for the highlighted attempt: the
+   * athlete's own when set, else the record, else the previous record when
+   * the highlighted attempt is the record and so level with itself.
+   */
+  defaultReference: FfiReferenceSource;
+};
+
+/**
+ * Per-direction summary statistics.
+ */
+export type FfiDirectionStats = {
+  /**
+   * Average time across counted traversals in this direction (seconds)
+   */
+  avgTime: number | null;
+  /**
+   * Unix timestamp of most recent traversal in this direction
+   */
+  lastActivity: WholeNumber | null;
+  /**
+   * Number of traversals in this direction
+   */
+  count: number;
+  /**
+   * Counted distance over counted time in this direction (m/s).
+   */
+  avgSpeed: number | null;
+  /**
+   * Timed route attempts outside the distance band, absent from the averages.
+   */
+  outsideBandCount: number;
+};
+
+/**
+ * A single data point for aerobic efficiency tracking.
+ * Represents one section traversal with pace and heart rate data.
+ */
+export type FfiEfficiencyPoint = {
+  /**
+   * Unix timestamp of the activity
+   */
+  date: number;
+  /**
+   * Pace in seconds per km
+   */
+  paceSecsPerKm: number;
+  /**
+   * Average heart rate during this traversal
+   */
+  avgHr: number;
+  /**
+   * Heart rate per unit of speed: avg_hr * pace_secs_per_km. Lower is
+   * fewer beats for the same speed, which is more efficient.
+   */
+  hrPaceRatio: number;
+};
+
+/**
+ * Tracks how heart rate per unit of speed changes over time across matched
+ * section efforts. A declining ratio indicates improving aerobic efficiency
+ * (Coyle et al., J Appl Physiol, 1991; Jones & Carter, Sports Med, 2000).
+ */
+export type FfiEfficiencyTrend = {
+  /**
+   * Section ID
+   */
+  sectionId: string;
+  /**
+   * The sport the trend was taken over: efforts of other sports on the
+   * section are not in it
+   */
+  sportType: string;
+  /**
+   * Section name
+   */
+  sectionName: string;
+  /**
+   * Individual data points sorted by date (oldest first)
+   */
+  points: FfiEfficiencyPoint[];
+  /**
+   * Linear regression slope of the ratio over time (negative = improving)
+   */
+  trendSlope: number;
+  /**
+   * Direction of the ratio's significant movement.
+   */
+  direction: EfficiencyDirection;
+  /**
+   * The ratio's own change over the observed range, restated in bpm at the
+   * mean pace. Not a measured heart rate delta: an effort set that only
+   * changed pace moves it too.
+   */
+  hrChangeBpm: number;
+  /**
+   * Efforts the regression used: both signals present and a plausible pace
+   */
+  effortCount: number;
+  /**
+   * The newest effort's ratio against the mean of the series, in the
+   * series' own standard deviations. Absent where the series has no spread
+   * to measure against.
+   */
+  signalDelta: number | null;
 };
 
 /**
@@ -186,6 +1355,137 @@ export type FfiEftpChange = {
    */
   delta: number;
   activityName: string;
+};
+
+/**
+ * Per-exercise contribution to a muscle group, aggregated across all active
+ * sets of one activity. Role reflects whether the muscle is primary or
+ * secondary for the exercise.
+ */
+export type FfiExerciseContribution = {
+  name: string;
+  /**
+   * "primary" | "secondary"
+   */
+  role: string;
+  sets: number;
+  reps: number;
+  volumeKg: number;
+};
+
+/**
+ * The sessions and estimated one-rep-max trend for one exercise category.
+ */
+export type FfiExerciseDetailData = {
+  exerciseCategory: number;
+  exerciseName: string;
+  sessions: FfiExerciseHistorySession[];
+};
+
+/**
+ * Consecutive active sets of one exercise within a session.
+ */
+export type FfiExerciseGroup = {
+  name: string;
+  exerciseCategory: number;
+  sets: FfiExerciseSet[];
+  bestSet: FfiExerciseSet | null;
+  /**
+   * Rest after each preceding active set, when both timestamps are known.
+   */
+  restSeconds: number[];
+};
+
+/**
+ * One session of an exercise, with its heaviest active set.
+ */
+export type FfiExerciseHistorySession = {
+  activityId: string;
+  activityName: string;
+  date: number;
+  bestSet: FfiExerciseSet;
+  estimatedOneRepMaxKg: number | null;
+};
+
+/**
+ * One session's stored sets with the totals every surface shows for it.
+ */
+export type FfiExerciseSession = {
+  /**
+   * Every stored set, rest and warmup included, in recorded order.
+   */
+  sets: FfiExerciseSet[];
+  /**
+   * Active sets grouped by consecutive exercise name, in recorded order.
+   */
+  groups: FfiExerciseGroup[];
+  activeSetCount: number;
+  /**
+   * Distinct exercise names among the active sets.
+   */
+  exerciseCount: number;
+  /**
+   * Weight times repetitions over active sets. A set with no repetitions
+   * counts as one and a set with no weight as zero.
+   */
+  totalVolumeKg: number;
+  totalDurationSecs: number;
+};
+
+/**
+ * A single exercise set from a FIT file, exposed to TypeScript.
+ */
+export type FfiExerciseSet = {
+  activityId: string;
+  setOrder: number;
+  exerciseCategory: number;
+  exerciseName: number | null;
+  /**
+   * Human-readable exercise name, pre-resolved in Rust.
+   */
+  displayName: string;
+  /**
+   * 0=active, 1=rest, 2=warmup, 3=cooldown
+   */
+  setType: number;
+  repetitions: number | null;
+  weightKg: number | null;
+  durationSecs: number | null;
+  startTime: number | null;
+};
+
+/**
+ * Exercise summary for a specific muscle group within a date range.
+ */
+export type FfiExerciseSummary = {
+  /**
+   * Human-readable exercise name
+   */
+  exerciseName: string;
+  /**
+   * FIT exercise category ID (pass back for drill-down query)
+   */
+  exerciseCategory: number;
+  /**
+   * Sets credited to this muscle across all activities
+   */
+  totalSets: number;
+  /**
+   * Reps credited to this muscle
+   */
+  totalReps: number;
+  /**
+   * Total volume load in kg (weight × reps)
+   */
+  volumeKg: number;
+  /**
+   * Number of distinct activities containing this exercise
+   */
+  activityCount: number;
+  /**
+   * True if the muscle is a primary target for at least one occurrence
+   */
+  isPrimary: boolean;
 };
 
 /**
@@ -241,6 +1541,11 @@ export type FfiFeedCard = {
   avgPower: number | null;
   trainingLoad: number | null;
   /**
+   * `veloq` when `training_load` was worked out on the phone from the
+   * activity's streams, `None` otherwise.
+   */
+  metricsSource: string | null;
+  /**
    * Kilocalories.
    */
   calories: number | null;
@@ -275,16 +1580,147 @@ export type FfiFeedCard = {
 };
 
 /**
- * One page of feed cards, newest first, with the count of everything the
- * query matched.
+ * Everything the fitness tab paints with that stays fixed while it is
+ * mounted, its calendar, weekly card and year comparison among it. Its sport
+ * is chosen with a tap, so the reads over it are their own; the parts that
+ * follow the range carry every span, and the weekly card every range, so a
+ * tap reads nothing.
  */
-export type FfiFeedCardsPage = {
-  cards: FfiFeedCard[];
+export type FfiFitnessScreenData = {
   /**
-   * Every stored activity the query matched, not only this page.
+   * The cycling eFTP compared across the chart's three months, with the
+   * daily series of that window and every activity that moved it.
    */
-  matchedCount: number;
-  hasMore: boolean;
+  ftpTrend: FfiFtpTrend;
+  /**
+   * Whether the wellness the trend is read from was pulled for the days
+   * its chart draws. `NotFetched` makes an empty chart a download still
+   * owed rather than an athlete with no estimate.
+   */
+  ftpTrendCoverage: RangeCoverage;
+  /**
+   * The last stored critical speeds, the threshold the running and
+   * swimming cards fall back on when no curve is to hand.
+   */
+  runPaceTrend: FfiPaceTrend;
+  swimPaceTrend: FfiPaceTrend;
+  /**
+   * The rides, runs and swims among the latest activities, which the
+   * primary sport defaults to until the athlete chooses one.
+   */
+  sportMix: FfiSportMix;
+  /**
+   * The fitness time constant in days in effect today
+   */
+  fitnessDays: number;
+  /**
+   * The fatigue time constant in days in effect today
+   */
+  fatigueDays: number;
+  /**
+   * The cycling FTP the athlete set, in watts, else the one the newest
+   * cycling activity was analysed against.
+   */
+  cyclingFtpSetting: number | null;
+  /**
+   * The running LTHR the athlete set, in bpm.
+   */
+  runningLthr: number | null;
+  /**
+   * The decoupling ride of each span the read was asked for, in that order.
+   */
+  decouplingSources: FfiSpanDecoupling[];
+  /**
+   * Every activity inside the longest span asked for, oldest first, for the
+   * strip under the fitness plot.
+   */
+  loadDots: FfiLoadDot[];
+  /**
+   * Days with activities from `calendar_first_day` to the window's last
+   * day, oldest first.
+   */
+  heatmap: FfiHeatmapDay[];
+  /**
+   * The calendar's first drawn day, `YYYY-MM-DD`: the Monday of the latest
+   * of the held window's oldest day and the account's oldest activity, and
+   * never before the window's first day, which is the calendar's cap.
+   */
+  calendarFirstDay: string;
+  /**
+   * The activities from the cap to the day before `calendar_first_day`
+   * that the account holds and the device has not downloaded.
+   */
+  calendarOlderOwed: number;
+  /**
+   * Calendar months with activities inside the monthly span, oldest first.
+   */
+  months: FfiMonthlyStats[];
+  /**
+   * The year to date against the same span of last year.
+   */
+  seasonYear: FfiSummaryComparison;
+  /**
+   * Each month of this year to date against the same month a year before,
+   * January first: the months before this one whole, then this month to
+   * date against the same span of last year's.
+   */
+  seasonMonths: FfiSummaryComparison[];
+  /**
+   * The weekly card's periods to now, each against the same span before.
+   */
+  comparisons: FfiSummaryComparisons;
+};
+
+/**
+ * The windows the fitness tab's calendar, week and year cards draw, each
+ * fixed for as long as it stays mounted. The front end names them because
+ * its grid and its season cards lay out the same days.
+ */
+export type FfiFitnessScreenWindows = {
+  /**
+   * The first day the heatmap may draw, its cap, and its last drawn day,
+   * `YYYY-MM-DD`, inclusive. The read answers the first day it draws.
+   */
+  heatmapFirstDay: string;
+  heatmapLastDay: string;
+  /**
+   * The span the monthly rows cover.
+   */
+  months: FfiTimestampRange;
+  /**
+   * The year to date, and the same span of last year.
+   */
+  yearCurrent: FfiTimestampRange;
+  yearPrevious: FfiTimestampRange;
+  /**
+   * The month to date, and the same span of the month a year before.
+   */
+  monthCurrent: FfiTimestampRange;
+  monthPrevious: FfiTimestampRange;
+  /**
+   * The instant the weekly card's periods run to, in the wall-clock seconds
+   * an activity's date is recorded in.
+   */
+  nowWallSeconds: number;
+};
+
+export type FfiFloat32Array = Base64;
+
+/**
+ * The range a direction's scatter axis draws, in the axis's own unit: metres
+ * per second on a section, seconds on a route.
+ */
+export type FfiFocusRange = {
+  low: number;
+  high: number;
+  /**
+   * Points drawn past the slow end.
+   */
+  slowCount: number;
+  /**
+   * Points drawn past the fast end.
+   */
+  fastCount: number;
 };
 
 /**
@@ -350,10 +1786,292 @@ export type FfiFtpTrend = {
 };
 
 /**
+ * Why a Garmin pass stopped.
+ */
+export type FfiGarminHalt = 'keyRejected' | 'unreachable' | 'unstorable';
+
+/**
+ * The Garmin pull's count, month and terminal state, for the settings screen.
+ */
+export type FfiGarminPull = {
+  phase: FfiGarminPullPhase;
+  /**
+   * Milliseconds since the epoch that a paused pass resumes at.
+   */
+  resumeAt: WholeNumber | null;
+  /**
+   * Set when `phase` is `Stopped`.
+   */
+  halt: FfiGarminHalt | null;
+  /**
+   * Originals this device has stored from Garmin.
+   */
+  stored: number;
+  /**
+   * The earliest month the history pull has finished, as `YYYY-MM`.
+   */
+  reachedMonth: string | null;
+  /**
+   * Whether the history pull has passed the oldest ride.
+   */
+  backfillDone: boolean;
+};
+
+/**
+ * Where the Garmin pull stands.
+ */
+export type FfiGarminPullPhase = 'idle' | 'running' | 'paused' | 'done' | 'stopped';
+
+/**
+ * The order the routes list is in. `Nearby` is the engine's own distance
+ * ranking, which is why the order is an argument rather than something the
+ * list redoes after it has been paged.
+ */
+export type FfiGroupSort = 'nearby' | 'activities' | 'distance' | 'name';
+
+/**
+ * Group summary with the representative polyline for the Routes screen.
+ * Avoids N separate getRepresentativeRoute() calls.
+ */
+export type FfiGroupWithPolyline = {
+  groupId: string;
+  representativeId: string;
+  activityCount: number;
+  customName: string | null;
+  bounds: FfiBounds | null;
+  /**
+   * Distance in meters (from representative activity's metrics)
+   */
+  distanceMeters: number;
+  /**
+   * Delta+varint encoded coordinates
+   */
+  encodedPolyline: Base64;
+  /**
+   * All sport types present in this group's activities
+   */
+  sportTypes: string[];
+};
+
+/**
+ * Pre-computed daily activity intensity for the activity heatmap.
+ */
+export type FfiHeatmapDay = {
+  /**
+   * Date string in YYYY-MM-DD format
+   */
+  date: string;
+  /**
+   * Intensity bracket: 0 (none), 1 (light), 2 (medium-light), 3 (medium), 4 (high)
+   */
+  intensity: number;
+  /**
+   * Longest activity duration in seconds for this day
+   */
+  maxDuration: number;
+  /**
+   * Number of activities on this day
+   */
+  activityCount: number;
+};
+
+/**
+ * One heart rate zone of a saved activity.
+ */
+export type FfiHrZoneBand = {
+  /**
+   * Zone number, from 1
+   */
+  zone: number;
+  /**
+   * Lower edge in bpm, 0 for zone 1
+   */
+  minBpm: number;
+  /**
+   * Upper edge in bpm
+   */
+  maxBpm: number;
+  /**
+   * Seconds spent in the zone
+   */
+  seconds: number;
+  /**
+   * Share of the total time in zones, 0 to 100
+   */
+  percent: number;
+  /**
+   * The share as a whole percent, the bands' shares totalling 100
+   */
+  share: number;
+};
+
+/**
+ * What an interval is, as intervals.icu labels it.
+ */
+export type FfiIntervalKind =
+  'work' | 'recovery' | 'rest' | 'warmup' | 'cooldown' | 'activeRecovery' | 'lap' | 'other';
+
+/**
+ * One job's last run. A job leaves at zero the counts it has no measure of.
+ */
+export type FfiJobRun = {
+  /**
+   * detection, elevationBackfill, streamBackfill, cutover or passRecount.
+   */
+  job: BackgroundJob;
+  /**
+   * When the run finished, in epoch milliseconds, from
+   * [`super::attempts::now_ms`].
+   */
+  finishedAt: WholeNumber;
+  /**
+   * complete, partial, failed, paused, stopped or deferred.
+   */
+  outcome: RunOutcome;
+  /**
+   * Items the run took on.
+   */
+  handled: number;
+  added: number;
+  changed: number;
+  retired: number;
+  failed: number;
+};
+
+/**
+ * One lap's time against the reference along the section.
+ */
+export type FfiLapDelta = {
+  activityId: string;
+  /**
+   * Joins the curve to its chart point and lap row.
+   */
+  startIndex: number;
+  /**
+   * Unix seconds
+   */
+  activityDate: number;
+  /**
+   * Seconds behind the reference (positive) or ahead of it (negative) at
+   * each grid point from the start of travel, zero at the first shared point and
+   * NaN outside the covered range.
+   */
+  deltaSecs: FfiFloat32Array;
+  /**
+   * The change in delta over each split, in travel order. NaN for a split
+   * the lap does not fully cover.
+   */
+  splitDeltaSecs: FfiFloat32Array;
+  /**
+   * The lap's own seconds over each split, on the split grid of
+   * `split_delta_secs`. NaN for a split the lap does not fully cover.
+   */
+  splitSecs: FfiFloat32Array;
+  /**
+   * The delta at the end of the section, only for a lap that covers both
+   * of its ends.
+   */
+  endDeltaSecs: number | null;
+};
+
+/**
+ * A lap inside the range with no curve.
+ */
+export type FfiLapDeltaMissing = {
+  activityId: string;
+  startIndex: number;
+  /**
+   * Unix seconds
+   */
+  activityDate: number;
+  reason: FfiLapDeltaMissingReason;
+};
+
+/**
+ * Why a lap in range has no delta curve.
+ */
+export type FfiLapDeltaMissingReason = 'noTimeStream' | 'misalignedTimeStream' | 'notProjectable';
+
+/**
  * What a method that reads one activity is asked.
  */
 export type FfiLinkActivityAsk = {
   id: string;
+};
+
+/**
+ * What `activity.intervals` answers: the laps, or none when the body was
+ * never fetched or will not parse.
+ */
+export type FfiLinkActivityIntervals = {
+  intervals: FfiActivityIntervals | null;
+};
+
+/**
+ * What `activity.record` answers: the stored body typed as the detail screen
+ * reads it, or none when nothing is stored.
+ */
+export type FfiLinkActivityRecord = {
+  record: FfiActivityRecord | null;
+};
+
+/**
+ * What `activity.sections` answers: the visible custom sections that name
+ * the activity.
+ */
+export type FfiLinkActivitySections = {
+  sections: FfiSection[];
+};
+
+/**
+ * What `fitness.bestEfforts` is asked: a window in days, where 0 is all time.
+ */
+export type FfiLinkBestEffortsAsk = {
+  days: number;
+};
+
+/**
+ * What `fitness.loads` answers: a load for each day with activities.
+ */
+export type FfiLinkDayLoads = {
+  days: FfiDayLoad[];
+};
+
+/**
+ * What `status.linkedDevices` answers: every linked device and the id of the
+ * one that asked.
+ */
+export type FfiLinkDevicesAnswer = {
+  devices: FfiLinkedDevice[];
+  thisBrowser: string | null;
+};
+
+/**
+ * What `strength.exercise` is asked: the exercise category.
+ */
+export type FfiLinkExerciseAsk = {
+  exerciseCategory: number;
+};
+
+/**
+ * What `feed.page` answers: the feed read the phone's own list draws, and the
+ * preview line of each card on it that has a stored track.
+ *
+ * The lines are the phone card's own (`get_preview_track`), so the browser
+ * never simplifies a track itself, and they ride with the page so a row
+ * never waits on a second ask.
+ */
+export type FfiLinkFeedPage = {
+  cards: FfiFeedCard[];
+  /**
+   * Every stored activity the query matched, not only this page.
+   */
+  matchedCount: number;
+  hasMore: boolean;
+  /**
+   * One per card with GPS and a stored track; a card with none is absent.
+   */
+  previews: FfiPreviewTrack[];
 };
 
 /**
@@ -383,6 +2101,16 @@ export type FfiLinkFeedPageAsk = {
 };
 
 /**
+ * What `fitness.screen` is asked: the spans the decoupling ride and the
+ * strip's activities are read for, and the windows the calendar, the weekly
+ * card and the year comparison are read over.
+ */
+export type FfiLinkFitnessScreenAsk = {
+  spanDays: number[];
+  windows: FfiFitnessScreenWindows;
+};
+
+/**
  * What `link.hello` is asked: the protocol the page was built for and a name
  * for the page.
  */
@@ -393,12 +2121,14 @@ export type FfiLinkHello = {
 
 /**
  * What `link.hello` answers: the protocol the phone speaks, the app version
- * and the name of every method it answers.
+ * the name of every method it answers, and the name of the phone when it has
+ * one. The name is optional, so a page reads an answer without it.
  */
 export type FfiLinkHelloAnswer = {
   protocol: number;
   app: string;
   methods: string[];
+  device: string | null;
 };
 
 /**
@@ -406,6 +2136,135 @@ export type FfiLinkHelloAnswer = {
  */
 export type FfiLinkHighlightsAsk = {
   ids: string[];
+};
+
+/**
+ * What `fitness.loads` is asked: an inclusive window of wall-clock seconds.
+ */
+export type FfiLinkLoadsAsk = {
+  startTs: number;
+  endTs: number;
+};
+
+/**
+ * What `strength.muscle` is asked: one activity and the muscle the diagram
+ * was tapped on.
+ */
+export type FfiLinkMuscleAsk = {
+  activityId: string;
+  muscleSlug: string;
+};
+
+/**
+ * What a read that takes nothing is asked.
+ */
+export type FfiLinkNoAsk = {
+  unused: boolean | null;
+};
+
+/**
+ * What `fitness.paceCurve` answers: the stored curve, or none when it was
+ * never fetched.
+ */
+export type FfiLinkPaceCurve = {
+  curve: FfiPaceCurve | null;
+};
+
+/**
+ * What `fitness.paceCurve` is asked: a sport, a window in days and whether the
+ * pace is grade adjusted.
+ */
+export type FfiLinkPaceCurveAsk = {
+  sport: string;
+  days: number;
+  gap: boolean;
+};
+
+/**
+ * What `route.performance` and `section.performance` are asked: the route or
+ * section, how many days back the range reaches, the sport and the activity
+ * to mark.
+ */
+export type FfiLinkPerformanceAsk = {
+  id: string;
+  timeRangeDays: number;
+  sportFilter: string | null;
+  highlightActivityId: string | null;
+};
+
+/**
+ * What `fitness.powerCurve` answers: the stored curve, or none when it was
+ * never fetched.
+ */
+export type FfiLinkPowerCurve = {
+  curve: FfiPowerCurve | null;
+};
+
+/**
+ * What `fitness.powerCurve` is asked: a sport and a window in days, where 0
+ * is all time.
+ */
+export type FfiLinkPowerCurveAsk = {
+  sport: string;
+  days: number;
+};
+
+/**
+ * What `recordings.get` answers: the row, or `None` when it is absent or held by
+ * another athlete, as the phone's own read answers `null`.
+ */
+export type FfiLinkRecordingAnswer = {
+  recording: FfiRecordingEntry | null;
+};
+
+/**
+ * What `recordings.get` is asked: the recording's id.
+ */
+export type FfiLinkRecordingAsk = {
+  id: string;
+};
+
+/**
+ * What `recordings.list` answers: the rows the signed-in athlete may see, newest first.
+ */
+export type FfiLinkRecordingsAnswer = {
+  recordings: FfiRecordingEntry[];
+};
+
+/**
+ * What `recordings.list` is asked: nothing, the library is the signed-in
+ * athlete's.
+ */
+export type FfiLinkRecordingsAsk = Record<string, never>;
+
+/**
+ * What `route.detail` and `route.attempts` are asked about, and what
+ * `route.attempts` narrows by: the route, the activity being viewed and a sport.
+ */
+export type FfiLinkRouteAttemptsAsk = {
+  id: string;
+  currentActivityId: string | null;
+  sportTypeFilter: string | null;
+};
+
+/**
+ * What `section.excluded` answers: the activities whose every traversal of
+ * the section is excluded.
+ */
+export type FfiLinkSectionExcluded = {
+  activityIds: string[];
+};
+
+/**
+ * What `section.history` answers: the change ledger, oldest first, the
+ * stored geometry versions with the pinned one flagged, and the names of the
+ * activities the ledger's chips draw, so the page asks once.
+ */
+export type FfiLinkSectionHistory = {
+  history: FfiSectionHistoryEvent[];
+  geometryVersions: FfiSectionGeometryVersion[];
+  pinnedVersion: number | null;
+  names: FfiActivityName[];
 };
 
 /**
@@ -418,10 +2277,52 @@ export type FfiLinkSectionRenameAsk = {
 };
 
 /**
+ * One setting as stored; `value` is none when no row is stored.
+ */
+export type FfiLinkSettingValue = {
+  key: string;
+  value: string | null;
+};
+
+/**
+ * What `settings.get` answers: the allowed keys with their values, and the
+ * keys refused, which were not read.
+ */
+export type FfiLinkSettingsAnswer = {
+  values: FfiLinkSettingValue[];
+  refused: string[];
+};
+
+/**
+ * What `settings.get` is asked: the keys to read.
+ */
+export type FfiLinkSettingsAsk = {
+  keys: string[];
+};
+
+/**
  * What `feed.sparklines` is asked: how many days the series reach back.
  */
 export type FfiLinkSparklinesAsk = {
   days: number;
+};
+
+/**
+ * What `activity.streams` is asked: the activity and the series the chart
+ * draws, in any order.
+ */
+export type FfiLinkStreamsAsk = {
+  id: string;
+  types: string[];
+};
+
+/**
+ * What `strength.screen` is asked: the phone's wall clock in seconds and the span
+ * of days the period reads, as the strength tab picks it.
+ */
+export type FfiLinkStrengthAsk = {
+  nowWallSeconds: number;
+  periodDays: number;
 };
 
 /**
@@ -433,10 +2334,147 @@ export type FfiLinkSummaryAsk = {
 };
 
 /**
+ * What `fitness.wellness` is asked: an inclusive window of `YYYY-MM-DD` days.
+ */
+export type FfiLinkWellnessAsk = {
+  oldest: string;
+  newest: string;
+};
+
+/**
  * What a write answers once it is made.
  */
 export type FfiLinkWriteDone = {
   ok: boolean;
+};
+
+/**
+ * What `fitness.zones` is asked: a sport, a zone kind (`power` or `hr`) and an
+ * inclusive window of wall-clock seconds.
+ */
+export type FfiLinkZonesAsk = {
+  sportType: string;
+  zoneType: string;
+  startTs: number;
+  endTs: number;
+};
+
+/**
+ * A browser linked to this phone.
+ */
+export type FfiLinkedDevice = {
+  id: string;
+  /**
+   * What the browser called itself when it was linked.
+   */
+  name: string;
+  /**
+   * Unix seconds when it was linked.
+   */
+  createdAt: number;
+  /**
+   * Unix seconds of its last connection, none before the first.
+   */
+  lastSeenAt: number | null;
+  /**
+   * Unix seconds when its current connection came up, none while it is not
+   * connected.
+   */
+  connectedSince: number | null;
+};
+
+/**
+ * One activity as the fitness strip marks it and its day picker lists it.
+ */
+export type FfiLoadDot = {
+  activityId: string;
+  name: string;
+  sportType: string;
+  /**
+   * Wall-clock start, `YYYY-MM-DDTHH:MM:SS`.
+   */
+  startDateLocal: string;
+  /**
+   * Seconds.
+   */
+  movingTime: number;
+  /**
+   * Metres.
+   */
+  distance: number;
+  /**
+   * The recorded training load, zero when none is recorded.
+   */
+  load: number;
+};
+
+/**
+ * Lightweight map signature for rendering activity traces on the map.
+ * Contains simplified GPS points (max ~100 via Douglas-Peucker) as encoded coords.
+ */
+export type FfiMapSignature = {
+  activityId: string;
+  /**
+   * Delta+varint encoded coordinates (simplified, max ~100 points)
+   */
+  encodedCoords: Base64;
+  centerLat: number;
+  centerLng: number;
+};
+
+/**
+ * Where an activity's max HR came from.
+ */
+export type FfiMaxHrSource = 'activityZones' | 'sportSettings' | 'default';
+
+/**
+ * Candidate for merging with another section.
+ */
+export type FfiMergeCandidate = {
+  sectionId: string;
+  name: string | null;
+  /**
+   * Every sport whose included outings have taken the section, sorted.
+   */
+  sportTypes: string[];
+  distanceMeters: number;
+  visitCount: number;
+  overlapPct: number;
+  centerDistanceMeters: number;
+  /**
+   * The candidate's line thinned to what a row thumbnail draws, delta+varint
+   * encoded as `FfiRecentPR.encoded_polyline` is. Empty when it cannot be read.
+   */
+  encodedPolyline: Base64;
+};
+
+/**
+ * One calendar month's totals, for the season chart's month bars.
+ */
+export type FfiMonthlyStats = {
+  /**
+   * Calendar year, in the athlete's own timezone.
+   */
+  year: number;
+  /**
+   * Calendar month, 1 to 12.
+   */
+  month: number;
+  /**
+   * The same four totals `get_period_stats` gives a window.
+   */
+  stats: FfiPeriodStats;
+};
+
+/**
+ * One muscle's exercises over the period, for the list under the diagram.
+ */
+export type FfiMuscleExercises = {
+  muscleSlug: string;
+  /**
+   * Sorted by activity count descending, then by sets.
+   */
+  exercises: FfiExerciseSummary[];
 };
 
 /**
@@ -451,6 +2489,104 @@ export type FfiMuscleGroup = {
    * 1 = secondary, 2 = primary
    */
   intensity: number;
+};
+
+/**
+ * Full muscle-group breakdown for one activity, one muscle slug. Rust groups
+ * exercise sets by display name, classifies primary/secondary, and returns
+ * totals - replacing the useMemo grouping/reducing in `useMuscleDetail`.
+ */
+export type FfiMuscleGroupDetail = {
+  slug: string;
+  exercises: FfiExerciseContribution[];
+  totalSets: number;
+  totalReps: number;
+  volumeKg: number;
+  primaryExercises: number;
+  secondaryExercises: number;
+};
+
+/**
+ * Aggregated muscle group volume over a time period.
+ */
+export type FfiMuscleVolume = {
+  /**
+   * Slug matching react-native-body-highlighter
+   */
+  slug: string;
+  /**
+   * Number of sets where this muscle is primary target
+   */
+  primarySets: number;
+  /**
+   * Number of sets where this muscle is secondary target
+   */
+  secondarySets: number;
+  /**
+   * Weighted set count: primary=1.0, secondary=0.5
+   */
+  weightedSets: number;
+  /**
+   * Reps targeting this muscle, with secondary work counted at half
+   */
+  totalReps: number;
+  /**
+   * Weight × reps in kg, with secondary work counted at half
+   */
+  volumeKg: number;
+  /**
+   * Human-readable exercise names that targeted this muscle
+   */
+  exerciseNames: string[];
+  /**
+   * Body-diagram shade, 1 (lightest) to `DIAGRAM_SHADES`, against the
+   * most trained muscle in the same summary
+   */
+  shade: number;
+};
+
+/**
+ * Where a scatter point lies against its direction's focus range.
+ */
+export type FfiOffScale = 'none' | 'slow' | 'fast';
+
+/**
+ * A pace curve for one sport and window, and when its body was fetched.
+ */
+export type FfiPaceCurve = {
+  sport: string;
+  /**
+   * Distances, in metres.
+   */
+  distances: number[];
+  /**
+   * Seconds taken to cover each distance.
+   */
+  times: number[];
+  /**
+   * Metres per second at each distance, zero where the time is.
+   */
+  pace: number[];
+  activityIds: string[] | null;
+  activities: Record<string, FfiCurveActivity>;
+  /**
+   * The critical-speed model's terms, when the server fitted one.
+   */
+  criticalSpeed: number | null;
+  dPrime: number | null;
+  r2: number | null;
+  startDate: string | null;
+  endDate: string | null;
+  days: number | null;
+  /**
+   * Epoch seconds at the fetch that stored the body.
+   */
+  fetchedAt: number;
+  /**
+   * `intervals` for a body the server sent, `veloq` for one worked out on
+   * the phone from the library's own streams, which the chart says.
+   */
+  source: string;
 };
 
 /**
@@ -526,6 +2662,1642 @@ export type FfiPeriodStats = {
 };
 
 /**
+ * One length of the pool, or one rest.
+ */
+export type FfiPoolLength = {
+  /**
+   * The length's place in the file, from zero, rests counted.
+   */
+  index: number;
+  /**
+   * False for a rest, which the device records as an idle length.
+   */
+  active: boolean;
+  /**
+   * The FIT SwimStroke number. None for a rest or an unrecorded stroke.
+   */
+  stroke: number | null;
+  /**
+   * A locale key naming the stroke (`freestyle`, `breaststroke`, ...),
+   * `unknown` for an active length with no stroke. None for a rest.
+   */
+  strokeKey: string | null;
+  /**
+   * Seconds from the push-off to the wall, or the rest's duration.
+   */
+  elapsedSecs: number | null;
+  strokes: number | null;
+  /**
+   * Metres per second over the pool length. None for a rest.
+   */
+  speedMps: number | null;
+  /**
+   * Elapsed seconds plus strokes. None for a rest or a length with no
+   * stroke count or no time.
+   */
+  swolf: number | null;
+};
+
+/**
+ * One stroke's share of a pool swim, over its active lengths.
+ */
+export type FfiPoolStrokeTotal = {
+  stroke: number | null;
+  strokeKey: string;
+  lengths: number;
+  /**
+   * Lengths times the pool length. None when the pool length is unknown.
+   */
+  distanceM: number | null;
+  elapsedSecs: number;
+  /**
+   * Distance over time. None when either is unknown or zero.
+   */
+  speedMps: number | null;
+  /**
+   * The mean SWOLF of the lengths that have one.
+   */
+  avgSwolf: number | null;
+};
+
+/**
+ * A pool swim's lengths as the activity detail screen paints them.
+ */
+export type FfiPoolSwim = {
+  state: FfiPoolSwimState;
+  /**
+   * The pool length in metres, whichever unit the device showed.
+   */
+  poolLengthM: number | null;
+  /**
+   * The unit the pool is measured in. Metres when the length is unknown.
+   */
+  poolUnit: FfiPoolUnit;
+  /**
+   * Every length in file order, rests in place. Empty unless `Read`.
+   */
+  lengths: FfiPoolLength[];
+  /**
+   * One per stroke swum, in the order each stroke first appears, over the
+   * active lengths alone.
+   */
+  strokeTotals: FfiPoolStrokeTotal[];
+};
+
+/**
+ * Where a pool swim's lengths stand, read from its FIT file. The
+ * discriminants start at one so no member is falsy.
+ */
+export type FfiPoolSwimState = 'owed' | 'read' | 'noLengths';
+
+/**
+ * The unit a pool is measured in, inferred from its length. The
+ * discriminants start at one so no member is falsy.
+ */
+export type FfiPoolUnit = 'metres' | 'yards';
+
+/**
+ * A power curve for one sport and window, and when its body was fetched.
+ */
+export type FfiPowerCurve = {
+  sport: string;
+  /**
+   * Durations, in seconds.
+   */
+  secs: number[];
+  /**
+   * The best watts held for each duration.
+   */
+  watts: number[];
+  wattsPerKg: number[] | null;
+  activityIds: string[] | null;
+  /**
+   * Activity ids for each per-kilogram best, which need not be the watts one.
+   */
+  wkgActivityIds: string[] | null;
+  /**
+   * The athlete's weight the per-kilogram series was divided by.
+   */
+  weight: number | null;
+  /**
+   * The server's fitted models, in the order it sent them.
+   */
+  models: FfiPowerModel[];
+  /**
+   * Every activity a point came from, so a checkpoint has a date offline.
+   */
+  activities: Record<string, FfiCurveActivity>;
+  startDate: string | null;
+  endDate: string | null;
+  days: number | null;
+  /**
+   * Epoch seconds at the fetch that stored the body.
+   */
+  fetchedAt: number;
+  /**
+   * `intervals` for a body the server sent, `veloq` for one worked out on
+   * the phone from the library's own streams, which the chart says.
+   */
+  source: string;
+};
+
+/**
+ * A model the server finished fitting.
+ */
+export type FfiPowerModel = {
+  /**
+   * `MS_2P`, `MORTON_3P`, `FFT_CURVES` or `ECP`.
+   */
+  kind: string;
+  criticalPower: number;
+  /**
+   * W prime, joules above critical power.
+   */
+  wPrime: number;
+  ftp: number;
+  /**
+   * The three-parameter models' peak, absent on the two-parameter fit.
+   */
+  pMax: number | null;
+};
+
+/**
+ * One power zone of a saved activity.
+ */
+export type FfiPowerZoneBand = {
+  /**
+   * Zone number, from 1
+   */
+  zone: number;
+  /**
+   * Lower edge in watts, 0 for zone 1
+   */
+  minWatts: number;
+  /**
+   * Upper edge in watts, absent for the open top zone
+   */
+  maxWatts: number | null;
+  /**
+   * Seconds spent in the zone
+   */
+  seconds: number;
+  /**
+   * Share of the total time in zones, 0 to 100
+   */
+  percent: number;
+  /**
+   * The share as a whole percent, the bands' shares totalling 100
+   */
+  share: number;
+};
+
+/**
+ * GPS track for a single activity (for feed map previews).
+ */
+export type FfiPreviewTrack = {
+  activityId: string;
+  /**
+   * Delta+varint encoded coordinates
+   */
+  encodedCoords: Base64;
+};
+
+/**
+ * A record's time before and after a re-cut, within one sport and direction.
+ */
+export type FfiRecordMove = {
+  sport: string | null;
+  direction: string | null;
+  from: number | null;
+  to: number | null;
+};
+
+/**
+ * The record progression per direction, oldest step first, over the whole
+ * included history. Empty in a direction that holds no record.
+ */
+export type FfiRecordProgressions = {
+  forward: FfiRecordStep[];
+  reverse: FfiRecordStep[];
+};
+
+/**
+ * One step of a direction's record progression: an eligible lap strictly
+ * faster than every eligible lap before it.
+ */
+export type FfiRecordStep = {
+  activityId: string;
+  lapId: string;
+  /**
+   * Unix seconds.
+   */
+  activityDate: number;
+  /**
+   * Seconds.
+   */
+  sectionTime: number;
+  /**
+   * Metres per second.
+   */
+  speed: number;
+  /**
+   * Seconds faster than the step before. `None` on the first step.
+   */
+  improvementSecs: number | null;
+  /**
+   * Metres per second faster than the step before. `None` on the first
+   * step.
+   */
+  improvementSpeed: number | null;
+};
+
+/**
+ * One recording, as the library screen and the upload processor see it.
+ */
+export type FfiRecordingEntry = {
+  id: string;
+  /**
+   * `fit` for a ride this device recorded, `manual` for an entry the athlete
+   * typed. A manual row has no FIT and an empty `fit_path`, so the upload path
+   * branches on this rather than on whether a file happens to be there.
+   */
+  kind: string;
+  fitPath: string;
+  /**
+   * A manual entry's request body. On a ride an earlier build saved, a
+   * streams copy that is no longer written or read, kept only so a delete
+   * takes the file with the row.
+   */
+  streamsPath: string | null;
+  activityType: string;
+  name: string;
+  /**
+   * Milliseconds since the epoch, when the ride started.
+   */
+  startTime: number;
+  durationSeconds: number;
+  distanceMeters: number;
+  elevationGain: number | null;
+  avgHeartrate: number | null;
+  pairedEventId: number | null;
+  /**
+   * Milliseconds since the epoch, when the recording was saved.
+   */
+  createdAt: number;
+  uploadStatus: string;
+  retryCount: number;
+  lastAttemptAt: number | null;
+  lastError: string | null;
+  intervalsActivityId: string | null;
+  /**
+   * The engine key the recording was written under at save time.
+   */
+  engineActivityId: string | null;
+  /**
+   * Whether the engine row has taken the id intervals.icu gave the upload.
+   * False on a ride uploaded while the engine was closed, which is the case
+   * the reconcile sweep exists to replay.
+   */
+  engineReconciled: boolean;
+  /**
+   * The athlete signed in when the recording was saved. `None` on a row
+   * written before the column existed, which is not the same as a row that
+   * belongs to nobody: an unstamped entry is held rather than uploaded.
+   */
+  athleteId: string | null;
+  /**
+   * What the athlete wrote on the review screen. It goes up as the
+   * activity's description.
+   */
+  notes: string | null;
+  /**
+   * The effort from 1 to 10 the athlete set on the review screen, `None`
+   * when the slider was never moved.
+   */
+  rpe: number | null;
+  /**
+   * Whether intervals.icu has the effort. It goes up after the upload, so a
+   * failed update is retried from here without sending the file again.
+   */
+  rpeSent: boolean;
+};
+
+/**
+ * Which lap a direction's deltas are measured against. The stored curves are
+ * measured against `Record` or `AthleteSet`; the others are references a
+ * chart re-bases onto.
+ */
+export type FfiReferenceSource = 'record' | 'athleteSet' | 'previousRecord' | 'typical';
+
+/**
+ * Everything the old-versus-new sections map draws, in one read.
+ */
+export type FfiRetiredMapData = {
+  retired: FfiRetiredMapSection[];
+  current: FfiCurrentMapSection[];
+  pairs: FfiRetiredMapPair[];
+  /**
+   * The engine is still working out which lines share ground, so a line
+   * whose ground pairs are owed lists only its ledger and supersedes links.
+   */
+  pairsPending: boolean;
+};
+
+/**
+ * One retired section set against one catalogue row.
+ */
+export type FfiRetiredMapPair = {
+  retiredId: string;
+  currentId: string;
+  link: FfiRetiredPairLink;
+  /**
+   * The larger of the two coverage fractions, for a `Ground` pair only.
+   */
+  overlap: number | null;
+};
+
+/**
+ * A retired section as the old-versus-new map draws it: the ledger's record
+ * of it and its newest stored line that decodes.
+ */
+export type FfiRetiredMapSection = {
+  section: FfiRetiredSection;
+  /**
+   * Delta+varint encoded coordinates; `None` when no stored version decodes.
+   */
+  encodedPolyline: Base64 | null;
+};
+
+/**
+ * Why a retired section and a catalogue row are shown together.
+ */
+export type FfiRetiredPairLink = 'ledger' | 'supersedes' | 'ground';
+
+/**
+ * A section the ledger remembers and the catalogue no longer holds: its
+ * last event says how it left, and its stored versions still draw it.
+ */
+export type FfiRetiredSection = {
+  sectionId: string;
+  /**
+   * dissolved, merged or superseded. A state a record restore still holds
+   * pending reads superseded, with no survivor.
+   */
+  kind: string;
+  at: string;
+  /**
+   * The survivor a merge or supersession handed the ground to.
+   */
+  into: string | null;
+  /**
+   * Surviving geometry versions, newest last.
+   */
+  versions: WholeNumber[];
+  /**
+   * The name it was last shown under, so two retirements can be told
+   * apart. `None` when nothing the ledger kept names it.
+   */
+  name: string | null;
+  /**
+   * Its length when it left, else its newest stored line's.
+   */
+  distanceMeters: number | null;
+  /**
+   * How many passes it had when it left: its retirement event's count,
+   * else the newest archived state's. `None` when neither recorded one.
+   */
+  visitCount: number | null;
+  /**
+   * The version a restore rolls it back to: the newest `archived` state
+   * that names a sport, which is what recreating the row needs. `None`
+   * when no such state exists, and for a state a record restore still
+   * holds pending, whose ground is not present yet.
+   */
+  restorableVersion: WholeNumber | null;
+};
+
+/**
+ * Everything the route detail screen paints with that one sport and one
+ * range do not change. It carries this route and nothing of any other, so it
+ * stays the same size as the library grows; the attempt times come from the
+ * route detail performance read.
+ */
+export type FfiRouteDetailData = {
+  /**
+   * Total activities held by the engine
+   */
+  activityCount: number;
+  /**
+   * The route itself, or `None` when the ID is unknown. Its `custom_name`
+   * is the name it is shown under.
+   */
+  group: FfiRouteGroup | null;
+  /**
+   * The representative activity's distance in meters, the figure the routes
+   * list shows and sorts on. Zero when the route is unknown.
+   */
+  distanceMeters: number;
+  /**
+   * The representative activity's elevation gain in meters, the climbing
+   * the route hero shows beside its distance. Zero when the route is
+   * unknown.
+   */
+  elevationGainMeters: number;
+  /**
+   * Representative activity's polyline, delta+varint encoded
+   */
+  encodedRepresentative: Base64;
+  /**
+   * Activities the user excluded from this route
+   */
+  excludedActivityIds: string[];
+  /**
+   * Simplified GPS signatures for the route's activities
+   */
+  mapSignatures: FfiMapSignature[];
+  /**
+   * The route's activities whose time streams still have to be fetched
+   * before the delta curves can draw them
+   */
+  missingTimeStreamIds: string[];
+};
+
+/**
+ * Route group for FFI
+ */
+export type FfiRouteGroup = {
+  groupId: string;
+  representativeId: string;
+  activityIds: string[];
+  bounds: FfiBounds | null;
+  customName: string | null;
+  bestTime: number | null;
+  avgTime: number | null;
+  bestPace: number | null;
+  bestActivityId: string | null;
+};
+
+/**
+ * A single performance point for route comparison.
+ */
+export type FfiRoutePerformance = {
+  activityId: string;
+  name: string;
+  /**
+   * Unix timestamp
+   */
+  date: WholeNumber;
+  /**
+   * Speed in m/s (distance / moving_time)
+   */
+  speed: number;
+  /**
+   * Elapsed time in seconds
+   */
+  duration: number;
+  /**
+   * Moving time in seconds
+   */
+  movingTime: number;
+  /**
+   * Distance in meters
+   */
+  distance: number;
+  /**
+   * Elevation gain in meters
+   */
+  elevationGain: number;
+  /**
+   * Average heart rate (optional)
+   */
+  avgHr: number | null;
+  /**
+   * Average power in watts (optional)
+   */
+  avgPower: number | null;
+  /**
+   * Is this the current activity being viewed
+   */
+  isCurrent: boolean;
+  /**
+   * Match direction: "same", "reverse", or "partial"
+   */
+  direction: string;
+  /**
+   * Match percentage (0-100), None if no match data available
+   */
+  matchPercentage: number | null;
+  /**
+   * True when the recorded distance sits outside the band around the
+   * route's usual distance, so the attempt holds no record and is not
+   * counted in the rank.
+   */
+  outsideDistanceBand: boolean;
+  /**
+   * True when this attempt strictly beats every other counted attempt in
+   * its sport and direction, under the one record rule.
+   */
+  isRecord: boolean;
+};
+
+/**
+ * Route performance result for FFI.
+ * Complete performance data for a route group across all activities.
+ * Replaces the JSON-returning `persistent_engine_get_route_performances_json()`.
+ */
+export type FfiRoutePerformanceResult = {
+  /**
+   * Performances sorted by date (oldest first)
+   */
+  performances: FfiRoutePerformance[];
+  /**
+   * Activity metrics for all activities in the route (inlined to avoid duplicate FFI call)
+   */
+  activityMetrics: FfiActivityMetrics[];
+  /**
+   * Fastest forward performance, or fastest reverse when none ran forward.
+   */
+  best: FfiRoutePerformance | null;
+  /**
+   * Best performance in forward/same direction
+   */
+  bestForward: FfiRoutePerformance | null;
+  /**
+   * Best performance in reverse direction
+   */
+  bestReverse: FfiRoutePerformance | null;
+  /**
+   * Best performance in the current activity's direction.
+   */
+  currentDirectionBest: FfiRoutePerformance | null;
+  /**
+   * Summary stats for forward/same direction
+   */
+  forwardStats: FfiDirectionStats | null;
+  /**
+   * Summary stats for reverse direction
+   */
+  reverseStats: FfiDirectionStats | null;
+  /**
+   * Current activity's standing, with rank one reserved for a strict record.
+   */
+  currentRank: number | null;
+  /**
+   * Timed comparable attempts in the current direction.
+   */
+  attemptCount: number;
+  /**
+   * Share of those attempts slower than the current one, 0 to 100.
+   * `None` for a lone attempt or an activity that is not on the route.
+   */
+  percentileRank: number | null;
+  /**
+   * The trend curve and band over the counted attempts, for the scatter
+   * chart: the same smoother a section's chart uses.
+   */
+  trendCurves: FfiSectionTrendCurves;
+  /**
+   * The histogram of those attempts' elapsed times, per direction.
+   */
+  histograms: FfiAttemptHistograms;
+};
+
+/**
+ * All data needed by the Routes screen in a single FFI call.
+ * Supports pagination via limit/offset for groups and sections.
+ */
+export type FfiRoutesScreenData = {
+  activityCount: number;
+  /**
+   * How many routes the minimum activity count leaves, before the search and
+   * the sport narrow them. A group ridden once is not a route, so it is not
+   * counted here.
+   */
+  groupCount: number;
+  sectionCount: number;
+  oldestDate: number | null;
+  newestDate: number | null;
+  groups: FfiGroupWithPolyline[];
+  sections: FfiSectionWithPolyline[];
+  /**
+   * Whether more groups are available beyond the current page
+   */
+  hasMoreGroups: boolean;
+  /**
+   * Whether more sections are available beyond the current page
+   */
+  hasMoreSections: boolean;
+  /**
+   * Whether route groups need recomputation (stale after activity removal)
+   */
+  groupsDirty: boolean;
+  /**
+   * What keeps the owed regroup from running. An upgrade leaves it to the
+   * detector cutover, which waits behind the elevation download, so this is
+   * the hold ranked as the sections page ranks it while the cutover holds
+   * the regroup. `None` when no regroup is owed, when one is in flight, or
+   * when nothing holds it, and `groups_dirty` then means it is running or
+   * about to.
+   */
+  groupsHold: FfiDetectionHold | null;
+  /**
+   * How many groups the minimum activity count, the sport and the search
+   * leave. This is what the page is taken out of, and what `has_more_groups`
+   * is measured against. `group_count` is the scope it is taken out of.
+   */
+  filteredGroupCount: number;
+  /**
+   * How many sections the search and the hidden filters leave.
+   */
+  filteredSectionCount: number;
+  /**
+   * Auto sections the athlete has not accepted, over the whole catalogue and
+   * not the page, because this is the "N to review" figure.
+   */
+  unacceptedAutoCount: number;
+  /**
+   * Auto sections the athlete has accepted, over the whole catalogue.
+   */
+  acceptedAutoCount: number;
+  /**
+   * Custom sections over the whole catalogue. The chip beside it filters the
+   * catalogue, so a page-sized tally would be a lower bound nothing labels.
+   */
+  customCount: number;
+  /**
+   * Auto sections the athlete disabled or a custom one superseded, over the
+   * whole catalogue. Taken before `hide_disabled` runs, which is the filter
+   * this figure is the count for and which hides them by default. Distinct
+   * from `ledger_retired_count`: a disabled row is still in the catalogue,
+   * a ledger retirement has left it.
+   */
+  removedCount: number;
+  /**
+   * Sections that left the catalogue through a fired retirement and still
+   * hold a ledger, the graveyard the retired screen lists, a record
+   * restore's pending states included. This is what the entry points to the
+   * graveyard gate on, and it is not the `removed_count` of disabled rows.
+   */
+  ledgerRetiredCount: number;
+  /**
+   * Of those, the ones that hold an `archived` row: the cutover's, or a
+   * record restore's pending state. A later detect that dissolves a section
+   * leaves no archived row, so a library with no cutover reads zero here,
+   * which is what the "your matching changed" card gates on.
+   */
+  archivedRetiredCount: number;
+  /**
+   * The sports the athlete has activities in, which the sport chips offer.
+   */
+  availableSportTypes: string[];
+  /**
+   * Why the routes catalogue holds no route with the minimum activity
+   * count, whatever the search and the sport filter. `None` while it holds
+   * one, so an empty page under a search is a search that matched nothing.
+   */
+  groupEmptyReason: FfiCatalogueEmptyReason | null;
+  /**
+   * Why the sections catalogue holds no section of any kind, hidden or not.
+   * `None` while it holds one.
+   */
+  sectionEmptyReason: FfiCatalogueEmptyReason | null;
+};
+
+/**
+ * Everything the Routes screen asks for in one call. The order, the search and
+ * the filters are arguments because they have to be applied before the page is
+ * taken: a sort over the page returns the longest route of the first fifty,
+ * not of the library.
+ */
+export type FfiRoutesScreenQuery = {
+  groupLimit: number;
+  groupOffset: number;
+  sectionLimit: number;
+  sectionOffset: number;
+  minGroupActivityCount: number;
+  groupSort: FfiGroupSort;
+  /**
+   * Case-insensitive substring of the group name. Empty matches everything.
+   */
+  groupSearch: string;
+  sectionSort: FfiSectionSort;
+  /**
+   * Case-insensitive substring of the section name. Empty matches everything.
+   */
+  sectionSearch: string;
+  sectionFilters: FfiSectionFilters;
+  /**
+   * Keeps the groups whose members include this sport. A group is in every
+   * sport any member was recorded in, so a mixed route shows under each.
+   */
+  groupSportType: string | null;
+  /**
+   * Keeps the sections taken in this sport, and makes `Signature` read the
+   * within-sport percentile rather than the pooled one.
+   */
+  sectionSportType: string | null;
+  userLat: number;
+  userLng: number;
+};
+
+/**
+ * The focus range per direction. `None` for a direction with no point.
+ */
+export type FfiScatterFocus = {
+  forward: FfiFocusRange | null;
+  reverse: FfiFocusRange | null;
+};
+
+/**
+ * Unified section for FFI. Represents both auto-detected and custom sections
+ * with the same structure.
+ */
+export type FfiSection = {
+  id: string;
+  sectionType: string;
+  name: string | null;
+  /**
+   * Every sport whose included outings have taken the section, sorted. A
+   * section has no sport of its own, so this set is the whole answer.
+   */
+  sportTypes: string[];
+  encodedPolyline: Base64;
+  distanceMeters: number;
+  representativeActivityId: string | null;
+  activityIds: string[];
+  /**
+   * Each activity's portion of the section. Only the in-memory catalogue
+   * carries these, so the database path sends an empty list.
+   */
+  activityPortions: FfiSectionPortion[];
+  visitCount: number;
+  confidence: number | null;
+  observationCount: number | null;
+  averageSpread: number | null;
+  pointDensity: number[] | null;
+  scale: string | null;
+  isUserDefined: boolean;
+  stability: number | null;
+  elevationGainM: number | null;
+  avgGradePercent: number | null;
+  version: number | null;
+  updatedAt: string | null;
+  createdAt: string;
+  /**
+   * Routes the section's activities are grouped into, from the junction join
+   */
+  routeIds: string[] | null;
+  sourceActivityId: string | null;
+  startIndex: number | null;
+  endIndex: number | null;
+  disabled: boolean;
+  supersededBy: string | null;
+  elevationLossM: number | null;
+  maxGradePercent: number | null;
+  klass: string | null;
+  isLift: boolean;
+  rankScore: number | null;
+  sportRankScore: number | null;
+};
+
+/**
+ * An activity row in the section detail read.
+ */
+export type FfiSectionActivityRow = {
+  activityId: string;
+  name: string;
+  sportType: string;
+  /**
+   * Unix seconds, as stored by the engine.
+   */
+  startTime: number;
+  distance: number;
+  movingTime: number;
+  /**
+   * Metres per second; zero when moving time is zero.
+   */
+  averageSpeed: number;
+};
+
+/**
+ * The headline of a ledger row and at most one reason, computed in the
+ * engine so no screen does geometry or arithmetic on counts.
+ */
+export type FfiSectionChangeSummary = {
+  /**
+   * The line's length in metres in the version before, when one is stored.
+   */
+  lengthBefore: number | null;
+  /**
+   * The line's length in metres in the row's version.
+   */
+  lengthAfter: number | null;
+  /**
+   * The part of the line that moved: `start`, `end`, `both`, or `split`
+   * for a split. Absent when neither end moved.
+   */
+  moved: string | null;
+  /**
+   * For a split, the distance along the line in metres where it was cut.
+   */
+  atMetres: number | null;
+  /**
+   * The boundary record nearest the part that moved. Absent when the row
+   * stored none there, or only a kind this build does not explain.
+   */
+  reason: FfiChangeReason | null;
+  /**
+   * The records that moved with this re-cut, folded from the rows written
+   * beside it.
+   */
+  records: FfiRecordMove[];
+  /**
+   * On a record row folded onto a re-cut, the id of that re-cut's row.
+   */
+  foldedInto: number | null;
+};
+
+/**
+ * Bundled chart payload for the section-detail screen. Rust composes
+ * per-lap points, ranks, and summary stats from the performance records
+ * it already owns so the TS hook stops iterating + sorting multiple times.
+ */
+export type FfiSectionChartData = {
+  points: FfiSectionChartPoint[];
+  minSpeed: number;
+  maxSpeed: number;
+  hasReverseRuns: boolean;
+  /**
+   * The quickest lap in the section's own direction.
+   */
+  bestTimeSecs: number | null;
+  /**
+   * `best_time_secs` is an estimate: no lap in the direction it was read
+   * from was timed on the ground.
+   */
+  bestTimeEstimated: boolean;
+  /**
+   * The oldest point's date, unix seconds.
+   */
+  firstActivityDate: number | null;
+  lastActivityDate: number | null;
+  totalActivities: number;
+};
+
+/**
+ * One renderable chart point on the section-detail chart. One entry per
+ * lap traversal (activities with multiple laps expand into multiple points).
+ */
+export type FfiSectionChartPoint = {
+  lapId: string;
+  activityId: string;
+  activityName: string;
+  /**
+   * Unix seconds
+   */
+  activityDate: number;
+  /**
+   * m/s
+   */
+  speed: number;
+  /**
+   * Section time for this lap (seconds)
+   */
+  sectionTime: number;
+  sectionDistance: number;
+  /**
+   * "same" | "reverse"
+   */
+  direction: string;
+  /**
+   * The section record for this point's direction: the one traversal that
+   * beats every other by time over the whole included history, whatever
+   * range the chart shows. False for a tie, a lone traversal, and any point
+   * when the range holds no record traversal.
+   */
+  isBest: boolean;
+  /**
+   * The lap's stored mean watts. `None` for a lap with no power stream and
+   * for a record without laps, which has no single lap to read it from.
+   */
+  avgPower: number | null;
+  /**
+   * A route attempt outside the band around the route's usual distance:
+   * drawn, but never the record, fitted or binned. Always false on a
+   * section.
+   */
+  outsideDistanceBand: boolean;
+  /**
+   * How much of the route the attempt matched, 0 to 100. `None` on a
+   * section, and on a route attempt with no stored match.
+   */
+  matchPercentage: number | null;
+  /**
+   * Which side of its direction's focus range the point lies past, so the
+   * scatter draws it at the edge with a flag rather than stretching the
+   * axis.
+   */
+  offScale: FfiOffScale;
+  /**
+   * Seconds behind the direction's record: zero for the record holder,
+   * positive for a slower attempt. `None` for an excluded attempt, one
+   * outside a route's distance band, and in a direction with no record.
+   */
+  recordGapSecs: number | null;
+  /**
+   * Metres per second behind the direction's record, signed as
+   * `record_gap_secs` is: positive is slower. `None` where it is.
+   */
+  recordGapSpeed: number | null;
+  /**
+   * The lap's time was projected to a gate over ground the recording did
+   * not cover. Charted and ranked, and the record only when no lap in its
+   * direction was timed on the ground.
+   */
+  estimated: boolean;
+};
+
+/**
+ * One wellness variable's relationship to attempt speed in one direction.
+ */
+export type FfiSectionCorrelation = {
+  /**
+   * `same` or `reverse`.
+   */
+  direction: string;
+  /**
+   * Stable snake_case token: `ctl`, `hrv`, `resting_hr`, `sleep_secs`...
+   */
+  variable: string;
+  result: FfiCorrelation;
+  /**
+   * Variables of this direction that carried an estimate: the family the
+   * mover label was Holm-adjusted across. The same on every row of a
+   * direction, and 0 when none of them had enough pairs.
+   */
+  familySize: number;
+};
+
+/**
+ * The section detail reads that do not depend on time streams.
+ */
+export type FfiSectionDetailData = {
+  /**
+   * Total activities held by the engine
+   */
+  activityCount: number;
+  /**
+   * The section itself, or `None` when the ID is unknown
+   */
+  section: FfiSection | null;
+  /**
+   * How the section left the catalogue, when the ID has no row and the
+   * ledger holds its departure
+   */
+  retirement: FfiSectionRetirement | null;
+  /**
+   * Sections this one could merge with
+   */
+  mergeCandidates: FfiMergeCandidate[];
+  /**
+   * Activities the user excluded from this section
+   */
+  excludedActivityIds: string[];
+  /**
+   * Whether the original bounds can still be restored
+   */
+  hasOriginalBounds: boolean;
+  /**
+   * Display rows for every activity on the section
+   */
+  activityRows: FfiSectionActivityRow[];
+  /**
+   * Simplified GPS signatures for scrub-time trace display
+   */
+  mapSignatures: FfiMapSignature[];
+  /**
+   * Activities whose time streams still have to be fetched
+   */
+  missingTimeStreamIds: string[];
+  /**
+   * The section's change ledger, oldest first
+   */
+  history: FfiSectionHistoryEvent[];
+  /**
+   * Every stored geometry version, with the pinned one flagged
+   */
+  geometryVersions: FfiSectionGeometryVersion[];
+  /**
+   * The pinned version, or `None` when the section follows the newest cut
+   */
+  pinnedVersion: number | null;
+};
+
+/**
+ * A section encounter: one (section, direction) pair for a given activity.
+ * This is the canonical unit for displaying section data in the activity detail.
+ */
+export type FfiSectionEncounter = {
+  sectionId: string;
+  sectionType: string;
+  sectionName: string;
+  direction: string;
+  distanceMeters: number;
+  /**
+   * Where this activity's track first enters the section in this direction.
+   * Encounters come back ordered by it.
+   */
+  startIndex: number;
+  /**
+   * This activity's time on this section in this direction
+   */
+  lapTime: number;
+  /**
+   * This activity's pace on this section in this direction
+   */
+  lapPace: number;
+  /**
+   * Whether this activity holds the PR for this (section, direction)
+   */
+  isPr: boolean;
+  /**
+   * Whether this traversal meets the section's completion rule.
+   */
+  isComplete: boolean;
+  /**
+   * Podium place, 1 to 3, among the other outings on this (section,
+   * direction); `None` for fourth and below, a fragment or a lone outing.
+   * `is_pr` is exactly `rank == Some(1)`.
+   */
+  rank: number | null;
+  /**
+   * How many total traversals exist for this (section, direction)
+   */
+  visitCount: number;
+  /**
+   * Historical lap times for sparkline (chronological, all activities in this direction)
+   */
+  historyTimes: number[];
+  /**
+   * Activity IDs corresponding to history_times (for highlighting current activity)
+   */
+  historyActivityIds: string[];
+  /**
+   * Start of each activity in history_times, Unix seconds, so the sparkline
+   * can place each outing at its date
+   */
+  historyDates: number[];
+};
+
+/**
+ * One sport's record in one direction on a section when an era ended.
+ */
+export type FfiSectionEraRecord = {
+  sport: string | null;
+  /**
+   * `same` or `reverse`; absent on a row written before records were held
+   * per direction.
+   */
+  direction: string | null;
+  /**
+   * Seconds.
+   */
+  time: number;
+};
+
+/**
+ * The fixed fields of a ledger row's stored payload. Keys a row does not
+ * carry read as empty lists and absent options, and keys this record does
+ * not name are ignored, so a row written by an older or newer build reads.
+ */
+export type FfiSectionEventDetails = {
+  /**
+   * Activities that arrived while the change was pending.
+   */
+  around: string[];
+  /**
+   * Activities a fork at the line's end collected.
+   */
+  forkAround: string[];
+  /**
+   * The era's records, one per sport and direction; a row written before
+   * records were held per direction carries no direction, and one written
+   * before they were held per sport carries one record and no sport.
+   */
+  prs: FfiSectionEraRecord[];
+  /**
+   * A re-based record's time before and after, within `pr_sport` and
+   * `pr_direction`.
+   */
+  prFrom: number | null;
+  prTo: number | null;
+  prSport: string | null;
+  /**
+   * `same` or `reverse`; absent on a row written before records were held
+   * per direction.
+   */
+  prDirection: string | null;
+  /**
+   * The sections a split left behind, in line order.
+   */
+  siblings: string[];
+  version: number | null;
+  /**
+   * The activity a re-anchor moved the line off, and the one it moved to.
+   */
+  reanchoredFrom: string | null;
+  reanchoredTo: string | null;
+  /**
+   * Whether an anchoring moved the line; absent on a row that does not say.
+   */
+  moved: boolean | null;
+  /**
+   * The section a split piece was carved from, with its standing now.
+   */
+  splitFrom: FfiSectionLink | null;
+  /**
+   * The pieces a split left, with their standing now.
+   */
+  splitInto: FfiSectionLink[];
+  /**
+   * Why the detector cut the line where it did, one entry per record that
+   * names this section, in the detector's order. Empty when the change
+   * recorded none.
+   */
+  boundaries: FfiBoundaryReason[];
+  /**
+   * What the change did to the line and the one reason for it, read from
+   * the row's version and the one before. Absent on a row that is not a
+   * detector change.
+   */
+  summary: FfiSectionChangeSummary | null;
+};
+
+/**
+ * The four kinds the sections list can hide. Each is true when that kind is
+ * hidden, which is how the screen holds them.
+ */
+export type FfiSectionFilters = {
+  hideCustom: boolean;
+  hideAuto: boolean;
+  hideDisabled: boolean;
+  hideUnaccepted: boolean;
+};
+
+/**
+ * One stored geometry version of a section.
+ */
+export type FfiSectionGeometryVersion = {
+  version: number;
+  createdAt: string;
+  milestone: boolean;
+  pinned: boolean;
+};
+
+/**
+ * One ledger row of a section.
+ */
+export type FfiSectionHistoryEvent = {
+  id: number;
+  at: string;
+  /**
+   * formed, restored, split, recut, dissolved, merged, superseded,
+   * reverted, pr_rebased, baseline, algorithm_changed, name_released or
+   * name_taken.
+   */
+  kind: string;
+  /**
+   * What the row recorded, read from the stored payload. Absent when the
+   * row stored none or stored something unreadable.
+   */
+  details: FfiSectionEventDetails | null;
+  geometryVersion: number | null;
+};
+
+/**
+ * A single lap of a section.
+ */
+export type FfiSectionLap = {
+  id: string;
+  activityId: string;
+  /**
+   * Lap time in seconds
+   */
+  time: number;
+  /**
+   * Pace in m/s
+   */
+  pace: number;
+  /**
+   * Distance in meters
+   */
+  distance: number;
+  /**
+   * Direction: "same", "reverse" or "partial"
+   */
+  direction: string;
+  /**
+   * Start index in the activity's GPS track
+   */
+  startIndex: number;
+  /**
+   * End index in the activity's GPS track
+   */
+  endIndex: number;
+  /**
+   * Mean heart rate over the lap, when the activity carried a stream.
+   */
+  avgHr: number | null;
+  /**
+   * Mean watts over the lap, when the activity carried a power stream.
+   */
+  avgPower: number | null;
+  /**
+   * Share of the section this lap spans, `None` until it is measured.
+   */
+  coverage: number | null;
+  /**
+   * The athlete excluded this traversal. Only a read that asked for
+   * excluded rows carries one, and it never counts.
+   */
+  excluded: boolean;
+  /**
+   * A route attempt whose distance sits outside the band around the
+   * route's usual distance: drawn, never counted. Always false for a
+   * section lap.
+   */
+  outsideDistanceBand: boolean;
+  /**
+   * How much of the route a route attempt matched, 0 to 100. `None` for a
+   * section lap.
+   */
+  matchPercentage: number | null;
+  /**
+   * This lap holds the section's record in its direction. Set by the
+   * section read, false everywhere else.
+   */
+  isRecord: boolean;
+  /**
+   * The lap's time was projected to a gate over ground the recording did
+   * not cover, far enough that it is an estimate. It is charted and ranked,
+   * and never the record while a lap timed on the ground stands.
+   */
+  estimated: boolean;
+};
+
+/**
+ * The distance-domain deltas of one sport's laps on a section, per direction.
+ */
+export type FfiSectionLapCurves = {
+  /**
+   * Metres between two points of a lap's `delta_secs`.
+   */
+  gridStepM: number;
+  /**
+   * Metres each of a lap's `split_delta_secs` spans; the last is short.
+   */
+  splitStepM: number;
+  /**
+   * The section's line length the grid runs over.
+   */
+  sectionLengthM: number;
+  forward: FfiDirectionDeltas | null;
+  reverse: FfiDirectionDeltas | null;
+};
+
+/**
+ * A section the ledger names, with whether the catalogue still shows it.
+ */
+export type FfiSectionLink = {
+  id: string;
+  name: string | null;
+  available: boolean;
+};
+
+/**
+ * The section detail reads that need lap times, all for one sport and one
+ * range, so no two figures on the screen disagree about which laps count.
+ */
+export type FfiSectionPerformanceData = {
+  /**
+   * The sport this answer is for: the one asked for, or with none asked
+   * on ground more than one sport has taken, the one with the most
+   * outings. `None` when no traversal has a known sport.
+   */
+  sportType: string | null;
+  /**
+   * Laps per sport over the range, the pills' counts, most outings first.
+   */
+  sportCounts: FfiSectionSportCount[];
+  /**
+   * Year and month performance history over the whole record, or `None`
+   * with no records
+   */
+  calendarSummary: FfiCalendarSummary | null;
+  /**
+   * Per-activity performance records inside the range, with the bests and
+   * direction stats taken over them
+   */
+  performances: FfiSectionPerformanceResult;
+  /**
+   * Pre-computed chart payload for the range
+   */
+  chartData: FfiSectionChartData;
+  /**
+   * The excluded traversals inside the range, as chart points, for the
+   * show-excluded view. Never counted, fitted or ranked.
+   */
+  excludedPoints: FfiSectionChartPoint[];
+  /**
+   * Every activity's laps over the whole record, included and excluded,
+   * each flagged: the lap list, where an excluded lap keeps its undo.
+   */
+  lapRecords: FfiSectionPerformanceRecord[];
+  /**
+   * True when the forward best shown is the forward record: the same lap
+   * as the best over the whole included history, and a strict beat of that
+   * history's second best. A ranged best that is not is only the best of
+   * the range.
+   */
+  bestForwardIsRecord: boolean;
+  /**
+   * The same for the reverse best.
+   */
+  bestReverseIsRecord: boolean;
+  /**
+   * The trend curve and band over the counted attempts of the range, for
+   * the scatter chart.
+   */
+  trendCurves: FfiSectionTrendCurves;
+  /**
+   * The histogram of those attempts' section times, per direction.
+   */
+  histograms: FfiAttemptHistograms;
+  /**
+   * Each recorded wellness variable's relationship to attempt speed over
+   * the counted attempts, per direction.
+   */
+  correlations: FfiSectionCorrelation[];
+  /**
+   * Complete pairs a variable needed before its correlation carries a
+   * figure: the floor every `TooFew` above fell short of.
+   */
+  correlationFloor: number;
+  /**
+   * Each lap's time won or lost against the section's reference at every
+   * point along it, for the laps inside the range. `None` when neither
+   * direction holds a lap to compare with its reference.
+   */
+  curves: FfiSectionLapCurves | null;
+  /**
+   * True when this read left the curves owed rather than computing them:
+   * a detail screen's read serves them only once held, and
+   * `SectionManager::load_detail_performance` computes them off the JS
+   * thread.
+   */
+  curvesPending: boolean;
+  /**
+   * Aerobic efficiency over the answered sport's counted efforts across the
+   * whole record, or `None` with fewer than three that carry heart rate.
+   */
+  efficiencyTrend: FfiEfficiencyTrend | null;
+  /**
+   * The range each direction's scatter axis draws, with the points past it
+   * counted. Speed on a section, time on a route.
+   */
+  scatterFocus: FfiScatterFocus;
+  /**
+   * Each direction's record progression over the whole included history,
+   * whatever the range: the screen draws the steps inside the range and
+   * carries the level in from before it.
+   */
+  recordProgression: FfiRecordProgressions;
+};
+
+/**
+ * Section performance record for an activity.
+ */
+export type FfiSectionPerformanceRecord = {
+  activityId: string;
+  activityName: string;
+  /**
+   * Unix timestamp
+   */
+  activityDate: WholeNumber;
+  /**
+   * All laps for this activity on this section
+   */
+  laps: FfiSectionLap[];
+  /**
+   * Number of times this section was traversed
+   */
+  lapCount: number;
+  /**
+   * Best (fastest) lap time in seconds
+   */
+  bestTime: number;
+  /**
+   * Best pace in m/s
+   */
+  bestPace: number;
+  /**
+   * Best eligible forward lap time.
+   */
+  bestForwardTime: number | null;
+  /**
+   * Best eligible reverse lap time.
+   */
+  bestReverseTime: number | null;
+  /**
+   * `best_time` is an estimate: every eligible lap of the direction it was
+   * taken from was projected to a gate.
+   */
+  bestEstimated: boolean;
+  /**
+   * Average lap time in seconds
+   */
+  avgTime: number;
+  /**
+   * Average pace in m/s
+   */
+  avgPace: number;
+  /**
+   * Primary direction: "same" or "reverse"
+   */
+  direction: string;
+  /**
+   * Section distance in meters
+   */
+  sectionDistance: number;
+};
+
+/**
+ * Section performance result for FFI.
+ * Complete performance data for a section across all activities.
+ * Replaces the JSON-returning `persistent_engine_get_section_performances_json()`.
+ */
+export type FfiSectionPerformanceResult = {
+  /**
+   * Performance records sorted by date (oldest first)
+   */
+  records: FfiSectionPerformanceRecord[];
+  /**
+   * Best record in forward/same direction
+   */
+  bestForwardRecord: FfiSectionPerformanceRecord | null;
+  /**
+   * Best record in reverse direction
+   */
+  bestReverseRecord: FfiSectionPerformanceRecord | null;
+  /**
+   * Whether the forward best strictly beats another forward outing.
+   */
+  bestForwardIsPr: boolean;
+  /**
+   * Whether the reverse best strictly beats another reverse outing.
+   */
+  bestReverseIsPr: boolean;
+  /**
+   * Summary stats for forward/same direction
+   */
+  forwardStats: FfiDirectionStats | null;
+  /**
+   * Summary stats for reverse direction
+   */
+  reverseStats: FfiDirectionStats | null;
+};
+
+/**
+ * Section portion for FFI
+ */
+export type FfiSectionPortion = {
+  activityId: string;
+  startIndex: number;
+  endIndex: number;
+  distanceMeters: number;
+  direction: string;
+};
+
+/**
+ * How a section left the catalogue, for the page that can no longer show it.
+ */
+export type FfiSectionRetirement = {
+  /**
+   * dissolved, merged or superseded
+   */
+  kind: string;
+  at: string;
+  /**
+   * The live section that took its ground, following the chain to its end
+   */
+  into: string | null;
+  /**
+   * Display name of `into`, when it has one
+   */
+  intoName: string | null;
+};
+
+/**
+ * The order the sections list is in. `Signature` is the engine's
+ * interestingness percentile, pooled or within one sport.
+ */
+export type FfiSectionSort = 'nearby' | 'signature' | 'visits' | 'distance' | 'name';
+
+/**
+ * How many traversals of a section one sport made over the chosen range.
+ */
+export type FfiSectionSportCount = {
+  sportType: string;
+  /**
+   * Laps the chart would plot under this sport, not activities.
+   */
+  count: number;
+};
+
+/**
+ * One activity's portion of a single section, delta+varint encoded.
+ */
+export type FfiSectionTrace = {
+  /**
+   * Section the trace belongs to
+   */
+  sectionId: string;
+  /**
+   * Delta+varint encoded coordinates of the activity's portion
+   */
+  encodedCoords: Base64;
+};
+
+/**
+ * The Gaussian kernel trend of a section's counted attempts, per direction
+ * and axis. `None` for a direction with fewer than two attempts. Excluded
+ * attempts are never in it.
+ */
+export type FfiSectionTrendCurves = {
+  /**
+   * Speed in m/s, forward attempts
+   */
+  forwardSpeed: FfiTrendBandPoint[] | null;
+  /**
+   * Section time in seconds, forward attempts
+   */
+  forwardTime: FfiTrendBandPoint[] | null;
+  /**
+   * Speed in m/s, reverse attempts
+   */
+  reverseSpeed: FfiTrendBandPoint[] | null;
+  /**
+   * Section time in seconds, reverse attempts
+   */
+  reverseTime: FfiTrendBandPoint[] | null;
+};
+
+/**
+ * Section summary with embedded polyline for the Routes screen.
+ * Carries each section's line so the screen needs no per-section read.
+ */
+export type FfiSectionWithPolyline = {
+  id: string;
+  sectionType: string;
+  name: string | null;
+  visitCount: number;
+  distanceMeters: number;
+  activityCount: number;
+  confidence: number;
+  scale: string | null;
+  bounds: FfiBounds | null;
+  /**
+   * Delta+varint encoded coordinates
+   */
+  encodedPolyline: Base64;
+  /**
+   * Every sport whose included outings have taken the section, sorted.
+   */
+  sportTypes: string[];
+  isUserDefined: boolean;
+  disabled: boolean;
+  supersededBy: string | null;
+  elevationGainM: number | null;
+  elevationLossM: number | null;
+  avgGradePercent: number | null;
+  maxGradePercent: number | null;
+  klass: string | null;
+  isLift: boolean;
+  rankScore: number | null;
+  sportRankScore: number | null;
+  /**
+   * The section's record was set on its most recent outing. The feed card
+   * and the activity plot both mark a record; this is the same fact keyed by
+   * section, so the sections list can mark it too.
+   */
+  latestIsRecord: boolean;
+  /**
+   * Faster or slower in the selected sport, or the sport with most visits.
+   */
+  trend: number | null;
+};
+
+/**
  * One point of a history series: a value and when it was recorded.
  *
  * Every insight card draws a graphic of its own history, and the read carried
@@ -549,11 +4321,138 @@ export type FfiSeriesPoint = {
 };
 
 /**
+ * The ride the decoupling card names for one span of the range picker.
+ */
+export type FfiSpanDecoupling = {
+  /**
+   * The span's length in days, back from today.
+   */
+  days: number;
+  /**
+   * `None` when no ride inside the span qualifies.
+   */
+  source: FfiDecouplingSource | null;
+};
+
+/**
+ * Each split's distribution of `split_delta_secs` over a direction's laps,
+ * the reference left out, in travel order. A split's median is NaN under
+ * the laps a typical lap needs and its quartiles NaN under the laps a spread
+ * needs.
+ */
+export type FfiSplitSummary = {
+  medianSecs: FfiFloat32Array;
+  lowerQuartileSecs: FfiFloat32Array;
+  upperQuartileSecs: FfiFloat32Array;
+  /**
+   * The laps with a finite delta over each split, which its figures come
+   * from.
+   */
+  laps: number[];
+};
+
+/**
  * The family a sport is drawn and filtered in, in stack order. The feed's
  * chips and the map's counts are one per family, and Other takes every
  * sport no family lists, so a sport nobody listed still answers to a chip.
  */
 export type FfiSportFamily = 'ride' | 'winter' | 'run' | 'water' | 'foot' | 'strength' | 'other';
+
+/**
+ * One sport's contribution to a day's load, as intervals.icu's `sportInfo`
+ * carries it. The fitness chart's daily load bar is the sum of these.
+ */
+export type FfiSportLoad = {
+  /**
+   * The sport the entry stands for, as the API spells it ("Ride", "Run").
+   */
+  sportGroup: string | null;
+  load: number | null;
+};
+
+/**
+ * The latest activities by the three sports the fitness tab draws.
+ */
+export type FfiSportMix = {
+  rides: number;
+  runs: number;
+  swims: number;
+  /**
+   * "Cycling", "Running" or "Swimming", whichever counts the most. `None`
+   * for an empty library or a tie, which is no evidence for either sport.
+   */
+  dominant: string | null;
+};
+
+/**
+ * The library at a staged cut, as tracks with a decided elevation out of all
+ * the tracks the download can ask about.
+ */
+export type FfiStagedHistory = {
+  done: number;
+  total: number;
+  /**
+   * The whole days the tracks still owed take on the daily backfill share,
+   * or `None` when they fit in one day.
+   */
+  daysToFinish: number | null;
+};
+
+/**
+ * One total of a period against the same elapsed part of the period before,
+ * judged once in the engine.
+ */
+export type FfiStatTrend = {
+  /**
+   * The glyph `trend_table::glyph` draws for the move.
+   */
+  glyph: string;
+  /**
+   * The size of the move in whole percent of the earlier total, absent for
+   * a move inside the deadband.
+   */
+  percent: number | null;
+  /**
+   * The signed move in percent of the earlier total, unrounded, for a card
+   * that prints its own precision.
+   */
+  change: number;
+};
+
+/**
+ * One opposing pair of muscle groups, and what their volumes say about it.
+ *
+ * The verdict is a function of the volumes beside it, so it is computed where
+ * they are rather than per screen mount. The pair's name and the muscles'
+ * display names are copy and stay in TypeScript, which is where the seventeen
+ * locales are.
+ */
+export type FfiStrengthBalancePair = {
+  /**
+   * Stable id the front end keys its copy on, e.g. `biceps_triceps`
+   */
+  id: string;
+  leftSlug: string;
+  rightSlug: string;
+  /**
+   * Weighted sets on each side, rounded to one decimal, as the verdict saw them
+   */
+  leftWeightedSets: number;
+  rightWeightedSets: number;
+  /**
+   * The heavier side, or `None` when the two are equal
+   */
+  dominantSlug: string | null;
+  /**
+   * Heavier over lighter. `None` when either side is untrained, where a
+   * ratio is not a number: `status` carries that case.
+   */
+  ratio: number | null;
+  /**
+   * `balanced` | `watch` | `imbalanced` | `one-sided` | `insufficient`
+   */
+  status: string;
+};
 
 /**
  * What one strength feed card paints, read for a batch of activities at once.
@@ -584,6 +4483,99 @@ export type FfiStrengthCardSummary = {
 };
 
 /**
+ * One muscle's trailing-weeks progression: the last two weekly averages
+ * against the first two. Ranked here rather than in the reader, so the
+ * weekly summaries are never walked again to re-find figures this call
+ * already had.
+ */
+export type FfiStrengthProgression = {
+  muscleSlug: string;
+  /**
+   * Weighted sets for each week of `weekly`, oldest first, rounded to one
+   * decimal before the averages below are taken. The order matters: the
+   * reader rounded first and an average of unrounded weeks disagrees.
+   */
+  weeklyWeightedSets: number[];
+  recentAverage: number;
+  baselineAverage: number;
+  peakWeightedSets: number;
+  /**
+   * `None` when the baseline is zero, which has no percentage to report.
+   */
+  changePct: number | null;
+  /**
+   * "up", "down" or "flat".
+   */
+  trend: string;
+  /**
+   * How far the recent average sits from the baseline, in standard
+   * deviations of the weekly series. `None` when the series is flat or
+   * shorter than two weeks.
+   */
+  signalDelta: number | null;
+};
+
+/**
+ * Everything the strength tab paints with. All four are aggregates of the
+ * same sets over the same windows, so they are one read rather than four: a
+ * scrub across the diagram then costs no engine call at all.
+ */
+export type FfiStrengthScreenData = {
+  /**
+   * The chosen period aggregated by muscle, with the balance verdicts.
+   */
+  summary: FfiStrengthSummary;
+  /**
+   * One aggregate per trailing week, in the order requested.
+   */
+  weekly: FfiStrengthSummary[];
+  /**
+   * One entry per muscle present in any of those weeks, most trained first.
+   */
+  progressions: FfiStrengthProgression[];
+  /**
+   * The exercises behind every muscle the period reached.
+   */
+  exercises: FfiMuscleExercises[];
+  /**
+   * Strength activities in the period with no FIT outcome yet, whose sets
+   * are owed rather than absent.
+   */
+  owedCount: number;
+};
+
+/**
+ * Summary of strength training volume over a time period.
+ */
+export type FfiStrengthSummary = {
+  /**
+   * Start of the summary's range in Unix seconds, or zero for an undated aggregate.
+   */
+  startTs: number;
+  /**
+   * Per-muscle-group volume data
+   */
+  muscleVolumes: FfiMuscleVolume[];
+  /**
+   * Number of WeightTraining activities in the period
+   */
+  activityCount: number;
+  /**
+   * Total active sets across all activities
+   */
+  totalSets: number;
+  /**
+   * One entry per opposing pair, trained or not
+   */
+  balance: FfiStrengthBalancePair[];
+  /**
+   * The most trained muscle's weighted sets, the top of the diagram's
+   * scale, or zero when nothing was trained
+   */
+  maxWeightedSets: number;
+};
+
+/**
  * What a feed card says about a stub, an activity intervals.icu holds but
  * does not serve. The one judge for the card, beside [`state`] for the page.
  */
@@ -609,6 +4601,271 @@ export type FfiSummaryCardData = {
   ftpTrend: FfiFtpTrend;
   runPaceTrend: FfiPaceTrend;
   swimPaceTrend: FfiPaceTrend;
+};
+
+/**
+ * A period against an earlier one, each window inclusive at both ends. A
+ * trend is absent when the earlier period has none of that total, so nothing
+ * is compared with zero, and every trend is absent while either period is
+ * not fully on the device.
+ */
+export type FfiSummaryComparison = {
+  current: FfiTimestampRange;
+  previous: FfiTimestampRange;
+  currentStats: FfiPeriodStats;
+  previousStats: FfiPeriodStats;
+  count: FfiStatTrend | null;
+  duration: FfiStatTrend | null;
+  distance: FfiStatTrend | null;
+  load: FfiStatTrend | null;
+  /**
+   * Whether each period's activities are on the device, by the census.
+   */
+  currentCoverage: RangeCoverage;
+  previousCoverage: RangeCoverage;
+};
+
+/**
+ * Every range the weekly card offers, so a tap between them reads nothing.
+ */
+export type FfiSummaryComparisons = {
+  /**
+   * Monday to now, against the same weekday and hour of last week.
+   */
+  week: FfiSummaryComparison;
+  /**
+   * The calendar month to now.
+   */
+  month: FfiSummaryComparison;
+  /**
+   * This calendar month and the two before it, to now.
+   */
+  threeMonths: FfiSummaryComparison;
+  /**
+   * This calendar month and the five before it, to now.
+   */
+  sixMonths: FfiSummaryComparison;
+  /**
+   * The calendar year to now.
+   */
+  year: FfiSummaryComparison;
+};
+
+/**
+ * Why the last sync failed, as the kind the banner branches on.
+ *
+ * The message beside it stays, because it carries the detail a bug report
+ * needs, but it is never the thing an athlete reads. A locale table keyed on
+ * the message would break the first time one is reworded, so the classifying
+ * happens here, where the engine already knows which case it is in.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export type FfiSyncErrorReason =
+  | 'unauthorized'
+  | 'rateLimited'
+  | 'server'
+  | 'network'
+  | 'storage'
+  | 'notConfigured'
+  | 'internal'
+  | 'engineClosed'
+  | 'storageFull';
+
+/**
+ * The status fields TypeScript reads / subscribes to.
+ */
+export type FfiSyncStatus = {
+  state: SyncState;
+  inFlight: number;
+  completed: number;
+  total: number;
+  /**
+   * Activities the running per-activity step has handled, of
+   * `step_items_total`. Both are zero for a step that is not a walk over
+   * activities, and between steps.
+   */
+  stepItemsDone: number;
+  /**
+   * Activities the running per-activity step owes, read when it began.
+   */
+  stepItemsTotal: number;
+  /**
+   * Which endpoint the run is on, or `None` when nothing is running. The
+   * counters beside it count steps, so this is the only field that says
+   * what the sync is actually doing.
+   */
+  step: FfiSyncStep | null;
+  lastError: string | null;
+  /**
+   * Which kind of failure the message describes, so the banner can render a
+   * translated line rather than the engine's own English.
+   */
+  lastErrorReason: FfiSyncErrorReason | null;
+  /**
+   * When a run last finished clean, as a millisecond RFC 3339 instant in
+   * UTC. Read from the settings row each time, so a wipe or a restore is
+   * reflected with no copy to clear. `None` before any clean run.
+   */
+  lastSuccessAt: string | null;
+  /**
+   * When the work the last run left owed is asked for again, as epoch
+   * milliseconds, when it ended on a refusal or a deferral from the
+   * request budget. The engine resumes it itself at this time.
+   */
+  retryAtMs: number | null;
+  /**
+   * The track work running beside the sync or after it: the GPS download,
+   * section detection or the heatmap pass, whichever comes first in that
+   * order, or `None` when none of them is running. Independent of `state`,
+   * which is the metadata sync's alone, so a pass the engine starts by
+   * itself after the sync has settled is reported all the same.
+   */
+  tracks: FfiTrackStage | null;
+  /**
+   * How many activities the last download newly marked as held back by
+   * intervals.icu, which it serves as empty stubs. Zero before any download
+   * and after one that found none.
+   */
+  heldBackInLastDownload: number;
+};
+
+/**
+ * Which endpoint a running sync is on, so the line an athlete reads names the
+ * work rather than a counter.
+ *
+ * The step is the engine's to report. `completed` counts steps that landed,
+ * so a label derived from it in TypeScript lags by one for every step that
+ * failed, and goes wrong outright the first time the order moves.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export type FfiSyncStep =
+  | 'athlete'
+  | 'sportSettings'
+  | 'wellness'
+  | 'census'
+  | 'activities'
+  | 'curves'
+  | 'intervalBodies'
+  | 'remainingActivities'
+  | 'firstActivities'
+  | 'recordActivities'
+  | 'calendar';
+
+/**
+ * Inclusive Unix-second range used for batched summary requests.
+ */
+export type FfiTimestampRange = {
+  startTs: number;
+  endTs: number;
+};
+
+/**
+ * The running piece of the track work and how far it has got.
+ */
+export type FfiTrackStage = {
+  step: FfiTrackStep;
+  /**
+   * Items the step has handled, of `total`: tracks for the download, tiles
+   * for the heatmap, the current phase's items for detection.
+   */
+  completed: number;
+  /**
+   * Zero while the step has not counted its work yet.
+   */
+  total: number;
+  /**
+   * The step's own progress, 0 to 100. Detection weights its phases, so
+   * this is not always `completed` of `total`.
+   */
+  percent: number;
+  /**
+   * When a held download starts again, as epoch milliseconds. `None` for
+   * every other step. The counts beside it are zero: the window's own
+   * coverage says how many tracks are still owed.
+   */
+  resumesAtMs: number | null;
+  /**
+   * Whether intervals.icu asked for the wait, rather than this install's
+   * own request budget. False for every other step.
+   */
+  heldByUpstream: boolean;
+};
+
+/**
+ * Which piece of the track work is running.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export type FfiTrackStep = 'downloading' | 'analysing' | 'drawingHeatmap' | 'held';
+
+/**
+ * One point on a trend curve with its band, clamped to the attempts' range.
+ */
+export type FfiTrendBandPoint = {
+  /**
+   * Unix seconds
+   */
+  time: number;
+  value: number;
+  upper: number;
+  lower: number;
+};
+
+/**
+ * One stored wellness day, typed. This is what the wellness and fitness
+ * screens read: every field they render, and nothing else.
+ *
+ * The untyped body stays in the `raw` column for the Rust-side eFTP
+ * derivation, which reads fields no screen does. It no longer crosses the
+ * FFI, so no screen parses JSON to draw a chart.
+ */
+export type FfiWellnessDay = {
+  /**
+   * ISO-8601 YYYY-MM-DD
+   */
+  date: string;
+  ctl: number | null;
+  atl: number | null;
+  rampRate: number | null;
+  hrv: number | null;
+  restingHr: number | null;
+  weight: number | null;
+  sleepSecs: number | null;
+  sleepScore: number | null;
+  soreness: number | null;
+  fatigue: number | null;
+  stress: number | null;
+  mood: number | null;
+  motivation: number | null;
+  /**
+   * Empty for a day synced before the body column existed, and for a day
+   * the API sent no per-sport breakdown for.
+   */
+  sportLoad: FfiSportLoad[];
+  /**
+   * `veloq` for a day whose fitness, fatigue and ramp rate Veloq folded
+   * from its own loads, absent for a day intervals.icu served.
+   */
+  source: string | null;
+};
+
+/**
+ * The stored wellness days of a window and whether the window was pulled.
+ *
+ * An empty `days` is either a window the account holds nothing in or one the
+ * device never downloaded, and the charts drawing it said the same for both.
+ */
+export type FfiWellnessDays = {
+  /**
+   * Oldest first.
+   */
+  days: FfiWellnessDay[];
+  coverage: RangeCoverage;
 };
 
 /**
@@ -688,15 +4945,144 @@ export type FfiWellnessSummary = {
   weightBasis: FfiClaimBasis | null;
 };
 
+export type FfiYearCount = {
+  year: number;
+  count: number;
+};
+
+/**
+ * A sport's time in each zone, with the athlete's own name for each zone.
+ */
+export type FfiZoneDistribution = {
+  /**
+   * Seconds per zone, lowest zone first. Empty for an unknown zone type.
+   */
+  seconds: number[];
+  /**
+   * Each zone's share of the time as a whole percent, beside `seconds`,
+   * totalling 100 when any zone holds time and all zero when none does.
+   */
+  shares: number[];
+  /**
+   * The names the cached sport settings give the zones, lowest first, never
+   * more than `seconds` holds.
+   * Empty when the settings do not name them.
+   */
+  names: string[];
+};
+
+/**
+ * The four counts the sync row reports, for the signed-in athlete.
+ *
+ * Two pairs rather than one: the activity pages arrive with the window syncs
+ * and the tracks with the GPS pass, so one can be current while the other is
+ * short, and a single fraction would hide whichever is further behind.
+ *
+ * All four are zero for an athlete whose census has never been pulled. Nothing
+ * is known about the account then, and a zero pair reads as nothing to report.
+ */
+export type LibraryCoverage = {
+  /**
+   * Activities the server says the account holds.
+   */
+  upstream: number;
+  /**
+   * Of those, the ones stored locally at the version the census names.
+   */
+  fetched: number;
+  /**
+   * Activities the server says carry a GPS track.
+   */
+  tracksUpstream: number;
+  /**
+   * Of those, the ones whose track is on the device.
+   */
+  tracksStored: number;
+};
+
+/**
+ * Whether a date range holds nothing, owes a download, or is fully local.
+ *
+ * Activities are judged against the census, wellness against what is stored:
+ * intervals.icu answers a wellness row for every day of the athlete's history,
+ * so for wellness `NotFetched` is nothing stored at all.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export type RangeCoverage = 'empty' | 'notFetched' | 'loaded';
+
+export type RunOutcome = string;
+
+/**
+ * A home the athlete can confirm, and how sure the guess is.
+ */
+export type SuggestedHome = {
+  latitude: number;
+  longitude: number;
+  /**
+   * Rides whose first or last fix falls in the cluster.
+   */
+  activityCount: number;
+  /**
+   * Endpoints in the cluster, of every endpoint in the library.
+   */
+  endpointShare: number;
+};
+
+/**
+ * The lifecycle state TypeScript renders.
+ *
+ * Crosses as an enum: the word was stringified here and spelt again in a
+ * TypeScript mirror, and every reader only ever branches on it. Wire order
+ * is declaration order, so append and never reorder.
+ */
+export type SyncState = 'idle' | 'syncing' | 'paused' | 'authExpired';
+
 export type WholeNumber = number;
 
 /** The name of each method a linked browser may ask, with what it sends and gets back. */
 export type Methods = {
   'link.hello': { params: FfiLinkHello; result: FfiLinkHelloAnswer };
-  'feed.page': { params: FfiLinkFeedPageAsk; result: FfiFeedCardsPage };
+  'feed.page': { params: FfiLinkFeedPageAsk; result: FfiLinkFeedPage };
   'feed.summary': { params: FfiLinkSummaryAsk; result: FfiSummaryCardData };
   'feed.sparklines': { params: FfiLinkSparklinesAsk; result: FfiWellnessSparklines };
   'feed.highlights': { params: FfiLinkHighlightsAsk; result: FfiActivityHighlightsBundle };
   'activity.summary': { params: FfiLinkActivityAsk; result: FfiActivitySummary };
+  'activity.detail': { params: FfiLinkActivityAsk; result: FfiActivityDetailData };
+  'activity.record': { params: FfiLinkActivityAsk; result: FfiLinkActivityRecord };
+  'activity.streams': { params: FfiLinkStreamsAsk; result: FfiActivityStreams };
+  'activity.intervals': { params: FfiLinkActivityAsk; result: FfiLinkActivityIntervals };
+  'activity.sections': { params: FfiLinkActivityAsk; result: FfiLinkActivitySections };
+  'activity.exerciseSets': { params: FfiLinkActivityAsk; result: FfiExerciseSession };
+  'routes.screen': { params: FfiRoutesScreenQuery; result: FfiRoutesScreenData };
+  'route.detail': { params: FfiLinkActivityAsk; result: FfiRouteDetailData };
+  'route.performance': { params: FfiLinkPerformanceAsk; result: FfiSectionPerformanceData };
+  'route.attempts': { params: FfiLinkRouteAttemptsAsk; result: FfiRoutePerformanceResult };
+  'section.detail': { params: FfiLinkActivityAsk; result: FfiSectionDetailData };
+  'section.performance': { params: FfiLinkPerformanceAsk; result: FfiSectionPerformanceData };
+  'section.history': { params: FfiLinkActivityAsk; result: FfiLinkSectionHistory };
+  'section.excluded': { params: FfiLinkActivityAsk; result: FfiLinkSectionExcluded };
+  'sections.retired': { params: FfiLinkNoAsk; result: FfiRetiredMapData };
+  'fitness.screen': { params: FfiLinkFitnessScreenAsk; result: FfiFitnessScreenData };
+  'fitness.wellness': { params: FfiLinkWellnessAsk; result: FfiWellnessDays };
+  'fitness.loads': { params: FfiLinkLoadsAsk; result: FfiLinkDayLoads };
+  'fitness.zones': { params: FfiLinkZonesAsk; result: FfiZoneDistribution };
+  'fitness.powerCurve': { params: FfiLinkPowerCurveAsk; result: FfiLinkPowerCurve };
+  'fitness.paceCurve': { params: FfiLinkPaceCurveAsk; result: FfiLinkPaceCurve };
+  'fitness.bestEfforts': { params: FfiLinkBestEffortsAsk; result: FfiBestEffortsData };
+  'strength.screen': { params: FfiLinkStrengthAsk; result: FfiStrengthScreenData };
+  'strength.exercise': { params: FfiLinkExerciseAsk; result: FfiExerciseDetailData };
+  'strength.muscle': { params: FfiLinkMuscleAsk; result: FfiMuscleGroupDetail };
+  'recordings.list': { params: FfiLinkRecordingsAsk; result: FfiLinkRecordingsAnswer };
+  'recordings.get': { params: FfiLinkRecordingAsk; result: FfiLinkRecordingAnswer };
+  'settings.get': { params: FfiLinkSettingsAsk; result: FfiLinkSettingsAnswer };
+  'settings.profile': { params: FfiLinkNoAsk; result: AthleteProfile };
+  'status.backgroundJobs': { params: FfiLinkNoAsk; result: FfiBackgroundJobsData };
+  'status.cache': { params: FfiLinkNoAsk; result: FfiCacheScreenData };
+  'status.backup': { params: FfiLinkNoAsk; result: FfiBackupScreenData };
+  'status.linkedDevices': { params: FfiLinkNoAsk; result: FfiLinkDevicesAnswer };
+  'status.coverage': { params: FfiLinkNoAsk; result: LibraryCoverage };
+  'status.sync': { params: FfiLinkNoAsk; result: FfiSyncStatus };
   'section.rename': { params: FfiLinkSectionRenameAsk; result: FfiLinkWriteDone };
 };

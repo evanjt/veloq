@@ -790,6 +790,11 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_engineobserver_remote_wrote(
+    uniffiSelf: bigint,
+    kind: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_constructor_fitnessmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
@@ -1075,6 +1080,7 @@ interface NativeModuleInterface {
   ): number;
   ubrn_uniffi_veloqrs_fn_method_remotemanager_disconnect_all(
     uniffiSelf: bigint,
+    reason: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_remotemanager_linked_rooms(
@@ -1094,6 +1100,11 @@ interface NativeModuleInterface {
     id: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_set_device_name(
+    uniffiSelf: bigint,
+    name: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_remotemanager_set_in_front(
     uniffiSelf: bigint,
     inFront: number,
@@ -1103,6 +1114,10 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     latitude: number,
     longitude: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_routefollower_turns(
+    uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_constructor_routegroupingpreview_new(
@@ -2016,6 +2031,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_engineobserver_recordings_changed(): number;
   ubrn_uniffi_veloqrs_checksum_method_engineobserver_upload_permission_refused(): number;
   ubrn_uniffi_veloqrs_checksum_method_engineobserver_request_budget_changed(): number;
+  ubrn_uniffi_veloqrs_checksum_method_engineobserver_remote_wrote(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compose_widget_snapshot(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_intervals(): number;
@@ -2075,8 +2091,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_list_linked_devices(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_pairing_request(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_remove_linked_device(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_set_device_name(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_set_in_front(): number;
   ubrn_uniffi_veloqrs_checksum_method_routefollower_advance(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routefollower_turns(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_routegroupingpreview_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_run(): number;
@@ -2407,6 +2425,10 @@ type UniffiCallbackInterfaceVeloqrsEngineObserverMethod17 = (
 type UniffiCallbackInterfaceVeloqrsEngineObserverMethod18 = (
   uniffiHandle: bigint,
 ) => UniffiResult<void>;
+type UniffiCallbackInterfaceVeloqrsEngineObserverMethod19 = (
+  uniffiHandle: bigint,
+  kind: Uint8Array,
+) => UniffiResult<void>;
 type UniffiCallbackInterfaceCloneVeloqrsEngineObserver = (
   handle: bigint,
 ) => UniffiResult<void>;
@@ -2435,6 +2457,7 @@ export type UniffiVTableCallbackInterfaceVeloqrsEngineObserver = {
   recordings_changed: UniffiCallbackInterfaceVeloqrsEngineObserverMethod16;
   upload_permission_refused: UniffiCallbackInterfaceVeloqrsEngineObserverMethod17;
   request_budget_changed: UniffiCallbackInterfaceVeloqrsEngineObserverMethod18;
+  remote_wrote: UniffiCallbackInterfaceVeloqrsEngineObserverMethod19;
 };
 
 // UniffiRustFutureContinuationCallback is generated as part of the component interface's

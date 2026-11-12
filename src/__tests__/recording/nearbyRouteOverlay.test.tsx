@@ -10,7 +10,7 @@
 import { act, renderHook } from '@testing-library/react-native';
 
 import { useNearbyRouteOverlay } from '@/shared/app/useNearbyRouteOverlay';
-import { useRecordingLiveStore } from '@/features/recording';
+import { useRecordingLiveStore, useRecordingStore } from '@/features/recording';
 
 const mockGetNearby = jest.fn();
 
@@ -33,6 +33,7 @@ const route = (groupId: string, over: Record<string, unknown> = {}) => ({
   name: `Route ${groupId}`,
   distanceMeters: 12_400,
   awayMeters: 0,
+  offered: true,
   bestTimeSeconds: 2_482,
   encodedCoords: new ArrayBuffer(4),
   ...over,
@@ -101,6 +102,31 @@ describe('useNearbyRouteOverlay', () => {
     const { result } = render();
     act(() => result.current.choose('faraway'));
     expect(mockGetNearby).toHaveBeenLastCalledWith(46.5, 6.6, 'Walk', 'faraway');
+  });
+
+  it('drops a remembered route far from the fix while no ride is recording', () => {
+    mockGetNearby.mockReturnValue([
+      route('a'),
+      route('zurich', { awayMeters: 520_000, offered: false }),
+    ]);
+    useRecordingLiveStore.getState().setRouteChoice('Walk', 'zurich');
+    const { result } = render();
+    expect(result.current.nearby.map((r) => r.id)).toEqual(['a']);
+    expect(result.current.followed).toBeNull();
+    expect(result.current.followedRouteId).toBeNull();
+    expect(useRecordingLiveStore.getState().routeChoice?.routeId).toBeNull();
+  });
+
+  it('keeps describing a far followed route once the ride is recording', () => {
+    mockGetNearby.mockReturnValue([
+      route('a'),
+      route('zurich', { awayMeters: 520_000, offered: false }),
+    ]);
+    useRecordingLiveStore.getState().setRouteChoice('Walk', 'zurich');
+    useRecordingStore.setState({ status: 'recording' });
+    const { result } = render();
+    expect(result.current.followed?.id).toBe('zurich');
+    useRecordingStore.setState({ status: 'idle' });
   });
 
   it('ignores a choice made for another sport', () => {

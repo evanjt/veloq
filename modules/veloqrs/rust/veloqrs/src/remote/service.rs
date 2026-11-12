@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use str0m::config::DtlsCert;
 
+use super::DisconnectReason;
 use super::pairing::{self, Invitation, Pairing, PairingRefusal};
 use super::peer::{self, Gate, Peer, Refusal};
 use crate::persistence::{linked_devices, read_pool, settings_conn};
@@ -30,7 +31,7 @@ static PAIRING: Mutex<Option<Pairing>> = Mutex::new(None);
 /// Every pairing secret used in this process, so none is used twice.
 static SPENT: Mutex<Option<HashSet<[u8; 32]>>> = Mutex::new(None);
 
-fn now() -> i64 {
+pub(super) fn now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |since| since.as_secs() as i64)
@@ -134,16 +135,25 @@ impl Gate for EngineGate {
                 return serde_json::json!({ "id": parsed["id"], "error": PHONE_LOCKED })
                     .to_string();
             }
-            return crate::objects::error::with_engine(|engine| {
+            return match crate::objects::error::with_engine(|engine| {
                 super::protocol::answer_write(engine, presented, request)
-            })
-            .unwrap_or_else(|error| {
-                serde_json::json!({ "id": parsed["id"], "error": error.to_string() }).to_string()
-            });
+            }) {
+                Ok(answered) => answered.announce(),
+                Err(error) => serde_json::json!({ "id": parsed["id"], "error": error.to_string() })
+                    .to_string(),
+            };
         }
-        read_pool::with_read_conn(|conn| super::protocol::answer(conn, request)).unwrap_or_else(
-            || serde_json::json!({ "id": null, "error": "engine not initialised" }).to_string(),
-        )
+        let athlete = crate::objects::sync::signed_in_athlete_id();
+        let connections = connections();
+        let caller = super::protocol::Caller {
+            browser: presented,
+            athlete: athlete.as_deref(),
+            connections: &connections,
+        };
+        read_pool::with_read_conn(|conn| super::protocol::answer_from(conn, &caller, request))
+            .unwrap_or_else(|| {
+                serde_json::json!({ "id": null, "error": "engine not initialised" }).to_string()
+            })
     }
 
     fn connected(&self, fingerprint: &str) {
@@ -153,10 +163,39 @@ impl Gate for EngineGate {
         lock(&CONNECTED).push((fingerprint.to_owned(), now));
     }
 
+    fn changed(&self) -> Option<u64> {
+        database_stamp()
+    }
+
     fn disconnected(&self, fingerprint: &str) {
         let mut connected = lock(&CONNECTED);
         if let Some(at) = connected.iter().position(|(f, _)| f == fingerprint) {
             connected.remove(at);
+        }
+    }
+}
+
+/// The connection the library's stamp is read on: one of this module's own,
+/// with the path it was opened for.
+static STAMP: Mutex<Option<(String, rusqlite::Connection)>> = Mutex::new(None);
+
+/// `PRAGMA data_version` on a read connection of the remote link's own. It
+/// differs from the last reading whenever another connection committed, so a
+/// write by the engine moves it. Nothing when no engine is installed or the
+/// value cannot be read.
+fn database_stamp() -> Option<u64> {
+    let (_, path) = read_pool::binding()?;
+    let mut held = lock(&STAMP);
+    if held.as_ref().is_none_or(|(opened, _)| *opened != path) {
+        *held = Some((path.clone(), read_pool::open_reader(&path).ok()?));
+    }
+    let (_, conn) = held.as_ref()?;
+    let stamp: Result<i64, _> = conn.query_row("PRAGMA data_version", [], |row| row.get(0));
+    match stamp {
+        Ok(value) => Some(value as u64),
+        Err(_) => {
+            *held = None;
+            None
         }
     }
 }
@@ -235,7 +274,7 @@ pub fn confirm_pairing(accept: bool) -> Result<bool, String> {
         }
         None => {
             if !accept {
-                disconnect(Some(&browser));
+                disconnect(Some(&browser), DisconnectReason::Declined);
             }
             Ok(false)
         }
@@ -248,7 +287,10 @@ pub fn cancel_pairing() {
     if let Some(pairing) = open
         && !linked(&pairing.invitation.browser)
     {
-        disconnect(Some(&pairing.invitation.browser));
+        disconnect(
+            Some(&pairing.invitation.browser),
+            DisconnectReason::Declined,
+        );
     }
 }
 
@@ -290,8 +332,9 @@ fn rooms_for(browsers: &[String], certificate: &[u8]) -> Vec<String> {
         .collect()
 }
 
-/// End every connection, or only those of one fingerprint.
-pub fn disconnect(fingerprint: Option<&str>) {
+/// End every connection, or only those of one fingerprint, telling each
+/// browser why first.
+pub fn disconnect(fingerprint: Option<&str>, reason: DisconnectReason) {
     let ending: Vec<Peer> = {
         let mut peers = lock(&PEERS);
         let (ending, keeping) =
@@ -304,7 +347,7 @@ pub fn disconnect(fingerprint: Option<&str>) {
         ending.into_iter().map(|(_, peer)| peer).collect()
     };
     for peer in ending {
-        peer.stop();
+        peer.stop(reason);
     }
 }
 

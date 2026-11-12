@@ -9,6 +9,8 @@
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { controlHeight } from '@/theme';
 
 import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
 import type { FeedCard, WellnessData } from '@/types';
@@ -125,5 +127,20 @@ describe('the activity strip', () => {
 
     expect(tree.queryByTestId('fitness-strip-key-Ride')).toBeNull();
     expect(tree.queryByTestId('fitness-strip-key-noLoad')).toBeNull();
+  });
+
+  it('holds the chip row at the button height for the range total, a day with activities and a rest day', async () => {
+    const heights = [];
+    for (const day of [null, '2026-03-10', '2026-03-09']) {
+      const tree = await render(strip(day, MIXED));
+      const row = StyleSheet.flatten(tree.getByTestId('fitness-strip-chip-row').props.style);
+      heights.push(row.minHeight);
+      tree.unmount();
+    }
+    expect(heights).toEqual([
+      controlHeight.buttonSm,
+      controlHeight.buttonSm,
+      controlHeight.buttonSm,
+    ]);
   });
 });

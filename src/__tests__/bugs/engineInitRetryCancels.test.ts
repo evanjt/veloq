@@ -127,6 +127,7 @@ describe('a launch wipe that fails', () => {
   /** `attemptInit`'s identity step, with a wipe that rejects. */
   const attemptWithFailingWipe = (proceed: () => void) => async (): Promise<EngineInitAttempt> => {
     const settled = await completeLaunchIdentity('wipe-then-proceed', {
+      adopt: () => {},
       wipe: () => Promise.reject(new Error('Engine wipe stopped without finishing (idle)')),
       reopen: () => true,
       ask: async () => false,

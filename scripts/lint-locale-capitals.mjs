@@ -41,6 +41,7 @@ const ACRONYMS = new Map([
   ['API', 'application programming interface, beside the data service key'],
   ['URL', 'a web address'],
   ['FFI', 'the engine call boundary on the developer dashboard'],
+  ['STUN', 'session traversal utilities for NAT, the network path a browser link names'],
   ['RHF', 'resting heart rate, in German'],
   ['AGB', 'terms and conditions, in German'],
   ['FCR', 'resting heart rate, in Spanish, French, Italian and Portuguese'],

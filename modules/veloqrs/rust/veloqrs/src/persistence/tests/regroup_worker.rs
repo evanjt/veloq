@@ -621,6 +621,7 @@ mod reads_the_engine_when_told {
     }
 
     impl EngineObserver for Reader {
+        fn remote_wrote(&self, _kind: String) {}
         fn groups_changed(&self) {
             let read = with_persistent_engine(|engine| catalogue(&engine.groups)).expect("engine");
             self.heard.lock().unwrap().push(read);

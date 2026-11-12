@@ -2,7 +2,9 @@
 // charts under it on one shared axis, and the facts in a right column that
 // scrolls on its own. The page holds what it is given and asks nothing.
 
+import type { ParseKeys } from 'i18next';
 import { Fragment, useId, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   crosshair,
@@ -34,17 +36,21 @@ export type Position = { index: number; time: number; distance: number };
 const WIDTH = 720;
 const HEIGHT = 200;
 
-const SERIES_LABELS: Record<string, [label: string, unit: string]> = {
-  altitude: ['Elevation', 'm'],
-  heartrate: ['Heart rate', 'bpm'],
-  watts: ['Power', 'W'],
-  cadence: ['Cadence', 'rpm'],
-  velocity: ['Speed', 'm/s'],
-  grade: ['Grade', '%'],
-  temp: ['Temperature', '°C'],
+const SERIES_LABELS: Record<string, [label: ParseKeys, unit: string]> = {
+  altitude: ['connectPage.chart.elevation', 'm'],
+  heartrate: ['connectPage.chart.heartRate', 'bpm'],
+  watts: ['connectPage.chart.power', 'W'],
+  cadence: ['connectPage.chart.cadence', 'rpm'],
+  velocity: ['connectPage.chart.speed', 'm/s'],
+  grade: ['connectPage.chart.grade', '%'],
+  temp: ['connectPage.chart.temperature', '°C'],
 };
 
-const label = (key: string) => SERIES_LABELS[key]?.[0] ?? key;
+/** The name of a series; a key the page has no name for is shown as it came. */
+const labelOf = (t: (key: ParseKeys) => string, key: string) => {
+  const found = SERIES_LABELS[key]?.[0];
+  return found ? t(found) : key;
+};
 const unit = (key: string) => SERIES_LABELS[key]?.[1] ?? '';
 
 export function ActivityPage(props: {
@@ -57,6 +63,7 @@ export function ActivityPage(props: {
   onPosition?: (position: Position | null) => void;
 }) {
   const { card, detail } = props;
+  const { t } = useTranslation();
   const [position, setPosition] = useState<Position | null>(null);
   const publish = (next: Position | null) => {
     setPosition(next);
@@ -66,18 +73,18 @@ export function ActivityPage(props: {
     <section id="activity-page">
       <header id="activity-head">
         <a id="back" href="#/feed">
-          Back to the feed
+          {t('connectPage.activity.back')}
         </a>
-        <h2 id="activity-title">{card?.name ?? 'Activity'}</h2>
+        <h2 id="activity-title">{card?.name ?? t('connectPage.activity.untitled')}</h2>
         <p id="activity-when">
           {[card?.startDateLocal?.slice(0, 10), card?.sportType].filter(Boolean).join(' · ')}
         </p>
       </header>
       <div id="activity-left">
-        <div id="map-slot" role="region" aria-label="Map" />
+        <div id="map-slot" role="region" aria-label={t('connectPage.activity.map')} />
         <Charts data={props.data} position={position} onPosition={publish} />
       </div>
-      <aside id="activity-right" aria-label="Activity facts">
+      <aside id="activity-right" aria-label={t('connectPage.activity.facts')}>
         <SummaryStrip card={card} detail={detail} />
         <FactsColumn facts={props.facts ?? {}} position={position} />
       </aside>
@@ -91,6 +98,7 @@ function Charts(props: {
   onPosition: (position: Position | null) => void;
 }) {
   const { data } = props;
+  const { t } = useTranslation();
   const keys = data ? Object.keys(data.series).filter((key) => seriesRange(data, key)) : [];
   const [axis, setAxis] = useState<Axis>('distance');
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
@@ -99,8 +107,8 @@ function Charts(props: {
   if (!data || data.time.length === 0) {
     return (
       <section id="charts" aria-labelledby={titleId}>
-        <h3 id={titleId}>Charts</h3>
-        <p>This activity has no recorded series.</p>
+        <h3 id={titleId}>{t('connectPage.activity.charts')}</h3>
+        <p>{t('connectPage.activity.noSeries')}</p>
       </section>
     );
   }
@@ -121,8 +129,8 @@ function Charts(props: {
   };
   return (
     <section id="charts" aria-labelledby={titleId}>
-      <h3 id={titleId}>Charts</h3>
-      <div id="series-chips" role="group" aria-label="Series">
+      <h3 id={titleId}>{t('connectPage.activity.charts')}</h3>
+      <div id="series-chips" role="group" aria-label={t('connectPage.chart.series')}>
         {keys.map((key) => (
           <button
             key={key}
@@ -134,11 +142,11 @@ function Charts(props: {
               setHidden(next);
             }}
           >
-            {label(key)}
+            {labelOf(t, key)}
           </button>
         ))}
       </div>
-      <div id="axis-switch" role="group" aria-label="Axis">
+      <div id="axis-switch" role="group" aria-label={t('connectPage.chart.axis')}>
         {(['distance', 'time'] as const).map((choice) => (
           <button
             key={choice}
@@ -146,7 +154,7 @@ function Charts(props: {
             aria-pressed={axis === choice}
             onClick={() => setAxis(choice)}
           >
-            {choice === 'distance' ? 'Distance' : 'Time'}
+            {choice === 'distance' ? t('connectPage.facts.distance') : t('connectPage.facts.time')}
           </button>
         ))}
       </div>
@@ -156,7 +164,7 @@ function Charts(props: {
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         role="img"
         tabIndex={0}
-        aria-label="Activity series"
+        aria-label={t('connectPage.chart.label')}
         onPointerMove={(event) => pointer(event.clientX)}
         onPointerLeave={() => move(null)}
         onKeyDown={(event) => {
@@ -187,11 +195,13 @@ function Charts(props: {
       </svg>
       {reading ? (
         <dl id="crosshair-reading">
-          <dt>{axis === 'distance' ? 'Distance' : 'Time'}</dt>
+          <dt>
+            {axis === 'distance' ? t('connectPage.facts.distance') : t('connectPage.facts.time')}
+          </dt>
           <dd>{axis === 'distance' ? km(reading.distance) : clock(reading.time)}</dd>
           {reading.values.map(({ key, value }) => (
             <Fragment key={key}>
-              <dt>{label(key)}</dt>
+              <dt>{labelOf(t, key)}</dt>
               <dd>{`${Math.round(value * 10) / 10} ${unit(key)}`.trim()}</dd>
             </Fragment>
           ))}
@@ -202,22 +212,32 @@ function Charts(props: {
 }
 
 function SummaryStrip({ card, detail }: { card: Card | undefined; detail: Detail | undefined }) {
+  const { t } = useTranslation();
   const facts: [string, string | null][] =
     card && detail
       ? [
-          ['Distance', km(card.distance)],
-          ['Moving time', clock(detail.movingTime)],
-          ['Elapsed time', clock(detail.elapsedTime)],
-          ['Average speed', kmh(detail.averageSpeed)],
-          ['Top speed', kmh(detail.maxSpeed)],
-          ['Climbing', card.elevationGain == null ? null : `${Math.round(card.elevationGain)} m`],
-          ['Average heart rate', card.avgHr == null ? null : `${Math.round(card.avgHr)} bpm`],
-          ['Average power', card.avgPower == null ? null : `${Math.round(card.avgPower)} W`],
+          [t('connectPage.facts.distance'), km(card.distance)],
+          [t('connectPage.facts.movingTime'), clock(detail.movingTime)],
+          [t('connectPage.facts.elapsedTime'), clock(detail.elapsedTime)],
+          [t('connectPage.facts.averageSpeed'), kmh(detail.averageSpeed)],
+          [t('connectPage.facts.topSpeed'), kmh(detail.maxSpeed)],
+          [
+            t('connectPage.facts.climbing'),
+            card.elevationGain == null ? null : `${Math.round(card.elevationGain)} m`,
+          ],
+          [
+            t('connectPage.facts.averageHr'),
+            card.avgHr == null ? null : `${Math.round(card.avgHr)} bpm`,
+          ],
+          [
+            t('connectPage.facts.averagePower'),
+            card.avgPower == null ? null : `${Math.round(card.avgPower)} W`,
+          ],
         ]
       : [];
   return (
     <section id="activity-summary">
-      <h3>Summary</h3>
+      <h3>{t('connectPage.library.summary')}</h3>
       <dl>
         {facts
           .filter(([, value]) => value)
@@ -233,12 +253,13 @@ function SummaryStrip({ card, detail }: { card: Card | undefined; detail: Detail
 }
 
 function FactsColumn({ facts, position }: { facts: Facts; position: Position | null }) {
+  const { t } = useTranslation();
   const [lit, setLit] = useState<string | null>(null);
   return (
     <>
       {facts.sections?.length ? (
         <section id="activity-sections">
-          <h3>Sections</h3>
+          <h3>{t('connectPage.activity.sections')}</h3>
           <ul>
             {facts.sections.map((row) => (
               <li
@@ -256,7 +277,7 @@ function FactsColumn({ facts, position }: { facts: Facts; position: Position | n
       ) : null}
       {facts.routes?.length ? (
         <section id="activity-routes">
-          <h3>Routes</h3>
+          <h3>{t('connectPage.activity.routes')}</h3>
           <ul>
             {facts.routes.map((row) => (
               <li key={row.id}>
@@ -269,7 +290,7 @@ function FactsColumn({ facts, position }: { facts: Facts; position: Position | n
       ) : null}
       {facts.intervals?.length ? (
         <section id="activity-intervals">
-          <h3>Intervals</h3>
+          <h3>{t('connectPage.activity.intervals')}</h3>
           <table>
             <tbody>
               {facts.intervals.map((row, at) => (

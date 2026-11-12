@@ -28,6 +28,9 @@ pub(crate) struct SportSettingsEntry {
     /// The set maximum heart rate, in bpm.
     #[serde(deserialize_with = "number")]
     pub max_hr: Option<f64>,
+    /// The set threshold pace, as a speed in metres per second.
+    #[serde(deserialize_with = "number")]
+    pub threshold_pace: Option<f64>,
     /// The upper bpm edge of each heart rate zone. Bounds that are not numbers are dropped.
     #[serde(deserialize_with = "numbers")]
     pub hr_zones: Vec<f64>,
@@ -167,6 +170,8 @@ pub(crate) struct AthleteThresholds {
     pub max_hr: Option<Sourced>,
     pub resting_hr: Option<Sourced>,
     pub weight_kg: Option<Sourced>,
+    /// Threshold pace as a speed in metres per second.
+    pub threshold_pace: Option<Sourced>,
 }
 
 /// One of the figures [`AthleteThresholds`] holds.
@@ -177,6 +182,7 @@ pub(crate) enum ThresholdField {
     MaxHr,
     RestingHr,
     WeightKg,
+    ThresholdPace,
 }
 
 impl From<ThresholdSource> for crate::FfiThresholdSource {
@@ -209,6 +215,7 @@ impl AthleteThresholds {
             ThresholdField::MaxHr => self.max_hr,
             ThresholdField::RestingHr => self.resting_hr,
             ThresholdField::WeightKg => self.weight_kg,
+            ThresholdField::ThresholdPace => self.threshold_pace,
         }
     }
 }
@@ -227,6 +234,8 @@ struct Figures {
     resting_hr: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     weight_kg: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    threshold_pace: Option<f64>,
 }
 
 impl Figures {
@@ -237,6 +246,7 @@ impl Figures {
             ThresholdField::MaxHr => &mut self.max_hr,
             ThresholdField::RestingHr => &mut self.resting_hr,
             ThresholdField::WeightKg => &mut self.weight_kg,
+            ThresholdField::ThresholdPace => &mut self.threshold_pace,
         }
     }
 
@@ -250,12 +260,13 @@ impl Figures {
     }
 }
 
-const FIELDS: [ThresholdField; 5] = [
+const FIELDS: [ThresholdField; 6] = [
     ThresholdField::Ftp,
     ThresholdField::ThresholdHr,
     ThresholdField::MaxHr,
     ThresholdField::RestingHr,
     ThresholdField::WeightKg,
+    ThresholdField::ThresholdPace,
 ];
 
 /// The profile figures belong to the athlete rather than to a sport, so they
@@ -341,6 +352,7 @@ pub(crate) fn record_file_thresholds(
         max_hr: positive(found.max_hr),
         resting_hr: positive(found.resting_hr),
         weight_kg: positive(found.weight_kg),
+        threshold_pace: None,
     };
     if figures.is_empty() {
         return Ok(());
@@ -383,6 +395,7 @@ pub(crate) fn thresholds_for(
             ThresholdField::Ftp => positive(e.ftp),
             ThresholdField::ThresholdHr => positive(e.lthr),
             ThresholdField::MaxHr => positive(e.max_hr),
+            ThresholdField::ThresholdPace => positive(e.threshold_pace),
             _ => None,
         });
         let file = file_figure(&records, Some(&key), field, at).or_else(|| {
@@ -410,6 +423,7 @@ pub(crate) fn thresholds_for(
     put(ThresholdField::MaxHr, &mut out.max_hr);
     put(ThresholdField::RestingHr, &mut out.resting_hr);
     put(ThresholdField::WeightKg, &mut out.weight_kg);
+    put(ThresholdField::ThresholdPace, &mut out.threshold_pace);
     out
 }
 
@@ -517,6 +531,18 @@ mod tests {
         assert_eq!(run.lthr, None);
         assert_eq!(run.max_hr, None);
         assert_eq!(run.hr_zones, vec![150.0, 170.0]);
+    }
+
+    #[test]
+    fn a_threshold_pace_is_read_as_a_speed_and_unset_when_not_a_number() {
+        let settings = SportSettings::parse(Some(
+            r#"[{"types":["Run"],"threshold_pace":3.65},{"types":["Swim"],"threshold_pace":"fast"}]"#,
+        ));
+        assert_eq!(
+            settings.entry_for("Run").unwrap().threshold_pace,
+            Some(3.65)
+        );
+        assert_eq!(settings.entry_for("Swim").unwrap().threshold_pace, None);
     }
 
     #[test]

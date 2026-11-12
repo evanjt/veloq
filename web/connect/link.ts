@@ -163,14 +163,42 @@ export function retryDelay(attempt: number): number {
 
 export type Invitation = { room: string; secret: Uint8Array<ArrayBuffer>; exp: number };
 
+/** Why the phone said it was leaving, as the engine spells it. */
+export type Farewell = 'background' | 'switchedOff' | 'removed' | 'disconnected' | 'declined';
+
+const FAREWELLS = new Set<string>([
+  'background',
+  'switchedOff',
+  'removed',
+  'disconnected',
+  'declined',
+]);
+
+/** Why the page is pairing afresh, shown beside the new code. */
+export type Notice = 'refused' | 'declined' | 'removed' | 'unreachable';
+
 export type State =
-  | { name: 'unpaired'; notice?: 'refused' | 'declined' }
-  | { name: 'inviting'; invitation: Invitation; attempt: number; notice?: 'refused' | 'declined' }
+  | { name: 'unpaired'; notice?: Notice }
+  | { name: 'inviting'; invitation: Invitation; attempt: number; notice?: Notice }
   | { name: 'proving'; invitation: Invitation; phone: string }
   | { name: 'confirming'; invitation: Invitation; phone: string }
-  | { name: 'waiting'; phone: string; attempt: number }
-  | { name: 'connecting'; phone: string; attempt: number }
-  | { name: 'connected'; phone: string; attempt: number; methods: string[] | null }
+  | {
+      name: 'waiting';
+      phone: string;
+      attempt: number;
+      reason?: Farewell;
+      /** The phone answered an offer and no path formed; kept until a channel opens. */
+      unreachable?: true;
+    }
+  | { name: 'connecting'; phone: string; attempt: number; unreachable?: true }
+  | {
+      name: 'connected';
+      phone: string;
+      attempt: number;
+      methods: string[] | null;
+      /** The name the phone gave itself in its hello; absent when it gave none. */
+      device?: string;
+    }
   | { name: 'update'; phone: string };
 
 export type Event =
@@ -181,11 +209,13 @@ export type Event =
   | { type: 'open' }
   | { type: 'proved'; ok: boolean }
   | { type: 'status'; value: string }
-  | { type: 'hello'; protocol: number; methods: string[] }
+  | { type: 'hello'; protocol: number; methods: string[]; device?: string | null | undefined }
   | { type: 'mismatch' }
   | { type: 'screen'; method: string; params?: object }
-  | { type: 'drop' }
+  | { type: 'drop'; cause?: 'unreachable' }
+  | { type: 'farewell'; reason: Farewell }
   | { type: 'bye' }
+  | { type: 'relayOpened' }
   | { type: 'relayClosed' }
   | { type: 'expired' }
   | { type: 'forget' };
@@ -213,8 +243,12 @@ const to = (state: State, effects: Effect[] = []): Step => ({ state, effects });
 /** The states before the data channel opens, where the relay is the only route. */
 const SETUP_STATES = new Set<string>(['inviting', 'waiting', 'connecting']);
 
+/** A waiting state keeps the unreachable word through a drop, and gains it from one that carries it. */
+const flag = (event: { cause?: 'unreachable' }, state: { unreachable?: true }) =>
+  event.cause === 'unreachable' || state.unreachable ? { unreachable: true as const } : {};
+
 /** Start pairing again, after a refusal or with nothing paired. */
-const afresh = (notice?: 'refused' | 'declined'): Step =>
+const afresh = (notice?: Notice): Step =>
   to(notice ? { name: 'unpaired', notice } : { name: 'unpaired' }, [
     { do: 'hangUp' },
     { do: 'invite' },
@@ -260,6 +294,7 @@ export function step(state: State, event: Event): Step {
 
     case 'inviting':
       if (event.type === 'peer') return to(state, [{ do: 'offer' }]);
+      if (event.type === 'relayOpened') return to({ ...state, attempt: 0 });
       // The relay going away is not the phone going away: the code on screen
       // stays good until it expires, so its room is tried again.
       if (event.type === 'relayClosed') {
@@ -279,7 +314,9 @@ export function step(state: State, event: Event): Step {
         if (!event.ok) return afresh('refused');
         return to({ ...state, name: 'confirming' }, [{ do: 'pollStatus' }]);
       }
-      if (event.type === 'drop' || event.type === 'expired') return afresh();
+      if (event.type === 'drop')
+        return afresh(event.cause === 'unreachable' ? 'unreachable' : undefined);
+      if (event.type === 'expired') return afresh();
       return to(state);
 
     case 'confirming':
@@ -295,17 +332,29 @@ export function step(state: State, event: Event): Step {
         return afresh(event.value === 'declined' ? 'declined' : 'refused');
       }
       if (event.type === 'drop') return afresh();
+      if (event.type === 'farewell' && event.reason === 'declined') return afresh('declined');
       return to(state);
 
     case 'waiting':
-      if (event.type === 'peer') return to({ ...state, name: 'connecting' }, [{ do: 'offer' }]);
+      if (event.type === 'peer') {
+        return to(
+          {
+            name: 'connecting',
+            phone: state.phone,
+            attempt: state.attempt,
+            ...(state.unreachable ? { unreachable: true } : {}),
+          },
+          [{ do: 'offer' }]
+        );
+      }
+      if (event.type === 'relayOpened') return to({ ...state, attempt: 0 });
       if (event.type === 'relayClosed') {
         return to({ ...state, attempt: state.attempt + 1 }, [
           { do: 'retry', delay: retryDelay(state.attempt) },
         ]);
       }
       if (event.type === 'drop') {
-        return to({ ...state, attempt: state.attempt + 1 }, [
+        return to({ ...state, attempt: state.attempt + 1, ...flag(event, state) }, [
           { do: 'hangUp' },
           { do: 'retry', delay: retryDelay(state.attempt) },
         ]);
@@ -328,7 +377,13 @@ export function step(state: State, event: Event): Step {
         // and the phone's seat in it is free for another browser.
         return to(opened(state.phone), [{ do: 'leaveRelay' }, { do: 'hello' }]);
       }
-      if (event.type === 'drop') return dropped(state.phone, state.attempt);
+      if (event.type === 'drop') {
+        return dropped(
+          state.phone,
+          state.attempt,
+          event.cause === 'unreachable' || !!state.unreachable
+        );
+      }
       return to(state);
 
     case 'connected':
@@ -336,7 +391,11 @@ export function step(state: State, event: Event): Step {
         // Methods are additive within a protocol version, so a phone on the
         // same version that lacks one is older than this page, not different.
         if (event.protocol !== PAGE_PROTOCOL) return update(state.phone);
-        return step({ ...state, methods: event.methods }, { type: 'screen', method: 'feed.page' });
+        const device = event.device?.trim();
+        return step(
+          { ...state, methods: event.methods, ...(device ? { device } : {}) },
+          { type: 'screen', method: 'feed.page' }
+        );
       }
       if (event.type === 'screen') {
         if (!state.methods?.includes(event.method)) return update(state.phone);
@@ -347,7 +406,8 @@ export function step(state: State, event: Event): Step {
             : [{ do: 'ask', method: event.method, params: event.params ?? {} }]
         );
       }
-      if (event.type === 'drop') return dropped(state.phone, state.attempt);
+      if (event.type === 'drop') return dropped(state.phone, state.attempt, false);
+      if (event.type === 'farewell') return left(state.phone, state.attempt, event.reason);
       return to(state);
 
     default:
@@ -367,11 +427,30 @@ function update(phone: string): Step {
   return to({ name: 'update', phone }, [{ do: 'hangUp' }]);
 }
 
-function dropped(phone: string, attempt: number): Step {
-  return to({ name: 'waiting', phone, attempt: attempt + 1 }, [
+/**
+ * The phone said why it is leaving before it hung up, so the page acts at
+ * once rather than when the connection times out. A removal is final: the
+ * phone no longer holds this browser, so it is forgotten and pairs afresh.
+ */
+function left(phone: string, attempt: number, reason: Farewell): Step {
+  if (reason === 'removed') {
+    return to({ name: 'unpaired', notice: 'removed' }, [
+      { do: 'hangUp' },
+      { do: 'forget' },
+      { do: 'invite' },
+    ]);
+  }
+  return to({ name: 'waiting', phone, attempt: attempt + 1, reason }, [
     { do: 'hangUp' },
     { do: 'retry', delay: retryDelay(attempt) },
   ]);
+}
+
+function dropped(phone: string, attempt: number, unreachable: boolean): Step {
+  return to(
+    { name: 'waiting', phone, attempt: attempt + 1, ...(unreachable ? { unreachable: true } : {}) },
+    [{ do: 'hangUp' }, { do: 'retry', delay: retryDelay(attempt) }]
+  );
 }
 
 /** A reply from the phone: its id and either a result or an error. */
@@ -379,6 +458,94 @@ export interface Reply {
   id: number;
   result?: unknown;
   error?: unknown;
+  event?: unknown;
+  generation?: unknown;
+  reason?: unknown;
+}
+
+/**
+ * The reason the phone gives for leaving, or nothing when the message is
+ * anything else. It is an event under request id 0, `{"event":"farewell",
+ * "reason":…}`, which no ask is waiting on.
+ */
+export function farewellOf(reply: Reply): Farewell | undefined {
+  if (reply.id !== 0 || reply.event !== 'farewell') return undefined;
+  return typeof reply.reason === 'string' && FAREWELLS.has(reply.reason)
+    ? (reply.reason as Farewell)
+    : undefined;
+}
+
+/**
+ * Whether a message is the phone's word that its library changed: an event
+ * under request id 0, which no ask of the page uses.
+ */
+export function isChanged(reply: Reply): boolean {
+  return reply.id === 0 && reply.event === 'changed';
+}
+
+/** Methods whose answer for an id never changes once stored. */
+const STABLE_METHODS = new Set(['activity.streams', 'activity.track']);
+
+/** The key an ask is held under: the method and its params with keys sorted. */
+function askKey(method: string, params: object): string {
+  const sorted = (value: unknown): unknown =>
+    Array.isArray(value)
+      ? value.map(sorted)
+      : value && typeof value === 'object'
+        ? Object.fromEntries(
+            Object.entries(value)
+              .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+              .map(([key, inner]) => [key, sorted(inner)])
+          )
+        : value;
+  return `${method} ${JSON.stringify(sorted(params))}`;
+}
+
+/**
+ * What the phone answered on this connection, in memory only. An ask already
+ * answered is not sent again. A word that the library changed drops every
+ * entry but an activity's streams and track, which stay until no list carries
+ * the activity. Nothing is written to storage.
+ */
+export class AskCache {
+  private held = new Map<string, { stableId: string | null; answer: Promise<unknown> }>();
+
+  constructor(
+    private readonly send: (method: string, params: object, slot?: string) => Promise<unknown>
+  ) {}
+
+  /** The held answer for this ask, or a new ask sent in `slot`. */
+  ask(method: string, params: object, slot?: string): Promise<unknown> {
+    const key = askKey(method, params);
+    const kept = this.held.get(key);
+    if (kept) return kept.answer;
+    const id = (params as { id?: unknown }).id;
+    const stableId = STABLE_METHODS.has(method) && typeof id === 'string' ? id : null;
+    const answer = this.send(method, params, slot);
+    const entry = { stableId, answer };
+    this.held.set(key, entry);
+    answer.catch(() => {
+      if (this.held.get(key) === entry) this.held.delete(key);
+    });
+    return answer;
+  }
+
+  /** The library changed: forget every list and detail. */
+  changed() {
+    for (const [key, entry] of this.held) if (entry.stableId === null) this.held.delete(key);
+  }
+
+  /** Forget the streams and track of every activity not in `ids`. */
+  keepOnly(ids: Iterable<string>) {
+    const listed = new Set(ids);
+    for (const [key, entry] of this.held) {
+      if (entry.stableId !== null && !listed.has(entry.stableId)) this.held.delete(key);
+    }
+  }
+
+  clear() {
+    this.held.clear();
+  }
 }
 
 /**
@@ -402,6 +569,26 @@ export const FLAG_LAST = 2;
 /** How long an ask waits for its reply before it is an error the page acts on. */
 export const REPLY_TIMEOUT_MS = 30_000;
 
+/** Why an ask was rejected: a newer ask in its slot replaced it. Callers ignore it. */
+export class SupersededError extends Error {
+  constructor() {
+    super('superseded');
+    this.name = 'SupersededError';
+  }
+}
+
+export function isSuperseded(error: unknown): boolean {
+  return error instanceof Error && error.name === 'SupersededError';
+}
+
+/**
+ * The message that withdraws ask `id`. The engine removes it if it is still
+ * queued, and drops its reply if it is running. A cancel has no reply.
+ */
+export function cancelMessage(id: number): string {
+  return JSON.stringify({ method: 'cancel', params: { id } });
+}
+
 /**
  * A message the page cannot read as this protocol: a reply in another format,
  * a frame of another version or a message too short to be a frame. Every ask
@@ -414,6 +601,7 @@ type Waiting = {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
+  slot?: string;
 };
 
 type Held = { next: number; gzip: boolean; chunks: Uint8Array[] };
@@ -430,6 +618,8 @@ async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
 export class Replies {
   private waiting = new Map<number, Waiting>();
   private held = new Map<number, Held>();
+  /** The ask outstanding in each slot. */
+  private slots = new Map<string, number>();
 
   has(id: number): boolean {
     return this.waiting.has(id);
@@ -439,12 +629,37 @@ export class Replies {
   wait(id: number): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.waiting.delete(id);
-        this.held.delete(id);
+        this.forget(id);
         reject(new Error(`no reply in ${REPLY_TIMEOUT_MS / 1000} s`));
       }, REPLY_TIMEOUT_MS);
       this.waiting.set(id, { resolve, reject, timer });
     });
+  }
+
+  /** Drop what is held for ask `id`, and its place in its slot. */
+  private forget(id: number) {
+    const slot = this.waiting.get(id)?.slot;
+    if (slot !== undefined && this.slots.get(slot) === id) this.slots.delete(slot);
+    this.waiting.delete(id);
+    this.held.delete(id);
+  }
+
+  /**
+   * Put ask `id` in `slot`. The ask the slot held before, if it is still
+   * outstanding, is rejected as superseded and its id returned for a cancel.
+   */
+  supersede(slot: string, id: number): number | undefined {
+    const earlier = this.slots.get(slot);
+    this.slots.set(slot, id);
+    const current = this.waiting.get(id);
+    if (current) current.slot = slot;
+    const old = earlier === undefined ? undefined : this.waiting.get(earlier);
+    if (earlier === undefined || earlier === id || !old) return undefined;
+    clearTimeout(old.timer);
+    this.waiting.delete(earlier);
+    this.held.delete(earlier);
+    old.reject(new SupersededError());
+    return earlier;
   }
 
   /** Hand a reply to the ask it answers. */
@@ -452,7 +667,7 @@ export class Replies {
     const waiting = this.waiting.get(reply.id);
     if (!waiting) return;
     clearTimeout(waiting.timer);
-    this.waiting.delete(reply.id);
+    this.forget(reply.id);
     if (reply.error !== undefined) waiting.reject(new Error(String(reply.error)));
     else waiting.resolve(reply.result);
   }
@@ -469,6 +684,7 @@ export class Replies {
     }
     this.waiting.clear();
     this.held.clear();
+    this.slots.clear();
   }
 
   /** Fail every ask in flight, since the phone's replies are not in this page's format. */
@@ -604,6 +820,35 @@ export function feedRows<Row extends { id: string }>(
   return [...held, ...page.filter((row) => !known.has(row.id))];
 }
 
+/**
+ * The span of days each strength period reads, keyed by the period the
+ * strength tab's `period` query names.
+ */
+export const STRENGTH_PERIOD_DAYS: Readonly<Record<string, number>> = {
+  '7d': 7,
+  '1m': 30,
+  '3m': 90,
+  '6m': 180,
+  '1y': 365,
+};
+
+/** The period a strength tab opens on when the address names none, or an unknown one. */
+export const STRENGTH_PERIOD_DEFAULT = '7d';
+
+/** The days a strength period reads: the named period's span, else the default's. */
+export function strengthPeriodDays(period: string | null): number {
+  return STRENGTH_PERIOD_DAYS[period ?? ''] ?? STRENGTH_PERIOD_DAYS[STRENGTH_PERIOD_DEFAULT] ?? 7;
+}
+
+/**
+ * The phone's wall clock in seconds, from the browser's own: the instant in
+ * epoch seconds shifted by the zone's offset, so it reads the local date and
+ * time the way an activity's date is stamped.
+ */
+export function wallSeconds(nowMs: number, zoneOffsetMinutes: number): number {
+  return nowMs / 1000 - zoneOffsetMinutes * 60;
+}
+
 /** What the engine answers a write made while the app is not in front. */
 export const PHONE_LOCKED = 'phone locked';
 
@@ -615,4 +860,69 @@ export const PHONE_LOCKED = 'phone locked';
 export function writeNotice(error: unknown): string | undefined {
   const text = error instanceof Error ? error.message : String(error);
   return text === PHONE_LOCKED ? 'Unlock your phone and open Veloq to make changes' : undefined;
+}
+
+/** The settings the page shows, in the order the phone's settings list has them. */
+export const SETTING_LABELS: readonly (readonly [key: string, label: string])[] = [
+  ['veloq-theme-preference', 'Theme'],
+  ['veloq-language-preference', 'Language'],
+  ['veloq-unit-preference', 'Units'],
+  ['veloq-primary-sport', 'Primary sport'],
+  ['veloq-wellness-smoothing', 'Wellness smoothing'],
+  ['veloq-map-preferences', 'Map'],
+  ['veloq-route-settings', 'Routes'],
+  ['veloq-notification-preferences', 'Notifications'],
+  ['veloq-recording-preferences', 'Recording'],
+  ['veloq-experimental', 'Experimental features'],
+  ['dashboard_summary_card', 'Summary card'],
+];
+
+/** One line of the settings view. No row can be changed from the page yet. */
+export type SettingRow = { key: string; label: string; value: string; editable: false };
+
+const SETTING_VALUE_CHARS = 120;
+
+/** The words a stored value is shown as; a value not set on the phone says so. */
+function settingText(value: string | null | undefined): string {
+  if (value == null) return 'Not set';
+  return value.length > SETTING_VALUE_CHARS ? `${value.slice(0, SETTING_VALUE_CHARS)}…` : value;
+}
+
+/**
+ * The rows of the settings view from the phone's answer: one per setting the
+ * page knows, each with the value the phone holds, and none editable.
+ */
+export function settingRows(answer: Methods['settings.get']['result'] | undefined): SettingRow[] {
+  const held = new Map((answer?.values ?? []).map((entry) => [entry.key, entry.value]));
+  return SETTING_LABELS.filter(([key]) => held.has(key)).map(([key, label]) => ({
+    key,
+    label,
+    value: settingText(held.get(key)),
+    editable: false,
+  }));
+}
+
+/**
+ * The asks that open the settings screen: the settings, the profile and each
+ * status, only those the phone listed.
+ */
+export function settingsOpening(methods: readonly string[]): { method: string; params: object }[] {
+  const asks: { method: string; params: object }[] = [
+    { method: 'settings.get', params: { keys: SETTING_LABELS.map(([key]) => key) } },
+    { method: 'settings.profile', params: {} },
+    { method: 'status.backgroundJobs', params: {} },
+    { method: 'status.cache', params: {} },
+    { method: 'status.backup', params: {} },
+    { method: 'status.linkedDevices', params: {} },
+    { method: 'status.coverage', params: {} },
+    { method: 'status.sync', params: {} },
+  ];
+  return asks.filter((ask) => methods.includes(ask.method));
+}
+
+/** The linked devices as lines, the browser that is reading marked. */
+export function deviceLines(answer: Methods['status.linkedDevices']['result']): string[] {
+  return answer.devices.map(
+    (device) => `${device.name}${device.id === answer.thisBrowser ? ' (this browser)' : ''}`
+  );
 }

@@ -13,6 +13,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useSource } from '@/shared/app/source/useSource';
 import { navigateTo } from '@/shared/app/navigation';
 import { SYNC_ERROR_REASON_KEY } from '@/shared/format/syncErrorReason';
 import { useSyncLastErrorReason } from '@/shared/native/useSyncStatus';
@@ -27,6 +28,7 @@ interface FeedEmptyLibraryProps {
 }
 
 export function FeedEmptyLibrary({ state, onRetry }: FeedEmptyLibraryProps) {
+  const fromGarmin = useSource()?.id === 'garmin';
   const { t } = useTranslation();
   const lastErrorReason = useSyncLastErrorReason();
   const reasonKey = lastErrorReason === null ? undefined : SYNC_ERROR_REASON_KEY[lastErrorReason];
@@ -65,7 +67,9 @@ export function FeedEmptyLibrary({ state, onRetry }: FeedEmptyLibraryProps) {
         <EmptyState
           icon="inbox-outline"
           title={t('feed.emptyLibrary.emptyTitle')}
-          description={t('feed.emptyLibrary.emptyBody')}
+          description={t(
+            fromGarmin ? 'feed.emptyLibrary.emptyBodyGarmin' : 'feed.emptyLibrary.emptyBody'
+          )}
           actionLabel={t('feed.emptyLibrary.record')}
           onAction={() => navigateTo('/record')}
         />

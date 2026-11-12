@@ -21,6 +21,7 @@ import { PaperProvider } from 'react-native-paper';
 import { ActivityCardContextMenu } from '@/features/activity/components/ActivityCardContextMenu';
 import { ContextMenu } from '@/shared/ui/ContextMenu';
 import * as haptics from '@/shared/ui/haptics';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import type { FeedCard } from '@/types';
 
 jest.mock('react-i18next', () => ({
@@ -117,6 +118,23 @@ const renderMenu = (visible: boolean, shown: FeedCard = activity, hasMap = true)
 const nativeChecked = (label: string) =>
   screen.getAllByTestId('native-action').find((node) => node.props.children === label)?.props
     .accessibilityState.checked;
+
+beforeEach(() => useAuthStore.setState({ authMethod: 'oauth' }));
+afterEach(() => useAuthStore.setState({ authMethod: null }));
+
+describe('a Garmin source, which has no intervals.icu pages', () => {
+  it('offers no share row even for an activity that carries a web id', async () => {
+    useAuthStore.setState({ authMethod: 'garmin' });
+    await renderMenu(false);
+
+    expect(screen.getByTestId('native-menu-activity.mapStyle')).toBeTruthy();
+    expect(
+      screen
+        .getAllByTestId('native-action')
+        .find((node) => node.props.children === 'activity.share')
+    ).toBeUndefined();
+  });
+});
 
 describe('the card menu on iOS', () => {
   it('is the shared context menu around the card, with no react-native Modal', async () => {

@@ -303,6 +303,12 @@ static TABLES: &[Table] = &[
          unlinks them and a backup never carries them",
     ),
     t(
+        "remote_writes",
+        Identity,
+        "what each linked browser changed, the last 200 writes; it goes with its browser, a \
+         sign-out and a backup never carries it",
+    ),
+    t(
         "remote_identity",
         Device,
         "this phone's own certificate, which linked browsers pinned",

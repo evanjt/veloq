@@ -71,6 +71,21 @@ it('keeps the same account without a prompt', async () => {
   expect(alert).not.toHaveBeenCalled();
 });
 
+it('keeps a Garmin-only library without a prompt when an intervals.icu athlete signs in', async () => {
+  jest.mocked(accountChange.getCachedAthleteId).mockResolvedValue('garmin:8841');
+  const alert = jest.spyOn(Alert, 'alert');
+  expect(await resolveLoginLibrary('i-b')).toBe('keep');
+  expect(alert).not.toHaveBeenCalled();
+});
+
+it('still asks before one intervals.icu athlete replaces another', async () => {
+  jest.mocked(accountChange.getCachedAthleteId).mockResolvedValue('i-a');
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  void resolveLoginLibrary('i-b');
+  await new Promise(process.nextTick);
+  expect(alert).toHaveBeenCalled();
+});
+
 it('does not name an unnamed library for the incoming athlete when settlement fails', async () => {
   press('mine');
   jest

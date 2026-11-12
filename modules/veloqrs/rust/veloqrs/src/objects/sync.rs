@@ -1344,6 +1344,21 @@ fn stamp_last_success(install: u64) {
     }
 }
 
+/// The library's coverage of the signed-in athlete's account, from a
+/// connection that holds no engine lock. The one read the phone's screens and
+/// a linked browser both make. Zeros when no credential is held.
+pub(crate) fn library_coverage_of(conn: &rusqlite::Connection) -> LibraryCoverage {
+    let Some(athlete_id) = SYNC_SERVICE.athlete_id() else {
+        return LibraryCoverage::default();
+    };
+    crate::persistence::activities::pooled::library_coverage(conn, &athlete_id)
+}
+
+/// The sync's in-memory status, as the phone's own status read answers it.
+pub(crate) fn sync_status() -> FfiSyncStatus {
+    SYNC_SERVICE.snapshot()
+}
+
 /// The process-wide sync service.
 pub static SYNC_SERVICE: LazyLock<SyncService> = LazyLock::new(|| {
     SyncService::starting_with(|force| start_full_sync(force).outcome, start_window_sync)
@@ -5212,13 +5227,7 @@ impl SyncManager {
     /// reads as nothing to report: nothing is known about the account, and a
     /// figure would be a claim.
     fn library_coverage(&self) -> LibraryCoverage {
-        let Some(athlete_id) = SYNC_SERVICE.athlete_id() else {
-            return LibraryCoverage::default();
-        };
-        with_reader(move |conn| {
-            crate::persistence::activities::pooled::library_coverage(conn, &athlete_id)
-        })
-        .unwrap_or_default()
+        with_reader(library_coverage_of).unwrap_or_default()
     }
 
     /// Fetch and store one date window of activities. Returns instantly,
@@ -9655,6 +9664,7 @@ mod body_count_tests {
     }
 
     impl EngineObserver for Bodies {
+        fn remote_wrote(&self, _kind: String) {}
         fn sync_progress(&self) {}
         fn sync_settled(&self) {}
         fn activities_stored(&self) {}

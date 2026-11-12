@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { routes } from 'veloqrs';
 
 import { debug } from '@/shared/debug/debug';
+import { followRouteOnFixes } from '@/features/recording/lib/routeFollowing';
 import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 
 const log = debug.create('RouteGuidance');
@@ -29,27 +30,22 @@ function buildFollower(routeId: string): Follower | null {
 /**
  * Places each fix of the ride on the chosen route and keeps the latest record in the live
  * store, where the map and every readout select it. The follower is built once per choice and
- * each fix costs one engine call, made from the store subscription and never from render.
+ * each fix costs one engine call, made from the store subscription (`followRouteOnFixes`) and
+ * never from render.
  */
 export function useRouteGuidance({ activityType, enabled }: Options): void {
   const choice = useRecordingLiveStore((s) => s.routeChoice);
   const routeId = enabled && choice?.activityType === activityType ? choice.routeId : null;
 
   useEffect(() => {
-    const { setGuidance } = useRecordingLiveStore.getState();
+    const { setGuidance, setRouteTurns } = useRecordingLiveStore.getState();
     setGuidance(null);
+    setRouteTurns([]);
     if (!routeId) return undefined;
     const follower = buildFollower(routeId);
     if (!follower) return undefined;
 
-    return useRecordingLiveStore.subscribe((state, prev) => {
-      if (state.currentLocation === prev.currentLocation) return;
-      const fix = state.currentLocation;
-      if (!fix) {
-        state.setGuidance(null);
-        return;
-      }
-      state.setGuidance(routes.advanceRouteFollower(follower, fix.latitude, fix.longitude));
-    });
+    setRouteTurns(follower.turns());
+    return followRouteOnFixes(follower);
   }, [routeId]);
 }

@@ -2739,14 +2739,17 @@ pub fn start_elevation_backfill() -> FfiStartOutcome {
 /// is off, and with no credential nothing is armed, since the credential's
 /// arrival asks again. A queue that is empty hands over to the detector
 /// cutover, which answers held while any of it remains and refuses while Route
-/// Matching is off; the pass that drains the queue hands over itself. The stored climb rows owed to a library that
-/// predates them start first, on a thread of their own. The series of tracks
-/// fetched before the engine recorded it is settled last, by the pass when one
-/// runs and on a thread of its own when none does.
+/// Matching is off; the pass that drains the queue hands over itself. The
+/// stored climb rows owed to a library that predates them start first, on a
+/// thread of their own, and so do the load and zone times owed to the source
+/// rows that have streams and no figures. The series of tracks fetched before
+/// the engine recorded it is settled last, by the pass when one runs and on a
+/// thread of its own when none does.
 pub fn start_owed_work() -> FfiStartOutcome {
     // The climb rows read only what is stored, so they are owed whatever the
     // credential and Route Matching say.
     crate::persistence::climb_bests::start_backfill();
+    crate::persistence::fitness::ride_metrics::start_backfill();
     crate::persistence::new_ground::start_pass();
     let outcome = match with_persistent_engine(|engine| engine.detection_enabled()) {
         None => return FfiStartOutcome::NotReady,

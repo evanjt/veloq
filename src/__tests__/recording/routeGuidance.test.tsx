@@ -13,6 +13,7 @@ import { useRouteGuidance } from '@/features/recording/hooks/useRouteGuidance';
 
 const mockFollow = jest.fn();
 const mockAdvance = jest.fn();
+const TURNS = [{ alongM: 300, angleDeg: 90, lat: 1, lng: 2 }];
 
 jest.mock('veloqrs', () => ({
   ...require('../__shared__/veloqrsStub'),
@@ -24,14 +25,14 @@ jest.mock('veloqrs', () => ({
 
 const record = (alongM: number) => ({ alongM, remainingM: 1000 - alongM, status: 'OnRoute' });
 
-let followers: Record<string, { id: string }>;
+let followers: Record<string, { id: string; turns: () => unknown[] }>;
 
 beforeEach(() => {
   useRecordingLiveStore.getState().reset();
   mockFollow.mockReset();
   mockAdvance.mockReset();
   followers = {};
-  mockFollow.mockImplementation((id: string) => (followers[id] = { id }));
+  mockFollow.mockImplementation((id: string) => (followers[id] = { id, turns: () => TURNS }));
   mockAdvance.mockImplementation((_f: unknown, lat: number) => record(Math.round(lat * 100)));
 });
 
@@ -94,6 +95,26 @@ describe('useRouteGuidance', () => {
     expect(useRecordingLiveStore.getState().guidance).toBeNull();
     fix(2);
     expect(mockAdvance).toHaveBeenCalledTimes(1);
+  });
+
+  it('holds the followed route turns in the live store while the route is followed', () => {
+    choose('a');
+    render();
+    expect(useRecordingLiveStore.getState().routeTurns).toEqual(TURNS);
+    fix(1);
+    expect(useRecordingLiveStore.getState().routeTurns).toEqual(TURNS);
+  });
+
+  it('drops the turns when the choice becomes no route, and when the session resets', () => {
+    choose('a');
+    render();
+    choose(null);
+    expect(useRecordingLiveStore.getState().routeTurns).toEqual([]);
+
+    choose('a');
+    expect(useRecordingLiveStore.getState().routeTurns).toEqual(TURNS);
+    act(() => useRecordingLiveStore.getState().reset());
+    expect(useRecordingLiveStore.getState().routeTurns).toEqual([]);
   });
 
   it('holds no follower for another sport or outside GPS mode', () => {

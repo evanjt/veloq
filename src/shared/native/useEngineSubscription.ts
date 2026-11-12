@@ -23,11 +23,14 @@ import { useEngineReady } from './useEngineReady';
  * `fitParsed` because a FIT landing is what turns an awaiting strength tab
  * into a ready one. `gpsTrackStored` is on it because a bulk download stores
  * tracks one at a time and announces nothing on `activities` until it ends.
+ * `settings` is announced when a linked browser changes a setting the phone
+ * hydrated once at launch.
  */
 export type EngineEvent =
   | 'activities'
   | 'groups'
   | 'sections'
+  | 'settings'
   | 'detectionApplied'
   | 'backfillPhase'
   | 'streamBackfillPhase'

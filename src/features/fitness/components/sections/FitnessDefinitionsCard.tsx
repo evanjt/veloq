@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ExplanationCard, type ExplanationRow } from '@/shared/ui';
-import { INTERVALS_URLS } from '@/shared/app/constants';
+import { useSource } from '@/shared/app/source/useSource';
 import { useChartColors } from '@/shared/charts';
 
 interface FitnessDefinitionsCardProps {
@@ -14,6 +14,8 @@ interface FitnessDefinitionsCardProps {
 export function FitnessDefinitionsCard({ fitnessDays, fatigueDays }: FitnessDefinitionsCardProps) {
   const { t } = useTranslation();
   const chartColors = useChartColors();
+  const source = useSource();
+  const links = source?.links ?? null;
   // A read that gave no days leaves fitness and fatigue undefined rather than
   // state time constants the athlete may not have.
   const rows: ExplanationRow[] = [
@@ -43,6 +45,7 @@ export function FitnessDefinitionsCard({ fitnessDays, fatigueDays }: FitnessDefi
       text: t('fitnessScreen.formDescription'),
       dotColor: chartColors.formLine,
     },
+    ...(source?.id === 'garmin' ? [{ key: 'method', text: t('fitnessScreen.methodGarmin') }] : []),
   ];
   return (
     <ExplanationCard
@@ -51,11 +54,15 @@ export function FitnessDefinitionsCard({ fitnessDays, fatigueDays }: FitnessDefi
       links={{
         heading: t('fitnessScreen.learnMore'),
         items: [
-          {
-            key: 'fitnessPage',
-            label: t('fitnessScreen.linkFitnessPage'),
-            url: INTERVALS_URLS.fitnessPage,
-          },
+          ...(links
+            ? [
+                {
+                  key: 'fitnessPage',
+                  label: t('fitnessScreen.linkFitnessPage'),
+                  url: links.fitnessPage,
+                },
+              ]
+            : []),
           {
             key: 'trainingLoad',
             label: t('fitnessScreen.linkTrainingLoad'),

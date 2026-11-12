@@ -7,7 +7,10 @@
  * its content in its name, the page names exactly those files, a rebuild of
  * the same source gives the same names, an edit moves the script's name and
  * leaves the stylesheet's, nothing from an earlier build survives, and the
- * content security policy reaches the output byte for byte.
+ * content security policy reaches the output byte for byte. The map renderer is
+ * the app's vendored copy: its script, stylesheet and licence ship under hashed
+ * names with the app's bytes, the page loads the script before its module, and a
+ * copy that is not the bytes the app pins is refused.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -30,6 +33,12 @@ import { gitFreeEnv } from '../__shared__/gitFixture';
 const ROOT = resolve(__dirname, '../../..');
 const BUILD = join(ROOT, 'scripts/build-connect-page.mjs');
 const GUARD = join(ROOT, 'scripts/check-connect-page-local.mjs');
+const RENDERER = 'modules/veloqrs/assets/basemap/renderer';
+
+/** The app's locale bundles and type module, which the build reads beside the page. */
+const I18N = resolve(__dirname, '../../i18n');
+/** The app's source, which the page imports through its alias. */
+const APP_SOURCE = resolve(__dirname, '../..');
 
 const roots: string[] = [];
 
@@ -43,6 +52,18 @@ function scratch(): string {
   roots.push(root);
   mkdirSync(join(root, 'web'), { recursive: true });
   cpSync(join(ROOT, 'web/connect'), join(root, 'web/connect'), { recursive: true });
+  // The page reads the engine's track encoding with the app's own decoder.
+  mkdirSync(join(root, 'modules/veloqrs/src'), { recursive: true });
+  cpSync(join(ROOT, 'modules/veloqrs/src/coords.ts'), join(root, 'modules/veloqrs/src/coords.ts'));
+  // The renderer the app ships is copied, so a test can alter it. The source the
+  // page imports is linked, all but the locale bundles, which a test edits.
+  mkdirSync(join(root, RENDERER), { recursive: true });
+  cpSync(join(ROOT, RENDERER), join(root, RENDERER), { recursive: true });
+  mkdirSync(join(root, 'src'));
+  for (const entry of readdirSync(APP_SOURCE)) {
+    if (entry !== 'i18n') symlinkSync(join(APP_SOURCE, entry), join(root, 'src', entry));
+  }
+  cpSync(I18N, join(root, 'src/i18n'), { recursive: true });
   // The page imports React, which the bundler resolves from the root it builds.
   symlinkSync(join(ROOT, 'node_modules'), join(root, 'node_modules'));
   return root;
@@ -81,6 +102,65 @@ describe('connect page build', () => {
     expect(built).toContain(style);
     expect(script).toMatch(/^boot-[A-Z0-9]{8}\.js$/);
     expect(existsSync(join(outputOf(root), 'qr.LICENSE.txt'))).toBe(true);
+  });
+
+  it("ships the app's renderer, stylesheet and licence under hashed names and loads the renderer first", () => {
+    const root = scratch();
+    expect(build(root)).toMatchObject({ status: 0 });
+    const html = page(root);
+    const script = html.match(/<script src="(maplibre-[A-Z0-9]{8}\.js)"><\/script>/)?.[1];
+    const style = html.match(/<link rel="stylesheet" href="(maplibre-[A-Z0-9]{8}\.css)"/)?.[1];
+    expect(script).toBeDefined();
+    expect(style).toBeDefined();
+    expect(html.indexOf(script as string)).toBeLessThan(html.indexOf('<script type="module"'));
+
+    const app = (name: string) => readFileSync(join(ROOT, RENDERER, name));
+    expect(readFileSync(join(outputOf(root), script as string))).toEqual(
+      app('maplibre-gl-5.19.0.js')
+    );
+    expect(readFileSync(join(outputOf(root), style as string))).toEqual(
+      app('maplibre-gl-5.19.0.css')
+    );
+    const licence = files(root).find((name) => /^maplibre\.LICENSE-[A-Z0-9]{8}\.txt$/.test(name));
+    expect(licence).toBeDefined();
+    expect(readFileSync(join(outputOf(root), licence as string))).toEqual(app('LICENSE.txt'));
+  });
+
+  it("bundles the app's map styles without the native modules its theme index reaches", () => {
+    const root = scratch();
+    expect(build(root)).toMatchObject({ status: 0 });
+    const own = files(root).filter((name) => /^(main|boot|chunk)-.*\.js$/.test(name));
+    const bundled = own.map((name) => readFileSync(join(outputOf(root), name), 'utf8')).join('\n');
+    expect(bundled).toContain('https://tiles.openfreemap.org/planet');
+    expect(bundled).not.toContain('react-native');
+  });
+
+  it('refuses a renderer that is not the bytes the app pins', () => {
+    const root = scratch();
+    const renderer = join(root, RENDERER, 'maplibre-gl-5.19.0.js');
+    writeFileSync(renderer, `${readFileSync(renderer, 'utf8')}\n`);
+    const result = build(root);
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain('is not the bytes');
+  });
+
+  it('refuses a renderer with no licence beside it', () => {
+    const root = scratch();
+    rmSync(join(root, RENDERER, 'LICENSE.txt'));
+    const result = build(root);
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain('LICENSE.txt is missing');
+  });
+
+  it("leaves the renderer's names alone on an edit to the page", () => {
+    const root = scratch();
+    build(root);
+    const named = () => files(root).filter((name) => name.startsWith('maplibre'));
+    const before = named();
+    const link = join(root, 'web/connect/link.ts');
+    writeFileSync(link, readFileSync(link, 'utf8').replace('= 110;', '= 111;'));
+    build(root);
+    expect(named()).toEqual(before);
   });
 
   it('gives the same names when the same source is built twice', () => {
@@ -131,6 +211,67 @@ describe('connect page build', () => {
     const result = build(root);
     expect(result.status).not.toBe(0);
     expect(result.output).toContain('index.html does not load boot.ts');
+  });
+});
+
+describe('connect page locale chunks', () => {
+  const locales = () => JSON.parse(readFileSync(join(I18N, 'locales/en-GB.json'), 'utf8'));
+
+  /** The manifest the page carries: tag to chunk path. */
+  function manifest(html: string): Record<string, string> {
+    const raw = html.match(
+      /<script type="application\/json" id="locale-chunks">([^<]*)<\/script>/
+    )?.[1];
+    if (!raw) throw new Error('the built page carries no locale manifest');
+    return JSON.parse(raw);
+  }
+
+  const leaves = (value: unknown, prefix = ''): string[] =>
+    value && typeof value === 'object'
+      ? Object.entries(value).flatMap(([key, child]) => leaves(child, `${prefix}${key}.`))
+      : [prefix];
+
+  it('emits one hashed chunk per supported locale, named by the page', () => {
+    const root = scratch();
+    expect(build(root)).toMatchObject({ status: 0 });
+    const chunks = manifest(page(root));
+    const { SUPPORTED_LOCALES } = jest.requireActual('../../i18n/types');
+    expect(Object.keys(chunks).sort()).toEqual([...SUPPORTED_LOCALES].sort());
+    const held = readdirSync(join(outputOf(root), 'locales')).sort();
+    expect(held).toEqual(
+      Object.values(chunks)
+        .map((path) => path.replace('locales/', ''))
+        .sort()
+    );
+    for (const path of Object.values(chunks)) {
+      expect(path).toMatch(/^locales\/[A-Za-z0-9-]+-[0-9a-f]{8,}\.json$/);
+    }
+  });
+
+  it('holds only the page namespaces, and every key en-GB holds, in each chunk', () => {
+    const root = scratch();
+    build(root);
+    const expected = leaves(locales().connectPage).sort();
+    for (const path of Object.values(manifest(page(root)))) {
+      const chunk = JSON.parse(readFileSync(join(outputOf(root), path), 'utf8'));
+      expect(Object.keys(chunk)).toEqual(['connectPage']);
+      // A language with more plural forms than English holds extra forms, never fewer keys.
+      const base = (key: string) => key.replace(/_(zero|one|two|few|many|other)\.$/, '.');
+      const own = new Set(leaves(chunk.connectPage).map(base));
+      expect(expected.map(base).filter((key) => !own.has(key))).toEqual([]);
+    }
+  });
+
+  it('names a chunk by its content, so an edited string moves only that locale', () => {
+    const root = scratch();
+    build(root);
+    const before = manifest(page(root));
+    const file = join(root, 'src/i18n/locales/fr.json');
+    writeFileSync(file, readFileSync(file, 'utf8').replace('Non associé', 'Non lié'));
+    build(root);
+    const after = manifest(page(root));
+    expect(after.fr).not.toBe(before.fr);
+    expect(after.ja).toBe(before.ja);
   });
 });
 

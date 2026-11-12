@@ -25,6 +25,7 @@ jest.mock('@/shared/debug/tabSwitchTiming', () => ({ useTabFirstFrame: jest.fn()
 jest.mock('@/shared/debug/renderTimer', () => ({
   logScreenRender: () => jest.fn(),
   logMemory: jest.fn(),
+  recordAppMetric: jest.fn(),
 }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),

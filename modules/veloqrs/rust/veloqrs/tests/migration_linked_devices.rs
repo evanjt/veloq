@@ -106,3 +106,36 @@ fn signing_out_unlinks_every_device() {
         Some(&b"phone"[..])
     );
 }
+
+#[test]
+fn an_upgraded_library_logs_a_browsers_writes_and_drops_them_with_it() {
+    let _serial_state = super::serial_state();
+    let (_dir, conn) = upgraded_release_library();
+    let id = linked_devices::add(&conn, "Firefox on Linux", LAPTOP, 1).unwrap();
+
+    assert!(
+        linked_devices::recent_writes(&conn, &id, 10)
+            .unwrap()
+            .is_empty()
+    );
+    linked_devices::record_write(
+        &conn,
+        LAPTOP,
+        "section.rename",
+        "s1",
+        "Renamed section A to B",
+        5,
+    )
+    .unwrap();
+    linked_devices::record_write(&conn, STRANGER, "section.rename", "s2", "not linked", 6).unwrap();
+    let rows = linked_devices::recent_writes(&conn, &id, 10).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].summary, "Renamed section A to B");
+
+    assert!(linked_devices::remove(&conn, &id).unwrap());
+    assert!(
+        linked_devices::recent_writes(&conn, &id, 10)
+            .unwrap()
+            .is_empty()
+    );
+}

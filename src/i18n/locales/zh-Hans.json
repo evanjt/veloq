@@ -40,7 +40,8 @@
       "connectGarmin": "连接 Garmin"
     },
     "provenance": {
-      "garminOnPhone": "由你的 Garmin 文件补全"
+      "garminOnPhone": "由你的 Garmin 文件补全",
+      "veloqNumbers": "由 Veloq 根据你的 Garmin 文件在这部手机上计算。"
     },
     "syncFailed": {
       "title": "无法同步",
@@ -132,7 +133,8 @@
       "pace": "配速",
       "cadence": "踏频",
       "movingTime": "移动时间",
-      "elapsedTime": "总用时"
+      "elapsedTime": "总用时",
+      "needsIntervals": "需要 intervals.icu"
     },
     "hrZoneTotal": "有心率记录的时间：{{duration}}",
     "powerZoneTotal": "有功率记录的时间：{{duration}}",
@@ -216,7 +218,8 @@
       "route": "路线",
       "sections": "路段",
       "exercises": "练习",
-      "lengths": "趟数"
+      "lengths": "趟数",
+      "laps": "分段"
     },
     "primary": "主要",
     "secondary": "次要",
@@ -768,6 +771,10 @@
     "other": {
       "short": "其他",
       "long": "其他"
+    },
+    "lap": {
+      "short": "分段",
+      "long": "分段"
     }
   },
   "export": {
@@ -817,7 +824,8 @@
       "failedBody": "上次同步在任何活动到达前就停止了。",
       "emptyTitle": "暂无活动",
       "emptyBody": "活动来自你的 intervals.icu 账户，也可以在这里记录。",
-      "record": "记录活动"
+      "record": "记录活动",
+      "emptyBodyGarmin": "活动来自你的 Garmin 账户，或来自在此处的录制。"
     },
     "noActivitiesFor": "没有符合 {{filters}} 的活动",
     "searchPlaceholder": "搜索活动…",
@@ -861,7 +869,8 @@
     "noData": "无可用体能数据",
     "noDataCause": "体能、疲劳和状态来自 intervals.icu，而 intervals.icu 在此时间段内没有保存任何数据。",
     "restDay": "休息日",
-    "selectActivity": "选择活动"
+    "selectActivity": "选择活动",
+    "noDataCauseGarmin": "体能、疲劳和状态需要训练负荷，而 Veloq 没有这一时段的训练负荷。"
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -882,7 +891,9 @@
       "calendar": "日历",
       "performance": "表现",
       "trends": "趋势"
-    }
+    },
+    "provenanceGarmin": "根据你的 Garmin 骑行记录在这部手机上计算。",
+    "methodGarmin": "Garmin 文件不含训练负荷，因此 Veloq 在这部手机上计算每次骑行的负荷，体能、疲劳和状态由这些负荷得出。"
   },
   "formZones": {
     "transition": "过渡期",
@@ -1392,7 +1403,10 @@
       "peek": "预览",
       "half": "一半",
       "full": "全部"
-    }
+    },
+    "underPointRoute": "路线 {{number}}",
+    "underPointNoRoute": "不在任何路线中",
+    "underPointDrawn": "已绘制 {{drawn}}/{{total}}"
   },
   "metrics": {
     "activityCount": "活动",
@@ -1676,6 +1690,14 @@
       "nearby": "附近",
       "allRoutes": "所有路线"
     },
+    "guidance": {
+      "remaining": "还剩{{distance}}",
+      "notJoined": "距路线{{distance}}",
+      "offRoute": "已偏离路线 · {{distance}}",
+      "turnLeft": "{{distance}}后左转",
+      "turnRight": "{{distance}}后右转",
+      "turnBack": "{{distance}}后掉头"
+    },
     "returnToRecording": "返回记录",
     "batteryOptNudge": "关闭 Veloq 的电池优化后，长时间记录效果最佳。",
     "batteryOptOpenSettings": "打开电池设置",
@@ -1711,7 +1733,8 @@
     },
     "recentTypes": "最近",
     "caloriesMethod": "有传感器时根据平均心率并假定年龄为 {{age}} 岁估算，否则根据运动类型和移动时间估算。",
-    "caloriesDefaultWeight": "你的资料中没有体重，因此假定为 {{weight}} kg。"
+    "caloriesDefaultWeight": "你的资料中没有体重，因此假定为 {{weight}} kg。",
+    "savedLocallyNoUploadGarmin": "骑行已保存在此设备上。不会上传。"
   },
   "routeDetail": {
     "routeNotFound": "未找到路线"
@@ -3326,5 +3349,248 @@
     "connectedSince": "自 {{time}} 起已连接",
     "notConnected": "未连接",
     "manage": "管理已关联的设备"
+  },
+  "connectPage": {
+    "title": "Veloq Connect",
+    "language": "语言",
+    "status": {
+      "unpaired": "未关联",
+      "inviting": "正在等待扫描代码",
+      "proving": "正在检查手机",
+      "confirming": "请在手机上确认",
+      "waiting": "正在等待手机",
+      "connecting": "正在连接",
+      "connected": "已连接",
+      "update": "请更新手机上的 Veloq",
+      "unsupported": "不受支持"
+    },
+    "unsupported": "此浏览器无法与手机关联。请使用最新版 Chrome、Edge 或 Firefox。",
+    "notice": {
+      "refused": "手机拒绝了此浏览器。请用新的代码重新关联。",
+      "declined": "手机上已拒绝关联。",
+      "removed": "此浏览器已在手机上移除。请用新的代码重新关联。",
+      "unreachable": "无法从此处连接到手机。请让两者使用同一 Wi-Fi，并扫描新的代码。"
+    },
+    "screens": {
+      "feed": "动态",
+      "fitness": "体能",
+      "insights": "洞察",
+      "map": "地图",
+      "settings": "设置"
+    },
+    "railLabel": "屏幕",
+    "yourPhone": "你的手机",
+    "laterScreen": "此屏幕尚未在浏览器中提供。请在手机上打开。",
+    "footer": "你的数据直接从手机传到此页面，仅在页面打开期间保留。",
+    "unlink": "取消关联此浏览器",
+    "pair": {
+      "heading": "关联此浏览器",
+      "step1": "在手机上打开 Veloq。",
+      "step2": "依次进入设置、已关联设备、关联设备。",
+      "step3": "扫描此代码。",
+      "codeLabel": "关联代码"
+    },
+    "waiting": {
+      "heading": "正在等待手机",
+      "body": "请在手机上打开 Veloq。此页面会自动连接，无论在同一 Wi-Fi 还是大多数其他网络。",
+      "unreachable": "无法从此处连接到手机。请让两者使用同一 Wi-Fi。"
+    },
+    "update": {
+      "heading": "请更新手机上的 Veloq",
+      "body": "此页面与手机上的 Veloq 所用的链接版本不一致。请更新手机上的 Veloq，然后重新打开此页面。"
+    },
+    "keys": {
+      "heading": "按键",
+      "tabs": "动态、体能、洞察、地图、设置",
+      "search": "搜索动态",
+      "close": "关闭活动",
+      "list": "此列表",
+      "range": "1 至 5"
+    },
+    "library": {
+      "activities": "活动",
+      "searchPlaceholder": "搜索 (/)",
+      "searchLabel": "搜索活动",
+      "pick": "选择一项活动",
+      "loadMore": "加载更多",
+      "sportLabel": "运动",
+      "summary": "摘要",
+      "fitnessTrend": "过去 30 天的体能",
+      "range": "范围",
+      "sortNote_other": "已在目前载入的 {{count}} 项活动中排序；滚动时会载入更多。",
+      "sortNote_one": "已在目前载入的 {{count}} 项活动中排序；滚动时会载入更多。"
+    },
+    "families": {
+      "ride": "骑行",
+      "run": "跑步",
+      "winter": "冬季运动",
+      "water": "水上运动",
+      "foot": "步行",
+      "strength": "力量",
+      "other": "其他"
+    },
+    "facts": {
+      "thisWeek": "本周",
+      "lastWeek": "上周",
+      "fitness": "体能",
+      "form": "状态",
+      "hrv": "HRV",
+      "restingHr": "静息心率",
+      "distance": "距离",
+      "movingTime": "移动时间",
+      "elapsedTime": "经过时间",
+      "averageSpeed": "平均速度",
+      "topSpeed": "最高速度",
+      "climbing": "爬升",
+      "averageHr": "平均心率",
+      "averagePower": "平均功率",
+      "trainingLoad": "训练负荷",
+      "time": "时间"
+    },
+    "weekTotal_one": "{{time}} · {{count}} 项活动",
+    "weekTotal_other": "{{time}} · {{count}} 项活动",
+    "connection": {
+      "heading": "连接",
+      "connectedFor": "已连接时长",
+      "path": "路径",
+      "thisBrowser": "此浏览器",
+      "phone": "手机",
+      "roundTrip": "往返时间",
+      "checking": "正在检查",
+      "notMeasured": "未测量",
+      "pathDirect": "直连，同一网络",
+      "pathStun": "跨网络，通过 STUN",
+      "pathUnknown": "暂时未知",
+      "trafficLabel": "最近三分钟每秒字节数",
+      "traffic": "已接收 {{received}}，已发送 {{sent}}"
+    },
+    "activity": {
+      "back": "返回动态",
+      "untitled": "活动",
+      "map": "地图",
+      "facts": "活动详情",
+      "charts": "图表",
+      "noSeries": "此活动没有已记录的数据序列。",
+      "sections": "路段",
+      "routes": "路线",
+      "intervals": "间歇"
+    },
+    "chart": {
+      "series": "数据序列",
+      "axis": "坐标轴",
+      "label": "活动数据序列",
+      "elevation": "海拔",
+      "heartRate": "心率",
+      "power": "功率",
+      "cadence": "踏频",
+      "speed": "速度",
+      "grade": "坡度",
+      "temperature": "温度"
+    },
+    "fitness": {
+      "range": "范围",
+      "days_other": "{{count}} 天",
+      "allTime": "全部时间",
+      "period": "周期",
+      "bestEfforts": "最佳成绩",
+      "thresholds": "阈值",
+      "fitnessFatigue": "体能与疲劳",
+      "fatigue": "疲劳",
+      "dailyLoad": "每日负荷",
+      "powerZones": "功率区间",
+      "powerCurve": "功率曲线",
+      "paceCurve": "配速曲线",
+      "noData": "此范围内没有数据。",
+      "noWellness": "手机上没有此范围内的健康数据。",
+      "wellnessNotFetched": "此范围内的健康数据尚未下载到手机。",
+      "none": "无",
+      "loadReadout": "{{date}} · 负荷 {{load}}",
+      "noActivities": "此范围内没有活动。",
+      "totalLoad": "总负荷 {{load}}",
+      "noZones": "此范围内没有区间时间。",
+      "zone": "区间 {{n}}",
+      "curveMissing": "此曲线尚未下载到手机。",
+      "effortSport": "运动",
+      "effortEffort": "成绩项目",
+      "effortBest": "最佳",
+      "effortActivity": "活动",
+      "effortsMissing": "尚未下载到手机。",
+      "cyclingFtp": "骑行 FTP",
+      "estimatedFtp": "估算 FTP",
+      "runningLthr": "跑步 LTHR",
+      "recentRides": "最近骑行",
+      "recentRuns": "最近跑步",
+      "recentSwims": "最近游泳",
+      "failed": "手机无法响应此请求。",
+      "days_one": "{{count}} 天"
+    },
+    "strength": {
+      "heading": "力量",
+      "period": "周期",
+      "period7d": "7 天",
+      "period1m": "30 天",
+      "period3m": "3 个月",
+      "period6m": "6 个月",
+      "period1y": "1 年",
+      "owed_other": "{{count}} 项力量活动在你的手机上还没有组数。",
+      "muscles": "肌肉",
+      "weeks": "周",
+      "exercises": "动作",
+      "colMuscle": "肌肉",
+      "colWeightedSets": "加权组数",
+      "colReps": "次数",
+      "colVolume": "总量 (kg)",
+      "colExercises": "动作",
+      "colWeekOf": "周起始",
+      "colSessions": "训练次数",
+      "colSets": "组数",
+      "colMostWorked": "训练最多的肌肉（加权组数）",
+      "exercise": "动作",
+      "unknownExercise": "未知动作",
+      "colDate": "日期",
+      "colActivity": "活动",
+      "colBestSet": "最佳组",
+      "colOneRepMax": "估算单次最大重量",
+      "line": "{{sets}} 组 · {{reps}} 次 · {{kg}} kg",
+      "bestSetReps_other": "{{count}} 次",
+      "owed_one": "{{count}} 项力量活动在你的手机上还没有组数。",
+      "bestSetReps_one": "{{count}} 次"
+    },
+    "recordings": {
+      "heading": "录制",
+      "intro": "保存在此手机上的骑行和记录。上传和删除在你的手机上进行。",
+      "notFound": "未找到录制",
+      "one": "录制",
+      "activityType": "活动类型",
+      "started": "开始时间",
+      "duration": "时长",
+      "upload": "上传",
+      "lastError": "最近错误",
+      "notes": "备注"
+    },
+    "settings": {
+      "onThePhone": "在手机上",
+      "openOnPhone": "请在手机上打开。",
+      "notOnBrowser": "浏览器中暂未提供",
+      "notOnBrowserBody": "此设置在浏览器中暂未提供。请在手机上打开。",
+      "pick": "选择一项设置",
+      "profile": "个人资料",
+      "libraryStatus": "资料库状态",
+      "sync": "同步",
+      "activitiesOnPhone": "手机上的活动",
+      "tracksOnPhone": "手机上的 GPS 轨迹",
+      "streamCache": "数据流缓存",
+      "awaitingDetection": "等待检测",
+      "backup": "备份",
+      "backupSetUp": "已在手机上设置",
+      "name": "姓名",
+      "units": "单位",
+      "weight": "体重"
+    },
+    "compare": {
+      "heading_other": "正在比较 {{count}} 项活动",
+      "dropped": "最多四项活动：已移除 {{names}}。",
+      "heading_one": "正在比较 {{count}} 项活动"
+    }
   }
 }

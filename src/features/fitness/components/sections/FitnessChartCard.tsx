@@ -1,10 +1,12 @@
 import React, { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { SharedValue } from 'react-native-reanimated';
 
 import { useTheme } from '@/shared/app';
-import { spacing, opacity, stroke } from '@/theme';
+import { useSource } from '@/shared/app/source/useSource';
+import { spacing, opacity, stroke, typography, themedStyles, type Palette } from '@/theme';
 import { Card } from '@/shared/ui/Card';
 import { ErrorState } from '@/shared/ui/ErrorState';
 import { HeldRender } from '@/shared/ui/HeldRender';
@@ -53,6 +55,8 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
 }: FitnessChartCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const fromGarmin = useSource()?.id === 'garmin';
+  const provenanceStyle = themedStyles(makeProvenanceStyle, isDark).provenance;
   // The plots stack on one date axis, so each leaves the widest value-axis gutter's width on its left.
   const [gutterWidth, setGutterWidth] = useState(0);
   const onAxisWidth = useCallback(
@@ -78,6 +82,11 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
   return (
     <View style={styles.chartFrame}>
       <Card variant="flat" title={t('fitnessScreen.fitnessAndFatigue')}>
+        {fromGarmin ? (
+          <Text testID="fitness-provenance" style={provenanceStyle}>
+            {t('fitnessScreen.provenanceGarmin')}
+          </Text>
+        ) : null}
         <FitnessChart
           data={wellness}
           coverage={wellnessCoverage}
@@ -155,3 +164,12 @@ const styles = StyleSheet.create({
     borderTopColor: opacity.overlayDark.medium,
   },
 });
+
+const makeProvenanceStyle = (palette: Palette) =>
+  StyleSheet.create({
+    provenance: {
+      ...typography.caption,
+      color: palette.textSecondary,
+      marginBottom: spacing.xs,
+    },
+  });

@@ -41,23 +41,23 @@ const apk = apkFlag === -1 ? null : resolve(argv[apkFlag + 1]);
 // The APK is what gets installed, so its own bundle is judged and the working
 // tree's age is not: an installed build is old by design once `src/` moves on.
 if (apk) {
-  let text;
+  let bytes;
   try {
-    text = execFileSync('unzip', ['-p', apk, APK_ENTRY], {
-      encoding: 'utf8',
+    bytes = execFileSync('unzip', ['-p', apk, APK_ENTRY], {
       maxBuffer: 256 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'ignore'],
     });
   } catch {
-    text = '';
+    bytes = Buffer.alloc(0);
   }
-  if (text === '') {
+  if (bytes.length === 0) {
     console.error(`${apk} has no ${APK_ENTRY}.`);
     console.error('Build it again with `npm run android:debug`.');
     process.exit(1);
   }
+  const text = bytes.toString('utf8');
   refuseStub(apk, text, Buffer.byteLength(text), builtFrom(apk));
-  refuseCommitMark(apk, text, variantOf(apk));
+  refuseCommitMark(apk, bytes, variantOf(apk));
   process.exit(0);
 }
 
@@ -119,13 +119,14 @@ function variantOf(path) {
  * line a handset run greps for, and a variant that is neither dev nor production would
  * be read as production by the gate while looking like a dev build to a person.
  */
-function refuseCommitMark(label, text, variant) {
+function refuseCommitMark(label, bytes, variant) {
   if (variant === null || variant === 'production') return;
   if (variant !== 'dev') {
     console.error(`${label} carries variant "${variant}", which is neither dev nor production.`);
     process.exit(1);
   }
-  if (!text.includes('[COMMIT]')) {
+  // Hermes stores a string with a non-ASCII character as UTF-16, and the mark has one.
+  if (!bytes.includes('[COMMIT]') && !bytes.includes(Buffer.from('[COMMIT]', 'utf16le'))) {
     console.error(`${label} is a dev build whose bundle has no [COMMIT] line.`);
     console.error('A handset timing reads that line from logcat; build it again from this tree.');
     process.exit(1);

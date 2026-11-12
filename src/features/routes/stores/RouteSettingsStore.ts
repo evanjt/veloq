@@ -53,6 +53,8 @@ interface RouteSettingsState {
 
   // Actions
   initialise: () => Promise<void>;
+  /** Read the stored settings again, after something else wrote them. */
+  reload: () => Promise<void>;
   setEnabled: (enabled: boolean) => Promise<void>;
 }
 
@@ -81,6 +83,18 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
       }
     } catch {
       set({ isLoaded: true });
+    }
+  },
+
+  reload: async () => {
+    try {
+      const stored = await getSetting(ROUTE_SETTINGS_KEY);
+      const parsed = stored
+        ? safeJsonParseWithSchema(stored, isRouteSettings, DEFAULT_SETTINGS)
+        : DEFAULT_SETTINGS;
+      set({ settings: pickSettings(parsed), isLoaded: true });
+    } catch (error) {
+      log.error('Failed to reload settings:', error);
     }
   },
 

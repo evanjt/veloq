@@ -54,6 +54,15 @@ impl RouteFollower {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         core.advance(latitude, longitude).into()
     }
+
+    /// The route's turns in its own direction, nearest the start first, for the map to mark.
+    pub fn turns(&self) -> Vec<crate::persistence::routes::follower::RouteTurn> {
+        self.core
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .turns()
+            .to_vec()
+    }
 }
 
 #[derive(serde::Serialize, uniffi::Record)]

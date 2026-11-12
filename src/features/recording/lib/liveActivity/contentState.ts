@@ -35,6 +35,8 @@ export interface LiveActivityContentState {
   distanceLabel: string;
   speedLabel: string;
   trace: LiveActivityTrace | null;
+  /** The off-route line of a followed route, written when the state changes. Null when there is none. */
+  guidance: string | null;
   /** The line an ended card shows in place of the controls, translated here. Null while live. */
   endedLabel: string | null;
   /**
@@ -54,6 +56,8 @@ export interface ContentStateInput {
   distanceLabel: string;
   speedLabel: string;
   gps: RouteTrack;
+  /** The followed route's off-route line, when the ride is off it. */
+  guidance?: string | null | undefined;
   /** Set for the final state of a stopped ride: the line it shows until it is dismissed. */
   endedLabel?: string | undefined;
 }
@@ -131,6 +135,7 @@ export function buildContentState(input: ContentStateInput): LiveActivityContent
     distanceLabel: input.distanceLabel,
     speedLabel: input.speedLabel,
     trace: preview ? { points: preview.points, aspect: preview.aspect } : null,
+    guidance: ended ? null : (input.guidance ?? null),
     endedLabel: input.endedLabel ?? null,
     staleAt: input.now + (ended ? LIVE_ACTIVITY_ENDED_DISMISS_MS : LIVE_ACTIVITY_STALE_MS),
   });

@@ -117,12 +117,25 @@ describe('a Garmin library at launch', () => {
 
   it('is asked about, never wiped unasked, when another account signs in over it', () => {
     expect(launchIdentityAction('garmin:8841', 'garmin:9000', 400)).toBe('ask-first');
-    expect(launchIdentityAction('garmin:8841', 'i77', 400)).toBe('ask-first');
     expect(launchIdentityAction('i77', 'garmin:8841', 400)).toBe('ask-first');
+  });
+
+  it('is adopted, not asked about, when an intervals.icu athlete signs in over it', () => {
+    expect(launchIdentityAction('garmin:8841', 'i77', 400)).toBe('adopt');
+    expect(launchIdentityAction('garmin:8841', 'i77', 0)).toBe('adopt');
   });
 
   it('is kept by a sign-in as the same Garmin account and confirmed for another', () => {
     expect(accountChangeAction('garmin:8841', 'garmin:8841', 400)).toBe('keep');
     expect(accountChangeAction('garmin:8841', 'garmin:9000', 400)).toBe('confirm-then-wipe');
+  });
+
+  it('is adopted, never wiped, by an intervals.icu sign-in', () => {
+    expect(accountChangeAction('garmin:8841', 'i77', 400)).toBe('adopt');
+    expect(accountChangeAction('garmin:8841', 'i77', 0)).toBe('adopt');
+  });
+
+  it('is still confirmed before an intervals.icu library gives way to a Garmin key', () => {
+    expect(accountChangeAction('i77', 'garmin:8841', 400)).toBe('confirm-then-wipe');
   });
 });

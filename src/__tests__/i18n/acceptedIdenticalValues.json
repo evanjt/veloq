@@ -116,7 +116,15 @@
     "cache.stageProgress": "A stage and its percentage, no words to translate.",
     "common.progressAnnouncement": "Numeric percentage template.",
     "backgroundJobs.progressPercent": "Numeric percentage template.",
-    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
+    "connectPage.title": "Product name.",
+    "connectPage.screens.feed": "Same word in this language.",
+    "connectPage.library.sportLabel": "Same word in this language.",
+    "connectPage.facts.hrv": "Conventional training or recording abbreviation.",
+    "connectPage.facts.distance": "Same word in this language.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation.",
+    "connectPage.fitness.zone": "Word or phrase spelled the same in Danish.",
+    "connectPage.fitness.effortSport": "Word or phrase spelled the same in Danish.",
+    "connectPage.recordings.upload": "Word or phrase spelled the same in Danish."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -222,7 +230,16 @@
     "cache.stageProgress": "A stage and its percentage, no words to translate.",
     "common.progressAnnouncement": "Numeric percentage template.",
     "backgroundJobs.progressPercent": "Numeric percentage template.",
-    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
+    "connectPage.title": "Product name.",
+    "connectPage.screens.feed": "Same word in this language.",
+    "connectPage.screens.fitness": "Same word in this language.",
+    "connectPage.facts.hrv": "Conventional training or recording abbreviation.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation.",
+    "maps.underPointRoute": "\"Route\" is the same word in this language and only the number is a placeholder.",
+    "connectPage.fitness.zone": "Word or phrase spelled the same in German.",
+    "connectPage.recordings.upload": "Word or phrase spelled the same in German.",
+    "connectPage.settings.backup": "Word or phrase spelled the same in German.",
+    "connectPage.settings.name": "Word or phrase spelled the same in German."
   },
   "de-DE": {
     "backup.entryAppVersion": "German word or phrase with the same spelling.",
@@ -354,7 +371,16 @@
     "cache.stageProgress": "A stage and its percentage, no words to translate.",
     "common.progressAnnouncement": "Numeric percentage template.",
     "backgroundJobs.progressPercent": "Numeric percentage template.",
-    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
+    "connectPage.title": "Product name.",
+    "connectPage.screens.feed": "Same word in this language.",
+    "connectPage.screens.fitness": "Same word in this language.",
+    "connectPage.facts.hrv": "Conventional training or recording abbreviation.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation.",
+    "maps.underPointRoute": "\"Route\" is the same word in this language and only the number is a placeholder.",
+    "connectPage.fitness.zone": "Word or phrase spelled the same in German.",
+    "connectPage.recordings.upload": "Word or phrase spelled the same in German.",
+    "connectPage.settings.backup": "Word or phrase spelled the same in German.",
+    "connectPage.settings.name": "Word or phrase spelled the same in German."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -439,7 +465,9 @@
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "common.progressAnnouncement": "Numeric percentage template.",
-    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
+    "connectPage.title": "Product name.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation.",
+    "connectPage.chart.series": "Word or phrase spelled the same in Spanish."
   },
   "es-ES": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -529,7 +557,9 @@
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "common.progressAnnouncement": "Numeric percentage template.",
-    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
+    "connectPage.title": "Product name.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation.",
+    "connectPage.chart.series": "Word or phrase spelled the same in Spanish."
   },
   "es": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -612,7 +642,9 @@
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "common.progressAnnouncement": "Numeric percentage template.",
-    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
+    "connectPage.title": "Product name.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation.",
+    "connectPage.chart.series": "Word or phrase spelled the same in Spanish."
   },
   "fr": {
     "backup.entryAppVersion": "French word or phrase with the same spelling.",
@@ -763,7 +795,21 @@
     "cache.stageProgress": "A stage and its percentage, no words to translate.",
     "common.progressAnnouncement": "Numeric percentage template.",
     "backgroundJobs.progressPercent": "Numeric percentage template.",
-    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
+    "connectPage.title": "Product name.",
+    "connectPage.library.sportLabel": "Same word in this language.",
+    "connectPage.facts.distance": "Same word in this language.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation.",
+    "connectPage.activity.sections": "Word or phrase spelled the same in French.",
+    "connectPage.chart.cadence": "Word or phrase spelled the same in French.",
+    "connectPage.fitness.fatigue": "Word or phrase spelled the same in French.",
+    "connectPage.fitness.zone": "Word or phrase spelled the same in French.",
+    "connectPage.fitness.effortSport": "Word or phrase spelled the same in French.",
+    "connectPage.fitness.effortEffort": "Word or phrase spelled the same in French.",
+    "connectPage.strength.muscles": "Word or phrase spelled the same in French.",
+    "connectPage.strength.colMuscle": "Word or phrase spelled the same in French.",
+    "connectPage.strength.colVolume": "Word or phrase spelled the same in French.",
+    "connectPage.strength.colDate": "Word or phrase spelled the same in French.",
+    "connectPage.recordings.notes": "Word or phrase spelled the same in French."
   },
   "it": {
     "activity.stats.maxLabel": "Abbreviation of the Italian label with the same spelling.",
@@ -864,7 +910,14 @@
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "sections.sportFilter": "Italian word or phrase with the same spelling.",
     "navigation.offline": "Established Italian loanword or technical term.",
-    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
+    "connectPage.title": "Product name.",
+    "connectPage.screens.feed": "Same word in this language.",
+    "connectPage.library.sportLabel": "Same word in this language.",
+    "connectPage.facts.hrv": "Conventional training or recording abbreviation.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation.",
+    "connectPage.fitness.effortSport": "Word or phrase spelled the same in Italian.",
+    "connectPage.strength.colVolume": "Word or phrase spelled the same in Italian.",
+    "connectPage.settings.backup": "Word or phrase spelled the same in Italian."
   },
   "ja": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -912,6 +965,8 @@
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
+    "connectPage.title": "Product name.",
+    "connectPage.facts.hrv": "Conventional training or recording abbreviation.",
     "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   },
   "nl": {
@@ -1073,7 +1128,18 @@
     "sections.sportFilter": "Dutch word or phrase with the same spelling.",
     "bestEffortsScreen.checkpoint.marathon": "The race is called Marathon in this language.",
     "navigation.offline": "Established Dutch loanword or technical term.",
-    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
+    "connectPage.title": "Product name.",
+    "connectPage.screens.fitness": "Same word in this language.",
+    "connectPage.library.sportLabel": "Same word in this language.",
+    "connectPage.facts.hrv": "Conventional training or recording abbreviation.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation.",
+    "maps.underPointRoute": "\"Route\" is the same word in this language and only the number is a placeholder.",
+    "connectPage.activity.routes": "Word or phrase spelled the same in Dutch.",
+    "connectPage.fitness.zone": "Word or phrase spelled the same in Dutch.",
+    "connectPage.fitness.effortSport": "Word or phrase spelled the same in Dutch.",
+    "connectPage.strength.colVolume": "Word or phrase spelled the same in Dutch.",
+    "connectPage.strength.colSets": "Word or phrase spelled the same in Dutch.",
+    "connectPage.recordings.upload": "Word or phrase spelled the same in Dutch."
   },
   "pl": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -1163,7 +1229,11 @@
     "activity.garminSwap.compare.start": "Polish word or phrase with the same spelling.",
     "sections.sportFilter": "Polish word or phrase with the same spelling.",
     "navigation.offline": "Established Polish loanword or technical term.",
-    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
+    "connectPage.title": "Product name.",
+    "connectPage.library.sportLabel": "Same word in this language.",
+    "connectPage.facts.hrv": "Conventional training or recording abbreviation.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation.",
+    "connectPage.fitness.effortSport": "Word or phrase spelled the same in Polish."
   },
   "pt-BR": {
     "activity.stats.maxLabel": "Abbreviation of the Brazilian Portuguese label with the same spelling.",
@@ -1260,7 +1330,10 @@
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "navigation.offline": "Established Brazilian Portuguese loanword or technical term.",
-    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
+    "connectPage.title": "Product name.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation.",
+    "connectPage.strength.colVolume": "Word or phrase spelled the same in Portuguese.",
+    "connectPage.settings.backup": "Word or phrase spelled the same in Portuguese."
   },
   "pt": {
     "activity.stats.maxLabel": "Abbreviation of the Portuguese label with the same spelling.",
@@ -1357,7 +1430,9 @@
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
     "navigation.offline": "Established Portuguese loanword or technical term.",
-    "thresholds.fields.ftp": "Conventional training or recording abbreviation."
+    "connectPage.title": "Product name.",
+    "thresholds.fields.ftp": "Conventional training or recording abbreviation.",
+    "connectPage.strength.colVolume": "Word or phrase spelled the same in Portuguese."
   },
   "zh-Hans": {
     "backgroundJobs.progressPercent": "Numeric percentage template.",
@@ -1394,6 +1469,8 @@
     "garmin.title": "Brand name with the same spelling.",
     "activity.garminSwap.compare.garmin": "Product name, kept as written.",
     "activity.garminSwap.compare.intervals": "Product name, kept as written.",
+    "connectPage.title": "Product name.",
+    "connectPage.facts.hrv": "Conventional training or recording abbreviation.",
     "thresholds.fields.ftp": "Conventional training or recording abbreviation."
   }
 }

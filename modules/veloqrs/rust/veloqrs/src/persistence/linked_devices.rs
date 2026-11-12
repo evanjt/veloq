@@ -83,6 +83,14 @@ pub fn fingerprint_of(conn: &Connection, id: &str) -> SqlResult<Option<String>> 
         .optional()
 }
 
+/// The id of the device pinned by a fingerprint.
+pub fn id_of(conn: &Connection, fingerprint: &str) -> SqlResult<Option<String>> {
+    conn.prepare_cached("SELECT id FROM linked_devices WHERE fingerprint = ?1")?
+        .query_row(params![fingerprint], |row| row.get::<_, i64>(0))
+        .optional()
+        .map(|id| id.map(|id| id.to_string()))
+}
+
 /// Unlink a device. Returns whether one was removed.
 pub fn remove(conn: &Connection, id: &str) -> SqlResult<bool> {
     let Ok(id) = id.parse::<i64>() else {
@@ -107,6 +115,76 @@ pub fn touch(conn: &Connection, fingerprint: &str, now: i64) -> SqlResult<()> {
     conn.prepare_cached("UPDATE linked_devices SET last_seen_at = ?2 WHERE fingerprint = ?1")?
         .execute(params![fingerprint, now])?;
     Ok(())
+}
+
+/// How many writes the log keeps.
+pub const WRITE_LOG_ROWS: i64 = 200;
+
+/// One write a linked browser made, as the athlete reads it.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteWrite {
+    pub device_id: String,
+    /// The protocol method, such as `section.rename`.
+    pub method: String,
+    /// What the write changed: a section id, for a section rename.
+    pub target_id: String,
+    /// The write in words, naming its target and its new value.
+    pub summary: String,
+    /// Unix seconds.
+    pub at: f64,
+}
+
+/// Log one write made by the browser pinned by `fingerprint`, and keep only
+/// the last [`WRITE_LOG_ROWS`] rows. A fingerprint with no linked device
+/// logs nothing.
+pub fn record_write(
+    conn: &Connection,
+    fingerprint: &str,
+    method: &str,
+    target_id: &str,
+    summary: &str,
+    now: i64,
+) -> SqlResult<()> {
+    let logged = conn
+        .prepare_cached(
+            "INSERT INTO remote_writes (device_id, method, target_id, summary, at)
+             SELECT id, ?2, ?3, ?4, ?5 FROM linked_devices WHERE fingerprint = ?1",
+        )?
+        .execute(params![fingerprint, method, target_id, summary, now])?;
+    if logged > 0 {
+        conn.prepare_cached(
+            "DELETE FROM remote_writes WHERE id <=
+                (SELECT id FROM remote_writes ORDER BY id DESC LIMIT 1 OFFSET ?1)",
+        )?
+        .execute(params![WRITE_LOG_ROWS])?;
+    }
+    Ok(())
+}
+
+/// The most recent writes one linked device made, newest first.
+pub fn recent_writes(
+    conn: &Connection,
+    device_id: &str,
+    limit: u32,
+) -> SqlResult<Vec<RemoteWrite>> {
+    let Ok(device) = device_id.parse::<i64>() else {
+        return Ok(Vec::new());
+    };
+    conn.prepare_cached(
+        "SELECT device_id, method, target_id, summary, at FROM remote_writes
+         WHERE device_id = ?1 ORDER BY id DESC LIMIT ?2",
+    )?
+    .query_map(params![device, limit], |row| {
+        Ok(RemoteWrite {
+            device_id: row.get::<_, i64>(0)?.to_string(),
+            method: row.get(1)?,
+            target_id: row.get(2)?,
+            summary: row.get(3)?,
+            at: row.get::<_, i64>(4)? as f64,
+        })
+    })?
+    .collect()
 }
 
 /// The phone's stored certificate, none before the remote service first ran.

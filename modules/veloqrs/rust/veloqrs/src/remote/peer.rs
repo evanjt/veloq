@@ -8,11 +8,15 @@
 use std::collections::VecDeque;
 use std::io::ErrorKind;
 use std::net::{IpAddr, SocketAddr, UdpSocket};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::Receiver;
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
+use super::DisconnectReason;
+use super::asks::{Conn, Pool, Reply};
+use super::protocol::{self, Incoming};
 use super::stun::{self, Stun};
 use str0m::change::{SdpAnswer, SdpOffer};
 use str0m::channel::ChannelId;
@@ -27,6 +31,12 @@ const STOP_POLL: Duration = Duration::from_secs(5);
 /// How long the loop sleeps at most while reply frames wait for room in a
 /// channel's send buffer.
 const DRAIN_POLL: Duration = Duration::from_millis(5);
+
+/// The longest the loop spends getting a farewell out once it is stopped.
+const FAREWELL_LIMIT: Duration = Duration::from_millis(300);
+
+/// The longest between two looks at whether the library changed.
+const CHANGE_POLL: Duration = Duration::from_secs(1);
 
 /// Reply frames waiting for room in a channel's send buffer, oldest first.
 #[derive(Default)]
@@ -43,6 +53,15 @@ impl Outbox {
 
     fn is_empty(&self) -> bool {
         self.frames.is_empty()
+    }
+
+    /// Forget the frames not yet written of the reply to ask `id`.
+    fn drop_reply(&mut self, id: u64) {
+        let Ok(id) = u32::try_from(id) else {
+            return;
+        };
+        self.frames
+            .retain(|(_, frame)| frame[2..6] != id.to_be_bytes());
     }
 
     /// Write frames while the send buffer has room for the next one. A frame
@@ -71,7 +90,8 @@ impl Outbox {
     }
 }
 
-/// What the connection asks of the engine.
+/// What the connection asks of the engine. `answer` runs on a worker thread,
+/// and several asks of one connection may be in it at once.
 pub trait Gate: Send + Sync + 'static {
     /// Whether a peer presenting this certificate fingerprint may connect.
     fn is_pinned(&self, fingerprint: &str) -> bool;
@@ -83,6 +103,9 @@ pub trait Gate: Send + Sync + 'static {
     fn connected(&self, fingerprint: &str);
     /// A pinned peer's connection ended.
     fn disconnected(&self, fingerprint: &str);
+    /// A stamp that differs from the last one when the library has changed,
+    /// or nothing when it cannot be read.
+    fn changed(&self) -> Option<u64>;
 }
 
 /// Why an offer was not answered.
@@ -99,6 +122,7 @@ pub enum Refusal {
 /// leaves; `stop` ends it now.
 pub struct Peer {
     stop: Arc<AtomicBool>,
+    reason: Arc<Mutex<Option<DisconnectReason>>>,
     thread: Option<JoinHandle<()>>,
     /// Where an empty datagram reaches the connection's socket.
     wake: SocketAddr,
@@ -116,8 +140,13 @@ fn wake_address(bound: SocketAddr) -> SocketAddr {
 }
 
 impl Peer {
-    /// End the connection and wait for its thread.
-    pub fn stop(mut self) {
+    /// End the connection and wait for its thread. The browser is told
+    /// `reason` on the open channel first, within a bounded time.
+    pub fn stop(mut self, reason: DisconnectReason) {
+        *self
+            .reason
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(reason);
         self.stop.store(true, Ordering::Relaxed);
         // An empty datagram ends the thread's read now; the loop drops it.
         if let Ok(waker) = UdpSocket::bind(SocketAddr::new(
@@ -219,8 +248,11 @@ fn accept_polling(
     let (hash, hex) = shown.split_once(' ').unwrap_or((&shown, ""));
     let local_fingerprint = normalise(hash, hex);
 
+    let pool = Pool::shared().map_err(|error| Refusal::Network(error.to_string()))?;
     let stop = Arc::new(AtomicBool::new(false));
     let flag = Arc::clone(&stop);
+    let reason = Arc::new(Mutex::new(None));
+    let said = Arc::clone(&reason);
     let thread = std::thread::Builder::new()
         .name("remote-peer".into())
         .spawn(move || {
@@ -228,8 +260,10 @@ fn accept_polling(
                 rtc,
                 socket,
                 gate,
+                &pool,
                 &local_fingerprint,
                 &flag,
+                &said,
                 stun.map(|s| s.server),
                 poll,
             )
@@ -239,55 +273,107 @@ fn accept_polling(
         answer,
         Peer {
             stop,
+            reason,
             thread: Some(thread),
             wake: wake_address(local),
         },
     ))
 }
 
+/// A peer whose certificate was pinned when the connection came up.
+struct Admitted {
+    fingerprint: String,
+    asks: Arc<Conn>,
+    replies: Receiver<Reply>,
+}
+
+impl Admitted {
+    /// Move the replies the workers have made into the outbox.
+    fn collect(&self, outbox: &mut Outbox) {
+        while let Ok((channel, reply)) = self.replies.try_recv() {
+            outbox.push(channel, &reply);
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn serve(
     mut rtc: Rtc,
     socket: UdpSocket,
     gate: Arc<dyn Gate>,
+    pool: &Pool,
     fingerprint: &str,
     stop: &AtomicBool,
+    reason: &Mutex<Option<DisconnectReason>>,
     stun_server: Option<SocketAddr>,
     poll: Duration,
 ) {
-    let mut admitted: Option<String> = None;
+    let mut admitted: Option<Admitted> = None;
     let mut outbox = Outbox::default();
+    let mut stamp: Option<u64> = None;
+    let mut channel: Option<ChannelId> = None;
+    let mut looked = Instant::now();
     let mut buf = vec![0u8; 2000];
     let Ok(local) = socket.local_addr() else {
         return;
     };
     while rtc.is_alive() && !stop.load(Ordering::Relaxed) {
         let deadline = match rtc.poll_output() {
-            Ok(Output::Timeout(at)) => match outbox.flush(&mut rtc) {
-                Err(()) => break,
-                Ok(true) => continue,
-                Ok(false) => at,
-            },
+            Ok(Output::Timeout(at)) => {
+                if let Some(admitted) = &admitted {
+                    admitted.collect(&mut outbox);
+                }
+                match outbox.flush(&mut rtc) {
+                    Err(()) => break,
+                    Ok(true) => continue,
+                    Ok(false) => at,
+                }
+            }
             Ok(Output::Transmit(out)) => {
                 let _ = socket.send_to(&out.contents, out.destination);
                 continue;
             }
             Ok(Output::Event(event)) => {
+                if let Event::ChannelOpen(id, _) = &event {
+                    channel = Some(*id);
+                }
                 if !on_event(
                     &mut rtc,
                     event,
-                    &*gate,
+                    &gate,
+                    pool,
                     fingerprint,
                     &mut admitted,
                     &mut outbox,
                 ) {
                     break;
                 }
+                if admitted.is_some() && stamp.is_none() {
+                    stamp = gate.changed();
+                    looked = Instant::now();
+                }
                 continue;
             }
             Err(_) => break,
         };
+        if admitted.is_some() && looked.elapsed() >= CHANGE_POLL {
+            looked = Instant::now();
+            if let Some(now) = gate.changed() {
+                if stamp.is_some_and(|seen| seen != now)
+                    && let Some(channel) = channel
+                {
+                    outbox.push(channel, &announcement(now));
+                }
+                stamp = Some(now);
+            }
+        }
         let mut wait = deadline.saturating_duration_since(Instant::now()).min(poll);
-        if !outbox.is_empty() {
+        if admitted.is_some() {
+            // The library is looked at about once a second however long the
+            // idle poll is, so a change reaches the browser on time.
+            wait = wait.min(CHANGE_POLL.saturating_sub(looked.elapsed()));
+        }
+        if !outbox.is_empty() || admitted.as_ref().is_some_and(|a| a.asks.busy()) {
             wait = wait.min(DRAIN_POLL);
         }
         if wait.is_zero() {
@@ -328,19 +414,75 @@ fn serve(
             break;
         }
     }
-    rtc.disconnect();
-    if let Some(fingerprint) = admitted {
-        gate.disconnected(&fingerprint);
+    let reason = *reason
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(reason) = reason
+        && let Some(channel) = channel
+        && rtc.is_alive()
+    {
+        say_farewell(&mut rtc, &socket, &mut outbox, channel, reason);
     }
+    rtc.disconnect();
+    if let Some(admitted) = admitted {
+        admitted.asks.close();
+        gate.disconnected(&admitted.fingerprint);
+    }
+}
+
+/// The unsolicited frame that tells a browser why the phone is leaving. It
+/// goes under request id 0, as the change announcement does.
+fn farewell(reason: DisconnectReason) -> String {
+    serde_json::json!({ "event": "farewell", "reason": reason }).to_string()
+}
+
+/// Send the farewell on the open channel, for no longer than
+/// `FAREWELL_LIMIT`. Replies still queued are dropped first: the connection
+/// is ending, and a browser mid-way through a large reply would otherwise wait
+/// behind it and be cut off as it would be without a reason.
+fn say_farewell(
+    rtc: &mut Rtc,
+    socket: &UdpSocket,
+    outbox: &mut Outbox,
+    channel: ChannelId,
+    reason: DisconnectReason,
+) {
+    outbox.frames.clear();
+    outbox.push(channel, &farewell(reason));
+    let until = Instant::now() + FAREWELL_LIMIT;
+    while Instant::now() < until {
+        if outbox.flush(rtc).is_err() {
+            break;
+        }
+        match rtc.poll_output() {
+            Ok(Output::Transmit(out)) => {
+                let _ = socket.send_to(&out.contents, out.destination);
+            }
+            Ok(Output::Event(_)) => {}
+            Ok(Output::Timeout(_)) if !outbox.is_empty() => {
+                if rtc.handle_input(Input::Timeout(Instant::now())).is_err() {
+                    break;
+                }
+            }
+            Ok(Output::Timeout(_)) | Err(_) => break,
+        }
+    }
+}
+
+/// The unsolicited frame that tells a browser the library changed. It goes
+/// under request id 0, which no request uses.
+fn announcement(generation: u64) -> String {
+    serde_json::json!({ "event": "changed", "generation": generation }).to_string()
 }
 
 /// Act on one event. False ends the connection.
 fn on_event(
     rtc: &mut Rtc,
     event: Event,
-    gate: &dyn Gate,
+    gate: &Arc<dyn Gate>,
+    pool: &Pool,
     local: &str,
-    admitted: &mut Option<String>,
+    admitted: &mut Option<Admitted>,
     outbox: &mut Outbox,
 ) -> bool {
     match event {
@@ -356,14 +498,19 @@ fn on_event(
             match presented {
                 Some(fingerprint) if gate.is_pinned(&fingerprint) => {
                     gate.connected(&fingerprint);
-                    *admitted = Some(fingerprint);
+                    let (asks, replies) = Conn::new(Arc::clone(gate), &fingerprint, local);
+                    *admitted = Some(Admitted {
+                        fingerprint,
+                        asks,
+                        replies,
+                    });
                     true
                 }
                 _ => false,
             }
         }
         Event::ChannelData(data) => {
-            let Some(presented) = admitted.as_deref() else {
+            let Some(admitted) = admitted.as_ref() else {
                 return true;
             };
             if data.binary {
@@ -372,8 +519,20 @@ fn on_event(
             let Ok(request) = std::str::from_utf8(&data.data) else {
                 return true;
             };
-            let reply = gate.answer(presented, local, request);
-            outbox.push(data.id, &reply);
+            match protocol::incoming(request) {
+                Incoming::Cancel(id) => {
+                    admitted.asks.cancel(id);
+                    // A reply made just before the cancel is not sent.
+                    admitted.collect(outbox);
+                    outbox.drop_reply(id);
+                }
+                Incoming::Ask(id) => {
+                    if !admitted.asks.submit(pool, data.id, id, request) {
+                        outbox.push(data.id, &protocol::busy(id));
+                    }
+                }
+                Incoming::Ignore => {}
+            }
             true
         }
         Event::IceConnectionStateChange(IceConnectionState::Disconnected) => false,

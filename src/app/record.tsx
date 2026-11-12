@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
@@ -47,6 +47,7 @@ import {
   type EntryGpsState,
   useRecordingStore,
   useEntryLocation,
+  useForgetAbandonedRouteChoice,
   BatteryOptimisationNudge,
   OutsideAppNotice,
   RecordingGate,
@@ -174,8 +175,11 @@ function RecordScreenContent() {
     };
   }, []);
 
+  const started = useRef(false);
+  useForgetAbandonedRouteChoice(started);
   const start = useCallback((type: ActivityType, pairedEventId?: number) => {
     haptics.medium();
+    started.current = true;
     // The live screen takes this screen's place, so back from a ride under way never lands on
     // a Start button for a ride that is already recording.
     replaceTo(recordingEntryHref(type, pairedEventId));

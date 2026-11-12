@@ -1,12 +1,18 @@
 import type { MapPalette } from '@/theme';
 import type { MapLayerSpec } from '@/features/maps';
 import { NEARBY_ROUTE_HIT_LAYER } from './nearbyRouteLines';
+import type { TurnMarkSize } from './routeTurnMarks';
 
 /**
  * The map's layers, bottom to top. The live track draws in the record role, the same as every
- * other recording surface, for the app theme in `isDark`.
+ * other recording surface, for the app theme in `isDark`. The turn marks take their size from
+ * the caller, which reads the theme's scale.
  */
-export function recordingMapLayers(palette: MapPalette, isDark: boolean): MapLayerSpec[] {
+export function recordingMapLayers(
+  palette: MapPalette,
+  isDark: boolean,
+  turnMark: TurnMarkSize
+): MapLayerSpec[] {
   const { layer } = palette;
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   return [
@@ -34,6 +40,19 @@ export function recordingMapLayers(palette: MapPalette, isDark: boolean): MapLay
         'line-color': layer.recordingOverlay,
         'line-opacity': 0.75,
         'line-width': 5,
+      },
+    },
+    // The turns on the followed line, above it and under the live track. The next turn ahead is
+    // the accent; the rest take the line's own tone.
+    {
+      id: 'route-turns-circle',
+      type: 'circle',
+      source: 'route-turns',
+      paint: {
+        'circle-radius': ['case', ['get', 'next'], turnMark.nextRadius, turnMark.radius],
+        'circle-color': ['case', ['get', 'next'], layer.position, layer.recordingOverlay],
+        'circle-stroke-color': layer.positionHalo,
+        'circle-stroke-width': turnMark.strokeWidth,
       },
     },
     {

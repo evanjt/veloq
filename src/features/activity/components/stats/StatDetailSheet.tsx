@@ -51,6 +51,12 @@ export function StatDetailSheet({ stat, isDark, onClose }: StatDetailSheetProps)
           </Text>
         ) : null}
 
+        {stat.provenance ? (
+          <Text testID="stat-provenance" style={styles.provenance}>
+            {stat.provenance}
+          </Text>
+        ) : null}
+
         {stat.explanation ? (
           <View style={styles.explanationBox}>
             <View style={styles.explanationHeader}>
@@ -114,6 +120,12 @@ const makeStyles = (palette: Palette, isDark: boolean) => {
     unit: {
       ...typography.bodyBold,
       color: palette.textSecondary,
+    },
+    provenance: {
+      ...typography.caption,
+      color: palette.textSecondary,
+      textAlign: 'center',
+      marginBottom: spacing.md,
     },
     context: {
       ...typography.bodySmallBold,

@@ -39,6 +39,7 @@ const PROPER_PHRASES = [
   'Live Activities',
   'Bluetooth LE',
   'Garmin Connect',
+  'Veloq Connect',
   "Garmin's",
 ];
 const PROPER_WORDS = new Set([
@@ -62,8 +63,10 @@ const PROPER_WORDS = new Set([
 // Whole subtrees and keys whose capitals are part of a name.
 const EXEMPT_PREFIXES = ['activityTypes.'];
 // A generated route name is stored with the route, so it keeps the shape the
-// routes already named carry.
+// routes already named carry. The connect page's key list names its tabs as
+// the rail writes them.
 const EXEMPT_KEYS = new Set([
+  'connectPage.keys.tabs',
   'fitnessScreen.linkTSBManagement',
   'fitnessScreen.linkTrainingLoad',
   'routes.placeLoop',

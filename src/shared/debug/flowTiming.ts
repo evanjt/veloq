@@ -24,6 +24,9 @@ export const FLOW_ADD_ONE = 'flow.addOne';
 /** Press on a section row to the first frame with the visit list rendered. */
 export const FLOW_SECTION_OPEN = 'flow.sectionOpen';
 
+/** Tap on a Fitness range to the first frame showing that range. */
+export const FLOW_FITNESS_RANGE = 'flow.fitnessRange';
+
 const marks = new Map<string, number>();
 
 export function markFlow(name: string, now: number = performance.now()): void {

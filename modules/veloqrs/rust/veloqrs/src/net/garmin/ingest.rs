@@ -73,6 +73,9 @@ pub struct Prepared {
     pub start_unix: i64,
     /// The thresholds and profile the file carries, if any.
     pub thresholds: Option<crate::fit::FitThresholds>,
+    /// The interval body the file's laps make, none for a file with fewer
+    /// than two laps.
+    pub laps: Option<String>,
 }
 
 /// The wall clock minus UTC in seconds from a list entry's two start times.
@@ -202,6 +205,7 @@ pub fn prepare(listed: &ListedActivity, fit: &[u8]) -> Result<Prepared, IngestEr
         clock,
         sport: sport.to_string(),
         start_unix: activity.start_unix,
+        laps: crate::persistence::intervals::lap_body(&activity),
         thresholds: activity.thresholds,
     })
 }
@@ -236,6 +240,11 @@ pub fn store(
             if let Err(e) = engine.link_garmin_original(&prepared.key) {
                 log::warn!("veloqrs: [garmin] link of {} failed: {}", prepared.key, e);
             }
+            if let Some(laps) = &prepared.laps
+                && let Err(e) = engine.set_interval_body(&prepared.key, laps)
+            {
+                log::warn!("veloqrs: [garmin] laps of {} not kept: {}", prepared.key, e);
+            }
             let kept = prepared.thresholds.as_ref().map(|found| {
                 crate::persistence::fitness::sport_settings::record_file_thresholds(
                     &engine.db,
@@ -251,12 +260,31 @@ pub fn store(
                     e
                 );
             }
+            // After the file's thresholds are kept, since they are what the
+            // ride is scored against.
+            if let Err(e) = engine.settle_ride_metrics(&prepared.key) {
+                log::warn!(
+                    "veloqrs: [garmin] metrics of {} not worked out: {}",
+                    prepared.key,
+                    e
+                );
+            }
             if let Err(e) = crate::persistence::fitness::curves_local::refresh(
                 &engine.db,
                 chrono::Utc::now().timestamp(),
             ) {
                 log::warn!(
                     "veloqrs: [garmin] curves after {} not worked out: {}",
+                    prepared.key,
+                    e
+                );
+            }
+            if let Err(e) = crate::persistence::fitness::fitness_series::refresh(
+                &engine.db,
+                &crate::persistence::wellness::today_iso(),
+            ) {
+                log::warn!(
+                    "veloqrs: [garmin] fitness after {} not worked out: {}",
                     prepared.key,
                     e
                 );

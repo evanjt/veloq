@@ -118,6 +118,11 @@ pub struct ActivityRecord {
     pub strain_score: Option<f64>,
     #[serde(default, deserialize_with = "lenient")]
     pub icu_hrr: Option<HeartRateRecovery>,
+    /// Which side worked the figures above out. Veloq writes `veloq` into the
+    /// body of a ride it scored from the ride's streams; intervals.icu sends
+    /// none.
+    #[serde(default, deserialize_with = "lenient")]
+    pub metrics_source: Option<String>,
     /// The device sensor's average temperature, not the weather's.
     #[serde(default, deserialize_with = "lenient")]
     pub average_temp: Option<f64>,

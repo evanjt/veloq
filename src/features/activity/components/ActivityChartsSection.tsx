@@ -40,6 +40,7 @@ import {
 import { Icon } from '@/shared/ui/Icon';
 import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
 import { intervalChips } from '../lib/intervalChips';
+import { intervalsAreLaps } from '../lib/intervalTypeLabel';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { measuresPower, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import type {
@@ -277,6 +278,9 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   // the intervals are a persisted column and both zone cards are the engine's
   // bands, which come from the activity body when no stream was fetched.
   const hasIntervals = (intervalsData?.length ?? 0) > 0;
+  const intervalsTitle = t(
+    intervalsAreLaps(intervalsData) ? 'activityDetail.tabs.laps' : 'activityDetail.tabs.intervals'
+  );
   // A held ride's laps are not shared, so no download is owed for them.
   const intervalsHeld = !hasIntervals && heldBack != null;
   const intervalsOwed = !hasIntervals && !intervalsHeld && intervalsOutcome === 'pending';
@@ -399,13 +403,13 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     <View testID="activity-interval-table">
                       <PressTarget
                         accessibilityRole="button"
-                        accessibilityLabel={t('activityDetail.tabs.intervals')}
+                        accessibilityLabel={intervalsTitle}
                         accessibilityState={{ expanded: intervalsExpanded }}
                         style={styles.intervalsBar}
                         onPress={() => setIntervalsExpanded((v) => !v)}
                       >
                         <CardHeader
-                          title={t('activityDetail.tabs.intervals')}
+                          title={intervalsTitle}
                           accessory={
                             <DisclosureChevron
                               expanded={intervalsExpanded}

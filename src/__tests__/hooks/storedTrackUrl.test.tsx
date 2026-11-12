@@ -184,6 +184,8 @@ describe('a regional tap on an activity', () => {
         showRoutes: true,
         setShowRoutes: jest.fn(),
         setSelectedRouteId: jest.fn(),
+        heatmapShown: false,
+        lookUpUnderPoint: jest.fn(),
         currentZoomRef: { current: 8 },
         currentCenterRef: { current: [7, 46] },
         surfaceRef: { current: surface } as React.RefObject<MapSurfaceRef | null>,

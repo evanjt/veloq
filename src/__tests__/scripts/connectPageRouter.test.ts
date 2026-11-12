@@ -34,6 +34,10 @@ const HASHES = [
   '#/best-efforts',
   '#/settings',
   '#/settings/units',
+  '#/insights?type=strength&period=7d',
+  '#/exercise/7',
+  '#/recordings',
+  '#/recording/rec%2F1',
   '#/feed?q=a%20b%26c',
 ];
 
@@ -78,6 +82,10 @@ describe('router paths', () => {
     expect(tabOf(parse('#/section/s'))).toBe('map');
     expect(tabOf(parse('#/best-efforts'))).toBe('insights');
     expect(tabOf(parse('#/settings/units'))).toBe('settings');
+    expect(tabOf(parse('#/insights?type=strength'))).toBe('insights');
+    expect(tabOf(parse('#/exercise/7'))).toBe('insights');
+    expect(tabOf(parse('#/recordings'))).toBe('feed');
+    expect(tabOf(parse('#/recording/r1'))).toBe('feed');
   });
 });
 

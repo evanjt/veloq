@@ -3,7 +3,7 @@
  * another device.
  */
 
-import type { FfiLinkedDevice } from '../generated/veloqrs';
+import type { DisconnectReason, FfiLinkedDevice } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
 /** Every linked browser, most recently linked first. */
@@ -33,16 +33,22 @@ export function linkedRooms(host: DelegateHost): string[] {
   return host.timed('linkedRooms', () => host.engine.remote().linkedRooms());
 }
 
-/** End every linked browser's connection. */
-export function disconnectAll(host: DelegateHost): void {
+/** End every linked browser's connection, telling each why first. */
+export function disconnectAll(host: DelegateHost, reason: DisconnectReason): void {
   if (!host.ready) return;
-  host.timed('disconnectAll', () => host.engine.remote().disconnectAll());
+  host.timed('disconnectAll', () => host.engine.remote().disconnectAll(reason));
 }
 
 /** Say whether the app is in front; a linked browser's write is answered only while it is. */
 export function setInFront(host: DelegateHost, inFront: boolean): void {
   if (!host.ready) return;
   host.timed('setInFront', () => host.engine.remote().setInFront(inFront));
+}
+
+/** Set the name this phone gives a linked browser in its hello; blank sends none. */
+export function setDeviceName(host: DelegateHost, name: string): void {
+  if (!host.ready) return;
+  host.timed('setDeviceName', () => host.engine.remote().setDeviceName(name));
 }
 
 /** How many linked browsers are connected now. */

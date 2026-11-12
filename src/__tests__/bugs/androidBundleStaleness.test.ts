@@ -184,7 +184,12 @@ it('names which phrases the bundle is missing', () => {
  * matters, whatever the working tree holds.
  */
 describe('--apk', () => {
-  function apk(root: string, body: string | null, stamp?: string, variant?: string): string {
+  function apk(
+    root: string,
+    body: string | Buffer | null,
+    stamp?: string,
+    variant?: string
+  ): string {
     const staging = join(root, 'staging');
     rmSync(staging, { recursive: true, force: true });
     mkdirSync(join(staging, 'assets'), { recursive: true });
@@ -230,6 +235,18 @@ describe('--apk', () => {
     it('passes a dev-variant APK whose bundle carries the commit-mark line', () => {
       const root = fixture({ phrases: PHRASES });
       const body = `${app}\nconsole.error("⏱ [COMMIT] x");`;
+
+      expect(runGuard(root, ['--apk', apk(root, body, undefined, 'dev')]).status).toBe(0);
+    });
+
+    /**
+     * Hermes keeps a string holding a non-ASCII character as UTF-16, so the mark
+     * in a release bytecode bundle is never the bytes of `[COMMIT]` in UTF-8.
+     */
+    it('passes a dev-variant APK whose Hermes bundle stores the mark as UTF-16', () => {
+      const root = fixture({ phrases: PHRASES });
+      const mark = Buffer.from('⏱ [COMMIT] x', 'utf16le');
+      const body = Buffer.concat([Buffer.from(app), mark]);
 
       expect(runGuard(root, ['--apk', apk(root, body, undefined, 'dev')]).status).toBe(0);
     });

@@ -93,6 +93,8 @@ function getAvailableLocales(): string[] {
 
 // Path to source directory
 const SRC_DIR = path.join(__dirname, '../../');
+// The connect page reads the same bundles from outside src/.
+const CONNECT_DIR = path.join(__dirname, '../../../web/connect');
 
 /**
  * Extract translation keys from a source file
@@ -113,6 +115,7 @@ function extractTranslationKeysFromFile(filePath: string): { key: string; line: 
   const patterns = [
     /\bt\(\s*['"`]([a-zA-Z0-9_.]+)['"`]/g, // t('key') or t("key") or t(`key`)
     /\{\s*t\s*\}\s*\(\s*['"`]([a-zA-Z0-9_.]+)['"`]/g, // { t }('key')
+    /['"`](connectPage\.[a-zA-Z0-9_.]+)['"`]/g, // a connect page key held in a table
   ];
 
   lines.forEach((line, index) => {
@@ -152,7 +155,12 @@ async function getSourceFiles(): Promise<string[]> {
     ],
     absolute: true,
   });
-  return files;
+  const page = await glob('**/*.{ts,tsx}', {
+    cwd: CONNECT_DIR,
+    ignore: ['**/*.d.ts'],
+    absolute: true,
+  });
+  return [...files, ...page];
 }
 
 /**
@@ -165,7 +173,7 @@ async function extractAllTranslationKeys(): Promise<Map<string, { file: string; 
   for (const file of sourceFiles) {
     const keys = extractTranslationKeysFromFile(file);
     for (const { key, line } of keys) {
-      const relativePath = path.relative(SRC_DIR, file);
+      const relativePath = path.relative(path.dirname(SRC_DIR), file);
       if (!keyUsages.has(key)) {
         keyUsages.set(key, []);
       }

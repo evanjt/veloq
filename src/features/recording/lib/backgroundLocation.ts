@@ -6,6 +6,7 @@ import { debug } from '@/shared/debug/debug';
 import { recording } from '@/theme';
 import { ensureCredentialsHydrated, useAuthStore } from '@/shared/app/AuthStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import type { AutoPauseDetector } from './autoPause';
 import { fixAltitude, getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
 import { gpsFixKept } from './gpsQuality';
@@ -167,6 +168,17 @@ export async function handleBackgroundLocations(
     if (drivesAutoPause) evaluateAutoPause();
     if (store.getState().status === 'recording') store.getState().addGpsPoint(point);
   }
+
+  // The newest fix reaches the live store, as the foreground watch's does, so what follows the
+  // store, such as the followed route's guidance, advances with the screen off.
+  const newest = locations.reduce((a, b) => (b.timestamp >= a.timestamp ? b : a));
+  useRecordingLiveStore
+    .getState()
+    .setFix(
+      { latitude: newest.coords.latitude, longitude: newest.coords.longitude },
+      newest.coords.accuracy,
+      newest.coords.heading
+    );
 
   // A headless runtime has no screen and no periodic timer, so each batch
   // persists itself or the next kill loses everything since the last one. A

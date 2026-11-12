@@ -428,7 +428,11 @@ export function useReviewSave({
         );
         finishAndGoHome(
           staysOnDevice
-            ? t('recording.savedLocallyNoUpload')
+            ? t(
+                sourceFor({ authMethod, isDemoMode, athleteId })?.id === 'garmin'
+                  ? 'recording.savedLocallyNoUploadGarmin'
+                  : 'recording.savedLocallyNoUpload'
+              )
             : withoutScope
               ? t('recording.savedLocallyNoScope')
               : t(

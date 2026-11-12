@@ -10,9 +10,9 @@ import {
 import { TERRAIN_UPSTREAM_TEMPLATE } from '@/features/maps/lib/terrainTemplate';
 import { EOX_S2CLOUDLESS_TEMPLATE } from '@/features/maps/lib/eoxTemplate';
 import {
+  BASE_MAP_ATTRIBUTION,
   CREDIT_SEPARATOR,
   MAP_SOURCE_CREDITS,
-  joinShortCredits,
 } from '@/features/maps/lib/mapSourceCredits';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 import { NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/liberty/sources';
@@ -512,8 +512,6 @@ export function getStyleIcon(
   if (target === 'satellite') return 'satellite-variant';
   return 'weather-sunny';
 }
-
-const BASE_MAP_ATTRIBUTION = joinShortCredits(['openfreemap', 'openmaptiles', 'openstreetmap']);
 
 // Attribution text for each map source
 export const MAP_ATTRIBUTIONS: Record<MapStyleType, string> = {

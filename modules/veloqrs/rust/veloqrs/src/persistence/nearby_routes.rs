@@ -97,6 +97,7 @@ pub(crate) mod pooled {
                 group_id: summary.group_id,
                 distance_meters: summary.distance_meters,
                 away_meters: away,
+                offered: away <= NEARBY_RADIUS_METRES,
                 best_time_seconds: performances.best.map(|p| p.moving_time),
                 encoded_coords,
             });

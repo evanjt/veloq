@@ -349,6 +349,9 @@ export function reachOf(inSrc: number, inDelegates: number): Reach {
  * reader has to re-investigate every time.
  */
 export const OWNED_ELSEWHERE: Record<string, string> = {
+  // The followed route's turns are read by the map layer that marks them,
+  // which is built after the engine side.
+  'RouteFollower.turns': 'read by the followed-line map layer once it marks turns',
   // The retired list reads the old-versus-new map record now, so no TypeScript
   // caller is left. The Rust export is deleted with a regeneration of the
   // bindings, which a change to the screens does not carry.

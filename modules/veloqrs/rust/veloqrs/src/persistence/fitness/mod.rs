@@ -8,7 +8,9 @@
 
 pub(crate) mod curves_local;
 pub(crate) mod derivations;
+pub(crate) mod fitness_series;
 pub(crate) mod performances;
+pub(crate) mod ride_metrics;
 pub(crate) mod sport_settings;
 pub(crate) mod stale_pr;
 

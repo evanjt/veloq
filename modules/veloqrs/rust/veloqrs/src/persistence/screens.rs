@@ -719,7 +719,7 @@ const DEFAULT_FITNESS_DAYS: (u32, u32) = (42, 7);
 /// `FITNESS_DAYS` event dated on or before it. Each falls back to its default
 /// when that event leaves it out or at zero, and both do when no such event
 /// exists or the body will not parse.
-fn fitness_days_on(events_json: &str, date: chrono::NaiveDate) -> (u32, u32) {
+pub(crate) fn fitness_days_on(events_json: &str, date: chrono::NaiveDate) -> (u32, u32) {
     let events: Vec<serde_json::Value> = serde_json::from_str(events_json).unwrap_or_default();
     let in_effect = events
         .iter()
@@ -768,8 +768,8 @@ fn activity_load_impact(
     } else {
         load
     };
-    let fitness = fitness_load * (1.0 - (-1.0 / f64::from(fitness_days)).exp());
-    let fatigue = load * (1.0 - (-1.0 / f64::from(fatigue_days)).exp());
+    let fitness = fitness_load * super::fitness::fitness_series::smoothing_weight(fitness_days);
+    let fatigue = load * super::fitness::fitness_series::smoothing_weight(fatigue_days);
     Some(crate::FfiActivityFitnessImpact {
         fitness,
         fatigue,

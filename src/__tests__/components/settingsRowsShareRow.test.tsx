@@ -166,6 +166,7 @@ describe('chevrons on the settings screens', () => {
   });
 
   it('draws no chevron on Support, whose subscription row leaves for a web page', async () => {
+    useAuthStore.setState({ authMethod: 'oauth' });
     const tree = await render(<SupportSection />);
     expectOnlyRowChevrons(tree, 0);
     expect(tree.getAllByTestId('row-external', { includeHiddenElements: true })).toHaveLength(1);

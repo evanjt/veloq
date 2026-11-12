@@ -10,6 +10,7 @@ import { normaliseBounds } from '@/shared/geo/polyline';
 import { planClusterZoom, stackedOn } from '@/features/maps/lib/clusterZoom';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 import { sectionIdsAtTap } from '@/features/maps/lib/sectionIdsAtTap';
+import { UNDER_POINT_MIN_ZOOM } from '@/features/maps/lib/underPoint';
 import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import type { ActivityBoundsItem } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
@@ -59,6 +60,10 @@ interface UseMapHandlersOptions {
   currentZoomLevel: React.MutableRefObject<number>;
   markUserInteracted: () => void;
   setSpider: (state: SpiderState | null) => void;
+  /** The heatmap is drawn, so a tap on it is a tap on the activities under it. */
+  heatmapShown: boolean;
+  /** Lists the activities under a tap on the heatmap. */
+  lookUpUnderPoint: (latitude: number, longitude: number, zoom: number) => void;
 }
 
 interface UseMapHandlersResult {
@@ -110,6 +115,8 @@ export function useMapHandlers({
   currentZoomLevel,
   markUserInteracted,
   setSpider,
+  heatmapShown,
+  lookUpUnderPoint,
 }: UseMapHandlersOptions): UseMapHandlersResult {
   // Ref to access current selected without adding it as callback dependency
   // This keeps callbacks stable for React.memo optimisation
@@ -209,6 +216,13 @@ export function useMapHandlers({
 
       if (!feature) {
         handleEmptyPress();
+        // The heatmap has no features of its own. From the zoom the map draws
+        // per-activity detail at, the tap asks which activities lie under it.
+        const zoom = currentZoomRef.current;
+        if (heatmapShown && zoom >= UNDER_POINT_MIN_ZOOM) {
+          const [longitude, latitude] = event.coordinate;
+          lookUpUnderPoint(latitude, longitude, zoom);
+        }
         return;
       }
 
@@ -321,6 +335,9 @@ export function useMapHandlers({
       chooseSection,
       setSpider,
       surfaceRef,
+      currentZoomRef,
+      heatmapShown,
+      lookUpUnderPoint,
     ]
   );
 

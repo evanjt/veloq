@@ -80,7 +80,14 @@ describe('ExternalLinkRow', () => {
 });
 
 describe('external links on settings', () => {
+  it('draws no subscription row for a source with no intervals.icu pages', async () => {
+    useAuthStore.setState({ authMethod: 'garmin' });
+    const tree = await render(<SupportSection />);
+    expect(tree.queryByText('settings.subscribe')).toBeNull();
+  });
+
   it('announces the subscription row of Support as a link', async () => {
+    useAuthStore.setState({ authMethod: 'oauth' });
     await expectInAppLink(
       await render(<SupportSection />),
       'settings.subscribe',

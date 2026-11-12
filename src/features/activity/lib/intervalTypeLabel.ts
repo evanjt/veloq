@@ -25,7 +25,7 @@ export interface IntervalTypeLabelInput {
 
 export type IntervalTypeForm = 'short' | 'long';
 
-export type IntervalTypeKind = 'work' | 'recovery' | 'warmup' | 'cooldown' | 'other';
+export type IntervalTypeKind = 'work' | 'recovery' | 'warmup' | 'cooldown' | 'lap' | 'other';
 
 /** The word family an interval's kind belongs to. */
 export function intervalTypeKind(kind: IntervalKind): IntervalTypeKind {
@@ -33,7 +33,18 @@ export function intervalTypeKind(kind: IntervalKind): IntervalTypeKind {
   if (kind === IntervalKind.Recovery || kind === IntervalKind.Rest) return 'recovery';
   if (kind === IntervalKind.Warmup) return 'warmup';
   if (kind === IntervalKind.Cooldown) return 'cooldown';
+  if (kind === IntervalKind.Lap) return 'lap';
   return 'other';
+}
+
+/**
+ * Whether a list is the laps a device closed rather than intervals the server
+ * detected, which is what its heading says.
+ */
+export function intervalsAreLaps(
+  intervals: readonly { kind: IntervalKind }[] | undefined
+): boolean {
+  return !!intervals && intervals.length > 0 && intervals.every((i) => i.kind === IntervalKind.Lap);
 }
 
 const TYPE_KEY = {
@@ -41,6 +52,7 @@ const TYPE_KEY = {
   recovery: { short: 'intervalTypes.recovery.short', long: 'intervalTypes.recovery.long' },
   warmup: { short: 'intervalTypes.warmup.short', long: 'intervalTypes.warmup.long' },
   cooldown: { short: 'intervalTypes.cooldown.short', long: 'intervalTypes.cooldown.long' },
+  lap: { short: 'intervalTypes.lap.short', long: 'intervalTypes.lap.long' },
   other: { short: 'intervalTypes.other.short', long: 'intervalTypes.other.long' },
 } as const satisfies Record<IntervalTypeKind, Record<IntervalTypeForm, string>>;
 

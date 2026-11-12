@@ -162,6 +162,13 @@ export const MAP_SOURCE_CREDITS: Record<MapSourceId, MapSourceCredit> = {
   },
 };
 
+/** What the line under a vector basemap credits: the same on the light and the dark base. */
+export const BASE_MAP_ATTRIBUTION = joinShortCredits([
+  'openfreemap',
+  'openmaptiles',
+  'openstreetmap',
+]);
+
 export interface MapDataLicenceEntry {
   id: MapSourceId;
   name: string;

@@ -215,7 +215,8 @@
       "route": "Strecki",
       "sections": "Abschnitt",
       "exercises": "Übige",
-      "lengths": "Bahnen"
+      "lengths": "Bahnen",
+      "laps": "Runden"
     },
     "primary": "Primär",
     "secondary": "Sekundär",
@@ -761,6 +762,10 @@
     "other": {
       "short": "Suscht",
       "long": "Suscht öppis"
+    },
+    "lap": {
+      "short": "Runde",
+      "long": "Runde"
     }
   },
   "export": {
@@ -802,7 +807,8 @@
       "lastYear": "Letztes Jahr"
     },
     "emptyLibrary": {
-      "emptyTitle": "Nonig nüüt da, gäll"
+      "emptyTitle": "Nonig nüüt da, gäll",
+      "emptyBodyGarmin": "Aktivitäten kommen aus deinem Garmin-Konto oder aus einer Aufzeichnung hier."
     },
     "noActivitiesFor": "Kei Aktivitäte für {{filters}}",
     "searchPlaceholder": "Sueche…",
@@ -846,7 +852,8 @@
     "noData": "Kei Fitnessdate",
     "noDataCause": "Fitness, Müedigkeit und Form chömed vo intervals.icu, wo für dä Zytruum nüt gspeicheret isch.",
     "restDay": "Ruehtag",
-    "selectActivity": "Aktivität uswähle"
+    "selectActivity": "Aktivität uswähle",
+    "noDataCauseGarmin": "Fitness, Ermüdung und Form brauchen Trainingsbelastung, die Veloq für diesen Zeitraum nicht hat."
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -1359,7 +1366,10 @@
       "peek": "Vorschau",
       "half": "Halb",
       "full": "Voll"
-    }
+    },
+    "underPointRoute": "Route {{number}}",
+    "underPointNoRoute": "Keiner Route zugeordnet",
+    "underPointDrawn": "{{drawn}} von {{total}} eingezeichnet"
   },
   "metrics": {
     "activityCount": "Aktivitäten",
@@ -1411,7 +1421,7 @@
       "fitnessMilestone": "Fitness-Meilensteine"
     },
     "prompt": {
-      "settingsHint": "Du chasch Benachrichtigunge jederzit i de Iistellige aktiviere",
+      "settingsHint": "Du chasch Benachrichtigunge jederziit i de Iistellige aktiviere",
       "howItWorks": "So funktioniert es"
     },
     "activityBody": {
@@ -1672,7 +1682,8 @@
     },
     "recentTypes": "Zuletzt",
     "caloriesMethod": "Mit Sensor us de mittlere Herzfrequenz bi eme agnoh Alter vo {{age}} gschätzt, susch us Sportart und Beweigs-Ziit.",
-    "caloriesDefaultWeight": "Dis Profil het kei Gwicht, drum wärde {{weight}} kg agnoh."
+    "caloriesDefaultWeight": "Dis Profil het kei Gwicht, drum wärde {{weight}} kg agnoh.",
+    "savedLocallyNoUploadGarmin": "Fahrt auf diesem Gerät gespeichert. Es wird nichts hochgeladen."
   },
   "routeDetail": {
     "routeNotFound": "Route nöd gfunde"

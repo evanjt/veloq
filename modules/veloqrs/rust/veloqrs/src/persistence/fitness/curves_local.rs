@@ -28,6 +28,9 @@ use crate::persistence::{bodies::CurveKind, codec};
 /// The `source` of a body worked out here.
 pub(crate) const SOURCE_LOCAL: &str = "veloq";
 
+/// The key that marks a `sportInfo` entry of a wellness day as Veloq's.
+pub(crate) const ENTRY_MARK: &str = "source";
+
 /// The model name the fit is written under.
 pub(crate) const MODEL_KIND: &str = "CP_LINEAR";
 
@@ -804,7 +807,7 @@ fn write_daily_eftp(conn: &Connection, date: &str, eftp: f64) -> SqlResult<()> {
                 .is_some_and(crate::sport::is_cycling)
         })
         .collect();
-    entries.push(json!({"type": "Ride", "eftp": eftp.round()}));
+    entries.push(json!({"type": "Ride", "eftp": eftp.round(), ENTRY_MARK: SOURCE_LOCAL}));
     body["sportInfo"] = Value::Array(entries);
     conn.execute(
         "INSERT INTO wellness (date, raw, updated_at) VALUES (?1, ?2, strftime('%s', 'now'))

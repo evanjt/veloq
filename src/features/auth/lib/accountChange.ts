@@ -12,6 +12,7 @@ import { i18n } from '@/i18n';
 import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { DEMO_ATHLETE_ID, useAuthStore } from '@/shared/app/AuthStore';
+import { adoptsGarminLibrary } from '@/shared/app/storedSession';
 import { rememberCachedAthleteId, readCachedAthleteIdMirror, wipeLibrary } from '@/shared/storage';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 
@@ -60,10 +61,13 @@ export async function settleBeforeNamingLibrary(): Promise<void> {
 }
 
 /** What a sign-in or demo entry owes the data already on the device. */
-export type AccountChangeAction = 'keep' | 'wipe' | 'confirm-then-wipe';
+export type AccountChangeAction = 'keep' | 'adopt' | 'wipe' | 'confirm-then-wipe';
 
 /**
  * The one rule three screens ask: the two login paths and `Try demo`.
+ *
+ * A library named for a Garmin account is adopted by an intervals.icu sign-in
+ * rather than wiped, whatever it holds: the rides are the athlete's own.
  *
  * Demo fixtures are not an account. They are generated on demand and the demo
  * banner already discards them without asking, so a sign-in that has to clear
@@ -79,6 +83,7 @@ export function accountChangeAction(
   // A restore from the login screen leaves a full library nothing has named,
   // so the count is the only evidence there is anything to lose.
   if (!cachedAthleteId) return storedActivityCount > 0 ? 'confirm-then-wipe' : 'keep';
+  if (adoptsGarminLibrary(cachedAthleteId, incomingAthleteId)) return 'adopt';
   if (cachedAthleteId === DEMO_ATHLETE_ID) return 'wipe';
   return 'confirm-then-wipe';
 }

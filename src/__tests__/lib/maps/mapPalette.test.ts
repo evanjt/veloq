@@ -32,6 +32,7 @@ import {
   groupingPreviewLayers,
 } from '@/features/routes/lib/groupingLegend';
 import { recordingMapLayers } from '@/features/recording/lib/recordingMapLayers';
+import { TURN_MARK_SIZE } from '@/features/recording/lib/routeTurnMarks';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -278,7 +279,7 @@ const builders: [string, (palette: MapPalette) => unknown][] = [
   ['the grouping paint', (palette) => groupingLayerPaint(palette)],
   ['the grouping preview', (palette) => groupingPreviewLayers(palette)],
   ['the grouping key', (palette) => groupingLegendRows(3, palette)],
-  ['the recording map', (palette) => recordingMapLayers(palette, true)],
+  ['the recording map', (palette) => recordingMapLayers(palette, true, TURN_MARK_SIZE)],
   ['the home radius', (palette) => homeRadiusLayers(palette)],
 ];
 

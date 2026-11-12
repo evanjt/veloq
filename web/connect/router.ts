@@ -17,10 +17,17 @@ const PLAIN: Record<string, Tab> = {
   insights: 'insights',
   'best-efforts': 'insights',
   settings: 'settings',
+  recordings: 'feed',
 };
 
 /** Paths that name one thing, and the tab each belongs to. */
-const WITH_ID: Record<string, Tab> = { activity: 'feed', route: 'map', section: 'map' };
+const WITH_ID: Record<string, Tab> = {
+  activity: 'feed',
+  recording: 'feed',
+  route: 'map',
+  section: 'map',
+  exercise: 'insights',
+};
 
 export type Route = { screen: string; id: string | null; query: [string, string][] };
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FfiRouteFollow } from 'veloqrs';
+import type { FfiRouteFollow, FfiRouteTurn } from 'veloqrs';
 
 /**
  * Live values the recording session produces and the screen only displays.
@@ -10,6 +10,8 @@ import type { FfiRouteFollow } from 'veloqrs';
 interface RecordingLiveState {
   currentLocation: { latitude: number; longitude: number } | null;
   accuracy: number | null;
+  /** Compass heading of the last fix in degrees from north, null when the device gave none. */
+  heading: number | null;
   /** Wall time of the last location callback, any accuracy. Null before the first fix. */
   lastFixAt: number | null;
   /** True while the pause was taken by the auto-pause detector, not the rider. */
@@ -36,8 +38,19 @@ interface RecordingLiveState {
    */
   guidance: FfiRouteFollow | null;
   setGuidance: (guidance: FfiRouteFollow | null) => void;
+  /**
+   * The turns on the followed line, from the engine once per choice; empty while no route is
+   * followed.
+   */
+  routeTurns: FfiRouteTurn[];
+  setRouteTurns: (turns: FfiRouteTurn[]) => void;
   setRouteChoice: (activityType: string, routeId: string | null) => void;
-  setFix: (location: { latitude: number; longitude: number }, accuracy: number | null) => void;
+  clearRouteChoice: () => void;
+  setFix: (
+    location: { latitude: number; longitude: number },
+    accuracy: number | null,
+    heading?: number | null
+  ) => void;
   setAutoPaused: (autoPaused: boolean) => void;
   setBackgroundTrackingFailed: (failed: boolean) => void;
   recordBackupWrite: (saved: boolean) => void;
@@ -47,19 +60,25 @@ interface RecordingLiveState {
 export const useRecordingLiveStore = create<RecordingLiveState>((set) => ({
   currentLocation: null,
   accuracy: null,
+  heading: null,
   lastFixAt: null,
   autoPaused: false,
   backgroundTrackingFailed: false,
   backupFailures: 0,
   routeChoice: null,
   guidance: null,
+  routeTurns: [],
 
   setGuidance: (guidance) => set({ guidance }),
 
+  setRouteTurns: (routeTurns) => set({ routeTurns }),
+
   setRouteChoice: (activityType, routeId) => set({ routeChoice: { activityType, routeId } }),
 
-  setFix: (location, accuracy) => {
-    set({ currentLocation: location, accuracy, lastFixAt: Date.now() });
+  clearRouteChoice: () => set({ routeChoice: null }),
+
+  setFix: (location, accuracy, heading = null) => {
+    set({ currentLocation: location, accuracy, heading, lastFixAt: Date.now() });
   },
 
   setAutoPaused: (autoPaused) => set({ autoPaused }),
@@ -73,11 +92,13 @@ export const useRecordingLiveStore = create<RecordingLiveState>((set) => ({
     set({
       currentLocation: null,
       accuracy: null,
+      heading: null,
       lastFixAt: null,
       autoPaused: false,
       backgroundTrackingFailed: false,
       backupFailures: 0,
       routeChoice: null,
       guidance: null,
+      routeTurns: [],
     }),
 }));

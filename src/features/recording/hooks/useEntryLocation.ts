@@ -17,6 +17,13 @@ import { useRecordingPreferences } from '../stores/RecordingPreferencesStore';
 /** How long the first fix may take before the screen says the signal is weak. */
 export const GPS_READINESS_TIMEOUT_MS = 15_000;
 
+/**
+ * How old a position may be and still be used. The platform's watch can answer first with a
+ * cached position from wherever the phone last was, and saved routes read around it would be
+ * kilometres from the athlete.
+ */
+export const ENTRY_FIX_MAX_AGE_MS = 120_000;
+
 export interface EntryLocation {
   state: EntryGpsState;
   location: { latitude: number; longitude: number } | null;
@@ -137,6 +144,7 @@ export function useEntryLocation(active: boolean): EntryLocation {
       { accuracy: Location.Accuracy.High, timeInterval: 1000, distanceInterval: 0 },
       (position) => {
         if (cancelled) return;
+        if (Date.now() - position.timestamp > ENTRY_FIX_MAX_AGE_MS) return;
         const { latitude, longitude, accuracy } = position.coords;
         setFix({ location: { latitude, longitude }, accuracy: accuracy ?? null });
       }

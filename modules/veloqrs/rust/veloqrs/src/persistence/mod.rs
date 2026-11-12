@@ -70,6 +70,7 @@ pub use activities::{
 };
 pub mod activity_held_back;
 pub mod activity_sync_failures;
+pub(crate) mod adoption;
 /// On-disk blob format. Public so diagnostics that open a database file
 /// directly decode it the same way the engine wrote it.
 pub mod codec;

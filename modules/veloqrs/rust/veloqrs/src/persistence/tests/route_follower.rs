@@ -289,3 +289,150 @@ fn an_unrecorded_fix_returns_the_previous_record() {
     let next = step(&mut core, 5.0, 710.0);
     assert!((next.along_m - 710.0).abs() < 10.0);
 }
+
+fn l_route() -> FollowerCore {
+    FollowerCore::build(&track_through(
+        &[(0.0, 0.0), (0.0, 1_000.0), (1_000.0, 1_000.0)],
+        10.0,
+    ))
+    .unwrap()
+}
+
+#[test]
+fn an_l_shaped_route_has_one_right_turn_at_the_corner() {
+    let core = l_route();
+
+    let turns = core.turns();
+
+    assert_eq!(turns.len(), 1, "turns {turns:?}");
+    assert!((turns[0].along_m - 1_000.0).abs() < 10.0);
+    assert!((turns[0].angle_deg - 90.0).abs() < 5.0);
+}
+
+#[test]
+fn a_gentle_arc_has_no_turn() {
+    let mut corners = vec![(0.0, 0.0)];
+    let (mut east, mut north, mut heading) = (0.0_f64, 0.0_f64, 0.0_f64);
+    for _ in 0..25 {
+        heading += 2.0;
+        east += 20.0 * heading.to_radians().sin();
+        north += 20.0 * heading.to_radians().cos();
+        corners.push((east, north));
+    }
+    let core = FollowerCore::build(&track_through(&corners, 5.0)).unwrap();
+
+    assert!(core.turns().is_empty(), "turns {:?}", core.turns());
+}
+
+#[test]
+fn a_hairpin_is_one_turn_of_about_a_half_circle() {
+    let corners = [(0.0, 0.0), (0.0, 500.0), (10.0, 500.0), (10.0, 0.0)];
+    let core = FollowerCore::build(&track_through(&corners, 5.0)).unwrap();
+
+    let turns = core.turns();
+
+    assert_eq!(turns.len(), 1, "turns {turns:?}");
+    assert!((turns[0].angle_deg.abs() - 180.0).abs() < 10.0);
+}
+
+#[test]
+fn lateral_jitter_on_a_straight_line_is_no_turn() {
+    let mut track = Vec::new();
+    for index in 0..300 {
+        let jitter = if index % 2 == 0 { 2.0 } else { -2.0 };
+        track.push(at(jitter, f64::from(index) * 10.0));
+    }
+    let core = FollowerCore::build(&track).unwrap();
+
+    assert!(core.turns().is_empty(), "turns {:?}", core.turns());
+}
+
+#[test]
+fn a_left_turn_is_negative() {
+    let core = FollowerCore::build(&track_through(
+        &[(0.0, 0.0), (0.0, 500.0), (-500.0, 500.0)],
+        10.0,
+    ))
+    .unwrap();
+
+    assert_eq!(core.turns().len(), 1);
+    assert!((core.turns()[0].angle_deg + 90.0).abs() < 5.0);
+}
+
+#[test]
+fn the_next_turn_closes_on_the_corner_and_is_gone_once_past_it() {
+    let mut core = l_route();
+
+    let _ = step(&mut core, 0.0, 0.0);
+    let early = step(&mut core, 0.0, 100.0);
+    let _ = step(&mut core, 0.0, 200.0);
+    let near = step(&mut core, 0.0, 990.0);
+    let past = step(&mut core, 5.0, 1_000.0);
+    let beyond = step(&mut core, 100.0, 1_000.0);
+
+    let first = early.next_turn.expect("a turn ahead");
+    assert!((first.distance_m - 900.0).abs() < 15.0, "{first:?}");
+    assert!((first.angle_deg - 90.0).abs() < 5.0);
+    assert!(near.next_turn.expect("still ahead").distance_m < 20.0);
+    assert!(past.next_turn.is_none_or(|turn| turn.distance_m < 10.0));
+    assert!(beyond.next_turn.is_none(), "{:?}", beyond.next_turn);
+}
+
+#[test]
+fn ridden_in_reverse_the_turn_has_the_opposite_sign_at_the_same_place() {
+    let mut core = l_route();
+
+    let _ = step(&mut core, 1_000.0, 1_000.0);
+    let fix = step(&mut core, 800.0, 1_000.0);
+
+    assert_eq!(fix.direction, FollowDirection::Reverse);
+    let turn = fix.next_turn.expect("a turn ahead");
+    assert!((turn.distance_m - 800.0).abs() < 15.0, "{turn:?}");
+    assert!((turn.angle_deg + 90.0).abs() < 5.0);
+}
+
+#[test]
+fn the_next_turn_carries_the_along_distance_of_the_turn_it_measures_to() {
+    let mut core = l_route();
+    let _ = step(&mut core, 0.0, 0.0);
+    let early = step(&mut core, 0.0, 100.0);
+
+    let turn = early.next_turn.expect("a turn ahead");
+    let route_turn = core.turns()[0];
+    assert_eq!(turn.along_m, route_turn.along_m);
+    assert!((turn.distance_m - (route_turn.along_m - early.along_m)).abs() < 1e-9);
+}
+
+#[test]
+fn ridden_in_reverse_the_next_turn_carries_the_turn_it_measures_to() {
+    let mut core = l_route();
+    let _ = step(&mut core, 1_000.0, 1_000.0);
+    let fix = step(&mut core, 800.0, 1_000.0);
+
+    assert_eq!(fix.direction, FollowDirection::Reverse);
+    let turn = fix.next_turn.expect("a turn ahead");
+    assert_eq!(turn.along_m, core.turns()[0].along_m);
+}
+
+#[test]
+fn no_turn_is_announced_before_the_direction_is_decided_or_while_off_route() {
+    let mut core = l_route();
+    let undecided = step(&mut core, 0.0, 20.0);
+    assert_eq!(undecided.direction, FollowDirection::Undecided);
+    assert!(undecided.next_turn.is_none());
+
+    let _ = step(&mut core, 0.0, 200.0);
+    let joined = step(&mut core, 0.0, 300.0);
+    assert!(joined.next_turn.is_some());
+
+    let mut off = joined;
+    for _ in 0..12 {
+        off = step(&mut core, 400.0, 300.0);
+    }
+    assert_eq!(off.status, FollowStatus::OffRoute);
+    assert!(off.next_turn.is_none());
+
+    let back = step(&mut core, 0.0, 320.0);
+    assert_eq!(back.status, FollowStatus::OnRoute);
+    assert!(back.next_turn.is_some());
+}

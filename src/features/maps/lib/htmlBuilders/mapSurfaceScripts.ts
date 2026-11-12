@@ -1,15 +1,11 @@
 import { GROWING_LINE_REDRAW_MS } from '@/features/maps/lib/mapBudgets';
+import { SURFACE_HIT_TEST_RADIUS_PX } from '@/features/maps/lib/surfaceHitRadius';
 import { cameraMove } from '@/theme';
 
 import type { MapSurfaceHtmlConfig } from './mapSurface';
 import { motionDurationExpression } from './shared';
 
-/**
- * How far either side of a tap the page looks for something to hit, in CSS
- * pixels. A finger covers about 30 px and the thinnest interactive thing on the
- * map is a dashed section line at most 4 px wide, so a point query missed most taps.
- */
-export const SURFACE_HIT_TEST_RADIUS_PX = 12;
+export { SURFACE_HIT_TEST_RADIUS_PX };
 
 /**
  * The reconciler, camera helpers and bridge plumbing. Shared verbatim between

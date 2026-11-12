@@ -36,6 +36,7 @@ export { useAlwaysLocationPrompt } from './hooks/useAlwaysLocationPrompt';
 export { useCanRecord } from './hooks/useCanRecord';
 export { useRouteGuidance } from './hooks/useRouteGuidance';
 export { useEntryLocation } from './hooks/useEntryLocation';
+export { useForgetAbandonedRouteChoice } from './hooks/useForgetAbandonedRouteChoice';
 export { useGpsSessionEffect } from './hooks/useGpsSessionEffect';
 export { useGpsWarningClearEffect } from './hooks/useGpsWarningClearEffect';
 export { useHrZoneColorEffect } from './hooks/useHrZoneColorEffect';

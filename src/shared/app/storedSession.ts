@@ -9,7 +9,7 @@
  * sign-out leaves behind, and it signs nobody in.
  */
 
-import type { AuthMethod } from '@/shared/app/source';
+import { DEMO_ATHLETE_ID, type AuthMethod } from '@/shared/app/source';
 
 /** What names a library that belongs to a Garmin account rather than an intervals.icu athlete. */
 const GARMIN_ATHLETE_PREFIX = 'garmin:';
@@ -25,6 +25,20 @@ export function isGarminAthleteId(athleteId: string | null | undefined): boolean
     typeof athleteId === 'string' &&
     athleteId.startsWith(GARMIN_ATHLETE_PREFIX) &&
     athleteId.slice(GARMIN_ATHLETE_PREFIX.length).trim().length > 0
+  );
+}
+
+/**
+ * Whether a library named for a Garmin account meets an intervals.icu athlete
+ * signing in. The library stays: the sign-in names it for the athlete and the
+ * first sync links its rides to intervals.icu's copies. Another Garmin account,
+ * or demo mode, is not that.
+ */
+export function adoptsGarminLibrary(cachedAthleteId: string, incomingAthleteId: string): boolean {
+  return (
+    isGarminAthleteId(cachedAthleteId) &&
+    !isGarminAthleteId(incomingAthleteId) &&
+    incomingAthleteId !== DEMO_ATHLETE_ID
   );
 }
 

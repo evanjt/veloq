@@ -570,3 +570,45 @@ fn an_ingested_ride_with_power_draws_the_librarys_power_curve() {
         curve.secs
     );
 }
+
+/// Scenario: a Garmin-only ride whose file closes three laps, and one that
+/// closes none.
+///
+/// Expected behaviour: the first stores an interval body of three laps marked
+/// as the app's own, the second stores none.
+#[test]
+fn a_ride_with_laps_stores_them_as_its_interval_body() {
+    let (dir, mut engine) = engine();
+    let mut ride = outdoor_ride();
+    ride.laps = [0, 10, 20]
+        .iter()
+        .map(|&start| crate::fit_synthetic::Lap {
+            start,
+            elapsed_secs: 10.0,
+            ..Default::default()
+        })
+        .collect();
+    ingest_into(&mut engine, None, &listed(GARMIN_ID), &ride.to_fit()).expect("stored");
+    ingest_into(
+        &mut engine,
+        None,
+        &listed(GARMIN_ID + 1),
+        &outdoor_ride().to_fit(),
+    )
+    .expect("stored");
+
+    let reader = rusqlite::Connection::open(dir.path().join("routes.db")).unwrap();
+    let laps =
+        crate::persistence::intervals::activity_intervals(&reader, &garmin_source_key(GARMIN_ID))
+            .unwrap()
+            .expect("a body for the ride with laps");
+    assert_eq!(laps.intervals.len(), 3);
+    assert_eq!(
+        crate::persistence::intervals::activity_intervals(
+            &reader,
+            &garmin_source_key(GARMIN_ID + 1)
+        )
+        .unwrap(),
+        None
+    );
+}

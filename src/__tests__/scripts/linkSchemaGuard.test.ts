@@ -16,6 +16,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const SCRIPT = join(__dirname, '../../../scripts/generate-link-schema.mjs');
+const PRETTIER = join(__dirname, '../../../node_modules/prettier/bin/prettier.cjs');
+const PRETTIER_CONFIG = join(__dirname, '../../../config/.prettierrc');
 const roots: string[] = [];
 
 afterAll(() => {
@@ -87,6 +89,18 @@ function run(root: string, ...args: string[]): { status: number; output: string 
   }
 }
 
+/** The exit status of `prettier --check` on a file, under the repository's config. */
+function prettierCheck(file: string): number {
+  try {
+    execFileSync('node', [PRETTIER, '--config', PRETTIER_CONFIG, '--check', file], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return 0;
+  } catch (error) {
+    return (error as { status: number }).status;
+  }
+}
+
 function generated(table: unknown = TABLE, bindings: string = BINDINGS): string {
   const root = tree(table, bindings);
   expect(run(root).status).toBe(0);
@@ -112,6 +126,50 @@ it('copies a record the table names and nothing it does not reach', () => {
   const schema = generated();
   expect(schema).toContain('export type Tag = {');
   expect(schema).toContain(' * Which lap.');
+});
+
+it('says a record with no fields as an object with no keys', () => {
+  const bindings = `${BINDINGS}\n/**\n * Nothing to ask.\n */\nexport type Empty = {};\n`;
+  const schema = generated(
+    { protocol: 7, methods: [{ name: 'empty.read', params: 'Empty', result: 'Lap' }] },
+    bindings
+  );
+  expect(schema).toContain('export type Empty = Record<string, never>;');
+});
+
+it('writes a schema the repository Prettier config leaves unchanged', () => {
+  const bindings = `${BINDINGS}
+/**
+ * One letter of the alphabet.
+ */
+export enum Letter {
+  Alpha,
+  Bravo,
+  Charlie,
+  Delta,
+  Echo,
+  Foxtrot,
+  Golf,
+  Hotel,
+  India,
+  Juliet,
+  Kilo,
+  Lima,
+}
+
+/**
+ * A word spelt in letters.
+ */
+export type Word = {
+  letter: Letter;
+};
+`;
+  const root = tree(
+    { protocol: 7, methods: [{ name: 'word.read', params: 'Word', result: 'Word' }] },
+    bindings
+  );
+  expect(run(root).status).toBe(0);
+  expect(prettierCheck(join(root, 'web/connect/schema.d.ts'))).toBe(0);
 });
 
 it('passes a schema the generator wrote, with the index not a checkout', () => {

@@ -200,6 +200,7 @@ mod tests {
             mood: None,
             motivation: None,
             sport_load: Vec::new(),
+            source: None,
         };
         f(&mut d);
         d
@@ -432,6 +433,7 @@ mod tests {
                 mood: Some(scale(draw())),
                 motivation: Some(scale(draw())),
                 sport_load: Vec::new(),
+                source: None,
             });
         }
         (result(records), wellness)

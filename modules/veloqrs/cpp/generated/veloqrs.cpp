@@ -152,6 +152,9 @@ typedef void (*UniffiCallbackInterfaceEngineObserverMethod17)(
 typedef void (*UniffiCallbackInterfaceEngineObserverMethod18)(
     uint64_t uniffi_handle, void *uniffi_out_return,
     RustCallStatus *rust_call_status);
+typedef void (*UniffiCallbackInterfaceEngineObserverMethod19)(
+    uint64_t uniffi_handle, RustBuffer kind, void *uniffi_out_return,
+    RustCallStatus *rust_call_status);
 typedef struct UniffiVTableCallbackInterfaceEngineObserver {
   UniffiCallbackInterfaceFree uniffi_free;
   UniffiCallbackInterfaceClone uniffi_clone;
@@ -174,6 +177,7 @@ typedef struct UniffiVTableCallbackInterfaceEngineObserver {
   UniffiCallbackInterfaceEngineObserverMethod16 recordings_changed;
   UniffiCallbackInterfaceEngineObserverMethod17 upload_permission_refused;
   UniffiCallbackInterfaceEngineObserverMethod18 request_budget_changed;
+  UniffiCallbackInterfaceEngineObserverMethod19 remote_wrote;
 } UniffiVTableCallbackInterfaceEngineObserver;
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_activitymanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
@@ -529,6 +533,8 @@ void uniffi_veloqrs_fn_method_engineobserver_upload_permission_refused(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_engineobserver_request_budget_changed(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_engineobserver_remote_wrote(
+    /*handle*/ uint64_t ptr, RustBuffer kind, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_routegroupingpreview(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_free_routegroupingpreview(
@@ -622,7 +628,7 @@ int8_t uniffi_veloqrs_fn_method_remotemanager_confirm_pairing(
 uint32_t uniffi_veloqrs_fn_method_remotemanager_connected_count(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_remotemanager_disconnect_all(
-    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer reason, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_remotemanager_linked_rooms(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_remotemanager_list_linked_devices(
@@ -631,6 +637,8 @@ RustBuffer uniffi_veloqrs_fn_method_remotemanager_pairing_request(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_remotemanager_remove_linked_device(
     /*handle*/ uint64_t ptr, RustBuffer id, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_remotemanager_set_device_name(
+    /*handle*/ uint64_t ptr, RustBuffer name, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_remotemanager_set_in_front(
     /*handle*/ uint64_t ptr, int8_t in_front, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_routefollower(
@@ -640,6 +648,8 @@ void uniffi_veloqrs_fn_free_routefollower(
 RustBuffer uniffi_veloqrs_fn_method_routefollower_advance(
     /*handle*/ uint64_t ptr, double latitude, double longitude,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_routefollower_turns(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_routemanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_free_routemanager(
@@ -1349,6 +1359,7 @@ uint16_t uniffi_veloqrs_checksum_method_engineobserver_recordings_changed();
 uint16_t
 uniffi_veloqrs_checksum_method_engineobserver_upload_permission_refused();
 uint16_t uniffi_veloqrs_checksum_method_engineobserver_request_budget_changed();
+uint16_t uniffi_veloqrs_checksum_method_engineobserver_remote_wrote();
 uint16_t uniffi_veloqrs_checksum_method_routegroupingpreview_cancel();
 uint16_t uniffi_veloqrs_checksum_method_routegroupingpreview_run();
 uint16_t uniffi_veloqrs_checksum_method_sectionpreview_cancel();
@@ -1386,8 +1397,10 @@ uint16_t uniffi_veloqrs_checksum_method_remotemanager_linked_rooms();
 uint16_t uniffi_veloqrs_checksum_method_remotemanager_list_linked_devices();
 uint16_t uniffi_veloqrs_checksum_method_remotemanager_pairing_request();
 uint16_t uniffi_veloqrs_checksum_method_remotemanager_remove_linked_device();
+uint16_t uniffi_veloqrs_checksum_method_remotemanager_set_device_name();
 uint16_t uniffi_veloqrs_checksum_method_remotemanager_set_in_front();
 uint16_t uniffi_veloqrs_checksum_method_routefollower_advance();
+uint16_t uniffi_veloqrs_checksum_method_routefollower_turns();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_exclude_activity();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_follow();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_all();
@@ -5621,6 +5634,140 @@ static void cleanup() {
 }
 } // namespace
   // uniffi::veloqrs::cb::callbackinterfaceengineobservermethod18::vtablecallbackinterfaceengineobserver
+  // Implementation of CallbackInterfaceEngineObserverMethod19 for vtable field
+  // remote_wrote in VTableCallbackInterfaceEngineObserver
+
+// Callback function:
+// uniffi::veloqrs::cb::callbackinterfaceengineobservermethod19::vtablecallbackinterfaceengineobserver::UniffiCallbackInterfaceEngineObserverMethod19
+//
+// We have the following constraints:
+// - we need to pass a function pointer to Rust.
+// - we need a jsi::Runtime and jsi::Function to call into JS.
+// - function pointers can't store state, so we can't use a lamda.
+//
+// For this, we store a lambda as a global, as `rsLambda`. The `callback`
+// function calls the lambda, which itself calls the `body` which then calls
+// into JS.
+//
+// We then give the `callback` function pointer to Rust which will call the
+// lambda sometime in the future.
+namespace uniffi::veloqrs::cb::callbackinterfaceengineobservermethod19::
+    vtablecallbackinterfaceengineobserver {
+using namespace facebook;
+
+// We need to store a lambda in a global so we can call it from
+// a function pointer. The function pointer is passed to Rust.
+static std::function<void(uint64_t, RustBuffer, void *, RustCallStatus *)>
+    rsLambda = nullptr;
+
+// This is the main body of the callback. It's called from the lambda,
+// which itself is called from the callback function which is passed to Rust.
+static void body(jsi::Runtime &rt,
+                 std::shared_ptr<uniffi_runtime::UniffiCallInvoker> callInvoker,
+                 std::shared_ptr<jsi::Value> callbackValue,
+                 uint64_t rs_uniffiHandle, RustBuffer rs_kind,
+                 void *rs_uniffiOutReturn, RustCallStatus *uniffi_call_status) {
+
+  // Convert the arguments from Rust, into jsi::Values.
+  // We'll use the Bridging class to do this…
+  auto js_uniffiHandle =
+      uniffi_jsi::Bridging<uint64_t>::toJs(rt, callInvoker, rs_uniffiHandle);
+  auto js_kind =
+      uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, rs_kind);
+
+  // Now we are ready to call the callback.
+  // We are already on the JS thread, because this `body` function was
+  // invoked from the CallInvoker.
+  try {
+    // Getting the callback function
+    auto cb = callbackValue->asObject(rt).asFunction(rt);
+    auto uniffiResult = cb.call(rt, js_uniffiHandle, js_kind);
+
+    // Now copy the result back from JS into the RustCallStatus object.
+    uniffi::veloqrs::Bridging<RustCallStatus>::copyFromJs(
+        rt, callInvoker, uniffiResult, uniffi_call_status);
+
+    if (uniffi_call_status->code != UNIFFI_CALL_STATUS_OK) {
+      // The JS callback finished abnormally, so we cannot retrieve the return
+      // value.
+      return;
+    }
+
+  } catch (const jsi::JSError &error) {
+    std::cout
+        << "Error in callback UniffiCallbackInterfaceEngineObserverMethod19: "
+        << error.what() << std::endl;
+    throw error;
+  }
+}
+
+static void callback(uint64_t rs_uniffiHandle, RustBuffer rs_kind,
+                     void *rs_uniffiOutReturn,
+                     RustCallStatus *uniffi_call_status) {
+  // If the runtime has shutdown, then there is no point in trying to
+  // call into Javascript. BUT how do we tell if the runtime has shutdown?
+  //
+  // Answer: the module destructor calls into callback `cleanup` method,
+  // which nulls out the rsLamda.
+  //
+  // If rsLamda is null, then there is no runtime to call into.
+  if (rsLambda == nullptr) {
+    // This only occurs when destructors are calling into Rust free/drop,
+    // which causes the JS callback to be dropped.
+    return;
+  }
+
+  // The runtime, the actual callback jsi::funtion, and the callInvoker
+  // are all in the lambda.
+  rsLambda(rs_uniffiHandle, rs_kind, rs_uniffiOutReturn, uniffi_call_status);
+}
+
+[[maybe_unused]] static UniffiCallbackInterfaceEngineObserverMethod19
+makeCallbackFunction( // uniffi::veloqrs::cb::callbackinterfaceengineobservermethod19::vtablecallbackinterfaceengineobserver
+    jsi::Runtime &rt,
+    std::shared_ptr<uniffi_runtime::UniffiCallInvoker> callInvoker,
+    const jsi::Value &value) {
+  if (rsLambda != nullptr) {
+    // `makeCallbackFunction` is called in two circumstances:
+    //
+    // 1. at startup, when initializing callback interface vtables.
+    // 2. when polling futures. This happens at least once per future that is
+    //    exposed to Javascript. We know that this is always the same function,
+    //    `uniffiFutureContinuationCallback` in `async-rust-calls.ts`.
+    //
+    // We can therefore return the callback function without making anything
+    // new if we've been initialized already.
+    return callback;
+  }
+  auto callbackFunction = value.asObject(rt).asFunction(rt);
+  auto callbackValue = std::make_shared<jsi::Value>(rt, callbackFunction);
+  rsLambda = [&rt, callInvoker, callbackValue](
+                 uint64_t rs_uniffiHandle, RustBuffer rs_kind,
+                 void *rs_uniffiOutReturn, RustCallStatus *uniffi_call_status) {
+    // We immediately make a lambda which will do the work of transforming the
+    // arguments into JSI values and calling the callback.
+    uniffi_runtime::UniffiCallFunc jsLambda =
+        [callInvoker, callbackValue, rs_uniffiHandle, rs_kind,
+         rs_uniffiOutReturn, uniffi_call_status](jsi::Runtime &rt) mutable {
+          body(rt, callInvoker, callbackValue, rs_uniffiHandle, rs_kind,
+               rs_uniffiOutReturn, uniffi_call_status);
+        };
+    // We'll then call that lambda from the callInvoker which will
+    // look after calling it on the correct thread.
+    callInvoker->invokeBlocking(rt, jsLambda);
+  };
+  return callback;
+}
+
+// This method is called from the destructor of NativeVeloqrs, which only
+// happens when the jsi::Runtime is being destroyed.
+static void cleanup() {
+  // The lambda holds a reference to the the Runtime, so when this is nulled
+  // out, then the pointer will no longer be left dangling.
+  rsLambda = nullptr;
+}
+} // namespace
+  // uniffi::veloqrs::cb::callbackinterfaceengineobservermethod19::vtablecallbackinterfaceengineobserver
 namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
@@ -5732,6 +5879,10 @@ template <> struct Bridging<UniffiVTableCallbackInterfaceEngineObserver> {
             vtablecallbackinterfaceengineobserver::makeCallbackFunction(
                 rt, callInvoker,
                 jsObject.getProperty(rt, "request_budget_changed"));
+    rsObject.remote_wrote =
+        uniffi::veloqrs::cb::callbackinterfaceengineobservermethod19::
+            vtablecallbackinterfaceengineobserver::makeCallbackFunction(
+                rt, callInvoker, jsObject.getProperty(rt, "remote_wrote"));
 
     return rsObject;
   }
@@ -7587,6 +7738,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_engineobserver_request_budget_changed(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_engineobserver_remote_wrote"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_engineobserver_remote_wrote"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_engineobserver_remote_wrote(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_clone_routegroupingpreview"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -8053,7 +8216,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(
               rt, "ubrn_uniffi_veloqrs_fn_method_remotemanager_disconnect_all"),
-          1,
+          2,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -8109,6 +8272,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_remotemanager_remove_linked_device(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_remotemanager_set_device_name"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_remotemanager_set_device_name"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_remotemanager_set_device_name(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_remotemanager_set_in_front"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -8152,6 +8328,17 @@ NativeVeloqrs::NativeVeloqrs(
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_method_routefollower_advance(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_routefollower_turns"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_routefollower_turns"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_routefollower_turns(
                 rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_clone_routemanager"] =
@@ -12558,6 +12745,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_engineobserver_request_budget_changed(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_engineobserver_remote_wrote"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "engineobserver_remote_wrote"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_engineobserver_remote_wrote(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_routegroupingpreview_cancel"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -12947,6 +13146,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_remotemanager_remove_linked_device(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_remotemanager_set_device_name"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "remotemanager_set_device_name"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_remotemanager_set_device_name(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_remotemanager_set_in_front"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -12971,6 +13182,17 @@ NativeVeloqrs::NativeVeloqrs(
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_routefollower_advance(
                     rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_routefollower_turns"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_routefollower_turns"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_method_routefollower_turns(
+                rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_routemanager_exclude_activity"] =
       jsi::Function::createFromHostFunction(
@@ -15139,6 +15361,8 @@ NativeVeloqrs::~NativeVeloqrs() {
   uniffi::veloqrs::cb::callbackinterfaceengineobservermethod17::
       vtablecallbackinterfaceengineobserver::cleanup();
   uniffi::veloqrs::cb::callbackinterfaceengineobservermethod18::
+      vtablecallbackinterfaceengineobserver::cleanup();
+  uniffi::veloqrs::cb::callbackinterfaceengineobservermethod19::
       vtablecallbackinterfaceengineobserver::cleanup();
 }
 
@@ -17713,6 +17937,22 @@ jsi::Value NativeVeloqrs::
 
   return jsi::Value::undefined();
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_engineobserver_remote_wrote(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_engineobserver_remote_wrote(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_routegroupingpreview(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -18312,6 +18552,7 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_remotemanager_disconnect_all(
   uniffi_veloqrs_fn_method_remotemanager_disconnect_all(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -18380,6 +18621,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_remotemanager_remove_linked_device(
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_remotemanager_set_device_name(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_remotemanager_set_device_name(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_remotemanager_set_in_front(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -18433,6 +18690,20 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routefollower_advance(
                                                         args[0]),
       uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routefollower_turns(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_routefollower_turns(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -22796,6 +23067,14 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_engineobserver_remote_wrote(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_engineobserver_remote_wrote();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_routegroupingpreview_cancel(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -23065,6 +23344,14 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_remotemanager_set_device_name(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_remotemanager_set_device_name();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_remotemanager_set_in_front(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -23077,6 +23364,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_routefollower_advance(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_routefollower_advance();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_routefollower_turns(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_routefollower_turns();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

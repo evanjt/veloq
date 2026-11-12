@@ -24,6 +24,9 @@ pub enum FfiIntervalKind {
     Warmup,
     Cooldown,
     ActiveRecovery,
+    /// A stretch the recording device closed, read from the activity's own
+    /// file rather than detected by the server.
+    Lap,
     /// A label this build does not know, or none at all.
     Other,
 }
@@ -37,6 +40,7 @@ impl FfiIntervalKind {
             Some("WARMUP") => Self::Warmup,
             Some("COOLDOWN") => Self::Cooldown,
             Some("ACTIVE_RECOVERY") => Self::ActiveRecovery,
+            Some("lap") => Self::Lap,
             _ => Self::Other,
         }
     }
@@ -76,6 +80,74 @@ pub struct FfiActivityInterval {
 #[serde(rename_all = "camelCase")]
 pub struct FfiActivityIntervals {
     pub intervals: Vec<FfiActivityInterval>,
+}
+
+/// The body written for an activity whose laps come from its own file, in the
+/// shape of the server's, from the laps the recording holds.
+///
+/// Each lap carries its elapsed seconds from the start and the positions of
+/// its first and last sample in the activity's `time` series, so the table, the
+/// chips and the chart bands read it as they read a server's. A lap with no
+/// sample inside it is left out. A recording with fewer than two laps, or with
+/// no samples, writes nothing: one lap is the whole ride.
+pub fn lap_body(activity: &crate::fit::FitActivity) -> Option<String> {
+    if activity.laps.len() < 2 || activity.samples.is_empty() {
+        return None;
+    }
+    let offsets: Vec<i64> = activity
+        .samples
+        .iter()
+        .map(|sample| sample.timestamp - activity.start_unix)
+        .collect();
+    let mut intervals = Vec::new();
+    for lap in &activity.laps {
+        let start = lap.start_unix - activity.start_unix;
+        let span = lap.elapsed_secs.or(lap.timer_secs)?;
+        let end = start as f64 + span;
+        let Some(first) = offsets.iter().position(|&at| at >= start) else {
+            continue;
+        };
+        let Some(last) = offsets.iter().rposition(|&at| at as f64 <= end) else {
+            continue;
+        };
+        if last < first {
+            continue;
+        }
+        let timer = lap.timer_secs.unwrap_or(span);
+        let speed = lap
+            .avg_speed
+            .or_else(|| lap.distance.filter(|_| timer > 0.0).map(|d| d / timer));
+        let mut entry = serde_json::Map::new();
+        let mut put = |key: &str, value: Option<f64>| {
+            if let Some(number) = value.filter(|v| v.is_finite()) {
+                entry.insert(key.into(), number.into());
+            }
+        };
+        put("id", Some((intervals.len() + 1) as f64));
+        put("start_time", Some(start as f64));
+        put("end_time", Some(end));
+        put("start_index", Some(first as f64));
+        put("end_index", Some(last as f64));
+        put("moving_time", Some(timer));
+        put("distance", lap.distance);
+        put("average_speed", speed);
+        put("average_heartrate", lap.avg_heart_rate);
+        put("average_watts", lap.avg_power);
+        put("average_cadence", lap.avg_cadence);
+        entry.insert("type".into(), "lap".into());
+        intervals.push(serde_json::Value::Object(entry));
+    }
+    if intervals.len() < 2 {
+        return None;
+    }
+    Some(
+        serde_json::json!({
+            "icu_intervals": intervals,
+            "icu_groups": [],
+            "source": "veloq",
+        })
+        .to_string(),
+    )
 }
 
 #[derive(Debug, Deserialize)]
@@ -203,6 +275,57 @@ mod tests {
         assert_eq!(laps[2].zone, None);
         assert_eq!(laps[2].average_watts, None);
         assert_eq!(laps[2].label, None);
+    }
+
+    fn ride_with_laps(laps: &[(u32, f64)]) -> crate::fit::FitActivity {
+        let mut ride = crate::fit_synthetic::outdoor_ride();
+        ride.laps = laps
+            .iter()
+            .map(|&(start, elapsed_secs)| crate::fit_synthetic::Lap {
+                start,
+                elapsed_secs,
+                timer_secs: Some(elapsed_secs - 1.0),
+                distance: Some(elapsed_secs * 6.0),
+                avg_heart_rate: Some(130),
+                avg_power: Some(210),
+                ..Default::default()
+            })
+            .collect();
+        crate::fit::parse_fit_activity(&ride.to_fit()).unwrap()
+    }
+
+    #[test]
+    fn three_laps_in_a_file_become_three_intervals_placed_in_the_time_stream() {
+        let activity = ride_with_laps(&[(0, 10.0), (10, 10.0), (20, 9.0)]);
+        let body = lap_body(&activity).expect("three laps write a body");
+        let read = parse_activity_intervals(&body).unwrap().intervals;
+
+        assert_eq!(read.len(), 3);
+        assert!(read.iter().all(|lap| lap.kind == FfiIntervalKind::Lap));
+        let time = activity.streams().remove(0).data;
+        for lap in &read {
+            let at = |index: u32| time[index as usize].unwrap();
+            assert_eq!(Some(at(lap.start_index)), lap.start_time.map(|t| t.ceil()));
+            assert!(at(lap.end_index) <= lap.end_time.unwrap());
+        }
+        assert_eq!((read[0].start_index, read[0].end_index), (0, 10));
+        assert_eq!((read[1].start_index, read[1].end_index), (10, 20));
+        assert_eq!((read[2].start_index, read[2].end_index), (20, 29));
+        assert_eq!(read[0].moving_time, Some(9.0));
+        assert_eq!(read[0].distance, Some(60.0));
+        assert_eq!(read[0].average_heartrate, Some(130.0));
+        assert_eq!(read[0].average_watts, Some(210.0));
+        assert_eq!(read[0].average_speed, Some(60.0 / 9.0));
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&body).unwrap()["source"],
+            "veloq"
+        );
+    }
+
+    #[test]
+    fn a_file_with_one_lap_or_none_writes_no_body() {
+        assert_eq!(lap_body(&ride_with_laps(&[(0, 29.0)])), None);
+        assert_eq!(lap_body(&ride_with_laps(&[])), None);
     }
 
     #[test]

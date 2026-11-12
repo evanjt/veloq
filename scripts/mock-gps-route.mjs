@@ -2,7 +2,10 @@
 // Feeds a scripted ride to the handset's GPS so a live recording moves with no
 // one riding. Invented loop of about 2 km at riding speed, one fix a second.
 //
-//   ANDROID_SERIAL=<serial> node scripts/mock-gps-route.mjs [seconds] [speed m/s]
+//   ANDROID_SERIAL=<serial> node scripts/mock-gps-route.mjs [seconds] [speed m/s] [lat lng]
+//
+// The ride starts at the default origin unless `lat lng` is given, so a route
+// off Sydney can be joined by fixes on the route itself.
 //
 // The test provider and the shell's mock-location appop are put back on exit,
 // including SIGINT. The `gps` test provider alone reaches the recording through
@@ -21,6 +24,7 @@ import {
   cleanupCommands,
   providerIsGone,
   retryCommands,
+  parseOrigin,
 } from './lib/mock-gps-route.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -41,8 +45,9 @@ if (!process.env.VELOQ_DEVICE_LOCK_HELD) {
 
 const seconds = Number(process.argv[2] ?? 300);
 const speed = Number(process.argv[3] ?? 8);
-if (!Number.isFinite(seconds) || seconds < 0 || !Number.isFinite(speed) || speed <= 0) {
-  console.error('usage: mock-gps-route.mjs [seconds] [speed m/s]');
+const origin = parseOrigin(process.argv.slice(4));
+if (!Number.isFinite(seconds) || seconds < 0 || !Number.isFinite(speed) || speed <= 0 || !origin) {
+  console.error('usage: mock-gps-route.mjs [seconds] [speed m/s] [lat lng]');
   process.exit(2);
 }
 
@@ -83,7 +88,7 @@ process.on('SIGTERM', () => {
 
 try {
   for (const command of setupCommands()) adb(command);
-  const fixes = routeFixes({ lat: -33.85, lng: 151.2 }, speed, seconds);
+  const fixes = routeFixes(origin, speed, seconds);
   for (const fix of fixes) {
     counts.sent++;
     let result = send(fixCommand(fix));

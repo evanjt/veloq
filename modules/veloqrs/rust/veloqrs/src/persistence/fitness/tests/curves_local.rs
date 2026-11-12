@@ -447,6 +447,7 @@ fn the_daily_eftp_is_written_in_the_wellness_sport_info_shape() {
     let body: Value = serde_json::from_str(&raw).unwrap();
     assert_eq!(body["sportInfo"][0]["type"], "Ride");
     assert_eq!(body["sportInfo"][0]["eftp"], 200.0);
+    assert_eq!(body["sportInfo"][0]["source"], "veloq");
 }
 
 #[test]

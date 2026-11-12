@@ -23,6 +23,9 @@ struct VeloqRecordingAttributes: ActivityAttributes {
     let distanceLabel: String
     let speedLabel: String
     let trace: Trace?
+    /// The followed route's off-route line, written when the state changes. Nil when the
+    /// ride is on its route, follows none, or the card was started by an older build.
+    let guidance: String?
     /// The translated line a stopped ride's final card shows. Nil while recording.
     let endedLabel: String?
     /// Milliseconds since the epoch after which the card is stale. Every push moves it

@@ -686,6 +686,7 @@ pub(crate) fn feed_card(
         avg_hr: body.average_heartrate,
         avg_power: body.icu_average_watts,
         training_load: body.icu_training_load,
+        metrics_source: body.metrics_source,
         calories: body.calories,
         has_weather: body.has_weather.unwrap_or(false),
         average_weather_temp: body.average_weather_temp,
@@ -731,6 +732,7 @@ pub(crate) fn activity_record(key: &str, raw: &str) -> Option<crate::FfiActivity
         trimp: body.trimp,
         strain_score: body.strain_score,
         efficiency_factor: body.icu_efficiency_factor,
+        metrics_source: body.metrics_source,
         weather_temp: body.average_weather_temp,
         sensor_temp: body.average_temp,
         wind_speed: body.average_wind_speed,
@@ -5141,6 +5143,9 @@ impl PersistentEngine {
                 .filter_map(|(metric, write)| write.then_some(metric))
                 .collect();
             self.write_activity_metrics(&metrics.iter().collect::<Vec<_>>(), true)?;
+            // The page has replaced what it names, so what is still marked as
+            // Veloq's in a library that now holds intervals.icu goes.
+            metrics.extend(self.drop_veloq_figures()?);
             for upstream_id in upstream_ids {
                 mark.execute(params![athlete_id, upstream_id])?;
             }

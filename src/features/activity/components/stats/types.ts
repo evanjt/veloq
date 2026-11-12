@@ -24,4 +24,6 @@ export interface StatDetail {
   context?: string | undefined;
   details?: { label: string; value: string }[] | undefined;
   explanation?: string | undefined;
+  /** Who worked the number out, when Veloq did and the source did not. */
+  provenance?: string | undefined;
 }

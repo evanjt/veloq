@@ -2097,6 +2097,7 @@ mod tests {
     }
 
     impl EngineObserver for TrackRecorder {
+        fn remote_wrote(&self, _kind: String) {}
         fn gps_track_stored(&self, activity_id: String) {
             // Not `with_persistent_engine`: an announcement made under the lock
             // must fail this test, not hang it. But not a single `try_lock`

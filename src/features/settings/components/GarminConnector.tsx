@@ -6,7 +6,6 @@ import { GarminKeyStatus, type GarminAccount } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { INTERVALS_URLS } from '@/shared/app/constants';
 import { sourceFor } from '@/shared/app/source';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing, typography } from '@/theme';
@@ -69,6 +68,7 @@ export function GarminConnector() {
   // from, no write permission to ask for and no copy of a ride to replace, and
   // the key is the session, so only signing out removes it.
   const authMethod = useAuthStore((state) => state.authMethod);
+  const links = sourceFor({ authMethod })?.links ?? null;
   const garminOnly = sourceFor({ authMethod })?.id === 'garmin';
 
   const [connected, setConnected] = useState(false);
@@ -347,12 +347,14 @@ export function GarminConnector() {
                     detail={t('garmin.duplicateDetail')}
                     testID="garmin-duplicate-warning"
                   />
-                  <ExternalLinkRow
-                    url={INTERVALS_URLS.connections}
-                    label={t('garmin.openConnections')}
-                    icon="open-in-new"
-                    testID="garmin-open-connections"
-                  />
+                  {links ? (
+                    <ExternalLinkRow
+                      url={links.connections}
+                      label={t('garmin.openConnections')}
+                      icon="open-in-new"
+                      testID="garmin-open-connections"
+                    />
+                  ) : null}
                 </View>
               ) : null}
             </>

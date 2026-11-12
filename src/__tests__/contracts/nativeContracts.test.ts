@@ -1506,6 +1506,11 @@ function holds(side: Side): void {
   }
 }
 
+it('the linked browser holds no Android foreground service and no Wi-Fi lock, so it is served only while Veloq is on screen', () => {
+  expect(read('app.json')).not.toContain('"CHANGE_WIFI_STATE"');
+  expect(fs.existsSync(path.join(ROOT, 'modules/veloq-remote-link'))).toBe(false);
+});
+
 describe('names written on two sides agree', () => {
   it.each(CONTRACTS.map((c) => [c.agree, c] as const))('%s', (_agree, c) => {
     holds(c.a);
@@ -2042,6 +2047,7 @@ const SETS: SetContract[] = [
       ['FfiTargetMetric', stub.FfiTargetMetric],
       ['FfiAbsoluteUnits', stub.FfiAbsoluteUnits],
       ['FfiRetiredPairLink', stub.RetiredPairLink],
+      ['DisconnectReason', stub.DisconnectReason],
     ] as const
   ).map(([name, value]): SetContract => ({
     agree: `the binding stub carries ${name}, declared without discriminants, in the generated order`,
@@ -2319,9 +2325,11 @@ describe('the renderer every map page asks for is the one both platforms ship', 
     expect(createHash('sha256').update(bytes).digest('hex')).toBe(sha);
   });
 
-  it('ships one version only, so a bump leaves no stale renderer behind', () => {
+  it('ships one version only, with its licence, so a bump leaves no stale renderer behind', () => {
     expect(fs.readdirSync(path.join(ROOT, BASEMAP, directory)).sort()).toEqual(
-      [MAPLIBRE_GL_CSS_FILE, MAPLIBRE_GL_JS_FILE].map((file) => path.basename(file)).sort()
+      [MAPLIBRE_GL_CSS_FILE, MAPLIBRE_GL_JS_FILE, 'renderer/LICENSE.txt']
+        .map((file) => path.basename(file))
+        .sort()
     );
   });
 
@@ -2453,7 +2461,7 @@ describe('the connect page schema follows the engine', () => {
           const declaration =
             /((?:\s*(?:#\[[^\]]*\]|\/\/\/[^\n]*))+)\s*pub (?:struct|enum) (\w+)[^{;]*\{/g;
           for (let match = declaration.exec(text); match; match = declaration.exec(text)) {
-            if (!/uniffi::(Record|Enum)/.test(match[1])) continue;
+            if (!/uniffi::(Record|Enum|remote\((Record|Enum)\))/.test(match[1])) continue;
             let depth = 1;
             let at = declaration.lastIndex;
             while (depth > 0 && at < text.length) {
@@ -2474,7 +2482,7 @@ describe('the connect page schema follows the engine', () => {
   }
 
   const named = new Set(methods.methods.flatMap((method) => [method.params, method.result]));
-  const schemaTypes = [...schema.matchAll(/^export type (\w+) = (\{|')/gm)]
+  const schemaTypes = [...schema.matchAll(/^export type (\w+) = (\{|'|Record<string, never>;)/gm)]
     .map((m) => m[1])
     .filter((name) => name !== 'Methods');
 
@@ -2489,7 +2497,8 @@ describe('the connect page schema follows the engine', () => {
   it('names only records the generated bindings declare', () => {
     expect(named.size).toBeGreaterThan(0);
     for (const name of named) {
-      expect(read(GENERATED)).toMatch(new RegExp(`^export type ${name} = \\{$`, 'm'));
+      // A record with no fields is uniffi's one-line `{};`.
+      expect(read(GENERATED)).toMatch(new RegExp(`^export type ${name} = (\\{$|\\{\\};$)`, 'm'));
     }
   });
 
@@ -2499,9 +2508,23 @@ describe('the connect page schema follows the engine', () => {
     for (const name of schemaTypes) {
       const declared = rust.get(name);
       expect([name, declared !== undefined]).toEqual([name, true]);
+      if (name === 'FfiBounds') continue;
       expect(declared?.attributes).toMatch(/serde::Serialize|[(, ]Serialize/);
       expect(declared?.attributes).toMatch(/rename_all = "camelCase"/);
     }
+  });
+
+  it('writes the matcher bounding box as a camelCase record through the link module', () => {
+    // The box is the matcher's own type, declared remotely, so it carries no
+    // serde attributes of its own: every field that holds one names this module.
+    const module = read(`${RUST}/remote/bounds.rs`);
+    expect(module).toMatch(/rename_all = "camelCase"/);
+    const holders = read(`${RUST}/ffi_types.rs`).match(/pub bounds: Option<Bounds>/g) ?? [];
+    const renamed =
+      read(`${RUST}/ffi_types.rs`).match(
+        /#\[serde\(default, with = "crate::remote::bounds::option"\)\]\s+pub bounds: Option<Bounds>/g
+      ) ?? [];
+    expect(renamed.length).toBe(holders.length);
   });
 
   it('says 64-bit integers as numbers, and lists the records that carry one', () => {
@@ -2511,9 +2534,19 @@ describe('the connect page schema follows the engine', () => {
       .filter((name) => /\b(i64|u64|WholeNumber)\b/.test(rust.get(name)?.body ?? ''))
       .sort();
     // A value past 2^53 would lose digits as a JSON number. These records hold
-    // an instant in epoch milliseconds, which stays exact until the year 287396.
+    // an instant in epoch milliseconds or seconds, which stays exact until the year 287396,
+    // or a stored geometry version number.
     // A record added to a method that carries a count or an id of this width
     // is a decision to make here, not a surprise on a page.
-    expect(wide).toEqual(['FfiActivitySyncFailure']);
+    expect(wide).toEqual([
+      'FfiActivityLedgerChange',
+      'FfiActivitySyncFailure',
+      'FfiDirectionStats',
+      'FfiGarminPull',
+      'FfiJobRun',
+      'FfiRetiredSection',
+      'FfiRoutePerformance',
+      'FfiSectionPerformanceRecord',
+    ]);
   });
 });

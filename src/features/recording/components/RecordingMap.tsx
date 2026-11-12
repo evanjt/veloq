@@ -27,6 +27,8 @@ import {
   pointsBetweenSourceIndices,
 } from '@/features/maps';
 import { recordingMapLayers } from '../lib/recordingMapLayers';
+import { routeTurnMarks, TURN_MARK_SIZE } from '../lib/routeTurnMarks';
+import { useRecordingLiveStore } from '../stores/RecordingLiveStore';
 import { cameraMove, darkColors, layout, mapPalette, spacing } from '@/theme';
 import {
   NEARBY_ROUTE_HIT_LAYER,
@@ -203,6 +205,14 @@ function RecordingMapInner({
     () => followedRouteLine(followedRoute ? [followedRoute] : NO_ROUTES, followedRoute?.id ?? null),
     [followedRoute]
   );
+  // The engine's turns on the followed line, and the next one ahead of the ride, matched by its
+  // along distance. Empty while nothing is followed and on the review map.
+  const routeTurns = useRecordingLiveStore((s) => s.routeTurns);
+  const nextTurnAlongM = useRecordingLiveStore((s) => s.guidance?.nextTurn?.alongM ?? null);
+  const turnMarks = useMemo(
+    () => routeTurnMarks(followedRoute && !fitBounds ? routeTurns : [], nextTurnAlongM),
+    [followedRoute, fitBounds, routeTurns, nextTurnAlongM]
+  );
   const handlePress = useCallback(
     (event: MapPressEvent) => {
       const routeId = routeIdUnderPress(event.feature);
@@ -260,6 +270,7 @@ function RecordingMapInner({
     () => ({
       'nearby-routes': { kind: 'geojson', data: nearbyLines },
       'route-overlay': { kind: 'geojson', data: overlayRoute },
+      'route-turns': { kind: 'geojson', data: turnMarks },
       'excluded-route': { kind: 'geojson', data: excludedRoute },
       // The live line only ever gains points at its end, so the surface ships
       // the fix rather than the ride. A trim moves the ends and falls back to
@@ -268,11 +279,11 @@ function RecordingMapInner({
       'current-accuracy': { kind: 'geojson', data: accuracyRing },
       'current-position': { kind: 'geojson', data: position },
     }),
-    [nearbyLines, overlayRoute, excludedRoute, activeRoute, accuracyRing, position]
+    [nearbyLines, overlayRoute, turnMarks, excludedRoute, activeRoute, accuracyRing, position]
   );
 
   const layers = useMemo(
-    () => recordingMapLayers(mapPalette(mapStyle), isDark),
+    () => recordingMapLayers(mapPalette(mapStyle), isDark, TURN_MARK_SIZE),
     [mapStyle, isDark]
   );
 

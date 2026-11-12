@@ -36,6 +36,7 @@ const state = (over: Partial<LiveActivityContentState> = {}): LiveActivityConten
   status: 'recording',
   timerFrom: 1_700_000_000_000,
   frozenElapsedS: 0,
+  guidance: null,
   distanceLabel: '12.4 km',
   speedLabel: '28.1 km/h',
   trace: null,

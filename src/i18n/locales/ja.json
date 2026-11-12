@@ -40,7 +40,8 @@
       "connectGarmin": "Garmin を接続"
     },
     "provenance": {
-      "garminOnPhone": "Garmin のファイルから補完"
+      "garminOnPhone": "Garmin のファイルから補完",
+      "veloqNumbers": "Garminのファイルから、このスマートフォン上でVeloqが算出しました。"
     },
     "syncFailed": {
       "title": "同期できませんでした",
@@ -132,7 +133,8 @@
       "pace": "ペース",
       "cadence": "ケイデンス",
       "movingTime": "移動時間",
-      "elapsedTime": "経過時間"
+      "elapsedTime": "経過時間",
+      "needsIntervals": "intervals.icuが必要です"
     },
     "hrZoneTotal": "心拍数の記録がある時間: {{duration}}",
     "powerZoneTotal": "パワーの記録がある時間: {{duration}}",
@@ -216,7 +218,8 @@
       "route": "ルート",
       "sections": "区間",
       "exercises": "エクササイズ",
-      "lengths": "レングス"
+      "lengths": "レングス",
+      "laps": "ラップ"
     },
     "primary": "主動筋",
     "secondary": "補助筋",
@@ -768,6 +771,10 @@
     "other": {
       "short": "その他",
       "long": "その他"
+    },
+    "lap": {
+      "short": "ラップ",
+      "long": "ラップ"
     }
   },
   "export": {
@@ -817,7 +824,8 @@
       "failedBody": "前回の同期は、アクティビティが届く前に停止しました。",
       "emptyTitle": "まだアクティビティがありません",
       "emptyBody": "アクティビティは intervals.icu アカウントから届くか、ここで記録できます。",
-      "record": "アクティビティを記録"
+      "record": "アクティビティを記録",
+      "emptyBodyGarmin": "アクティビティは Garmin アカウントから、またはここでの記録から取り込まれます。"
     },
     "noActivitiesFor": "{{filters}} のアクティビティはありません",
     "searchPlaceholder": "アクティビティを検索…",
@@ -861,7 +869,8 @@
     "noData": "フィットネスデータがありません",
     "noDataCause": "フィットネス、疲労、フォームは intervals.icu から取得します。この期間のデータは intervals.icu に保存されていません。",
     "restDay": "休息日",
-    "selectActivity": "アクティビティを選択"
+    "selectActivity": "アクティビティを選択",
+    "noDataCauseGarmin": "フィットネス、疲労、フォームにはトレーニング負荷が必要ですが、この期間の負荷は Veloq にありません。"
   },
   "fitnessScreen": {
     "atl": "ATL",
@@ -882,7 +891,9 @@
       "calendar": "カレンダー",
       "performance": "パフォーマンス",
       "trends": "トレンド"
-    }
+    },
+    "provenanceGarmin": "Garminのライドから、このスマートフォン上で算出しました。",
+    "methodGarmin": "Garminのファイルにはトレーニング負荷が含まれないため、Veloqがこのスマートフォン上で各ライドの負荷を算出し、フィットネス、疲労、フォームはその負荷から計算されます。"
   },
   "formZones": {
     "transition": "移行",
@@ -1392,7 +1403,10 @@
       "peek": "プレビュー",
       "half": "半分",
       "full": "全体"
-    }
+    },
+    "underPointRoute": "ルート {{number}}",
+    "underPointNoRoute": "ルートなし",
+    "underPointDrawn": "{{total}}件中{{drawn}}件を描画"
   },
   "metrics": {
     "activityCount": "アクティビティ",
@@ -1676,6 +1690,14 @@
       "nearby": "近く",
       "allRoutes": "すべてのルート"
     },
+    "guidance": {
+      "remaining": "残り{{distance}}",
+      "notJoined": "ルートまで{{distance}}",
+      "offRoute": "ルートを外れています · {{distance}}",
+      "turnLeft": "{{distance}}先、左折",
+      "turnRight": "{{distance}}先、右折",
+      "turnBack": "{{distance}}先、Uターン"
+    },
     "returnToRecording": "記録に戻る",
     "batteryOptNudge": "長時間の記録には、Veloqのバッテリー最適化をオフにすることをおすすめします。",
     "batteryOptOpenSettings": "バッテリー設定を開く",
@@ -1711,7 +1733,8 @@
     },
     "recentTypes": "最近",
     "caloriesMethod": "センサーがある場合は平均心拍数から年齢{{age}}歳と仮定して推定し、ない場合はスポーツと移動時間から推定します。",
-    "caloriesDefaultWeight": "プロフィールに体重がないため、{{weight}} kgと仮定しています。"
+    "caloriesDefaultWeight": "プロフィールに体重がないため、{{weight}} kgと仮定しています。",
+    "savedLocallyNoUploadGarmin": "ライドをこの端末に保存しました。アップロードはされません。"
   },
   "routeDetail": {
     "routeNotFound": "ルートが見つかりません"
@@ -3326,5 +3349,248 @@
     "connectedSince": "{{time}} から接続中",
     "notConnected": "未接続",
     "manage": "リンク済みデバイスを管理"
+  },
+  "connectPage": {
+    "title": "Veloq Connect",
+    "language": "言語",
+    "status": {
+      "unpaired": "未リンク",
+      "inviting": "コードのスキャンを待っています",
+      "proving": "スマートフォンを確認しています",
+      "confirming": "スマートフォンで確認してください",
+      "waiting": "スマートフォンを待っています",
+      "connecting": "接続しています",
+      "connected": "接続済み",
+      "update": "スマートフォンのVeloqを更新してください",
+      "unsupported": "非対応"
+    },
+    "unsupported": "このブラウザーはスマートフォンとリンクできません。最新のChrome、Edge、Firefoxをお試しください。",
+    "notice": {
+      "refused": "スマートフォンがこのブラウザーを拒否しました。新しいコードでもう一度リンクしてください。",
+      "declined": "スマートフォンでリンクが拒否されました。",
+      "removed": "このブラウザーはスマートフォンで削除されました。新しいコードでもう一度リンクしてください。",
+      "unreachable": "ここからスマートフォンに接続できませんでした。両方を同じWi-Fiに接続し、新しいコードをスキャンしてください。"
+    },
+    "screens": {
+      "feed": "フィード",
+      "fitness": "フィットネス",
+      "insights": "インサイト",
+      "map": "マップ",
+      "settings": "設定"
+    },
+    "railLabel": "画面",
+    "yourPhone": "お使いのスマートフォン",
+    "laterScreen": "この画面はまだブラウザーにありません。スマートフォンで開いてください。",
+    "footer": "データはスマートフォンからこのページへ直接送られ、ページを開いている間だけ保持されます。",
+    "unlink": "このブラウザーのリンクを解除",
+    "pair": {
+      "heading": "このブラウザーをリンク",
+      "step1": "スマートフォンでVeloqを開きます。",
+      "step2": "設定、リンク済みデバイス、デバイスをリンクの順に進みます。",
+      "step3": "このコードをスキャンします。",
+      "codeLabel": "リンクコード"
+    },
+    "waiting": {
+      "heading": "スマートフォンを待っています",
+      "body": "スマートフォンでVeloqを開いてください。このページは同じWi-Fiでも、ほとんどの他のネットワークでも、自動的に接続します。",
+      "unreachable": "ここからスマートフォンに接続できませんでした。両方を同じWi-Fiに接続してください。"
+    },
+    "update": {
+      "heading": "スマートフォンのVeloqを更新してください",
+      "body": "このページとスマートフォンのVeloqで、リンクのバージョンが一致していません。スマートフォンのVeloqを更新してから、このページを開き直してください。"
+    },
+    "keys": {
+      "heading": "キー",
+      "tabs": "フィード、フィットネス、インサイト、マップ、設定",
+      "search": "フィードを検索",
+      "close": "アクティビティを閉じる",
+      "list": "この一覧",
+      "range": "1〜5"
+    },
+    "library": {
+      "activities": "アクティビティ",
+      "searchPlaceholder": "検索 (/)",
+      "searchLabel": "アクティビティを検索",
+      "pick": "アクティビティを選択",
+      "loadMore": "さらに読み込む",
+      "sportLabel": "スポーツ",
+      "summary": "サマリー",
+      "fitnessTrend": "過去30日間のフィットネス",
+      "range": "期間",
+      "sortNote_one": "ここまでに読み込んだ{{count}}件のアクティビティの中で並べ替えています。スクロールすると続きを読み込みます。",
+      "sortNote_other": "ここまでに読み込んだ{{count}}件のアクティビティの中で並べ替えています。スクロールすると続きを読み込みます。"
+    },
+    "families": {
+      "ride": "サイクリング",
+      "run": "ランニング",
+      "winter": "ウィンタースポーツ",
+      "water": "ウォータースポーツ",
+      "foot": "徒歩",
+      "strength": "筋力",
+      "other": "その他"
+    },
+    "facts": {
+      "thisWeek": "今週",
+      "lastWeek": "先週",
+      "fitness": "フィットネス",
+      "form": "フォーム",
+      "hrv": "HRV",
+      "restingHr": "安静時心拍数",
+      "distance": "距離",
+      "movingTime": "移動時間",
+      "elapsedTime": "経過時間",
+      "averageSpeed": "平均速度",
+      "topSpeed": "最高速度",
+      "climbing": "獲得標高",
+      "averageHr": "平均心拍数",
+      "averagePower": "平均パワー",
+      "trainingLoad": "トレーニング負荷",
+      "time": "時間"
+    },
+    "weekTotal_one": "{{time}} · {{count}}件のアクティビティ",
+    "weekTotal_other": "{{time}} · {{count}}件のアクティビティ",
+    "connection": {
+      "heading": "接続",
+      "connectedFor": "接続時間",
+      "path": "経路",
+      "thisBrowser": "このブラウザ",
+      "phone": "電話",
+      "roundTrip": "往復時間",
+      "checking": "確認中",
+      "notMeasured": "未測定",
+      "pathDirect": "直接、同じネットワーク上",
+      "pathStun": "ネットワーク間、STUN経由",
+      "pathUnknown": "まだ不明",
+      "trafficLabel": "過去3分間の1秒あたりのバイト数",
+      "traffic": "受信 {{received}}、送信 {{sent}}"
+    },
+    "activity": {
+      "back": "フィードに戻る",
+      "untitled": "アクティビティ",
+      "map": "マップ",
+      "facts": "アクティビティの詳細",
+      "charts": "グラフ",
+      "noSeries": "このアクティビティには記録された系列がありません。",
+      "sections": "セクション",
+      "routes": "ルート",
+      "intervals": "インターバル"
+    },
+    "chart": {
+      "series": "系列",
+      "axis": "軸",
+      "label": "アクティビティの系列",
+      "elevation": "標高",
+      "heartRate": "心拍数",
+      "power": "パワー",
+      "cadence": "ケイデンス",
+      "speed": "速度",
+      "grade": "勾配",
+      "temperature": "気温"
+    },
+    "fitness": {
+      "range": "期間",
+      "days_one": "{{count}}日",
+      "days_other": "{{count}}日",
+      "allTime": "全期間",
+      "period": "期間",
+      "bestEfforts": "ベストエフォート",
+      "thresholds": "しきい値",
+      "fitnessFatigue": "フィットネスと疲労",
+      "fatigue": "疲労",
+      "dailyLoad": "1日の負荷",
+      "powerZones": "パワーゾーン",
+      "powerCurve": "パワーカーブ",
+      "paceCurve": "ペースカーブ",
+      "noData": "この期間のデータはありません。",
+      "noWellness": "この期間のウェルネスデータは端末にありません。",
+      "wellnessNotFetched": "この期間のウェルネスデータは端末にダウンロードされていません。",
+      "none": "なし",
+      "loadReadout": "{{date}} · 負荷 {{load}}",
+      "noActivities": "この期間のアクティビティはありません。",
+      "totalLoad": "合計負荷 {{load}}",
+      "noZones": "この期間のゾーン時間はありません。",
+      "zone": "ゾーン {{n}}",
+      "curveMissing": "このカーブは端末にダウンロードされていません。",
+      "effortSport": "競技",
+      "effortEffort": "区間",
+      "effortBest": "ベスト",
+      "effortActivity": "アクティビティ",
+      "effortsMissing": "端末にダウンロードされていません。",
+      "cyclingFtp": "サイクリングFTP",
+      "estimatedFtp": "推定FTP",
+      "runningLthr": "ランニングLTHR",
+      "recentRides": "最近のライド",
+      "recentRuns": "最近のラン",
+      "recentSwims": "最近のスイム",
+      "failed": "端末が応答できませんでした。"
+    },
+    "strength": {
+      "heading": "筋トレ",
+      "period": "期間",
+      "period7d": "7日間",
+      "period1m": "30日間",
+      "period3m": "3か月",
+      "period6m": "6か月",
+      "period1y": "1年",
+      "owed_one": "筋トレのアクティビティ{{count}}件は、まだ端末にセットがありません。",
+      "owed_other": "筋トレのアクティビティ{{count}}件は、まだ端末にセットがありません。",
+      "muscles": "筋肉",
+      "weeks": "週",
+      "exercises": "種目",
+      "colMuscle": "筋肉",
+      "colWeightedSets": "加重セット",
+      "colReps": "レップ数",
+      "colVolume": "ボリューム (kg)",
+      "colExercises": "種目",
+      "colWeekOf": "週の開始",
+      "colSessions": "セッション",
+      "colSets": "セット",
+      "colMostWorked": "最も鍛えた筋肉 (加重セット)",
+      "exercise": "種目",
+      "unknownExercise": "不明な種目",
+      "colDate": "日付",
+      "colActivity": "アクティビティ",
+      "colBestSet": "ベストセット",
+      "colOneRepMax": "推定1RM",
+      "line": "{{sets}}セット · {{reps}}レップ · {{kg}} kg",
+      "bestSetReps_one": "{{count}}レップ",
+      "bestSetReps_other": "{{count}}レップ"
+    },
+    "recordings": {
+      "heading": "記録",
+      "intro": "この端末に保存されたライドと記録です。アップロードと削除は端末で行います。",
+      "notFound": "記録が見つかりません",
+      "one": "記録",
+      "activityType": "アクティビティの種類",
+      "started": "開始",
+      "duration": "所要時間",
+      "upload": "アップロード",
+      "lastError": "直近のエラー",
+      "notes": "メモ"
+    },
+    "settings": {
+      "onThePhone": "端末で",
+      "openOnPhone": "端末で開いてください。",
+      "notOnBrowser": "ブラウザではまだ利用できません",
+      "notOnBrowserBody": "この設定はブラウザではまだ利用できません。端末で開いてください。",
+      "pick": "設定を選んでください",
+      "profile": "プロフィール",
+      "libraryStatus": "ライブラリの状態",
+      "sync": "同期",
+      "activitiesOnPhone": "端末上のアクティビティ",
+      "tracksOnPhone": "端末上のGPSトラック",
+      "streamCache": "ストリームキャッシュ",
+      "awaitingDetection": "検出待ち",
+      "backup": "バックアップ",
+      "backupSetUp": "端末で設定済み",
+      "name": "名前",
+      "units": "単位",
+      "weight": "体重"
+    },
+    "compare": {
+      "heading_one": "{{count}}件のアクティビティを比較",
+      "heading_other": "{{count}}件のアクティビティを比較",
+      "dropped": "アクティビティは最大4件です。{{names}} は除外されました。"
+    }
   }
 }

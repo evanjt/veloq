@@ -44,6 +44,7 @@ const PROBE_KEY: &str = "overlapProbe";
 struct Applied(AtomicUsize);
 
 impl EngineObserver for Applied {
+    fn remote_wrote(&self, _kind: String) {}
     fn sync_progress(&self) {}
     fn sync_settled(&self) {}
     fn activities_stored(&self) {}

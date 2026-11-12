@@ -5,6 +5,13 @@
   --text-muted: #666666;
   --card: #ffffff;
   --border: #e0e0e0;
+  --chart-a: #2f6699;
+  --chart-b: #c05621;
+  --sport-ride: #8450d9;
+  --sport-run: #c75835;
+  --sport-swim: #0386fa;
+  --sport-walk: #34a409;
+  --sport-other: var(--text-muted);
   color-scheme: light dark;
 }
 
@@ -15,6 +22,10 @@
     --text-muted: #aaaaaa;
     --card: #1e1e1e;
     --border: #333333;
+    --sport-ride: #af86fc;
+    --sport-run: #d5683b;
+    --sport-swim: #0589e9;
+    --sport-walk: #69ba0f;
   }
 }
 
@@ -46,15 +57,127 @@ header {
   flex-wrap: wrap;
 }
 
+#language {
+  margin-left: auto;
+}
+
 h1 {
   margin: 0;
   color: var(--primary);
 }
 
-#status,
 .notice,
 footer {
   color: var(--text-muted);
+}
+
+.connection {
+  position: relative;
+  margin-left: auto;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text-muted);
+  font: inherit;
+}
+
+.chip:not(:disabled) {
+  cursor: pointer;
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.dot.live {
+  background: #2e7d4f;
+}
+
+.dot.waiting {
+  background: #b7791f;
+}
+
+.dot.warning {
+  background: #c53030;
+}
+
+.details {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  width: min(320px, 90vw);
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+
+.details h2 {
+  margin: 0 0 8px;
+  font-size: 1em;
+}
+
+.details dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.details dt {
+  color: var(--text-muted);
+}
+
+.details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.details figure {
+  margin: 12px 0 0;
+}
+
+.details svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.details polyline {
+  fill: none;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.details .received {
+  stroke: var(--primary);
+}
+
+.details .sent {
+  stroke: var(--text-muted);
+}
+
+.details figcaption {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.875em;
 }
 
 section {
@@ -256,24 +379,107 @@ body.shell #app > footer {
   box-shadow: inset 3px 0 0 var(--primary);
 }
 
+#feed .thumb {
+  display: inline-flex;
+  vertical-align: middle;
+  width: 48px;
+  height: 48px;
+  margin-right: 8px;
+  color: var(--sport-other);
+}
+
+#feed .thumb[data-sport='ride'] {
+  color: var(--sport-ride);
+}
+
+#feed .thumb[data-sport='run'] {
+  color: var(--sport-run);
+}
+
+#feed .thumb[data-sport='swim'] {
+  color: var(--sport-swim);
+}
+
+#feed .thumb[data-sport='walk'] {
+  color: var(--sport-walk);
+}
+
+#feed .thumb-sport {
+  align-items: center;
+  justify-content: center;
+  border: 1px solid currentcolor;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+#feed .thumb-line {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#feed .thumb-start,
+#feed .thumb-end {
+  fill: var(--card);
+  stroke: currentcolor;
+  stroke-width: 1.5;
+}
+
+#feed .thumb-end {
+  fill: currentcolor;
+}
+
 #sort-note {
   color: var(--text-muted);
   font-size: 0.9em;
 }
 
-#detail {
+#detail,
+#recording-facts {
   display: grid;
   grid-template-columns: max-content 1fr;
   gap: 8px 16px;
   margin: 0;
 }
 
-#detail dt {
+#detail dt,
+#recording-facts dt {
   color: var(--text-muted);
 }
 
-#detail dd {
+#detail dd,
+#recording-facts dd {
   margin: 0;
+}
+
+#strength-periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+#strength-periods a[aria-current='true'] {
+  font-weight: 600;
+}
+
+section table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+section th,
+section td {
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+section th {
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 footer {
@@ -289,6 +495,131 @@ footer button {
   border-radius: 8px;
   padding: 8px 12px;
   cursor: pointer;
+}
+
+#fitness-page .toolbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+#fitness-page .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+#fitness-page .panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+#fitness-page .panel.wide {
+  grid-column: 1 / -1;
+}
+
+#fitness-page h3 {
+  margin: 0 0 8px;
+}
+
+#fitness-page figure {
+  margin: 0;
+}
+
+#fitness-page svg {
+  width: 100%;
+  height: auto;
+  touch-action: none;
+}
+
+#fitness-page .line-a,
+#fitness-page .line-b {
+  stroke-width: 2;
+}
+
+#fitness-page .line-a {
+  stroke: var(--chart-a);
+}
+
+#fitness-page .line-b {
+  stroke: var(--chart-b);
+}
+
+#fitness-page .readout,
+#fitness-page .empty {
+  color: var(--text-muted);
+  min-height: 1.4em;
+  margin: 4px 0 0;
+}
+
+#fitness-page .bars,
+#fitness-page .zones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#fitness-page .bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 140px;
+}
+
+#fitness-page .bars li {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+#fitness-page .bars span {
+  display: block;
+  width: 100%;
+  background: var(--chart-a);
+}
+
+#fitness-page .zones li {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) 110px;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0;
+}
+
+#fitness-page .zones span:nth-child(2) {
+  display: block;
+  height: 12px;
+  background: var(--chart-a);
+}
+
+#fitness-page [role='group'] button {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 12px;
+}
+
+#fitness-page [role='group'] button[aria-pressed='true'] {
+  border-color: var(--primary);
+}
+
+#fitness-page table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#fitness-page th,
+#fitness-page td {
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
 }
 
 #summary {
@@ -362,6 +693,61 @@ footer button {
   border-radius: 8px;
   padding: 8px 12px;
   cursor: pointer;
+}
+
+#map-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: calc(100vh - 220px);
+  min-height: 320px;
+}
+
+#map-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#map-bar button {
+  font: inherit;
+  color: inherit;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.map-pane {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.map-pane > .map-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.map-attribution {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 2px 6px;
+  font-size: 0.75em;
+  color: var(--text);
+  background: var(--card);
+  opacity: 0.85;
+}
+
+#settings .hint,
+#settings dl.readonly dd {
+  opacity: 0.6;
 }
 
 #activity-page {

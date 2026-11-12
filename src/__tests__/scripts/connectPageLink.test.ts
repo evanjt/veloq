@@ -11,6 +11,7 @@
 import zlib from 'zlib';
 
 import {
+  AskCache,
   INVITATION_TTL_SECS,
   PAGE_PROTOCOL,
   REPLY_TIMEOUT_MS,
@@ -18,23 +19,34 @@ import {
   UnreadableReply,
   answerFingerprint,
   bytesOf,
+  farewellOf,
+  cancelMessage,
+  isSuperseded,
   FEED_PAGE_SIZE,
   FEED_SPARKLINE_DAYS,
+  SETTING_LABELS,
+  deviceLines,
+  settingRows,
+  settingsOpening,
   feedOpening,
   feedPageAsk,
   feedRows,
   floatsOf,
   invitation,
+  isChanged,
   normaliseFingerprint,
   peerConfiguration,
   proof,
   retryDelay,
   roomFor,
   step,
+  strengthPeriodDays,
+  wallSeconds,
   withoutHiddenCandidates,
   writeNotice,
   type State,
 } from '../../../web/connect/link';
+import { bestEffortsAsk, createSlots, rangeAsks, screenAsk } from '../../../web/connect/fitness';
 
 const BROWSER = 'sha-256 AA:AA';
 const PHONE = 'sha-256 BB:BB';
@@ -127,6 +139,48 @@ describe('the connect page state machine', () => {
     expect(next.state).toEqual({ name: 'waiting', phone: PHONE, attempt: 1 });
     expect(JSON.stringify(next.state)).not.toContain('i1');
     expect(doing(next)).toEqual(['hangUp', 'retry']);
+  });
+
+  it('tells an unreachable phone from a plain drop, and keeps the word until a channel opens', () => {
+    const connecting: State = { name: 'connecting', phone: PHONE, attempt: 0 };
+    const unreachable = step(connecting, { type: 'drop', cause: 'unreachable' });
+    expect(unreachable.state).toEqual({
+      name: 'waiting',
+      phone: PHONE,
+      attempt: 1,
+      unreachable: true,
+    });
+    expect(doing(unreachable)).toEqual(['hangUp', 'retry']);
+
+    const plain = step(connecting, { type: 'drop' });
+    expect(plain.state).toEqual({ name: 'waiting', phone: PHONE, attempt: 1 });
+
+    const closed = step(unreachable.state, { type: 'relayClosed' });
+    expect(closed.state).toMatchObject({ name: 'waiting', unreachable: true, attempt: 2 });
+    const again = step(closed.state, { type: 'drop' });
+    expect(again.state).toMatchObject({ name: 'waiting', unreachable: true, attempt: 3 });
+    const offered = step(again.state, { type: 'peer' });
+    expect(offered.state).toMatchObject({ name: 'connecting', unreachable: true });
+    const second = step(offered.state, { type: 'drop' });
+    expect(second.state).toMatchObject({ name: 'waiting', unreachable: true });
+
+    const open = step(offered.state, { type: 'open' });
+    expect(open.state.name).toBe('connected');
+    expect(open.state).not.toHaveProperty('unreachable');
+    expect(step(open.state, { type: 'drop' }).state).toEqual({
+      name: 'waiting',
+      phone: PHONE,
+      attempt: 1,
+    });
+  });
+
+  it('pairs afresh with a notice when the phone answered the offer but no path formed', () => {
+    const code = { room: 'room-0123456789abcdefghij', secret: SEVENS, exp: 2000 };
+    const proving: State = { name: 'proving', invitation: code, phone: PHONE };
+    const next = step(proving, { type: 'drop', cause: 'unreachable' });
+    expect(next.state).toEqual({ name: 'unpaired', notice: 'unreachable' });
+    expect(doing(next)).toEqual(['hangUp', 'invite']);
+    expect(step(proving, { type: 'drop' }).state).toEqual({ name: 'unpaired' });
   });
 
   it('waits longer after each failed try, up to a cap', () => {
@@ -248,6 +302,29 @@ describe('the connect page state machine', () => {
     expect(next.effects).toEqual([{ do: 'retry', delay: retryDelay(2) }]);
   });
 
+  it('retries a waiting page at the first delay each time its relay room had opened', () => {
+    let state: State = { name: 'waiting', phone: PHONE, attempt: 0 };
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      state = step(state, { type: 'relayOpened' }).state;
+      const closed = step(state, { type: 'relayClosed' });
+      expect(closed.effects).toEqual([{ do: 'retry', delay: retryDelay(0) }]);
+      state = closed.state;
+    }
+    expect(state).toEqual({ name: 'waiting', phone: PHONE, attempt: 1 });
+  });
+
+  it('rejoins the code on screen at the first delay each time its relay room had opened', () => {
+    const code = { room: 'room-0123456789abcdefghij', secret: SEVENS, exp: 2000 };
+    let state = step({ name: 'unpaired' }, { type: 'invited', invitation: code }).state;
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      state = step(state, { type: 'relayOpened' }).state;
+      const closed = step(state, { type: 'relayClosed' });
+      expect(closed.effects).toEqual([{ do: 'rejoin', room: code.room, delay: retryDelay(0) }]);
+      expect(closed.state).toMatchObject({ name: 'inviting', invitation: code, attempt: 1 });
+      state = closed.state;
+    }
+  });
+
   it('ignores the relay closing once the phone is connected directly', () => {
     expect(step(connected(), { type: 'relayClosed' })).toEqual({ state: connected(), effects: [] });
   });
@@ -338,6 +415,26 @@ describe('the page learns what the phone speaks before it asks for anything', ()
     const next = step(opened(), { type: 'hello', protocol: PAGE_PROTOCOL, methods: listed });
     expect(next.state).toMatchObject({ name: 'connected', methods: listed });
     expect(next.effects).toEqual([{ do: 'fetchFeed' }]);
+  });
+
+  it('keeps the name the phone gives itself, and none when it gives a blank one', () => {
+    const named = step(opened(), {
+      type: 'hello',
+      protocol: PAGE_PROTOCOL,
+      methods: listed,
+      device: 'Pixel 8',
+    });
+    expect(named.state).toMatchObject({ name: 'connected', device: 'Pixel 8' });
+    for (const device of [undefined, '', '  ']) {
+      const unnamed = step(opened(), {
+        type: 'hello',
+        protocol: PAGE_PROTOCOL,
+        methods: listed,
+        device,
+      });
+      expect(unnamed.state).toMatchObject({ name: 'connected', methods: listed });
+      expect((unnamed.state as { device?: string }).device).toBeUndefined();
+    }
   });
 
   it('asks for a method the phone listed', () => {
@@ -585,6 +682,76 @@ describe('an ask waits for its reply only so long', () => {
   });
 });
 
+describe('an ask a newer one in its slot supersedes is withdrawn', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('names the earlier ask for a cancel, rejects it as superseded and settles only the later', async () => {
+    const replies = new Replies();
+    const first = replies.wait(1);
+    expect(replies.supersede('detail', 1)).toBeUndefined();
+    const second = replies.wait(2);
+    expect(replies.supersede('detail', 2)).toBe(1);
+
+    const outcome = first.catch((error: unknown) => error);
+    expect(isSuperseded(await outcome)).toBe(true);
+    expect(replies.has(1)).toBe(false);
+
+    replies.settle({ id: 1, result: 'late' });
+    replies.settle({ id: 2, result: 'newer' });
+    await expect(second).resolves.toBe('newer');
+  });
+
+  it('leaves the asks of other slots and slotless asks alone', async () => {
+    const replies = new Replies();
+    const feed = replies.wait(1);
+    const unslotted = replies.wait(2);
+    replies.supersede('feed', 1);
+    const detail = replies.wait(3);
+    expect(replies.supersede('detail', 3)).toBeUndefined();
+    expect(replies.has(1)).toBe(true);
+    expect(replies.has(2)).toBe(true);
+    replies.settle({ id: 1, result: 'a' });
+    replies.settle({ id: 2, result: 'b' });
+    replies.settle({ id: 3, result: 'c' });
+    await expect(Promise.all([feed, unslotted, detail])).resolves.toEqual(['a', 'b', 'c']);
+  });
+
+  it('sends no cancel for an ask already answered, timed out or ended', async () => {
+    const replies = new Replies();
+    const answered = replies.wait(1);
+    replies.supersede('detail', 1);
+    replies.settle({ id: 1, result: 'done' });
+    await answered;
+    const unanswered = replies.wait(2).catch(() => undefined);
+    expect(replies.supersede('detail', 2)).toBeUndefined();
+
+    const slow = expect(replies.wait(3)).rejects.toThrow('no reply');
+    jest.advanceTimersByTime(REPLY_TIMEOUT_MS);
+    await slow;
+    const afterTimeout = replies.wait(4).catch(() => undefined);
+    expect(replies.supersede('detail', 4)).toBeUndefined();
+
+    const ended = replies.wait(5).catch((error: unknown) => error);
+    replies.supersede('map', 5);
+    replies.rejectAll('hung up');
+    expect(isSuperseded(await ended)).toBe(false);
+    const afterEnd = replies.wait(6).catch(() => undefined);
+    expect(replies.supersede('map', 6)).toBeUndefined();
+    replies.rejectAll('hung up');
+    await Promise.all([unanswered, afterTimeout, afterEnd]);
+  });
+
+  it('does not mistake another failure for a superseded ask', () => {
+    expect(isSuperseded(new Error('busy'))).toBe(false);
+    expect(isSuperseded('superseded')).toBe(false);
+  });
+
+  it('writes a cancel the engine reads, with no id of its own', () => {
+    expect(JSON.parse(cancelMessage(7))).toEqual({ method: 'cancel', params: { id: 7 } });
+  });
+});
+
 describe('the feed screen reads the phone summary, sparklines and a filtered page', () => {
   const listed = ['link.hello', 'feed.page', 'feed.summary', 'feed.sparklines', 'feed.highlights'];
   const none = { families: [], needle: '' };
@@ -654,5 +821,287 @@ describe('the page explains a write the locked phone refused', () => {
     expect(writeNotice(new Error('unknown method: section.rename'))).toBeUndefined();
     expect(writeNotice(new Error('not connected'))).toBeUndefined();
     expect(writeNotice('phone locked, again')).toBeUndefined();
+  });
+});
+
+describe('the page keeps what the phone answered until the phone says the library changed', () => {
+  const setup = () => {
+    const sent: string[] = [];
+    const cache = new AskCache((method, params) => {
+      sent.push(`${method} ${JSON.stringify(params)}`);
+      return Promise.resolve({ method });
+    });
+    return { sent, cache };
+  };
+
+  it('does not send a second ask for the same method and params', async () => {
+    const { sent, cache } = setup();
+    await cache.ask('feed.page', { offset: 0, limit: 50 });
+    await cache.ask('feed.page', { limit: 50, offset: 0 });
+    expect(sent).toHaveLength(1);
+    await cache.ask('feed.page', { offset: 50, limit: 50 });
+    expect(sent).toHaveLength(2);
+  });
+
+  it('shares one ask between two callers while it is in flight', async () => {
+    const { sent, cache } = setup();
+    await Promise.all([cache.ask('feed.summary', {}), cache.ask('feed.summary', {})]);
+    expect(sent).toHaveLength(1);
+  });
+
+  it('asks again after a failed ask', async () => {
+    let calls = 0;
+    const cache = new AskCache(() =>
+      ++calls === 1 ? Promise.reject(new Error('no reply')) : Promise.resolve({})
+    );
+    await cache.ask('feed.page', {}).catch(() => undefined);
+    await cache.ask('feed.page', {});
+    expect(calls).toBe(2);
+  });
+
+  it('asks lists and details again after a change, and streams and track not', async () => {
+    const { sent, cache } = setup();
+    await cache.ask('feed.page', { offset: 0 });
+    await cache.ask('activity.summary', { id: 'a1' });
+    await cache.ask('activity.streams', { id: 'a1' });
+    await cache.ask('activity.track', { id: 'a1' });
+    sent.length = 0;
+    cache.changed();
+    await cache.ask('feed.page', { offset: 0 });
+    await cache.ask('activity.summary', { id: 'a1' });
+    await cache.ask('activity.streams', { id: 'a1' });
+    await cache.ask('activity.track', { id: 'a1' });
+    expect(sent.map((line) => line.split(' ')[0])).toEqual(['feed.page', 'activity.summary']);
+  });
+
+  it('drops the streams of an activity once no list carries it', async () => {
+    const { sent, cache } = setup();
+    await cache.ask('activity.streams', { id: 'a1' });
+    await cache.ask('activity.streams', { id: 'a2' });
+    cache.keepOnly(['a2']);
+    sent.length = 0;
+    await cache.ask('activity.streams', { id: 'a2' });
+    expect(sent).toHaveLength(0);
+    await cache.ask('activity.streams', { id: 'a1' });
+    expect(sent).toHaveLength(1);
+  });
+
+  it('forgets everything on clear', async () => {
+    const { sent, cache } = setup();
+    await cache.ask('activity.streams', { id: 'a1' });
+    cache.clear();
+    await cache.ask('activity.streams', { id: 'a1' });
+    expect(sent).toHaveLength(2);
+  });
+
+  it('reads the changed event the phone sends under request id 0', async () => {
+    const replies = new Replies();
+    const reply = await replies.take(
+      frame(0, 0, LAST, text({ event: 'changed', generation: 4 })),
+      (id) => id === 0 || replies.has(id)
+    );
+    expect(reply).toBeDefined();
+    expect(isChanged(reply!)).toBe(true);
+    expect(isChanged({ id: 3, result: {} })).toBe(false);
+    expect(isChanged({ id: 0, event: 'other' })).toBe(false);
+  });
+});
+
+describe('the fitness page asks one slot per panel', () => {
+  const now = new Date(2026, 2, 15, 9, 30, 0);
+
+  it('re-asks the range panels for a range change and leaves best efforts and the screen alone', () => {
+    const asks = rangeAsks(90, now);
+    expect(asks.map((ask) => ask.slot)).toEqual([
+      'wellness',
+      'loads',
+      'zones',
+      'powerCurve',
+      'paceCurve',
+    ]);
+    expect(asks.map((ask) => ask.method)).toEqual([
+      'fitness.wellness',
+      'fitness.loads',
+      'fitness.zones',
+      'fitness.powerCurve',
+      'fitness.paceCurve',
+    ]);
+    expect(asks.some((ask) => ask.slot === bestEffortsAsk(0).slot)).toBe(false);
+    expect(asks.some((ask) => ask.slot === screenAsk(now).slot)).toBe(false);
+  });
+
+  it('asks the days the range shows, in the wall clock the engine stores activities in', () => {
+    const [wellness, loads, zones, power, pace] = rangeAsks(30, now);
+    expect(wellness?.params).toEqual({ oldest: '2026-02-13', newest: '2026-03-15' });
+    expect(loads?.params).toEqual({
+      startTs: Date.UTC(2026, 1, 13) / 1000,
+      endTs: Date.UTC(2026, 2, 15, 23, 59, 59) / 1000,
+    });
+    expect(zones?.params).toMatchObject({ sportType: 'Ride', zoneType: 'power' });
+    expect(power?.params).toEqual({ sport: 'Ride', days: 30 });
+    expect(pace?.params).toEqual({ sport: 'Run', days: 30, gap: false });
+  });
+
+  it('asks best efforts for its own period, and the screen for the calendar windows', () => {
+    expect(bestEffortsAsk(365)).toMatchObject({
+      slot: 'bestEfforts',
+      method: 'fitness.bestEfforts',
+      params: { days: 365 },
+    });
+    const screen = screenAsk(now);
+    expect(screen.method).toBe('fitness.screen');
+    expect(screen.params).toMatchObject({
+      windows: {
+        heatmapLastDay: '2026-03-15',
+        nowWallSeconds: Date.UTC(2026, 2, 15, 9, 30) / 1000,
+      },
+    });
+  });
+
+  it('lets a later ask of a slot supersede the earlier one and no other slot', () => {
+    const slots = createSlots();
+    const first = slots.begin('wellness');
+    const loads = slots.begin('loads');
+    const second = slots.begin('wellness');
+    expect(slots.isCurrent('wellness', first)).toBe(false);
+    expect(slots.isCurrent('wellness', second)).toBe(true);
+    expect(slots.isCurrent('loads', loads)).toBe(true);
+  });
+});
+
+describe('the settings screen reads the phone settings and statuses, read-only', () => {
+  const listed = ['settings.get', 'settings.profile', 'status.sync', 'status.linkedDevices'];
+
+  it('asks only for the reads the phone listed, the settings among them by key', () => {
+    const asks = settingsOpening(listed);
+    expect(asks.map((ask) => ask.method)).toEqual([
+      'settings.get',
+      'settings.profile',
+      'status.linkedDevices',
+      'status.sync',
+    ]);
+    expect(asks[0].params).toEqual({ keys: SETTING_LABELS.map(([key]) => key) });
+    expect(settingsOpening(['link.hello'])).toEqual([]);
+  });
+
+  it('shows each value the phone holds and no control is enabled', () => {
+    const rows = settingRows({
+      values: [
+        { key: 'veloq-unit-preference', value: 'imperial' },
+        { key: 'veloq-theme-preference', value: null },
+        { key: 'not-a-known-key', value: 'x' },
+      ],
+      refused: [],
+    });
+    expect(rows).toEqual([
+      { key: 'veloq-theme-preference', label: 'Theme', value: 'Not set', editable: false },
+      { key: 'veloq-unit-preference', label: 'Units', value: 'imperial', editable: false },
+    ]);
+    expect(rows.every((row) => row.editable === false)).toBe(true);
+    expect(settingRows(undefined)).toEqual([]);
+  });
+
+  it('cuts a long stored value', () => {
+    const [row] = settingRows({
+      values: [{ key: 'veloq-map-preferences', value: 'x'.repeat(500) }],
+      refused: [],
+    });
+    expect(row.value.length).toBeLessThan(200);
+  });
+
+  it('marks the browser that is reading among the linked devices', () => {
+    const device = (id: string, name: string) => ({
+      id,
+      name,
+      createdAt: 1,
+      lastSeenAt: null,
+      connectedSince: null,
+    });
+    expect(
+      deviceLines({ devices: [device('1', 'Laptop'), device('2', 'Desk')], thisBrowser: '2' })
+    ).toEqual(['Laptop', 'Desk (this browser)']);
+  });
+});
+
+describe('the strength tab and the wall clock the page asks with', () => {
+  it('reads the span of days each period names, and the week for an unknown one', () => {
+    expect(strengthPeriodDays('7d')).toBe(7);
+    expect(strengthPeriodDays('1m')).toBe(30);
+    expect(strengthPeriodDays('3m')).toBe(90);
+    expect(strengthPeriodDays('6m')).toBe(180);
+    expect(strengthPeriodDays('1y')).toBe(365);
+    expect(strengthPeriodDays(null)).toBe(7);
+    expect(strengthPeriodDays('forever')).toBe(7);
+  });
+
+  it('shifts the instant by the zone offset, so it reads the local wall clock', () => {
+    const instant = Date.UTC(2026, 10, 12, 9, 30, 0);
+    expect(wallSeconds(instant, 0)).toBe(instant / 1000);
+    // A zone one hour ahead of UTC reports an offset of -60 minutes.
+    expect(wallSeconds(instant, -60)).toBe(instant / 1000 + 3600);
+    expect(wallSeconds(instant, 300)).toBe(instant / 1000 - 18000);
+  });
+});
+
+describe('the page acts on the phone saying why it is leaving', () => {
+  it('goes to waiting at once with the reason, hanging up and retrying, when the phone leaves', () => {
+    for (const reason of ['background', 'switchedOff', 'disconnected'] as const) {
+      const next = step(connected(), { type: 'farewell', reason });
+      expect(next.state).toEqual({ name: 'waiting', phone: PHONE, attempt: 1, reason });
+      expect(next.effects).toEqual([{ do: 'hangUp' }, { do: 'retry', delay: retryDelay(0) }]);
+    }
+  });
+
+  it('forgets the phone and pairs afresh when it was removed on the phone', () => {
+    const next = step(connected(), { type: 'farewell', reason: 'removed' });
+    expect(next.state).toEqual({ name: 'unpaired', notice: 'removed' });
+    expect(doing(next)).toEqual(['hangUp', 'forget', 'invite']);
+  });
+
+  it('treats a declined pairing as the phone declining', () => {
+    const confirming: State = {
+      name: 'confirming',
+      invitation: { room: 'room-0123456789abcdefghij', secret: SEVENS, exp: 2000 },
+      phone: PHONE,
+    };
+    const next = step(confirming, { type: 'farewell', reason: 'declined' });
+    expect(next.state).toEqual({ name: 'unpaired', notice: 'declined' });
+    expect(doing(next)).toEqual(['hangUp', 'invite']);
+  });
+
+  it('changes nothing for a farewell that arrives while already waiting', () => {
+    const waiting: State = { name: 'waiting', phone: PHONE, attempt: 3, reason: 'background' };
+    const next = step(waiting, { type: 'farewell', reason: 'removed' });
+    expect(next.state).toEqual(waiting);
+    expect(next.effects).toEqual([]);
+  });
+
+  it('forgets the reason once the phone is back', () => {
+    const waiting: State = { name: 'waiting', phone: PHONE, attempt: 1, reason: 'background' };
+    const next = step(waiting, { type: 'peer' });
+    expect(next.state).toEqual({ name: 'connecting', phone: PHONE, attempt: 1 });
+  });
+
+  it('keeps the reason through a failed retry while the phone stays away', () => {
+    const waiting: State = { name: 'waiting', phone: PHONE, attempt: 1, reason: 'background' };
+    expect(step(waiting, { type: 'drop' }).state).toMatchObject({ reason: 'background' });
+    expect(step(waiting, { type: 'relayClosed' }).state).toMatchObject({ reason: 'background' });
+  });
+
+  it('reads a farewell off the channel under request id 0, and nothing else', async () => {
+    const read = async (id: number, body: object) => {
+      const replies = new Replies();
+      const reply = await replies.take(frame(id, 0, LAST, text(body)), () => true);
+      return farewellOf(reply!);
+    };
+    expect(await read(0, { event: 'farewell', reason: 'background' })).toBe('background');
+    expect(await read(0, { event: 'farewell', reason: 'switchedOff' })).toBe('switchedOff');
+    expect(await read(0, { event: 'farewell', reason: 'somethingNew' })).toBeUndefined();
+    expect(await read(0, { event: 'farewell' })).toBeUndefined();
+    expect(await read(0, { event: 'changed', generation: 2 })).toBeUndefined();
+    expect(
+      await read(1, { id: 1, result: { event: 'farewell', reason: 'removed' } })
+    ).toBeUndefined();
+    expect(farewellOf({ id: 1, result: 5 })).toBeUndefined();
   });
 });

@@ -11,6 +11,7 @@ import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 
 import { recordingMapLayers } from '@/features/recording/lib/recordingMapLayers';
+import { TURN_MARK_SIZE } from '@/features/recording/lib/routeTurnMarks';
 import { RecordingReturnPill } from '@/features/recording/components/RecordingReturnPill';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -37,7 +38,7 @@ const themes = [
 
 describe('the recording map live track', () => {
   it.each(themes)('draws in the record role in the %s theme', (tone, isDark) => {
-    const line = recordingMapLayers(mapPalette('light'), isDark).find(
+    const line = recordingMapLayers(mapPalette('light'), isDark, TURN_MARK_SIZE).find(
       (l) => l.id === 'recording-route-line'
     );
 

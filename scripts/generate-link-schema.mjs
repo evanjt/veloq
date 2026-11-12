@@ -19,6 +19,7 @@
 // Usage: node scripts/generate-link-schema.mjs [--check]
 //   --check  compare with the file on disk and exit 1 on a difference
 
+import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,11 +30,62 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const METHODS_FILE = 'web/connect/methods.json';
 export const BINDINGS_FILE = 'modules/veloqrs/src/generated/veloqrs.ts';
 export const SCHEMA_FILE = 'web/connect/schema.d.ts';
+const PRETTIER = join(ROOT, 'node_modules/prettier/bin/prettier.cjs');
+const PRETTIER_CONFIG = join(ROOT, 'config/.prettierrc');
+const PRETTIER_IGNORE = join(ROOT, 'config/.prettierignore');
 
 /** Types written out as themselves. */
 const PRIMITIVES = new Set(['string', 'number', 'boolean', 'null', 'undefined']);
 /** Types a field names that stand for a run of bytes. */
 const BYTE_RUNS = new Set(['Uint8Array', 'Float32Array', 'ArrayBuffer']);
+
+/**
+ * Enums that carry data, which the bindings declare as classes and this
+ * script cannot read back. serde writes one as its variant name, or as an
+ * object holding the variant's fields under that name, with the fields in
+ * camelCase (`rename_all_fields`). Each is written here, with the types it
+ * names; the engine's tests pin the JSON each variant serialises to.
+ * @type {Map<string, { text: string, refs: string[] }>}
+ */
+const DATA_ENUMS = new Map([
+  [
+    'FfiCorrelation',
+    {
+      text: [
+        '  | { tooFew: { n: number } }',
+        '  | { undefined: { n: number } }',
+        '  | { inconclusive: { r: number; n: number; low: number; high: number } }',
+        '  | { mover: { r: number; n: number; low: number; high: number } }',
+      ].join('\n'),
+      refs: [],
+    },
+  ],
+  [
+    'FfiCatalogueEmptyReason',
+    {
+      text: [
+        "  | 'noGpsActivities'",
+        '  | { notYetRun: { awaiting: number } }',
+        '  | { running: { phase: string; percent: number } }',
+        '  | { held: { hold: FfiDetectionHold } }',
+        '  | { noneFound: { minActivities: number } }',
+      ].join('\n'),
+      refs: ['FfiDetectionHold'],
+    },
+  ],
+  [
+    'FfiDetectionHold',
+    {
+      text: [
+        "  | 'elevationPaused'",
+        "  | 'elevationRunning'",
+        '  | { elevationWaiting: { remaining: number } }',
+        "  | 'cutover'",
+      ].join('\n'),
+      refs: [],
+    },
+  ],
+]);
 
 /**
  * Every top-level declaration of the bindings, with the doc comment before it.
@@ -131,6 +183,28 @@ function jsonType(owner, type, refs) {
 }
 
 /**
+ * The text as `npm run format` writes it, under the repository's Prettier
+ * config. `format:check` reads the schema back, so a generated file that
+ * Prettier would change fails the audit on the next run.
+ * @param {string} text
+ */
+function formatAsRepository(text) {
+  return execFileSync(
+    process.execPath,
+    [
+      PRETTIER,
+      '--config',
+      PRETTIER_CONFIG,
+      '--ignore-path',
+      PRETTIER_IGNORE,
+      '--stdin-filepath',
+      SCHEMA_FILE,
+    ],
+    { cwd: ROOT, input: text, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
+  );
+}
+
+/**
  * Render the schema text.
  * @param {{ protocol: number, methods: { name: string, params: string, result: string }[] }} table
  * @param {string} bindings
@@ -142,6 +216,14 @@ export function renderSchema(table, bindings) {
   /** @param {string} name */
   function include(name) {
     if (rendered.has(name)) return;
+    const dataEnum = DATA_ENUMS.get(name);
+    if (dataEnum) {
+      const bound = declared.get(name);
+      const doc = bound?.doc.length ? `${bound.doc.join('\n')}\n` : '';
+      rendered.set(name, `${doc}export type ${name} =\n${dataEnum.text};\n`);
+      for (const ref of dataEnum.refs) include(ref);
+      return;
+    }
     const found = declared.get(name);
     if (!found) throw new Error(`${name} is not declared in ${BINDINGS_FILE}`);
     rendered.set(name, ''); // a record that refers to itself
@@ -168,6 +250,9 @@ export function renderSchema(table, bindings) {
           return `'${variant[1][0].toLowerCase()}${variant[1].slice(1)}'`;
         });
       rendered.set(name, `${doc}export type ${name} = ${names.join(' | ')};\n`);
+    } else if (found.kind === 'alias' && found.body[0].trim() === '{}') {
+      // An empty record is written on one line, `{};`, and is an object with no keys.
+      rendered.set(name, `${doc}export type ${name} = Record<string, never>;\n`);
     } else if (found.kind === 'alias' && !/InstanceType/.test(found.body[0])) {
       const written = jsonType(name, found.body[0], refs);
       rendered.set(name, `export type ${name} = ${written};\n`);
@@ -187,22 +272,24 @@ export function renderSchema(table, bindings) {
   const methods = table.methods
     .map((method) => `  '${method.name}': { params: ${method.params}; result: ${method.result} };`)
     .join('\n');
-  return [
-    `// Generated by scripts/generate-link-schema.mjs from ${METHODS_FILE} and`,
-    `// ${BINDINGS_FILE}. Do not edit: change the engine and generate again.`,
-    '//',
-    '// These are the shapes the link carries as JSON, protocol ' + table.protocol + '.',
-    '',
-    '/** A run of bytes as one base64 string; a run of floats is its little-endian bytes. */',
-    'export type Base64 = string;',
-    '',
-    types.join('\n'),
-    '/** The name of each method a linked browser may ask, with what it sends and gets back. */',
-    'export type Methods = {',
-    methods,
-    '};',
-    '',
-  ].join('\n');
+  return formatAsRepository(
+    [
+      `// Generated by scripts/generate-link-schema.mjs from ${METHODS_FILE} and`,
+      `// ${BINDINGS_FILE}. Do not edit: change the engine and generate again.`,
+      '//',
+      '// These are the shapes the link carries as JSON, protocol ' + table.protocol + '.',
+      '',
+      '/** A run of bytes as one base64 string; a run of floats is its little-endian bytes. */',
+      'export type Base64 = string;',
+      '',
+      types.join('\n'),
+      '/** The name of each method a linked browser may ask, with what it sends and gets back. */',
+      'export type Methods = {',
+      methods,
+      '};',
+      '',
+    ].join('\n')
+  );
 }
 
 /**

@@ -17,6 +17,8 @@ import FitnessScreen from '@/app/(tabs)/fitness';
 import { getEngine } from '@/shared/native/engine';
 import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
 import { i18n, initialiseI18n } from '@/i18n';
+import { recordAppMetric } from '@/shared/debug/renderTimer';
+import { FLOW_FITNESS_RANGE } from '@/shared/debug/flowTiming';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -26,6 +28,7 @@ jest.mock('@/shared/debug/tabSwitchTiming', () => ({ useTabFirstFrame: jest.fn()
 jest.mock('@/shared/debug/renderTimer', () => ({
   logScreenRender: () => jest.fn(),
   logMemory: jest.fn(),
+  recordAppMetric: jest.fn(),
 }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
@@ -187,5 +190,20 @@ describe('the fitness tab', () => {
 
     expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(2);
     expect(engine.getTrainingScreenData).not.toHaveBeenCalled();
+  });
+
+  it('times a range change from the tap to the frame that commits it, once', async () => {
+    await mountScreen();
+    (recordAppMetric as jest.Mock).mockClear();
+
+    await fireEvent.press(
+      screen.getAllByTestId('fitness-range-6m', { includeHiddenElements: true })[0]
+    );
+
+    await waitFor(() =>
+      expect(
+        (recordAppMetric as jest.Mock).mock.calls.filter(([name]) => name === FLOW_FITNESS_RANGE)
+      ).toHaveLength(1)
+    );
   });
 });

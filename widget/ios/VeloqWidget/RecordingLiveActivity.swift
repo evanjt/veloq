@@ -124,6 +124,11 @@ private struct RecordingLockScreenView: View {
             .foregroundStyle(RecordingCardStyle.secondaryText)
             .accessibilityLabel(Text("Distance"))
             .accessibilityValue(Text(verbatim: "\(state.distanceLabel), \(state.speedLabel)"))
+          if !state.isEnded, let guidance = state.guidance {
+            Text(guidance)
+              .widgetFont(.label, weight: .semibold)
+              .foregroundStyle(WidgetTheme.Record.foreground)
+          }
           if state.isEnded, let ended = state.endedLabel {
             Text(ended)
               .widgetFont(.label, weight: .semibold)

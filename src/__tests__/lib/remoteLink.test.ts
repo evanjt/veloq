@@ -3,10 +3,10 @@ import {
   type RelaySocket,
   type RemoteLinkEngine,
 } from '@/features/settings/lib/remoteLink';
-import { remoteLink } from '@/features/settings/lib/remoteLinkSession';
+import { disconnectRemoteLink, remoteLink } from '@/features/settings/lib/remoteLinkSession';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { remote } from 'veloqrs';
+import { DisconnectReason, remote } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('expo-keep-awake', () => ({
@@ -27,6 +27,7 @@ const ROOM_B = 'room-bbbbbbbbbbbbbbbbbbbbbb';
 class FakeSocket implements RelaySocket {
   sent: string[] = [];
   closed = false;
+  onopen: (() => void) | null = null;
   onmessage: ((event: { data: unknown }) => void) | null = null;
   onclose: (() => void) | null = null;
   constructor(readonly url: string) {}
@@ -35,6 +36,9 @@ class FakeSocket implements RelaySocket {
   }
   close() {
     this.closed = true;
+  }
+  open() {
+    this.onopen?.();
   }
   receive(message: string) {
     this.onmessage?.({ data: message });
@@ -101,6 +105,7 @@ describe('remote link', () => {
     link.background();
     expect(live()).toHaveLength(0);
     expect(engine.disconnectAll).toHaveBeenCalledTimes(1);
+    expect(engine.disconnectAll).toHaveBeenCalledWith(DisconnectReason.Background);
     jest.advanceTimersByTime(60_000);
     expect(live()).toHaveLength(0);
   });
@@ -177,6 +182,31 @@ describe('remote link', () => {
     expect(opened).toHaveLength(2);
   });
 
+  it('rejoins after the first delay each time the relay closes a room that had opened', () => {
+    const { link, live } = harness([ROOM_A]);
+    link.foreground();
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      live()[0].open();
+      live()[0].drop();
+      jest.advanceTimersByTime(4_999);
+      expect(live()).toHaveLength(0);
+      jest.advanceTimersByTime(1);
+      expect(live()).toHaveLength(1);
+    }
+  });
+
+  it('keeps doubling the delay while a room never opens', () => {
+    const { link, live } = harness([ROOM_A]);
+    link.foreground();
+    for (const delay of [5_000, 10_000, 20_000]) {
+      live()[0].drop();
+      jest.advanceTimersByTime(delay - 1);
+      expect(live()).toHaveLength(0);
+      jest.advanceTimersByTime(1);
+      expect(live()).toHaveLength(1);
+    }
+  });
+
   it('waits in a pairing room until the pairing ends, even with nothing linked', () => {
     const { link, live } = harness([]);
     link.foreground();
@@ -240,6 +270,7 @@ describe('remote link', () => {
     link.refresh();
     expect(live()).toHaveLength(0);
     expect(engine.disconnectAll).toHaveBeenCalledTimes(1);
+    expect(engine.disconnectAll).toHaveBeenCalledWith(DisconnectReason.SwitchedOff);
   });
 
   it('keeps the screen awake from the first connected browser until the last one leaves', () => {
@@ -329,6 +360,11 @@ describe('remote link', () => {
 });
 
 describe("the app's remote link", () => {
+  it("tells the browser the athlete ended it when the banner's action is used", () => {
+    disconnectRemoteLink();
+    expect(remote.disconnectAll).toHaveBeenCalledWith(DisconnectReason.Disconnected);
+  });
+
   const realWebSocket = global.WebSocket;
   afterEach(() => {
     global.WebSocket = realWebSocket;

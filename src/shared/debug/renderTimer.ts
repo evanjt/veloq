@@ -96,11 +96,40 @@ const ffiMetrics: FFIMetricEntry[] = [];
 let ffiMetricsIndex = 0;
 let ffiMetricsCount = 0;
 
+// Per-name totals outlive the ring: a burst of one call name would otherwise push the rest out
+// of the summary, and a ride's calls read as missing. Durations for p95 stay bounded per name.
+interface FFINameStats {
+  calls: number;
+  totalMs: number;
+  maxMs: number;
+  recent: number[];
+  next: number;
+}
+const ffiNameStats = new Map<string, FFINameStats>();
+
+function accumulate(name: string, durationMs: number): void {
+  let stats = ffiNameStats.get(name);
+  if (!stats) {
+    stats = { calls: 0, totalMs: 0, maxMs: 0, recent: [], next: 0 };
+    ffiNameStats.set(name, stats);
+  }
+  stats.calls++;
+  stats.totalMs += durationMs;
+  if (durationMs > stats.maxMs) stats.maxMs = durationMs;
+  if (stats.recent.length < FFI_RING_BUFFER_SIZE) {
+    stats.recent.push(durationMs);
+  } else {
+    stats.recent[stats.next] = durationMs;
+  }
+  stats.next = (stats.next + 1) % FFI_RING_BUFFER_SIZE;
+}
+
 /**
  * Record an FFI call timing. Called by EngineClient.timed() while debug is on.
  * Stores in a ring buffer (last 500 entries, zero allocation after warmup).
  */
 export function recordFFIMetric(name: string, durationMs: number): void {
+  accumulate(name, durationMs);
   const entry: FFIMetricEntry = { name, durationMs, timestamp: Date.now() };
   if (ffiMetricsCount < FFI_RING_BUFFER_SIZE) {
     ffiMetrics.push(entry);
@@ -162,26 +191,19 @@ interface FFIMethodSummary {
 }
 
 /**
- * Get aggregated FFI metrics grouped by method name.
- * Returns per-method stats: call count, total/avg/max/p95 duration.
+ * Get aggregated FFI metrics grouped by method name, over every call since the last clear.
+ * Returns per-method stats: call count, total/avg/max duration, and p95 over the latest 500 calls of that name.
  */
 export function getFFIMetricsSummary(): Record<string, FFIMethodSummary> {
-  const entries = getFFIMetrics();
-  const grouped: Record<string, number[]> = {};
-  for (const entry of entries) {
-    if (!grouped[entry.name]) grouped[entry.name] = [];
-    grouped[entry.name].push(entry.durationMs);
-  }
   const summary: Record<string, FFIMethodSummary> = {};
-  for (const [name, durations] of Object.entries(grouped)) {
-    durations.sort((a, b) => a - b);
-    const total = durations.reduce((sum, d) => sum + d, 0);
+  for (const [name, stats] of ffiNameStats) {
+    const durations = [...stats.recent].sort((a, b) => a - b);
     const p95Index = Math.floor(durations.length * 0.95);
     summary[name] = {
-      calls: durations.length,
-      totalMs: Math.round(total * 10) / 10,
-      avgMs: Math.round((total / durations.length) * 10) / 10,
-      maxMs: Math.round(durations[durations.length - 1] * 10) / 10,
+      calls: stats.calls,
+      totalMs: Math.round(stats.totalMs * 10) / 10,
+      avgMs: Math.round((stats.totalMs / stats.calls) * 10) / 10,
+      maxMs: Math.round(stats.maxMs * 10) / 10,
       p95Ms: Math.round(durations[p95Index] * 10) / 10,
     };
   }
@@ -214,4 +236,5 @@ export function clearFFIMetrics(): void {
   ffiMetrics.length = 0;
   ffiMetricsIndex = 0;
   ffiMetricsCount = 0;
+  ffiNameStats.clear();
 }

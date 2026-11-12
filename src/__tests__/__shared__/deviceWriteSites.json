@@ -34,7 +34,7 @@
   "modules/veloqrs/src/delegates/heatmap.ts": 1,
   "modules/veloqrs/src/delegates/settings.ts": 2,
   "modules/veloqrs/src/EngineClient.ts": 9,
-  "src/app/_layout.tsx": 2,
+  "src/app/_layout.tsx": 3,
   "src/features/auth/lib/accountChange.ts": 1,
   "src/features/auth/lib/oauth.ts": 1,
   "src/features/auth/lib/pendingSignIn.ts": 1,

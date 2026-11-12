@@ -27,7 +27,11 @@ import {
   registerMapSurfaceReclaimer,
   registerTileListenerResume,
 } from '@/features/maps';
-import { useEngineStatus, useRouteReoptimisation } from '@/features/routes';
+import {
+  useEngineStatus,
+  useRouteReoptimisation,
+  useRouteSettingsFollowsEngine,
+} from '@/features/routes';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { NetworkProvider } from '@/shared/app/NetworkContext';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
@@ -213,6 +217,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   // Trigger route re-detection when sync date range expands
   useRouteReoptimisation();
 
+  // A linked browser can change the detection settings this store hydrated once.
+  useRouteSettingsFollowsEngine();
+
   // Initialise Rust route engine with persistent storage when authenticated
   // Data persists in SQLite - GPS tracks, routes, sections load instantly
   const setEngineInitFailed = useEngineStatus((s) => s.setInitFailed);
@@ -371,6 +378,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             // question is answered. An empty engine has nothing to ask about and
             // takes the new identity as it stands.
             const settled = await completeLaunchIdentity(action, {
+              // An adopted library keeps every row and takes the signed-in
+              // athlete's identity before the launch sync runs under it.
+              adopt: () => {
+                engine.setSetting('__athlete_id', credentialsAthleteId as string);
+                rememberCachedAthleteId(credentialsAthleteId as string).catch(() => {});
+              },
               // The wipe runs on a Rust thread, so the re-open has to follow it
               // rather than race it. It takes the other athlete's files with
               // the tables, the decisions zip among them.

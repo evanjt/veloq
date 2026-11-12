@@ -15,6 +15,10 @@
 // keep it for good: a bump is a new name, never a stale answer. The directory
 // is emptied first so only the pinned version ships.
 //
+// The licence text is written beside the two files. The connect page copies all
+// three into its own output, so the renderer it ships is the one the app ships,
+// and a bump is the one commit for both.
+//
 // The version is pinned here and asserted by the tests, and the sha256 of
 // each file is written into the generated module, where a contract test checks
 // the shipped bytes against it, so a renderer bump is a deliberate commit
@@ -28,15 +32,16 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const VERSION = '5.19.0';
-const ORIGIN = `https://unpkg.com/maplibre-gl@${VERSION}/dist`;
+const PACKAGE = `https://unpkg.com/maplibre-gl@${VERSION}`;
+const ORIGIN = `${PACKAGE}/dist`;
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const moduleDir = join(root, 'src/features/maps/assets');
 const RENDERER_DIR = 'renderer';
 const assetDir = join(root, 'modules/veloqrs/assets/basemap', RENDERER_DIR);
 
-async function fetchText(file) {
-  const url = `${ORIGIN}/${file}`;
+async function fetchText(file, origin = ORIGIN) {
+  const url = `${origin}/${file}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
   const text = await response.text();
@@ -49,6 +54,7 @@ const sha = (text) => createHash('sha256').update(text).digest('hex');
 async function main() {
   const js = await fetchText('maplibre-gl.js');
   const css = await fetchText('maplibre-gl.css');
+  const licence = await fetchText('LICENSE.txt', PACKAGE);
 
   const jsFile = `${RENDERER_DIR}/maplibre-gl-${VERSION}.js`;
   const cssFile = `${RENDERER_DIR}/maplibre-gl-${VERSION}.css`;
@@ -57,6 +63,7 @@ async function main() {
   mkdirSync(assetDir, { recursive: true });
   writeFileSync(join(assetDir, `maplibre-gl-${VERSION}.js`), js);
   writeFileSync(join(assetDir, `maplibre-gl-${VERSION}.css`), css);
+  writeFileSync(join(assetDir, 'LICENSE.txt'), licence);
 
   mkdirSync(moduleDir, { recursive: true });
   writeFileSync(

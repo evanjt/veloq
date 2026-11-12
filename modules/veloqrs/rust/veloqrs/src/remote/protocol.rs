@@ -7,11 +7,19 @@
 //!
 //! Reads are answered from a pooled connection and can write nothing. Writes
 //! are rows of the same table marked as writes, answered under the engine lock
-//! on the peer thread by the function the phone's own screen calls. A method
+//! by the function the phone's own screen calls. Asks are answered on worker
+//! threads, so replies may come in any order; the id says which ask a reply
+//! answers. A browser withdraws an ask it no longer wants with
+//! `{"method": "cancel", "params": {"id": n}}`, which has no reply of its own:
+//! an ask still queued is never run, and the reply of one already running is
+//! dropped. A connection with [`MAX_OUTSTANDING`] asks outstanding answers the
+//! next with the error [`BUSY`]. None of these is a row of the table below: the
+//! table is the reads and writes, and a cancel is not one. A method
 //! not in the table is `unknown method`, which is how a phone-only operation
 //! (credentials, sign-out, clearing the library, backup, restore, linked
 //! devices, pairing, experimental and debug switches, deletes) is refused: it
-//! is never added.
+//! is never added. A screen that shows a phone-only operation's state is a
+//! read and is answered; the operation itself is not.
 
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -22,6 +30,48 @@ const MIN_ROUTE_ACTIVITIES: u32 = 1;
 
 /// The largest feed page one request may ask for.
 pub const MAX_PAGE: u32 = 100;
+
+/// The most asks one connection may have outstanding, queued or running. The
+/// next is answered with [`BUSY`] at once and is not run.
+pub const MAX_OUTSTANDING: usize = 16;
+
+/// The error a connection answers an ask with when [`MAX_OUTSTANDING`] are
+/// already outstanding.
+pub const BUSY: &str = "busy";
+
+/// The settings a linked browser may read, by key: the preferences the
+/// settings screens show. A key not listed here is refused by name and its
+/// value is never read, so the credential, the account and the engine's own
+/// bookkeeping keys can never cross the link.
+pub const SETTING_KEYS: &[&str] = &[
+    "veloq-theme-preference",
+    "veloq-language-preference",
+    "veloq-unit-preference",
+    "veloq-resolved-unit-system",
+    "veloq-primary-sport",
+    "veloq-wellness-smoothing",
+    "veloq-map-preferences",
+    "veloq-route-settings",
+    "veloq-map-routes-visible",
+    "veloq-map-heatmap-visible",
+    "veloq-map-activities-visible",
+    "veloq-heatmap-enabled",
+    "veloq-notification-preferences",
+    "veloq-recording-preferences",
+    "veloq-experimental",
+    "dashboard_summary_card",
+];
+
+/// Who is asking: the fingerprint the browser presented, the athlete the phone
+/// is signed in as and the connections that are up, for the reads that mark
+/// the asker or keep to that athlete's rows.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Caller<'a> {
+    pub browser: &'a str,
+    /// The athlete the phone is signed in as, `None` when nobody is.
+    pub athlete: Option<&'a str>,
+    pub connections: &'a [(String, i64)],
+}
 
 /// The version of the request, answer and reply-frame shapes. A method added
 /// within a version is additive; a method removed or reshaped bumps it, and so
@@ -40,13 +90,16 @@ pub struct FfiLinkHello {
 }
 
 /// What `link.hello` answers: the protocol the phone speaks, the app version
-/// and the name of every method it answers.
+/// the name of every method it answers, and the name of the phone when it has
+/// one. The name is optional, so a page reads an answer without it.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkHelloAnswer {
     pub protocol: u32,
     pub app: String,
     pub methods: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device: Option<String>,
 }
 
 /// What `feed.page` is asked: a window of the feed, narrowed by a search, a
@@ -72,6 +125,23 @@ pub struct FfiLinkFeedPageAsk {
     pub newest_ts: Option<f64>,
 }
 
+/// What `feed.page` answers: the feed read the phone's own list draws, and the
+/// preview line of each card on it that has a stored track.
+///
+/// The lines are the phone card's own (`get_preview_track`), so the browser
+/// never simplifies a track itself, and they ride with the page so a row
+/// never waits on a second ask.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkFeedPage {
+    pub cards: Vec<crate::FfiFeedCard>,
+    /// Every stored activity the query matched, not only this page.
+    pub matched_count: u32,
+    pub has_more: bool,
+    /// One per card with GPS and a stored track; a card with none is absent.
+    pub previews: Vec<crate::FfiPreviewTrack>,
+}
+
 /// What `feed.summary` is asked: the phone's wall-clock time in seconds, from
 /// which the engine resolves this week and the one before.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
@@ -94,12 +164,136 @@ pub struct FfiLinkHighlightsAsk {
     pub ids: Vec<String>,
 }
 
+/// What `settings.get` is asked: the keys to read.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSettingsAsk {
+    pub keys: Vec<String>,
+}
+
+/// One setting as stored; `value` is none when no row is stored.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSettingValue {
+    pub key: String,
+    pub value: Option<String>,
+}
+
+/// What `settings.get` answers: the allowed keys with their values, and the
+/// keys refused, which were not read.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSettingsAnswer {
+    pub values: Vec<FfiLinkSettingValue>,
+    pub refused: Vec<String>,
+}
+
+/// What a read that takes nothing is asked.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkNoAsk {
+    #[serde(default)]
+    pub unused: Option<bool>,
+}
+
+/// What `status.linkedDevices` answers: every linked device and the id of the
+/// one that asked.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkDevicesAnswer {
+    pub devices: Vec<crate::persistence::linked_devices::LinkedDevice>,
+    pub this_browser: Option<String>,
+}
+
 /// What a method that reads one activity is asked.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkActivityAsk {
     pub id: String,
 }
+
+/// What `activity.streams` is asked: the activity and the series the chart
+/// draws, in any order.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkStreamsAsk {
+    pub id: String,
+    pub types: Vec<String>,
+}
+
+/// What `activity.record` answers: the stored body typed as the detail screen
+/// reads it, or none when nothing is stored.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkActivityRecord {
+    pub record: Option<crate::FfiActivityRecord>,
+}
+
+/// What `activity.intervals` answers: the laps, or none when the body was
+/// never fetched or will not parse.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkActivityIntervals {
+    pub intervals: Option<crate::persistence::intervals::FfiActivityIntervals>,
+}
+
+/// What `activity.sections` answers: the visible custom sections that name
+/// the activity.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkActivitySections {
+    pub sections: Vec<crate::FfiSection>,
+}
+
+/// What `route.detail` and `route.attempts` are asked about, and what
+/// `route.attempts` narrows by: the route, the activity being viewed and a sport.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkRouteAttemptsAsk {
+    pub id: String,
+    #[serde(default)]
+    pub current_activity_id: Option<String>,
+    #[serde(default)]
+    pub sport_type_filter: Option<String>,
+}
+
+/// What `route.performance` and `section.performance` are asked: the route or
+/// section, how many days back the range reaches, the sport and the activity
+/// to mark.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkPerformanceAsk {
+    pub id: String,
+    pub time_range_days: u32,
+    #[serde(default)]
+    pub sport_filter: Option<String>,
+    #[serde(default)]
+    pub highlight_activity_id: Option<String>,
+}
+
+/// What `section.excluded` answers: the activities whose every traversal of
+/// the section is excluded.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionExcluded {
+    pub activity_ids: Vec<String>,
+}
+
+/// What `section.history` answers: the change ledger, oldest first, the
+/// stored geometry versions with the pinned one flagged, and the names of the
+/// activities the ledger's chips draw, so the page asks once.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionHistory {
+    pub history: Vec<crate::FfiSectionHistoryEvent>,
+    pub geometry_versions: Vec<crate::FfiSectionGeometryVersion>,
+    pub pinned_version: Option<f64>,
+    pub names: Vec<crate::FfiActivityName>,
+}
+
+/// How many activities of one ledger row get a name. The history panel draws
+/// this many chips per row, so the names it is never going to draw are not read.
+const LEDGER_CHIPS_PER_ROW: usize = 3;
 
 /// What `section.rename` is asked: the section and its new name, where an
 /// empty name clears it.
@@ -110,6 +304,62 @@ pub struct FfiLinkSectionRenameAsk {
     pub name: String,
 }
 
+/// What `strength.screen` is asked: the phone's wall clock in seconds and the span
+/// of days the period reads, as the strength tab picks it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkStrengthAsk {
+    pub now_wall_seconds: f64,
+    pub period_days: u32,
+}
+
+/// What `strength.exercise` is asked: the exercise category.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkExerciseAsk {
+    pub exercise_category: u16,
+}
+
+/// What `strength.muscle` is asked: one activity and the muscle the diagram
+/// was tapped on.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkMuscleAsk {
+    pub activity_id: String,
+    pub muscle_slug: String,
+}
+
+/// What `recordings.list` is asked: nothing, the library is the signed-in
+/// athlete's.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkRecordingsAsk {}
+
+/// What `recordings.get` is asked: the recording's id.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkRecordingAsk {
+    pub id: String,
+}
+
+/// What `recordings.list` answers: the rows the signed-in athlete may see, newest first.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkRecordingsAnswer {
+    pub recordings: Vec<crate::persistence::recordings::FfiRecordingEntry>,
+}
+
+/// What `recordings.get` answers: the row, or `None` when it is absent or held by
+/// another athlete, as the phone's own read answers `null`.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkRecordingAnswer {
+    pub recording: Option<crate::persistence::recordings::FfiRecordingEntry>,
+}
+
+/// The trailing weeks the strength tab draws, which the page asks for.
+pub const STRENGTH_WEEKS: u32 = 4;
+
 /// What a write answers once it is made.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -117,11 +367,130 @@ pub struct FfiLinkWriteDone {
     pub ok: bool,
 }
 
+/// What `fitness.screen` is asked: the spans the decoupling ride and the
+/// strip's activities are read for, and the windows the calendar, the weekly
+/// card and the year comparison are read over.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkFitnessScreenAsk {
+    #[serde(default)]
+    pub span_days: Vec<u32>,
+    pub windows: crate::FfiFitnessScreenWindows,
+}
+
+/// What `fitness.wellness` is asked: an inclusive window of `YYYY-MM-DD` days.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkWellnessAsk {
+    pub oldest: String,
+    pub newest: String,
+}
+
+/// What `fitness.loads` is asked: an inclusive window of wall-clock seconds.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkLoadsAsk {
+    pub start_ts: f64,
+    pub end_ts: f64,
+}
+
+/// What `fitness.loads` answers: a load for each day with activities.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkDayLoads {
+    pub days: Vec<crate::FfiDayLoad>,
+}
+
+/// What `fitness.zones` is asked: a sport, a zone kind (`power` or `hr`) and an
+/// inclusive window of wall-clock seconds.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkZonesAsk {
+    pub sport_type: String,
+    pub zone_type: String,
+    pub start_ts: f64,
+    pub end_ts: f64,
+}
+
+/// What `fitness.powerCurve` is asked: a sport and a window in days, where 0
+/// is all time.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkPowerCurveAsk {
+    pub sport: String,
+    pub days: f64,
+}
+
+/// What `fitness.paceCurve` is asked: a sport, a window in days and whether the
+/// pace is grade adjusted.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkPaceCurveAsk {
+    pub sport: String,
+    pub days: f64,
+    #[serde(default)]
+    pub gap: bool,
+}
+
+/// What `fitness.powerCurve` answers: the stored curve, or none when it was
+/// never fetched.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkPowerCurve {
+    pub curve: Option<crate::persistence::curves::FfiPowerCurve>,
+}
+
+/// What `fitness.paceCurve` answers: the stored curve, or none when it was
+/// never fetched.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkPaceCurve {
+    pub curve: Option<crate::persistence::curves::FfiPaceCurve>,
+}
+
+/// What `fitness.bestEfforts` is asked: a window in days, where 0 is all time.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkBestEffortsAsk {
+    pub days: f64,
+}
+
 /// How a method is answered: a read from a pooled connection, or a write
 /// under the engine lock.
 enum Run {
     Read(fn(&Connection, Value) -> Result<Value, String>),
-    Write(fn(&mut crate::persistence::PersistentEngine, Value) -> Result<Value, String>),
+    ReadAs(fn(&Connection, &Caller, Value) -> Result<Value, String>),
+    Write(fn(&mut crate::persistence::PersistentEngine, Value) -> Result<Written, String>),
+}
+
+/// What a write did, for the answer, the log and the announcement.
+struct Written {
+    result: Value,
+    /// The fact that moved, the name of the channel a screen re-reads.
+    moved: &'static str,
+    target_id: String,
+    /// The write in words, naming its target and its new value.
+    summary: String,
+}
+
+/// The answer to a write, and the announcement it owes. The announcement is
+/// made by [`Answered::announce`] once the caller has released the engine
+/// lock, since the screens it wakes read through that lock.
+pub struct Answered {
+    reply: String,
+    moved: Option<&'static str>,
+}
+
+impl Answered {
+    /// Announce what moved, if the write succeeded, and return the reply.
+    pub fn announce(self) -> String {
+        if let Some(kind) = self.moved {
+            crate::objects::observer::notify(crate::objects::observer::Announcement::RemoteWrote(
+                kind.to_owned(),
+            ));
+        }
+        self.reply
+    }
 }
 
 /// One method of the protocol: its name, the records its ask and its answer
@@ -158,7 +527,7 @@ pub const METHODS: &[Method] = &[
     Method {
         name: "feed.page",
         params: "FfiLinkFeedPageAsk",
-        result: "FfiFeedCardsPage",
+        result: "FfiLinkFeedPage",
         run: Run::Read(feed_page),
     },
     Method {
@@ -184,6 +553,216 @@ pub const METHODS: &[Method] = &[
         params: "FfiLinkActivityAsk",
         result: "FfiActivitySummary",
         run: Run::Read(activity_summary),
+    },
+    Method {
+        name: "activity.detail",
+        params: "FfiLinkActivityAsk",
+        result: "FfiActivityDetailData",
+        run: Run::Read(activity_detail),
+    },
+    Method {
+        name: "activity.record",
+        params: "FfiLinkActivityAsk",
+        result: "FfiLinkActivityRecord",
+        run: Run::Read(activity_record),
+    },
+    Method {
+        name: "activity.streams",
+        params: "FfiLinkStreamsAsk",
+        result: "FfiActivityStreams",
+        run: Run::Read(activity_streams),
+    },
+    Method {
+        name: "activity.intervals",
+        params: "FfiLinkActivityAsk",
+        result: "FfiLinkActivityIntervals",
+        run: Run::Read(activity_intervals),
+    },
+    Method {
+        name: "activity.sections",
+        params: "FfiLinkActivityAsk",
+        result: "FfiLinkActivitySections",
+        run: Run::Read(activity_sections),
+    },
+    Method {
+        name: "activity.exerciseSets",
+        params: "FfiLinkActivityAsk",
+        result: "FfiExerciseSession",
+        run: Run::Read(activity_exercise_sets),
+    },
+    Method {
+        name: "routes.screen",
+        params: "FfiRoutesScreenQuery",
+        result: "FfiRoutesScreenData",
+        run: Run::Read(routes_screen),
+    },
+    Method {
+        name: "route.detail",
+        params: "FfiLinkActivityAsk",
+        result: "FfiRouteDetailData",
+        run: Run::Read(route_detail),
+    },
+    Method {
+        name: "route.performance",
+        params: "FfiLinkPerformanceAsk",
+        result: "FfiSectionPerformanceData",
+        run: Run::Read(route_performance),
+    },
+    Method {
+        name: "route.attempts",
+        params: "FfiLinkRouteAttemptsAsk",
+        result: "FfiRoutePerformanceResult",
+        run: Run::Read(route_attempts),
+    },
+    Method {
+        name: "section.detail",
+        params: "FfiLinkActivityAsk",
+        result: "FfiSectionDetailData",
+        run: Run::Read(section_detail),
+    },
+    Method {
+        name: "section.performance",
+        params: "FfiLinkPerformanceAsk",
+        result: "FfiSectionPerformanceData",
+        run: Run::Read(section_performance),
+    },
+    Method {
+        name: "section.history",
+        params: "FfiLinkActivityAsk",
+        result: "FfiLinkSectionHistory",
+        run: Run::Read(section_history),
+    },
+    Method {
+        name: "section.excluded",
+        params: "FfiLinkActivityAsk",
+        result: "FfiLinkSectionExcluded",
+        run: Run::Read(section_excluded),
+    },
+    Method {
+        name: "sections.retired",
+        params: "FfiLinkNoAsk",
+        result: "FfiRetiredMapData",
+        run: Run::Read(sections_retired),
+    },
+    Method {
+        name: "fitness.screen",
+        params: "FfiLinkFitnessScreenAsk",
+        result: "FfiFitnessScreenData",
+        run: Run::Read(fitness_screen),
+    },
+    Method {
+        name: "fitness.wellness",
+        params: "FfiLinkWellnessAsk",
+        result: "FfiWellnessDays",
+        run: Run::Read(fitness_wellness),
+    },
+    Method {
+        name: "fitness.loads",
+        params: "FfiLinkLoadsAsk",
+        result: "FfiLinkDayLoads",
+        run: Run::Read(fitness_loads),
+    },
+    Method {
+        name: "fitness.zones",
+        params: "FfiLinkZonesAsk",
+        result: "FfiZoneDistribution",
+        run: Run::Read(fitness_zones),
+    },
+    Method {
+        name: "fitness.powerCurve",
+        params: "FfiLinkPowerCurveAsk",
+        result: "FfiLinkPowerCurve",
+        run: Run::Read(fitness_power_curve),
+    },
+    Method {
+        name: "fitness.paceCurve",
+        params: "FfiLinkPaceCurveAsk",
+        result: "FfiLinkPaceCurve",
+        run: Run::Read(fitness_pace_curve),
+    },
+    Method {
+        name: "fitness.bestEfforts",
+        params: "FfiLinkBestEffortsAsk",
+        result: "FfiBestEffortsData",
+        run: Run::Read(fitness_best_efforts),
+    },
+    Method {
+        name: "strength.screen",
+        params: "FfiLinkStrengthAsk",
+        result: "FfiStrengthScreenData",
+        run: Run::Read(strength_screen),
+    },
+    Method {
+        name: "strength.exercise",
+        params: "FfiLinkExerciseAsk",
+        result: "FfiExerciseDetailData",
+        run: Run::Read(strength_exercise),
+    },
+    Method {
+        name: "strength.muscle",
+        params: "FfiLinkMuscleAsk",
+        result: "FfiMuscleGroupDetail",
+        run: Run::Read(strength_muscle),
+    },
+    Method {
+        name: "recordings.list",
+        params: "FfiLinkRecordingsAsk",
+        result: "FfiLinkRecordingsAnswer",
+        run: Run::ReadAs(recordings_list),
+    },
+    Method {
+        name: "recordings.get",
+        params: "FfiLinkRecordingAsk",
+        result: "FfiLinkRecordingAnswer",
+        run: Run::ReadAs(recordings_get),
+    },
+    Method {
+        name: "settings.get",
+        params: "FfiLinkSettingsAsk",
+        result: "FfiLinkSettingsAnswer",
+        run: Run::Read(settings_get),
+    },
+    Method {
+        name: "settings.profile",
+        params: "FfiLinkNoAsk",
+        result: "AthleteProfile",
+        run: Run::Read(settings_profile),
+    },
+    Method {
+        name: "status.backgroundJobs",
+        params: "FfiLinkNoAsk",
+        result: "FfiBackgroundJobsData",
+        run: Run::Read(status_background_jobs),
+    },
+    Method {
+        name: "status.cache",
+        params: "FfiLinkNoAsk",
+        result: "FfiCacheScreenData",
+        run: Run::Read(status_cache),
+    },
+    Method {
+        name: "status.backup",
+        params: "FfiLinkNoAsk",
+        result: "FfiBackupScreenData",
+        run: Run::Read(status_backup),
+    },
+    Method {
+        name: "status.linkedDevices",
+        params: "FfiLinkNoAsk",
+        result: "FfiLinkDevicesAnswer",
+        run: Run::ReadAs(status_linked_devices),
+    },
+    Method {
+        name: "status.coverage",
+        params: "FfiLinkNoAsk",
+        result: "LibraryCoverage",
+        run: Run::Read(status_coverage),
+    },
+    Method {
+        name: "status.sync",
+        params: "FfiLinkNoAsk",
+        result: "FfiSyncStatus",
+        run: Run::Read(status_sync),
     },
     Method {
         name: "section.rename",
@@ -322,16 +901,39 @@ fn to_result<T: Serialize>(value: &T) -> Result<Value, String> {
     serde_json::to_value(value).map_err(|error| error.to_string())
 }
 
+/// The name the phone gives itself in its hello.
+static DEVICE_NAME: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
+/// Set the name the hello answer carries. An empty or blank name clears it.
+pub fn set_device_name(name: &str) {
+    let mut held = DEVICE_NAME
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    name.trim().clone_into(&mut held);
+}
+
 fn hello(_conn: &Connection, ask: Value) -> Result<Value, String> {
     let _: FfiLinkHello = params(ask)?;
-    to_result(&FfiLinkHelloAnswer {
+    let name = DEVICE_NAME
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
+    to_result(&hello_answer(&name))
+}
+
+/// The hello answer for a phone called `name`, which carries no name when it
+/// is blank.
+fn hello_answer(name: &str) -> FfiLinkHelloAnswer {
+    let name = name.trim();
+    FfiLinkHelloAnswer {
         protocol: PROTOCOL_VERSION,
         app: env!("CARGO_PKG_VERSION").to_owned(),
         methods: METHODS
             .iter()
             .map(|method| method.name.to_owned())
             .collect(),
-    })
+        device: (!name.is_empty()).then(|| name.to_owned()),
+    }
 }
 
 fn feed_page(conn: &Connection, ask: Value) -> Result<Value, String> {
@@ -346,7 +948,18 @@ fn feed_page(conn: &Connection, ask: Value) -> Result<Value, String> {
     };
     let page = crate::persistence::activities::pooled::feed_card_page(conn, &query)
         .map_err(|error| error.to_string())?;
-    to_result(&page)
+    let previews = page
+        .cards
+        .iter()
+        .filter(|card| card.has_gps)
+        .filter_map(|card| crate::persistence::screens::pooled::preview_track(conn, &card.id))
+        .collect();
+    to_result(&FfiLinkFeedPage {
+        cards: page.cards,
+        matched_count: page.matched_count,
+        has_more: page.has_more,
+        previews,
+    })
 }
 
 fn feed_summary(conn: &Connection, ask: Value) -> Result<Value, String> {
@@ -393,14 +1006,482 @@ fn activity_summary(conn: &Connection, ask: Value) -> Result<Value, String> {
     to_result(&detail.summary)
 }
 
+fn activity_detail(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkActivityAsk = params(ask)?;
+    to_result(&crate::persistence::screens::pooled::activity_detail_data(
+        conn,
+        &ask.id,
+        MIN_ROUTE_ACTIVITIES,
+    ))
+}
+
+fn activity_record(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkActivityAsk = params(ask)?;
+    let record = crate::persistence::activities::pooled::activity_record(conn, &ask.id)
+        .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkActivityRecord { record })
+}
+
+/// The series the chart draws. An activity with none answers every series
+/// empty, as the phone's read answers `None` and draws no chart. The cached
+/// body's touch is a write, so the link leaves it to the phone.
+fn activity_streams(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkStreamsAsk = params(ask)?;
+    let mut types = ask.types;
+    types.sort();
+    let (streams, _) =
+        crate::objects::activities::chart_streams_read(conn, &ask.id, &types.join(","))
+            .map_err(|error| error.to_string())?;
+    to_result(&streams.unwrap_or_default())
+}
+
+fn activity_intervals(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkActivityAsk = params(ask)?;
+    let intervals = crate::persistence::intervals::activity_intervals(conn, &ask.id)
+        .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkActivityIntervals { intervals })
+}
+
+fn activity_sections(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkActivityAsk = params(ask)?;
+    let names = crate::persistence::sections::named::pooled::overlay_names(conn);
+    let sections = crate::persistence::sections::queries::pooled::custom_sections_naming_activity(
+        conn, &ask.id, &names,
+    )
+    .into_iter()
+    .map(crate::FfiSection::from)
+    .collect();
+    to_result(&FfiLinkActivitySections { sections })
+}
+
+/// The routes and sections lists, paged as the phone pages them. A page is cut
+/// to [`MAX_PAGE`] rows of each list.
+fn routes_screen(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let mut query: crate::FfiRoutesScreenQuery = params(ask)?;
+    query.group_limit = query.group_limit.min(MAX_PAGE);
+    query.section_limit = query.section_limit.min(MAX_PAGE);
+    to_result(&crate::persistence::pooled_routes_screen_data(conn, query))
+}
+
+fn known_route(conn: &Connection, id: &str) -> Result<(), String> {
+    crate::persistence::routes::pooled::group_by_id(conn, id)
+        .map(|_| ())
+        .ok_or_else(|| format!("unknown route: {id}"))
+}
+
+fn known_section(conn: &Connection, id: &str) -> Result<(), String> {
+    crate::persistence::sections::queries::pooled::section_raw(conn, id)
+        .map(|_| ())
+        .ok_or_else(|| format!("unknown section: {id}"))
+}
+
+fn route_detail(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkActivityAsk = params(ask)?;
+    known_route(conn, &ask.id)?;
+    to_result(&crate::persistence::screens::pooled::route_detail_data(
+        conn, &ask.id,
+    ))
+}
+
+/// The route's attempts with the delta curves computed. The ask runs on a
+/// worker thread like every other, so a slow one holds no other ask back.
+fn route_performance(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkPerformanceAsk = params(ask)?;
+    known_route(conn, &ask.id)?;
+    to_result(
+        &crate::persistence::screens::pooled::route_detail_performance(
+            conn,
+            &ask.id,
+            ask.time_range_days,
+            ask.sport_filter.as_deref(),
+            ask.highlight_activity_id.as_deref(),
+            crate::persistence::sections::lap_curves::pooled::CurveRead::Computed,
+        ),
+    )
+}
+
+fn route_attempts(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkRouteAttemptsAsk = params(ask)?;
+    known_route(conn, &ask.id)?;
+    to_result(&crate::FfiRoutePerformanceResult::from(
+        crate::persistence::fitness::performances::route_performances_of(
+            conn,
+            &ask.id,
+            ask.current_activity_id.as_deref(),
+            ask.sport_type_filter.as_deref(),
+        ),
+    ))
+}
+
+/// A section that left the catalogue still answers with how it left; an id
+/// that was never a section is an error.
+fn section_detail(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkActivityAsk = params(ask)?;
+    let detail = crate::persistence::screens::pooled::section_detail_data(conn, &ask.id);
+    if detail.section.is_none() && detail.retirement.is_none() {
+        return Err(format!("unknown section: {}", ask.id));
+    }
+    to_result(&detail)
+}
+
+/// The section's attempts with the delta curves computed, on a worker thread
+/// like every other ask.
+fn section_performance(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkPerformanceAsk = params(ask)?;
+    known_section(conn, &ask.id)?;
+    to_result(
+        &crate::persistence::screens::pooled::section_detail_performance(
+            conn,
+            &ask.id,
+            ask.time_range_days,
+            ask.sport_filter.as_deref(),
+            ask.highlight_activity_id.as_deref(),
+            crate::persistence::sections::lap_curves::pooled::CurveRead::Computed,
+        ),
+    )
+}
+
+fn section_history(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkActivityAsk = params(ask)?;
+    let detail = crate::persistence::screens::pooled::section_detail_data(conn, &ask.id);
+    if detail.section.is_none() && detail.retirement.is_none() {
+        return Err(format!("unknown section: {}", ask.id));
+    }
+    let mut seen = std::collections::HashSet::new();
+    let ids: Vec<String> = detail
+        .history
+        .iter()
+        .filter_map(|event| event.details.as_ref())
+        .flat_map(|details| details.around.iter().take(LEDGER_CHIPS_PER_ROW))
+        .filter(|id| seen.insert((*id).clone()))
+        .cloned()
+        .collect();
+    let named = crate::persistence::strength::pooled::activity_names(conn, &ids)
+        .map_err(|error| error.to_string())?;
+    let names = ids
+        .into_iter()
+        .filter_map(|id| {
+            let (name, date) = named.get(&id)?;
+            Some(crate::FfiActivityName {
+                name: name.clone(),
+                date: *date as f64,
+                activity_id: id,
+            })
+        })
+        .collect();
+    to_result(&FfiLinkSectionHistory {
+        history: detail.history,
+        geometry_versions: detail.geometry_versions,
+        pinned_version: detail.pinned_version,
+        names,
+    })
+}
+
+fn section_excluded(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkActivityAsk = params(ask)?;
+    known_section(conn, &ask.id)?;
+    to_result(&FfiLinkSectionExcluded {
+        activity_ids: crate::persistence::sections::queries::pooled::excluded_activity_ids(
+            conn, &ask.id,
+        ),
+    })
+}
+
+fn sections_retired(conn: &Connection, _ask: Value) -> Result<Value, String> {
+    to_result(&*crate::persistence::screens::pooled::retired_map_data(
+        conn,
+    ))
+}
+
+fn activity_exercise_sets(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkActivityAsk = params(ask)?;
+    let session = crate::objects::strength::exercise_session_from(conn, &ask.id)
+        .map_err(|error| error.to_string())?;
+    to_result(&session)
+}
+
+fn bad(reason: &str) -> String {
+    format!("bad params: {reason}")
+}
+
+/// The whole-second window the phone's own reads take, refused when it ends
+/// before it starts or is not a number.
+fn seconds_window(start: f64, end: f64) -> Result<(i64, i64), String> {
+    if !start.is_finite() || !end.is_finite() {
+        return Err(bad("a window edge is not a number"));
+    }
+    if end < start {
+        return Err(bad("the window ends before it starts"));
+    }
+    Ok((
+        crate::ffi_types::int_from_wire(start),
+        crate::ffi_types::int_from_wire(end),
+    ))
+}
+
+/// A window in days, 0 for all time.
+fn day_window(days: f64) -> Result<i64, String> {
+    if !days.is_finite() || days < 0.0 {
+        return Err(bad("days is negative or not a number"));
+    }
+    Ok(crate::ffi_types::int_from_wire(days))
+}
+
+fn iso_day(day: &str) -> Result<chrono::NaiveDate, String> {
+    chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d")
+        .map_err(|_| bad(&format!("{day:?} is not a YYYY-MM-DD day")))
+}
+
+fn fitness_screen(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkFitnessScreenAsk = params(ask)?;
+    let screen = crate::persistence::screens::pooled::fitness_screen_data(
+        conn,
+        &crate::persistence::wellness::today_iso(),
+        &ask.span_days,
+        &ask.windows,
+    )
+    .map_err(|error| error.to_string())?;
+    to_result(&screen)
+}
+
+fn fitness_wellness(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkWellnessAsk = params(ask)?;
+    if iso_day(&ask.newest)? < iso_day(&ask.oldest)? {
+        return Err(bad("the window ends before it starts"));
+    }
+    let days =
+        crate::persistence::wellness::pooled::days_with_coverage(conn, &ask.oldest, &ask.newest)
+            .map_err(|error| error.to_string())?;
+    to_result(&days)
+}
+
+fn fitness_loads(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkLoadsAsk = params(ask)?;
+    let (start, end) = seconds_window(ask.start_ts, ask.end_ts)?;
+    let days =
+        crate::persistence::fitness::derivations::pooled::daily_activity_loads(conn, start, end);
+    to_result(&FfiLinkDayLoads { days })
+}
+
+fn fitness_zones(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkZonesAsk = params(ask)?;
+    let (start, end) = seconds_window(ask.start_ts, ask.end_ts)?;
+    let zones = crate::persistence::fitness::derivations::pooled::zone_distribution_named(
+        conn,
+        &ask.sport_type,
+        &ask.zone_type,
+        start,
+        end,
+    );
+    to_result(&zones)
+}
+
+fn fitness_power_curve(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkPowerCurveAsk = params(ask)?;
+    let days = day_window(ask.days)?;
+    let (_, curve) = crate::persistence::curves::pooled::power_curve(conn, &ask.sport, days)
+        .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkPowerCurve { curve })
+}
+
+fn fitness_pace_curve(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkPaceCurveAsk = params(ask)?;
+    let days = day_window(ask.days)?;
+    let (_, curve) =
+        crate::persistence::curves::pooled::pace_curve(conn, &ask.sport, days, ask.gap)
+            .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkPaceCurve { curve })
+}
+
+fn fitness_best_efforts(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkBestEffortsAsk = params(ask)?;
+    let days = day_window(ask.days)?;
+    let data = crate::persistence::screens::pooled::best_efforts_data(
+        conn,
+        days,
+        crate::widget_snapshot::Clock::now(),
+    )
+    .map_err(|error| error.to_string())?;
+    to_result(&data)
+}
+
+fn strength_screen(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkStrengthAsk = params(ask)?;
+    let (start, end, weeks) = crate::objects::strength::screen_windows(
+        crate::ffi_types::int_from_wire(ask.now_wall_seconds),
+        ask.period_days,
+        STRENGTH_WEEKS,
+    );
+    let screen = crate::objects::strength::strength_screen_from(conn, start, end, weeks)
+        .map_err(|error| error.to_string())?;
+    to_result(&screen)
+}
+
+fn strength_exercise(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkExerciseAsk = params(ask)?;
+    let detail = crate::persistence::screens::exercise_detail_data(conn, ask.exercise_category)
+        .map_err(|error| error.to_string())?;
+    to_result(&detail)
+}
+
+fn strength_muscle(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkMuscleAsk = params(ask)?;
+    let detail =
+        crate::objects::strength::muscle_detail_from(conn, &ask.activity_id, &ask.muscle_slug)
+            .map_err(|error| error.to_string())?;
+    to_result(&detail)
+}
+
+/// The library as the signed-in athlete sees it: their own rows and the
+/// unstamped ones, never another athlete's held ride.
+fn recordings_list(conn: &Connection, caller: &Caller, ask: Value) -> Result<Value, String> {
+    let _: FfiLinkRecordingsAsk = params(ask)?;
+    let recordings = crate::persistence::recordings::pooled::list_visible(conn, caller.athlete)
+        .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkRecordingsAnswer { recordings })
+}
+
+/// One recording the signed-in athlete may see. Another athlete's, or an id
+/// with no row, answers `null`.
+fn recordings_get(conn: &Connection, caller: &Caller, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkRecordingAsk = params(ask)?;
+    let recording =
+        crate::persistence::recordings::pooled::recording_visible(conn, &ask.id, caller.athlete)
+            .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkRecordingAnswer { recording })
+}
+
+fn settings_get(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkSettingsAsk = params(ask)?;
+    let mut answer = FfiLinkSettingsAnswer {
+        values: Vec::new(),
+        refused: Vec::new(),
+    };
+    for key in ask.keys {
+        if !SETTING_KEYS.contains(&key.as_str()) {
+            answer.refused.push(key);
+            continue;
+        }
+        let value = crate::persistence::settings::setting_from(conn, &key)
+            .map_err(|error| error.to_string())?;
+        answer.values.push(FfiLinkSettingValue { key, value });
+    }
+    to_result(&answer)
+}
+
+fn settings_profile(conn: &Connection, _ask: Value) -> Result<Value, String> {
+    to_result(&crate::persistence::settings::athlete_profile(conn))
+}
+
+fn status_background_jobs(conn: &Connection, _ask: Value) -> Result<Value, String> {
+    let data = crate::persistence::screens::background_jobs_data(conn)
+        .map_err(|error| error.to_string())?;
+    to_result(&data)
+}
+
+fn status_cache(conn: &Connection, _ask: Value) -> Result<Value, String> {
+    let data =
+        crate::persistence::screens::cache_screen_data(conn).map_err(|error| error.to_string())?;
+    to_result(&data)
+}
+
+fn status_backup(conn: &Connection, _ask: Value) -> Result<Value, String> {
+    let data =
+        crate::persistence::screens::backup_screen_data(conn).map_err(|error| error.to_string())?;
+    to_result(&data)
+}
+
+fn status_linked_devices(conn: &Connection, caller: &Caller, _ask: Value) -> Result<Value, String> {
+    let devices = crate::persistence::linked_devices::list(conn, caller.connections)
+        .map_err(|error| error.to_string())?;
+    let this_browser = crate::persistence::linked_devices::id_of(conn, caller.browser)
+        .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkDevicesAnswer {
+        devices,
+        this_browser,
+    })
+}
+
+fn status_coverage(conn: &Connection, _ask: Value) -> Result<Value, String> {
+    to_result(&crate::objects::sync::library_coverage_of(conn))
+}
+
+fn status_sync(_conn: &Connection, _ask: Value) -> Result<Value, String> {
+    to_result(&crate::objects::sync::sync_status())
+}
+
 fn section_rename(
     engine: &mut crate::persistence::PersistentEngine,
     ask: Value,
-) -> Result<Value, String> {
+) -> Result<Written, String> {
     let ask: FfiLinkSectionRenameAsk = params(ask)?;
+    let shown = section_label(engine, &ask.id);
     crate::objects::sections::rename_section(engine, &ask.id, &ask.name)
         .map_err(|error| error.to_string())?;
-    to_result(&FfiLinkWriteDone { ok: true })
+    let summary = if ask.name.is_empty() {
+        format!("Cleared the name of section {shown}")
+    } else {
+        format!("Renamed section {shown} to {}", ask.name)
+    };
+    Ok(Written {
+        result: to_result(&FfiLinkWriteDone { ok: true })?,
+        moved: "sections",
+        target_id: ask.id,
+        summary,
+    })
+}
+
+/// The name a section is shown under now: its own name, else the one
+/// detection gave it, else its id.
+fn section_label(engine: &crate::persistence::PersistentEngine, id: &str) -> String {
+    crate::persistence::sections::naming::pooled::all_section_names(&engine.db)
+        .remove(id)
+        .or_else(|| {
+            engine
+                .db
+                .query_row("SELECT name FROM sections WHERE id = ?1", [id], |row| {
+                    row.get::<_, Option<String>>(0)
+                })
+                .ok()
+                .flatten()
+        })
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| id.to_owned())
+}
+
+/// What one text message from a browser is, read without running anything.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Incoming {
+    /// Withdraw the ask with this id.
+    Cancel(u64),
+    /// An ask to answer, under its id when it has one. A message that is not
+    /// a request is an ask too, and is answered `malformed request`.
+    Ask(Option<u64>),
+    /// A cancel that names no ask.
+    Ignore,
+}
+
+/// Read what a message from a browser is.
+pub fn incoming(request: &str) -> Incoming {
+    let Ok(value) = serde_json::from_str::<Value>(request) else {
+        return Incoming::Ask(None);
+    };
+    if value["method"] == "cancel" {
+        return value["params"]["id"]
+            .as_u64()
+            .map_or(Incoming::Ignore, Incoming::Cancel);
+    }
+    Incoming::Ask(value["id"].as_u64())
+}
+
+/// The reply to an ask the connection has no room for.
+pub fn busy(id: Option<u64>) -> String {
+    json!({ "id": id, "error": BUSY }).to_string()
+}
+
+/// The reply to an ask whose answer panicked.
+pub fn failed(id: Option<u64>) -> String {
+    json!({ "id": id, "error": "internal error" }).to_string()
 }
 
 fn reply(id: u64, result: Result<Value, String>) -> String {
@@ -418,31 +1499,63 @@ fn malformed() -> String {
 /// Answer one read from a linked browser. A write is unknown here, so the
 /// pooled connection never runs one.
 pub fn answer(conn: &Connection, request: &str) -> String {
+    answer_from(conn, &Caller::default(), request)
+}
+
+/// Answer one read from the linked browser `caller` names.
+pub fn answer_from(conn: &Connection, caller: &Caller, request: &str) -> String {
     let Ok(request) = serde_json::from_str::<Request>(request) else {
         return malformed();
     };
     let result = match method(&request.method).map(|method| &method.run) {
         Some(Run::Read(run)) => run(conn, request.params),
+        Some(Run::ReadAs(run)) => run(conn, caller, request.params),
         _ => Err(format!("unknown method: {}", request.method)),
     };
     reply(request.id, result)
 }
 
 /// Answer one write from the linked browser that presented `browser`, under
-/// the engine lock the caller holds. `browser` names who made the write.
+/// the engine lock the caller holds. `browser` is the fingerprint of the
+/// browser that made the write: a write that succeeds is logged under it.
 pub fn answer_write(
     engine: &mut crate::persistence::PersistentEngine,
-    _browser: &str,
+    browser: &str,
     request: &str,
-) -> String {
+) -> Answered {
     let Ok(request) = serde_json::from_str::<Request>(request) else {
-        return malformed();
+        return Answered {
+            reply: malformed(),
+            moved: None,
+        };
     };
-    let result = match method(&request.method).map(|method| &method.run) {
+    let done = match method(&request.method).map(|method| &method.run) {
         Some(Run::Write(run)) => run(engine, request.params),
         _ => Err(format!("unknown method: {}", request.method)),
     };
-    reply(request.id, result)
+    match done {
+        Ok(written) => {
+            let logged = crate::persistence::linked_devices::record_write(
+                &engine.db,
+                browser,
+                &request.method,
+                &written.target_id,
+                &written.summary,
+                super::service::now(),
+            );
+            if let Err(error) = logged {
+                log::warn!("veloqrs: [remote] a write was made and not logged: {error}");
+            }
+            Answered {
+                reply: reply(request.id, Ok(written.result)),
+                moved: Some(written.moved),
+            }
+        }
+        Err(error) => Answered {
+            reply: reply(request.id, Err(error)),
+            moved: None,
+        },
+    }
 }
 
 #[cfg(test)]

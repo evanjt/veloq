@@ -1459,6 +1459,14 @@ class EngineClient implements DelegateHost {
       recordingsChanged: () => post('recordingsChanged'),
       uploadPermissionRefused: () => post('uploadPermissionRefused'),
       requestBudgetChanged: () => post('requestBudgetChanged'),
+      // A linked browser changed a fact the phone shows. The kind is the
+      // channel the screens that show it already follow, so the refresh is
+      // the whole announcement; a kind this build does not know is dropped.
+      remoteWrote: (kind) => {
+        if (REMOTE_WRITE_CHANNELS.includes(kind as RefreshChannel)) {
+          this.triggerRefresh(kind as RefreshChannel);
+        }
+      },
     };
   }
 
@@ -1506,7 +1514,7 @@ class EngineClient implements DelegateHost {
     queueMicrotask(() => this.deliver('bodyStored', { kind, activityId }));
   }
 
-  triggerRefresh(event: 'groups' | 'sections' | 'activities' | 'syncReset'): void {
+  triggerRefresh(event: RefreshChannel): void {
     if (event === 'syncReset') {
       this.notifyImmediate(event);
       return;
@@ -1526,7 +1534,7 @@ class EngineClient implements DelegateHost {
   }
 
   notify(event: string): void {
-    this.triggerRefresh(event as 'groups' | 'sections' | 'activities' | 'syncReset');
+    this.triggerRefresh(event as RefreshChannel);
   }
 
   private notifyImmediate(event: string): void {
@@ -1534,10 +1542,19 @@ class EngineClient implements DelegateHost {
   }
 
   notifyAll(...events: string[]): void {
-    events.forEach((event) =>
-      this.triggerRefresh(event as 'groups' | 'sections' | 'activities' | 'syncReset')
-    );
+    events.forEach((event) => this.triggerRefresh(event as RefreshChannel));
   }
 }
+
+/** The channels a refresh is delivered on, which no single engine event owns. */
+type RefreshChannel = 'groups' | 'sections' | 'activities' | 'settings' | 'syncReset';
+
+/** The channels a linked browser's write can move. */
+const REMOTE_WRITE_CHANNELS: readonly RefreshChannel[] = [
+  'groups',
+  'sections',
+  'activities',
+  'settings',
+];
 
 export { EngineClient };

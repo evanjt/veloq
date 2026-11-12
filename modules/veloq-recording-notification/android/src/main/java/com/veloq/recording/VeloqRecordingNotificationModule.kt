@@ -22,6 +22,7 @@ import org.json.JSONObject
 // so the first update can arrive before there is anything to replace.
 private const val RETRY_DELAY_MS = 400L
 private const val MAX_RETRIES = 6
+private const val VIBRATION_MS = 400L
 
 /**
  * Re-posts the ride's foreground-service notification with the ride on it.
@@ -74,6 +75,7 @@ class VeloqRecordingNotificationModule : Module() {
         val payload = JSONObject(json)
         armInterruptedRide(payload)
         post(payload, 0)
+        if (payload.optBoolean("vibrate")) vibrateOnce()
       }
     }
 
@@ -185,6 +187,21 @@ class VeloqRecordingNotificationModule : Module() {
     }
   }
 
+  // One short pulse for a departure from the followed route. The channel is silent, so the
+  // notification cannot do it, and no view is on screen for the haptics owner to act through.
+  private fun vibrateOnce() {
+    val vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+      context.getSystemService(android.os.VibratorManager::class.java)?.defaultVibrator
+    } else {
+      @Suppress("DEPRECATION")
+      context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+    } ?: return
+    if (!vibrator.hasVibrator()) return
+    vibrator.vibrate(
+      android.os.VibrationEffect.createOneShot(VIBRATION_MS, android.os.VibrationEffect.DEFAULT_AMPLITUDE)
+    )
+  }
+
   private fun post(payload: JSONObject, attempt: Int) {
     cancelRetry()
     val manager = context.getSystemService(NotificationManager::class.java) ?: return
@@ -206,7 +223,7 @@ class VeloqRecordingNotificationModule : Module() {
     val builder = NotificationCompat.Builder(context, channelId)
       .setSmallIcon(smallIcon())
       .setContentTitle(payload.optString("title"))
-      .setContentText(payload.optString("body"))
+      .setContentText(contentText(payload))
       .setCategory(NotificationCompat.CATEGORY_SERVICE)
       .setVisibility(RecordingChannel.LOCK_SCREEN_VISIBILITY)
       .setOngoing(true)
@@ -245,6 +262,13 @@ class VeloqRecordingNotificationModule : Module() {
     }
 
     return builder.build()
+  }
+
+  // The off-route line leads the figures, so it is the first thing a glance at the shade reads.
+  private fun contentText(payload: JSONObject): String {
+    val body = payload.optString("body")
+    val guidance = payload.optString("guidance")
+    return if (guidance.isEmpty() || payload.isNull("guidance")) body else "$guidance · $body"
   }
 
   private fun trace(payload: JSONObject): android.graphics.Bitmap? {

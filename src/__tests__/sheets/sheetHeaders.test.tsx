@@ -170,6 +170,11 @@ const SHEETS: Record<
     input: { sections: [{ id: 'ridge', name: 'Ridge Road', distanceMeters: 1200 }] },
     dismiss: 'cancel',
   },
+  'sheets/under-point': {
+    load: () => require('@/app/sheets/under-point').default,
+    input: { total: 0, traceCap: 20, groups: [], onGroup: () => {} },
+    dismiss: 'cancel',
+  },
   'sheets/explainer': {
     load: () => require('@/app/sheets/explainer').default,
     input: { title: 'Tide tables', body: 'When the water turns.' },

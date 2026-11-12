@@ -127,6 +127,8 @@ impl PersistentEngine {
                     -- A caller that only has typed values must not erase a
                     -- body a previous sync stored.
                     raw = COALESCE(excluded.raw, wellness.raw),
+                    -- What intervals.icu served is never marked as Veloq's.
+                    source = NULL,
                     updated_at = excluded.updated_at",
             )?;
             for row in rows {
@@ -417,6 +419,19 @@ pub(crate) mod pooled {
         read_days, rise_days, series_delta, sport_load,
     };
 
+    /// The window's days with how much of it the stored rows cover, as the
+    /// wellness screens read them together.
+    pub(crate) fn days_with_coverage(
+        conn: &Connection,
+        oldest: &str,
+        newest: &str,
+    ) -> SqlResult<crate::FfiWellnessDays> {
+        Ok(crate::FfiWellnessDays {
+            days: wellness_days(conn, oldest, newest)?,
+            coverage: coverage(conn, oldest, newest),
+        })
+    }
+
     /// Stored wellness days over an inclusive date window, oldest first, with
     /// the per-sport loads lifted out of each stored body.
     pub(crate) fn wellness_days(
@@ -427,7 +442,7 @@ pub(crate) mod pooled {
         let mut stmt = conn.prepare(
             "SELECT date, ctl, atl, ramp_rate, hrv, resting_hr, weight,
                     sleep_secs, sleep_score, soreness, fatigue, stress,
-                    mood, motivation, raw
+                    mood, motivation, raw, source
              FROM wellness
              WHERE date >= ? AND date <= ?
              ORDER BY date ASC",
@@ -450,6 +465,7 @@ pub(crate) mod pooled {
                 mood: r.get(12)?,
                 motivation: r.get(13)?,
                 sport_load: raw.as_deref().map(sport_load).unwrap_or_default(),
+                source: r.get(15)?,
             })
         })?;
         rows.collect::<SqlResult<Vec<_>>>()

@@ -4,9 +4,21 @@
 // stands in for each. What is drawn reads `get` and listens through
 // `subscribe`.
 
+import { factsOf, type Facts, type StatRow } from './connection';
+import { DETAIL_SLOTS, DETAIL_STREAM_TYPES } from './activity';
 import { createClient, type Client } from './client';
+import {
+  BEST_EFFORT_PERIODS,
+  RANGES,
+  bestEffortsAsk,
+  createSlots,
+  rangeAsks,
+  screenAsk,
+  type PanelAsk,
+} from './fitness';
 import { browserKeys, type Keys } from './keys';
 import {
+  AskCache,
   INVITATION_TTL_SECS,
   PAGE_NAME,
   PAGE_PROTOCOL,
@@ -16,12 +28,15 @@ import {
   feedPageAsk,
   feedRows,
   invitation as invitationText,
+  isSuperseded,
   normaliseFingerprint,
   peerConfiguration,
   proof,
   proofsMatch,
   roomFor,
+  settingsOpening,
   step,
+  wallSeconds,
   withoutHiddenCandidates,
   writeNotice,
   type Effect,
@@ -46,6 +61,8 @@ export type Card = {
   name: string;
   startDateLocal?: string;
   sportType?: string;
+  /** Whether the activity recorded a track. */
+  hasGps?: boolean;
   distance?: number | null;
   movingTime?: number | null;
   elevationGain?: number | null;
@@ -53,6 +70,16 @@ export type Card = {
   avgPower?: number | null;
   trainingLoad?: number | null;
 };
+
+/** The reads of one activity's detail pane, each present once it has answered. */
+export type ActivityParts = {
+  streams?: Methods['activity.streams']['result'];
+  laps?: Methods['activity.intervals']['result'];
+  data?: Methods['activity.detail']['result'];
+};
+
+/** The key an activity's detail reads are kept under in `Snapshot.screens`. */
+export const activityParts = (id: string) => `activity-parts:${id}`;
 
 /** What the phone serves for one activity's summary. */
 export type Detail = {
@@ -65,6 +92,21 @@ export type Detail = {
 
 export type Summary = Methods['feed.summary']['result'];
 export type Sparklines = Methods['feed.sparklines']['result'];
+
+/** The reads the settings screen shows, each kept by its method once it answers. */
+export type SettingsReads = {
+  [
+    M in
+      | 'settings.get'
+      | 'settings.profile'
+      | 'status.backgroundJobs'
+      | 'status.cache'
+      | 'status.backup'
+      | 'status.linkedDevices'
+      | 'status.coverage'
+      | 'status.sync'
+  ]?: Methods[M]['result'];
+};
 
 /** Every browser API the session reaches. */
 export interface Environment {
@@ -119,11 +161,37 @@ export type Snapshot = {
   sparklines: Sparklines | null;
   /** The chips under each card, by card id. */
   highlights: Readonly<Record<string, string[]>>;
+  /** Each card's preview line from the phone, base64, by card id. A card without GPS has none. */
+  previews: Readonly<Record<string, string>>;
   details: Readonly<Record<string, Detail>>;
+  /**
+   * The answers of the screens asked through `request`, each under the key it
+   * was asked by, such as `strength:7` or `recording:<id>`.
+   */
+  screens: Readonly<Record<string, unknown>>;
+  /** The settings, profile and statuses the settings screen shows, read-only. */
+  settings: Readonly<SettingsReads>;
+  /**
+   * The fitness page's panels by slot: the phone's answer, or `failed` when it
+   * could not answer. A slot asked again keeps its last answer until the new one.
+   */
+  fitness: Readonly<Record<string, { answer: unknown } | 'failed'>>;
+  /** The days the fitness page's range control reads. */
+  fitnessRange: number;
+  /** The days the best efforts read, 0 for all time. */
+  bestEffortDays: number;
   /** Why the phone refused the last write, such as being locked; null once a write goes through. */
   writeNotice: string | null;
+  /**
+   * How many times on this connection the phone said its library changed. A
+   * screen asks its reads again when it moves; the lists and details held are
+   * dropped from the cache, so the asks reach the phone.
+   */
+  libraryChanges: number;
   /** The browser could not start: no certificate, or no WebRTC. */
   failed: boolean;
+  /** When the connection opened, on the browser's clock; null unless connected. */
+  connectedSince: number | null;
 };
 
 export interface Session {
@@ -136,10 +204,38 @@ export interface Session {
   unlink: () => void;
   /** Ask for an activity's summary, once per connection, when the phone lists the method. */
   requestDetail: (id: string) => void;
+  /**
+   * Ask for an activity's whole detail: the screen data, the series and the
+   * laps, kept under `activityParts(id)`. Each read has its own slot, so
+   * opening another ride withdraws the first one's reads.
+   */
+  requestActivityParts: (id: string) => void;
+  /**
+   * Ask for one screen's data, once per connection, kept under `key`. The ask
+   * goes only if the phone's hello listed the method.
+   */
+  request: <M extends keyof Methods>(key: string, method: M, params: Methods[M]['params']) => void;
+  /** Ask for the strength screen over the period of `periodDays`, kept as `strength:<days>`. */
+  requestStrength: (periodDays: number) => void;
+  /** Ask for the settings screen's reads, once per connection. */
+  requestSettings: () => void;
+  /** Ask every fitness panel, once per connection. */
+  requestFitness: () => void;
+  /** Read the panels that follow the range over `days`. */
+  setFitnessRange: (days: number) => void;
+  /** Read the best efforts over `days`, 0 for all time. */
+  setBestEffortDays: (days: number) => void;
   /** Narrow the feed and read it again from the top. */
   setFilter: (filter: FeedFilter) => void;
+  /** The path, round trip and traffic of the open connection, from the browser's own stats. */
+  connectionFacts: () => Promise<Facts | null>;
   /** Read the next page of the feed, if the phone holds one and none is loading. */
   loadMore: () => void;
+  /**
+   * Ask the phone a read by name, for the map's sources, which name methods the
+   * schema does not list until the screens that use them land.
+   */
+  read: (method: string, params: object) => Promise<unknown>;
   /**
    * Ask the phone a write. A phone that is locked refuses it, and the athlete is
    * told why; the page holds nothing from a write that was not made.
@@ -160,15 +256,39 @@ export function createSession(env: Environment): Session {
     summary: null,
     sparklines: null,
     highlights: {},
+    previews: {},
     details: {},
+    screens: {},
+    settings: {},
+    fitness: {},
+    fitnessRange: RANGES[1],
+    bestEffortDays: BEST_EFFORT_PERIODS[0],
     writeNotice: null,
+    libraryChanges: 0,
     failed: false,
+    connectedSince: null,
   };
   const listeners = new Set<() => void>();
   /** Bumped on every hang-up, so a callback from an old connection does nothing. */
   let generation = 0;
   const screens = createStore();
   const asked = new Set<string>();
+  /** What the phone answered on this connection, dropped on its word that the library changed. */
+  const cache = new AskCache((method, params, slot) =>
+    client
+      ? client.ask(method as keyof Methods, params as never, slot)
+      : Promise.reject(new Error('not connected'))
+  );
+  /**
+   * A read of the link protocol, answered from the cache when it holds the
+   * ask. A `slot` withdraws the read still outstanding in it, as the client does.
+   */
+  const read = <M extends keyof Methods>(method: M, params: Methods[M]['params'], slot?: string) =>
+    cache.ask(method, params, slot) as Promise<Methods[M]['result']>;
+  const slots = createSlots();
+  /** The key each screen ask sent through the machine is kept under, by its method and params. */
+  const keyed = new Map<string, string>();
+  const askKey = (method: string, params: object) => `${method} ${JSON.stringify(params)}`;
   let socket: WebSocket | null = null;
   let peer: RTCPeerConnection | null = null;
   let channel: RTCDataChannel | null = null;
@@ -194,17 +314,42 @@ export function createSession(env: Environment): Session {
     const sparklines = (screens.get('sparklines', generation) as Sparklines | undefined) ?? null;
     const highlights =
       (screens.get('highlights', generation) as Record<string, string[]> | undefined) ?? {};
+    const previews =
+      (screens.get('previews', generation) as Record<string, string> | undefined) ?? {};
     const details: Record<string, Detail> = {};
     for (const id of asked) {
       const detail = screens.get(`activity:${id}`, generation) as Detail | undefined;
       if (detail) details[id] = detail;
     }
-    change({ feed, feedMore, summary, sparklines, highlights, details });
+    const settings = (screens.get('settings', generation) as SettingsReads | undefined) ?? {};
+    const shown: Record<string, unknown> = {};
+    for (const key of keyed.values()) {
+      const answer = screens.get(key, generation);
+      if (answer !== undefined) shown[key] = answer;
+    }
+    change({
+      feed,
+      feedMore,
+      summary,
+      sparklines,
+      highlights,
+      previews,
+      details,
+      screens: shown,
+      settings,
+    });
   };
 
   function dispatch(event: Event) {
     const result = step(snapshot.state, event);
-    change({ state: result.state });
+    const { connectedSince } = snapshot;
+    const since =
+      result.state.name !== 'connected'
+        ? null
+        : snapshot.state.name === 'connected'
+          ? connectedSince
+          : env.now();
+    change({ state: result.state, connectedSince: since });
     for (const effect of result.effects) void run(effect);
   }
 
@@ -343,6 +488,10 @@ export function createSession(env: Environment): Session {
         dispatch({ type: 'bye' });
       }
     };
+    opened.onopen = () => {
+      if (mine !== generation || socket !== opened) return;
+      dispatch({ type: 'relayOpened' });
+    };
     opened.onclose = () => {
       if (mine !== generation || socket !== opened) return;
       socket = null;
@@ -368,11 +517,18 @@ export function createSession(env: Environment): Session {
     peer = made;
     const opened = made.createDataChannel('veloq');
     channel = opened;
-    client = createClient(opened, () => mine === generation && dispatch({ type: 'mismatch' }));
+    client = createClient(
+      opened,
+      () => mine === generation && dispatch({ type: 'mismatch' }),
+      () => mine === generation && refresh(),
+      (reason) => mine === generation && dispatch({ type: 'farewell', reason })
+    );
     opened.onopen = () => mine === generation && dispatch({ type: 'open' });
     opened.onclose = () => mine === generation && dispatch({ type: 'drop' });
     made.onconnectionstatechange = () => {
-      if (mine === generation && made.connectionState === 'failed') dispatch({ type: 'drop' });
+      if (mine !== generation || made.connectionState !== 'failed') return;
+      // The phone's answer arrived, so the relay and the phone are fine and only the path failed.
+      dispatch(made.remoteDescription ? { type: 'drop', cause: 'unreachable' } : { type: 'drop' });
     };
 
     await made.setLocalDescription(await made.createOffer());
@@ -426,7 +582,12 @@ export function createSession(env: Environment): Session {
     try {
       const answer = await client?.ask('link.hello', { protocol: PAGE_PROTOCOL, page: PAGE_NAME });
       if (answer && mine === generation) {
-        dispatch({ type: 'hello', protocol: answer.protocol, methods: answer.methods });
+        dispatch({
+          type: 'hello',
+          protocol: answer.protocol,
+          methods: answer.methods,
+          device: answer.device,
+        });
       }
     } catch {
       if (mine === generation) dispatch({ type: 'drop' });
@@ -438,18 +599,18 @@ export function createSession(env: Environment): Session {
     const mine = generation;
     const { state } = snapshot;
     const methods = state.name === 'connected' ? (state.methods ?? []) : [];
-    const nowWallSeconds = env.now() / 1000 - env.timezoneOffset() * 60;
+    const nowWallSeconds = wallSeconds(env.now(), env.timezoneOffset());
     try {
       await Promise.all(
         feedOpening(methods, snapshot.filter, nowWallSeconds).map(async (opening) => {
           if (opening.method === 'feed.summary') {
-            const card = await client?.ask(
+            const card = await read(
               'feed.summary',
               opening.params as Methods['feed.summary']['params']
             );
             if (card && screens.put('summary', mine, card)) publishScreens();
           } else if (opening.method === 'feed.sparklines') {
-            const lines = await client?.ask(
+            const lines = await read(
               'feed.sparklines',
               opening.params as Methods['feed.sparklines']['params']
             );
@@ -459,19 +620,25 @@ export function createSession(env: Environment): Session {
           }
         })
       );
-    } catch {
-      if (mine === generation) dispatch({ type: 'drop' });
+    } catch (error) {
+      if (mine === generation && !isSuperseded(error)) dispatch({ type: 'drop' });
     }
   }
 
   /** Ask the page at `offset` under the current filter and keep it unless the filter moved on. */
   async function loadFeedPage(offset: number, mine = generation, asked = feedGeneration) {
     if (!client) throw new Error('not connected');
-    const page = await client.ask('feed.page', feedPageAsk(snapshot.filter, offset));
+    const page = await read('feed.page', feedPageAsk(snapshot.filter, offset), 'feed');
     if (asked !== feedGeneration) return;
     const held = offset === 0 ? [] : ((screens.get('feed', mine) as Card[] | undefined) ?? []);
     const rows = feedRows(held, page.cards as Card[], offset);
     if (!screens.put('feed', mine, rows)) return;
+    const heldLines =
+      offset === 0 ? {} : ((screens.get('previews', mine) as Record<string, string>) ?? {});
+    const lines = { ...heldLines };
+    for (const preview of page.previews) lines[preview.activityId] = preview.encodedCoords;
+    screens.put('previews', mine, lines);
+    cache.keepOnly(rows.map((row) => row.id));
     screens.put('feedMore', mine, page.hasMore);
     publishScreens();
     await loadHighlights(
@@ -491,7 +658,7 @@ export function createSession(env: Environment): Session {
     )
       return;
     try {
-      const bundle = await client?.ask('feed.highlights', { ids });
+      const bundle = await read('feed.highlights', { ids }, 'feed.highlights');
       if (!bundle || asked !== feedGeneration) return;
       const held = (screens.get('highlights', mine) as Record<string, string[]> | undefined) ?? {};
       const next = { ...held };
@@ -506,18 +673,124 @@ export function createSession(env: Environment): Session {
     }
   }
 
+  /** The reads of one activity's detail pane, each stored as it answers. */
+  async function fetchActivityParts(id: string) {
+    const mine = generation;
+    const key = activityParts(id);
+    const methods = snapshot.state.name === 'connected' ? (snapshot.state.methods ?? []) : [];
+    keyed.set(askKey('activity.parts', { id }), key);
+    let held: ActivityParts = {};
+    const keep = (patch: ActivityParts) => {
+      held = { ...held, ...patch };
+      if (screens.put(key, mine, held)) publishScreens();
+    };
+    const asks: Promise<void>[] = [];
+    if (methods.includes('activity.streams')) {
+      asks.push(
+        read('activity.streams', { id, types: DETAIL_STREAM_TYPES }, DETAIL_SLOTS.streams).then(
+          (streams) => keep({ streams })
+        )
+      );
+    }
+    if (methods.includes('activity.intervals')) {
+      asks.push(
+        read('activity.intervals', { id }, DETAIL_SLOTS.laps).then((laps) => keep({ laps }))
+      );
+    }
+    if (methods.includes('activity.detail')) {
+      asks.push(
+        read('activity.detail', { id }, DETAIL_SLOTS.screen).then((data) => keep({ data }))
+      );
+    }
+    const settled = await Promise.allSettled(asks);
+    // A read a newer ride replaced may be asked for again when its screen returns.
+    if (settled.some((outcome) => outcome.status === 'rejected')) asked.delete(key);
+  }
+
+  /** Each read the settings screen shows, stored as it answers. */
+  async function fetchSettings() {
+    const mine = generation;
+    const { state } = snapshot;
+    const methods = state.name === 'connected' ? (state.methods ?? []) : [];
+    try {
+      await Promise.all(
+        settingsOpening(methods).map(async (opening) => {
+          const method = opening.method as keyof SettingsReads;
+          const answer = await read(method, opening.params as never);
+          if (answer === undefined) return;
+          const held = (screens.get('settings', mine) as SettingsReads | undefined) ?? {};
+          if (screens.put('settings', mine, { ...held, [method]: answer })) publishScreens();
+        })
+      );
+    } catch {
+      if (mine === generation) dispatch({ type: 'drop' });
+    }
+  }
+
   /** Send the ask a screen needs, now that the machine has found the phone lists it. */
   async function answerScreen(method: string, params: object) {
     const mine = generation;
     try {
       if (method === 'activity.summary') {
         const { id } = params as { id: string };
-        const summary = { id, ...(await client?.ask('activity.summary', { id })) };
+        const summary = { id, ...(await read('activity.summary', { id }, 'detail')) };
         if (screens.put(`activity:${id}`, mine, summary)) publishScreens();
+        return;
       }
-    } catch {
-      // The list stays usable; a summary that failed is simply not shown.
+      const key = keyed.get(askKey(method, params));
+      if (key === undefined || !client) return;
+      const answer = await read(method as keyof Methods, params as never);
+      if (screens.put(key, mine, answer)) publishScreens();
+    } catch (error) {
+      // The list stays usable; a screen that failed is simply not shown. A
+      // summary a newer detail replaced may be asked for again when its
+      // screen returns.
+      if (isSuperseded(error) && method === 'activity.summary') {
+        asked.delete((params as { id: string }).id);
+      }
     }
+  }
+
+  function request<M extends keyof Methods>(key: string, method: M, params: Methods[M]['params']) {
+    const { state } = snapshot;
+    if (state.name !== 'connected' || state.methods === null) return;
+    if (asked.has(key)) return;
+    asked.add(key);
+    keyed.set(askKey(method, params), key);
+    dispatch({ type: 'screen', method, params });
+  }
+
+  /**
+   * Ask the phone for one fitness panel. A newer ask of the same slot
+   * supersedes this one, so its late answer is dropped; the other slots are
+   * not touched.
+   */
+  async function askPanel(panel: PanelAsk) {
+    const { state } = snapshot;
+    if (state.name !== 'connected' || !state.methods?.includes(panel.method)) return;
+    const mine = generation;
+    const ticket = slots.begin(panel.slot);
+    try {
+      const answer = await read(panel.method, panel.params as never, `fitness:${panel.slot}`);
+      if (!slots.isCurrent(panel.slot, ticket) || mine !== generation) return;
+      change({ fitness: { ...snapshot.fitness, [panel.slot]: { answer } } });
+    } catch {
+      if (slots.isCurrent(panel.slot, ticket) && mine === generation) {
+        change({ fitness: { ...snapshot.fitness, [panel.slot]: 'failed' } });
+      }
+    }
+  }
+
+  /**
+   * The phone's library changed: forget every list and detail held, read the
+   * feed again and let each screen on view ask its reads again.
+   */
+  function refresh() {
+    if (snapshot.state.name !== 'connected') return;
+    cache.changed();
+    asked.clear();
+    change({ libraryChanges: snapshot.libraryChanges + 1 });
+    void fetchFeed();
   }
 
   function hangUp() {
@@ -533,7 +806,9 @@ export function createSession(env: Environment): Session {
     peer = null;
     socket = null;
     screens.clear(generation);
+    cache.clear();
     asked.clear();
+    keyed.clear();
     feedLoading = false;
     change({
       code: null,
@@ -542,7 +817,12 @@ export function createSession(env: Environment): Session {
       summary: null,
       sparklines: null,
       highlights: {},
+      previews: {},
       details: {},
+      libraryChanges: 0,
+      fitness: {},
+      screens: {},
+      settings: {},
     });
   }
 
@@ -564,12 +844,63 @@ export function createSession(env: Environment): Session {
       }
     },
     unlink: () => dispatch({ type: 'forget' }),
+    async connectionFacts() {
+      if (!peer || snapshot.state.name !== 'connected') return null;
+      try {
+        const report = await peer.getStats();
+        return factsOf([...report.values()] as StatRow[]);
+      } catch {
+        return null;
+      }
+    },
     requestDetail(id) {
       const { state } = snapshot;
       if (state.name !== 'connected' || state.methods === null) return;
       if (asked.has(id)) return;
       asked.add(id);
       dispatch({ type: 'screen', method: 'activity.summary', params: { id } });
+    },
+    requestActivityParts(id) {
+      const { state } = snapshot;
+      if (state.name !== 'connected' || state.methods === null) return;
+      const key = activityParts(id);
+      if (asked.has(key)) return;
+      asked.add(key);
+      void fetchActivityParts(id);
+    },
+    requestSettings() {
+      const { state } = snapshot;
+      if (state.name !== 'connected' || state.methods === null) return;
+      if (asked.has('settings')) return;
+      asked.add('settings');
+      void fetchSettings();
+    },
+    request,
+    requestStrength(periodDays) {
+      request(`strength:${periodDays}`, 'strength.screen', {
+        nowWallSeconds: wallSeconds(env.now(), env.timezoneOffset()),
+        periodDays,
+      });
+    },
+    requestFitness() {
+      const { state } = snapshot;
+      if (state.name !== 'connected' || state.methods === null) return;
+      if (asked.has('fitness')) return;
+      asked.add('fitness');
+      const now = new Date(env.now());
+      for (const panel of rangeAsks(snapshot.fitnessRange, now)) void askPanel(panel);
+      void askPanel(screenAsk(now));
+      void askPanel(bestEffortsAsk(snapshot.bestEffortDays));
+    },
+    setFitnessRange(days) {
+      if (days === snapshot.fitnessRange) return;
+      change({ fitnessRange: days });
+      for (const panel of rangeAsks(days, new Date(env.now()))) void askPanel(panel);
+    },
+    setBestEffortDays(days) {
+      if (days === snapshot.bestEffortDays) return;
+      change({ bestEffortDays: days });
+      void askPanel(bestEffortsAsk(days));
     },
     setFilter(filter) {
       feedGeneration++;
@@ -578,9 +909,10 @@ export function createSession(env: Environment): Session {
       const mine = generation;
       screens.put('feed', mine, []);
       screens.put('feedMore', mine, false);
+      screens.put('previews', mine, {});
       publishScreens();
-      void loadFeedPage(0).catch(() => {
-        if (mine === generation) dispatch({ type: 'drop' });
+      void loadFeedPage(0).catch((error) => {
+        if (mine === generation && !isSuperseded(error)) dispatch({ type: 'drop' });
       });
     },
     loadMore() {
@@ -592,6 +924,10 @@ export function createSession(env: Environment): Session {
         .finally(() => {
           if (mine === generation) feedLoading = false;
         });
+    },
+    async read(method, params) {
+      if (!client) throw new Error('not connected');
+      return client.ask(method as keyof Methods, params as never);
     },
     async write(method, params) {
       if (!client) throw new Error('not connected');

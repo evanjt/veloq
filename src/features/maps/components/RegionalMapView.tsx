@@ -69,6 +69,7 @@ import { mapTopControlsBottom, popupBottom, popupMaxHeight } from '../lib/filter
 import { useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
 import { useStoredTrackUrl } from '../hooks/useStoredTrackUrl';
 import { useSectionChooser } from './regional/useSectionChooser';
+import { useUnderPoint } from './regional/useUnderPoint';
 import { navigateTo } from '@/shared/app/navigation';
 
 /**
@@ -176,6 +177,8 @@ export function RegionalMapView({
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const { section: selectedSection } = useSectionDetail(selectedSectionId);
   const chooseSection = useSectionChooser(sections, setSelectedSectionId);
+  const { lookUp: lookUpUnderPoint, traceUrl: underPointUrl } = useUnderPoint();
+  const heatmapEnabled = isHeatmapEnabled();
   const [spider, setSpider] = useState<SpiderState | null>(null);
   // The popup reads the route from the map read's own lines, so a rename or a
   // new member shows on the next read.
@@ -341,6 +344,8 @@ export function RegionalMapView({
     currentZoomLevel,
     markUserInteracted,
     setSpider,
+    heatmapShown: heatmapEnabled && showHeatmap,
+    lookUpUnderPoint,
   });
 
   // The selected activity's line, fetched by the page from the engine. Every
@@ -478,7 +483,6 @@ export function RegionalMapView({
     if (!isMapFocused) clearHeatmapView();
   }, [isMapFocused]);
 
-  const heatmapEnabled = isHeatmapEnabled();
   // A finished pass is new ground under the same tile URLs, and MapLibre does
   // not ask twice. The count moves the source's URL, which is what makes it.
   const heatmapGeneration = useHeatmapGeneration();
@@ -491,6 +495,7 @@ export function RegionalMapView({
         routesGeoJSON,
         userLocationGeoJSON,
         routeGeoJSON,
+        underPointGeoJSON: underPointUrl ?? EMPTY_FEATURE_COLLECTION,
         spiderPointsGeoJSON,
         spiderLinesGeoJSON,
         heatmapEnabled,
@@ -503,6 +508,7 @@ export function RegionalMapView({
       routesGeoJSON,
       userLocationGeoJSON,
       routeGeoJSON,
+      underPointUrl,
       spiderPointsGeoJSON,
       spiderLinesGeoJSON,
       heatmapEnabled,

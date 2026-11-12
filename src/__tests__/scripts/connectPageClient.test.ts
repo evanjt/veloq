@@ -15,7 +15,7 @@
 import zlib from 'zlib';
 
 import { createClient, type Channel } from '../../../web/connect/client';
-import { UnreadableReply } from '../../../web/connect/link';
+import { UnreadableReply, isSuperseded } from '../../../web/connect/link';
 
 function channelOf(readyState: Channel['readyState'] = 'open') {
   const sent: { id: number; method: string; params: object }[] = [];
@@ -253,5 +253,53 @@ describe('connect page protocol client', () => {
     await client.settle(frame(1, 0, GZIP, packed.slice(0, half)));
     await client.settle(frame(1, 1, GZIP | LAST, packed.slice(half)));
     await expect(pending).resolves.toEqual({ cards });
+  });
+
+  it('withdraws the earlier ask in a slot with a cancel and settles only the later one', async () => {
+    const { channel, sent } = channelOf();
+    const client = createClient(channel);
+    const first = client.ask('activity.summary', { id: 'a1' }, 'detail').catch((e: unknown) => e);
+    const other = client.ask('activity.summary', { id: 'b1' }, 'feed');
+    const second = client.ask('activity.summary', { id: 'a2' }, 'detail');
+    expect(sent).toEqual([
+      { id: 1, method: 'activity.summary', params: { id: 'a1' } },
+      { id: 2, method: 'activity.summary', params: { id: 'b1' } },
+      { method: 'cancel', params: { id: 1 } },
+      { id: 3, method: 'activity.summary', params: { id: 'a2' } },
+    ]);
+    expect(isSuperseded(await first)).toBe(true);
+    await client.settle(reply({ id: 1, result: { movingTime: 1 } }));
+    await client.settle(reply({ id: 3, result: { movingTime: 3 } }));
+    await client.settle(reply({ id: 2, result: { movingTime: 2 } }));
+    await expect(second).resolves.toEqual({ movingTime: 3 });
+    await expect(other).resolves.toEqual({ movingTime: 2 });
+  });
+
+  it('hands the phone word that its library changed to the session and settles no ask with it', async () => {
+    const { channel } = channelOf();
+    const changed = jest.fn();
+    const client = createClient(channel, () => {}, changed);
+    const pending = client.askPairing('pair.status');
+    await client.settle(frame(0, 0, LAST, text({ event: 'changed', generation: 4 })));
+    expect(changed).toHaveBeenCalledTimes(1);
+    await client.settle(reply({ id: 1, result: 'waiting' }));
+    await expect(pending).resolves.toBe('waiting');
+
+    client.hangUp();
+    await client.settle(frame(0, 0, LAST, text({ event: 'changed', generation: 5 })));
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands the reason the phone gives for leaving to the session, and not after a hang-up', async () => {
+    const { channel } = channelOf();
+    const farewell = jest.fn();
+    const changed = jest.fn();
+    const client = createClient(channel, () => {}, changed, farewell);
+    await client.settle(frame(0, 0, LAST, text({ event: 'farewell', reason: 'background' })));
+    expect(farewell).toHaveBeenCalledWith('background');
+    expect(changed).not.toHaveBeenCalled();
+    client.hangUp();
+    await client.settle(frame(0, 0, LAST, text({ event: 'farewell', reason: 'removed' })));
+    expect(farewell).toHaveBeenCalledTimes(1);
   });
 });

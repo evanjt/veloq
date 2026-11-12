@@ -15,7 +15,7 @@ import {
 } from '@/shared/ui/ContextMenu';
 import { chromeMenuIcon } from '@/shared/ui/ChromeIcon';
 import { navigateTo } from '@/shared/app/navigation';
-import { INTERVALS_URLS } from '@/shared/app/constants';
+import { useSource } from '@/shared/app/source/useSource';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('ActivityShare');
@@ -119,12 +119,14 @@ export function ActivityCardContextMenu({
     clearActivityOverride(activity.id);
   }, [activity.id, clearActivityOverride]);
 
-  const webId = activity.intervalsWebId;
+  const links = useSource()?.links ?? null;
+  const webId = links ? activity.intervalsWebId : undefined;
   // The menu row is gone by the time the sheet presents, so on iPad it points at the card.
   const cardAnchor = useRef<ViewInstance>(null);
   const handleShare = useCallback(async () => {
     if (!webId) return;
-    const url = INTERVALS_URLS.activityPage(webId);
+    if (!links) return;
+    const url = links.activityPage(webId);
     try {
       await shareText(
         {
@@ -137,7 +139,7 @@ export function ActivityCardContextMenu({
     } catch (error) {
       log.warn('the share sheet did not open:', error);
     }
-  }, [webId, activity.name]);
+  }, [webId, links, activity.name]);
 
   const href = `/activity/${activity.id}` as const;
 

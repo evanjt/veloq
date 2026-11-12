@@ -1248,6 +1248,7 @@ impl SettleRecorder {
 }
 
 impl EngineObserver for SettleRecorder {
+    fn remote_wrote(&self, _kind: String) {}
     fn sync_progress(&self) {}
     fn sync_settled(&self) {}
     fn activities_stored(&self) {}
