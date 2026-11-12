@@ -15,6 +15,8 @@ import {
   type Axis,
   type ChartData,
 } from './chart';
+import { compareSeries, type Compared } from './compare';
+import { portionHolds } from './activity';
 import { clock, km, kmh } from './format';
 import type { Card, Detail } from './session';
 
@@ -59,6 +61,9 @@ export function ActivityPage(props: {
   detail: Detail | undefined;
   data: ChartData | null;
   facts?: Facts;
+  /** Other rides drawn over this one in their compare colours, each with its streams. */
+  compare?:
+    { set: readonly Compared[]; streams: Readonly<Record<string, ChartData | null>> } | undefined;
   /** Told where the crosshair is, or null when it leaves, so the map can mark it. */
   onPosition?: (position: Position | null) => void;
 }) {
@@ -82,7 +87,12 @@ export function ActivityPage(props: {
       </header>
       <div id="activity-left">
         <div id="map-slot" role="region" aria-label={t('connectPage.activity.map')} />
-        <Charts data={props.data} position={position} onPosition={publish} />
+        <Charts
+          data={props.data}
+          compare={props.compare}
+          position={position}
+          onPosition={publish}
+        />
       </div>
       <aside id="activity-right" aria-label={t('connectPage.activity.facts')}>
         <SummaryStrip card={card} detail={detail} />
@@ -94,6 +104,8 @@ export function ActivityPage(props: {
 
 function Charts(props: {
   data: ChartData | null;
+  compare?:
+    { set: readonly Compared[]; streams: Readonly<Record<string, ChartData | null>> } | undefined;
   position: Position | null;
   onPosition: (position: Position | null) => void;
 }) {
@@ -183,6 +195,18 @@ function Charts(props: {
             d={linePath(data, axis, key, WIDTH, HEIGHT)}
           />
         ))}
+        {visible.flatMap((key) =>
+          compareSeries(props.compare?.set ?? [], props.compare?.streams ?? {}, key).map((line) => (
+            <path
+              key={`${line.id}:${key}`}
+              className={`line compare-line ${line.colour}`}
+              data-compared={line.id}
+              fill="none"
+              strokeLinecap="round"
+              d={linePath(line.data, axis, key, WIDTH, HEIGHT)}
+            />
+          ))
+        )}
         {props.position ? (
           <line
             id="crosshair"
@@ -264,7 +288,7 @@ function FactsColumn({ facts, position }: { facts: Facts; position: Position | n
             {facts.sections.map((row) => (
               <li
                 key={row.id}
-                data-lit={lit === row.id}
+                data-lit={lit === row.id || portionHolds(row.portion, position?.index ?? null)}
                 onPointerEnter={() => setLit(row.id)}
                 onPointerLeave={() => setLit(null)}
               >

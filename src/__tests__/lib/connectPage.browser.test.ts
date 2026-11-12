@@ -143,7 +143,8 @@ const ROUTE_LINES = JSON.stringify({
   features: [
     {
       type: 'Feature',
-      properties: { id: 'route-1', name: 'Ridgeline loop' },
+      id: 'route-1',
+      properties: { number: 1, name: 'Ridgeline loop' },
       geometry: {
         type: 'LineString',
         coordinates: [
@@ -357,17 +358,17 @@ describeWithChromium('the connect page in a headless Chromium', () => {
       await connect.until(`document.querySelector('#settings-rows dt') !== null`);
       expect(
         await connect.evaluate<string[][]>(
-          `[...document.querySelectorAll('#settings-rows dt')].map((dt) => [dt.textContent, dt.nextSibling.textContent])`
+          `[...document.querySelectorAll('#settings-rows dt')].map((dt) => [dt.textContent, dt.nextSibling.querySelector('select, input').value])`
         )
       ).toEqual([
-        ['Theme', 'Not set'],
+        ['Theme', ''],
         ['Units', 'imperial'],
       ]);
       expect(
         await connect.evaluate(
-          `document.querySelectorAll('#settings-pane input, #settings-pane button, #settings-pane select').length`
+          `[...document.querySelectorAll('#settings-pane input, #settings-pane button, #settings-pane select')].every((control) => control.disabled)`
         )
-      ).toBe(0);
+      ).toBe(true);
 
       await connect.evaluate(`location.hash = '#/settings/linked-devices'`);
       await connect.until(`document.querySelectorAll('#settings-devices li').length === 2`);
@@ -482,6 +483,19 @@ describeWithChromium('the connect page in a headless Chromium', () => {
               ftpTrend: { latestFtp: null },
               runningLthr: null,
               sportMix: { rides: 3, runs: 1, swims: 0 },
+              loadDots: [],
+              heatmap: [],
+              months: [],
+              seasonYear: {
+                currentStats: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+                previousStats: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+              },
+              comparisons: {
+                week: {
+                  currentStats: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+                  previousStats: { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 },
+                },
+              },
             },
             'fitness.wellness': {
               coverage: 'notFetched',
@@ -539,7 +553,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
           methods: ['link.hello', 'feed.page', 'heatmap.tile', 'geo.routeLines'],
           results: {
             'feed.page': FEED_PAGE,
-            'geo.routeLines': ROUTE_LINES,
+            'geo.routeLines': { text: ROUTE_LINES },
           },
           tiles: { '2/1/1': tile, '2/2/1': tile },
         })
@@ -580,7 +594,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
           const canvas = document.querySelector('.maplibregl-canvas');
           const r = canvas.getBoundingClientRect();
           canvas.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
-          return document.getElementById('map-hover').textContent === 'route-1';
+          return document.getElementById('map-hover').textContent === 'Route 1';
         })()`
       );
       await connect.evaluate(

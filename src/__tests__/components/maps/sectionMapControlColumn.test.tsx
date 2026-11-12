@@ -1,6 +1,6 @@
 /**
  * Scenario: the section detail hero is a fraction of the window height, so on a short window it
- * is shorter than the five round buttons stacked from below the status bar and the header.
+ * is shorter than the six round buttons stacked from below the status bar and the header.
  *
  * Expected behaviour: the control column is bounded by the hero and wraps into further columns to
  * its left, drawn wide enough to hold them, so no button hangs past the map's bottom or right edge.
@@ -87,11 +87,11 @@ describe('the section hero map control column', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('keeps every button inside a 294 dp hero with all five shown', async () => {
+  it('keeps every button inside a 294 dp hero with all six shown', async () => {
     await renderMap({ height: 294, enableFullscreen: true });
     const { style, top, maxHeight, count, perColumn } = controlColumn();
 
-    expect(count).toBe(5);
+    expect(count).toBe(6);
     // Further columns wrap to the left, and the column is drawn as wide as all of them, since
     // layout sizes a wrapping column to its first and the rest would land past the map's edge.
     expect(style.flexWrap).toBe('wrap-reverse');

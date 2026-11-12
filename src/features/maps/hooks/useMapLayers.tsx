@@ -73,7 +73,7 @@ interface UseMapLayersResult {
   sectionMarkersGeoJSON: GeoJSON.FeatureCollection;
   /** GeoJSON for PR-only section markers in fullscreen modal */
   fullscreenPRMarkersGeoJSON: GeoJSON.FeatureCollection;
-  /** Route coordinates in [lng, lat] format for BaseMapView / Map3DWebView */
+  /** Route coordinates in [lng, lat] format for BaseMapView */
   routeCoords: [number, number][];
   /** The highlighted point from chart selection, or null */
   highlightPoint: LatLng | null;
@@ -310,7 +310,7 @@ export function useMapLayers({
     return { type: 'FeatureCollection', features };
   }, [sectionOverlaysGeoJSON]);
 
-  // ----- route coordinates in [lng, lat] for BaseMapView / Map3DWebView -----
+  // ----- route coordinates in [lng, lat] for BaseMapView -----
   const routeCoords = useMemo(() => {
     return validCoordinates.map((c) => [c.longitude, c.latitude] as [number, number]);
   }, [validCoordinates]);

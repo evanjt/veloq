@@ -19,7 +19,6 @@ import type { ReactTestInstance } from 'react-test-renderer';
 import { WebView } from 'react-native-webview';
 
 import { MapSurface, type MapSurfaceProps } from '@/features/maps/components/MapSurface';
-import { Map3DWebView } from '@/features/maps/components/Map3DWebView';
 import { TerrainSnapshotWebView } from '@/features/maps/components/TerrainSnapshotWebView';
 import { KeyboardFocusBlock } from '@/shared/ui/KeyboardFocusBlock';
 
@@ -28,8 +27,6 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: true, colors: require('@/theme').darkColors }),
 }));
-
-const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 /** Every WebView rendered, each with whether a `KeyboardFocusBlock` holds it. */
 function webViewsBlocked(): boolean[] {
@@ -97,30 +94,6 @@ describe('map WebViews are hidden from screen readers', () => {
     expect(exposed[0]!.props.accessibilityLabel).toBe('12 activities · 9 on the map');
   });
 
-  it('hides the 3D map and exposes nothing without a label', async () => {
-    await render(
-      <Map3DWebView coordinates={[[7.4, 46.9]]} mapStyle="light" routesGeoJSON={EMPTY} />
-    );
-
-    expect(webViewsHidden()).toEqual([true]);
-    expect(accessibleElements()).toEqual([]);
-  });
-
-  it('exposes a labelled 3D map as one image', async () => {
-    await render(
-      <Map3DWebView
-        coordinates={[[7.4, 46.9]]}
-        mapStyle="light"
-        routesGeoJSON={EMPTY}
-        accessibilityLabel="Hill loop"
-      />
-    );
-
-    expect(webViewsHidden()).toEqual([true]);
-    expect(screen.getByRole('image', { name: 'Hill loop' })).toBeTruthy();
-    expect(accessibleElements()).toHaveLength(1);
-  });
-
   it('hides every terrain snapshot worker and exposes nothing', async () => {
     await render(<TerrainSnapshotWebView />);
 
@@ -145,14 +118,6 @@ describe('map WebViews take no keyboard focus', () => {
     expect(webViewsBlocked()).toEqual([true]);
   });
 
-  it('holds the 3D map in a focus block', async () => {
-    await render(
-      <Map3DWebView coordinates={[[7.4, 46.9]]} mapStyle="light" routesGeoJSON={EMPTY} />
-    );
-
-    expect(webViewsBlocked()).toEqual([true]);
-  });
-
   it('holds every terrain snapshot worker in a focus block', async () => {
     await render(<TerrainSnapshotWebView />);
 
@@ -163,14 +128,8 @@ describe('map WebViews take no keyboard focus', () => {
 });
 
 describe('map WebViews are not focusable natively', () => {
-  it('marks the 2D map, the 3D map and every terrain worker unfocusable', async () => {
+  it('marks the map surface and every terrain worker unfocusable', async () => {
     await render(<MapSurface {...SURFACE_PROPS} />);
-    expect(screen.UNSAFE_getAllByType(WebView).map((w) => w.props.focusable)).toEqual([false]);
-    await screen.unmount();
-
-    await render(
-      <Map3DWebView coordinates={[[7.4, 46.9]]} mapStyle="light" routesGeoJSON={EMPTY} />
-    );
     expect(screen.UNSAFE_getAllByType(WebView).map((w) => w.props.focusable)).toEqual([false]);
     await screen.unmount();
 

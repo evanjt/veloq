@@ -33,6 +33,9 @@ mod migration_from_released_v12;
 #[path = "../migration_route_numbers.rs"]
 mod migration_route_numbers;
 
+#[path = "../migration_exercise_usage.rs"]
+mod migration_exercise_usage;
+
 #[path = "../migration_linked_devices.rs"]
 mod migration_linked_devices;
 
@@ -59,6 +62,9 @@ mod migration_drop_geocoding;
 
 #[path = "../migration_climb_bests_spike_remeasure.rs"]
 mod migration_climb_bests_spike_remeasure;
+
+#[path = "../migration_strength_sessions.rs"]
+mod migration_strength_sessions;
 
 #[path = "../migration_heatmap_hidden.rs"]
 mod migration_heatmap_hidden;

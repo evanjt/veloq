@@ -960,6 +960,12 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_mapmanager_get_context_layers(
+    uniffiSelf: bigint,
+    heldSections: Uint8Array,
+    heldRoutes: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_mapmanager_get_screen_data(
     uniffiSelf: bigint,
     startDate: number,
@@ -1093,6 +1099,12 @@ interface NativeModuleInterface {
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_remotemanager_pairing_request(
     uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_recent_writes(
+    uniffiSelf: bigint,
+    deviceId: Uint8Array,
+    limit: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_remotemanager_remove_linked_device(
@@ -1592,6 +1604,17 @@ interface NativeModuleInterface {
     exerciseCategory: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercise_picker_data(
+    uniffiSelf: bigint,
+    equipment: Uint8Array,
+    region: Uint8Array,
+    muscle: Uint8Array,
+    query: Uint8Array,
+    afterCategory: Uint8Array,
+    afterName: Uint8Array,
+    now: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercise_sets(
     uniffiSelf: bigint,
     activityId: Uint8Array,
@@ -1628,6 +1651,17 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_search_exercises(
+    uniffiSelf: bigint,
+    query: Uint8Array,
+    relevance: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_set_exercise_labels(
+    uniffiSelf: bigint,
+    labels: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_constructor_syncmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
@@ -2064,6 +2098,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_constructor_mapmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_activities_under_point(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures(): number;
+  ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_context_layers(): number;
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_recordingmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_add_recording(): number;
@@ -2090,6 +2125,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_linked_rooms(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_list_linked_devices(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_pairing_request(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_recent_writes(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_remove_linked_device(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_set_device_name(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_set_in_front(): number;
@@ -2186,6 +2222,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_detail_data(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_picker_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_detail(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_groups(): number;
@@ -2193,6 +2230,8 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_unprocessed_strength_ids(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_search_exercises(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_set_exercise_labels(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_syncmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_bodies_stored(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_cancel(): number;

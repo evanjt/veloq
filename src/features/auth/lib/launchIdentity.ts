@@ -8,7 +8,7 @@
  * question goes to the athlete, and nothing may run until it is answered.
  */
 
-import { adoptsGarminLibrary } from '@/shared/app/storedSession';
+import { adoptsGarminLibrary, returnsToGarminLibrary } from '@/shared/app/storedSession';
 
 /** The four shapes launch can find, once the engine is open. */
 export type LaunchIdentityAction = 'proceed' | 'adopt' | 'wipe-then-proceed' | 'ask-first';
@@ -19,16 +19,21 @@ export type LaunchIdentityAction = 'proceed' | 'adopt' | 'wipe-then-proceed' | '
  * An empty engine has nothing to lose and takes the new identity as it stands.
  * A library with activities in it is the athlete's only copy, so it is never
  * wiped without being asked. A library named for a Garmin account is adopted
- * by the intervals.icu athlete who signs in over it, with nothing asked.
+ * by the intervals.icu athlete who signs in over it, with nothing asked, and an
+ * intervals.icu library is taken back by the Garmin account it was adopted from.
  */
 export function launchIdentityAction(
   cachedAthleteId: string | null | undefined,
   credentialsAthleteId: string | null | undefined,
-  storedActivityCount: number
+  storedActivityCount: number,
+  garminLibraryId?: string | null
 ): LaunchIdentityAction {
   if (!cachedAthleteId || !credentialsAthleteId) return 'proceed';
   if (cachedAthleteId === credentialsAthleteId) return 'proceed';
   if (adoptsGarminLibrary(cachedAthleteId, credentialsAthleteId)) return 'adopt';
+  if (returnsToGarminLibrary(cachedAthleteId, credentialsAthleteId, garminLibraryId)) {
+    return 'adopt';
+  }
   return storedActivityCount > 0 ? 'ask-first' : 'wipe-then-proceed';
 }
 

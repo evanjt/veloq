@@ -38,17 +38,34 @@ const FAREWELL_LIMIT: Duration = Duration::from_millis(300);
 /// The longest between two looks at whether the library changed.
 const CHANGE_POLL: Duration = Duration::from_secs(1);
 
-/// Reply frames waiting for room in a channel's send buffer, oldest first.
-#[derive(Default)]
+/// Reply messages waiting for room in a channel's send buffer, oldest first.
 struct Outbox {
-    frames: VecDeque<(ChannelId, Vec<u8>)>,
+    frames: VecDeque<(ChannelId, super::protocol::Message)>,
+    /// The protocol version the page last asked in, which the messages the
+    /// phone sends unasked (a change, a farewell, a refusal) are written in.
+    wire: u32,
+}
+
+impl Default for Outbox {
+    fn default() -> Self {
+        Self {
+            frames: VecDeque::new(),
+            wire: super::protocol::PROTOCOL_VERSION,
+        }
+    }
 }
 
 impl Outbox {
-    fn push(&mut self, channel: ChannelId, reply: &str) {
-        for frame in super::protocol::frames(reply) {
-            self.frames.push_back((channel, frame));
+    /// Queue a reply in the format of protocol `wire`.
+    fn push_in(&mut self, channel: ChannelId, reply: &str, wire: u32) {
+        for message in super::protocol::messages(reply, wire) {
+            self.frames.push_back((channel, message));
         }
+    }
+
+    /// Queue a message in the format the page last asked in.
+    fn push(&mut self, channel: ChannelId, reply: &str) {
+        self.push_in(channel, reply, self.wire);
     }
 
     fn is_empty(&self) -> bool {
@@ -61,7 +78,7 @@ impl Outbox {
             return;
         };
         self.frames
-            .retain(|(_, frame)| frame[2..6] != id.to_be_bytes());
+            .retain(|(_, message)| super::protocol::reply_id(message) != Some(id));
     }
 
     /// Write frames while the send buffer has room for the next one. A frame
@@ -69,12 +86,12 @@ impl Outbox {
     /// or an error when a channel is broken.
     fn flush(&mut self, rtc: &mut Rtc) -> Result<bool, ()> {
         let mut wrote = false;
-        while let Some((id, frame)) = self.frames.front() {
+        while let Some((id, message)) = self.frames.front() {
             let Some(mut channel) = rtc.channel(*id) else {
                 self.frames.pop_front();
                 continue;
             };
-            match channel.write(true, frame) {
+            match channel.write(message.binary, &message.bytes) {
                 Ok(true) => {
                     self.frames.pop_front();
                     wrote = true;
@@ -290,8 +307,8 @@ struct Admitted {
 impl Admitted {
     /// Move the replies the workers have made into the outbox.
     fn collect(&self, outbox: &mut Outbox) {
-        while let Ok((channel, reply)) = self.replies.try_recv() {
-            outbox.push(channel, &reply);
+        while let Ok((channel, reply, wire)) = self.replies.try_recv() {
+            outbox.push_in(channel, &reply, wire);
         }
     }
 }
@@ -527,6 +544,7 @@ fn on_event(
                     outbox.drop_reply(id);
                 }
                 Incoming::Ask(id) => {
+                    outbox.wire = protocol::wire_of(request);
                     if !admitted.asks.submit(pool, data.id, id, request) {
                         outbox.push(data.id, &protocol::busy(id));
                     }

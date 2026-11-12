@@ -497,6 +497,13 @@ pub(crate) const RECORD_TABLES: &[(&str, &str)] = &[
     ("section_pins", "1 = 1"),
     ("section_forced_matches", "1 = 1"),
     ("heatmap_hidden_activities", "1 = 1"),
+    // The session first, so a restore has its row before the rows that hang
+    // off it. A restore writes the sets to the library once all are placed.
+    ("strength_sessions", "1 = 1"),
+    ("strength_session_exercises", "1 = 1"),
+    ("strength_session_sets", "1 = 1"),
+    ("strength_session_groups", "1 = 1"),
+    ("strength_session_rests", "1 = 1"),
     ("section_activities", "excluded != 0"),
     ("activity_matches", "excluded != 0"),
     // After the sections, so a restore has recreated a hand-cut before

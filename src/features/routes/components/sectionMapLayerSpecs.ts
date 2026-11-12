@@ -22,6 +22,7 @@ import {
   buildDirectionLayer,
   buildEndpointLayers,
   buildUserLocationLayers,
+  MAP_3D_SCALE,
 } from '@/features/maps';
 import type { SectionMapLayers } from './useSectionMapLayers';
 import { SECTION_MAP_BOUNDS_PADDING } from '../lib/sectionMapCamera';
@@ -60,6 +61,11 @@ interface SectionLayerInput extends SectionMapLayers {
   hasUserLocation?: boolean;
   /** The marker for the distance the delta chart is scrubbed to. Empty when none is. */
   scrubGeoJSON?: GeoJSON.FeatureCollection;
+  /**
+   * The map is tilted over terrain. The layers are the same and every width and
+   * radius is drawn at `MAP_3D_SCALE`, nothing else changing.
+   */
+  terrain?: boolean;
 }
 
 /**
@@ -113,7 +119,10 @@ export function buildSectionLayers(
     shownDirection,
     highlightedTraceFilter,
     hasAllTraces,
+    terrain = false,
   } = input;
+  const scale = terrain ? MAP_3D_SCALE : 1;
+  const size = (px: number) => px * scale;
 
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   const traceVisible = hasAllTraces && !!highlightedTraceFilter;
@@ -124,7 +133,7 @@ export function buildSectionLayers(
       type: 'line',
       source: 'shadow',
       layout: roundLine,
-      paint: { 'line-color': palette.muted, 'line-width': 2 },
+      paint: { 'line-color': palette.muted, 'line-width': size(2) },
     },
   ];
 
@@ -137,7 +146,7 @@ export function buildSectionLayers(
       paint: {
         'line-color': palette.muted,
         'line-opacity': hasExtension ? 1 : 0,
-        'line-width': 2,
+        'line-width': size(2),
       },
     });
   }
@@ -152,7 +161,7 @@ export function buildSectionLayers(
       layout: roundLine,
       paint: {
         'line-color': palette.casing,
-        'line-width': traceCasingWidth,
+        'line-width': size(traceCasingWidth),
         'line-opacity': traceVisible ? 1 : 0,
       },
     },
@@ -164,7 +173,7 @@ export function buildSectionLayers(
       layout: roundLine,
       paint: {
         'line-color': palette.ink,
-        'line-width': traceLineWidth,
+        'line-width': size(traceLineWidth),
         'line-opacity': traceVisible ? 1 : 0,
       },
     },
@@ -173,28 +182,28 @@ export function buildSectionLayers(
       type: 'line',
       source: 'highlighted-lap',
       layout: roundLine,
-      paint: { 'line-color': palette.casing, 'line-width': traceCasingWidth },
+      paint: { 'line-color': palette.casing, 'line-width': size(traceCasingWidth) },
     },
     {
       id: 'highlighted-lap-line',
       type: 'line',
       source: 'highlighted-lap',
       layout: roundLine,
-      paint: { 'line-color': palette.ink, 'line-width': traceLineWidth },
+      paint: { 'line-color': palette.ink, 'line-width': size(traceLineWidth) },
     },
     {
       id: 'highlighted-trace-casing',
       type: 'line',
       source: 'highlighted-trace',
       layout: roundLine,
-      paint: { 'line-color': palette.casing, 'line-width': 5 },
+      paint: { 'line-color': palette.casing, 'line-width': size(5) },
     },
     {
       id: 'highlighted-trace-line',
       type: 'line',
       source: 'highlighted-trace',
       layout: roundLine,
-      paint: { 'line-color': palette.ink, 'line-width': 4 },
+      paint: { 'line-color': palette.ink, 'line-width': size(4) },
     }
   );
 
@@ -209,7 +218,7 @@ export function buildSectionLayers(
           'line-color': palette.casing,
           // Context lines carry no casing.
           'line-opacity': sectionContext ? 0 : 1,
-          'line-width': 5,
+          'line-width': size(5),
         },
       },
       {
@@ -221,14 +230,14 @@ export function buildSectionLayers(
           ...(deltaBands
             ? { 'line-gradient': lineBandExpression(deltaBands, palette) }
             : { 'line-color': sectionContext ? palette.muted : palette.route }),
-          'line-width': sectionContext ? 2 : 4,
+          'line-width': size(sectionContext ? 2 : 4),
         },
       }
     );
   }
 
   // Fullscreen draws the section as the base map's route line, at its width.
-  layers.push(buildDeltaGapLayer(palette, showExtensionAndSection && sectionContext ? 2 : 4));
+  layers.push(buildDeltaGapLayer(palette, size(showExtensionAndSection && sectionContext ? 2 : 4)));
 
   // Over the section line, whichever map draws it: the base map draws it in
   // fullscreen, from the same source.
@@ -250,7 +259,7 @@ export function buildSectionLayers(
       paint: {
         'line-color': palette.casing,
         'line-opacity': trimRange ? 1 : 0,
-        'line-width': trimCasingWidth,
+        'line-width': size(trimCasingWidth),
       },
     },
     {
@@ -261,15 +270,15 @@ export function buildSectionLayers(
       paint: {
         'line-color': palette.route,
         'line-opacity': trimRange ? 1 : 0,
-        'line-width': trimLineWidth,
+        'line-width': size(trimLineWidth),
       },
     },
-    ...buildEndpointLayers(palette),
-    ...buildScrubLayers(palette)
+    ...buildEndpointLayers(palette, { scale }),
+    ...buildScrubLayers(palette, scale)
   );
 
   if (input.userLocationGeoJSON)
-    layers.push(...buildUserLocationLayers(!!input.hasUserLocation, palette));
+    layers.push(...buildUserLocationLayers(!!input.hasUserLocation, palette, scale));
 
   return layers;
 }

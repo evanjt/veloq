@@ -3,7 +3,8 @@
 //!
 //! The matcher's own box serialises with snake_case names. A record the link
 //! carries names [`option`] with `#[serde(with = "crate::remote::bounds::option")]`
-//! on its `Option<Bounds>` field, so the page reads one camelCase shape.
+//! on its `Option<Bounds>` field, and one that is always there names this
+//! module itself, so the page reads one camelCase shape.
 
 use serde::{Deserialize, Serialize};
 use tracematch::Bounds;
@@ -37,6 +38,16 @@ impl From<Wire> for Bounds {
             max_lng: wire.max_lng,
         }
     }
+}
+
+/// Write `bounds` as a camelCase record.
+pub fn serialize<S: serde::Serializer>(bounds: &Bounds, serializer: S) -> Result<S::Ok, S::Error> {
+    Wire::from(bounds).serialize(serializer)
+}
+
+/// Read a camelCase record back.
+pub fn deserialize<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Bounds, D::Error> {
+    Wire::deserialize(deserializer).map(Bounds::from)
 }
 
 /// A box that may be absent: `null` when it is.

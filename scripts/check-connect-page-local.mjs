@@ -157,20 +157,26 @@ function foreignLoads(sources) {
   return problems;
 }
 
-/** The built output's files off the disk, keyed as the index keys them; empty when not built. */
+/**
+ * The built output's files off the disk, keyed as the index keys them; empty
+ * when not built. The versioned builds under it are read like the page.
+ */
 function builtSources(root) {
   const sources = new Map();
-  let names;
-  try {
-    names = readdirSync(join(root, BUILT), { withFileTypes: true })
-      .filter((entry) => entry.isFile())
-      .map((entry) => entry.name);
-  } catch {
-    return sources;
-  }
-  for (const name of names) {
-    sources.set(`${BUILT}/${name}`, readFileSync(join(root, BUILT, name)));
-  }
+  const read = (directory) => {
+    let entries;
+    try {
+      entries = readdirSync(join(root, directory), { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const path = `${directory}/${entry.name}`;
+      if (entry.isDirectory()) read(path);
+      else sources.set(path, readFileSync(join(root, path)));
+    }
+  };
+  read(BUILT);
   return sources;
 }
 

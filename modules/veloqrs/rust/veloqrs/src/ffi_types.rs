@@ -249,7 +249,7 @@ pub struct FfiUnderPointActivity {
 }
 
 /// Distance range selected for the map in the current unit system.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, uniffi::Enum)]
 #[serde(rename_all = "camelCase")]
 pub enum MapDistanceBand {
     All,
@@ -1432,7 +1432,7 @@ pub struct FfiSectionChange {
     pub kind: String,
     pub at: String,
     /// The section's line as it now stands, delta+varint encoded and thinned
-    /// as `FfiRecentPR.encoded_polyline` is. Empty when it cannot be read.
+    /// as `FfiRecentPr.encoded_polyline` is. Empty when it cannot be read.
     #[serde(with = "crate::remote::bytes")]
     pub encoded_polyline: Vec<u8>,
 }
@@ -2583,7 +2583,7 @@ pub struct FfiSeriesPoint {
 /// A recent section PR detected in the last 7 days.
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
-pub struct FfiRecentPR {
+pub struct FfiRecentPr {
     pub section_id: String,
     pub section_name: String,
     pub best_time: f64,
@@ -2679,7 +2679,7 @@ pub struct FfiInsightsData {
     /// Swimming pace trend
     pub swim_pace_trend: FfiPaceTrend,
     /// Up to 3 recent section PRs (best times set in last 7 days)
-    pub recent_prs: Vec<FfiRecentPR>,
+    pub recent_prs: Vec<FfiRecentPr>,
     /// Sections held by the engine, for the section-readiness check
     pub section_count: u32,
     /// Sport types the ranked-section lists were built for
@@ -2724,7 +2724,7 @@ pub struct FfiInsightsData {
 }
 
 /// Scalar inputs for the insights bundle.
-#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiInsightsParams {
     /// Start of the current week, filled by the engine from current_end
@@ -3943,6 +3943,19 @@ pub struct FfiMapScreenData {
     pub unmapped: FfiMapUnmapped,
 }
 
+/// The library's sections and routes alone, the two layers a detail map draws
+/// under its subject. Each is the layer `FfiMapScreenData` carries, stamped the
+/// same way.
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiMapContextLayers {
+    /// The section overlay, its sections absent when the caller held its stamp
+    pub sections: Option<FfiMapSectionLayer>,
+    /// The route lines, absent while the layer is stale and its lines absent
+    /// when the caller held its stamp
+    pub routes: Option<FfiRouteLineLayer>,
+}
+
 /// The activities a map read keeps but cannot draw, by why.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -4743,6 +4756,39 @@ pub struct FfiExerciseDetailData {
     pub sessions: Vec<FfiExerciseHistorySession>,
 }
 
+/// One exercise in the picker's list.
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiExercisePickerRow {
+    pub category: u16,
+    pub name: u16,
+    pub label_key: String,
+    /// The English name; a translation is looked up by `label_key`.
+    pub display_name: String,
+    pub equipment: String,
+    /// Whole days since the athlete last did it, `None` when never.
+    pub last_done_days: Option<u32>,
+    /// It has followed the exercise just done in the athlete's sessions.
+    pub usually_next: bool,
+}
+
+/// A muscle the body pair can select and the region it belongs to.
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiPickerMuscle {
+    pub slug: String,
+    pub region: String,
+}
+
+/// The exercise picker: the narrowed list and the vocabulary its filters use.
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiExercisePickerData {
+    pub rows: Vec<FfiExercisePickerRow>,
+    pub equipment: Vec<String>,
+    pub muscles: Vec<FfiPickerMuscle>,
+}
+
 /// One session's stored sets with the totals every surface shows for it.
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -5143,7 +5189,7 @@ pub struct FfiMergeCandidate {
     pub overlap_pct: f64,
     pub center_distance_meters: f64,
     /// The candidate's line thinned to what a row thumbnail draws, delta+varint
-    /// encoded as `FfiRecentPR.encoded_polyline` is. Empty when it cannot be read.
+    /// encoded as `FfiRecentPr.encoded_polyline` is. Empty when it cannot be read.
     #[serde(with = "crate::remote::bytes")]
     pub encoded_polyline: Vec<u8>,
 }

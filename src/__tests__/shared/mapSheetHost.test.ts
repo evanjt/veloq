@@ -13,6 +13,9 @@ import {
   patchHostCard,
   patchHostTopCard,
   patchTopCard,
+  hostTerrain3D,
+  setHostTerrain3D,
+  setTerrain3D,
   popCard,
   popHostCard,
   pushCard,
@@ -186,5 +189,36 @@ describe('a map sheet host card stack', () => {
     popHostCard(key);
     popHostCard(key);
     expect(topCard(useMapSheetHosts.getState().hosts, key)?.state).toEqual({ sport: 'Ride' });
+  });
+});
+
+describe('a host 3D mode', () => {
+  it('reads on a card pushed after it was set, and again after the pop', () => {
+    const key = openHost('activity', 'a1');
+    setHostTerrain3D(key, true);
+
+    pushHostCard(key, { kind: 'section', id: 's1' });
+    expect(hostTerrain3D(key)).toBe(true);
+
+    popHostCard(key);
+    expect(hostTerrain3D(key)).toBe(true);
+  });
+
+  it('is unset before any map sets it, and for a host not open', () => {
+    const key = openHost('activity', 'a1');
+
+    expect(hostTerrain3D(key)).toBeUndefined();
+    expect(hostTerrain3D('activity:none')).toBeUndefined();
+  });
+
+  it('keeps one host apart from another and returns the same hosts for no change', () => {
+    const one = openHost('activity', 'a1');
+    openHost('activity', 'a2');
+    setHostTerrain3D(one, true);
+
+    expect(hostTerrain3D('activity:a2')).toBeUndefined();
+    const hosts = useMapSheetHosts.getState().hosts;
+    expect(setTerrain3D(hosts, one, true)).toBe(hosts);
+    expect(setTerrain3D(hosts, 'activity:none', true)).toBe(hosts);
   });
 });

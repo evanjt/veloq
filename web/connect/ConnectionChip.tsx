@@ -157,9 +157,9 @@ function ConnectionDetails({
         <dt>{t('connectPage.connection.path')}</dt>
         <dd>{facts ? t(PATH[facts.path]) : t('connectPage.connection.checking')}</dd>
         <dt>{t('connectPage.connection.thisBrowser')}</dt>
-        <dd>{endpointText(facts?.local ?? null)}</dd>
+        <dd>{endpointText(facts?.local ?? null) ?? t('connectPage.connection.notKnown')}</dd>
         <dt>{t('connectPage.connection.phone')}</dt>
-        <dd>{endpointText(facts?.remote ?? null)}</dd>
+        <dd>{endpointText(facts?.remote ?? null) ?? t('connectPage.connection.notKnown')}</dd>
         <dt>{t('connectPage.connection.roundTrip')}</dt>
         <dd>
           {facts?.rttMs == null ? t('connectPage.connection.notMeasured') : `${facts.rttMs} ms`}

@@ -26,8 +26,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-24.04
     steps:
+      # Older pages named in web/connect/kept.json are built from their commits.
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Install dependencies
         uses: ./.github/actions/npm-ci

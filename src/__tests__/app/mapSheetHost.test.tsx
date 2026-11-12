@@ -37,6 +37,9 @@ jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 const PHONE = { width: 390, height: 844 };
 const TABLET = { width: 1024, height: 1366 };
 const PHONE_ON_ITS_SIDE = { width: 956, height: 440 };
+const FOLDED = { width: 466, height: 678 };
+const UNFOLDED_UPRIGHT = { width: 669, height: 951 };
+const UNFOLDED_ON_ITS_SIDE = { width: 951, height: 669 };
 const mockWindow = {
   size: PHONE,
   listeners: new Set<() => void>(),
@@ -249,6 +252,37 @@ describe('a map sheet host', () => {
       expect(nestedRoutes()).toEqual(['index', 'sheet']);
       expect(app.queryByTestId('map-sheet-panel')).toBeNull();
       expect(mountCount).toEqual({ map: 1, sheet: 1 });
+      expect(app.getByTestId('orchard-card')).toHaveTextContent('pear:quince');
+    });
+  });
+
+  describe('on a foldable that unfolds and turns', () => {
+    it('docks the card beside the map in both unfolded poses and mounts nothing again', async () => {
+      mockWindow.size = FOLDED;
+      await openOrchard();
+      expect(nestedRoutes()).toEqual(['index', 'sheet']);
+
+      await act(async () => mockWindow.resize(UNFOLDED_UPRIGHT));
+      expect(nestedRoutes()).toEqual(['index']);
+      expect(app.getByTestId('map-sheet-panel')).toHaveStyle({ width: 360 });
+
+      await act(async () => mockWindow.resize(UNFOLDED_ON_ITS_SIDE));
+      expect(nestedRoutes()).toEqual(['index']);
+      expect(app.getByTestId('map-sheet-panel')).toHaveStyle({ width: 380 });
+      expect(app.getByTestId('orchard-card')).toHaveTextContent('pear:quince');
+      expect(mountCount.map).toBe(1);
+    });
+
+    it('presents the sheet at the stop it was left at when the display folds again', async () => {
+      mockWindow.size = FOLDED;
+      await openOrchard();
+      await act(async () => fireEvent.press(app.getByTestId('orchard-drag-to-peek')));
+
+      await act(async () => mockWindow.resize(UNFOLDED_ON_ITS_SIDE));
+      await act(async () => mockWindow.resize(FOLDED));
+
+      expect(nestedRoutes()).toEqual(['index', 'sheet']);
+      expect(presentedStop()).toBe(MAP_SHEET_PEEK_STOP);
       expect(app.getByTestId('orchard-card')).toHaveTextContent('pear:quince');
     });
   });

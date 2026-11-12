@@ -44,26 +44,22 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe('the inline activity map compass', () => {
-  async function mount(is3D: boolean) {
+  async function mount() {
     const surface = { resetOrientation: jest.fn() };
-    const map3D = { resetOrientation: jest.fn() };
     const rendered = await renderHook(() =>
       useMapCamera({
         validCoordinates: [
           { latitude: 46.948, longitude: 7.447 },
           { latitude: 46.951, longitude: 7.45 },
         ],
-        is3DMode: is3D,
-        is3DReady: is3D,
-        map3DRef: { current: map3D as never },
       })
     );
     (rendered.result.current.surfaceRef as { current: unknown }).current = surface;
-    return { rendered, surface, map3D };
+    return { rendered, surface };
   }
 
   it('asks the 2D map to reset and leaves the compass to the bearing it reports', async () => {
-    const { rendered, surface } = await mount(false);
+    const { rendered, surface } = await mount();
     const { bearingAnim } = rendered.result.current;
     await act(() => rendered.result.current.handleRegionIsChanging(cameraState(40)));
 
@@ -77,17 +73,6 @@ describe('the inline activity map compass', () => {
     expect(readValue(bearingAnim)).toBe(-12);
     await act(() => rendered.result.current.handleRegionIsChanging(cameraState(0)));
     expect(Math.abs(readValue(bearingAnim))).toBe(0);
-  });
-
-  it('asks the 3D map to reset and starts no timing when 3D is showing', async () => {
-    const { rendered, surface, map3D } = await mount(true);
-
-    await act(() => rendered.result.current.resetOrientation());
-    await act(() => rendered.result.current.resetOrientation());
-
-    expect(map3D.resetOrientation).toHaveBeenCalledTimes(2);
-    expect(surface.resetOrientation).not.toHaveBeenCalled();
-    expect(timingsOn(timing, rendered.result.current.bearingAnim)).toEqual([]);
   });
 });
 

@@ -1,6 +1,6 @@
 /**
- * Scenario: the inline 2D surface is unmounted while a ready 3D layer or
- * fullscreen covers it, then a new surface mounts when they go away.
+ * Scenario: the inline surface is unmounted while fullscreen covers it, then a new
+ * surface mounts when it goes away.
  *
  * Expected behaviour: the readiness of the old surface does not carry over, so
  * the new one stays hidden behind the poster until it reports ready itself.
@@ -17,9 +17,6 @@ function renderCamera() {
         { latitude: 46.948, longitude: 7.447 },
         { latitude: 46.951, longitude: 7.45 },
       ],
-      is3DMode: false,
-      is3DReady: false,
-      map3DRef: { current: null },
     })
   );
 }

@@ -51,7 +51,12 @@ for (const [file, bytes] of sources) {
       problems.push(`${file}:${at + 1}  ${name} derives uniffi but not serde::Serialize`);
     }
     if (!record) continue;
-    for (let row = item + 1, depth = 1; row < lines.length && depth > 0; row++) {
+    // A record written `struct Name {}` opens and closes on its own line and has no fields.
+    const head = lines[item] ?? '';
+    const opened = head.includes('{')
+      ? (head.match(/\{/g) ?? []).length - (head.match(/\}/g) ?? []).length
+      : 1;
+    for (let row = item + 1, depth = opened; row < lines.length && depth > 0; row++) {
       depth += (lines[row].match(/\{/g) ?? []).length - (lines[row].match(/\}/g) ?? []).length;
       if (!BYTE_FIELD.test(lines[row])) continue;
       let above = row - 1;

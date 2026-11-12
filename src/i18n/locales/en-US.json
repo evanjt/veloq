@@ -131,5 +131,11 @@
     "climbingBests": {
       "blurb": "Your fastest climb rate for each window, from 15 seconds to 20 minutes, in meters per hour (VAM) and as W/kg, the power needed to lift your body weight alone. Veloq calculates this on your phone from intervals.icu's elevation data. intervals.icu does not provide climbing bests itself. Only activities with corrected elevation count."
     }
+  },
+  "exerciseLabels": {
+    "t_stabilization": "T Stabilization",
+    "weighted_t_stabilization": "Weighted T Stabilization",
+    "three_way_ankle_mobilization": "Three Way Ankle Mobilization",
+    "scapular_stabilization": "Scapular Stabilization"
   }
 }

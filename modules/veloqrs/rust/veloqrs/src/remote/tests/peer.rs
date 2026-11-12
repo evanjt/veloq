@@ -9,7 +9,8 @@ use std::sync::atomic::{AtomicU64, AtomicUsize};
 
 use str0m::change::SdpPendingOffer;
 
-const ASK: &str = r#"{"id":1,"method":"feed.page"}"#;
+const ASK: &str = r#"{"id":1,"method":"feed.page","protocol":3}"#;
+const ASK_OLDER: &str = r#"{"id":2,"method":"feed.page"}"#;
 
 /// Answers every request with a fixed reply, pins a set the test controls,
 /// and counts the connections it saw.
@@ -124,6 +125,8 @@ struct Browser {
     socket: UdpSocket,
     pending: Option<SdpPendingOffer>,
     fingerprint: String,
+    /// Replies that arrived as text messages, in the order they arrived.
+    texts: Vec<String>,
 }
 
 impl Browser {
@@ -147,6 +150,7 @@ impl Browser {
                 socket,
                 pending: Some(pending),
                 fingerprint,
+                texts: Vec::new(),
             },
             offer,
         )
@@ -206,11 +210,15 @@ impl Browser {
                     }
                 }
                 Output::Event(Event::ChannelData(data)) => {
-                    assert!(data.binary, "a reply left as text");
-                    if data.data[1] & FRAME_LAST != 0 {
+                    if data.binary {
+                        if data.data[1] & FRAME_LAST != 0 {
+                            complete += 1;
+                        }
+                        replies.push(data.data);
+                    } else {
                         complete += 1;
+                        self.texts.push(String::from_utf8(data.data).unwrap());
                     }
-                    replies.push(data.data);
                 }
                 Output::Event(_) => {}
                 Output::Timeout(at) => {
@@ -332,6 +340,28 @@ fn stop_returns_on_a_connection_whose_poll_is_an_hour() {
     assert_eq!(gate.disconnected.load(Ordering::SeqCst), 1);
 }
 
+/// Scenario: a page built for the previous protocol asks with no protocol
+/// field and reads text messages. Expected behaviour: its reply is one text
+/// message, not frames, and a request naming the current protocol still gets
+/// frames on the same connection.
+#[test]
+fn a_request_with_no_protocol_gets_a_text_reply_and_a_current_one_gets_frames() {
+    let (mut browser, offer) = Browser::new();
+    let gate = TestGate::pinning(Some(&browser.fingerprint));
+    let (answer, peer) = accept(&offer, certificate(), loopback(), gate, None).expect("accepted");
+    browser.take_answer(&answer);
+
+    let (opened, frames) = browser.run_asks(
+        &[ASK_OLDER.to_string(), ASK.to_string()],
+        2,
+        Duration::from_secs(10),
+    );
+    assert!(opened);
+    assert_eq!(browser.texts, vec![format!("answered {ASK_OLDER}")]);
+    assert_eq!(joined(&frames)[&0], format!("answered {ASK}"));
+    peer.stop(DisconnectReason::Disconnected);
+}
+
 /// The replies a browser holds, each frame set joined and inflated as the
 /// page does, keyed by request id. Every frame is checked against the limit.
 fn joined(messages: &[Vec<u8>]) -> std::collections::BTreeMap<u32, String> {
@@ -370,7 +400,7 @@ fn joined(messages: &[Vec<u8>]) -> std::collections::BTreeMap<u32, String> {
 }
 
 fn blob(id: u64, size: usize, kind: &str) -> String {
-    serde_json::json!({ "id": id, "method": "blob", "params": { "size": size, "kind": kind } })
+    serde_json::json!({ "id": id, "method": "blob", "protocol": 3, "params": { "size": size, "kind": kind } })
         .to_string()
 }
 
@@ -495,11 +525,12 @@ fn an_offered_fingerprint_is_read_in_one_spelling() {
 }
 
 fn sleep(id: u64, ms: u64) -> String {
-    serde_json::json!({ "id": id, "method": "sleep", "params": { "ms": ms } }).to_string()
+    serde_json::json!({ "id": id, "method": "sleep", "protocol": 3, "params": { "ms": ms } })
+        .to_string()
 }
 
 fn echo(id: u64) -> String {
-    serde_json::json!({ "id": id, "method": "echo" }).to_string()
+    serde_json::json!({ "id": id, "method": "echo", "protocol": 3 }).to_string()
 }
 
 fn cancel(id: u64) -> String {
@@ -629,7 +660,7 @@ fn a_cancel_for_an_unknown_ask_changes_nothing() {
 fn a_read_that_panics_is_an_error_and_the_connection_survives() {
     let (mut browser, _gate, peer, _held) = linked();
 
-    let explode = serde_json::json!({ "id": 1, "method": "explode" }).to_string();
+    let explode = serde_json::json!({ "id": 1, "method": "explode", "protocol": 3 }).to_string();
     let (_opened, messages) = browser.run_script(
         &[explode],
         &[echo(2)],

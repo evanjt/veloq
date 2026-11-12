@@ -25,6 +25,10 @@ pub const SOURCE_KEY_PREFIX: &str = "src-";
 /// The prefix a Garmin original's key carries after [`SOURCE_KEY_PREFIX`].
 pub(crate) const GARMIN_KEY_PREFIX: &str = "src-garmin-";
 
+/// The prefix of the library identity a Garmin-only sign-in carries in place
+/// of an intervals.icu athlete id.
+pub const GARMIN_LIBRARY_PREFIX: &str = "garmin:";
+
 /// The key of the activity read from Garmin's original of `garmin_id`. Every
 /// Garmin key is minted here, so the namespace stays one rule.
 pub fn garmin_source_key(garmin_id: i64) -> String {

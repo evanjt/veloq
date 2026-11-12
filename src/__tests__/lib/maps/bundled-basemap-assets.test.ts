@@ -17,7 +17,7 @@ import {
   BUNDLED_SPRITE_FILES,
 } from '@/features/maps/lib/bundledGlyphs';
 import { resolveStyleForWebView } from '@/features/maps/lib/htmlBuilders/styleResolution';
-import { buildMap3DHtml, buildMapSurfaceHtml } from '@/features/maps/lib/htmlBuilders';
+import { buildMapSurfaceHtml } from '@/features/maps/lib/htmlBuilders';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 
 const ASSET_ROOT = join(__dirname, '../../../../modules/veloqrs/assets/basemap');
@@ -123,7 +123,6 @@ describe('the page', () => {
       interaction: {},
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any),
-    buildMap3DHtml({ initStyle: 'dark', mapStyle: 'dark' } as never),
   ];
 
   it('registers no asset protocol and asks the host for nothing', () => {

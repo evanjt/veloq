@@ -2,8 +2,9 @@
  * Scenario: the athlete leaves 3D, by the toggle or because the terrain failed.
  *
  * Expected behaviour: a camera is handed to the caller only when a gesture
- * moved it. The page's own resize and fit post a camera too, and a failed page
- * never carries an athlete's angle.
+ * moved it. The page's own resize, fit and tilt report a camera too, and a page
+ * with no elevation tiles never carries an athlete's angle. Turning 3D on again
+ * flies to the angle that was kept.
  */
 
 import React from 'react';
@@ -107,10 +108,19 @@ const COORDINATES: LatLng[] = Array.from({ length: 12 }, (_, i) => ({
 const CAMERA = { center: [7.45, 46.95] as [number, number], zoom: 13, bearing: 0, pitch: 60 };
 
 const post = async (message: Record<string, unknown>) => {
-  const page = mockPages.get('webview');
-  if (!page) throw new Error('the 3D page did not mount');
+  const page = mockPages.get('maplibre-map');
+  if (!page) throw new Error('the map page did not mount');
   await act(() => page.onMessage({ nativeEvent: { data: JSON.stringify(message) } }));
 };
+
+/** The page settling at `camera`, by a gesture or by its own move. */
+const settleAt = (camera: typeof CAMERA, isUserInteraction: boolean) =>
+  post({
+    type: 'regionDidChange',
+    ...camera,
+    bounds: { sw: [7.4, 46.9], ne: [7.5, 47] },
+    isUserInteraction,
+  });
 
 const open3D = async (onCameraCapture: jest.Mock) => {
   const view = await renderStaged(
@@ -118,6 +128,7 @@ const open3D = async (onCameraCapture: jest.Mock) => {
       <ActivityMapView
         activityType="Ride"
         coordinates={COORDINATES}
+        height={800}
         initial3DCamera={CAMERA}
         showStyleToggle
         onCameraCapture={onCameraCapture}
@@ -132,7 +143,7 @@ describe('leaving the 3D view', () => {
   it('captures nothing when the camera only moved by itself', async () => {
     const capture = jest.fn();
     const view = await open3D(capture);
-    await post({ type: 'cameraState', camera: CAMERA, gesture: false });
+    await settleAt(CAMERA, false);
 
     await fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
 
@@ -142,7 +153,7 @@ describe('leaving the 3D view', () => {
   it('captures the camera a gesture left', async () => {
     const capture = jest.fn();
     const view = await open3D(capture);
-    await post({ type: 'cameraState', camera: CAMERA, gesture: true });
+    await settleAt(CAMERA, true);
 
     await fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
 
@@ -152,18 +163,48 @@ describe('leaving the 3D view', () => {
   it('captures nothing when the terrain failed after a gesture', async () => {
     const capture = jest.fn();
     await open3D(capture);
-    await post({ type: 'cameraState', camera: CAMERA, gesture: true });
+    await settleAt(CAMERA, true);
     await post({ type: 'terrainUnavailable', reason: 'no-tiles' });
 
     expect(capture).not.toHaveBeenCalled();
   });
 
-  it('captures nothing when the page failed after a gesture', async () => {
+  it('captures the last gesture, not a move the page made after it', async () => {
     const capture = jest.fn();
-    await open3D(capture);
-    await post({ type: 'cameraState', camera: CAMERA, gesture: true });
-    await post({ type: 'mapFailed' });
+    const view = await open3D(capture);
+    await settleAt(CAMERA, true);
+    await settleAt({ ...CAMERA, bearing: 90 }, false);
 
-    expect(capture).not.toHaveBeenCalled();
+    await fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
+
+    expect(capture).toHaveBeenCalledWith(CAMERA);
+  });
+
+  it('flies to the kept angle when 3D is turned on again', async () => {
+    const capture = jest.fn();
+    const view = await open3D(capture);
+    const kept = { ...CAMERA, center: [7.4567, 46.9876] as [number, number], bearing: 135 };
+    await settleAt(kept, true);
+    await fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
+    const page = mockPages.get('maplibre-map')!;
+    page.injected.length = 0;
+
+    await view.rerender(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <ActivityMapView
+          activityType="Ride"
+          coordinates={COORDINATES}
+          height={800}
+          initial3DCamera={kept}
+          showStyleToggle
+          onCameraCapture={capture}
+        />
+      </SafeAreaProvider>
+    );
+    await fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
+
+    const moves = page.injected.filter((script) => script.includes('7.4567'));
+    expect(moves).toHaveLength(1);
+    expect(moves[0]).toContain('135');
   });
 });

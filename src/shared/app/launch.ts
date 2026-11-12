@@ -40,6 +40,7 @@ import {
 import { migrateSettingsToSqlite } from '@/shared/storage/migrateSettingsToSqlite';
 import { initialiseI18n } from '@/i18n';
 import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
+import { handExerciseLabels } from '@/i18n/exerciseLabels';
 import type { StartupArea } from '@/shared/ui/StartupErrorBanner';
 
 /** A `launch:` mark survives a release build, so a trace can split the JS window. */
@@ -155,7 +156,14 @@ function errorMessage(reason: unknown): string {
  * again.
  */
 const STORE_INITIALISERS: readonly [StartupArea, () => Promise<unknown>][] = [
-  ['language', () => initialiseLanguage().then(initialiseI18n).then(pushNotificationTemplates)],
+  [
+    'language',
+    () =>
+      initialiseLanguage()
+        .then(initialiseI18n)
+        .then(pushNotificationTemplates)
+        .then(handExerciseLabels),
+  ],
   ['preferences', initialiseTheme],
   ['preferences', initialiseSportPreference],
   ['preferences', initialiseUnitPreference],

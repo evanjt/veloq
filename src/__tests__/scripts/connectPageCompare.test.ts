@@ -12,10 +12,15 @@ import {
   MAX_COMPARED,
   compareRows,
   compareColour,
+  compareSeries,
+  compareSet,
+  compareTracks,
+  passTableRows,
   readIds,
   select,
   writeIds,
 } from '../../../web/connect/compare';
+import type { ChartData } from '../../../web/connect/chart';
 import { feedQuery, readFeedQuery } from '../../../web/connect/table';
 import { parse, write } from '../../../web/connect/router';
 
@@ -87,24 +92,24 @@ describe('compareRows', () => {
 
   it('marks the best value, every tie, and blanks a missing value', () => {
     const rows = compareRows(cards, {});
-    const distance = rows.find((r) => r.label === 'Distance');
+    const distance = rows.find((r) => r.label === 'connectPage.facts.distance');
     expect(distance?.cells.map((c) => c.best)).toEqual([false, true, true]);
-    const time = rows.find((r) => r.label === 'Moving time');
+    const time = rows.find((r) => r.label === 'connectPage.facts.movingTime');
     expect(time?.cells.map((c) => c.text)).toEqual(['1 h 00 min', '50 min', null]);
     expect(time?.cells.map((c) => c.best)).toEqual([false, true, false]);
   });
 
   it('marks nothing when only one column has a value', () => {
-    const hr = compareRows(cards, {}).find((r) => r.label === 'Average heart rate');
+    const hr = compareRows(cards, {}).find((r) => r.label === 'connectPage.facts.averageHr');
     expect(hr?.cells.map((c) => c.best)).toEqual([false, false, false]);
     expect(hr?.cells[0]?.text).toBe('150 bpm');
   });
 
   it('adds elapsed time and the delta to the best for a pass', () => {
     const rows = compareRows(cards, {}, { a: { elapsed: 120 }, b: { elapsed: 100 }, c: {} });
-    const elapsed = rows.find((r) => r.label === 'Elapsed time');
+    const elapsed = rows.find((r) => r.label === 'connectPage.facts.elapsedTime');
     expect(elapsed?.cells.map((c) => c.best)).toEqual([false, true, false]);
-    const delta = rows.find((r) => r.label === 'Delta to best');
+    const delta = rows.find((r) => r.label === 'connectPage.compare.deltaToBest');
     expect(delta?.cells.map((c) => c.text)).toEqual(['+0:20', '0:00', null]);
   });
 });
@@ -113,5 +118,55 @@ describe('compareColour', () => {
   it('gives each selected column its own colour', () => {
     const colours = [0, 1, 2, 3].map(compareColour);
     expect(new Set(colours).size).toBe(4);
+  });
+});
+
+describe('a compared set across the pass table, the chart and the map slot', () => {
+  const passes = [
+    { id: 'p1', elapsed: 300 },
+    { id: 'p2', elapsed: 280 },
+    { id: 'p3', elapsed: 310 },
+    { id: 'p4', elapsed: 295 },
+  ];
+  const stream = (base: number): ChartData => ({
+    time: [0, 1, 2],
+    distance: [0, 10, 20],
+    series: { watts: [base, base + 1, base + 2] },
+  });
+
+  it('marks the selected pass rows with their colours, in selection order', () => {
+    const set = compareSet(['p3', 'p1', 'p2']);
+    const rows = passTableRows(passes, set);
+    expect(rows.filter((r) => r.colour).map((r) => r.id)).toEqual(['p1', 'p2', 'p3']);
+    expect(rows.find((r) => r.id === 'p4')?.colour).toBeNull();
+    expect(set.map((s) => s.id)).toEqual(['p3', 'p1', 'p2']);
+    expect(new Set(set.map((s) => s.colour)).size).toBe(3);
+  });
+
+  it('lists a chart series per compared id in the same order and colours', () => {
+    const set = compareSet(['p3', 'p1', 'p2']);
+    const series = compareSeries(set, { p1: stream(1), p2: null, p3: stream(3) }, 'watts');
+    expect(series.map((s) => s.id)).toEqual(['p3', 'p1']);
+    expect(series.map((s) => s.colour)).toEqual([set[0]?.colour, set[1]?.colour]);
+  });
+
+  it('hands the map slot every track with the colour its chart line has', () => {
+    const set = compareSet(['p2', 'p4']);
+    const tracks = compareTracks(set, { p2: [[1, 2]], p4: [] });
+    expect(tracks).toEqual([{ id: 'p2', colour: set[0]?.colour, points: [[1, 2]] }]);
+  });
+
+  it('keeps at most four and none for a single selection', () => {
+    expect(compareSet(['a', 'b', 'c', 'd', 'e'])).toHaveLength(4);
+    expect(compareSet(['a'])).toEqual([]);
+    expect(passTableRows(passes, [])).toHaveLength(4);
+  });
+
+  it('feeds the pass elapsed times to the compare rows', () => {
+    const cards = [{ id: 'p1' }, { id: 'p2' }] as never;
+    const rows = compareRows(cards, {}, { p1: passes[0], p2: passes[1] });
+    expect(
+      rows.find((r) => r.label === 'connectPage.compare.deltaToBest')?.cells.map((c) => c.text)
+    ).toEqual(['+0:20', '0:00']);
   });
 });

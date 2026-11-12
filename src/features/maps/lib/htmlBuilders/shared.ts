@@ -1,6 +1,6 @@
 /**
  * Inline JavaScript snippets shared between WebView HTML builders
- * (`buildMapSurfaceHtml`, `buildMap3DHtml`, `buildSnapshotWorkerHtml`). Keeping them here as
+ * (`buildMapSurfaceHtml`, `buildSnapshotWorkerHtml`). Keeping them here as
  * string exports lets each builder compose its template from the same
  * primitives without runtime overhead or duplication.
  */

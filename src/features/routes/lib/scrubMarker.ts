@@ -12,19 +12,19 @@ export function scrubMarkerCollection(point: RoutePoint | null): GeoJSON.Feature
 }
 
 /** The marker's two circles, the activity map's highlight in the same palette roles. */
-export function buildScrubLayers(palette: MapPalette): MapLayerSpec[] {
+export function buildScrubLayers(palette: MapPalette, scale = 1): MapLayerSpec[] {
   return [
     {
       id: 'scrub-border',
       type: 'circle',
       source: SCRUB_SOURCE_ID,
-      paint: { 'circle-radius': 7, 'circle-color': palette.casing },
+      paint: { 'circle-radius': 7 * scale, 'circle-color': palette.casing },
     },
     {
       id: 'scrub-fill',
       type: 'circle',
       source: SCRUB_SOURCE_ID,
-      paint: { 'circle-radius': 5, 'circle-color': palette.ink },
+      paint: { 'circle-radius': 5 * scale, 'circle-color': palette.ink },
     },
   ];
 }

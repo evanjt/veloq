@@ -411,6 +411,80 @@ pub fn exercise_detail_data(
     })
 }
 
+/// The exercise picker's list for the given filters. A filter word the catalogue does not
+/// know matches nothing rather than being dropped, so a stale screen shows an empty list.
+pub fn exercise_picker_data(
+    conn: &rusqlite::Connection,
+    equipment: &[String],
+    region: Option<&str>,
+    muscle: Option<&str>,
+    query: &str,
+    after: Option<(u16, u16)>,
+    now: i64,
+) -> Result<crate::FfiExercisePickerData, crate::objects::error::VeloqError> {
+    use crate::objects::error::VeloqError;
+    use crate::persistence::exercise_usage;
+    use crate::strength::catalogue::{self, Equipment, Region};
+    use crate::strength::exercise_picker::{self, PickerFilter};
+    let database = |error: rusqlite::Error| VeloqError::Database {
+        msg: error.to_string(),
+    };
+    let vocabulary = crate::FfiExercisePickerData {
+        rows: Vec::new(),
+        equipment: Equipment::ALL
+            .iter()
+            .map(|e| e.slug().to_string())
+            .collect(),
+        muscles: exercise_picker::MUSCLES
+            .iter()
+            .filter_map(|slug| {
+                exercise_picker::muscle_region(slug).map(|region| crate::FfiPickerMuscle {
+                    slug: (*slug).to_string(),
+                    region: region.slug().to_string(),
+                })
+            })
+            .collect(),
+    };
+    let equipment: Option<Vec<Equipment>> =
+        equipment.iter().map(|s| Equipment::from_slug(s)).collect();
+    let region = region.map(Region::from_slug);
+    let (Some(equipment), true) = (equipment, region.is_none_or(|r| r.is_some())) else {
+        return Ok(vocabulary);
+    };
+    if muscle.is_some_and(|m| !exercise_picker::MUSCLES.contains(&m)) {
+        return Ok(vocabulary);
+    }
+    let filter = PickerFilter {
+        equipment,
+        region: region.flatten(),
+        muscle: muscle.map(str::to_string),
+        query: query.to_string(),
+    };
+    let ranked = exercise_usage::ranked(conn, now).map_err(database)?;
+    let followers = match after {
+        Some((category, name)) => {
+            exercise_usage::usually_next(conn, category, Some(name)).map_err(database)?
+        }
+        None => Vec::new(),
+    };
+    let search = crate::strength::exercise_search::ExerciseSearch::new(&Default::default());
+    let rows = exercise_picker::pick(&filter, &search, &ranked, &followers)
+        .into_iter()
+        .map(|row| crate::FfiExercisePickerRow {
+            category: row.category,
+            name: row.name,
+            label_key: row.label_key.to_string(),
+            display_name: catalogue::english(row.label_key),
+            equipment: catalogue::lookup(row.category, row.name)
+                .map_or("other", |e| e.equipment.slug())
+                .to_string(),
+            last_done_days: row.last_done_days,
+            usually_next: row.usually_next,
+        })
+        .collect();
+    Ok(crate::FfiExercisePickerData { rows, ..vocabulary })
+}
+
 fn estimated_one_rep_max(set: &crate::FfiExerciseSet) -> Option<f64> {
     let reps = set.repetitions.filter(|reps| (1..=10).contains(reps))?;
     Some(set.weight_kg? * (1.0 + f64::from(reps) / 30.0))
@@ -3303,7 +3377,7 @@ pub mod pooled {
                 let standing = super::section_pr_standing(&perf.records, record, reverse);
                 // One row per (section, sport): a section holds a record in
                 // each sport that travels it, and neither replaces the other.
-                match recent_prs.iter_mut().find(|p: &&mut crate::FfiRecentPR| {
+                match recent_prs.iter_mut().find(|p: &&mut crate::FfiRecentPr| {
                     p.section_id == s.id && p.sport_type == *sport
                 }) {
                     // A fresher duplicate of the same pair takes the row whole.
@@ -3332,7 +3406,7 @@ pub mod pooled {
                         );
                     }
                     Some(_) => {}
-                    None => recent_prs.push(crate::FfiRecentPR {
+                    None => recent_prs.push(crate::FfiRecentPr {
                         section_id: s.id.clone(),
                         section_name: s.name.clone().unwrap_or_else(|| "Section".to_string()),
                         best_time: record.best_time,
@@ -4077,63 +4151,14 @@ pub mod pooled {
         } else {
             None
         };
-        // Off, or held by the caller, the read takes the count column alone;
-        // on, it takes the one layer row. Neither touches a route group or a
-        // track.
         let (route_count, route_lines) = match layers.route_lines {
-            Some(held) if holds(held) => {
-                match crate::persistence::route_lines::pooled::counted_generation(conn) {
-                    Ok(Some((generation, count))) => (
-                        count,
-                        Some(crate::ffi_types::FfiRouteLineLayer {
-                            generation: generation as f64,
-                            stamp,
-                            routes: None,
-                        }),
-                    ),
-                    _ => (0, None),
-                }
-            }
-            Some(_) => match crate::persistence::route_lines::pooled::layer_with_generation(conn) {
-                Ok(Some((generation, lines))) => {
-                    // Names and sizes change without a regroup, so they are
-                    // read beside the layer rather than stored in it.
-                    let ids: Vec<&str> = lines.iter().map(|line| line.route_id.as_str()).collect();
-                    let names = crate::persistence::routes::pooled::route_names_for(conn, &ids);
-                    let sizes = crate::persistence::routes::pooled::activity_counts_and_distances(
-                        conn, &ids,
-                    );
-                    let routes = lines
-                        .into_iter()
-                        .map(|line| {
-                            let (activity_count, distance_meters) =
-                                sizes.get(&line.route_id).copied().unwrap_or_default();
-                            crate::ffi_types::FfiRouteLine {
-                                name: names.get(&line.route_id).cloned().unwrap_or_default(),
-                                activity_count,
-                                distance_meters,
-                                route_id: line.route_id,
-                                route_number: line.number,
-                                polyline: line.polyline,
-                            }
-                        })
-                        .collect::<Vec<_>>();
-                    (
-                        routes.len() as u32,
-                        Some(crate::ffi_types::FfiRouteLineLayer {
-                            generation: generation as f64,
-                            stamp,
-                            routes: Some(routes),
-                        }),
-                    )
-                }
-                _ => (0, None),
-            },
-            None => {
-                let count =
-                    crate::persistence::route_lines::pooled::route_count(conn).unwrap_or_default();
-                (count, None)
-            }
+            Some(held) => route_line_layer(conn, stamp, holds(held)),
+            // Off, the read takes the count column alone: no route group or
+            // track is touched.
+            None => (
+                crate::persistence::route_lines::pooled::route_count(conn).unwrap_or_default(),
+                None,
+            ),
         };
         crate::FfiMapScreenData {
             activity_count: activity_count(conn),
@@ -4143,23 +4168,113 @@ pub mod pooled {
             route_count,
             route_lines,
             section_count: crate::persistence::sections::queries::pooled::section_count(conn),
-            sections: layers.sections.map(|held| crate::FfiMapSectionLayer {
-                stamp,
-                sections: (!holds(held)).then(|| {
-                    let overlay = crate::persistence::read_cache::map_sections(conn, || {
-                        crate::persistence::sections::pooled::map_sections(
-                            conn,
-                            None,
-                            Some(1),
-                            &crate::persistence::sections::named::pooled::overlay_names(conn),
-                        )
-                    });
-                    overlay.as_ref().clone()
-                }),
-            }),
+            sections: layers
+                .sections
+                .map(|held| section_layer(conn, stamp, holds(held))),
             empty_reason,
             unmapped,
         }
+    }
+
+    /// The route count and, when the layer is read, the layer.
+    type RouteLines = (u32, Option<crate::ffi_types::FfiRouteLineLayer>);
+
+    /// The route-line layer a map read carries, with the route count beside it.
+    ///
+    /// Held by the caller, the read takes the count column alone; otherwise it
+    /// takes the one layer row. Neither touches a route group or a track. The
+    /// Map tab's read and the detail maps' context read both build the layer
+    /// here.
+    fn route_line_layer(conn: &Connection, stamp: Option<f64>, held: bool) -> RouteLines {
+        if held {
+            return match crate::persistence::route_lines::pooled::counted_generation(conn) {
+                Ok(Some((generation, count))) => (
+                    count,
+                    Some(crate::ffi_types::FfiRouteLineLayer {
+                        generation: generation as f64,
+                        stamp,
+                        routes: None,
+                    }),
+                ),
+                _ => (0, None),
+            };
+        }
+        match crate::persistence::route_lines::pooled::layer_with_generation(conn) {
+            Ok(Some((generation, lines))) => {
+                // Names and sizes change without a regroup, so they are
+                // read beside the layer rather than stored in it.
+                let ids: Vec<&str> = lines.iter().map(|line| line.route_id.as_str()).collect();
+                let names = crate::persistence::routes::pooled::route_names_for(conn, &ids);
+                let sizes =
+                    crate::persistence::routes::pooled::activity_counts_and_distances(conn, &ids);
+                let routes = lines
+                    .into_iter()
+                    .map(|line| {
+                        let (activity_count, distance_meters) =
+                            sizes.get(&line.route_id).copied().unwrap_or_default();
+                        crate::ffi_types::FfiRouteLine {
+                            name: names.get(&line.route_id).cloned().unwrap_or_default(),
+                            activity_count,
+                            distance_meters,
+                            route_id: line.route_id,
+                            route_number: line.number,
+                            polyline: line.polyline,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                (
+                    routes.len() as u32,
+                    Some(crate::ffi_types::FfiRouteLineLayer {
+                        generation: generation as f64,
+                        stamp,
+                        routes: Some(routes),
+                    }),
+                )
+            }
+            _ => (0, None),
+        }
+    }
+
+    /// The section overlay a map read carries, shipped unless the caller holds it.
+    fn section_layer(
+        conn: &Connection,
+        stamp: Option<f64>,
+        held: bool,
+    ) -> crate::FfiMapSectionLayer {
+        crate::FfiMapSectionLayer {
+            stamp,
+            sections: (!held).then(|| map_section_list(conn).as_ref().clone()),
+        }
+    }
+
+    /// The library's sections and routes alone, for a detail map that draws
+    /// them under its subject. The same two layers, stamped the same way, as
+    /// [`screen_data`] carries, without the activities.
+    pub fn map_context_layers(
+        conn: &Connection,
+        held_sections: Option<f64>,
+        held_routes: Option<f64>,
+    ) -> crate::FfiMapContextLayers {
+        // Taken before either layer is read, as in `screen_data`.
+        let stamp = crate::persistence::read_cache::stamp(conn).map(|stamp| stamp as f64);
+        let holds = |held: Option<f64>| stamp.is_some() && held == stamp;
+        crate::FfiMapContextLayers {
+            sections: Some(section_layer(conn, stamp, holds(held_sections))),
+            routes: route_line_layer(conn, stamp, holds(held_routes)).1,
+        }
+    }
+
+    /// The sections the map draws, read once per database state: the list the
+    /// phone's overlay and the linked browser's section layer both come from.
+    pub(crate) fn map_section_list(conn: &Connection) -> std::sync::Arc<Vec<crate::FfiMapSection>> {
+        crate::persistence::read_cache::map_sections(conn, || {
+            crate::persistence::sections::pooled::map_sections(
+                conn,
+                None,
+                Some(1),
+                &crate::persistence::sections::named::pooled::overlay_names(conn),
+            )
+        })
     }
 
     /// Why the map draws nothing, or `None` while it draws anything.

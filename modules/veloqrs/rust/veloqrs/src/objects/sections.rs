@@ -173,6 +173,31 @@ fn slice_inclusive(
     Ok(track[start..=end].to_vec())
 }
 
+/// The home list's ranked sections for a sport. The phone's read and the
+/// link's are this one.
+pub(crate) fn workout_sections_read(
+    conn: &rusqlite::Connection,
+    sport_type: &str,
+    limit: u32,
+) -> Vec<crate::FfiWorkoutSection> {
+    use crate::persistence::sections::ranking::pooled as ranking;
+    let names = named::pooled::overlay_names(conn);
+    let candidates = ranking::workout_candidates(conn, sport_type, limit, &names);
+    ranking::workout_sections(
+        candidates,
+        crate::persistence::sections::ranking::wall_now(),
+        |id| {
+            crate::persistence::fitness::performances::pooled::cached_section_performances(
+                conn,
+                id,
+                Some(sport_type),
+            )
+            .as_ref()
+            .clone()
+        },
+    )
+}
+
 #[uniffi::export]
 impl SectionManager {
     #[uniffi::constructor]
@@ -723,24 +748,7 @@ impl SectionManager {
         sport_type: String,
         limit: u32,
     ) -> Result<Vec<crate::FfiWorkoutSection>, VeloqError> {
-        with_reader(|conn| {
-            use crate::persistence::sections::ranking::pooled as ranking;
-            let names = named::pooled::overlay_names(conn);
-            let candidates = ranking::workout_candidates(conn, &sport_type, limit, &names);
-            ranking::workout_sections(
-                candidates,
-                crate::persistence::sections::ranking::wall_now(),
-                |id| {
-                    crate::persistence::fitness::performances::pooled::cached_section_performances(
-                        conn,
-                        id,
-                        Some(&sport_type),
-                    )
-                    .as_ref()
-                    .clone()
-                },
-            )
-        })
+        with_reader(|conn| workout_sections_read(conn, &sport_type, limit))
     }
 
     /// Everything the section detail screen can paint before its time streams

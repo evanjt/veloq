@@ -7,7 +7,7 @@
  */
 
 import { resolveStyleForWebView } from '@/features/maps/lib/htmlBuilders/styleResolution';
-import { buildMap3DHtml, buildMapSurfaceHtml } from '@/features/maps/lib/htmlBuilders';
+import { buildMapSurfaceHtml } from '@/features/maps/lib/htmlBuilders';
 
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
@@ -23,12 +23,6 @@ describe('the light style ground raster', () => {
     const style = JSON.stringify(resolveStyleForWebView('light').inline);
     expect(style).toContain(STORE_URL);
     expect(style).not.toContain(RASTER_ORIGIN);
-  });
-
-  it('routes the 3D light ground raster through the store', () => {
-    const html = buildMap3DHtml({ initStyle: 'light', mapStyle: 'light' } as never);
-    expect(html).toContain(STORE_URL);
-    expect(html).not.toContain(RASTER_ORIGIN);
   });
 
   it('leaves the dark style alone, which never carried the raster', () => {

@@ -73,29 +73,69 @@ pub struct Caller<'a> {
     pub connections: &'a [(String, i64)],
 }
 
-/// The version of the request, answer and reply-frame shapes. A method added
-/// within a version is additive; a method removed or reshaped bumps it, and so
-/// does any change to the frame layout or its encoding. A page built for another
-/// version shows the update state instead of asking. The tests pin the wire
-/// format to this number, so a change to the wire format without a bump fails.
+/// The newest version of the request, answer and reply-frame shapes this build
+/// speaks. A method added within a version is additive; a method removed or
+/// reshaped bumps it, and so does any change to the frame layout or its
+/// encoding. The tests pin the wire format to this number, so a change to the
+/// wire format without a bump fails.
 pub const PROTOCOL_VERSION: u32 = 3;
 
-/// What `link.hello` is asked: the protocol the page was built for and a name
-/// for the page.
+/// The oldest version this build still answers. The support window is this
+/// version through [`PROTOCOL_VERSION`]: a bump raises the newest and, once the
+/// version two behind has no page build kept online, the oldest. A page and a
+/// phone each name a range in `link.hello` and speak the highest version both
+/// hold, so an app one release behind the page keeps working.
+pub const MIN_PROTOCOL_VERSION: u32 = 2;
+
+/// The first version whose replies are binary frames. Before it a reply is one
+/// text message.
+pub const FRAMED_FROM: u32 = 3;
+
+/// The highest version in both `min..=max` and this build's own range, or None
+/// when the two do not meet or `min` is above `max`.
+pub fn negotiate(min: u32, max: u32) -> Option<u32> {
+    let highest = max.min(PROTOCOL_VERSION);
+    (min <= max && highest >= MIN_PROTOCOL_VERSION.max(min)).then_some(highest)
+}
+
+/// The version a request asks its reply in: its `protocol` field, held to this
+/// build's range. A request with none comes from a page built before the field
+/// existed, which reads the oldest format.
+pub fn wire_of(request: &str) -> u32 {
+    #[derive(Deserialize)]
+    struct Asked {
+        protocol: Option<u32>,
+    }
+    serde_json::from_str::<Asked>(request)
+        .ok()
+        .and_then(|asked| asked.protocol)
+        .map_or(MIN_PROTOCOL_VERSION, |version| {
+            version.clamp(MIN_PROTOCOL_VERSION, PROTOCOL_VERSION)
+        })
+}
+
+/// What `link.hello` is asked: the newest protocol the page speaks, the
+/// oldest when it speaks more than one, and a name for the page. A page that
+/// names no oldest speaks `protocol` alone.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkHello {
     pub protocol: u32,
+    #[serde(default)]
+    pub min_protocol: Option<u32>,
     pub page: String,
 }
 
-/// What `link.hello` answers: the protocol the phone speaks, the app version
+/// What `link.hello` answers: the protocol the two will speak (the phone's own
+/// newest when the ranges do not meet), the phone's range, the app version,
 /// the name of every method it answers, and the name of the phone when it has
 /// one. The name is optional, so a page reads an answer without it.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkHelloAnswer {
     pub protocol: u32,
+    pub min_protocol: u32,
+    pub max_protocol: u32,
     pub app: String,
     pub methods: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -203,6 +243,73 @@ pub struct FfiLinkNoAsk {
 pub struct FfiLinkDevicesAnswer {
     pub devices: Vec<crate::persistence::linked_devices::LinkedDevice>,
     pub this_browser: Option<String>,
+}
+
+/// What `map.screen` is asked: the phone's map filters. The date window is in
+/// epoch seconds, as the phone reads it; an empty `sportTypes` keeps every sport.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkMapAsk {
+    pub start_date: f64,
+    pub end_date: f64,
+    #[serde(default)]
+    pub sport_types: Vec<String>,
+    pub distance_band: crate::MapDistanceBand,
+    #[serde(default)]
+    pub is_metric: bool,
+    #[serde(default)]
+    pub name_needle: String,
+}
+
+/// What `map.screen` answers: the phone's map read without its line layers,
+/// and the revisions of the two layers the page fetches by URL, so a filter
+/// change that leaves a layer alone refetches nothing.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkMapScreen {
+    pub screen: crate::FfiMapScreenData,
+    /// The route group generation the route-line layer is built from; `None`
+    /// while there is no layer.
+    pub route_generation: Option<f64>,
+    /// The database state the section layer is read in; `None` when the read
+    /// cannot vouch for one.
+    pub section_stamp: Option<f64>,
+}
+
+/// A GeoJSON `FeatureCollection` as its text.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkGeoText {
+    pub text: String,
+}
+
+/// What `heatmap.tile` is asked: one tile and the base map it is painted for.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkHeatmapTileAsk {
+    pub z: u32,
+    pub x: u32,
+    pub y: u32,
+    /// `light`, `dark` or `satellite`.
+    pub base: String,
+}
+
+/// What `heatmap.tile` answers: the PNG, or `None` for a tile with no heat or
+/// one the pass has not drawn yet.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkHeatmapTile {
+    #[serde(with = "crate::remote::bytes::option")]
+    pub png: Option<Vec<u8>>,
+}
+
+/// What `heatmap.progress` answers: the tiles the pass has drawn of the tiles
+/// it owes, both 0 while no pass runs.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkHeatmapProgress {
+    pub processed: u32,
+    pub total: u32,
 }
 
 /// What a method that reads one activity is asked.
@@ -384,6 +491,39 @@ pub struct FfiLinkFitnessScreenAsk {
 pub struct FfiLinkWellnessAsk {
     pub oldest: String,
     pub newest: String,
+}
+
+/// What `insights.plannedEvents` is asked: an inclusive window of wall-clock
+/// seconds, as the phone's calendar read takes it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkPlannedEventsAsk {
+    pub oldest_ts: f64,
+    pub newest_ts: f64,
+}
+
+/// What `insights.plannedEvents` answers: the calendar events in the window,
+/// oldest first.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkPlannedEvents {
+    pub events: Vec<crate::persistence::calendar::FfiPlannedEvent>,
+}
+
+/// What `insights.workoutSections` is asked: the sport and how many sections
+/// the list holds at most.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkWorkoutSectionsAsk {
+    pub sport_type: String,
+    pub limit: u32,
+}
+
+/// What `insights.workoutSections` answers: the ranked sections for the sport.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkWorkoutSections {
+    pub sections: Vec<crate::FfiWorkoutSection>,
 }
 
 /// What `fitness.loads` is asked: an inclusive window of wall-clock seconds.
@@ -591,6 +731,24 @@ pub const METHODS: &[Method] = &[
         run: Run::Read(activity_exercise_sets),
     },
     Method {
+        name: "insights.data",
+        params: "FfiInsightsParams",
+        result: "FfiInsightsData",
+        run: Run::Read(insights_data),
+    },
+    Method {
+        name: "insights.plannedEvents",
+        params: "FfiLinkPlannedEventsAsk",
+        result: "FfiLinkPlannedEvents",
+        run: Run::Read(insights_planned_events),
+    },
+    Method {
+        name: "insights.workoutSections",
+        params: "FfiLinkWorkoutSectionsAsk",
+        result: "FfiLinkWorkoutSections",
+        run: Run::Read(insights_workout_sections),
+    },
+    Method {
         name: "routes.screen",
         params: "FfiRoutesScreenQuery",
         result: "FfiRoutesScreenData",
@@ -717,6 +875,36 @@ pub const METHODS: &[Method] = &[
         run: Run::ReadAs(recordings_get),
     },
     Method {
+        name: "map.screen",
+        params: "FfiLinkMapAsk",
+        result: "FfiLinkMapScreen",
+        run: Run::Read(map_screen),
+    },
+    Method {
+        name: "geo.routeLines",
+        params: "FfiLinkNoAsk",
+        result: "FfiLinkGeoText",
+        run: Run::Read(geo_route_lines),
+    },
+    Method {
+        name: "geo.sections",
+        params: "FfiLinkNoAsk",
+        result: "FfiLinkGeoText",
+        run: Run::Read(geo_sections),
+    },
+    Method {
+        name: "heatmap.tile",
+        params: "FfiLinkHeatmapTileAsk",
+        result: "FfiLinkHeatmapTile",
+        run: Run::Read(heatmap_tile),
+    },
+    Method {
+        name: "heatmap.progress",
+        params: "FfiLinkNoAsk",
+        result: "FfiLinkHeatmapProgress",
+        run: Run::Read(heatmap_progress),
+    },
+    Method {
         name: "settings.get",
         params: "FfiLinkSettingsAsk",
         result: "FfiLinkSettingsAnswer",
@@ -781,7 +969,8 @@ pub fn is_write(name: &str) -> bool {
     method(name).is_some_and(Method::is_write)
 }
 
-/// The text of `web/connect/methods.json`: the version and the table.
+/// The text of `web/connect/methods.json`: the newest and oldest version and
+/// the table.
 pub fn methods_json() -> String {
     let methods: Vec<Value> = METHODS
         .iter()
@@ -796,6 +985,7 @@ pub fn methods_json() -> String {
         .collect();
     let mut text = serde_json::to_string_pretty(&json!({
         "protocol": PROTOCOL_VERSION,
+        "minProtocol": MIN_PROTOCOL_VERSION,
         "methods": methods,
     }))
     .expect("a table of strings serialises");
@@ -884,6 +1074,49 @@ pub fn frames(reply: &str) -> Vec<Vec<u8>> {
         .collect()
 }
 
+/// One message to write to the data channel.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Message {
+    pub binary: bool,
+    pub bytes: Vec<u8>,
+}
+
+/// The request id a message carries: a frame's header names it, and a text
+/// reply is the reply itself.
+pub fn reply_id(message: &Message) -> Option<u32> {
+    if message.binary {
+        let bytes = message.bytes.get(2..6)?;
+        return Some(u32::from_be_bytes(bytes.try_into().ok()?));
+    }
+    #[derive(Deserialize)]
+    struct Replied {
+        id: Option<u64>,
+    }
+    serde_json::from_slice::<Replied>(&message.bytes)
+        .ok()?
+        .id
+        .and_then(|id| u32::try_from(id).ok())
+}
+
+/// A reply as the messages that carry it in the format of protocol `wire`: the
+/// frames of [`frames`] from [`FRAMED_FROM`], and before that the reply text as
+/// one text message.
+pub fn messages(reply: &str, wire: u32) -> Vec<Message> {
+    if wire >= FRAMED_FROM {
+        return frames(reply)
+            .into_iter()
+            .map(|bytes| Message {
+                binary: true,
+                bytes,
+            })
+            .collect();
+    }
+    vec![Message {
+        binary: false,
+        bytes: reply.as_bytes().to_vec(),
+    }]
+}
+
 #[derive(Deserialize)]
 struct Request {
     id: u64,
@@ -913,20 +1146,26 @@ pub fn set_device_name(name: &str) {
 }
 
 fn hello(_conn: &Connection, ask: Value) -> Result<Value, String> {
-    let _: FfiLinkHello = params(ask)?;
+    let ask: FfiLinkHello = params(ask)?;
+    let oldest = ask.min_protocol.unwrap_or(ask.protocol);
     let name = DEVICE_NAME
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
-    to_result(&hello_answer(&name))
+    to_result(&hello_answer(
+        &name,
+        negotiate(oldest, ask.protocol).unwrap_or(PROTOCOL_VERSION),
+    ))
 }
 
-/// The hello answer for a phone called `name`, which carries no name when it
-/// is blank.
-fn hello_answer(name: &str) -> FfiLinkHelloAnswer {
+/// The hello answer for a phone called `name` speaking `protocol`, which
+/// carries no name when it is blank.
+fn hello_answer(name: &str, protocol: u32) -> FfiLinkHelloAnswer {
     let name = name.trim();
     FfiLinkHelloAnswer {
-        protocol: PROTOCOL_VERSION,
+        protocol,
+        min_protocol: MIN_PROTOCOL_VERSION,
+        max_protocol: PROTOCOL_VERSION,
         app: env!("CARGO_PKG_VERSION").to_owned(),
         methods: METHODS
             .iter()
@@ -934,6 +1173,73 @@ fn hello_answer(name: &str) -> FfiLinkHelloAnswer {
             .collect(),
         device: (!name.is_empty()).then(|| name.to_owned()),
     }
+}
+
+/// The deepest zoom a heatmap tile is drawn at, and the shallowest.
+const HEATMAP_ZOOMS: std::ops::RangeInclusive<u32> = 1..=17;
+
+/// The phone's map read with its line layers left out. The layers are
+/// fetched by URL as GeoJSON written in Rust, so no polyline crosses the link.
+fn map_screen(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkMapAsk = params(ask)?;
+    let screen = crate::persistence::screens::pooled::map_screen_data(
+        conn,
+        crate::ffi_types::int_from_wire(ask.start_date),
+        crate::ffi_types::int_from_wire(ask.end_date),
+        ask.sport_types,
+        ask.distance_band,
+        ask.is_metric,
+        crate::persistence::screens::pooled::MapLayers::default(),
+        ask.name_needle,
+    );
+    let route_generation = crate::persistence::route_lines::pooled::counted_generation(conn)
+        .ok()
+        .flatten()
+        .map(|(generation, _)| generation as f64);
+    let section_stamp = crate::persistence::read_cache::stamp(conn).map(|stamp| stamp as f64);
+    to_result(&FfiLinkMapScreen {
+        screen,
+        route_generation,
+        section_stamp,
+    })
+}
+
+fn geo_route_lines(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let _: FfiLinkNoAsk = params(ask)?;
+    let text = crate::basemap::route_lines_collection(conn).map_err(|error| error.to_string())?;
+    to_result(&FfiLinkGeoText { text })
+}
+
+fn geo_sections(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let _: FfiLinkNoAsk = params(ask)?;
+    to_result(&FfiLinkGeoText {
+        text: crate::basemap::sections_collection(conn),
+    })
+}
+
+/// The tile the heatmap serves over a base, as the phone's own tile source
+/// answers it, so a tile the pass drew is the same bytes on both.
+fn heatmap_tile(_conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkHeatmapTileAsk = params(ask)?;
+    let base = crate::tiles::HeatmapBase::from_name(&ask.base)
+        .ok_or_else(|| format!("no heatmap base {}", ask.base))?;
+    if !HEATMAP_ZOOMS.contains(&ask.z) {
+        return Err(format!("zoom {} is outside the heatmap's range", ask.z));
+    }
+    let z = ask.z as u8;
+    let span = 1u32 << z;
+    if ask.x >= span || ask.y >= span {
+        return Err(format!("tile {z}/{}/{} is off the world", ask.x, ask.y));
+    }
+    to_result(&FfiLinkHeatmapTile {
+        png: crate::basemap::heatmap_tile(base, z, ask.x, ask.y),
+    })
+}
+
+fn heatmap_progress(_conn: &Connection, ask: Value) -> Result<Value, String> {
+    let _: FfiLinkNoAsk = params(ask)?;
+    let (processed, total) = crate::objects::tiles::tile_generation_progress();
+    to_result(&FfiLinkHeatmapProgress { processed, total })
 }
 
 fn feed_page(conn: &Connection, ask: Value) -> Result<Value, String> {
@@ -1198,6 +1504,34 @@ fn activity_exercise_sets(conn: &Connection, ask: Value) -> Result<Value, String
     let session = crate::objects::strength::exercise_session_from(conn, &ask.id)
         .map_err(|error| error.to_string())?;
     to_result(&session)
+}
+
+/// The insights bundle. The week windows are the engine's: whatever the ask
+/// carries in them is replaced from its clock, as the phone's own read does.
+fn insights_data(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: crate::FfiInsightsParams = params(ask)?;
+    let ask = crate::objects::fitness::with_week_bounds(ask);
+    to_result(&crate::persistence::screens::pooled::insights_data(
+        conn, &ask,
+    ))
+}
+
+fn insights_planned_events(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkPlannedEventsAsk = params(ask)?;
+    let events = crate::persistence::calendar::pooled::planned_events(
+        conn,
+        crate::ffi_types::int_from_wire(ask.oldest_ts),
+        crate::ffi_types::int_from_wire(ask.newest_ts),
+    )
+    .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkPlannedEvents { events })
+}
+
+fn insights_workout_sections(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkWorkoutSectionsAsk = params(ask)?;
+    let sections =
+        crate::objects::sections::workout_sections_read(conn, &ask.sport_type, ask.limit);
+    to_result(&FfiLinkWorkoutSections { sections })
 }
 
 fn bad(reason: &str) -> String {

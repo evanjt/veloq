@@ -6,3 +6,7 @@
 export { widgetInsights, type WidgetInsight } from './lib/widgetInsights';
 export type { Insight, InsightCategory, TFunc } from './types';
 export { isForSignedInAthlete, pushDataAthleteId, tapTargetFromPushData } from './lib/pushPayload';
+export { INSIGHTS_CONFIG, confidenceFrom } from './lib/config';
+export { HISTORY_MIN_POINTS } from './lib/sparkline';
+export { printedValue } from './lib/printedValue';
+export type { HistorySeries, InsightHistory } from './types';

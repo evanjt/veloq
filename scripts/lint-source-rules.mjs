@@ -476,12 +476,11 @@ const PICKER_OPENINGS = {
   'src/app/(tabs)/map.tsx': 'DEFAULT_MAP_PERIOD',
 };
 
-// The 3D surfaces build their layers as JavaScript inside a template string,
-// so the structural test over the layer specs cannot reach them.
+// The layer specs that name a label, which the structural test over the specs
+// does not read for its font stack.
 const LAYER_SCRIPTS = [
-  'src/features/maps/components/Map3DWebView.tsx',
-  'src/features/maps/lib/htmlBuilders/map3DScripts.ts',
-  'src/features/maps/lib/htmlBuilders/map3D.ts',
+  'src/features/maps/components/activityMapLayerSpecs.ts',
+  'src/features/maps/components/regional/regionalMapLayerSpecs.ts',
 ];
 
 /**

@@ -1346,11 +1346,10 @@ fn stamp_last_success(install: u64) {
 
 /// The library's coverage of the signed-in athlete's account, from a
 /// connection that holds no engine lock. The one read the phone's screens and
-/// a linked browser both make. Zeros when no credential is held.
+/// a linked browser both make. With no credential the figures count the
+/// Garmin rows stored.
 pub(crate) fn library_coverage_of(conn: &rusqlite::Connection) -> LibraryCoverage {
-    let Some(athlete_id) = SYNC_SERVICE.athlete_id() else {
-        return LibraryCoverage::default();
-    };
+    let athlete_id = SYNC_SERVICE.athlete_id().unwrap_or_default();
     crate::persistence::activities::pooled::library_coverage(conn, &athlete_id)
 }
 
@@ -5199,12 +5198,11 @@ impl SyncManager {
     /// "no data" for a range nobody pulled is the collapse this answers. The
     /// read is a count over the census, so it is a screen read and not a sync.
     ///
-    /// No credential and no open engine both answer `NotFetched`: nothing is
-    /// known about the range either way, and `Empty` would be a claim.
+    /// No open engine answers `NotFetched`: nothing is known about the range
+    /// either way, and `Empty` would be a claim. With no credential the rows
+    /// are Garmin's, and the backfill's progress says how far they reach.
     fn range_coverage(&self, oldest: String, newest: String) -> RangeCoverage {
-        let Some(athlete_id) = SYNC_SERVICE.athlete_id() else {
-            return RangeCoverage::NotFetched;
-        };
+        let athlete_id = SYNC_SERVICE.athlete_id().unwrap_or_default();
         with_reader(move |conn| {
             crate::persistence::activities::pooled::range_coverage(
                 conn,
@@ -5223,9 +5221,9 @@ impl SyncManager {
     /// so a library of 1,598 rides with 400 tracks stored reported "12/12" and
     /// then nothing. This is the window the athlete asked for, counted off the census.
     ///
-    /// No credential and no open engine both answer zeros, which every surface
-    /// reads as nothing to report: nothing is known about the account, and a
-    /// figure would be a claim.
+    /// No open engine answers zeros, which every surface reads as nothing to
+    /// report: nothing is known about the account, and a figure would be a
+    /// claim. With no credential the figures count the Garmin rows stored.
     fn library_coverage(&self) -> LibraryCoverage {
         with_reader(library_coverage_of).unwrap_or_default()
     }

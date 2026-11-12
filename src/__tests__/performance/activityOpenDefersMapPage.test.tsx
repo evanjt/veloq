@@ -3,7 +3,7 @@
  * commit, so on the handset both land in one frame of the tap, and that frame runs past the
  * 100 ms a tap may hold.
  *
- * Expected behaviour: the commit that mounts the map view creates no map page, 2D or 3D, inside a
+ * Expected behaviour: the commit that mounts the map view creates no map page, flat or tilted, inside a
  * slot or outside one; the page is created two frames on, once the detail's own views have mounted, under the poster where there is
  * one. A view arriving on a slot whose surface is already up creates no page at all, so it draws
  * at once.
@@ -67,8 +67,6 @@ const COORDINATES: LatLng[] = [
 ];
 
 const HIDDEN = { includeHiddenElements: true };
-/** The 3D page's WebView carries no testID of its own, so it reads as the mock's fallback. */
-const PAGE_3D_TEST_ID = 'webview';
 const CAMERA_3D = { center: [7.448, 46.949], zoom: 13, bearing: 0, pitch: 60 } as never;
 
 type HeroProps = Partial<React.ComponentProps<typeof ActivityMapView>>;
@@ -83,12 +81,8 @@ function withMetrics(children: React.ReactNode) {
   return <SafeAreaProvider initialMetrics={METRICS}>{children}</SafeAreaProvider>;
 }
 
-function pages2D() {
+function pages() {
   return screen.queryAllByTestId(MAP_SURFACE_TEST_ID, HIDDEN).length;
-}
-
-function pages3D() {
-  return screen.queryAllByTestId(PAGE_3D_TEST_ID, HIDDEN).length;
 }
 
 function nextFrame() {
@@ -112,58 +106,56 @@ afterEach(() => {
 });
 
 describe('the activity open creates its map page two frames after the mount', () => {
-  it('creates no 2D page in the mount commit under a cached poster, and one two frames on', () => {
+  it('creates no page in the mount commit under a cached poster, and one two frames on', () => {
     mockCached.add('a1-light-false');
     render(withMetrics(hero()));
 
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID)).toBeTruthy();
-    expect(pages2D()).toBe(0);
+    expect(pages()).toBe(0);
 
     settleFrames();
 
-    expect(pages2D()).toBe(1);
+    expect(pages()).toBe(1);
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID)).toBeTruthy();
   });
 
   it('defers the page the same way with no poster, since the page stays transparent until ready', () => {
     render(withMetrics(hero()));
 
-    expect(pages2D()).toBe(0);
+    expect(pages()).toBe(0);
 
     settleFrames();
 
-    expect(pages2D()).toBe(1);
+    expect(pages()).toBe(1);
   });
 
   it("defers the slot's page too, which the view publishes to rather than mounting", () => {
     mockCached.add('a1-light-false');
     render(withMetrics(<MapSurfaceSlot subject="a1">{hero()}</MapSurfaceSlot>));
 
-    expect(pages2D()).toBe(0);
+    expect(pages()).toBe(0);
 
     settleFrames();
 
-    expect(pages2D()).toBe(1);
+    expect(pages()).toBe(1);
   });
 
-  it('creates no 3D page in the mount commit, and one two frames on', () => {
+  it('creates no page in the mount commit in 3D, and the one page two frames on', () => {
     mockCached.add('a1-light-true');
     render(withMetrics(hero({ initial3DCamera: CAMERA_3D })));
 
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID)).toBeTruthy();
-    expect(pages3D()).toBe(0);
-    expect(pages2D()).toBe(0);
+    expect(pages()).toBe(0);
 
     nextFrame();
 
     // The detail's own views mount in this frame, so the page waits one more.
-    expect(pages3D()).toBe(0);
+    expect(pages()).toBe(0);
 
     nextFrame();
 
-    expect(pages3D()).toBe(1);
-    // The poster covers the 3D boot, so no 2D page is built behind it.
-    expect(pages2D()).toBe(0);
+    expect(pages()).toBe(1);
+    expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID)).toBeTruthy();
   });
 
   it('creates nothing further on a later render of the same view', () => {
@@ -174,7 +166,7 @@ describe('the activity open creates its map page two frames after the mount', ()
     rerender(withMetrics(hero({ highlightIndex: 2 })));
     settleFrames();
 
-    expect(pages2D()).toBe(1);
+    expect(pages()).toBe(1);
   });
 
   it('keeps the page if the view goes before its frame comes, and creates none after', () => {
@@ -183,7 +175,7 @@ describe('the activity open creates its map page two frames after the mount', ()
     rerender(withMetrics(null));
     settleFrames();
 
-    expect(pages2D()).toBe(0);
+    expect(pages()).toBe(0);
   });
 
   it('publishes at once onto a slot whose surface is already up', () => {
@@ -194,12 +186,12 @@ describe('the activity open creates its map page two frames after the mount', ()
     );
     const { rerender } = render(withMetrics(slotted('a1')));
     settleFrames();
-    expect(pages2D()).toBe(1);
+    expect(pages()).toBe(1);
 
     rerender(withMetrics(slotted('a2')));
 
     // The second subject draws on the surface the first left up, in its own mount commit.
-    expect(pages2D()).toBe(1);
+    expect(pages()).toBe(1);
     expect(screen.UNSAFE_getByType(MapSurface).props.layers.length).toBeGreaterThan(0);
   });
 });

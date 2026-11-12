@@ -1,7 +1,7 @@
 //! The linked browsers, as the settings screen reads and edits them.
 
 use super::error::{VeloqError, engine_refused, with_reader};
-use crate::persistence::linked_devices::{self, LinkedDevice};
+use crate::persistence::linked_devices::{self, LinkedDevice, RemoteWrite};
 use crate::remote::DisconnectReason;
 use std::sync::Arc;
 
@@ -27,6 +27,12 @@ impl RemoteManager {
     fn list_linked_devices(&self) -> Result<Vec<LinkedDevice>, VeloqError> {
         let connections = crate::remote::service::connections();
         with_reader(|conn| linked_devices::list(conn, &connections).map_err(db))?
+    }
+
+    /// The most recent changes one linked browser made, newest first, read on
+    /// the read connections so a list never waits behind a write.
+    fn recent_writes(&self, device_id: String, limit: u32) -> Result<Vec<RemoteWrite>, VeloqError> {
+        with_reader(|conn| linked_devices::recent_writes(conn, &device_id, limit).map_err(db))?
     }
 
     /// Unlink a browser so it can never reconnect, and end its connection

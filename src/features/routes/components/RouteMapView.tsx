@@ -46,6 +46,13 @@ import {
   useDrawnMapStyle,
   useSurfaceAttribution,
   HIGHLIGHT_THROTTLE_MS,
+  MapLayersButton,
+  MapLayersMenu,
+  layersMenuPlacement,
+  useDetailLayers,
+  useLayersMenu,
+  withContextLayers,
+  type MapPressEvent,
 } from '@/features/maps';
 import { buildRouteLayers, routeMapSpecs } from './routeMapLayerSpecs';
 import { useStableBy } from '@/shared/app/useStableBy';
@@ -81,6 +88,8 @@ interface RouteMapViewProps {
   enableFullscreen?: boolean | undefined;
   /** Callback when map is tapped (only if enableFullscreen is false) */
   onPress?: (() => void) | undefined;
+  /** Opens the library section or route a tap landed on, returning whether it named one. */
+  onContextPress?: ((event: MapPressEvent) => boolean) | undefined;
   /** Activity signatures for trace rendering (activity ID -> points) */
   activitySignatures?: Record<string, { points: RoutePoint[] }> | undefined;
   /** The attempt the chart's delta plot shows, which colours the route line. */
@@ -113,6 +122,7 @@ export function RouteMapView({
   pageActivityId,
   enableFullscreen = false,
   onPress,
+  onContextPress,
   activitySignatures = {},
   deltaLine = null,
   scrubDistanceM = null,
@@ -140,6 +150,8 @@ export function RouteMapView({
   const { attributionRef, initialAttribution, trackAttribution } = useSurfaceAttribution(mapStyle);
   const activityColor = getActivityColor(selectedSportType ?? 'Other');
   const palette = mapPalette(mapStyle);
+  const detailLayers = useDetailLayers('route', mapStyle, isDark, { routeId: routeGroup.id });
+  const layersMenu = useLayersMenu(interactive && detailLayers.rows.length > 0);
 
   // Memoised so the empty fallback is one array rather than a fresh one each
   // render, which recomputed every projection below it.
@@ -267,20 +279,24 @@ export function RouteMapView({
 
   const specs = useMemo(
     () =>
-      routeMapSpecs({
-        routeCoords,
-        routeLine,
-        fadedTraces,
-        highlightedTrace,
-        endpoints,
-        deltaGaps: deltaGapsGeoJSON,
-        palette,
-        fadedFilter,
-        routeContext,
-        deltaBands,
-        scrubGeoJSON,
-      }),
+      withContextLayers(
+        routeMapSpecs({
+          routeCoords,
+          routeLine,
+          fadedTraces,
+          highlightedTrace,
+          endpoints,
+          deltaGaps: deltaGapsGeoJSON,
+          palette,
+          fadedFilter,
+          routeContext,
+          deltaBands,
+          scrubGeoJSON,
+        }),
+        detailLayers.context
+      ),
     [
+      detailLayers.context,
       routeCoords,
       routeLine,
       fadedTraces,
@@ -326,7 +342,12 @@ export function RouteMapView({
   }, [enableFullscreen, onPress]);
 
   const closeFullscreen = useCallback(() => setIsFullscreen(false), []);
-  const handleSurfacePress = useCallback(() => onPress?.(), [onPress]);
+  const handleSurfacePress = useCallback(
+    (event: MapPressEvent) => {
+      if (!onContextPress?.(event)) onPress?.();
+    },
+    [onPress, onContextPress]
+  );
 
   const initialCamera = useMemo(
     () => (bounds ? routeCameraSpec(bounds, fitPadding) : null),
@@ -369,7 +390,7 @@ export function RouteMapView({
         rotateEnabled={interactive}
         // The fullscreen map covers the hero, so the hero holds no map under it.
         released={!screenFocused || isFullscreen}
-        onPress={onPress ? handleSurfacePress : undefined}
+        onPress={onPress || onContextPress ? handleSurfacePress : undefined}
         onRegionDidChange={trackAttribution}
       />
       <AttributionOverlay
@@ -383,6 +404,30 @@ export function RouteMapView({
         <View style={styles.expandOverlay}>
           <Icon name="fullscreen" size={iconSize.md} color={colors.textOnFill} />
         </View>
+      ) : null}
+      {interactive && detailLayers.rows.length > 0 ? (
+        <>
+          <View
+            testID="route-map-controls"
+            style={[styles.controlsContainer, { top: headerBottom + spacing.sm }]}
+          >
+            <MapLayersButton
+              testID="route-map-layers"
+              open={layersMenu.open}
+              onPress={layersMenu.toggle}
+            />
+          </View>
+          {layersMenu.open ? (
+            <MapLayersMenu
+              testID="route-map-layers-menu"
+              backdropTestID="route-map-layers-backdrop"
+              rows={detailLayers.rows}
+              isDark={isDark}
+              onClose={layersMenu.close}
+              {...layersMenuPlacement(headerBottom + spacing.sm, 0, layout.cardMargin)}
+            />
+          ) : null}
+        </>
       ) : null}
       {/* The layers drawn over the route's own line, named. */}
       {hasLegendLayers(legendLayers) ? (
@@ -468,6 +513,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: layout.borderRadius,
+  },
+  controlsContainer: {
+    position: 'absolute',
+    right: layout.cardMargin,
   },
   expandOverlay: {
     position: 'absolute',

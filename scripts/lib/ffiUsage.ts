@@ -349,6 +349,8 @@ export function reachOf(inSrc: number, inDelegates: number): Reach {
  * reader has to re-investigate every time.
  */
 export const OWNED_ELSEWHERE: Record<string, string> = {
+  // The exercise picker reads the search once it is built; the labels are handed in already.
+  'StrengthManager.searchExercises': 'read by the exercise picker once it is built',
   // The followed route's turns are read by the map layer that marks them,
   // which is built after the engine side.
   'RouteFollower.turns': 'read by the followed-line map layer once it marks turns',

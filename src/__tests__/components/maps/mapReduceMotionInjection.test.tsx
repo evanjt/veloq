@@ -1,5 +1,5 @@
 /**
- * Scenario: reduce motion is turned on while a 2D or 3D map is on screen, or
+ * Scenario: reduce motion is turned on while a map is on screen, or
  * while its page is still loading.
  *
  * Expected behaviour: the page is told the new setting by injection, without
@@ -12,7 +12,6 @@ import { View } from 'react-native';
 import { render, act } from '@testing-library/react-native';
 
 import { MapSurface } from '@/features/maps/components/MapSurface';
-import { Map3DWebView } from '@/features/maps/components/Map3DWebView';
 
 const injected: string[] = [];
 const pages: string[] = [];
@@ -89,10 +88,6 @@ const SURFACES: [string, () => React.ReactElement][] = [
       />
     ),
   ],
-  [
-    '3D terrain',
-    () => <Map3DWebView coordinates={[[7.4, 46.9]]} mapStyle="light" routesGeoJSON={undefined} />,
-  ],
 ];
 
 beforeEach(() => {
@@ -110,8 +105,7 @@ describe.each(SURFACES)('%s follows the live reduce-motion setting', (_name, ele
     mockSetting.value = true;
     const view = await render(element());
     expect(pages).toHaveLength(1);
-    // The 2D page sets it as a statement, the 3D page from its build call.
-    expect(pages[0]).toMatch(/window\._veloqReduceMotion = true;|\n\s*reduceMotion: true,\n/);
+    expect(pages[0]).toMatch(/window\._veloqReduceMotion = true;/);
     await ready();
     expect(told(true)).toEqual([]);
     await view.unmount();

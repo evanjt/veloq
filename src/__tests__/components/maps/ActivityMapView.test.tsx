@@ -17,11 +17,34 @@ import { initialiseI18n } from '@/i18n';
 import { DIVERGING_BANDS } from '@/features/maps/lib/divergingStep';
 import { gradeStepTokenColour } from '@/features/maps/lib/gradientLineColor';
 import { renderStaged } from '../../__shared__/stagedRender';
+import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
+import type { SurfacePatch } from '@/features/maps/lib/mapSurfacePatch';
 
 // The map page is hidden from screen readers, so a query reaching it includes hidden elements.
 const MAP_PAGE = { includeHiddenElements: true };
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
+
+/** Every patch the map page was sent, in order. */
+const mockPatches: SurfacePatch[] = [];
+
+jest.mock('@/features/maps/lib/mapSurfacePatch', () => {
+  const actual = jest.requireActual('@/features/maps/lib/mapSurfacePatch');
+  return {
+    ...actual,
+    createSurfacePatcher: () => {
+      const patcher = actual.createSurfacePatcher();
+      return {
+        ...patcher,
+        next: (specs: unknown) => {
+          const result = patcher.next(specs);
+          if (result.patch) mockPatches.push(result.patch);
+          return result;
+        },
+      };
+    },
+  };
+});
 
 jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
@@ -32,6 +55,7 @@ jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
 }));
 
 jest.mock('@/shared/app', () => ({
+  ...jest.requireActual('@/shared/app'),
   useTheme: () => ({ isDark: false }),
 }));
 
@@ -279,7 +303,8 @@ describe('ActivityMapView', () => {
 
       await toggleGradient();
 
-      expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
+      expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
       expect(screen.getByTestId('activity-map-key')).toBeTruthy();
     });
   });
@@ -297,15 +322,87 @@ describe('ActivityMapView', () => {
     }
 
     async function post(message: Record<string, unknown>) {
-      await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'message', {
+      await fireEvent(screen.getByTestId('maplibre-map', MAP_PAGE), 'message', {
         nativeEvent: { data: JSON.stringify(message) },
       });
     }
 
-    it('marks the 3D control busy, not the map, while the terrain page is still loading', async () => {
+    function lastTerrain(): SurfacePatch['terrain'] {
+      const withTerrain = mockPatches.filter((patch) => patch.terrain !== undefined);
+      return withTerrain.at(-1)?.terrain;
+    }
+
+    function lastSource(id: string): { data: GeoJSON.FeatureCollection } | undefined {
+      const withSource = mockPatches.filter((patch) => patch.sources?.[id]);
+      return withSource.at(-1)?.sources?.[id] as { data: GeoJSON.FeatureCollection } | undefined;
+    }
+
+    function tapOnSection(sectionId: string) {
+      const feature = {
+        layerId: 'section-marker-circle',
+        id: null,
+        properties: { sectionId },
+        geometry: null,
+      };
+      return post({
+        type: 'mapClick',
+        coordinate: [7.449, 46.95],
+        point: [100, 100],
+        feature,
+        features: [feature],
+      });
+    }
+
+    const SECTION = { id: 's1', sectionPolyline: COORDINATES, activityPortion: COORDINATES };
+
+    beforeEach(() => {
+      mockPatches.length = 0;
+    });
+
+    it('tilts the one surface over terrain, with no second page', async () => {
+      await renderActivityMap({ initial3DCamera: CAMERA_3D });
+      await post({ type: 'mapReady' });
+
+      expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+      expect(screen.getAllByTestId('maplibre-map', MAP_PAGE)).toHaveLength(1);
+      expect(lastTerrain()).toEqual({
+        exaggeration: TERRAIN_3D_CONFIG.defaultExaggeration,
+        pitch: CAMERA_3D.pitch,
+        subjectSource: 'route',
+        cameraPinned: false,
+      });
+    });
+
+    it('pins a camera the athlete chose, so a ridge does not turn it', async () => {
+      await renderActivityMap({ initial3DCamera: CAMERA_3D, initial3DCameraPinned: true });
+      await post({ type: 'mapReady' });
+
+      expect(lastTerrain()).toEqual(expect.objectContaining({ cameraPinned: true }));
+    });
+
+    it('tilts and flattens the same page on the toggle, sending no source again', async () => {
+      await renderActivityMap();
+      await post({ type: 'mapReady' });
+      expect(lastTerrain()).toBeUndefined();
+      const sentBefore = mockPatches.length;
+
+      await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+      expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+      expect(lastTerrain()).toEqual({
+        exaggeration: TERRAIN_3D_CONFIG.defaultExaggeration,
+        pitch: TERRAIN_3D_CONFIG.defaultPitch,
+        subjectSource: 'route',
+        cameraPinned: false,
+      });
+      expect(mockPatches.slice(sentBefore).some((patch) => patch.sources)).toBe(false);
+
+      await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+      expect(lastTerrain()).toBeNull();
+    });
+
+    it('marks the 3D control busy, not the map, while the surface is still loading', async () => {
       await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
-      expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
       expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
       expect(toggleState()).toEqual(expect.objectContaining({ busy: true, disabled: true }));
       expect(
@@ -313,17 +410,16 @@ describe('ActivityMapView', () => {
       ).toBeTruthy();
     });
 
-    it('ignores a press on the 3D control while the terrain page is still loading', async () => {
+    it('ignores a press on the 3D control while the surface is still loading', async () => {
       const on3DModeChange = jest.fn();
       await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
 
       await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
-      expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
-      expect(on3DModeChange).not.toHaveBeenCalledWith(false);
+      expect(on3DModeChange).not.toHaveBeenCalled();
     });
 
-    it('frees the 3D control once the terrain page reports ready', async () => {
+    it('frees the 3D control once the surface reports ready', async () => {
       await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
       await post({ type: 'mapReady' });
@@ -332,29 +428,25 @@ describe('ActivityMapView', () => {
       expect(screen.queryByTestId('activity-map-3d-busy')).toBeNull();
     });
 
-    it('restores the 2D surface while a crashed terrain page reloads', async () => {
+    it('keeps the 2D layer mounted through a crashed page reloading', async () => {
       await renderActivityMap({ initial3DCamera: CAMERA_3D });
       await post({ type: 'mapReady' });
-      expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
 
-      await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'renderProcessGone');
+      await fireEvent(screen.getByTestId('maplibre-map', MAP_PAGE), 'renderProcessGone');
+
       expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
-
-      await post({ type: 'mapReady' });
-      expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
-
-      await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'renderProcessGone');
-      expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
+      expect(screen.getAllByTestId('maplibre-map', MAP_PAGE)).toHaveLength(1);
     });
 
-    it('falls back to the 2D map when the terrain page reports failure', async () => {
+    it('lies flat again when the page has no elevation tiles', async () => {
       await renderActivityMap({ initial3DCamera: CAMERA_3D });
+      await post({ type: 'mapReady' });
+      expect(lastTerrain()).toBeTruthy();
 
-      await post({ type: 'mapFailed', reason: 'load timeout' });
+      await post({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
 
-      expect(screen.queryByTestId('activity-map-3d-busy')).toBeNull();
-      expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
-      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
+      expect(lastTerrain()).toBeNull();
+      expect(screen.getAllByTestId('maplibre-map', MAP_PAGE)).toHaveLength(1);
     });
 
     /**
@@ -362,16 +454,7 @@ describe('ActivityMapView', () => {
      * with nothing to clear it, so a page that failed once turned 3D off for
      * that activity for ever on a device where nobody touched the toggle.
      */
-    it('does not report a failure as the athlete turning 3D off', async () => {
-      const on3DModeChange = jest.fn();
-      await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
-
-      await post({ type: 'mapFailed', reason: 'load timeout' });
-
-      expect(on3DModeChange).not.toHaveBeenCalled();
-    });
-
-    it('does not report a terrain page with nothing to drape as a choice either', async () => {
+    it('does not report a page with nothing to drape as a choice', async () => {
       const on3DModeChange = jest.fn();
       await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
       await post({ type: 'mapReady' });
@@ -381,48 +464,50 @@ describe('ActivityMapView', () => {
       expect(on3DModeChange).not.toHaveBeenCalled();
     });
 
+    it('does not report a surface that cannot draw as a choice, and frees the control', async () => {
+      const on3DModeChange = jest.fn();
+      await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+
+      await post({ type: 'mapFailed', reason: 'load timeout' });
+
+      expect(on3DModeChange).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('activity-map-3d-busy')).toBeNull();
+    });
+
     it('does not report a WebView that could not load as a choice either', async () => {
       const on3DModeChange = jest.fn();
       await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
 
-      await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'error', {
+      await fireEvent(screen.getByTestId('maplibre-map', MAP_PAGE), 'error', {
         nativeEvent: { description: 'net::ERR_NAME_NOT_RESOLVED' },
       });
 
       expect(on3DModeChange).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('activity-map-3d-busy')).toBeNull();
     });
 
     it('reports the toggle, which is the athlete choosing', async () => {
       const on3DModeChange = jest.fn();
       await renderActivityMap({ on3DModeChange });
+      await post({ type: 'mapReady' });
 
       await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
       expect(on3DModeChange).toHaveBeenLastCalledWith(true);
 
-      await post({ type: 'mapReady' });
       await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
       expect(on3DModeChange).toHaveBeenLastCalledWith(false);
     });
 
-    it('reports a toggle that follows a failure, so a retry is still a choice', async () => {
+    it('reports a toggle that follows a missing elevation model, so a retry is a choice', async () => {
       const on3DModeChange = jest.fn();
       await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+      await post({ type: 'mapReady' });
 
-      await post({ type: 'mapFailed', reason: 'load timeout' });
+      await post({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
       await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
       expect(on3DModeChange).toHaveBeenCalledWith(true);
-    });
-
-    it('falls back to the 2D map when the WebView itself fails to load', async () => {
-      await renderActivityMap({ initial3DCamera: CAMERA_3D });
-
-      await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'error', {
-        nativeEvent: { description: 'net::ERR_NAME_NOT_RESOLVED' },
-      });
-
-      expect(screen.queryByTestId('activity-map-3d-busy')).toBeNull();
-      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
+      expect(lastTerrain()).toBeTruthy();
     });
 
     describe('a camera that arrives after mount', () => {
@@ -444,143 +529,95 @@ describe('ActivityMapView', () => {
         );
       }
 
-      it('switches to 3D once, without reporting it as a choice', async () => {
+      it('tilts the page once, without reporting it as a choice', async () => {
         const on3DModeChange = jest.fn();
         const view = await renderActivityMap({ on3DModeChange });
-        expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+        await post({ type: 'mapReady' });
+        expect(lastTerrain()).toBeUndefined();
 
         await rerenderWith(view, CAMERA_3D, on3DModeChange);
 
-        expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
+        expect(lastTerrain()).toBeTruthy();
         expect(on3DModeChange).not.toHaveBeenCalled();
       });
 
       it('stays flat when the athlete has already used the toggle', async () => {
         const view = await renderActivityMap();
-        await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
         await post({ type: 'mapReady' });
+        await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
         await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
         await rerenderWith(view, CAMERA_3D);
 
-        expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+        expect(lastTerrain()).toBeNull();
       });
 
-      it('stays flat after a failure', async () => {
+      it('stays flat after the page had nothing to drape', async () => {
         const view = await renderActivityMap({ initial3DCamera: CAMERA_3D });
-        await post({ type: 'mapFailed', reason: 'load timeout' });
+        await post({ type: 'mapReady' });
+        await post({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
 
         await rerenderWith(view, { ...CAMERA_3D, bearing: 90 });
 
-        expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+        expect(lastTerrain()).toBeNull();
       });
     });
 
-    it('does not re-enter 3D after a failure', async () => {
-      await renderActivityMap({ initial3DCamera: CAMERA_3D });
+    describe('taps', () => {
+      it('open the section whose marker is under the finger, in 3D as in 2D', async () => {
+        const onSectionMarkerPress = jest.fn();
+        await renderActivityMap({
+          initial3DCamera: CAMERA_3D,
+          activeTab: 'sections',
+          sectionOverlays: [SECTION],
+          onSectionMarkerPress,
+        });
+        await post({ type: 'mapReady' });
+        expect(lastTerrain()).toBeTruthy();
 
-      await post({ type: 'mapFailed', reason: 'load timeout' });
-      await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+        await tapOnSection('s1');
 
-      expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
-      expect(screen.getByTestId('activity-map-3d-busy')).toBeTruthy();
-    });
+        expect(onSectionMarkerPress).toHaveBeenCalledWith('s1');
+      });
 
-    it('reaches a terminal state again on a second mount', async () => {
-      const first = await renderActivityMap({ initial3DCamera: CAMERA_3D });
-      await post({ type: 'mapFailed', reason: 'load timeout' });
-      await first.unmount();
+      it('place a section creation point in 3D', async () => {
+        await renderActivityMap({ initial3DCamera: CAMERA_3D, creationMode: true });
+        await post({ type: 'mapReady' });
+        expect(lastSource('section-creation-markers')?.data.features).toHaveLength(0);
 
-      await renderActivityMap({ initial3DCamera: CAMERA_3D });
-      expect(screen.getByTestId('activity-map-3d-busy')).toBeTruthy();
+        await post({
+          type: 'mapClick',
+          coordinate: [COORDINATES[1]!.longitude, COORDINATES[1]!.latitude],
+          point: [100, 100],
+          feature: null,
+          features: [],
+        });
 
-      await post({ type: 'mapFailed', reason: 'load timeout' });
-      expect(screen.queryByTestId('activity-map-3d-busy')).toBeNull();
-    });
-
-    it('unmounts the 2D surface once the terrain page is ready', async () => {
-      await renderActivityMap({ initial3DCamera: CAMERA_3D });
-      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
-
-      await post({ type: 'mapReady' });
-
-      expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
-      expect(screen.getAllByTestId('webview', MAP_PAGE)).toHaveLength(1);
-    });
-
-    it('brings the 2D surface back when the terrain page has nothing to drape', async () => {
-      await renderActivityMap({ initial3DCamera: CAMERA_3D });
-      await post({ type: 'mapReady' });
-
-      await post({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
-
-      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
-      expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+        expect(lastSource('section-creation-markers')?.data.features).toHaveLength(1);
+      });
     });
 
     describe('with the feed poster cached', () => {
       const ACTIVITY_ID = 'ride-poster';
 
-      async function post2D(message: Record<string, unknown>) {
-        await fireEvent(screen.getByTestId('maplibre-map', MAP_PAGE), 'message', {
-          nativeEvent: { data: JSON.stringify(message) },
-        });
-      }
-
       beforeEach(() => {
         mockCached.add(`${ACTIVITY_ID}-light-true`);
       });
 
-      it('builds only the terrain page while the poster covers the hero', async () => {
+      it('boots the one page under the poster and drops the poster when it is ready', async () => {
         await renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
 
         expect(screen.getByTestId('activity-map-poster')).toBeTruthy();
-        expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
-        expect(screen.getAllByTestId('webview', MAP_PAGE)).toHaveLength(1);
+        expect(screen.getAllByTestId('maplibre-map', MAP_PAGE)).toHaveLength(1);
+        expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
 
         await post({ type: 'mapReady' });
 
         expect(screen.queryByTestId('activity-map-poster')).toBeNull();
-        expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
-      });
-
-      it('mounts the 2D surface while a crashed terrain page reloads', async () => {
-        await renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
-        await post({ type: 'mapReady' });
-
-        await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'renderProcessGone');
-
-        expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
-      });
-
-      it('mounts the 2D surface when the terrain page fails before it is ready', async () => {
-        await renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
-
-        await post({ type: 'mapFailed', reason: 'load timeout' });
-
-        expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
-        expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
-      });
-
-      it('keeps a 2D map already on screen while the toggled terrain page boots', async () => {
-        await renderActivityMap({ activityId: ACTIVITY_ID });
-        await post2D({ type: 'mapReady' });
-
-        await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
-
-        expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
-        expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
       });
     });
 
-    it('mounts the 2D surface under a booting terrain page with no poster to show', async () => {
-      await renderActivityMap({ activityId: 'ride-uncached', initial3DCamera: CAMERA_3D });
-
-      expect(screen.queryByTestId('activity-map-poster')).toBeNull();
-      expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
-    });
-
-    it('tolerates unmounting while the terrain page is still loading', async () => {
+    it('tolerates unmounting while the page is still loading', async () => {
       const view = await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
       expect(screen.getByTestId('activity-map-3d-busy')).toBeTruthy();

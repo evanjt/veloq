@@ -21,7 +21,7 @@ interface WebViewEvent {
 /**
  * Parses `postMessage` payloads from a WebView and dispatches them by `type`.
  *
- * Shared between `Map3DWebView` and `TerrainSnapshotWebView`. Handles JSON parse
+ * Used by `TerrainSnapshotWebView`. Handles JSON parse
  * errors, validates the message shape (object with a string `type`), and ignores
  * unknown types silently so new message kinds can roll out without breaking.
  *

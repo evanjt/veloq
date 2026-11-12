@@ -95,6 +95,47 @@ describe('connecting a Garmin key', () => {
     expect(setEnabled).toHaveBeenCalledWith(true);
   });
 
+  it('records the account Garmin names once the key is connected', async () => {
+    const { io } = keychain();
+    const recordAccount = jest.fn();
+    const account = { accountId: '8841' } as GarminAccount;
+    await connectGarminKey('abc', {
+      io,
+      engine: engine(GarminKeyStatus.Connected, account),
+      recordAccount,
+    });
+    expect(recordAccount).toHaveBeenCalledWith('8841');
+  });
+
+  it('stays connected when the account cannot be read or recorded', async () => {
+    const { io, held } = keychain();
+    const e = engine(GarminKeyStatus.Connected);
+    e.garminAccount.mockRejectedValue(new Error('offline'));
+    const recordAccount = jest.fn();
+    expect(await connectGarminKey('abc', { io, engine: e, recordAccount })).toBe(
+      GarminKeyStatus.Connected
+    );
+    expect(held.size).toBe(1);
+    expect(recordAccount).not.toHaveBeenCalled();
+
+    const failing = jest.fn().mockRejectedValue(new Error('engine closed'));
+    const account = { accountId: '8841' } as GarminAccount;
+    expect(
+      await connectGarminKey('abc', {
+        io,
+        engine: engine(GarminKeyStatus.Connected, account),
+        recordAccount: failing,
+      })
+    ).toBe(GarminKeyStatus.Connected);
+  });
+
+  it('records no account for a key Garmin refuses', async () => {
+    const { io } = keychain();
+    const recordAccount = jest.fn();
+    await connectGarminKey('abc', { io, engine: engine(GarminKeyStatus.Rejected), recordAccount });
+    expect(recordAccount).not.toHaveBeenCalled();
+  });
+
   it.each([GarminKeyStatus.Rejected, GarminKeyStatus.Malformed, GarminKeyStatus.Unreachable])(
     'writes nothing when Garmin answers %s',
     async (status) => {

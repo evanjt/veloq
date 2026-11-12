@@ -4,7 +4,6 @@ import type { StrengthProgressionRecord, StrengthSummary } from '@/features/stre
 import { generateStalePRInsights } from '../generators/stalePr';
 import { generateEfficiencyTrendInsights } from '../generators/efficiencyTrend';
 import { generateSectionPRInsights } from '../generators/sectionPR';
-import { generateStrengthInsights } from '@/features/strength';
 import { generateHrvTrendInsight } from '../generators/hrvTrend';
 import { generatePeriodComparisonInsights } from '../generators/periodComparison';
 import { generateFitnessMilestoneInsights } from '../generators/fitnessMilestone';
@@ -174,7 +173,24 @@ function safeRun<T>(label: string, fn: () => T[], fallback: T[] = []): T[] {
   }
 }
 
-export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
+/**
+ * The strength feature's card generator. It is passed in so this module
+ * reaches no other feature and the linked browser bundles it without the
+ * strength barrel's native modules.
+ */
+export type StrengthCards = (
+  monthly: StrengthSummary | null,
+  weekly: StrengthSummary[],
+  progressions: StrengthProgressionRecord[],
+  now: number,
+  t: TFunc
+) => Insight[];
+
+export function generateInsights(
+  data: InsightInputData,
+  t: TFunc,
+  strengthCards?: StrengthCards
+): Insight[] {
   const candidates: Insight[] = [];
   const now = Date.now();
 
@@ -256,10 +272,10 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     );
   }
 
-  if (data.strengthMonthly && (data.strengthWeekly?.length ?? 0) > 0) {
+  if (strengthCards && data.strengthMonthly && (data.strengthWeekly?.length ?? 0) > 0) {
     candidates.push(
       ...safeRun('strength', () =>
-        generateStrengthInsights(
+        strengthCards(
           data.strengthMonthly ?? null,
           data.strengthWeekly ?? [],
           data.strengthProgressions ?? [],

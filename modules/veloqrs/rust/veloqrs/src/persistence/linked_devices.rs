@@ -121,8 +121,9 @@ pub fn touch(conn: &Connection, fingerprint: &str, now: i64) -> SqlResult<()> {
 pub const WRITE_LOG_ROWS: i64 = 200;
 
 /// One write a linked browser made, as the athlete reads it.
-#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
+#[uniffi(name = "FfiRemoteWrite")]
 pub struct RemoteWrite {
     pub device_id: String,
     /// The protocol method, such as `section.rename`.

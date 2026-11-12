@@ -8,7 +8,7 @@
  * Expected behaviour: on Android each surface comes back as a new view and
  * never reloads the dead one, the surfaces that die together come back one
  * after another, and a surface that keeps dying stops trying: the 2D surface
- * shows its unavailable state, the 3D surface reports a failure, and a
+ * shows its unavailable state, and a
  * snapshot worker stays down. iOS keeps reloading the view in place, which is
  * its own contract. Every death goes into the crash log.
  */
@@ -18,7 +18,6 @@ import { Platform, View } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 
 import { MapSurface, MAP_SURFACE_UNAVAILABLE_TEST_ID } from '@/features/maps/components/MapSurface';
-import { Map3DWebView } from '@/features/maps/components/Map3DWebView';
 import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
@@ -124,10 +123,6 @@ const surface2D = () => (
   />
 );
 
-const surface3D = (onMapFailed?: (reason: string) => void) => (
-  <Map3DWebView coordinates={[[7.448, 46.949]]} mapStyle="light" onMapFailed={onMapFailed} />
-);
-
 beforeEach(() => {
   jest.useFakeTimers();
   live.length = 0;
@@ -195,32 +190,6 @@ describe('a map renderer dying on Android', () => {
     await view.unmount();
   });
 
-  it('brings the 3D surface back as a new view and never reloads the dead one', async () => {
-    const view = await render(surface3D());
-    const dead = live[0];
-
-    await die(dead);
-    await settle();
-
-    expect(reload).not.toHaveBeenCalled();
-    expect(mountedEver).toBe(2);
-    expect(live).toHaveLength(1);
-    expect(live[0]).not.toBe(dead);
-    await view.unmount();
-  });
-
-  it('reports the 3D surface failed and mounts nothing once it keeps dying', async () => {
-    const onMapFailed = jest.fn();
-    const view = await render(surface3D(onMapFailed));
-
-    await dieUntilSpent(() => live[0]);
-
-    expect(onMapFailed).toHaveBeenCalledTimes(1);
-    expect(mountedEver).toBe(RENDERER_CRASH_LIMIT + 1);
-    expect(live).toHaveLength(0);
-    await view.unmount();
-  });
-
   it('brings a snapshot worker back as a new view, and leaves it down once it keeps dying', async () => {
     const ref = React.createRef<TerrainSnapshotWebViewRef>();
     const view = await render(<TerrainSnapshotWebView ref={ref} />);
@@ -251,7 +220,7 @@ describe('a map renderer dying on Android', () => {
 
   it('brings surfaces that die together back one after another', async () => {
     const flat = await render(surface2D());
-    const terrain = await render(surface3D());
+    const second = await render(surface2D());
     const [a, b] = live;
 
     await die(a);
@@ -266,7 +235,7 @@ describe('a map renderer dying on Android', () => {
     expect(live).not.toContain(b);
 
     await flat.unmount();
-    await terrain.unmount();
+    await second.unmount();
   });
 
   it('mounts nothing for a surface that unmounts while its restart waits', async () => {
@@ -308,17 +277,6 @@ describe('a map renderer dying on iOS', () => {
 
     expect(reload).toHaveBeenCalledTimes(RENDERER_CRASH_LIMIT);
     expect(view.getByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeTruthy();
-    await view.unmount();
-  });
-
-  it('reloads the 3D surface in place', async () => {
-    const view = await render(surface3D());
-
-    await die(live[0]);
-    await settle();
-
-    expect(reload).toHaveBeenCalledTimes(1);
-    expect(mountedEver).toBe(1);
     await view.unmount();
   });
 });

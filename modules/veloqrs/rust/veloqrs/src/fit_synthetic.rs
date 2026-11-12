@@ -3,19 +3,10 @@
 //! writes. Nothing here is read from an athlete's file: every number is
 //! invented and the positions sit on an arbitrary meridian line.
 
-/// Seconds from the Unix epoch to the FIT epoch, 1989-12-31T00:00:00Z.
-pub(crate) const FIT_EPOCH_UNIX: i64 = 631_065_600;
-
-const BASE_ENUM: u8 = 0x00;
-const BASE_UINT8: u8 = 0x02;
-const BASE_SINT32: u8 = 0x85;
-const BASE_UINT16: u8 = 0x84;
-const BASE_UINT32: u8 = 0x86;
-
-const INVALID_UINT8: u8 = 0xFF;
-const INVALID_UINT16: u16 = 0xFFFF;
-const INVALID_UINT32: u32 = 0xFFFF_FFFF;
-const INVALID_SINT32: i32 = 0x7FFF_FFFF;
+use crate::fit_write::{
+    BASE_ENUM, BASE_SINT32, BASE_UINT8, BASE_UINT16, BASE_UINT32, FIT_EPOCH_UNIX, INVALID_SINT32,
+    INVALID_UINT8, INVALID_UINT16, INVALID_UINT32, definition, wrap,
+};
 
 /// One `record` message. A field left `None` is written as the FIT invalid
 /// value, which is how a device writes a sensor it has no reading from.
@@ -353,46 +344,6 @@ fn scaled_u32(value: Option<f64>) -> u32 {
     value.map_or(INVALID_UINT32, |v| {
         v.round().clamp(0.0, f64::from(u32::MAX - 1)) as u32
     })
-}
-
-fn definition(out: &mut Vec<u8>, local: u8, global: u16, fields: &[(u8, u8, u8)]) {
-    out.push(0x40 | local);
-    out.push(0);
-    out.push(0);
-    out.extend_from_slice(&global.to_le_bytes());
-    out.push(fields.len() as u8);
-    for (number, size, base) in fields {
-        out.extend_from_slice(&[*number, *size, *base]);
-    }
-}
-
-/// The FIT CRC-16 the SDK specifies.
-fn crc(bytes: &[u8]) -> u16 {
-    const TABLE: [u16; 16] = [
-        0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401, 0xA001, 0x6C00, 0x7800,
-        0xB401, 0x5000, 0x9C01, 0x8801, 0x4400,
-    ];
-    bytes.iter().fold(0u16, |crc, byte| {
-        let tmp = TABLE[(crc & 0xF) as usize];
-        let crc = (crc >> 4) & 0x0FFF;
-        let crc = crc ^ tmp ^ TABLE[(byte & 0xF) as usize];
-        let tmp = TABLE[(crc & 0xF) as usize];
-        let crc = (crc >> 4) & 0x0FFF;
-        crc ^ tmp ^ TABLE[((byte >> 4) & 0xF) as usize]
-    })
-}
-
-fn wrap(data: Vec<u8>) -> Vec<u8> {
-    let mut file = vec![14, 0x20];
-    file.extend_from_slice(&2132u16.to_le_bytes());
-    file.extend_from_slice(&(data.len() as u32).to_le_bytes());
-    file.extend_from_slice(b".FIT");
-    let header_crc = crc(&file);
-    file.extend_from_slice(&header_crc.to_le_bytes());
-    file.extend(data);
-    let file_crc = crc(&file);
-    file.extend_from_slice(&file_crc.to_le_bytes());
-    file
 }
 
 /// The profile's Sport number the tests use.

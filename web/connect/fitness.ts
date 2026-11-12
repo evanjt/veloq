@@ -55,7 +55,7 @@ function trailing(days: number, now: Date) {
 }
 
 /** The panels whose window is the range: each is asked again when the range changes. */
-export function rangeAsks(days: number, now: Date): PanelAsk[] {
+export function rangeAsks(days: number, now: Date, sport = 'Ride'): PanelAsk[] {
   const { start, end } = trailing(days, now);
   const window = { startTs: wallSeconds(start), endTs: wallSeconds(end) };
   return [
@@ -68,10 +68,14 @@ export function rangeAsks(days: number, now: Date): PanelAsk[] {
     {
       slot: 'zones',
       method: 'fitness.zones',
-      params: { sportType: 'Ride', zoneType: 'power', ...window },
+      params: { sportType: sport, zoneType: sport === 'Ride' ? 'power' : 'hr', ...window },
     },
     { slot: 'powerCurve', method: 'fitness.powerCurve', params: { sport: 'Ride', days } },
-    { slot: 'paceCurve', method: 'fitness.paceCurve', params: { sport: 'Run', days, gap: false } },
+    {
+      slot: 'paceCurve',
+      method: 'fitness.paceCurve',
+      params: { sport: sport === 'Swim' ? 'Swim' : 'Run', days, gap: false },
+    },
   ];
 }
 

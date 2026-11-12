@@ -344,6 +344,22 @@ impl StrengthManager {
         Arc::new(Self { _private: () })
     }
 
+    /// Hands the engine the athlete's exercise labels, a catalogue label key to its text.
+    /// Called once per language change; it rebuilds the held search and changes the names
+    /// exercises are shown under from then on.
+    fn set_exercise_labels(&self, labels: HashMap<String, String>) {
+        crate::strength::labels::install(labels);
+    }
+
+    /// Catalogue label keys best match first for a typed query. `relevance` maps a label
+    /// key to how much the athlete does it, larger first; an empty query returns every key.
+    fn search_exercises(&self, query: String, relevance: HashMap<String, f64>) -> Vec<String> {
+        crate::strength::labels::search(&query, &relevance)
+            .into_iter()
+            .map(str::to_string)
+            .collect()
+    }
+
     /// One exercise's best set per session and estimated one-rep-max trend.
     fn get_exercise_detail_data(
         &self,
@@ -351,6 +367,32 @@ impl StrengthManager {
     ) -> Result<crate::FfiExerciseDetailData, VeloqError> {
         with_reader(|conn| {
             crate::persistence::screens::exercise_detail_data(conn, exercise_category)
+        })?
+    }
+
+    /// The exercise picker's list, narrowed by equipment, region, muscle and a typed query
+    /// and ordered by what the athlete does. `after_category` and `after_name` name the
+    /// exercise just done, whose usual followers lead; unknown filter words match nothing.
+    fn get_exercise_picker_data(
+        &self,
+        equipment: Vec<String>,
+        region: Option<String>,
+        muscle: Option<String>,
+        query: String,
+        after_category: Option<u16>,
+        after_name: Option<u16>,
+        now: f64,
+    ) -> Result<crate::FfiExercisePickerData, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::screens::exercise_picker_data(
+                conn,
+                &equipment,
+                region.as_deref(),
+                muscle.as_deref(),
+                &query,
+                after_category.zip(after_name),
+                now as i64,
+            )
         })?
     }
 
@@ -1427,6 +1469,21 @@ mod tests {
     use super::observer::{recorder::Recorder, set_observer};
     use super::*;
     use crate::test_globals::{init_global_engine, serial_global_state};
+
+    #[test]
+    fn the_engine_ranks_the_incline_dumbbell_press_first_from_a_handed_table() {
+        let target = "incline_dumbbell_bench_press";
+        let manager = StrengthManager::new();
+        manager.set_exercise_labels(HashMap::from([(
+            target.to_string(),
+            "Développé incliné aux haltères".to_string(),
+        )]));
+        let relevance = HashMap::from([(target.to_string(), 10.0)]);
+        let english = manager.search_exercises("db incline".into(), relevance.clone());
+        let local = manager.search_exercises("developpe halteres".into(), relevance);
+        assert_eq!(english[0], target);
+        assert_eq!(local[0], target);
+    }
 
     /// One set of an exercise in `category`, active rather than warmup.
     fn a_set(order: u32, category: u16) -> (String, fit::FitExerciseSet) {

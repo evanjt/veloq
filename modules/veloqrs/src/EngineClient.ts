@@ -133,7 +133,8 @@ export type EngineEvent =
   | 'previewFinished'
   | 'recordingsChanged'
   | 'uploadPermissionRefused'
-  | 'requestBudgetChanged';
+  | 'requestBudgetChanged'
+  | 'remoteWrote';
 
 /** What an announcement carries. Events with no subject carry nothing. */
 export type EnginePayload =
@@ -1460,10 +1461,13 @@ class EngineClient implements DelegateHost {
       uploadPermissionRefused: () => post('uploadPermissionRefused'),
       requestBudgetChanged: () => post('requestBudgetChanged'),
       // A linked browser changed a fact the phone shows. The kind is the
-      // channel the screens that show it already follow, so the refresh is
-      // the whole announcement; a kind this build does not know is dropped.
+      // channel the screens that show it already follow, so they re-read on
+      // that refresh. `remoteWrote` is for the link's own views, which name the
+      // change rather than re-read a catalogue. A kind this build does not
+      // know is dropped.
       remoteWrote: (kind) => {
         if (REMOTE_WRITE_CHANNELS.includes(kind as RefreshChannel)) {
+          post('remoteWrote');
           this.triggerRefresh(kind as RefreshChannel);
         }
       },

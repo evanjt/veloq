@@ -1,7 +1,7 @@
 use super::error::{VeloqError, with_engine, with_reader};
 use std::sync::Arc;
 
-fn with_week_bounds(mut params: crate::FfiInsightsParams) -> crate::FfiInsightsParams {
+pub(crate) fn with_week_bounds(mut params: crate::FfiInsightsParams) -> crate::FfiInsightsParams {
     let (current_start, current_end, prev_start, prev_end, chronic_start) =
         insights_week_bounds(crate::ffi_types::int_from_wire(params.current_end));
     params.current_start = current_start as f64;

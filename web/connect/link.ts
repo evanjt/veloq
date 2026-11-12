@@ -2,16 +2,53 @@
 // tested on their own. The engine holds the other half of every derivation
 // here, and the two must agree byte for byte.
 
+import type { ParseKeys } from 'i18next';
+
 import type { Methods } from './schema';
 
 /** The longest an invitation lasts. The phone refuses one past two minutes. */
 export const INVITATION_TTL_SECS = 110;
 
 /**
- * The protocol version this page is built for. The phone names the one it
- * speaks in its hello, and a page meeting another version asks for nothing.
+ * The newest protocol version this page speaks. The page also speaks the one
+ * before it ([`PAGE_MIN_PROTOCOL`]); the support window is those two. The hello
+ * carries each side's range and both speak the highest version they share, so
+ * an app one release behind keeps working. A phone outside the window is told
+ * to update, or sent to an older build of the page that still speaks its version.
  */
 export const PAGE_PROTOCOL = 3;
+
+/** The oldest protocol version this page speaks: the previous one. */
+export const PAGE_MIN_PROTOCOL = 2;
+
+/** The range of versions a hello names. A phone that names one version speaks it alone. */
+export type VersionRange = { protocol: number; minProtocol?: number; maxProtocol?: number };
+
+/**
+ * The highest version this page and a phone both speak, or null when their
+ * ranges do not meet. The engine chooses the same way from the page's range, so
+ * the two never disagree.
+ */
+export function negotiate(phone: VersionRange): number | null {
+  const min = phone.minProtocol ?? phone.protocol;
+  const max = phone.maxProtocol ?? phone.protocol;
+  const highest = Math.min(max, PAGE_PROTOCOL);
+  return min <= max && highest >= Math.max(min, PAGE_MIN_PROTOCOL) ? highest : null;
+}
+
+/** One page build kept online, at a path beside the current page, and the versions it speaks. */
+export type Build = { path: string; min: number; max: number };
+
+/**
+ * The path of the newest kept build that speaks `protocol`, other than the one
+ * whose newest version is `current`, or null when none does.
+ */
+export function olderPage(builds: readonly Build[], protocol: number, current: number) {
+  const holding = builds
+    .filter((build) => build.max !== current && build.min <= protocol && protocol <= build.max)
+    .sort((a, b) => b.max - a.max);
+  return holding[0]?.path ?? null;
+}
 
 /** What the page calls itself in its hello. */
 export const PAGE_NAME = 'veloq-connect';
@@ -196,6 +233,8 @@ export type State =
       phone: string;
       attempt: number;
       methods: string[] | null;
+      /** The version agreed in the hello; null until the phone answers it. */
+      version: number | null;
       /** The name the phone gave itself in its hello; absent when it gave none. */
       device?: string;
     }
@@ -209,7 +248,7 @@ export type Event =
   | { type: 'open' }
   | { type: 'proved'; ok: boolean }
   | { type: 'status'; value: string }
-  | { type: 'hello'; protocol: number; methods: string[]; device?: string | null | undefined }
+  | ({ type: 'hello'; methods: string[]; device?: string | null | undefined } & VersionRange)
   | { type: 'mismatch' }
   | { type: 'screen'; method: string; params?: object }
   | { type: 'drop'; cause?: 'unreachable' }
@@ -230,6 +269,8 @@ export type Effect =
   | { do: 'leaveRelay' }
   | { do: 'forget' }
   | { do: 'hello' }
+  | { do: 'speak'; version: number }
+  | { do: 'redirect'; protocol: number }
   | { do: 'fetchFeed' }
   | { do: 'ask'; method: string; params: object }
   | { do: 'hangUp' }
@@ -390,12 +431,21 @@ export function step(state: State, event: Event): Step {
       if (event.type === 'hello') {
         // Methods are additive within a protocol version, so a phone on the
         // same version that lacks one is older than this page, not different.
-        if (event.protocol !== PAGE_PROTOCOL) return update(state.phone);
+        const version = negotiate(event);
+        if (version === null) {
+          const max = event.maxProtocol ?? event.protocol;
+          if (max >= PAGE_MIN_PROTOCOL) return update(state.phone);
+          return to({ name: 'update', phone: state.phone }, [
+            { do: 'hangUp' },
+            { do: 'redirect', protocol: max },
+          ]);
+        }
         const device = event.device?.trim();
-        return step(
-          { ...state, methods: event.methods, ...(device ? { device } : {}) },
+        const next = step(
+          { ...state, methods: event.methods, version, ...(device ? { device } : {}) },
           { type: 'screen', method: 'feed.page' }
         );
+        return to(next.state, [{ do: 'speak', version }, ...next.effects]);
       }
       if (event.type === 'screen') {
         if (!state.methods?.includes(event.method)) return update(state.phone);
@@ -416,7 +466,13 @@ export function step(state: State, event: Event): Step {
 }
 
 /** The data channel just opened: nothing is known of what the phone speaks. */
-const opened = (phone: string): State => ({ name: 'connected', phone, attempt: 0, methods: null });
+const opened = (phone: string): State => ({
+  name: 'connected',
+  phone,
+  attempt: 0,
+  methods: null,
+  version: null,
+});
 
 /**
  * The phone and the page do not speak the same protocol, or the phone lacks a
@@ -566,6 +622,9 @@ export const FRAME_VERSION = 1;
 export const FLAG_GZIP = 1;
 export const FLAG_LAST = 2;
 
+/** The first protocol version whose replies are binary frames; before it, one text message each. */
+export const FRAMED_FROM = 3;
+
 /** How long an ask waits for its reply before it is an error the page acts on. */
 export const REPLY_TIMEOUT_MS = 30_000;
 
@@ -612,12 +671,24 @@ async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
 }
 
 /**
- * The asks in flight and the reply frames held for them. A frame carries the
- * id of its request, so the frames of several replies may interleave.
+ * The asks in flight and the replies held for them, read in the format of the
+ * version agreed with the phone. A frame carries the id of its request, so the
+ * frames of several replies may interleave.
  */
 export class Replies {
   private waiting = new Map<number, Waiting>();
   private held = new Map<number, Held>();
+  private agreed: number | null = null;
+
+  /** The version agreed with the phone, or null before its hello is answered. */
+  get version(): number | null {
+    return this.agreed;
+  }
+
+  /** Read every later reply in the format of `version`. */
+  speak(version: number) {
+    this.agreed = version;
+  }
   /** The ask outstanding in each slot. */
   private slots = new Map<string, number>();
 
@@ -699,19 +770,59 @@ export class Replies {
   }
 
   /**
-   * Take one message off the data channel. A frame is held under its id until
-   * the last arrives, and then the reply is inflated if the frames say so and
-   * parsed. Nothing is returned for a frame of this version for an id nothing
-   * asked, or for a frame that is not the last. A reply that cannot be read is
-   * returned as an error for its id, so its ask fails rather than waits. A
-   * message that is not a frame of this version fails every ask in flight with
-   * `UnreadableReply`, since the phone speaks another format.
+   * Take one message off the data channel, read in the format of the version
+   * agreed with the phone: one text message per reply before `FRAMED_FROM`,
+   * binary frames from it. Until a version is agreed the shape of the message
+   * decides, since the hello itself is answered before the page knows. A
+   * message in the other shape than the agreed version's fails every ask in
+   * flight with `UnreadableReply`, since the phone speaks another format.
    */
   async take(message: unknown, asked: (id: number) => boolean): Promise<Reply | undefined> {
-    if (!(message instanceof ArrayBuffer) && !ArrayBuffer.isView(message)) {
-      if (typeof message === 'string') this.unreadable('the phone sent a text reply');
-      return undefined;
+    if (typeof message === 'string') {
+      if (this.agreed !== null && this.agreed >= FRAMED_FROM) {
+        return this.unreadable('the phone sent a text reply');
+      }
+      return this.takeText(message, asked);
     }
+    if (!(message instanceof ArrayBuffer) && !ArrayBuffer.isView(message)) return undefined;
+    if (this.agreed !== null && this.agreed < FRAMED_FROM) {
+      return this.unreadable('the phone sent a binary reply');
+    }
+    return this.takeFrame(message, asked);
+  }
+
+  /**
+   * A reply of the text format: the reply is the message. Nothing is returned
+   * for a reply with no numeric id, which the phone sends for a request it
+   * could not read, or for an id nothing asked.
+   */
+  private takeText(message: string, asked: (id: number) => boolean): Reply | undefined {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(message);
+    } catch {
+      return this.unreadable('the phone sent text that is not a reply');
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      return this.unreadable('the phone sent text that is not a reply');
+    }
+    const id = (parsed as { id?: unknown }).id;
+    if (typeof id !== 'number' || !asked(id)) return undefined;
+    return { ...(parsed as object), id };
+  }
+
+  /**
+   * A frame of the framed format is held under its id until the last arrives,
+   * and then the reply is inflated if the frames say so and parsed. Nothing is
+   * returned for a frame of this version for an id nothing asked, or for a frame
+   * that is not the last. A reply that cannot be read is returned as an error
+   * for its id, so its ask fails rather than waits. A message that is not a
+   * frame of this version fails every ask in flight.
+   */
+  private async takeFrame(
+    message: ArrayBuffer | ArrayBufferView,
+    asked: (id: number) => boolean
+  ): Promise<Reply | undefined> {
     const bytes =
       message instanceof ArrayBuffer
         ? new Uint8Array(message)
@@ -853,38 +964,44 @@ export function wallSeconds(nowMs: number, zoneOffsetMinutes: number): number {
 export const PHONE_LOCKED = 'phone locked';
 
 /**
- * The notice to show for a write that failed, or nothing when the failure is
- * not the phone being locked. The edit was not made, so the page changes
- * nothing it holds.
+ * The key of the notice to show for a write that failed, or nothing when the
+ * failure is not the phone being locked. The edit was not made, so the page
+ * changes nothing it holds.
  */
-export function writeNotice(error: unknown): string | undefined {
+export function writeNotice(error: unknown): ParseKeys | undefined {
   const text = error instanceof Error ? error.message : String(error);
-  return text === PHONE_LOCKED ? 'Unlock your phone and open Veloq to make changes' : undefined;
+  return text === PHONE_LOCKED ? 'connectPage.notice.phoneLocked' : undefined;
 }
 
 /** The settings the page shows, in the order the phone's settings list has them. */
-export const SETTING_LABELS: readonly (readonly [key: string, label: string])[] = [
-  ['veloq-theme-preference', 'Theme'],
-  ['veloq-language-preference', 'Language'],
-  ['veloq-unit-preference', 'Units'],
-  ['veloq-primary-sport', 'Primary sport'],
-  ['veloq-wellness-smoothing', 'Wellness smoothing'],
-  ['veloq-map-preferences', 'Map'],
-  ['veloq-route-settings', 'Routes'],
-  ['veloq-notification-preferences', 'Notifications'],
-  ['veloq-recording-preferences', 'Recording'],
-  ['veloq-experimental', 'Experimental features'],
-  ['dashboard_summary_card', 'Summary card'],
+export const SETTING_LABELS: readonly (readonly [key: string, label: ParseKeys])[] = [
+  ['veloq-theme-preference', 'connectPage.settings.values.theme'],
+  ['veloq-language-preference', 'connectPage.settings.values.language'],
+  ['veloq-unit-preference', 'connectPage.settings.values.units'],
+  ['veloq-primary-sport', 'connectPage.settings.values.primarySport'],
+  ['veloq-wellness-smoothing', 'connectPage.settings.values.wellnessSmoothing'],
+  ['veloq-map-preferences', 'connectPage.settings.values.map'],
+  ['veloq-route-settings', 'connectPage.settings.values.routes'],
+  ['veloq-notification-preferences', 'connectPage.settings.values.notifications'],
+  ['veloq-recording-preferences', 'connectPage.settings.values.recording'],
+  ['veloq-experimental', 'connectPage.settings.values.experimental'],
+  ['dashboard_summary_card', 'connectPage.settings.values.summaryCard'],
 ];
 
 /** One line of the settings view. No row can be changed from the page yet. */
-export type SettingRow = { key: string; label: string; value: string; editable: false };
+/** `value` is null for a setting the phone has not set. */
+export type SettingRow = {
+  key: string;
+  label: ParseKeys;
+  value: string | null;
+  editable: false;
+};
 
 const SETTING_VALUE_CHARS = 120;
 
-/** The words a stored value is shown as; a value not set on the phone says so. */
-function settingText(value: string | null | undefined): string {
-  if (value == null) return 'Not set';
+/** The text a stored value is shown as; null for a value not set on the phone. */
+function settingText(value: string | null | undefined): string | null {
+  if (value == null) return null;
   return value.length > SETTING_VALUE_CHARS ? `${value.slice(0, SETTING_VALUE_CHARS)}…` : value;
 }
 
@@ -920,9 +1037,12 @@ export function settingsOpening(methods: readonly string[]): { method: string; p
   return asks.filter((ask) => methods.includes(ask.method));
 }
 
-/** The linked devices as lines, the browser that is reading marked. */
-export function deviceLines(answer: Methods['status.linkedDevices']['result']): string[] {
-  return answer.devices.map(
-    (device) => `${device.name}${device.id === answer.thisBrowser ? ' (this browser)' : ''}`
-  );
+/** The linked devices, the browser that is reading marked. */
+export function deviceLines(
+  answer: Methods['status.linkedDevices']['result']
+): { name: string; thisBrowser: boolean }[] {
+  return answer.devices.map((device) => ({
+    name: device.name,
+    thisBrowser: device.id === answer.thisBrowser,
+  }));
 }

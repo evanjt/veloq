@@ -773,8 +773,24 @@ fn after_landing(install: u64, ride: &FfiRecordingEntry, intervals_id: &str, upl
     }
 
     // intervals.icu keeps the sets in the file it was handed, so nothing comes
-    // back down the sync for them.
-    if ride.activity_type == "WeightTraining" {
+    // back down the sync for them. A session recorded on the phone already
+    // holds them, with the detail the file cannot carry: it takes the id and
+    // its sets follow the ride, and the file is not read again.
+    let recorded = ride.activity_type == "WeightTraining"
+        && ride.engine_activity_id.as_deref().is_some_and(|key| {
+            match under(install, |e| e.relink_recorded_session(key, intervals_id)) {
+                Some(Ok(relinked)) => relinked,
+                Some(Err(err)) => {
+                    log::warn!(
+                        "veloqrs: [upload] could not move the strength session of {}: {err}",
+                        ride.id
+                    );
+                    false
+                }
+                None => false,
+            }
+        });
+    if ride.activity_type == "WeightTraining" && !recorded {
         // The row read again stores the path as the app wrote it, so it
         // resolves against the live documents directory like every other read.
         let imported = recording_file(&ride.fit_path)

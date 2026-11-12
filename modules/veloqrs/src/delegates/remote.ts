@@ -3,13 +3,23 @@
  * another device.
  */
 
-import type { DisconnectReason, FfiLinkedDevice } from '../generated/veloqrs';
+import type { DisconnectReason, FfiLinkedDevice, FfiRemoteWrite } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
 /** Every linked browser, most recently linked first. */
 export function listLinkedDevices(host: DelegateHost): FfiLinkedDevice[] {
   if (!host.ready) return [];
   return host.timed('listLinkedDevices', () => host.engine.remote().listLinkedDevices());
+}
+
+/** The most recent changes one linked browser made, newest first. */
+export function recentWrites(
+  host: DelegateHost,
+  deviceId: string,
+  limit: number
+): FfiRemoteWrite[] {
+  if (!host.ready) return [];
+  return host.timed('recentWrites', () => host.engine.remote().recentWrites(deviceId, limit));
 }
 
 /** Unlink a browser so it can never reconnect. False when none had that id. */

@@ -19,7 +19,7 @@ import {
   mapSheetCoveredSides,
   useMapSheetStop,
 } from '@/shared/app/mapSheetStop';
-import { useInMapSurfaceSlot, visibleMapInset } from '@/features/maps';
+import { useContextPress, useInMapSurfaceSlot, visibleMapInset } from '@/features/maps';
 import { useMapSheetHost } from '@/shared/app/MapSheetHost';
 import { useSheetWindow } from '@/shared/app/TopSafeAreaContext';
 import { getActivityColor } from '@/shared/activity/activityUtils';
@@ -52,6 +52,7 @@ export function RouteDetailMap({ routeId, pageActivityId }: RouteDetailMapProps)
   // A route card pushed onto another subject's host reads that host's entry.
   const hostKey = useMapSheetHost()?.key ?? mapSheetHostKey('route', routeId);
   const inSlot = useInMapSurfaceSlot();
+  const handleContextPress = useContextPress(hostKey);
   const { data: detail } = useRouteDetailData(routeId);
   const { activityId, lapPoints, date } = useCardAttempt(hostKey);
   const sport = useCardSport(hostKey);
@@ -100,6 +101,7 @@ export function RouteDetailMap({ routeId, pageActivityId }: RouteDetailMapProps)
     >
       {routeGroup && engineGroup?.activityIds.length ? (
         <RouteMapView
+          onContextPress={handleContextPress}
           routeGroup={routeGroup}
           selectedSportType={sport ? displayType : undefined}
           height={height}

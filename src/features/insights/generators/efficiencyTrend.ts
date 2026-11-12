@@ -1,4 +1,6 @@
-import { EfficiencyDirection, type EfficiencyTrend } from 'veloqrs';
+import type { EfficiencyTrend } from 'veloqrs';
+
+import { EFFICIENCY_DIRECTION } from '../lib/engineEnums';
 
 import type { DataPoint, Insight } from '../types';
 import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/config';
@@ -58,17 +60,17 @@ export function generateEfficiencyTrendInsights(
 
   const ordered = [...trends].sort(
     (a, b) =>
-      Number(a.direction !== EfficiencyDirection.Improving) -
-      Number(b.direction !== EfficiencyDirection.Improving)
+      Number(a.direction !== EFFICIENCY_DIRECTION.improving) -
+      Number(b.direction !== EFFICIENCY_DIRECTION.improving)
   );
   for (const trend of ordered) {
     if (insights.length >= cap) break;
 
-    const declining = trend.direction === EfficiencyDirection.Worsening;
+    const declining = trend.direction === EFFICIENCY_DIRECTION.worsening;
     const floor = declining
       ? INSIGHTS_CONFIG.repetition.efficiency_trend_declining_min
       : minEfforts;
-    if (trend.direction === EfficiencyDirection.Flat || trend.effortCount < floor) continue;
+    if (trend.direction === EFFICIENCY_DIRECTION.flat || trend.effortCount < floor) continue;
 
     const hrChange = formatSigned(trend.hrChangeBpm, 0);
     const firstEffort = trend.points[0];

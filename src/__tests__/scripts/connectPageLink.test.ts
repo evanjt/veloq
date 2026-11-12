@@ -13,6 +13,7 @@ import zlib from 'zlib';
 import {
   AskCache,
   INVITATION_TTL_SECS,
+  PAGE_MIN_PROTOCOL,
   PAGE_PROTOCOL,
   REPLY_TIMEOUT_MS,
   Replies,
@@ -33,8 +34,10 @@ import {
   feedRows,
   floatsOf,
   invitation,
+  negotiate,
   isChanged,
   normaliseFingerprint,
+  olderPage,
   peerConfiguration,
   proof,
   retryDelay,
@@ -59,6 +62,7 @@ function connected(): State {
     name: 'connected',
     phone: PHONE,
     attempt: 0,
+    version: PAGE_PROTOCOL,
     methods: ['link.hello', 'feed.page', 'activity.summary'],
   };
 }
@@ -206,6 +210,7 @@ describe('the connect page state machine', () => {
       phone: PHONE,
       attempt: 0,
       methods: null,
+      version: null,
     });
     expect(doing(open)).toEqual(['leaveRelay', 'hello']);
   });
@@ -409,12 +414,13 @@ describe('the page learns what the phone speaks before it asks for anything', ()
     phone: PHONE,
     attempt: 0,
     methods: null,
+    version: null,
   });
 
   it('keeps the method list the phone names and reads the feed from it', () => {
     const next = step(opened(), { type: 'hello', protocol: PAGE_PROTOCOL, methods: listed });
     expect(next.state).toMatchObject({ name: 'connected', methods: listed });
-    expect(next.effects).toEqual([{ do: 'fetchFeed' }]);
+    expect(next.effects).toEqual([{ do: 'speak', version: PAGE_PROTOCOL }, { do: 'fetchFeed' }]);
   });
 
   it('keeps the name the phone gives itself, and none when it gives a blank one', () => {
@@ -461,6 +467,49 @@ describe('the page learns what the phone speaks before it asks for anything', ()
     expect(doing(next)).toEqual(['hangUp']);
   });
 
+  it('speaks the previous version to a phone that names only the previous version', () => {
+    const next = step(opened(), { type: 'hello', protocol: PAGE_MIN_PROTOCOL, methods: listed });
+    expect(next.state).toMatchObject({ name: 'connected', version: PAGE_MIN_PROTOCOL });
+    expect(next.effects).toEqual([
+      { do: 'speak', version: PAGE_MIN_PROTOCOL },
+      { do: 'fetchFeed' },
+    ]);
+  });
+
+  it('speaks the highest version both hold when the phone names a range', () => {
+    const next = step(opened(), {
+      type: 'hello',
+      protocol: PAGE_PROTOCOL,
+      minProtocol: PAGE_MIN_PROTOCOL,
+      maxProtocol: PAGE_PROTOCOL + 1,
+      methods: listed,
+    });
+    expect(next.state).toMatchObject({ name: 'connected', version: PAGE_PROTOCOL });
+  });
+
+  it('asks the page for an older build, and shows the update state meanwhile, for a phone below the range', () => {
+    const next = step(opened(), {
+      type: 'hello',
+      protocol: PAGE_MIN_PROTOCOL - 1,
+      methods: listed,
+    });
+    expect(next.state).toEqual({ name: 'update', phone: PHONE });
+    expect(next.effects).toEqual([
+      { do: 'hangUp' },
+      { do: 'redirect', protocol: PAGE_MIN_PROTOCOL - 1 },
+    ]);
+  });
+
+  it('does not look for an older build for a phone newer than the page', () => {
+    const next = step(opened(), {
+      type: 'hello',
+      protocol: PAGE_PROTOCOL + 1,
+      minProtocol: PAGE_PROTOCOL + 1,
+      methods: listed,
+    });
+    expect(doing(next)).toEqual(['hangUp']);
+  });
+
   it('shows the update state when the phone lacks the feed the page opens with', () => {
     const next = step(opened(), {
       type: 'hello',
@@ -496,6 +545,40 @@ describe('the page learns what the phone speaks before it asks for anything', ()
     const update: State = { name: 'update', phone: PHONE };
     expect(step(update, { type: 'drop' }).state).toBe(update);
     expect(step(update, { type: 'forget' }).state).toEqual({ name: 'unpaired' });
+  });
+});
+
+describe('the page and the phone agree on the highest version both speak', () => {
+  it('chooses from the two ranges, and a phone that names one version speaks that alone', () => {
+    expect(negotiate({ protocol: 3, minProtocol: 2, maxProtocol: 3 })).toBe(3);
+    expect(negotiate({ protocol: 2 })).toBe(2);
+    expect(negotiate({ protocol: 3 })).toBe(3);
+    expect(negotiate({ protocol: 9, minProtocol: 3, maxProtocol: 9 })).toBe(PAGE_PROTOCOL);
+  });
+
+  it('chooses none when the ranges do not meet', () => {
+    expect(negotiate({ protocol: PAGE_PROTOCOL + 1 })).toBeNull();
+    expect(negotiate({ protocol: PAGE_MIN_PROTOCOL - 1 })).toBeNull();
+    expect(negotiate({ protocol: 5, minProtocol: 4, maxProtocol: 5 })).toBeNull();
+  });
+});
+
+describe('the page sends a phone below its range to the build that speaks its version', () => {
+  const builds = [
+    { path: 'v4/', min: 3, max: 4 },
+    { path: 'v3/', min: 2, max: 3 },
+    { path: 'v2/', min: 1, max: 2 },
+  ];
+
+  it('picks the newest kept build whose range holds the phone version', () => {
+    expect(olderPage(builds, 2, 4)).toBe('v3/');
+    expect(olderPage(builds, 1, 4)).toBe('v2/');
+  });
+
+  it('picks nothing for a version no kept build speaks, or the build the page already is', () => {
+    expect(olderPage(builds, 0, 4)).toBeNull();
+    expect(olderPage(builds, 4, 4)).toBeNull();
+    expect(olderPage([], 1, 4)).toBeNull();
   });
 });
 
@@ -599,8 +682,9 @@ describe('the page puts framed replies back together', () => {
     ).toBeUndefined();
   });
 
-  it('fails every ask in flight on a reply in the previous text format, rather than dropping it', async () => {
+  it('fails every ask in flight on a text reply once the page speaks the framed version', async () => {
     const replies = new Replies();
+    replies.speak(3);
     const hello = replies.wait(1);
     const outcome = expect(hello).rejects.toBeInstanceOf(UnreadableReply);
     expect(
@@ -608,6 +692,17 @@ describe('the page puts framed replies back together', () => {
     ).toBeUndefined();
     await outcome;
     expect(replies.has(1)).toBe(false);
+  });
+
+  it('fails every ask in flight on binary frames once the page speaks the text version', async () => {
+    const replies = new Replies();
+    replies.speak(2);
+    const waiting = replies.wait(1);
+    const outcome = expect(waiting).rejects.toBeInstanceOf(UnreadableReply);
+    expect(
+      await replies.take(frame(1, 0, LAST, text({ id: 1, result: 1 })), () => true)
+    ).toBeUndefined();
+    await outcome;
   });
 
   it('fails every ask in flight on a message too short to be a frame', async () => {
@@ -624,7 +719,7 @@ describe('the page puts framed replies back together', () => {
     const waiting = replies.wait(7);
     const outcome = expect(waiting).rejects.toBeInstanceOf(UnreadableReply);
     await replies.take(frame(7, 0, 0, whole.slice(0, 4)), () => true);
-    await replies.take('{}', () => true);
+    await replies.take(new Uint8Array(4), () => true);
     await outcome;
     expect(await replies.take(frame(7, 1, LAST, whole.slice(4)), () => true)).toHaveProperty(
       'error'
@@ -814,13 +909,60 @@ describe('the page explains a write the locked phone refused', () => {
     expect(reply).toEqual({ id: 4, error: 'phone locked' });
     replies.settle(reply!);
     const error = await write.catch((e: unknown) => e);
-    expect(writeNotice(error)).toBe('Unlock your phone and open Veloq to make changes');
+    expect(writeNotice(error)).toBe('connectPage.notice.phoneLocked');
   });
 
   it('shows nothing for any other failure', () => {
     expect(writeNotice(new Error('unknown method: section.rename'))).toBeUndefined();
     expect(writeNotice(new Error('not connected'))).toBeUndefined();
     expect(writeNotice('phone locked, again')).toBeUndefined();
+  });
+});
+
+describe('the page reads the previous version, whose replies are one text message each', () => {
+  const asked = () => true;
+
+  it('reads a text reply before the version is agreed, as the hello of a phone on the previous version', async () => {
+    const replies = new Replies();
+    expect(
+      await replies.take(
+        '{"id":1,"result":{"protocol":2,"app":"0.4.1","methods":["feed.page"]}}',
+        asked
+      )
+    ).toEqual({ id: 1, result: { protocol: 2, app: '0.4.1', methods: ['feed.page'] } });
+  });
+
+  it('reads text replies, and the error of one, once the page speaks the previous version', async () => {
+    const replies = new Replies();
+    replies.speak(2);
+    expect(await replies.take('{"id":4,"result":[1,2]}', asked)).toEqual({ id: 4, result: [1, 2] });
+    expect(await replies.take('{"id":5,"error":"unknown method: x"}', asked)).toEqual({
+      id: 5,
+      error: 'unknown method: x',
+    });
+  });
+
+  it('ignores a text reply for an id nothing asked, and one with no numeric id', async () => {
+    const replies = new Replies();
+    replies.speak(2);
+    expect(await replies.take('{"id":9,"result":1}', (id) => id === 1)).toBeUndefined();
+    expect(await replies.take('{"id":null,"error":"malformed request"}', asked)).toBeUndefined();
+  });
+
+  it('fails every ask in flight on text that is not a JSON object', async () => {
+    const replies = new Replies();
+    replies.speak(2);
+    const waiting = replies.wait(1);
+    const outcome = expect(waiting).rejects.toBeInstanceOf(UnreadableReply);
+    await replies.take('not json', asked);
+    await outcome;
+  });
+
+  it('has no version until it is told one, and then speaks it', () => {
+    const replies = new Replies();
+    expect(replies.version).toBeNull();
+    replies.speak(2);
+    expect(replies.version).toBe(2);
   });
 });
 
@@ -994,8 +1136,18 @@ describe('the settings screen reads the phone settings and statuses, read-only',
       refused: [],
     });
     expect(rows).toEqual([
-      { key: 'veloq-theme-preference', label: 'Theme', value: 'Not set', editable: false },
-      { key: 'veloq-unit-preference', label: 'Units', value: 'imperial', editable: false },
+      {
+        key: 'veloq-theme-preference',
+        label: 'connectPage.settings.values.theme',
+        value: null,
+        editable: false,
+      },
+      {
+        key: 'veloq-unit-preference',
+        label: 'connectPage.settings.values.units',
+        value: 'imperial',
+        editable: false,
+      },
     ]);
     expect(rows.every((row) => row.editable === false)).toBe(true);
     expect(settingRows(undefined)).toEqual([]);
@@ -1006,7 +1158,7 @@ describe('the settings screen reads the phone settings and statuses, read-only',
       values: [{ key: 'veloq-map-preferences', value: 'x'.repeat(500) }],
       refused: [],
     });
-    expect(row.value.length).toBeLessThan(200);
+    expect(row.value?.length).toBeLessThan(200);
   });
 
   it('marks the browser that is reading among the linked devices', () => {
@@ -1019,7 +1171,10 @@ describe('the settings screen reads the phone settings and statuses, read-only',
     });
     expect(
       deviceLines({ devices: [device('1', 'Laptop'), device('2', 'Desk')], thisBrowser: '2' })
-    ).toEqual(['Laptop', 'Desk (this browser)']);
+    ).toEqual([
+      { name: 'Laptop', thisBrowser: false },
+      { name: 'Desk', thisBrowser: true },
+    ]);
   });
 });
 

@@ -4,7 +4,7 @@ pub mod coverage;
 pub(crate) mod detection;
 mod engine;
 pub mod error;
-mod fitness;
+pub(crate) mod fitness;
 pub(crate) mod garmin_account;
 pub(crate) mod garmin_key;
 pub(crate) mod gps_pass;
@@ -24,7 +24,7 @@ mod settings;
 pub mod start;
 pub mod strength;
 pub(crate) mod sync;
-mod tiles;
+pub(crate) mod tiles;
 pub mod track_stage;
 pub(crate) mod tracks;
 

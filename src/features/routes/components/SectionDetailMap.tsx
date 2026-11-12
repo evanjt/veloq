@@ -29,7 +29,7 @@ import {
 } from '../lib/detailCardState';
 import { mapSheetHostKey } from '@/shared/app/mapSheetHost';
 import { useMapSheetHost, useMapSheetHostHeader } from '@/shared/app/MapSheetHost';
-import { useInMapSurfaceSlot, useMapSurfaceSlotLive } from '@/features/maps';
+import { useContextPress, useInMapSurfaceSlot, useMapSurfaceSlotLive } from '@/features/maps';
 import {
   mapSheetCoveredCorner,
   mapSheetCoveredHeight,
@@ -61,6 +61,7 @@ export function SectionDetailMap({
   // A section card pushed onto another subject's host reads that host's entry.
   const hostKey = useMapSheetHost()?.key ?? mapSheetHostKey('section', sectionId);
   const inSlot = useInMapSurfaceSlot();
+  const handleContextPress = useContextPress(hostKey);
   // A surface already up for an earlier card takes the section at once, with no placeholder.
   const slotLive = useMapSurfaceSlotLive();
   const matchingEnabled = useRouteSettings((s) => s.settings.enabled);
@@ -161,6 +162,7 @@ export function SectionDetailMap({
     >
       {section && (mapReady || slotLive) ? (
         <SectionMapView
+          onContextPress={handleContextPress}
           section={section}
           sportType={sport}
           height={height}

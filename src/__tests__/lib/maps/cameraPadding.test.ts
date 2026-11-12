@@ -4,10 +4,10 @@ import {
   openingCamera,
   paddedFit,
   settleCameraAction,
+  terrainOpeningCamera,
 } from '@/features/maps/lib/cameraPadding';
 import { sectionCameraSpec } from '@/features/routes/lib/sectionMapCamera';
 import { ROUTE_MAP_FIT_PADDING, routeCameraSpec } from '@/features/routes/lib/routeMapCamera';
-import { buildMap3DHtml } from '@/features/maps/lib/htmlBuilders';
 
 const bounds = { sw: [6.9, 46.2] as [number, number], ne: [7.0, 46.25] as [number, number] };
 const page = { width: 400, height: 600 };
@@ -19,7 +19,7 @@ describe('cameraPadding', () => {
     expect(covered.bottom).toBeGreaterThanOrEqual(300);
   });
 
-  it('gives the flat and the 3D surface the same padding for one input', () => {
+  it('gives the same padding for one input', () => {
     const input = { ...page, coveredTop: 60, coveredBottom: 300, coveredRight: 48 };
     expect(cameraPadding(input)).toEqual(cameraPadding({ ...input }));
   });
@@ -53,6 +53,30 @@ describe('cameraPadding', () => {
     });
   });
 
+  describe('terrain opening camera', () => {
+    const saved = { center: [6.95, 46.225] as [number, number], zoom: 13, bearing: 20, pitch: 60 };
+
+    it('opens a saved camera that holds the track as it was, padded to the visible frame', () => {
+      const fits = { ...saved, zoom: fitZoom(bounds, page, covered, 20) - 0.5 };
+      expect(terrainOpeningCamera(fits, covered, { bounds, ...page })).toEqual({
+        ...fits,
+        padding: covered,
+        padCamera: true,
+      });
+    });
+
+    it('fits the track to the visible frame at the saved bearing and pitch when it no longer holds', () => {
+      const tooClose = { ...saved, zoom: fitZoom(bounds, page, covered, 20) + 1 };
+      expect(terrainOpeningCamera(tooClose, covered, { bounds, ...page })).toEqual({
+        bounds,
+        bearing: 20,
+        pitch: 60,
+        padding: covered,
+        padCamera: true,
+      });
+    });
+  });
+
   describe('sheet settle', () => {
     const peek = cameraPadding({ ...page, coveredBottom: 60 });
 
@@ -78,14 +102,6 @@ describe('cameraPadding', () => {
         settleCameraAction({ previous: covered, next: { ...covered }, athleteMoved: true })
       ).toEqual({ kind: 'none' });
     });
-  });
-});
-
-describe('3D page camera padding', () => {
-  it('defines the inset helpers the camera moves go through', () => {
-    const html = buildMap3DHtml({ initStyle: 'light', mapStyle: 'light' } as never);
-    expect(html).toContain('_veloqSetInset');
-    expect(html).toContain('_veloqFitInset');
   });
 });
 

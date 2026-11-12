@@ -10,6 +10,7 @@ import type { TFunction } from 'i18next';
 
 import { showRestoreNotice } from '@/features/settings/lib/restoreNotice';
 import { showNotice } from '@/shared/ui/Notice';
+import { useAuthStore } from '@/shared/app/AuthStore';
 
 const mockNavigate = jest.fn();
 jest.mock('expo-router', () => ({
@@ -35,6 +36,7 @@ function shownMessage(): string {
 }
 
 beforeEach(() => {
+  useAuthStore.setState({ authMethod: 'apiKey' });
   (showNotice as jest.Mock).mockClear();
   mockNavigate.mockClear();
 });
@@ -85,4 +87,10 @@ it('says the home has to be set again when the file left it out, and opens its s
 it('says a held backup waits for sign-in', () => {
   showRestoreNotice('held', t);
   expect(shownMessage()).toBe('backup.heldUntilSignIn');
+});
+
+it('says a Garmin-only library gets its rides back from Garmin, not intervals.icu', () => {
+  useAuthStore.setState({ authMethod: 'garmin' });
+  showRestoreNotice({ notRestored: 0, namesNotRestored: 0, exportHomeLeftOut: false }, t);
+  expect(shownMessage()).toBe('backup.recordRestoredGarmin');
 });

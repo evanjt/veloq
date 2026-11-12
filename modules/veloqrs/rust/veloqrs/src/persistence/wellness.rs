@@ -151,7 +151,15 @@ impl PersistentEngine {
                 ])?;
             }
         }
-        tx.commit()
+        tx.commit()?;
+        // A library that now holds intervals.icu wellness shows none of
+        // Veloq's figures, as one that holds an intervals.icu activity.
+        let rewritten = self.drop_veloq_figures()?;
+        for metric in rewritten {
+            self.activity_metrics
+                .insert(metric.activity_id.clone(), metric);
+        }
+        Ok(())
     }
 
     /// Trailing N-day wellness rows ending on `today`, oldest first. `days`

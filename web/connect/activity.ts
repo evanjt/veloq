@@ -95,31 +95,104 @@ const KIND: Record<string, string> = {
   other: 'Interval',
 };
 
-const rowOf = (section: { id: string; name: string | null; distanceMeters: number }) => {
+type Portion = { from: number; to: number };
+
+/** Whether a sample index lies within a section's portion of the ride. */
+export const portionHolds = (portion: Portion | undefined, index: number | null) =>
+  portion !== undefined && index !== null && index >= portion.from && index <= portion.to;
+
+const rowOf = (
+  section: { id: string; name: string | null; distanceMeters: number },
+  portion?: Portion
+) => {
   const distance = km(section.distanceMeters);
   return {
     id: section.id,
     name: section.name ?? section.id,
     ...(distance ? { detail: distance } : {}),
+    ...(portion ? { portion } : {}),
   };
 };
 
-/** The lap and section rows of the right column. */
-export function factsOfDetail(laps: Laps | undefined, detail: DetailData | undefined): Facts {
+const rides = (count: number) => `${count} ${count === 1 ? 'ride' : 'rides'}`;
+const signed = (value: number) => `${value < 0 ? '-' : '+'}${Math.abs(value).toFixed(1)}`;
+
+const PROVENANCE: Record<string, string> = {
+  intervals: 'Synced from intervals.icu',
+  garminOnPhone: 'Recorded on the phone from Garmin',
+};
+
+/**
+ * The right column's rows: laps, the sections this ride rode with the stretch
+ * of it each covers, its route, the time in each zone, its fitness impact,
+ * where its data came from and the section changes that name it.
+ */
+export function factsOfDetail(
+  laps: Laps | undefined,
+  detail: DetailData | undefined,
+  activityId?: string
+): Facts {
   const sections = new Map<string, NonNullable<Facts['sections']>[number]>();
   for (const section of detail?.matchedSections ?? []) {
     sections.set(section.id, rowOf(section));
   }
   for (const section of detail?.customSections ?? []) {
     if (sections.has(section.id)) continue;
-    sections.set(section.id, rowOf(section));
+    const mine = section.activityPortions?.find((p) => p.activityId === activityId);
+    sections.set(
+      section.id,
+      rowOf(section, mine ? { from: mine.startIndex, to: mine.endIndex } : undefined)
+    );
+  }
+  const zones: NonNullable<Facts['zones']> = [];
+  if (detail?.hrZones?.length) {
+    zones.push({
+      label: 'Heart rate zones',
+      rows: detail.hrZones.map((band) => ({
+        name: `Z${band.zone} ${band.minBpm}–${band.maxBpm} bpm`,
+        share: band.share,
+      })),
+    });
+  }
+  if (detail?.powerZones?.length) {
+    zones.push({
+      label: 'Power zones',
+      rows: detail.powerZones.map((band) => ({
+        name: `Z${band.zone} ${band.minWatts}${band.maxWatts == null ? '+' : `–${band.maxWatts}`} W`,
+        share: band.share,
+      })),
+    });
+  }
+  const notes: NonNullable<Facts['notes']> = [];
+  const impact = detail?.fitnessImpact;
+  if (impact) {
+    notes.push({
+      label: 'Fitness impact',
+      value: `${signed(impact.fitness)} fitness, ${signed(impact.fatigue)} fatigue, ${signed(impact.form)} form`,
+    });
+  }
+  if (detail?.provenance) {
+    notes.push({
+      label: 'Source',
+      value: PROVENANCE[detail.provenance] ?? detail.provenance,
+    });
+  }
+  if (detail?.ledgerChanges?.length) {
+    notes.push({ label: 'Section changes', value: String(detail.ledgerChanges.length) });
   }
   return {
     sections: [...sections.values()],
+    routes: (detail?.routeGroups ?? []).map((group) => ({
+      id: group.groupId,
+      name: group.customName ?? group.groupId,
+      detail: rides(group.activityIds.length),
+    })),
     intervals: (laps?.intervals?.intervals ?? []).map((lap) => ({
       name: lap.label ?? KIND[lap.kind] ?? 'Interval',
       time: clock(lap.movingTime) ?? '',
       distance: km(lap.distance) ?? '',
     })),
+    zones,
+    notes,
   };
 }

@@ -716,7 +716,7 @@ export const TERRAIN_ATTRIBUTION = MAP_SOURCE_CREDITS.terrain.shortCredit;
 
 /**
  * Shared 3D terrain configuration - single source of truth for both
- * Map3DWebView (interactive detail) and TerrainSnapshotWebView (feed previews).
+ * MapSurface (interactive detail) and TerrainSnapshotWebView (feed previews).
  * The sky and the hillshade colours belong to the base map, so they come from
  * its palette through `terrain3DPaint`.
  */

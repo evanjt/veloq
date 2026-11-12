@@ -3,6 +3,7 @@
 // a test drives it with a stand-in.
 
 import {
+  PAGE_PROTOCOL,
   Replies,
   UnreadableReply,
   cancelMessage,
@@ -34,6 +35,8 @@ export interface Client {
   ) => Promise<Methods[M]['result']>;
   /** Ask a pairing method, which the phone answers before a browser is linked. */
   askPairing: (method: string, params?: object) => Promise<unknown>;
+  /** Read replies, and ask for them, in the format of the version agreed in the hello. */
+  speak: (version: number) => void;
   /** Take one reply frame off the channel. */
   settle: (data: unknown) => Promise<void>;
   /** Reject every pending ask with one error and ignore their replies from now on. */
@@ -70,7 +73,11 @@ export function createClient(
     void reply.catch((error: unknown) => {
       if (error instanceof UnreadableReply && !closed) onUnreadable();
     });
-    channel.send(JSON.stringify({ id, method, params }));
+    // The newest version stands in until one is agreed: a phone on it frames its
+    // reply, and an older phone ignores the field and sends text.
+    channel.send(
+      JSON.stringify({ id, method, params, protocol: replies.version ?? PAGE_PROTOCOL })
+    );
     return reply;
   }
 
@@ -92,6 +99,7 @@ export function createClient(
   return {
     ask: (method, params, slot) => send(method, params, slot) as Promise<never>,
     askPairing: (method, params = {}) => send(method, params),
+    speak: (version) => replies.speak(version),
     settle,
     hangUp() {
       closed = true;

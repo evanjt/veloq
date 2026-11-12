@@ -9,8 +9,6 @@
  * non-number writes its default instead.
  */
 
-import { buildMap3DHtml } from '@/features/maps/lib/htmlBuilders/map3D';
-import type { Map3DHtmlConfig } from '@/features/maps/lib/htmlBuilders/map3D';
 import { buildMapSurfaceHtml } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import type { MapSurfaceHtmlConfig } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import { jsNumber } from '@/features/maps/lib/webViewLiterals';
@@ -27,27 +25,6 @@ function surfaceConfig(camera: MapSurfaceHtmlConfig['camera']): MapSurfaceHtmlCo
     devicePixelRatio: 2,
     reduceMotion: false,
     regionChangeThrottleMs: 100,
-  };
-}
-
-function map3DConfig(overrides: Partial<Map3DHtmlConfig>): Map3DHtmlConfig {
-  return {
-    coordinates: [[7, 46]],
-    bounds: null,
-    centerOverride: [7, 46],
-    zoom: 10,
-    bearing: 0,
-    pitch: 0,
-    hasSavedCamera: true,
-    cameraPinned: true,
-    terrainExaggeration: 1,
-    initStyle: 'light',
-    mapStyle: 'light',
-    routeColor: '#000000',
-    showHeatmap: false,
-    devicePixelRatio: 2,
-    reduceMotion: false,
-    ...overrides,
   };
 }
 
@@ -96,21 +73,6 @@ describe('a camera number written into the regional map page', () => {
     expect(html).toContain('bearing: 30,');
     expect(html).toContain('pitch: 45,');
     expect(html).toContain('var _maxZoom = 16;');
-  });
-});
-
-describe('a camera number written into the 3D map page', () => {
-  it('keeps a hostile zoom, bearing and pitch out of the script', () => {
-    const html = buildMap3DHtml(map3DConfig({ zoom: HOSTILE, bearing: HOSTILE, pitch: HOSTILE }));
-
-    expect(html).not.toContain('__injected');
-    expect(html).toMatch(/\n\s*zoom: 12,\n\s*bearing: 0,\n\s*pitch: 0,\n/);
-  });
-
-  it('writes a valid camera through unchanged', () => {
-    const html = buildMap3DHtml(map3DConfig({ zoom: 13.25, bearing: 210, pitch: 60 }));
-
-    expect(html).toMatch(/\n\s*zoom: 13\.25,\n\s*bearing: 210,\n\s*pitch: 60,\n/);
   });
 });
 

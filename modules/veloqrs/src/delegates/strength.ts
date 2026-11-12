@@ -11,6 +11,7 @@ import { startResult } from './start';
 import type {
   FfiStartResult,
   FfiExerciseDetailData,
+  FfiExercisePickerData,
   FfiExerciseSession,
   FfiExerciseSet,
   FfiMuscleGroup,
@@ -34,6 +35,23 @@ export function getExerciseSets(host: DelegateHost, activityId: string): FfiExer
   return host.timed('getExerciseSets', () => host.engine.strength().getExerciseSets(activityId));
 }
 
+/** Hand the engine the athlete's exercise labels, a catalogue label key to its text. */
+export function setExerciseLabels(host: DelegateHost, labels: Map<string, string>): void {
+  host.write('setExerciseLabels', () => host.engine.strength().setExerciseLabels(labels));
+}
+
+/** Catalogue label keys best match first for a typed query, over the labels last handed in. */
+export function searchExercises(
+  host: DelegateHost,
+  query: string,
+  relevance: Map<string, number>
+): string[] {
+  if (!host.ready) return [];
+  return host.timed('searchExercises', () =>
+    host.engine.strength().searchExercises(query, relevance)
+  );
+}
+
 export function getExerciseDetailData(
   host: DelegateHost,
   exerciseCategory: number
@@ -41,6 +59,27 @@ export function getExerciseDetailData(
   if (!host.ready) return null;
   return host.timed('getExerciseDetailData', () =>
     host.engine.strength().getExerciseDetailData(exerciseCategory)
+  );
+}
+
+const EMPTY_PICKER: FfiExercisePickerData = { rows: [], equipment: [], muscles: [] };
+
+/** The exercise picker's list narrowed by the filters, ordered by what the athlete does. */
+export function getExercisePickerData(
+  host: DelegateHost,
+  equipment: string[],
+  region: string | undefined,
+  muscle: string | undefined,
+  query: string,
+  afterCategory: number | undefined,
+  afterName: number | undefined,
+  now: number
+): FfiExercisePickerData {
+  if (!host.ready) return EMPTY_PICKER;
+  return host.timed('getExercisePickerData', () =>
+    host.engine
+      .strength()
+      .getExercisePickerData(equipment, region, muscle, query, afterCategory, afterName, now)
   );
 }
 

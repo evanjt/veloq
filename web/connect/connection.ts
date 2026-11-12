@@ -108,9 +108,9 @@ export function factsOf(rows: readonly StatRow[]): Facts {
   };
 }
 
-/** An address and port as the popover writes them. */
-export function endpointText(endpoint: Endpoint | null): string {
-  if (!endpoint?.address) return 'Not known';
+/** An address and port as the popover writes them, or null when none is known. */
+export function endpointText(endpoint: Endpoint | null): string | null {
+  if (!endpoint?.address) return null;
   const host = endpoint.address.includes(':') ? `[${endpoint.address}]` : endpoint.address;
   return endpoint.port === null ? host : `${host}:${endpoint.port}`;
 }

@@ -12,6 +12,7 @@ import {
 } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
 import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
+import { handExerciseLabels } from '@/i18n/exerciseLabels';
 import { readPlatformLanguage, readSystemLocales, writePlatformLanguage } from './appLocale';
 
 const STORAGE_KEY = 'veloq-language-preference';
@@ -152,6 +153,7 @@ async function applyLanguage(language: LanguageChoice): Promise<void> {
   // the app killed writes its sentence in the language just chosen. Unlike
   // the two words above these are durable, which is the whole point.
   pushNotificationTemplates();
+  handExerciseLabels();
 
   useLanguageStore.setState({ language });
 }

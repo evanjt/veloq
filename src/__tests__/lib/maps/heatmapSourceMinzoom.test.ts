@@ -2,38 +2,15 @@
  * Scenario: the engine draws heatmap tiles from zoom 1, and the regional map
  * declares its raster source from zoom 0.
  *
- * Expected behaviour: the 3D page declares the same source minzoom, so a
- * library zoomed out to z1 to z4 still draws its heatmap in 3D.
+ * Expected behaviour: the source minzoom constant is 0 and the regional source
+ * declares it, so a library zoomed out to z1 to z4 still draws its heatmap.
  */
 
-import { buildMap3DHtml } from '@/features/maps/lib/htmlBuilders';
 import { buildRegionalSources } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import { HEATMAP_SOURCE_MINZOOM } from '@/features/maps/lib/heatmapTiles';
 
 describe('heatmap source minzoom', () => {
-  it('is zero on the 3D page, as on the regional map', () => {
-    const html = buildMap3DHtml({
-      coordinates: [
-        [7.447, 46.948],
-        [7.449, 46.95],
-      ],
-      bounds: { sw: [7.447, 46.948], ne: [7.449, 46.95] },
-      centerOverride: null,
-      zoom: 12,
-      bearing: 0,
-      pitch: 60,
-      hasSavedCamera: false,
-      cameraPinned: false,
-      terrainExaggeration: 1.5,
-      initStyle: 'light',
-      mapStyle: 'light',
-      routeColor: '#FF6B35',
-      showHeatmap: true,
-      devicePixelRatio: 2,
-      reduceMotion: false,
-    });
-    const source = html.match(/addSource\('heatmap-tiles',\s*\{[\s\S]*?minzoom:\s*(\d+)/);
-    expect(source?.[1]).toBe(String(HEATMAP_SOURCE_MINZOOM));
+  it('is zero', () => {
     expect(HEATMAP_SOURCE_MINZOOM).toBe(0);
   });
 

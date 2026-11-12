@@ -8,6 +8,10 @@
  * `EXDefaultScreenOrientationMask` from the `expo-screen-orientation` plugin
  * ahead of `UISupportedInterfaceOrientations`, so that key has to move with it.
  * Either one drifting back on its own leaves a platform rotating.
+ *
+ * The iOS Info.plist lists every orientation, since a foldable's unfolded display turns with the
+ * hand and the plist cannot say that for one display. The launch mask and the runtime lock in
+ * `useAppOrientation` keep every other window in portrait.
  */
 
 import { readFileSync } from 'node:fs';
@@ -16,7 +20,11 @@ import { join } from 'node:path';
 type PluginEntry = string | [string, Record<string, unknown>];
 
 const appConfig = JSON.parse(readFileSync(join(__dirname, '../../../app.json'), 'utf8')) as {
-  expo: { orientation: string; plugins: PluginEntry[] };
+  expo: {
+    orientation: string;
+    plugins: PluginEntry[];
+    ios: { infoPlist: { UISupportedInterfaceOrientations?: string[] } };
+  };
 };
 
 function pluginConfig(name: string): Record<string, unknown> | undefined {
@@ -35,6 +43,15 @@ describe('app.json orientation', () => {
     expect(pluginConfig('expo-screen-orientation')).toEqual({
       initialOrientation: 'PORTRAIT_UP',
     });
+  });
+
+  it('lets the iOS Info.plist offer every orientation for the runtime lock to narrow', () => {
+    expect(appConfig.expo.ios.infoPlist.UISupportedInterfaceOrientations).toEqual([
+      'UIInterfaceOrientationPortrait',
+      'UIInterfaceOrientationPortraitUpsideDown',
+      'UIInterfaceOrientationLandscapeLeft',
+      'UIInterfaceOrientationLandscapeRight',
+    ]);
   });
 
   it('keeps the tablet target working rather than dropping it', () => {

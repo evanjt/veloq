@@ -789,11 +789,11 @@ const DEVICE_WRITES: DeviceWrite[] = [
     where:
       "settings-table keys Rust's clear deletes: owner, detector, cutover, record restore, curve stamps",
     writers: [
-      'src/app/_layout.tsx',
       'src/features/auth/lib/accountChange.ts',
       'modules/veloqrs/src/delegates/settings.ts',
     ],
-    holds: 'the athlete id, the detector configuration, activity ids owed to a restore',
+    holds:
+      'the athlete id, the Garmin account it was adopted from, the detector configuration, activity ids owed to a restore',
     wiped: { engine: 'clear_forgets_the_record_restore_state' },
   },
   {
@@ -1371,10 +1371,11 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
-    where: 'cached_athlete_id and stored_activity_count in AsyncStorage',
+    where: 'cached_athlete_id, linked_garmin_id and stored_activity_count in AsyncStorage',
     writers: ['src/shared/storage/cachedAthleteId.ts'],
-    holds: 'the athlete id and the size of the library',
-    wiped: { storage: ['cached_athlete_id', 'stored_activity_count'] },
+    holds:
+      'the athlete id, the Garmin account the library was adopted from, and the size of the library',
+    wiped: { storage: ['cached_athlete_id', 'linked_garmin_id', 'stored_activity_count'] },
   },
 
   // Settings that survive Rust's clear.

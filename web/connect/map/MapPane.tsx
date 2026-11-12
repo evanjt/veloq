@@ -12,6 +12,7 @@ import type {
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
 
 import { hitBox, pickFeature, type PickedFeature } from './hit';
+import { boxFromCorners, type Box } from './view';
 import { installProtocol, type Ask } from './protocol';
 import { highlightChange, reconcile } from './reconcile';
 import { pageAttribution, pageStyle, type PageBase } from './style';
@@ -36,6 +37,12 @@ export interface MapPaneProps {
   read: Ask;
   onHover?: (id: string | null) => void;
   onClick?: (feature: PickedFeature) => void;
+  /** The visible area, once the map has loaded and after every move. */
+  onView?: (box: Box) => void;
+  /** A box dragged with shift held. */
+  onBox?: (box: Box) => void;
+  /** Escape pressed while the map has focus. */
+  onEscape?: () => void;
 }
 
 const FIT_PADDING_PX = 48;
@@ -150,6 +157,61 @@ const toBounds = ([west, south, east, north]: maplibregl.Bounds): [
   [east, north],
 ];
 
+/**
+ * Shift-drag on the map draws a rectangle and reports it as a box of degrees
+ * when the button comes up. A drag of under a few pixels is a click and
+ * reports nothing. Returns the function that removes the listeners.
+ */
+function trackBox(element: HTMLElement, map: maplibregl.Map, report: (box: Box) => void) {
+  const MIN_DRAG_PX = 6;
+  let start: { x: number; y: number } | null = null;
+  let frame: HTMLDivElement | null = null;
+  const local = (event: MouseEvent) => {
+    const rect = element.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+  const finish = () => {
+    frame?.remove();
+    frame = null;
+    start = null;
+    window.removeEventListener('mousemove', move);
+    window.removeEventListener('mouseup', up);
+  };
+  function move(event: MouseEvent) {
+    if (!start || !frame) return;
+    const at = local(event);
+    frame.style.left = `${Math.min(start.x, at.x)}px`;
+    frame.style.top = `${Math.min(start.y, at.y)}px`;
+    frame.style.width = `${Math.abs(at.x - start.x)}px`;
+    frame.style.height = `${Math.abs(at.y - start.y)}px`;
+  }
+  function up(event: MouseEvent) {
+    const from = start;
+    const to = local(event);
+    finish();
+    if (!from || Math.hypot(to.x - from.x, to.y - from.y) < MIN_DRAG_PX) return;
+    const a = map.unproject([from.x, from.y]);
+    const b = map.unproject([to.x, to.y]);
+    report(boxFromCorners([a.lng, a.lat], [b.lng, b.lat]));
+  }
+  const down = (event: MouseEvent) => {
+    if (!event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    start = local(event);
+    frame = document.createElement('div');
+    frame.className = 'map-box';
+    element.appendChild(frame);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+  element.addEventListener('mousedown', down, true);
+  return () => {
+    element.removeEventListener('mousedown', down, true);
+    finish();
+  };
+}
+
 export function MapPane(props: MapPaneProps) {
   const container = useRef<HTMLDivElement>(null);
   const live = useRef<{
@@ -255,6 +317,16 @@ export function MapPane(props: MapPaneProps) {
         latest.current.onHover?.(null);
       }
     };
+    // Shift-drag draws a box for the page's list, so the renderer's own
+    // box zoom, which takes the same gesture, is off.
+    map.boxZoom.disable();
+    const reportView = () => {
+      const [[west, south], [east, north]] = map.getBounds().toArray();
+      latest.current.onView?.([west, south, east, north]);
+    };
+    map.on('moveend', reportView);
+    map.once('load', reportView);
+    const drag = trackBox(element, map, (box) => latest.current.onBox?.(box));
     map.on('mousemove', move);
     map.on('click', click);
     map.getCanvas().addEventListener('mouseleave', leave);
@@ -262,6 +334,7 @@ export function MapPane(props: MapPaneProps) {
     resize.observe(element);
 
     return () => {
+      drag();
       resize.disconnect();
       release();
       map.remove();
@@ -321,6 +394,10 @@ export function MapPane(props: MapPaneProps) {
       aria-label="Map"
       tabIndex={0}
       onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          latest.current.onEscape?.();
+          return;
+        }
         if (event.key === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey) {
           event.preventDefault();
           fit();

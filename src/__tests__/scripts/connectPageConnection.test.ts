@@ -79,7 +79,11 @@ describe('the chip', () => {
       [{ name: 'unpaired' }, 'Not linked', 'idle'],
       [{ name: 'waiting', phone: PHONE, attempt: 0 }, 'Waiting for your phone', 'waiting'],
       [{ name: 'connecting', phone: PHONE, attempt: 0 }, 'Connecting', 'waiting'],
-      [{ name: 'connected', phone: PHONE, attempt: 0, methods: null }, 'Connected', 'live'],
+      [
+        { name: 'connected', phone: PHONE, attempt: 0, methods: null, version: null },
+        'Connected',
+        'live',
+      ],
       [{ name: 'update', phone: PHONE }, 'Update Veloq on your phone', 'warning'],
     ];
     for (const [state, label, tone] of states) {
@@ -161,7 +165,8 @@ describe('endpoints', () => {
     expect(endpointText({ address: '2001:db8::1', port: 443, kind: 'host' })).toBe(
       '[2001:db8::1]:443'
     );
-    expect(endpointText(null)).toBe('Not known');
+    expect(endpointText(null)).toBeNull();
+    expect(endpointText({ address: null, port: 80, kind: 'host' })).toBeNull();
   });
 });
 

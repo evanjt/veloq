@@ -565,6 +565,7 @@ fn delete_activity_keyed_rows(
     id: &str,
     keep: KeepAthleteRows,
 ) -> SqlResult<()> {
+    let exercises = super::exercise_usage::detach(db, id)?;
     for table in ACTIVITY_KEYED_TABLES {
         let sql = match (keep, super::tables::declaration_of(table)) {
             (KeepAthleteRows::No, _) => format!("DELETE FROM {table} WHERE activity_id = ?1"),
@@ -576,10 +577,20 @@ fn delete_activity_keyed_rows(
             (KeepAthleteRows::Yes, Some(t)) if t.record_part.is_some() => {
                 format!("DELETE FROM {table} WHERE activity_id = ?1 AND excluded = 0")
             }
+            // A mirror table whose rows a record table also owns: only the
+            // rows nothing claims are the server's to refill.
+            (
+                KeepAthleteRows::Yes,
+                Some(super::tables::Table {
+                    claimed_when: Some(claim),
+                    ..
+                }),
+            ) => format!("DELETE FROM {table} WHERE activity_id = ?1 AND NOT ({claim})"),
             (KeepAthleteRows::Yes, _) => format!("DELETE FROM {table} WHERE activity_id = ?1"),
         };
         db.prepare_cached(&sql)?.execute(params![id])?;
     }
+    super::exercise_usage::attach(db, id, &exercises)?;
     // The overlap cache holds a pair, so the activity is either side of it.
     db.prepare_cached("DELETE FROM overlap_cache WHERE activity_a = ?1 OR activity_b = ?1")?
         .execute(params![id])?;
@@ -926,12 +937,101 @@ pub(crate) mod pooled {
         )
     }
 
+    /// Whether the library's rows come from Garmin's originals alone: no
+    /// intervals.icu athlete is signed in (an empty id), or the identity is a
+    /// `garmin:` one. Such a library has no census, so its reads count the
+    /// `src-garmin-` rows and judge ranges by how far the backfill has got.
+    fn is_garmin_library(athlete_id: &str) -> bool {
+        athlete_id.is_empty()
+            || athlete_id.starts_with(crate::persistence::origin::GARMIN_LIBRARY_PREFIX)
+    }
+
+    /// The setting `key` as a day.
+    fn day_setting(conn: &Connection, key: &str) -> Option<chrono::NaiveDate> {
+        crate::persistence::settings::setting_from(conn, key)
+            .ok()
+            .flatten()
+            .and_then(|text| chrono::NaiveDate::parse_from_str(&text, "%Y-%m-%d").ok())
+    }
+
+    /// The first day the Garmin backfill has finished, which every ride from
+    /// there on is stored for.
+    fn garmin_backfill_reached(conn: &Connection) -> Option<chrono::NaiveDate> {
+        day_setting(conn, crate::net::garmin::pull::CURSOR)
+    }
+
+    fn garmin_backfill_done(conn: &Connection) -> bool {
+        crate::persistence::settings::setting_from(conn, crate::net::garmin::pull::BACKFILL_DONE)
+            .ok()
+            .flatten()
+            .is_some()
+    }
+
+    /// The Garmin rows stored, and those with a track.
+    fn garmin_library_coverage(conn: &Connection) -> LibraryCoverage {
+        let prefix = crate::persistence::origin::GARMIN_KEY_PREFIX;
+        let counted = conn.query_row(
+            "SELECT COUNT(*),
+                    COUNT(*) FILTER (WHERE EXISTS (
+                        SELECT 1 FROM gps_tracks t WHERE t.activity_id = b.activity_id))
+             FROM activity_bodies b
+             WHERE substr(b.activity_id, 1, ?1) = ?2",
+            params![prefix.len() as i64, prefix],
+            |row| Ok((row.get::<_, u32>(0)?, row.get::<_, u32>(1)?)),
+        );
+        match counted {
+            Ok((rows, tracks)) => LibraryCoverage {
+                upstream: rows,
+                fetched: rows,
+                tracks_upstream: tracks,
+                tracks_stored: tracks,
+            },
+            Err(e) => {
+                log::warn!("veloqrs: [garmin] library coverage read failed: {}", e);
+                LibraryCoverage::default()
+            }
+        }
+    }
+
+    /// A range of a Garmin library is judged only where the backfill has
+    /// listed: from its cursor on, or anywhere once it has passed the oldest
+    /// ride. Before that the range is owed, whatever is stored in it.
+    fn garmin_range_coverage(conn: &Connection, oldest: &str, newest: &str) -> RangeCoverage {
+        let Ok(from) = chrono::NaiveDate::parse_from_str(oldest, "%Y-%m-%d") else {
+            return RangeCoverage::NotFetched;
+        };
+        let reached = garmin_backfill_done(conn)
+            || garmin_backfill_reached(conn).is_some_and(|cursor| from >= cursor);
+        if !reached {
+            return RangeCoverage::NotFetched;
+        }
+        let prefix = crate::persistence::origin::GARMIN_KEY_PREFIX;
+        let inside: SqlResult<i64> = conn.query_row(
+            "SELECT COUNT(*) FROM activity_bodies b
+             WHERE substr(b.activity_id, 1, ?1) = ?2
+               AND date(b.date, 'unixepoch') BETWEEN date(?3) AND date(?4)",
+            params![prefix.len() as i64, prefix, oldest, newest],
+            |row| row.get(0),
+        );
+        match inside {
+            Ok(0) => RangeCoverage::Empty,
+            Ok(_) => RangeCoverage::Loaded,
+            Err(e) => {
+                log::warn!("veloqrs: [garmin] range coverage read failed: {}", e);
+                RangeCoverage::NotFetched
+            }
+        }
+    }
+
     pub(crate) fn range_coverage(
         conn: &Connection,
         athlete_id: &str,
         oldest: &str,
         newest: &str,
     ) -> RangeCoverage {
+        if is_garmin_library(athlete_id) {
+            return garmin_range_coverage(conn, oldest, newest);
+        }
         if athlete_id.is_empty() {
             return RangeCoverage::NotFetched;
         }
@@ -1012,6 +1112,12 @@ pub(crate) mod pooled {
     ) -> String {
         let default =
             (today - chrono::Duration::days(crate::objects::sync::ACTIVITY_DAYS)).to_string();
+        if is_garmin_library(athlete_id) {
+            return match garmin_backfill_reached(conn) {
+                Some(reached) if reached.to_string() < default => reached.to_string(),
+                _ => default,
+            };
+        }
         if athlete_id.is_empty() {
             return default;
         }
@@ -1045,6 +1151,9 @@ pub(crate) mod pooled {
     }
 
     pub(crate) fn library_coverage(conn: &Connection, athlete_id: &str) -> LibraryCoverage {
+        if is_garmin_library(athlete_id) {
+            return garmin_library_coverage(conn);
+        }
         if athlete_id.is_empty() {
             return LibraryCoverage::default();
         }
@@ -2738,6 +2847,8 @@ impl PersistentEngine {
              DELETE FROM activity_curves;
              DELETE FROM calendar_event_bodies;
              DELETE FROM exercise_sets;
+             DELETE FROM exercise_usage;
+             DELETE FROM exercise_followers;
              DELETE FROM swim_lengths;
              DELETE FROM pool_swims;
              DELETE FROM fit_file_status;
@@ -2761,7 +2872,12 @@ impl PersistentEngine {
              DELETE FROM retired_ground_lines;
              DELETE FROM retired_ground_pairs;
              DELETE FROM route_group_sizes;
-             DELETE FROM linked_devices;",
+             DELETE FROM linked_devices;
+             DELETE FROM strength_session_rests;
+             DELETE FROM strength_session_groups;
+             DELETE FROM strength_session_sets;
+             DELETE FROM strength_session_exercises;
+             DELETE FROM strength_sessions;",
         )?;
 
         // Settings survive `clear()` on purpose, but detector, owner and record
@@ -2782,6 +2898,7 @@ impl PersistentEngine {
             super::cutover::CUTOVER_ARCHIVE_KEY,
             super::settings_keys::SECTION_CONFIG_JSON,
             super::settings_keys::ATHLETE_ID,
+            super::settings_keys::GARMIN_LIBRARY_ID,
             super::settings_keys::SECTION_PROXIMITY_THRESHOLD,
             super::settings_keys::SECTION_MIN_LENGTH,
             super::settings_keys::SECTION_MIN_ACTIVITIES,

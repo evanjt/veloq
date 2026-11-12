@@ -32,6 +32,7 @@ import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { useMapStyleToggle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { useLocateUser } from '@/features/maps/hooks/useLocateUser';
 import { useTerrainFallback } from '@/features/maps/hooks/useTerrainFallback';
+import { useSharedTerrain3D } from '@/features/maps/hooks/useHostTerrain3D';
 import {
   USER_LOCATION_SOURCE_ID,
   buildUserLocationCollection,
@@ -132,7 +133,7 @@ export function BaseMapView({
     next: nextStyle,
     cycle: toggleStyle,
   } = useMapStyleToggle(chosenStyle, setChosenStyle);
-  const [is3DMode, setIs3DMode] = useState(false);
+  const { is3D: is3DMode, setIs3D: setIs3DMode } = useSharedTerrain3D(false);
   const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(() => setIs3DMode(false));
   const [currentCenter, setCurrentCenter] = useState<LngLat | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
@@ -163,7 +164,7 @@ export function BaseMapView({
 
   const toggle3D = useCallback(() => {
     setIs3DMode((current) => !current);
-  }, []);
+  }, [setIs3DMode]);
 
   const resetOrientation = useCallback(() => {
     surfaceRef.current?.resetOrientation();

@@ -413,6 +413,11 @@ fn sample_params(method: &str) -> &'static str {
         | "activity.sections"
         | "activity.exerciseSets" => r#"{"id":"i1"}"#,
         "activity.streams" => r#"{"id":"i1","types":["time","watts"]}"#,
+        "insights.data" => {
+            r#"{"currentStart":0,"currentEnd":1737050000,"prevStart":0,"prevEnd":0,"chronicStart":0,"todayStart":1737000000,"includeSections":true,"rankedLimit":50,"historyLimit":20,"activeWindowDays":90,"efficiencyPerSport":5,"efficiencyMinHrChangeBpm":1,"efficiencyLimit":2,"efficiencyMinEfforts":1,"efficiencyDecliningMinEfforts":3,"strengthMonth":{"startTs":1734630000,"endTs":1737050000},"strengthWeeks":[],"wellnessOldest":"2025-01-01","wellnessNewest":"2025-01-31","hrvWindowDays":7,"sectionChangeWindowDays":14,"staleThresholdDays":30,"staleMinGainPercent":3.0,"staleMaxOpportunities":3,"staleMinTraversals":1,"recentPrWindowDays":7,"recentPrMinOutings":3}"#
+        }
+        "insights.plannedEvents" => r#"{"oldestTs":0,"newestTs":86400}"#,
+        "insights.workoutSections" => r#"{"sportType":"Ride","limit":5}"#,
         "settings.get" => r#"{"keys":["veloq-unit-preference"]}"#,
         "settings.profile"
         | "status.backgroundJobs"
@@ -422,6 +427,11 @@ fn sample_params(method: &str) -> &'static str {
         | "status.coverage"
         | "status.sync" => "{}",
         "section.rename" => r#"{"id":"s_a","name":"Col"}"#,
+        "map.screen" => {
+            r#"{"startDate":0,"endDate":2000000000,"sportTypes":["Ride"],"distanceBand":"all"}"#
+        }
+        "geo.routeLines" | "geo.sections" | "heatmap.progress" => "{}",
+        "heatmap.tile" => r#"{"z":3,"x":1,"y":2,"base":"dark"}"#,
         "fitness.screen" => {
             r#"{"spanDays":[42],"windows":{"heatmapFirstDay":"2025-01-01","heatmapLastDay":"2025-12-31","months":{"startTs":0,"endTs":86400},"yearCurrent":{"startTs":0,"endTs":86400},"yearPrevious":{"startTs":0,"endTs":86400},"monthCurrent":{"startTs":0,"endTs":86400},"monthPrevious":{"startTs":0,"endTs":86400},"nowWallSeconds":86400}}"#
         }
@@ -468,10 +478,10 @@ fn hello_names_the_protocol_the_app_and_every_method() {
 
 #[test]
 fn hello_carries_the_phones_name_only_when_it_has_one() {
-    let named = serde_json::to_value(hello_answer("  Pixel 8 ")).expect("json");
+    let named = serde_json::to_value(hello_answer("  Pixel 8 ", PROTOCOL_VERSION)).expect("json");
     assert_eq!(named["device"], "Pixel 8");
     for blank in ["", "   "] {
-        let unnamed = serde_json::to_value(hello_answer(blank)).expect("json");
+        let unnamed = serde_json::to_value(hello_answer(blank, PROTOCOL_VERSION)).expect("json");
         assert!(unnamed.get("device").is_none(), "{unnamed}");
     }
 }
@@ -484,6 +494,82 @@ fn hello_answers_a_page_on_another_protocol_with_the_phones_own() {
         r#"{"id":1,"method":"link.hello","params":{"protocol":4,"page":"newer page"}}"#,
     );
     assert_eq!(got["result"]["protocol"], PROTOCOL_VERSION);
+}
+
+#[test]
+fn hello_from_a_page_that_speaks_a_range_answers_the_highest_common_version() {
+    let engine = engine_with_rides();
+    let got = reply(
+        &engine,
+        r#"{"id":1,"method":"link.hello","params":{"protocol":3,"minProtocol":2,"page":"p"}}"#,
+    );
+    assert_eq!(got["result"]["protocol"], 3);
+    assert_eq!(got["result"]["minProtocol"], MIN_PROTOCOL_VERSION);
+    assert_eq!(got["result"]["maxProtocol"], PROTOCOL_VERSION);
+}
+
+#[test]
+fn hello_from_a_page_built_for_the_previous_version_alone_answers_that_version() {
+    let engine = engine_with_rides();
+    let got = reply(
+        &engine,
+        r#"{"id":1,"method":"link.hello","params":{"protocol":2,"page":"older page"}}"#,
+    );
+    assert_eq!(got["result"]["protocol"], 2);
+    let listed = got["result"]["methods"].as_array().expect("a method list");
+    assert_eq!(listed.len(), METHODS.len());
+}
+
+#[test]
+fn hello_from_a_page_below_the_range_answers_the_phones_own_range() {
+    let engine = engine_with_rides();
+    let got = reply(
+        &engine,
+        r#"{"id":1,"method":"link.hello","params":{"protocol":1,"page":"ancient page"}}"#,
+    );
+    assert_eq!(got["result"]["protocol"], PROTOCOL_VERSION);
+    assert_eq!(got["result"]["minProtocol"], MIN_PROTOCOL_VERSION);
+}
+
+#[test]
+fn the_highest_version_both_sides_speak_is_chosen() {
+    assert_eq!(negotiate(2, 3), Some(3));
+    assert_eq!(negotiate(3, 3), Some(3));
+    assert_eq!(negotiate(2, 2), Some(2));
+    assert_eq!(negotiate(1, 9), Some(PROTOCOL_VERSION));
+    assert_eq!(negotiate(PROTOCOL_VERSION + 1, PROTOCOL_VERSION + 2), None);
+    assert_eq!(negotiate(0, MIN_PROTOCOL_VERSION - 1), None);
+    assert_eq!(negotiate(3, 2), None, "an empty range matches nothing");
+}
+
+#[test]
+fn a_request_with_no_protocol_is_answered_in_the_oldest_format() {
+    assert_eq!(
+        wire_of(r#"{"id":1,"method":"feed.page"}"#),
+        MIN_PROTOCOL_VERSION
+    );
+    assert_eq!(wire_of("not json"), MIN_PROTOCOL_VERSION);
+    assert_eq!(wire_of(r#"{"id":1,"protocol":3}"#), 3);
+    assert_eq!(wire_of(r#"{"id":1,"protocol":2}"#), 2);
+    assert_eq!(wire_of(r#"{"id":1,"protocol":99}"#), PROTOCOL_VERSION);
+    assert_eq!(wire_of(r#"{"id":1,"protocol":0}"#), MIN_PROTOCOL_VERSION);
+}
+
+#[test]
+fn the_previous_version_gets_each_reply_as_one_text_message() {
+    let reply = format!(r#"{{"id":4,"result":"{}"}}"#, "x".repeat(3 * FRAME_BYTES));
+    let sent = messages(&reply, 2);
+    assert_eq!(sent.len(), 1);
+    assert!(!sent[0].binary, "the previous format is text");
+    assert_eq!(sent[0].bytes, reply.as_bytes());
+}
+
+#[test]
+fn the_current_version_gets_binary_frames() {
+    let sent = messages(r#"{"id":4,"result":1}"#, PROTOCOL_VERSION);
+    assert_eq!(sent.len(), 1);
+    assert!(sent[0].binary);
+    assert_eq!(sent[0].bytes[0], FRAME_VERSION);
 }
 
 #[test]
@@ -742,6 +828,94 @@ fn highlights_for_more_ids_than_a_page_are_cut_to_a_page() {
 }
 
 #[test]
+fn the_routes_screen_answers_the_routes_read_for_the_same_query() {
+    let engine = engine_with_a_section();
+    let got = reply(
+        &engine,
+        r#"{"id":3,"method":"routes.screen","params":{"sectionSort":"name","sectionSearch":"climb","sectionLimit":1,"sectionFilters":{"hideCustom":false,"hideAuto":false,"hideDisabled":false,"hideUnaccepted":false}}}"#,
+    );
+    let query = crate::FfiRoutesScreenQuery {
+        section_sort: crate::FfiSectionSort::Name,
+        section_search: "climb".into(),
+        section_limit: 1,
+        ..Default::default()
+    };
+    let read = crate::persistence::pooled_routes_screen_data(&engine.db, query);
+    assert_eq!(got["result"], serde_json::to_value(&read).unwrap());
+    assert_eq!(got["result"]["sections"].as_array().unwrap().len(), 1);
+    assert!(got["result"]["filteredSectionCount"].as_u64().unwrap() >= 2);
+}
+
+#[test]
+fn an_empty_routes_ask_reads_the_screens_defaults() {
+    let engine = engine_with_a_section();
+    let got = reply(&engine, r#"{"id":3,"method":"routes.screen","params":{}}"#);
+    let read = crate::persistence::pooled_routes_screen_data(&engine.db, Default::default());
+    assert_eq!(got["result"], serde_json::to_value(&read).unwrap());
+}
+
+#[test]
+fn a_section_detail_is_the_section_detail_read_with_its_history_and_versions() {
+    let engine = engine_with_a_section();
+    let got = reply(
+        &engine,
+        r#"{"id":4,"method":"section.detail","params":{"id":"s_a"}}"#,
+    );
+    let read = crate::persistence::screens::pooled::section_detail_data(&engine.db, "s_a");
+    assert_eq!(got["result"], serde_json::to_value(&read).unwrap());
+    assert!(got["result"].get("history").is_some());
+    assert!(got["result"].get("geometryVersions").is_some());
+}
+
+#[test]
+fn a_route_detail_is_the_route_detail_read() {
+    let engine = engine_with_a_route_and_a_section();
+    let got = reply(
+        &engine,
+        r#"{"id":5,"method":"route.detail","params":{"id":"g1"}}"#,
+    );
+    let read = crate::persistence::screens::pooled::route_detail_data(&engine.db, "g1");
+    assert_eq!(got["result"], serde_json::to_value(&read).unwrap());
+}
+
+/// `scripts/generate-link-schema.mjs` writes these enums by hand, as serde
+/// writes them; this is the other half of that pin.
+#[test]
+fn the_empty_reasons_are_written_as_the_page_schema_says() {
+    use crate::{FfiCatalogueEmptyReason as Reason, FfiDetectionHold as Hold};
+    let json = |reason: &Reason| serde_json::to_value(reason).unwrap();
+    assert_eq!(json(&Reason::NoGpsActivities), "noGpsActivities");
+    assert_eq!(
+        json(&Reason::NotYetRun { awaiting: 3 }),
+        serde_json::json!({ "notYetRun": { "awaiting": 3 } })
+    );
+    assert_eq!(
+        json(&Reason::Running {
+            phase: "analyzing".into(),
+            percent: 40
+        }),
+        serde_json::json!({ "running": { "phase": "analyzing", "percent": 40 } })
+    );
+    assert_eq!(
+        json(&Reason::NoneFound { min_activities: 2 }),
+        serde_json::json!({ "noneFound": { "minActivities": 2 } })
+    );
+    assert_eq!(
+        json(&Reason::Held {
+            hold: Hold::ElevationWaiting { remaining: 4 }
+        }),
+        serde_json::json!({ "held": { "hold": { "elevationWaiting": { "remaining": 4 } } } })
+    );
+    for (hold, name) in [
+        (Hold::ElevationPaused, "elevationPaused"),
+        (Hold::ElevationRunning, "elevationRunning"),
+        (Hold::Cutover, "cutover"),
+    ] {
+        assert_eq!(serde_json::to_value(&hold).unwrap(), name);
+    }
+}
+
+#[test]
 fn a_message_is_a_cancel_an_ask_or_nothing_to_answer() {
     assert_eq!(
         incoming(r#"{"method":"cancel","params":{"id":7}}"#),
@@ -899,6 +1073,39 @@ fn best_efforts_carry_the_power_the_stored_curve_holds() {
     assert_eq!(got["sports"][0]["sport"], "Ride");
     assert_eq!(got["sports"][0]["fetched"], true);
     assert!(!got["sports"][0]["efforts"].as_array().unwrap().is_empty());
+}
+
+const INSIGHTS_ASK: &str = r#"{"currentStart":0,"currentEnd":1737050000,"prevStart":0,"prevEnd":0,"chronicStart":0,"todayStart":1737000000,"includeSections":false,"rankedLimit":50,"historyLimit":20,"activeWindowDays":28,"efficiencyPerSport":5,"efficiencyMinHrChangeBpm":1,"efficiencyLimit":2,"efficiencyMinEfforts":3,"efficiencyDecliningMinEfforts":5,"strengthMonth":{"startTs":1734600000,"endTs":1737050000},"strengthWeeks":[{"startTs":1736400000,"endTs":1737050000}],"wellnessOldest":"2025-01-01","wellnessNewest":"2025-12-31","hrvWindowDays":7,"sectionChangeWindowDays":14,"staleThresholdDays":30,"staleMinGainPercent":3.0,"staleMaxOpportunities":3,"staleMinTraversals":2,"recentPrWindowDays":14,"recentPrMinOutings":3}"#;
+
+/// Scenario: the page asks for the insights read with the phone's parameters,
+/// the week bounds left for the engine to fill.
+///
+/// Expected behaviour: the answer is the insights read itself over those
+/// parameters once the engine has set the week bounds.
+#[test]
+fn the_insights_data_over_a_fitness_library_is_the_insights_read() {
+    let engine = engine_with_fitness();
+    let got = result_of(&engine, "insights.data", INSIGHTS_ASK);
+    let ask: crate::FfiInsightsParams = serde_json::from_str(INSIGHTS_ASK).unwrap();
+    let ask = crate::objects::fitness::with_week_bounds(ask);
+    let read = crate::persistence::screens::pooled::insights_data(&engine.db, &ask);
+    assert_eq!(got, wire(&read));
+    assert_eq!(got["weeklyTotals"].as_array().unwrap().len(), 5);
+}
+
+#[test]
+fn an_insights_ask_missing_a_parameter_is_bad_params() {
+    let engine = engine_with_fitness();
+    let got = reply(
+        &engine,
+        r#"{"id":1,"method":"insights.data","params":{"currentEnd":1737050000}}"#,
+    );
+    assert!(
+        got["error"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("bad params")
+    );
 }
 
 #[test]
@@ -1505,6 +1712,299 @@ fn the_exercise_sets_are_the_session_the_phone_reads() {
     assert_eq!(none["activeSetCount"], 0);
 }
 
+fn engine_with_a_mapped_ride() -> PersistentEngine {
+    let mut engine = engine_with_rides();
+    engine
+        .upsert_activity_bodies(&[(
+            "out".into(),
+            1_737_050_000,
+            r#"{"id":"out","type":"Ride","name":"Lake loop","distance":42000,"stream_types":["latlng","time"]}"#
+                .into(),
+        )])
+        .expect("bodies");
+    engine
+}
+
+/// Scenario: a range and a sport asked of the map over the link.
+///
+/// Expected behaviour: the activities, counts and unmapped figures are the
+/// ones the engine's own map read answers for the same parameters, with no
+/// layer in them.
+#[test]
+fn the_map_screen_is_the_map_read_without_its_layers() {
+    let engine = engine_with_a_mapped_ride();
+    let got = reply(
+        &engine,
+        r#"{"id":3,"method":"map.screen","params":{"startDate":0,"endDate":2000000000,"sportTypes":["Ride"],"distanceBand":"all","isMetric":true,"nameNeedle":""}}"#,
+    );
+
+    let read = crate::persistence::screens::pooled::map_screen_data(
+        &engine.db,
+        0,
+        2_000_000_000,
+        vec!["Ride".into()],
+        crate::MapDistanceBand::All,
+        true,
+        crate::persistence::screens::pooled::MapLayers::default(),
+        String::new(),
+    );
+    assert_eq!(
+        got["result"]["screen"],
+        serde_json::to_value(&read).unwrap()
+    );
+    assert!(got["result"]["screen"]["routeLines"].is_null());
+    assert!(got["result"]["screen"]["sections"].is_null());
+    assert_eq!(
+        got["result"]["screen"]["activityCount"],
+        read.activity_count
+    );
+}
+
+#[test]
+fn the_map_screen_refuses_a_distance_band_it_does_not_know() {
+    let engine = engine_with_rides();
+    let got = reply(
+        &engine,
+        r#"{"id":3,"method":"map.screen","params":{"startDate":0,"endDate":1,"distanceBand":"marathon"}}"#,
+    );
+    assert!(got["error"].as_str().unwrap().starts_with("bad params"));
+}
+
+fn encoded(points: &[(f64, f64)]) -> Vec<u8> {
+    let points: Vec<crate::GpsPoint> = points
+        .iter()
+        .map(|&(lat, lng)| crate::GpsPoint::new(lat, lng))
+        .collect();
+    crate::persistence::codec::encode_polyline(&points)
+}
+
+fn section(id: &str, name: Option<&str>, points: &[(f64, f64)]) -> crate::FfiMapSection {
+    crate::FfiMapSection {
+        id: id.into(),
+        name: name.map(Into::into),
+        sport_types: vec!["Ride".into()],
+        visit_count: 7,
+        distance_meters: 412.5,
+        klass: None,
+        max_grade_percent: None,
+        encoded_polyline: encoded(points),
+    }
+}
+
+/// Scenario: a section line under two finite points, and a good one.
+///
+/// Expected behaviour: one feature, carrying the id, name, visit count,
+/// length and palette key; the single-point section is left out.
+#[test]
+fn the_section_layer_writes_one_feature_per_section_with_a_line() {
+    let sections = [
+        section("s_a", Some("Col \"1\""), &[(46.2, 7.3), (46.21, 7.31)]),
+        section("s_b", None, &[(46.3, 7.3)]),
+    ];
+
+    let text = crate::basemap::sections_features(sections.iter());
+
+    let layer: Value = serde_json::from_str(&text).expect("GeoJSON");
+    let features = layer["features"].as_array().unwrap();
+    assert_eq!(features.len(), 1);
+    let feature = &features[0];
+    assert_eq!(feature["geometry"]["type"], "LineString");
+    assert_eq!(
+        feature["geometry"]["coordinates"],
+        json!([[7.3, 46.2], [7.31, 46.21]])
+    );
+    assert_eq!(feature["properties"]["id"], "s_a");
+    assert_eq!(feature["properties"]["name"], "Col \"1\"");
+    assert_eq!(feature["properties"]["visitCount"], 7);
+    assert_eq!(feature["properties"]["distanceMeters"], 412.5);
+    assert_eq!(
+        feature["properties"]["palette"],
+        crate::basemap::palette_key("s_a")
+    );
+}
+
+#[test]
+fn the_section_layer_is_empty_without_sections() {
+    let engine = engine_with_rides();
+    let got = reply(&engine, r#"{"id":1,"method":"geo.sections","params":{}}"#);
+    let layer: Value = serde_json::from_str(got["result"]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(layer, json!({"type":"FeatureCollection","features":[]}));
+}
+
+#[test]
+fn the_route_layer_is_the_collection_the_phone_fetches() {
+    let engine = engine_with_rides();
+    let got = reply(&engine, r#"{"id":1,"method":"geo.routeLines","params":{}}"#);
+    assert_eq!(
+        got["result"]["text"],
+        crate::basemap::route_lines_collection(&engine.db).unwrap()
+    );
+}
+
+/// Scenario: a tile the pass drew, one with no heat, and tiles outside the
+/// heatmap's zooms or off the world.
+///
+/// Expected behaviour: the drawn tile is the bytes the phone's tile source
+/// serves over that base; a tile with no heat is null; z0, z18, an unknown
+/// base and a column off the world are errors.
+#[test]
+fn a_heatmap_tile_is_the_tile_the_phone_serves() {
+    let _serial = crate::test_globals::serial_global_state();
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let drawn_png = crate::tiles::encode_indexed_png(&vec![1u8; 512 * 512]);
+    let column = tmp.path().join("3").join("1");
+    std::fs::create_dir_all(&column).expect("column");
+    std::fs::write(column.join("2.png"), drawn_png).expect("tile");
+    crate::persistence::tiles::serve_heatmap_dir_for_test(Some(tmp.path()));
+    let engine = engine_with_rides();
+    let ask = |z: u32, x: u32, y: u32, base: &str| {
+        reply(
+            &engine,
+            &format!(
+                r#"{{"id":1,"method":"heatmap.tile","params":{{"z":{z},"x":{x},"y":{y},"base":"{base}"}}}}"#
+            ),
+        )
+    };
+
+    let drawn = ask(3, 1, 2, "dark");
+    let empty = ask(3, 1, 3, "dark");
+    let too_deep = ask(18, 0, 0, "dark");
+    let world = ask(0, 0, 0, "dark");
+    let unknown = ask(3, 1, 2, "sepia");
+    let off = ask(3, 8, 2, "dark");
+    let phone = match crate::basemap::lookup_tile("heatmap-dark", 3, 1, 2) {
+        crate::basemap::TileLookup::Ready(bytes) => bytes,
+        _ => panic!("the phone serves the drawn tile"),
+    };
+    crate::persistence::tiles::serve_heatmap_dir_for_test(None);
+
+    use base64::Engine as _;
+    assert_eq!(
+        base64::engine::general_purpose::STANDARD
+            .decode(drawn["result"]["png"].as_str().unwrap())
+            .unwrap(),
+        phone
+    );
+    assert!(empty["result"]["png"].is_null());
+    for refused in [too_deep, world, unknown, off] {
+        assert!(refused["error"].is_string(), "{refused}");
+    }
+}
+
+fn insights_ask(now: i64) -> crate::FfiInsightsParams {
+    crate::FfiInsightsParams {
+        history_limit: 20,
+        current_start: 0.0,
+        current_end: now as f64,
+        prev_start: 0.0,
+        prev_end: 0.0,
+        chronic_start: 0.0,
+        today_start: (now - 50_000) as f64,
+        include_sections: true,
+        ranked_limit: 50,
+        active_window_days: 90,
+        efficiency_per_sport: 5,
+        efficiency_min_hr_change_bpm: 1,
+        efficiency_limit: 2,
+        efficiency_min_efforts: 1,
+        efficiency_declining_min_efforts: 3,
+        strength_month: crate::FfiTimestampRange {
+            start_ts: (now - 28 * 86_400) as f64,
+            end_ts: now as f64,
+        },
+        strength_weeks: Vec::new(),
+        wellness_oldest: "2025-01-01".into(),
+        wellness_newest: "2025-01-31".into(),
+        hrv_window_days: 7,
+        section_change_window_days: 14,
+        stale_threshold_days: 30,
+        stale_min_gain_percent: 3.0,
+        stale_max_opportunities: 3,
+        stale_min_traversals: 1,
+        recent_pr_window_days: 7,
+        recent_pr_min_outings: 3,
+    }
+}
+
+/// The two rides with the metrics rows the insights read totals.
+fn engine_with_ride_metrics() -> PersistentEngine {
+    let mut engine = engine_with_rides();
+    let metrics =
+        |id: &str, date: i64, sport: &str, moving_time: u32| crate::types::ActivityMetrics {
+            activity_id: id.into(),
+            name: id.into(),
+            date,
+            distance: 20_000.0,
+            moving_time,
+            elapsed_time: moving_time,
+            elevation_gain: 0.0,
+            avg_hr: None,
+            avg_power: None,
+            sport_type: sport.into(),
+            training_load: Some(50.0),
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
+        };
+    engine
+        .set_activity_metrics(vec![
+            metrics("i1", 1_736_940_000, "Ride", 3600),
+            metrics("i2", 1_737_040_000, "Run", 1800),
+        ])
+        .expect("metrics");
+    engine
+}
+
+#[test]
+fn the_insights_read_is_the_insights_screen_read_itself() {
+    let engine = engine_with_ride_metrics();
+    let ask = insights_ask(1_737_050_000);
+    let request = json!({"id": 11, "method": "insights.data", "params": ask}).to_string();
+    let got = reply(&engine, &request);
+
+    let params = crate::objects::fitness::with_week_bounds(ask);
+    let read = crate::persistence::screens::pooled::insights_data(&engine.db, &params);
+    assert_eq!(got["id"], 11);
+    assert_eq!(got["result"], serde_json::to_value(&read).unwrap());
+    // The week the bounds put 1_737_050_000 in holds both rides.
+    assert_eq!(got["result"]["currentWeek"]["count"], 2);
+    assert_eq!(got["result"]["currentWeek"]["totalDuration"], 5400.0);
+}
+
+#[test]
+fn the_insights_read_derives_its_week_windows_from_the_clock_it_is_given() {
+    let engine = engine_with_ride_metrics();
+    // The ask carries zeros for every window, as the phone's does: a page that
+    // sent its own would otherwise get a different week from the phone.
+    let mut ask = insights_ask(1_737_050_000);
+    ask.current_start = 5.0;
+    ask.chronic_start = 7.0;
+    let request = json!({"id": 12, "method": "insights.data", "params": ask}).to_string();
+    let got = reply(&engine, &request);
+    assert_eq!(got["result"]["currentWeek"]["count"], 2);
+}
+
+#[test]
+fn the_planned_events_and_workout_sections_are_the_phones_reads() {
+    let engine = engine_with_rides();
+    let got = reply(
+        &engine,
+        r#"{"id":13,"method":"insights.plannedEvents","params":{"oldestTs":0,"newestTs":2000000000}}"#,
+    );
+    let events = crate::persistence::calendar::pooled::planned_events(&engine.db, 0, 2_000_000_000)
+        .expect("events");
+    assert_eq!(
+        got["result"],
+        json!({ "events": serde_json::to_value(&events).unwrap() })
+    );
+
+    let got = reply(
+        &engine,
+        r#"{"id":14,"method":"insights.workoutSections","params":{"sportType":"Ride","limit":5}}"#,
+    );
+    assert_eq!(got["result"], json!({ "sections": [] }));
+}
+
 /// Two rides on one route and one section they both traverse, with a ledger
 /// row that names a ride and a retired section.
 fn engine_with_a_route_and_a_section() -> PersistentEngine {
@@ -1776,6 +2276,16 @@ fn an_unknown_route_or_section_is_an_error_naming_it() {
         let error = error_of(&engine, method, params);
         assert!(error.contains(named), "{method} answered {error}");
     }
+}
+
+#[test]
+fn heatmap_progress_is_zero_while_no_pass_runs() {
+    let engine = engine_with_rides();
+    let got = reply(
+        &engine,
+        r#"{"id":1,"method":"heatmap.progress","params":{}}"#,
+    );
+    assert_eq!(got["result"], json!({"processed":0,"total":0}));
 }
 
 #[test]

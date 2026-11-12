@@ -15,10 +15,17 @@
 import zlib from 'zlib';
 
 import { createClient, type Channel } from '../../../web/connect/client';
-import { UnreadableReply, isSuperseded } from '../../../web/connect/link';
+import {
+  PAGE_MIN_PROTOCOL,
+  PAGE_PROTOCOL,
+  UnreadableReply,
+  isSuperseded,
+  step,
+  type State,
+} from '../../../web/connect/link';
 
 function channelOf(readyState: Channel['readyState'] = 'open') {
-  const sent: { id: number; method: string; params: object }[] = [];
+  const sent: { id: number; method: string; params: object; protocol?: number }[] = [];
   const channel: Channel = {
     readyState,
     binaryType: 'blob',
@@ -93,7 +100,6 @@ describe('connect page protocol client', () => {
   });
 
   it.each([
-    ['a reply in the previous text format', JSON.stringify({ id: 1, result: { protocol: 2 } })],
     ['a message too short to be a frame', new Uint8Array(4)],
     [
       'a frame of another version',
@@ -262,10 +268,10 @@ describe('connect page protocol client', () => {
     const other = client.ask('activity.summary', { id: 'b1' }, 'feed');
     const second = client.ask('activity.summary', { id: 'a2' }, 'detail');
     expect(sent).toEqual([
-      { id: 1, method: 'activity.summary', params: { id: 'a1' } },
-      { id: 2, method: 'activity.summary', params: { id: 'b1' } },
+      { id: 1, method: 'activity.summary', params: { id: 'a1' }, protocol: PAGE_PROTOCOL },
+      { id: 2, method: 'activity.summary', params: { id: 'b1' }, protocol: PAGE_PROTOCOL },
       { method: 'cancel', params: { id: 1 } },
-      { id: 3, method: 'activity.summary', params: { id: 'a2' } },
+      { id: 3, method: 'activity.summary', params: { id: 'a2' }, protocol: PAGE_PROTOCOL },
     ]);
     expect(isSuperseded(await first)).toBe(true);
     await client.settle(reply({ id: 1, result: { movingTime: 1 } }));
@@ -301,5 +307,93 @@ describe('connect page protocol client', () => {
     client.hangUp();
     await client.settle(frame(0, 0, LAST, text({ event: 'farewell', reason: 'removed' })));
     expect(farewell).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('connect page against a phone on each supported version', () => {
+  /** The reply `text` as this version's message: one text message, or one last frame. */
+  function wire(version: number, body: object): string | Uint8Array {
+    return version >= 3 ? reply(body as { id: number }) : JSON.stringify(body);
+  }
+
+  /** A phone that speaks `version` alone, as its app did when it shipped. */
+  function phone(version: number) {
+    const { channel, sent } = channelOf();
+    const respond = (request: { id: number; method: string }) => {
+      const result =
+        request.method === 'link.hello'
+          ? {
+              protocol: version,
+              app: '0.4.0',
+              methods: ['link.hello', 'feed.page'],
+            }
+          : { cards: [{ id: 'i1' }], matchedCount: 1, hasMore: false };
+      return wire(version, { id: request.id, result });
+    };
+    return { channel, sent, respond };
+  }
+
+  it.each([PAGE_MIN_PROTOCOL, PAGE_PROTOCOL])(
+    "connects to a phone on version %i and loads the feed through that version's decoder",
+    async (version) => {
+      const { channel, sent, respond } = phone(version);
+      const client = createClient(channel);
+
+      const hello = client.ask('link.hello', {
+        protocol: PAGE_PROTOCOL,
+        minProtocol: PAGE_MIN_PROTOCOL,
+        page: 'test',
+      });
+      await client.settle(respond(sent[0]));
+      const answer = await hello;
+
+      let state: State = {
+        name: 'connected',
+        phone: 'p',
+        attempt: 0,
+        methods: null,
+        version: null,
+      };
+      const next = step(state, {
+        type: 'hello',
+        protocol: answer.protocol,
+        methods: answer.methods,
+      });
+      state = next.state;
+      expect(state).toMatchObject({ name: 'connected', version });
+      for (const effect of next.effects) {
+        if (effect.do === 'speak') client.speak(effect.version);
+      }
+
+      const page = client.ask('feed.page', {
+        offset: 0,
+        limit: 50,
+        needle: '',
+        sportFamilies: [],
+        oldestTs: null,
+        newestTs: null,
+      });
+      expect(sent[1].protocol).toBe(version);
+      await client.settle(respond(sent[1]));
+      await expect(page).resolves.toMatchObject({ cards: [{ id: 'i1' }] });
+    }
+  );
+
+  it('names the newest version in every request until a version is agreed', () => {
+    const { channel, sent } = channelOf();
+    const client = createClient(channel);
+    void client.askPairing('pair.status').catch(() => {});
+    expect(sent[0].protocol).toBe(PAGE_PROTOCOL);
+  });
+
+  it('reports another protocol for a text reply to a page that agreed on the framed version', async () => {
+    const { channel } = channelOf();
+    const unreadable = jest.fn();
+    const client = createClient(channel, unreadable);
+    client.speak(3);
+    const pending = client.askPairing('pair.status').catch((error: unknown) => error);
+    await client.settle(JSON.stringify({ id: 1, result: 'waiting' }));
+    expect(await pending).toBeInstanceOf(UnreadableReply);
+    expect(unreadable).toHaveBeenCalled();
   });
 });

@@ -137,5 +137,21 @@ describe('a Garmin library at launch', () => {
 
   it('is still confirmed before an intervals.icu library gives way to a Garmin key', () => {
     expect(accountChangeAction('i77', 'garmin:8841', 400)).toBe('confirm-then-wipe');
+    expect(accountChangeAction('i77', 'garmin:8841', 400, null)).toBe('confirm-then-wipe');
+  });
+
+  it('is kept, never confirmed or wiped, when the account that signs in is the one it was adopted from', () => {
+    expect(accountChangeAction('i77', 'garmin:8841', 400, 'garmin:8841')).toBe('keep');
+    expect(launchIdentityAction('i77', 'garmin:8841', 400, 'garmin:8841')).toBe('adopt');
+  });
+
+  it('is still confirmed for another Garmin account than the one it was adopted from', () => {
+    expect(accountChangeAction('i77', 'garmin:9000', 400, 'garmin:8841')).toBe('confirm-then-wipe');
+    expect(launchIdentityAction('i77', 'garmin:9000', 400, 'garmin:8841')).toBe('ask-first');
+  });
+
+  it('is not returned to from demo mode or by an intervals.icu sign-in', () => {
+    expect(accountChangeAction('demo', 'garmin:8841', 400, 'garmin:8841')).toBe('wipe');
+    expect(accountChangeAction('i77', 'i88', 400, 'garmin:8841')).toBe('confirm-then-wipe');
   });
 });

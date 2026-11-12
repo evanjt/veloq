@@ -15,24 +15,28 @@ export const SECTION_CREATION_MARKER_RADIUS = 11;
 export const SECTION_CREATION_MARKER_STROKE_WIDTH = 2;
 
 /** The range being picked is a selection, so it is ink; the activity map draws it with no casing. */
-export function sectionCreationLinePaint(palette: MapPalette) {
+export function sectionCreationLinePaint(palette: MapPalette, scale = 1) {
   return {
     'line-color': palette.ink,
-    'line-width': SECTION_CREATION_LINE_WIDTH,
+    'line-width': SECTION_CREATION_LINE_WIDTH * scale,
   } as const;
 }
 
 /** `positionProperty` is the feature property that holds `start` or `end`. */
-export function sectionCreationMarkerPaint(positionProperty: string, palette: MapPalette) {
+export function sectionCreationMarkerPaint(
+  positionProperty: string,
+  palette: MapPalette,
+  scale = 1
+) {
   return {
-    'circle-radius': SECTION_CREATION_MARKER_RADIUS,
+    'circle-radius': SECTION_CREATION_MARKER_RADIUS * scale,
     'circle-color': [
       'case',
       ['==', ['get', positionProperty], 'start'],
       palette.start,
       palette.ink,
     ],
-    'circle-stroke-width': SECTION_CREATION_MARKER_STROKE_WIDTH,
+    'circle-stroke-width': SECTION_CREATION_MARKER_STROKE_WIDTH * scale,
     'circle-stroke-color': palette.casing,
   } as const;
 }

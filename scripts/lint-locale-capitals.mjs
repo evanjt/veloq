@@ -52,6 +52,10 @@ const ACRONYMS = new Map([
   ['DAP', 'grade-adjusted pace, in French'],
   ['VTT', 'mountain bike, in French'],
   ['BTT', 'mountain bike, in Portuguese'],
+  ['TRX', 'suspension training, as the gym names it in every language'],
+  ['GHD', 'glute-ham developer, a back extension station'],
+  ['RDL', 'Romanian deadlift'],
+  ['KBS', "the profile's prefix for kettlebell exercises"],
 ]);
 
 function flatten(value, prefix = '', out = new Map()) {

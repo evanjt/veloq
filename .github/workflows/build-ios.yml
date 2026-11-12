@@ -83,6 +83,10 @@ jobs:
       # Expo configuration is read again by the Xcode bundling phase and by
       # fastlane, so the identity holds for every step rather than for prebuild.
       APP_VARIANT: ${{ inputs.variant }}
+      # The one Xcode every step builds with, never the runner's default. The
+      # macos-26 image carries Xcode 26.x and not 27.1, so the pin stays on 26.2
+      # until the image lists 27.1; then this line is the only one to change.
+      XCODE_VERSION: '26.2'
       # A build that cannot ship compiles the faster release-dev profile. The marker
       # lets the Rust builder honour it for the production identity, and is set
       # only when neither input asks for the shipped profile.
@@ -142,7 +146,11 @@ jobs:
         if: steps.app-cache.outputs.cache-hit != 'true'
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
-          xcode-version: '26.2'
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Check Xcode version
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: xcodebuild -version | node scripts/check-xcode-version.mjs "$XCODE_VERSION"
 
       # `apple.ccacheEnabled` in app.json routes every clang call through
       # ccache, so a second build of the same pods is a cache read. The store

@@ -42,6 +42,27 @@ export function adoptsGarminLibrary(cachedAthleteId: string, incomingAthleteId: 
   );
 }
 
+/**
+ * Whether a Garmin sign-in meets the library an intervals.icu sign-in adopted
+ * from that same Garmin account. `garminLibraryId` is the Garmin identity the
+ * engine recorded when the library's name left it. The library stays: the
+ * sign-in names it for the account again and the rows intervals.icu served
+ * keep their numbers. Another Garmin account, demo mode, or a library that
+ * never held a Garmin name is not that.
+ */
+export function returnsToGarminLibrary(
+  cachedAthleteId: string,
+  incomingAthleteId: string,
+  garminLibraryId: string | null | undefined
+): boolean {
+  return (
+    isGarminAthleteId(incomingAthleteId) &&
+    !isGarminAthleteId(cachedAthleteId) &&
+    cachedAthleteId !== DEMO_ATHLETE_ID &&
+    garminLibraryId === incomingAthleteId
+  );
+}
+
 function present(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }

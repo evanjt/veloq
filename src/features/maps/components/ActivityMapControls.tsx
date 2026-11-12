@@ -18,12 +18,15 @@ import {
 
 /** Buttons above the layers button in the column: the style toggle. */
 const CONTROLS_ABOVE_LAYERS = 1;
+const NO_ROWS: MapLayerRow[] = [];
 
 interface ActivityMapControlsProps {
   /** The style a tap of the style toggle draws, which its glyph names. */
   nextStyle: MapStyleType;
   onToggleStyle: () => void;
   hasGradientData: boolean;
+  /** The rows of the layers menu for the heatmap, sections and routes, none when there are none to offer. */
+  contextRows?: MapLayerRow[];
   gradientActive: boolean;
   onToggleGradient: () => void;
   is3DMode: boolean;
@@ -50,6 +53,7 @@ export function ActivityMapControls({
   nextStyle,
   onToggleStyle,
   hasGradientData,
+  contextRows = NO_ROWS,
   gradientActive,
   onToggleGradient,
   is3DMode,
@@ -70,11 +74,18 @@ export function ActivityMapControls({
   const { t } = useTranslation();
   const { top, maxHeight, width } = useMapControlColumn(
     mapHeight,
-    activityMapControlCount({ shown: true, hasGradientData, hasRoute, enableFullscreen })
+    activityMapControlCount({
+      shown: true,
+      hasGradientData,
+      hasContextRows: contextRows.length > 0,
+      hasRoute,
+      enableFullscreen,
+    })
   );
 
-  const layers = useLayersMenu(hasGradientData);
-  const rows: MapLayerRow[] = hasGradientData
+  const hasLayers = hasGradientData || contextRows.length > 0;
+  const layers = useLayersMenu(hasLayers);
+  const gradientRows: MapLayerRow[] = hasGradientData
     ? [
         {
           testID: 'activity-map-layer-gradient',
@@ -91,6 +102,7 @@ export function ActivityMapControls({
         },
       ]
     : [];
+  const rows = [...gradientRows, ...contextRows];
 
   return (
     <>
@@ -108,7 +120,7 @@ export function ActivityMapControls({
         </MapControlButton>
 
         {/* Layers - only shown when there is a layer to toggle */}
-        {hasGradientData ? (
+        {hasLayers ? (
           <MapLayersButton
             testID="activity-map-layers"
             open={layers.open}

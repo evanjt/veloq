@@ -15,7 +15,6 @@ import {
   MAPLIBRE_GL_VERSION,
 } from '@/features/maps/assets/maplibreRenderer.generated';
 import {
-  buildMap3DHtml,
   buildMapSurfaceHtml,
   buildSnapshotWorkerHtml,
   mapLibreHead,
@@ -32,7 +31,6 @@ const pages: [string, string][] = [
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any),
   ],
-  ['3D map', buildMap3DHtml({ initStyle: 'dark', mapStyle: 'dark' } as never)],
   ['snapshot worker', buildSnapshotWorkerHtml(0)],
 ];
 

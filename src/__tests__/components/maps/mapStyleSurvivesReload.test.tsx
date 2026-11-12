@@ -2,7 +2,7 @@
  * Scenario: the basemap is switched, then the page is rebuilt (reclaimer
  * rebuild) or the switch lands before the page first reports ready.
  * Expected behaviour: once the page reports ready it is moved to the style the
- * toggle shows, on both the 2D and the 3D surface.
+ * toggle shows.
  */
 
 import React from 'react';
@@ -10,7 +10,6 @@ import { View } from 'react-native';
 import { render, act } from '@testing-library/react-native';
 
 import { MapSurface } from '@/features/maps/components/MapSurface';
-import { Map3DWebView } from '@/features/maps/components/Map3DWebView';
 import {
   releaseMountedSurfaces,
   rebuildReleasedSurfaces,
@@ -46,8 +45,6 @@ jest.mock('@/shared/app', () => ({
 
 type Style = 'light' | 'satellite';
 
-const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
-
 async function ready(): Promise<void> {
   await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
 }
@@ -64,13 +61,6 @@ const surfaces = {
     ),
     swapsTo: (script: string, style: Style) =>
       script.includes('setStyle') && script.includes(style === 'satellite' ? 'satellite' : 'light'),
-  },
-  '3D': {
-    element: (mapStyle: Style) => (
-      <Map3DWebView coordinates={[]} mapStyle={mapStyle} routesGeoJSON={EMPTY} />
-    ),
-    swapsTo: (script: string, style: Style) =>
-      script.includes('setStyle') && script.includes(`var isSatellite = ${style === 'satellite'};`),
   },
 } as const;
 

@@ -1293,7 +1293,7 @@ pub fn draw_heatmap_tile_on(
 /// Encode a tile of pixel classes as an 8-bit indexed PNG in the
 /// [`STORED_BASE`] palette, one byte a pixel, so serving it to another base
 /// swaps the palette and leaves the pixels alone.
-fn encode_indexed_png(indices: &[u8]) -> Vec<u8> {
+pub(crate) fn encode_indexed_png(indices: &[u8]) -> Vec<u8> {
     let (rgb, alpha) = STORED_BASE.png_chunks();
     let mut png_data = Vec::new();
     let mut encoder = png::Encoder::new(&mut png_data, TILE_SIZE, TILE_SIZE);

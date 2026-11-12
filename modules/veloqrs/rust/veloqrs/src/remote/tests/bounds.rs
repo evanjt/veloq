@@ -45,3 +45,19 @@ fn an_absent_box_is_null_and_every_box_reads_back() {
     let back: Carrier = serde_json::from_value(serde_json::to_value(&held).unwrap()).unwrap();
     assert_eq!(back, held);
 }
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+struct Always {
+    #[serde(with = "crate::remote::bounds")]
+    held: Bounds,
+}
+
+#[test]
+fn a_box_that_is_always_there_is_a_camel_case_record_and_reads_back() {
+    let carrier = Always { held: bounds() };
+    let json = serde_json::to_value(&carrier).unwrap();
+    assert_eq!(json["held"]["minLng"], 7.1);
+    assert!(json["held"].get("min_lng").is_none());
+    let back: Always = serde_json::from_value(json).unwrap();
+    assert_eq!(back, carrier);
+}

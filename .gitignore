@@ -157,3 +157,6 @@ maestro-*-retest.xml
 
 # App Store videos, built by a command from the committed stills.
 config/fastlane/store-assets/**/*.mp4
+
+# Screenshots of the connect page, written by npm run connect:screenshots
+connect-screenshots/

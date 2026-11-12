@@ -4,7 +4,8 @@
  *
  * Expected behaviour: every string a component draws goes through `t(...)`,
  * so the `.tsx` files hold no literal that reads as text, in JSX or in a
- * value handed to one.
+ * value handed to one. The data modules a component reads text from hold
+ * keys of the page's strings, never the words themselves.
  */
 
 import * as fs from 'fs';
@@ -23,6 +24,9 @@ const NOT_TEXT = new Set([
   'ArrowLeft',
   'currentColor',
   'Fi',
+  'SupersededError',
+  'veloq link room',
+  'phone locked',
 ]);
 
 /** A capitalised word, or two words, in a string a component draws. */
@@ -34,13 +38,24 @@ const TECHNICAL = new Set(['className', 'id', 'type', 'role', 'href', 'viewBox',
 const isTranslationCall = (node: ts.Node) =>
   ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 't';
 
-function offences(file: string): string[] {
+/**
+ * A message for the console or a rejected ask: the page names the failure by
+ * its own key when it shows one, so these are diagnostics and not page text.
+ */
+const isDiagnostic = (node: ts.Node) =>
+  ts.isNewExpression(node) ||
+  (ts.isCallExpression(node) &&
+    ts.isPropertyAccessExpression(node.expression) &&
+    node.expression.name.text === 'unreadable') ||
+  (ts.isPropertyAssignment(node) && node.name.getText() === 'error');
+
+function offences(file: string, dataModule = false): string[] {
   const source = ts.createSourceFile(
     file,
     fs.readFileSync(file, 'utf8'),
     ts.ScriptTarget.Latest,
     true,
-    ts.ScriptKind.TSX
+    dataModule ? ts.ScriptKind.TS : ts.ScriptKind.TSX
   );
   const found: string[] = [];
   const report = (node: ts.Node, text: string) => {
@@ -49,6 +64,7 @@ function offences(file: string): string[] {
   };
   const visit = (node: ts.Node): void => {
     if (isTranslationCall(node)) return;
+    if (dataModule && (ts.isLiteralTypeNode(node) || isDiagnostic(node))) return;
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node) || ts.isTypeNode(node)) return;
     if (ts.isJsxText(node)) {
       const text = node.text.trim();
@@ -68,7 +84,7 @@ function offences(file: string): string[] {
       if (
         !NOT_TEXT.has(node.text) &&
         TEXT.test(node.text) &&
-        !ts.isPropertyAssignment(node.parent)
+        (dataModule || !ts.isPropertyAssignment(node.parent))
       ) {
         report(node, node.text);
       }
@@ -86,5 +102,14 @@ describe('connect page literals', () => {
 
   it.each(files)('%s holds no user-facing literal outside t(...)', (name) => {
     expect(offences(path.join(DIR, name))).toEqual([]);
+  });
+});
+
+/** Modules whose strings a component draws, so their words must be keys. */
+const DATA_MODULES = ['settings.ts', 'table.ts', 'compare.ts', 'connection.ts', 'link.ts'];
+
+describe('connect page data modules', () => {
+  it.each(DATA_MODULES)('%s holds no user-facing literal', (name) => {
+    expect(offences(path.join(DIR, name), true)).toEqual([]);
   });
 });

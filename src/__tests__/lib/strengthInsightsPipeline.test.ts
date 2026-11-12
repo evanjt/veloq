@@ -94,7 +94,8 @@ describe('strength insights inside the shared pipeline', () => {
         strengthWeekly: growingWeekly(),
         strengthProgressions: growingProgressions(),
       },
-      t
+      t,
+      generateStrengthInsights
     );
 
     expect(result.some((insight) => insight.category === 'strength_progression')).toBe(true);
@@ -108,7 +109,8 @@ describe('strength insights inside the shared pipeline', () => {
         strengthWeekly: growingWeekly(),
         strengthProgressions: growingProgressions(),
       },
-      t
+      t,
+      generateStrengthInsights
     );
 
     const progressions = result.filter((insight) => insight.category === 'strength_progression');
@@ -123,7 +125,8 @@ describe('strength insights inside the shared pipeline', () => {
         strengthWeekly: growingWeekly(),
         strengthProgressions: growingProgressions(),
       },
-      t
+      t,
+      generateStrengthInsights
     );
 
     expect(result.length).toBeLessThanOrEqual(INSIGHTS_CONFIG.surface.maxTotal);
@@ -147,7 +150,8 @@ describe('strength insights inside the shared pipeline', () => {
   it('yields no strength candidates when there is no strength data', () => {
     const result = generateInsights(
       { ...emptyInput(), strengthMonthly: null, strengthWeekly: [], strengthProgressions: [] },
-      t
+      t,
+      generateStrengthInsights
     );
 
     expect(result).toEqual([]);

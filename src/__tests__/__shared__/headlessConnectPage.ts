@@ -57,8 +57,12 @@ export interface Script {
   methods: string[];
   /** What the phone answers each method with, by method name. */
   results: Record<string, unknown>;
-  /** What the phone answers `heatmap.tile` with, as base64 by `z/x/y`; a tile not listed holds no heat. */
+  /** What the phone answers a method with for one activity, by method name and then activity id, ahead of `results`. */
+  byActivity?: Record<string, Record<string, unknown>>;
+  /** The PNG, as base64, the phone answers `heatmap.tile` with by `z/x/y`; a tile not listed holds no heat. */
   tiles?: Record<string, string>;
+  /** What `heatmap.tile` answers for a tile `tiles` does not list; without it that tile holds no heat. */
+  anyTile?: string;
   /** The name the phone gives itself in its hello, if it gives one. */
   device?: string;
   /** The rows the browser's own `getStats()` report holds for the open connection. */
@@ -72,11 +76,20 @@ export interface ConnectPage {
   evaluate: <T = unknown>(expression: string) => Promise<T>;
   /** Waits until `expression` is truthy in the page, and returns it. */
   until: <T = unknown>(expression: string, limitMs?: number) => Promise<T>;
+  /** The viewport as a PNG. */
+  screenshot: () => Promise<Buffer>;
   close: () => Promise<void>;
 }
 
+/** The window the page is opened in; the default is 1280 by 800 in the light scheme. */
+export interface Viewport {
+  width: number;
+  height: number;
+  scheme?: 'light' | 'dark';
+}
+
 export interface ConnectBrowser {
-  open: (script: Script, languages?: string) => Promise<ConnectPage>;
+  open: (script: Script, languages?: string, viewport?: Viewport) => Promise<ConnectPage>;
   close: () => Promise<void>;
 }
 
@@ -149,7 +162,9 @@ function instrument(script: Script): string {
       else if (ask.method === 'link.hello') result = { protocol: ${PAGE_PROTOCOL}, app: 'test', methods: script.methods, device: script.device };
       else if (ask.method === 'heatmap.tile') {
         var key = ask.params.z + '/' + ask.params.x + '/' + ask.params.y;
-        result = (script.tiles || {})[key] || null;
+        result = { png: (script.tiles || {})[key] || script.anyTile || null };
+      } else if (ask.params && script.byActivity && script.byActivity[ask.method] && script.byActivity[ask.method][ask.params.id] !== undefined) {
+        result = script.byActivity[ask.method][ask.params.id];
       } else result = script.results[ask.method];
       var reply = result === undefined
         ? { id: ask.id, error: 'unknown method ' + ask.method }
@@ -365,7 +380,7 @@ export async function launchConnectBrowser(
   });
 
   return {
-    async open(script, languages) {
+    async open(script, languages, viewport) {
       const { targetId } = await protocol.send('Target.createTarget', { url: 'about:blank' });
       const { sessionId } = (await protocol.send('Target.attachToTarget', {
         targetId,
@@ -381,10 +396,13 @@ export async function launchConnectBrowser(
       await send('Page.enable');
       await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
       await send('Emulation.setDeviceMetricsOverride', {
-        width: 1280,
-        height: 800,
+        width: viewport?.width ?? 1280,
+        height: viewport?.height ?? 800,
         deviceScaleFactor: 1,
         mobile: false,
+      });
+      await send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-color-scheme', value: viewport?.scheme ?? 'light' }],
       });
       if (languages) {
         // The header and navigator.languages both come from the override's acceptLanguage.
@@ -435,6 +453,12 @@ export async function launchConnectBrowser(
             }
             await new Promise((again) => setTimeout(again, 50));
           }
+        },
+        async screenshot() {
+          const shot = (await send('Page.captureScreenshot', { format: 'png' })) as {
+            data: string;
+          };
+          return Buffer.from(shot.data, 'base64');
         },
         async close() {
           pages.delete(sessionId);

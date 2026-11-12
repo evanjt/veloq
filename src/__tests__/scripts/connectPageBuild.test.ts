@@ -13,7 +13,7 @@
  * copy that is not the bytes the app pins is refused.
  */
 
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
   cpSync,
   existsSync,
@@ -135,6 +135,18 @@ describe('connect page build', () => {
     expect(bundled).not.toContain('react-native');
   });
 
+  it("bundles the app's insight generators and formatting without the native modules they reach for", () => {
+    const root = scratch();
+    expect(build(root)).toMatchObject({ status: 0 });
+    const own = files(root).filter((name) => /^(main|boot|chunk)-.*\.js$/.test(name));
+    const bundled = own.map((name) => readFileSync(join(outputOf(root), name), 'utf8')).join('\n');
+    // A key only the generators and the formatting module carry.
+    expect(bundled).toContain('insights.efficiencyTrend.quantity');
+    expect(bundled).toContain('units.hoursMinutes');
+    expect(bundled).not.toContain('react-native');
+    expect(bundled).not.toContain('expo-localization');
+  });
+
   it('refuses a renderer that is not the bytes the app pins', () => {
     const root = scratch();
     const renderer = join(root, RENDERER, 'maplibre-gl-5.19.0.js');
@@ -214,6 +226,120 @@ describe('connect page build', () => {
   });
 });
 
+/** The protocol range the engine renders into the page's schema input. */
+const protocols = () => {
+  const table = JSON.parse(readFileSync(join(ROOT, 'web/connect/methods.json'), 'utf8')) as {
+    protocol: number;
+    minProtocol: number;
+  };
+  return { max: table.protocol, min: table.minProtocol };
+};
+
+const builds = (root: string) =>
+  JSON.parse(readFileSync(join(outputOf(root), 'builds.json'), 'utf8')) as {
+    path: string;
+    min: number;
+    max: number;
+  }[];
+
+describe('connect page versioned builds', () => {
+  it('publishes the current build also at the path of its newest protocol', () => {
+    const root = scratch();
+    expect(build(root)).toMatchObject({ status: 0 });
+    const { max } = protocols();
+    const versioned = join(outputOf(root), `v${max}`);
+
+    const here = references(page(root));
+    const there = references(readFileSync(join(versioned, 'index.html'), 'utf8'));
+    expect(there).toEqual(here);
+    for (const name of [here.script, here.style]) {
+      expect(readFileSync(join(versioned, name))).toEqual(readFileSync(join(outputOf(root), name)));
+    }
+  });
+
+  it('reaches the shared icon from the versioned page, one directory further up', () => {
+    const root = scratch();
+    build(root);
+    const { max } = protocols();
+    const icon = (html: string) => html.match(/<link rel="icon"[^>]*href="([^"]+)"/)?.[1];
+    expect(icon(page(root))).toBe('../icon.png');
+    expect(icon(readFileSync(join(outputOf(root), `v${max}`, 'index.html'), 'utf8'))).toBe(
+      '../../icon.png'
+    );
+  });
+
+  it('lists the current build with the range it speaks, for the page to find an older one', () => {
+    const root = scratch();
+    build(root);
+    const { min, max } = protocols();
+    expect(builds(root)).toEqual([{ path: `v${max}/`, min, max }]);
+  });
+
+  it('leaves no versioned build from an earlier run', () => {
+    const root = scratch();
+    mkdirSync(join(outputOf(root), 'v1'), { recursive: true });
+    writeFileSync(join(outputOf(root), 'v1/index.html'), '<html></html>');
+    build(root);
+    expect(existsSync(join(outputOf(root), 'v1'))).toBe(false);
+  });
+
+  /** The scratch root as a repository, with its page committed under a name. */
+  function committed(root: string): string {
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, env: gitFreeEnv(), encoding: 'utf8' }).trim();
+    git('init', '-q');
+    mkdirSync(join(root, 'scripts'), { recursive: true });
+    cpSync(BUILD, join(root, 'scripts/build-connect-page.mjs'));
+    cpSync(join(ROOT, 'scripts/lib'), join(root, 'scripts/lib'), { recursive: true });
+    git('add', 'web/connect', 'scripts', 'src', 'modules');
+    git('commit', '-q', '-m', 'the page as it was');
+    return git('rev-parse', 'HEAD');
+  }
+
+  it('builds each kept page from its commit at its own path, and lists it', () => {
+    const root = scratch();
+    const ref = committed(root);
+    const link = join(root, 'web/connect/link.ts');
+    writeFileSync(link, readFileSync(link, 'utf8').replace('= 110;', '= 111;'));
+    writeFileSync(
+      join(root, 'web/connect/kept.json'),
+      JSON.stringify([{ path: 'v1/', min: 1, max: 1, ref }])
+    );
+
+    expect(build(root)).toMatchObject({ status: 0 });
+    const kept = join(outputOf(root), 'v1');
+    const keptScript = references(readFileSync(join(kept, 'index.html'), 'utf8')).script;
+    expect(existsSync(join(kept, keptScript))).toBe(true);
+    expect(keptScript).not.toBe(references(page(root)).script);
+    expect(builds(root).map((entry) => entry.path)).toEqual([`v${protocols().max}/`, 'v1/']);
+    expect(builds(root)[1]).toEqual({ path: 'v1/', min: 1, max: 1 });
+  });
+
+  it('fails when a kept page names a commit that does not exist', () => {
+    const root = scratch();
+    committed(root);
+    writeFileSync(
+      join(root, 'web/connect/kept.json'),
+      JSON.stringify([{ path: 'v1/', min: 1, max: 1, ref: 'deadbeef' }])
+    );
+    const result = build(root);
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain('deadbeef');
+  });
+
+  it('refuses a kept page whose path would overwrite the current build', () => {
+    const root = scratch();
+    const ref = committed(root);
+    writeFileSync(
+      join(root, 'web/connect/kept.json'),
+      JSON.stringify([{ path: `v${protocols().max}/`, min: 1, max: 1, ref }])
+    );
+    const result = build(root);
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain('already');
+  });
+});
+
 describe('connect page locale chunks', () => {
   const locales = () => JSON.parse(readFileSync(join(I18N, 'locales/en-GB.json'), 'utf8'));
 
@@ -251,10 +377,14 @@ describe('connect page locale chunks', () => {
   it('holds only the page namespaces, and every key en-GB holds, in each chunk', () => {
     const root = scratch();
     build(root);
+    const names: string[] = JSON.parse(
+      readFileSync(join(ROOT, 'web/connect/namespaces.json'), 'utf8')
+    );
+    expect(names).toContain('connectPage');
     const expected = leaves(locales().connectPage).sort();
     for (const path of Object.values(manifest(page(root)))) {
       const chunk = JSON.parse(readFileSync(join(outputOf(root), path), 'utf8'));
-      expect(Object.keys(chunk)).toEqual(['connectPage']);
+      expect(Object.keys(chunk)).toEqual(names);
       // A language with more plural forms than English holds extra forms, never fewer keys.
       const base = (key: string) => key.replace(/_(zero|one|two|few|many|other)\.$/, '.');
       const own = new Set(leaves(chunk.connectPage).map(base));
@@ -276,6 +406,19 @@ describe('connect page locale chunks', () => {
 });
 
 describe('connect page local guard on the build', () => {
+  it('reads the versioned builds too, and fails a foreign import in one', () => {
+    const root = scratch();
+    build(root);
+    expect(run(GUARD, ['--root', root])).toMatchObject({ status: 0 });
+    const versioned = join(outputOf(root), `v${protocols().max}`);
+    const { script } = references(readFileSync(join(versioned, 'index.html'), 'utf8'));
+    writeFileSync(
+      join(versioned, script),
+      `import 'https://cdn.example.com/x.js';\n${readFileSync(join(versioned, script), 'utf8')}`
+    );
+    expect(run(GUARD, ['--root', root])).toMatchObject({ status: 1 });
+  });
+
   it('passes the built output, and the template it was built from', () => {
     const root = scratch();
     build(root);

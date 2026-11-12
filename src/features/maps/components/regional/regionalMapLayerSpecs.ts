@@ -11,7 +11,7 @@ import { colourIndexExpression, type MapBase, type MapPalette } from '@/theme';
 import type { MapGeoJSONData, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
-import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
+import { HEATMAP_SOURCE_ID, heatmapRasterSource } from '@/features/maps/lib/heatmapTiles';
 import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
 import {
   MAP_3D_SCALE,
@@ -101,13 +101,10 @@ export function buildRegionalSources(input: RegionalSourceInput): Record<string,
   };
 
   if (input.heatmapEnabled) {
-    sources['heatmap-tiles'] = {
-      kind: 'raster',
-      tiles: [heatmapTileTemplate(input.heatmapBase, input.heatmapGeneration ?? 0)],
-      tileSize: 256,
-      minzoom: HEATMAP_SOURCE_MINZOOM,
-      maxzoom: 17,
-    };
+    sources[HEATMAP_SOURCE_ID] = heatmapRasterSource(
+      input.heatmapBase,
+      input.heatmapGeneration ?? 0
+    );
   }
 
   return sources;

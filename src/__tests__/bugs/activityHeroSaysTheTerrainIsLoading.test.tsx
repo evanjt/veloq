@@ -20,7 +20,7 @@ import type { LatLng } from '@/shared/geo/polyline';
 
 interface PageProps {
   onMessage: (event: { nativeEvent: { data: string } }) => void;
-  onError?: () => void;
+  onError?: (event: { nativeEvent: { description: string } }) => void;
 }
 
 let page: PageProps | null = null;
@@ -126,7 +126,7 @@ describe('the hero says the terrain is loading', () => {
   it('removes the cue when the page fails to load', async () => {
     await openIn3D();
 
-    await act(() => page!.onError?.());
+    await act(() => page!.onError?.({ nativeEvent: { description: 'net::ERR_FAILED' } }));
 
     expect(screen.queryByTestId(ACTIVITY_MAP_LOADING_CUE_TEST_ID)).toBeNull();
   });

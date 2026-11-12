@@ -37,6 +37,8 @@ export {
   promptAccountMismatch,
   UNNAMED_LIBRARY,
   getCachedAthleteId,
+  getGarminLibraryId,
+  nameLibrary,
   type AccountChangeKind,
 } from './lib/accountChange';
 

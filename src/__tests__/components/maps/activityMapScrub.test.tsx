@@ -1,6 +1,6 @@
 /**
  * Scenario: the athlete scrubs the elevation chart, which moves the highlight
- * index on every frame, while the activity map is up in 2D or 3D.
+ * index on every frame, while the activity map is up in 2D or over terrain.
  *
  * Expected behaviour: the one thing that crosses to the page is the highlight.
  * The track is fitted once when the map is built and never again, the page is
@@ -12,7 +12,6 @@ import { View } from 'react-native';
 import { act } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
-import { Map3DWebView } from '@/features/maps/components/Map3DWebView';
 import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
 import type { LatLng } from '@/shared/geo/polyline';
 import { renderStaged } from '../../__shared__/stagedRender';
@@ -256,7 +255,7 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
   });
 });
 
-describe('the activity map in 3D', () => {
+describe('scrubbing the activity map in 3D', () => {
   const CAMERA = { center: [7.45, 46.95] as [number, number], zoom: 13, bearing: 0, pitch: 60 };
 
   const map = (highlightIndex: number | null, highlightedSectionId: string | null) => (
@@ -273,15 +272,48 @@ describe('the activity map in 3D', () => {
     </SafeAreaProvider>
   );
 
-  it('sends the highlight only when the highlight moves', async () => {
+  const surface = () => {
+    const page = mockPages.get('maplibre-map');
+    if (!page) throw new Error('the surface did not mount');
+    return page;
+  };
+
+  it('builds one page', async () => {
+    await renderStaged(map(3, null));
+
+    expect(surface().html).toHaveLength(1);
+  });
+
+  it('re-serialises only the highlight on each tick, as the flat map does', async () => {
+    const view = await renderStaged(map(0, null));
+    await ready(surface());
+    mockPatches.length = 0;
+
+    for (const index of TICKS) {
+      await view.rerender(map(index, null));
+      await act(() => {
+        jest.advanceTimersByTime(20);
+      });
+    }
+
+    const sent = mockPatches.filter((p) => p.patch !== null);
+    expect(sent.length).toBeGreaterThan(0);
+    for (const { patch, serialised } of mockPatches) {
+      expect(serialised).toBe(1);
+      if (!patch) continue;
+      expect(Object.keys(patch.sources as object)).toEqual(['highlight']);
+      expect(patch.layers).toBeUndefined();
+    }
+    expect(surface().html).toHaveLength(1);
+  });
+
+  it('moves no camera when a section is highlighted', async () => {
     const view = await renderStaged(map(3, null));
-    const page = mockPages.get('webview');
-    if (!page) throw new Error('the 3D page did not mount');
-    await ready(page);
+    await ready(surface());
     await act(() => {
       jest.advanceTimersByTime(100);
     });
-    page.injected.length = 0;
+    surface().injected.length = 0;
 
     for (const selected of ['s1', null, 's1']) {
       await view.rerender(map(3, selected));
@@ -290,36 +322,7 @@ describe('the activity map in 3D', () => {
       });
     }
 
-    expect(page.injected.filter((s) => s.includes('highlight-point'))).toEqual([]);
-  });
-});
-
-describe('scrubbing the 3D activity map', () => {
-  const COORDS: [number, number][] = COORDINATES.map((c) => [c.longitude, c.latitude]);
-
-  const terrain = (highlightCoordinate: [number, number] | null) => (
-    <Map3DWebView coordinates={COORDS} mapStyle="light" highlightCoordinate={highlightCoordinate} />
-  );
-
-  it('keeps the page and moves the highlight by injected script', async () => {
-    const view = await renderStaged(terrain(null));
-    const page = mockPages.get('webview');
-    if (!page) throw new Error('the 3D page did not mount');
-    await ready(page);
-    page.injected.length = 0;
-
-    for (const coordinate of COORDS.slice(0, 6)) {
-      await view.rerender(terrain(coordinate));
-      await act(() => {
-        jest.advanceTimersByTime(40);
-      });
-    }
-
-    expect(page.html).toHaveLength(1);
-    const moves = page.injected.filter((s) => s.includes("getSource('highlight-point').setData"));
-    expect(moves.length).toBeGreaterThan(0);
-    expect(moves[moves.length - 1]).toContain(`${COORDS[5][0]}, ${COORDS[5][1]}`);
-    expect(page.injected.filter((s) => /fitBounds|jumpTo|easeTo/.test(s))).toEqual([]);
+    expect(surface().injected.filter((s) => /fitBounds|jumpTo|easeTo/.test(s))).toEqual([]);
   });
 });
 

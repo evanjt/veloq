@@ -5,7 +5,7 @@ use serde_json::Value;
 use tracematch::GpsPoint;
 use tracematch::sections::{NamedCandidate, score_named_candidate, select_candidate, trim_core};
 
-use super::origin::names_upstream_activity;
+use super::origin::{garmin_id_of_source_key, names_upstream_activity};
 use super::record_backup::{
     EXPORT_HOME, RecordGround, RecordPayload, RecordRow, check_record_version, integer,
     names_setting, string,
@@ -548,8 +548,13 @@ impl PersistentEngine {
         let mut named = restored_names_from_conn(&self.db)?;
         let name_claims = route_name_claims(&self.db, &entries)?;
         let mut routes_touched = false;
+        let mut sessions_touched = false;
         let mut unavailable = id_set_from_conn(&self.db, UNAVAILABLE_KEY)?;
         let unavailable_before = unavailable.len();
+        let garmin_backfill_done = self
+            .get_setting(crate::net::garmin::pull::BACKFILL_DONE)
+            .map_err(|e| e.to_string())?
+            .is_some();
         let imported_names: BTreeSet<String> = entries
             .iter()
             .filter_map(|row| match row.table.as_str() {
@@ -576,11 +581,15 @@ impl PersistentEngine {
                 }
                 if names_upstream_activity(&id) {
                     missing.insert(id);
+                } else if garmin_id_of_source_key(&id).is_some() && !garmin_backfill_done {
+                    // The Garmin backfill stores this ride when it reaches it.
                 } else {
                     unavailable.insert(id);
                 }
             }
             routes_touched |= matches!(row.table.as_str(), "route_names" | "route_numbers");
+            sessions_touched |=
+                super::strength_sessions::SESSION_TABLES.contains(&row.table.as_str());
             if is_number_row(&row) {
                 if !self.place_number(&row, &mut numbered)? {
                     pending.push(row);
@@ -605,6 +614,10 @@ impl PersistentEngine {
         }
         if routes_touched {
             self.apply_route_names().map_err(|e| e.to_string())?;
+        }
+        if sessions_touched {
+            self.project_recorded_sessions()
+                .map_err(|e| e.to_string())?;
         }
         if pending.iter().any(is_number_row) {
             let held: Vec<(NumberStore, String, u32)> = numbered
@@ -733,6 +746,9 @@ impl PersistentEngine {
                 self.set_heatmap_hidden(activity_id, true)
                     .map_err(|e| e.to_string())?;
                 Ok(true)
+            }
+            table if super::strength_sessions::SESSION_TABLES.contains(&table) => {
+                self.place_strength_session_row(row)
             }
             "section_forced_matches" => self.place_forced_match(row),
             "section_history" => self.place_history(row),

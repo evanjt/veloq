@@ -88,6 +88,7 @@ jest.mock('@/features/auth', () => ({
   ...jest.requireActual('@/features/auth/lib/launchIdentity'),
   promptAccountMismatch: () => mockPrompt(),
   getCachedAthleteId: async () => mockEngineHolder.engine?.getSetting('__athlete_id') ?? null,
+  nameLibrary: jest.requireActual('@/features/auth/lib/accountChange').nameLibrary,
 }));
 
 type MockEngine = Record<string, jest.Mock>;

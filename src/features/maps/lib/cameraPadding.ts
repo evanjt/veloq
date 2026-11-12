@@ -93,6 +93,27 @@ export function openingCamera(
 }
 
 /**
+ * The camera a surface opens with in 3D from a camera the athlete or the terrain heuristic chose.
+ * It keeps its bearing and pitch and carries the padding. When its zoom no longer holds the track in
+ * the visible frame, the track is fitted to that frame at the same bearing and pitch instead.
+ */
+export function terrainOpeningCamera(
+  saved: Omit<PaddedCamera, 'padding'>,
+  padding: MapEdgeInset,
+  track: { bounds: LngLatBounds; width: number; height: number }
+): MapCameraSpec {
+  const { camera, refit } = openingCamera(saved, padding, track);
+  if (!refit) return { ...camera, padCamera: true };
+  return {
+    bounds: track.bounds,
+    bearing: saved.bearing,
+    pitch: saved.pitch,
+    padding,
+    padCamera: true,
+  };
+}
+
+/**
  * What a map does when the sheet settles and the inset changes. An unmoved map refits the track to
  * the new visible area. A map the athlete moved keeps the point at the old visible centre at the new
  * one, which is an ease with the new padding and the same centre. An unchanged inset does nothing,

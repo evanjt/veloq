@@ -6,6 +6,8 @@
 import { router } from 'expo-router';
 import type { TFunction } from 'i18next';
 
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import { NOTICE_LONG_MS, showNotice } from '@/shared/ui/Notice';
 
 /** What the latest restore gave up on, every pass so far included, as the engine counts it. */
@@ -45,7 +47,11 @@ export function showRestoreNotice(outcome: RestoreOutcome, t: TFunction): void {
     showNotice({ message: t('backup.heldUntilSignIn'), duration: NOTICE_LONG_MS });
     return;
   }
-  const lines = [t('backup.recordRestored'), ...restoreDropLines(outcome, t)];
+  // A Garmin-only library gets its rides back from Garmin's backfill, which
+  // places the restored records as each ride is stored.
+  const garminOnly = sourceFor({ authMethod: useAuthStore.getState().authMethod })?.id === 'garmin';
+  const restored = garminOnly ? 'backup.recordRestoredGarmin' : 'backup.recordRestored';
+  const lines = [t(restored), ...restoreDropLines(outcome, t)];
   if (!outcome.exportHomeLeftOut) {
     showNotice({ message: lines.join('\n'), duration: NOTICE_LONG_MS });
     return;

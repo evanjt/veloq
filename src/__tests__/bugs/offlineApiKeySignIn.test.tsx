@@ -28,6 +28,7 @@ jest.mock('@/features/auth/lib/accountChange', () => ({
   settleBeforeNamingLibrary: jest.fn(async () => undefined),
   confirmAccountChange: jest.fn(async () => true),
   getCachedAthleteId: jest.fn(async () => null),
+  getGarminLibraryId: jest.fn(async () => null),
 }));
 jest.mock('@/features/auth/lib/storedActivityCount', () => ({
   resolveStoredActivityCount: jest.fn(async () => 0),

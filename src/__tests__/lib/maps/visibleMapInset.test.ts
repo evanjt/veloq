@@ -1,10 +1,9 @@
 /**
  * Scenario: the hero's name and stats, the control column and the header each cover part of a map.
- * Expected behaviour: a fitted track lands in the part left visible, and the 2D page and the 3D
- * page frame it with the same per-edge padding.
+ * Expected behaviour: a fitted track lands in the part left visible, and the fit script carries
+ * that per-edge padding.
  */
 import { TRACK_FIT_PADDING, visibleMapInset } from '@/features/maps/lib/activityCamera';
-import { buildMap3DHtml, buildSetRouteScript } from '@/features/maps/lib/htmlBuilders';
 import { buildFitBoundsScript } from '@/features/maps/lib/htmlBuilders/mapSurface';
 
 const bounds = { sw: [7.2, 46.1] as [number, number], ne: [7.4, 46.3] as [number, number] };
@@ -68,21 +67,15 @@ describe('visibleMapInset', () => {
   });
 });
 
-describe('the 2D and 3D fits for one cover', () => {
-  const inset = visibleMapInset({ width: 400, height: 600, coveredBottom: 200, coveredRight: 56 });
-  const literal = JSON.stringify(inset);
+describe('the fit script for one cover', () => {
+  it('carries the per-edge padding', () => {
+    const inset = visibleMapInset({
+      width: 400,
+      height: 600,
+      coveredBottom: 200,
+      coveredRight: 56,
+    });
 
-  it('carry the same per-edge padding', () => {
-    expect(buildFitBoundsScript(bounds, inset)).toContain(`padding: ${literal}`);
-    expect(buildSetRouteScript([[7.3, 46.2]], bounds, undefined, inset)).toContain(`, ${literal},`);
-    expect(
-      buildMap3DHtml({
-        coordinates: [[7.3, 46.2]],
-        bounds,
-        fitPadding: inset,
-        initStyle: 'light',
-        mapStyle: 'light',
-      } as never)
-    ).toContain(`fitPadding: ${literal},`);
+    expect(buildFitBoundsScript(bounds, inset)).toContain(`padding: ${JSON.stringify(inset)}`);
   });
 });

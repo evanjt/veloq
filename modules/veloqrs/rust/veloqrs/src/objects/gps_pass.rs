@@ -354,10 +354,25 @@ pub(crate) fn head_first<T>(items: Vec<T>, head: &[String], id: impl Fn(&T) -> &
     ranked.into_iter().map(|(_, item)| item).collect()
 }
 
+/// Why a pass cannot start with no intervals.icu session. A library holding
+/// Garmin rows has every track from the original it was made from, so nothing
+/// is owed; one holding none has no source configured.
+fn refusal_without_session(garmin_rows: u32) -> FfiStartOutcome {
+    if garmin_rows > 0 {
+        FfiStartOutcome::NotOwed
+    } else {
+        FfiStartOutcome::NotConfigured
+    }
+}
+
 /// Read the candidates over `range` and start one bulk download for them.
 fn start_download(range: &PassRange) -> PassStart {
     let Some(Ok(_)) = crate::objects::current_session() else {
-        return PassStart::refused(FfiStartOutcome::NotConfigured);
+        let garmin_rows = crate::objects::error::with_reader(|conn| {
+            crate::persistence::activities::pooled::library_coverage(conn, "").upstream
+        })
+        .unwrap_or(0);
+        return PassStart::refused(refusal_without_session(garmin_rows));
     };
     let read = crate::objects::error::with_reader(|conn| {
         let athlete_id = crate::persistence::settings::setting_from(
@@ -437,3 +452,14 @@ pub(crate) fn held_until() -> Option<DateTime<Utc>> {
 #[cfg(test)]
 #[path = "tests/gps_pass.rs"]
 mod tests;
+
+#[cfg(test)]
+mod garmin_only_tests {
+    use super::*;
+
+    #[test]
+    fn a_pass_with_no_session_owes_nothing_to_a_garmin_library() {
+        assert_eq!(refusal_without_session(3), FfiStartOutcome::NotOwed);
+        assert_eq!(refusal_without_session(0), FfiStartOutcome::NotConfigured);
+    }
+}

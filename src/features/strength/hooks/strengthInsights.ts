@@ -10,8 +10,8 @@ import {
   INSIGHTS_CONFIG,
   confidenceFrom,
   printedValue,
-} from '@/features/insights';
-import type { HistorySeries, InsightHistory } from '@/features/insights';
+} from '@/features/insights/light';
+import type { HistorySeries, InsightHistory } from '@/features/insights/light';
 import { formatSignedPercentage } from '@/shared/format/number';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;

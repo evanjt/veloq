@@ -26,9 +26,51 @@ const HEATMAP_KEY = 'veloq-heatmap-enabled';
 const ROUTES_VISIBLE_KEY = 'veloq-map-routes-visible';
 const HEATMAP_VISIBLE_KEY = 'veloq-map-heatmap-visible';
 const ACTIVITIES_VISIBLE_KEY = 'veloq-map-activities-visible';
+/** One key per map kind, each default off; the detail maps remember their own choice. */
+const DETAIL_HEATMAP_KEYS = {
+  activity: 'veloq-map-heatmap-detail-activity',
+  section: 'veloq-map-heatmap-detail-section',
+  route: 'veloq-map-heatmap-detail-route',
+} as const;
+/** The library's sections and routes drawn under a detail map's subject, per layer and map kind. */
+const DETAIL_CONTEXT_KEYS = {
+  sections: {
+    activity: 'veloq-map-sections-detail-activity',
+    section: 'veloq-map-sections-detail-section',
+    route: 'veloq-map-sections-detail-route',
+  },
+  routes: {
+    activity: 'veloq-map-routes-detail-activity',
+    section: 'veloq-map-routes-detail-section',
+    route: 'veloq-map-routes-detail-route',
+  },
+} as const;
 const ROUTE_SETTINGS_KEY = 'veloq-route-settings';
 
 const DEFAULT_ENABLED = true;
+
+/** The detail maps that offer the heatmap in their layers menu. */
+export type DetailMapKind = keyof typeof DETAIL_HEATMAP_KEYS;
+
+/** The library layers a detail map can draw under its subject, beside the heatmap. */
+export type DetailContextLayer = keyof typeof DETAIL_CONTEXT_KEYS;
+
+const DETAIL_CONTEXT_LAYERS = Object.keys(DETAIL_CONTEXT_KEYS) as DetailContextLayer[];
+
+const DETAIL_KINDS = Object.keys(DETAIL_HEATMAP_KEYS) as DetailMapKind[];
+
+const DETAIL_HEATMAP_OFF: Record<DetailMapKind, boolean> = {
+  activity: false,
+  section: false,
+  route: false,
+};
+
+type DetailChecks = Record<DetailMapKind, boolean>;
+
+const DETAIL_CONTEXT_OFF: Record<DetailContextLayer, DetailChecks> = {
+  sections: DETAIL_HEATMAP_OFF,
+  routes: DETAIL_HEATMAP_OFF,
+};
 
 interface HeatmapPreferenceState {
   enabled: boolean;
@@ -39,12 +81,18 @@ interface HeatmapPreferenceState {
   /** Whether the global map draws activity markers and traces. */
   activitiesVisible: boolean;
   sectionsVisible: boolean;
+  /** Whether each kind of detail map draws the heatmap under its subject. Off until turned on. */
+  detailHeatmap: Record<DetailMapKind, boolean>;
+  /** Whether each kind of detail map draws the library's sections or routes under its subject. */
+  detailContext: Record<DetailContextLayer, DetailChecks>;
   isLoaded: boolean;
   setEnabled: (enabled: boolean) => Promise<void>;
   setRoutesVisible: (visible: boolean) => void;
   setHeatmapVisible: (visible: boolean) => void;
   setActivitiesVisible: (visible: boolean) => void;
   setSectionsVisible: (visible: boolean) => void;
+  setDetailHeatmap: (kind: DetailMapKind, visible: boolean) => void;
+  setDetailContext: (layer: DetailContextLayer, kind: DetailMapKind, visible: boolean) => void;
   initialise: () => Promise<void>;
 }
 
@@ -65,12 +113,38 @@ async function adoptedFromRouteSettings(): Promise<boolean> {
   }
 }
 
+async function readDetailHeatmap(): Promise<Record<DetailMapKind, boolean>> {
+  const stored = await Promise.all(
+    DETAIL_KINDS.map(
+      async (kind) => [kind, (await getSetting(DETAIL_HEATMAP_KEYS[kind])) === 'true'] as const
+    )
+  );
+  return { ...DETAIL_HEATMAP_OFF, ...Object.fromEntries(stored) };
+}
+
+async function readDetailContext(): Promise<Record<DetailContextLayer, DetailChecks>> {
+  const stored = await Promise.all(
+    DETAIL_CONTEXT_LAYERS.map(async (layer) => {
+      const checks = await Promise.all(
+        DETAIL_KINDS.map(
+          async (kind) =>
+            [kind, (await getSetting(DETAIL_CONTEXT_KEYS[layer][kind])) === 'true'] as const
+        )
+      );
+      return [layer, { ...DETAIL_HEATMAP_OFF, ...Object.fromEntries(checks) }] as const;
+    })
+  );
+  return { ...DETAIL_CONTEXT_OFF, ...Object.fromEntries(stored) };
+}
+
 export const useHeatmapPreference = create<HeatmapPreferenceState>((set) => ({
   enabled: DEFAULT_ENABLED,
   routesVisible: false,
   heatmapVisible: true,
   activitiesVisible: true,
   sectionsVisible: true,
+  detailHeatmap: DETAIL_HEATMAP_OFF,
+  detailContext: DETAIL_CONTEXT_OFF,
   isLoaded: false,
 
   initialise: async () => {
@@ -79,6 +153,8 @@ export const useHeatmapPreference = create<HeatmapPreferenceState>((set) => ({
         routesVisible: (await getSetting(ROUTES_VISIBLE_KEY)) === 'true',
         heatmapVisible: await readVisible(HEATMAP_VISIBLE_KEY),
         activitiesVisible: await readVisible(ACTIVITIES_VISIBLE_KEY),
+        detailHeatmap: await readDetailHeatmap(),
+        detailContext: await readDetailContext(),
       });
       const own = await getSetting(HEATMAP_KEY);
       if (own !== null && own !== undefined) {
@@ -116,6 +192,25 @@ export const useHeatmapPreference = create<HeatmapPreferenceState>((set) => ({
   },
 
   setSectionsVisible: (visible: boolean) => set({ sectionsVisible: visible }),
+
+  setDetailHeatmap: (kind: DetailMapKind, visible: boolean) => {
+    set((state) => ({ detailHeatmap: { ...state.detailHeatmap, [kind]: visible } }));
+    setSetting(DETAIL_HEATMAP_KEYS[kind], String(visible)).catch((error) => {
+      log.error('Failed to save the detail map heatmap choice:', error);
+    });
+  },
+
+  setDetailContext: (layer: DetailContextLayer, kind: DetailMapKind, visible: boolean) => {
+    set((state) => ({
+      detailContext: {
+        ...state.detailContext,
+        [layer]: { ...state.detailContext[layer], [kind]: visible },
+      },
+    }));
+    setSetting(DETAIL_CONTEXT_KEYS[layer][kind], String(visible)).catch((error) => {
+      log.error('Failed to save the detail map layer choice:', error);
+    });
+  },
 
   setEnabled: async (enabled: boolean) => {
     set({ enabled });

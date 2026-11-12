@@ -436,6 +436,7 @@
     "restorePromptDismiss": "Não sugerir de novo",
     "restoreDatedBackup": "Restaurar backup de {{date}}",
     "recordRestored": "Dados restaurados. As atividades serão sincronizadas novamente.",
+    "recordRestoredGarmin": "Dados restaurados. As atividades serão colocadas à medida que o Garmin as fornecer.",
     "exportHomeLeftOut": "Este backup não incluía seu local de casa para a privacidade da exportação, que fica desativada até você defini-lo de novo.",
     "setExportHome": "Definir casa",
     "unplacedRecords_one": "{{count}} item do backup ainda aguarda para ser restaurado.",
@@ -3415,6 +3416,8 @@
     "sheetTitle": "Navegadores vinculados",
     "connectedSince": "Conectado desde {{time}}",
     "notConnected": "Não conectado",
+    "noChanges": "Nenhuma alteração ainda",
+    "wrote": "{{browser}}: {{summary}}",
     "manage": "Gerenciar dispositivos vinculados"
   },
   "connectPage": {
@@ -3436,7 +3439,8 @@
       "refused": "O celular recusou este navegador. Vincule-o de novo com um código novo.",
       "declined": "A vinculação foi recusada no celular.",
       "removed": "Este navegador foi removido no celular. Vincule-o de novo com um código novo.",
-      "unreachable": "Não foi possível alcançar o celular daqui. Coloque os dois na mesma rede Wi-Fi e escaneie o código novo."
+      "unreachable": "Não foi possível alcançar o celular daqui. Coloque os dois na mesma rede Wi-Fi e escaneie o código novo.",
+      "phoneLocked": "Desbloqueie o celular e abra o Veloq para fazer alterações"
     },
     "screens": {
       "feed": "Atividades",
@@ -3529,7 +3533,8 @@
       "pathStun": "Entre redes, via STUN",
       "pathUnknown": "Ainda não conhecido",
       "trafficLabel": "Bytes por segundo nos últimos três minutos",
-      "traffic": "Recebido {{received}}, enviado {{sent}}"
+      "traffic": "Recebido {{received}}, enviado {{sent}}",
+      "notKnown": "Não conhecido"
     },
     "activity": {
       "back": "Voltar ao feed",
@@ -3589,7 +3594,26 @@
       "recentRides": "Pedaladas recentes",
       "recentRuns": "Corridas recentes",
       "recentSwims": "Natações recentes",
-      "failed": "O telefone não conseguiu responder a isto."
+      "failed": "O telefone não conseguiu responder a isto.",
+      "noActivitiesSpan": "Nenhuma atividade neste período.",
+      "activitiesByLoad": "Atividades por carga",
+      "dotReadout": "{{date}} · {{name}} · carga {{load}}",
+      "noCalendarDays": "Nenhum dia neste calendário.",
+      "dayActivities_one": "{{date}} · {{count}} atividade",
+      "dayActivities_other": "{{date}} · {{count}} atividades",
+      "colActivities": "Atividades",
+      "colLoad": "Carga",
+      "colMonth": "Mês",
+      "yearToDate": "No ano até agora",
+      "openedActivity": "Atividade aberta",
+      "sport": "Esporte",
+      "started": "Início",
+      "openActivityPage": "Abrir a página da atividade",
+      "close": "Fechar",
+      "heartRateZones": "Zonas de frequência cardíaca",
+      "calendar": "Calendário",
+      "weekAndSeason": "Semana e temporada",
+      "months": "Meses"
     },
     "strength": {
       "heading": "Força",
@@ -3652,12 +3676,166 @@
       "backupSetUp": "Configurado no telefone",
       "name": "Nome",
       "units": "Unidades",
-      "weight": "Peso"
+      "weight": "Peso",
+      "paneNote": "Por enquanto, as alterações são feitas no celular.",
+      "notSet": "Não definido",
+      "deviceThisBrowser": "{{name}} (este navegador)",
+      "groups": {
+        "appearance": "Aparência",
+        "dataRecording": "Dados e gravação",
+        "libraryBackup": "Biblioteca e backup"
+      },
+      "rows": {
+        "display": "Exibição",
+        "maps": "Mapas",
+        "summaryCard": "Cartão de resumo",
+        "notifications": "Notificações",
+        "detection": "Rotas e seções",
+        "backup": "Backup",
+        "linkedDevices": "Dispositivos vinculados",
+        "storage": "Armazenamento"
+      },
+      "phoneOnly": {
+        "sensors": {
+          "title": "Sensores",
+          "why": "Cintas de frequência cardíaca e medidores de potência são pareados pelo Bluetooth do próprio celular, que um navegador não alcança."
+        },
+        "recording": {
+          "title": "Gravação",
+          "why": "Uma gravação roda nos sensores do celular e em seu serviço em segundo plano, então começa e termina lá."
+        },
+        "account": {
+          "title": "Conta",
+          "why": "Entrar e sair envolve o login do intervals.icu, que fica no celular."
+        },
+        "backupRestore": {
+          "title": "Backup e restauração",
+          "why": "Uma restauração substitui a biblioteca no celular, e os arquivos de backup ficam lá."
+        },
+        "garmin": {
+          "title": "Conector Garmin",
+          "why": "A chave da Garmin é uma credencial e fica no celular."
+        },
+        "clearCache": {
+          "title": "Limpar cache",
+          "why": "Limpar o cache apaga arquivos no celular que este navegador não tem."
+        }
+      },
+      "values": {
+        "theme": "Tema",
+        "language": "Idioma",
+        "units": "Unidades",
+        "primarySport": "Esporte principal",
+        "wellnessSmoothing": "Suavização de bem-estar",
+        "map": "Mapa",
+        "routes": "Rotas",
+        "notifications": "Notificações",
+        "recording": "Gravação",
+        "experimental": "Recursos experimentais",
+        "summaryCard": "Cartão de resumo"
+      },
+      "options": {
+        "system": "Sistema",
+        "light": "Claro",
+        "dark": "Escuro",
+        "auto": "Automático",
+        "metric": "Métrico",
+        "imperial": "Sistema imperial"
+      }
     },
     "compare": {
       "heading_one": "Comparando {{count}} atividade",
       "heading_other": "Comparando {{count}} atividades",
-      "dropped": "No máximo quatro atividades: {{names}} foi removida."
+      "dropped": "No máximo quatro atividades: {{names}} foi removida.",
+      "deltaToBest": "Diferença para o melhor",
+      "passTable": "Selecione até {{max}} para comparar"
+    },
+    "routes": {
+      "sortNearby": "Próximo",
+      "sortActivities": "Atividades",
+      "sortVisits": "Mais visitados",
+      "sortRelevance": "Relevância",
+      "sortDistance": "Distância",
+      "sortName": "Nome",
+      "chipCustom": "Personalizados",
+      "chipRemoved": "Removidos",
+      "chipAccepted": "Somente aceitos",
+      "onPhone": "No celular por enquanto",
+      "actionRename": "Renomear",
+      "actionExcludeActivity": "Excluir atividade",
+      "actionAccept": "Aceitar",
+      "actionRetire": "Aposentar",
+      "actionRestore": "Restaurar",
+      "actionMerge": "Mesclar",
+      "actionExcludePass": "Excluir passagem",
+      "actionTrim": "Aparar",
+      "unnamedSection": "Trecho sem nome",
+      "unnamedRoute": "Rota sem nome",
+      "sections": "Trechos",
+      "routes": "Rotas",
+      "kinds": "Rotas ou trechos",
+      "searchHint": "Pesquisar (/)",
+      "searchSections": "Pesquisar trechos",
+      "searchRoutes": "Pesquisar rotas",
+      "sort": "Ordenar",
+      "show": "Mostrar",
+      "listFailed": "O celular não respondeu a esta lista.",
+      "routeFailed": "O celular não respondeu a esta rota.",
+      "sectionFailed": "O celular não respondeu a este trecho.",
+      "more": "Há mais linhas no celular.",
+      "pickSection": "Escolha um trecho",
+      "pickRoute": "Escolha uma rota",
+      "reading": "Lendo",
+      "excluded": "Excluídas",
+      "passes": "Passagens",
+      "type": "Tipo",
+      "behindPr": "Atrás do PR",
+      "pr": "PR",
+      "history": "Histórico ({{n}})",
+      "geometryVersions": "Versões da geometria ({{n}})",
+      "mergeCandidates": "Candidatos para mesclar ({{n}})",
+      "visits_one": "{{count}} passagem",
+      "visits_other": "{{count}} passagens",
+      "activities_one": "{{count}} atividade",
+      "activities_other": "{{count}} atividades",
+      "shown_one": "{{count}} exibido",
+      "shown_other": "{{count}} exibidos",
+      "kept_one": "{{count}} guardado para as ações",
+      "kept_other": "{{count}} guardados para as ações"
+    },
+    "columns": {
+      "date": "Data",
+      "name": "Nome",
+      "sport": "Esporte",
+      "distance": "Distância",
+      "time": "Tempo",
+      "climb": "Subida",
+      "load": "Carga",
+      "hr": "FC",
+      "power": "Potência"
+    },
+    "ranges": {
+      "last90Days": "Últimos 90 dias",
+      "thisYear": "Este ano",
+      "lastYear": "Ano passado"
+    },
+    "insights": {
+      "strength": "Força",
+      "waiting": "Lendo seus insights do celular.",
+      "failed": "Não foi possível criar os insights com o que o celular enviou.",
+      "empty": "Nada para mostrar ainda.",
+      "method": "Método",
+      "rankedSections": "Trechos classificados",
+      "routeRecords": "Recordes de rotas",
+      "recentRecords": "Recordes recentes",
+      "colSection": "Trecho",
+      "colRoute": "Rota",
+      "colVisits": "Passagens",
+      "colAttempts": "Tentativas",
+      "colDaysAgo": "Dias atrás",
+      "openedRow": "Linha aberta",
+      "openSection": "Abrir a página do trecho",
+      "openRoute": "Abrir a página da rota"
     }
   }
 }

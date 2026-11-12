@@ -8,13 +8,15 @@ import { useTranslation } from 'react-i18next';
 import { chartDataOf, factsOfDetail } from './activity';
 import { ActivityPage } from './ActivityPage';
 import { ConnectionChip } from './ConnectionChip';
+import { fitnessChoices, fitnessQuery } from './dashboard';
 import { FitnessPane } from './FitnessPane';
+import { INSIGHTS_PARTS_KEY, type InsightsParts } from './insights';
+import { InsightsPane, parseOpened } from './InsightsPane';
 import { LanguageMenu } from './LanguageMenu';
 import { compareColour, compareRows, select, type Mode } from './compare';
-import { clock, km, kmh } from './format';
+import { clock, km, kmh, setUnitSystem } from './format';
 import {
   deviceLines,
-  settingRows,
   strengthPeriodDays,
   type Notice,
   type SportFamily,
@@ -23,7 +25,18 @@ import {
 import { MapScreen } from './map/MapScreen';
 import { sportMark, THUMB, trackShape } from './preview';
 import { toQR } from './qr';
-import { ON_THE_PHONE, PANE_NOTE, SETTINGS_GROUPS, pane, type Pane } from './settings';
+import { RoutesPage } from './RoutesPage';
+import {
+  ON_THE_PHONE,
+  PANE_NOTE,
+  SCREEN_SETTINGS,
+  SETTINGS_GROUPS,
+  pane,
+  paneControls,
+  readsScreen,
+  unitSystem,
+  type Pane,
+} from './settings';
 import {
   FEED,
   keyAction,
@@ -152,19 +165,23 @@ export function App({
   const onSettings = connected && route.screen === 'settings';
   const onStrength =
     connected && route.screen === 'insights' && queryValue(route, 'type') === 'strength';
+  const onInsights = connected && route.screen === 'insights' && !onStrength;
   const onExercise = connected && route.screen === 'exercise' && route.id !== null;
   const onRecordings = connected && route.screen === 'recordings';
   const onRecording = connected && route.screen === 'recording' && route.id !== null;
+  const onRoutes = connected && ['routes', 'route', 'sections', 'section'].includes(route.screen);
   const ownPane =
     onFeed ||
     onActivity ||
     onMap ||
     onSettings ||
     onFitness ||
+    onInsights ||
     onStrength ||
     onExercise ||
     onRecordings ||
-    onRecording;
+    onRecording ||
+    onRoutes;
   const strengthDays = strengthPeriodDays(queryValue(route, 'period'));
   const exerciseCategory = onExercise ? exerciseOf(route.id) : null;
   const pinnedId = onFeed || onActivity ? openedId(route) : null;
@@ -189,8 +206,20 @@ export function App({
     : undefined;
 
   useEffect(() => {
-    if (onSettings) session.requestSettings();
-  }, [session, onSettings, state, changes]);
+    if (connected) session.requestSettings();
+  }, [session, connected, state, changes]);
+
+  const phoneSettings = snapshot.settings['settings.get']?.values;
+  setUnitSystem(
+    unitSystem(
+      phoneSettings?.find((entry) => entry.key === 'veloq-unit-preference')?.value,
+      snapshot.settings['settings.profile']?.measurementPreference
+    )
+  );
+
+  useEffect(() => {
+    if (onInsights) session.requestInsights();
+  }, [session, onInsights, state, changes]);
 
   useEffect(() => {
     if (onStrength) session.requestStrength(strengthDays);
@@ -213,9 +242,13 @@ export function App({
     route.id,
   ]);
 
+  const choices = fitnessChoices(route);
   useEffect(() => {
-    if (onFitness) session.requestFitness();
-  }, [session, onFitness, state, changes]);
+    if (!onFitness) return;
+    session.requestFitness();
+    session.setFitnessRange(choices.range);
+    session.setFitnessSport(choices.sport);
+  }, [session, onFitness, state, changes, choices.range, choices.sport]);
 
   const comparedKey = onFeed ? feedState.ids.join('\n') : '';
   useEffect(() => {
@@ -353,7 +386,7 @@ export function App({
         {pairing ? <PairPane state={state} code={snapshot.code} /> : null}
         {snapshot.writeNotice ? (
           <p id="write-notice" className="notice" role="status">
-            {snapshot.writeNotice}
+            {t(snapshot.writeNotice)}
           </p>
         ) : null}
         {(state.name === 'waiting' || state.name === 'connecting') && (
@@ -366,7 +399,7 @@ export function App({
             card={snapshot.feed?.find((row) => row.id === route.id)}
             detail={snapshot.details[route.id]}
             data={chartDataOf(parts?.streams)}
-            facts={factsOfDetail(parts?.laps, parts?.data)}
+            facts={factsOfDetail(parts?.laps, parts?.data, route.id)}
           />
         ) : null}
         {onFeed ? (
@@ -386,10 +419,12 @@ export function App({
             details={snapshot.details}
           />
         ) : null}
+        {onRoutes ? <RoutesPage session={session} route={route} /> : null}
         {onMap ? (
           <MapScreen
             read={session.read}
             methods={state.name === 'connected' ? (state.methods ?? []) : []}
+            route={route}
           />
         ) : null}
         {onSettings ? <SettingsPane id={route.id} reads={snapshot.settings} /> : null}
@@ -427,8 +462,16 @@ export function App({
         {onFitness ? (
           <FitnessPane
             snapshot={snapshot}
-            onRange={session.setFitnessRange}
+            choices={choices}
+            onChoose={(next) => go(fitnessQuery(route, next))}
             onBestPeriod={session.setBestEffortDays}
+          />
+        ) : null}
+        {onInsights ? (
+          <InsightsPane
+            parts={snapshot.screens[INSIGHTS_PARTS_KEY] as InsightsParts | undefined}
+            opened={parseOpened(queryValue(route, 'open'))}
+            onOpen={(key) => go({ ...route, query: key === null ? [] : [['open', key]] })}
           />
         ) : null}
         {connected && !ownPane ? (
@@ -537,41 +580,29 @@ function Facts({ id, facts }: { id: string; facts: [label: string, value: string
   );
 }
 
-/** The settings each readable screen shows, by the screen's address. */
-const SCREEN_SETTINGS: Readonly<Record<string, readonly string[]>> = {
-  'display-settings': [
-    'veloq-theme-preference',
-    'veloq-language-preference',
-    'veloq-unit-preference',
-    'veloq-primary-sport',
-    'veloq-wellness-smoothing',
-  ],
-  'map-settings': ['veloq-map-preferences'],
-  'summary-card-settings': ['dashboard_summary_card'],
-  'notification-settings': ['veloq-notification-preferences'],
-  'detection-settings': ['veloq-route-settings'],
-};
-
-/** The readable screens whose values the page reads from the phone. */
-const READ_SCREENS = new Set(['linked-devices', 'backup-settings', 'cache-settings']);
-
-const readsScreen = (screen: string) => screen in SCREEN_SETTINGS || READ_SCREENS.has(screen);
-
-/** The values the phone holds for `keys`, read-only. */
-function SettingValues({
-  keys,
-  reads,
-}: {
-  keys: readonly string[];
-  reads: Readonly<SettingsReads>;
-}) {
-  const rows = settingRows(reads['settings.get']).filter((row) => keys.includes(row.key));
+/** The phone's controls for a screen, each showing its value and disabled. */
+function SettingControls({ screen, reads }: { screen: string; reads: Readonly<SettingsReads> }) {
+  const { t } = useTranslation();
+  const controls = paneControls(screen, reads['settings.get']);
   return (
     <dl id="settings-rows" className="readonly">
-      {rows.map((row) => (
-        <Fragment key={row.key}>
-          <dt>{row.label}</dt>
-          <dd>{row.value}</dd>
+      {controls.map((control) => (
+        <Fragment key={control.key}>
+          <dt>{t(control.label)}</dt>
+          <dd>
+            {control.kind === 'choice' ? (
+              <select disabled value={control.value ?? ''} aria-label={t(control.label)}>
+                {control.value === null ? <option value="">{t('connectPage.settings.notSet')}</option> : null}
+                {control.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {t(option.label)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input disabled readOnly value={control.value ?? t('connectPage.settings.notSet')} aria-label={t(control.label)} />
+            )}
+          </dd>
         </Fragment>
       ))}
     </dl>
@@ -619,14 +650,17 @@ function LibraryStatus({ reads }: { reads: Readonly<SettingsReads> }) {
  */
 function ScreenReadout({ screen, reads }: { screen: string; reads: Readonly<SettingsReads> }) {
   const { t } = useTranslation();
-  const keys = SCREEN_SETTINGS[screen];
-  if (keys) return <SettingValues keys={keys} reads={reads} />;
+  if (screen in SCREEN_SETTINGS) return <SettingControls screen={screen} reads={reads} />;
   if (screen === 'linked-devices') {
     const devices = reads['status.linkedDevices'];
     return (
       <ul id="settings-devices">
         {(devices ? deviceLines(devices) : []).map((line, at) => (
-          <li key={at}>{line}</li>
+          <li key={at}>
+            {line.thisBrowser
+              ? t('connectPage.settings.deviceThisBrowser', { name: line.name })
+              : line.name}
+          </li>
         ))}
       </ul>
     );
@@ -978,12 +1012,12 @@ function SettingsPane({ id, reads }: { id: string | null; reads: Readonly<Settin
       <nav id="settings-list" aria-label={t('connectPage.screens.settings')}>
         {SETTINGS_GROUPS.map((group) => (
           <div key={group.title} className="settings-group">
-            <h2>{group.title}</h2>
+            <h2>{t(group.title)}</h2>
             <ul>
               {group.rows.map((row) => (
                 <li key={row.screen}>
                   <a href={`#/settings/${row.screen}`} aria-current={id === row.screen}>
-                    {row.title}
+                    {t(row.title)}
                   </a>
                 </li>
               ))}
@@ -997,10 +1031,10 @@ function SettingsPane({ id, reads }: { id: string | null; reads: Readonly<Settin
               <li key={entry.title}>
                 {entry.screen ? (
                   <a href={`#/settings/${entry.screen}`} aria-current={id === entry.screen}>
-                    {entry.title}
+                    {t(entry.title)}
                   </a>
                 ) : (
-                  entry.title
+                  t(entry.title)
                 )}
               </li>
             ))}
@@ -1027,21 +1061,17 @@ function SettingsBody({
   if (shown.kind === 'readable') {
     return (
       <>
-        <h2 id="settings-title">{shown.title}</h2>
-        <p className="note">{shown.note}</p>
-        {screen && readsScreen(screen) ? (
-          <ScreenReadout screen={screen} reads={reads} />
-        ) : (
-          <p>{shown.body}</p>
-        )}
+        <h2 id="settings-title">{t(shown.title)}</h2>
+        <p className="note">{t(shown.note)}</p>
+        {screen && readsScreen(screen) ? <ScreenReadout screen={screen} reads={reads} /> : null}
       </>
     );
   }
   if (shown.kind === 'phone') {
     return (
       <>
-        <h2 id="settings-title">{shown.title}</h2>
-        <p>{shown.why}</p>
+        <h2 id="settings-title">{t(shown.title)}</h2>
+        <p>{t(shown.why)}</p>
         <p className="note">{t('connectPage.settings.openOnPhone')}</p>
       </>
     );
@@ -1057,7 +1087,7 @@ function SettingsBody({
   return (
     <>
       <h2 id="settings-title">{t('connectPage.settings.pick')}</h2>
-      <p className="note">{PANE_NOTE}</p>
+      <p className="note">{t(PANE_NOTE)}</p>
       <h3>{t('connectPage.settings.profile')}</h3>
       <Profile reads={reads} />
       <h3>{t('connectPage.settings.libraryStatus')}</h3>
@@ -1222,7 +1252,7 @@ function RangeChips({ query }: { query: FeedQuery }) {
             aria-pressed={on}
             onClick={() => goFeed({ ...query, range: on ? null : preset })}
           >
-            {RANGE_LABELS[preset]}
+            {t(RANGE_LABELS[preset])}
           </button>
         );
       })}
@@ -1323,6 +1353,7 @@ function FeedTable({
   onPreview: (id: string | null) => void;
   onDropped: (ids: string[]) => void;
 }) {
+  const { t } = useTranslation();
   const hover = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(
     () => () => {
@@ -1350,7 +1381,7 @@ function FeedTable({
                     type="button"
                     onClick={() => goFeed({ ...query, sort: nextSort(query.sort, column.key) })}
                   >
-                    {column.label}
+                    {t(column.label)}
                     {sorted ? (sorted === 'asc' ? ' ▲' : ' ▼') : ''}
                   </button>
                 </th>
@@ -1485,7 +1516,7 @@ function CompareTable(props: {
         <tbody>
           {rows.map((row) => (
             <tr key={row.label}>
-              <th scope="row">{row.label}</th>
+              <th scope="row">{t(row.label)}</th>
               {row.cells.map((cell, at) => (
                 <td key={at} data-best={cell.best}>
                   {cell.text}

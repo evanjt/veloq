@@ -66,6 +66,20 @@ export type BackgroundJob = string;
 export type EfficiencyDirection = 'improving' | 'flat' | 'worsening';
 
 /**
+ * A relative target converted by the threshold the plan carries.
+ */
+export type FfiAbsoluteTarget = {
+  low: number;
+  high: number;
+  units: FfiAbsoluteUnits;
+};
+
+/**
+ * The unit a relative target converts to.
+ */
+export type FfiAbsoluteUnits = 'watts' | 'bpm';
+
+/**
  * All data needed to paint the activity detail screen in one call.
  * Replaces a fan-out that grew one trace extraction per matched section.
  */
@@ -1906,6 +1920,294 @@ export type FfiHrZoneBand = {
 };
 
 /**
+ * HRV trend summary over a trailing window. `label` is the i18n key suffix
+ * ("trendingUp" | "stable" | "trendingDown") - TS resolves translations.
+ */
+export type FfiHrvTrend = {
+  label: string;
+  /**
+   * Which rule produced `label`: `halves` for the window's two halves
+   * moving apart by more than their own scatter, `lastTwoDays` for the
+   * override fired by two consecutive readings below the window mean and
+   * apart from the readings before them. Both can say
+   * `trendingDown` and they are not the same claim.
+   */
+  reason: string;
+  avg: number;
+  latest: number;
+  dataPoints: number;
+  sparkline: FfiSeriesPoint[];
+  /**
+   * Epoch seconds where the later half of the window starts, the split the
+   * `halves` rule judged. Absent for `lastTwoDays`, which judges no split.
+   */
+  windowSplit: number | null;
+  /**
+   * The latest day against the window's average, in the window's own
+   * standard deviations. Absent where the window has no spread.
+   */
+  signalDelta: number | null;
+};
+
+/**
+ * What an improvement change was measured between.
+ */
+export type FfiImprovementBasis = 'medianOfThree' | 'firstToLast';
+
+/**
+ * Fitness and fatigue, as the newest day in the window has them.
+ *
+ * The two were derived per recompute by sorting the window's rows, over rows
+ * that had crossed the boundary only to be reduced to these. The day is carried so a stale reading can be named rather than
+ * passed off as today's.
+ */
+export type FfiInsightForm = {
+  /**
+   * The day the reading is from, `YYYY-MM-DD`
+   */
+  date: string;
+  /**
+   * Chronic training load, zero when the day carries none
+   */
+  ctl: number;
+  /**
+   * Acute training load, zero when the day carries none
+   */
+  atl: number;
+};
+
+/**
+ * Batch insights data: combines period stats, trends, patterns, and recent PRs.
+ * Reduces Insights hook FFI calls from 13-16 to 1.
+ */
+export type FfiInsightsData = {
+  /**
+   * Current week stats
+   */
+  currentWeek: FfiPeriodStats;
+  /**
+   * Previous week stats
+   */
+  previousWeek: FfiPeriodStats;
+  /**
+   * 4-week chronic period stats (raw total, not averaged)
+   */
+  chronicPeriod: FfiPeriodStats;
+  /**
+   * `chronic_period` over the four weeks it is divided into, which is what
+   * a week is compared against.
+   */
+  chronicWeekAverage: FfiPeriodStats;
+  /**
+   * The four chronic weeks and then the compared week, one at a time,
+   * oldest first and each dated. The comparison card's claim is about the
+   * last four weeks, and two totals cannot draw it. The first four sum to
+   * `chronic_period`.
+   */
+  weeklyTotals: FfiWeeklyTotal[];
+  /**
+   * FTP trend
+   */
+  ftpTrend: FfiFtpTrend;
+  /**
+   * Running pace trend
+   */
+  runPaceTrend: FfiPaceTrend;
+  /**
+   * Swimming pace trend
+   */
+  swimPaceTrend: FfiPaceTrend;
+  /**
+   * Up to 3 recent section PRs (best times set in last 7 days)
+   */
+  recentPrs: FfiRecentPr[];
+  /**
+   * Sections held by the engine, for the section-readiness check
+   */
+  sectionCount: number;
+  /**
+   * Sport types the ranked-section lists were built for
+   */
+  sportTypes: string[];
+  /**
+   * ranked sections per sport, empty when sections were not requested
+   */
+  rankedSections: FfiRankedSectionsBySport[];
+  /**
+   * Every eligible section trend, independent of the ranked-list display limit.
+   */
+  trendSections: FfiRankedSectionsBySport[];
+  trendFasterCount: number;
+  trendSlowerCount: number;
+  /**
+   * Every route bucket holding a recent record or an eligible trend, recent
+   * records first and then newest attempt. Not capped.
+   */
+  routeInsights: FfiRouteInsight[];
+  routeRecordCount: number;
+  routeFasterCount: number;
+  routeSlowerCount: number;
+  /**
+   * Aerobic efficiency trends worth surfacing, already filtered and capped
+   */
+  efficiencyTrends: FfiEfficiencyTrend[];
+  /**
+   * Whether any strength activity exists
+   */
+  hasStrengthData: boolean;
+  /**
+   * Strength volume over the requested month and weeks, when data exists
+   */
+  strengthSeries: FfiStrengthInsightSeries | null;
+  /**
+   * Form as the newest day in the requested wellness window has it, or
+   * `None` when the window holds no day at all
+   */
+  form: FfiInsightForm | null;
+  /**
+   * This week against last, absent when neither total gives the earlier
+   * week something to divide by.
+   */
+  weekOverWeek: FfiPeriodComparison | null;
+  /**
+   * Last week against the chronic weekly average, on the same terms.
+   */
+  weekAgainstChronic: FfiPeriodComparison | null;
+  /**
+   * HRV over the trailing window, or `None` under five valid days
+   */
+  hrvTrend: FfiHrvTrend | null;
+  /**
+   * The date of the newest stored wellness row when `hrv_trend` is absent
+   * because the window is stale. `None` when the window is fresh or no
+   * wellness was ever synced.
+   */
+  hrvWithheldSince: string | null;
+  /**
+   * Re-cuts, splits, restores and reverts inside the requested window
+   */
+  recentSectionChanges: FfiSectionChange[];
+  /**
+   * Sections a fitness gain makes worth revisiting, already excluding the
+   * ones `recent_prs` covers
+   */
+  stalePrOpportunities: FfiStalePrOpportunity[];
+};
+
+/**
+ * Scalar inputs for the insights bundle.
+ */
+export type FfiInsightsParams = {
+  /**
+   * Start of the current week, filled by the engine from current_end
+   */
+  currentStart: number;
+  /**
+   * Current wall-clock second; the engine derives both week windows from it
+   */
+  currentEnd: number;
+  /**
+   * Start of the previous week, filled by the engine
+   */
+  prevStart: number;
+  /**
+   * End of the previous elapsed week, filled by the engine
+   */
+  prevEnd: number;
+  /**
+   * Start of the four-week chronic window, filled by the engine
+   */
+  chronicStart: number;
+  /**
+   * Start of today
+   */
+  todayStart: number;
+  /**
+   * Whether section-derived insights are wanted at all
+   */
+  includeSections: boolean;
+  /**
+   * Ranked sections requested per sport
+   */
+  rankedLimit: number;
+  /**
+   * History points a card carries at most, per section and per trend. The
+   * graphic is a strip a few dozen pixels wide, so the read is capped
+   * rather than carrying a library of laps across the bridge.
+   */
+  historyLimit: number;
+  /**
+   * Sections last visited beyond this many days get no efficiency trend
+   */
+  activeWindowDays: number;
+  /**
+   * Efficiency candidates taken from each sport's ranked list
+   */
+  efficiencyPerSport: number;
+  /**
+   * Smallest rounded heart-rate change, in bpm, an efficiency trend may report
+   */
+  efficiencyMinHrChangeBpm: number;
+  /**
+   * Efficiency trends to return at most
+   */
+  efficiencyLimit: number;
+  /**
+   * Minimum matched efforts before an efficiency trend counts
+   */
+  efficiencyMinEfforts: number;
+  efficiencyDecliningMinEfforts: number;
+  /**
+   * Trailing month the strength summary covers
+   */
+  strengthMonth: FfiTimestampRange;
+  /**
+   * Trailing weeks the strength summary covers
+   */
+  strengthWeeks: FfiTimestampRange[];
+  /**
+   * Oldest day of the wellness window form is read from, `YYYY-MM-DD`
+   */
+  wellnessOldest: string;
+  /**
+   * Newest day of it, which is normally today in the athlete's own zone
+   */
+  wellnessNewest: string;
+  /**
+   * Trailing days the HRV trend is read over
+   */
+  hrvWindowDays: number;
+  /**
+   * Trailing days the section-change list covers
+   */
+  sectionChangeWindowDays: number;
+  /**
+   * A section unvisited for this many days is stale
+   */
+  staleThresholdDays: number;
+  /**
+   * Fitness has to have risen by this much for a stale section to qualify
+   */
+  staleMinGainPercent: number;
+  /**
+   * Stale-PR opportunities to return at most
+   */
+  staleMaxOpportunities: number;
+  /**
+   * Fewest traversals a stale section needs to be offered
+   */
+  staleMinTraversals: number;
+  /**
+   * A section record counts as recent when set within this many days
+   */
+  recentPrWindowDays: number;
+  /**
+   * Fewest outings a section needs to hold a recent-record slot
+   */
+  recentPrMinOutings: number;
+};
+
+/**
  * What an interval is, as intervals.icu labels it.
  */
 export type FfiIntervalKind =
@@ -2111,21 +2413,63 @@ export type FfiLinkFitnessScreenAsk = {
 };
 
 /**
- * What `link.hello` is asked: the protocol the page was built for and a name
- * for the page.
+ * A GeoJSON `FeatureCollection` as its text.
+ */
+export type FfiLinkGeoText = {
+  text: string;
+};
+
+/**
+ * What `heatmap.progress` answers: the tiles the pass has drawn of the tiles
+ * it owes, both 0 while no pass runs.
+ */
+export type FfiLinkHeatmapProgress = {
+  processed: number;
+  total: number;
+};
+
+/**
+ * What `heatmap.tile` answers: the PNG, or `None` for a tile with no heat or
+ * one the pass has not drawn yet.
+ */
+export type FfiLinkHeatmapTile = {
+  png: Base64 | null;
+};
+
+/**
+ * What `heatmap.tile` is asked: one tile and the base map it is painted for.
+ */
+export type FfiLinkHeatmapTileAsk = {
+  z: number;
+  x: number;
+  y: number;
+  /**
+   * `light`, `dark` or `satellite`.
+   */
+  base: string;
+};
+
+/**
+ * What `link.hello` is asked: the newest protocol the page speaks, the
+ * oldest when it speaks more than one, and a name for the page. A page that
+ * names no oldest speaks `protocol` alone.
  */
 export type FfiLinkHello = {
   protocol: number;
+  minProtocol: number | null;
   page: string;
 };
 
 /**
- * What `link.hello` answers: the protocol the phone speaks, the app version
+ * What `link.hello` answers: the protocol the two will speak (the phone's own
+ * newest when the ranges do not meet), the phone's range, the app version,
  * the name of every method it answers, and the name of the phone when it has
  * one. The name is optional, so a page reads an answer without it.
  */
 export type FfiLinkHelloAnswer = {
   protocol: number;
+  minProtocol: number;
+  maxProtocol: number;
   app: string;
   methods: string[];
   device: string | null;
@@ -2144,6 +2488,38 @@ export type FfiLinkHighlightsAsk = {
 export type FfiLinkLoadsAsk = {
   startTs: number;
   endTs: number;
+};
+
+/**
+ * What `map.screen` is asked: the phone's map filters. The date window is in
+ * epoch seconds, as the phone reads it; an empty `sportTypes` keeps every sport.
+ */
+export type FfiLinkMapAsk = {
+  startDate: number;
+  endDate: number;
+  sportTypes: string[];
+  distanceBand: MapDistanceBand;
+  isMetric: boolean;
+  nameNeedle: string;
+};
+
+/**
+ * What `map.screen` answers: the phone's map read without its line layers,
+ * and the revisions of the two layers the page fetches by URL, so a filter
+ * change that leaves a layer alone refetches nothing.
+ */
+export type FfiLinkMapScreen = {
+  screen: FfiMapScreenData;
+  /**
+   * The route group generation the route-line layer is built from; `None`
+   * while there is no layer.
+   */
+  routeGeneration: number | null;
+  /**
+   * The database state the section layer is read in; `None` when the read
+   * cannot vouch for one.
+   */
+  sectionStamp: number | null;
 };
 
 /**
@@ -2190,6 +2566,23 @@ export type FfiLinkPerformanceAsk = {
   timeRangeDays: number;
   sportFilter: string | null;
   highlightActivityId: string | null;
+};
+
+/**
+ * What `insights.plannedEvents` answers: the calendar events in the window,
+ * oldest first.
+ */
+export type FfiLinkPlannedEvents = {
+  events: FfiPlannedEvent[];
+};
+
+/**
+ * What `insights.plannedEvents` is asked: an inclusive window of wall-clock
+ * seconds, as the phone's calendar read takes it.
+ */
+export type FfiLinkPlannedEventsAsk = {
+  oldestTs: number;
+  newestTs: number;
 };
 
 /**
@@ -2342,6 +2735,22 @@ export type FfiLinkWellnessAsk = {
 };
 
 /**
+ * What `insights.workoutSections` answers: the ranked sections for the sport.
+ */
+export type FfiLinkWorkoutSections = {
+  sections: FfiWorkoutSection[];
+};
+
+/**
+ * What `insights.workoutSections` is asked: the sport and how many sections
+ * the list holds at most.
+ */
+export type FfiLinkWorkoutSectionsAsk = {
+  sportType: string;
+  limit: number;
+};
+
+/**
  * What a write answers once it is made.
  */
 export type FfiLinkWriteDone = {
@@ -2409,6 +2818,134 @@ export type FfiLoadDot = {
 };
 
 /**
+ * Which total a period comparison was taken on. A week with no training load
+ * recorded still has moving time, so the comparison falls back rather than
+ * reading zero against zero.
+ */
+export type FfiLoadMetric = 'tss' | 'duration';
+
+export type FfiMapCategoryCount = {
+  family: FfiSportFamily;
+  count: number;
+};
+
+/**
+ * Why the map draws no activity, so the tab names its cause rather than
+ * showing a bare basemap.
+ */
+export type FfiMapEmptyReason =
+  | 'noActivities'
+  | { filtered: { mapped: number } }
+  | { tracksPending: { activities: number; pending: number } }
+  | { noGps: { activities: number } };
+
+/**
+ * Everything the map tab paints with in one call.
+ */
+export type FfiMapScreenData = {
+  /**
+   * Total activities held by the engine, before the date and sport filters
+   */
+  activityCount: number;
+  /**
+   * Sport types with at least one activity
+   */
+  availableSportTypes: string[];
+  /**
+   * Mapped activities by display group in the date window before filters
+   */
+  categoryCounts: FfiMapCategoryCount[];
+  /**
+   * Activities inside the requested window and sport filter
+   */
+  activities: MapActivityComplete[];
+  /**
+   * Routes the map can draw: groups of at least two activities with a
+   * stored line. Zero while the route-line layer is stale.
+   */
+  routeCount: number;
+  /**
+   * The pre-built route lines, present only when the read asked for them
+   * and the layer is current
+   */
+  routeLines: FfiRouteLineLayer | null;
+  /**
+   * Visible sections, regardless of whether the overlay was requested
+   */
+  sectionCount: number;
+  /**
+   * The section overlay, present only while the layer is requested
+   */
+  sections: FfiMapSectionLayer | null;
+  /**
+   * Why the map draws no activity, from the date window's own counts.
+   * `None` while `activities` holds one.
+   */
+  emptyReason: FfiMapEmptyReason | null;
+  /**
+   * The window's activities with no stored track that pass the same sport,
+   * distance and name filters as `activities`, so the two together are
+   * every activity in the period the filters keep.
+   */
+  unmapped: FfiMapUnmapped;
+};
+
+/**
+ * A section as the regional map draws it: a line, a colour key and a label.
+ *
+ * The map used to take the whole `FfiSection` for this, which clones
+ * `activity_ids`, one `activity_portions` record per traversal and the point
+ * density per section, then converted every portion in JavaScript and threw all
+ * of it away. These are the six fields the map actually reads.
+ */
+export type FfiMapSection = {
+  id: string;
+  /**
+   * The live name when the section has one, so the caller needs no overlay read.
+   */
+  name: string | null;
+  /**
+   * Every sport whose included outings have taken the section, sorted.
+   */
+  sportTypes: string[];
+  /**
+   * Traversals, one per pass.
+   */
+  visitCount: number;
+  distanceMeters: number;
+  /**
+   * climb, descent, rolling, flat or loop; None when nothing says. With the
+   * grade below, this is what the auto-generated label is built from, so the
+   * map's names do not change when it stops taking the whole record.
+   */
+  klass: string | null;
+  /**
+   * Steepest grade (%) held over 300 m of the slice.
+   */
+  maxGradePercent: number | null;
+  /**
+   * Delta+varint encoded coordinates, as every other track leaves the engine.
+   */
+  encodedPolyline: Base64;
+};
+
+/**
+ * The section overlay the map draws, stamped so a filter change that re-reads
+ * the map does not ship a catalogue the caller already holds.
+ */
+export type FfiMapSectionLayer = {
+  /**
+   * The database state the overlay was read in, passed back to say the
+   * caller still holds it. `None` when the read could not vouch for one.
+   */
+  stamp: number | null;
+  /**
+   * The sections, absent when the caller passed back this layer's `stamp`.
+   */
+  sections: FfiMapSection[] | null;
+};
+
+/**
  * Lightweight map signature for rendering activity traces on the map.
  * Contains simplified GPS points (max ~100 via Douglas-Peucker) as encoded coords.
  */
@@ -2420,6 +2957,21 @@ export type FfiMapSignature = {
   encodedCoords: Base64;
   centerLat: number;
   centerLng: number;
+};
+
+/**
+ * The activities a map read keeps but cannot draw, by why.
+ */
+export type FfiMapUnmapped = {
+  /**
+   * No track is owed: no GPS upstream, a track refused for good, or one the
+   * download gave up on, as `FfiMapEmptyReason::NoGps` reads it.
+   */
+  withoutGps: number;
+  /**
+   * A track is upstream and the GPS download has still to fetch it.
+   */
+  downloading: number;
 };
 
 /**
@@ -2443,7 +2995,7 @@ export type FfiMergeCandidate = {
   centerDistanceMeters: number;
   /**
    * The candidate's line thinned to what a row thumbnail draws, delta+varint
-   * encoded as `FfiRecentPR.encoded_polyline` is. Empty when it cannot be read.
+   * encoded as `FfiRecentPr.encoded_polyline` is. Empty when it cannot be read.
    */
   encodedPolyline: Base64;
 };
@@ -2640,6 +3192,36 @@ export type FfiPaceTrend = {
 };
 
 /**
+ * One period measured against another, on whichever total both carry.
+ *
+ * The card's threshold test is the reader's: this says how far apart the two
+ * periods are and on what, not whether that is worth saying.
+ */
+export type FfiPeriodComparison = {
+  /**
+   * The total both values are under.
+   */
+  metric: FfiLoadMetric;
+  /**
+   * The later period's total, in TSS or in seconds.
+   */
+  current: number;
+  /**
+   * The earlier period's total, on the same metric.
+   */
+  previous: number;
+  /**
+   * `current / previous - 1`, so 0.28 is 28% more than the period before.
+   */
+  ratio: number;
+  /**
+   * Epoch seconds where the later period starts, the week the verdict is
+   * about, so a graphic of the weekly totals can mark it.
+   */
+  comparedStart: number;
+};
+
+/**
  * Aggregated stats for a date range.
  */
 export type FfiPeriodStats = {
@@ -2659,6 +3241,70 @@ export type FfiPeriodStats = {
    * Total training load (TSS)
    */
   totalTss: number;
+};
+
+/**
+ * One line of the flat list the athlete follows.
+ */
+export type FfiPlanLine = {
+  kind: FfiPlanLineKind;
+  text: string;
+  durationSeconds: number | null;
+  /**
+   * A prescribed distance. Any duration beside it is an estimate, not a countdown.
+   */
+  distanceMetres: number | null;
+  targets: FfiStepTarget[];
+};
+
+/**
+ * Whether a plan line is effort or recovery.
+ */
+export type FfiPlanLineKind = 'work' | 'rest';
+
+/**
+ * The measure a planned workout is prescribed in.
+ */
+export type FfiPlanTarget = 'power' | 'heartRate' | 'pace';
+
+/**
+ * What kind of entry a calendar event is.
+ */
+export type FfiPlannedCategory = 'workout' | 'race' | 'note' | 'target' | 'season' | 'other';
+
+/**
+ * A calendar event as the screens read it.
+ */
+export type FfiPlannedEvent = {
+  /**
+   * The upstream event id.
+   */
+  id: number;
+  name: string;
+  /**
+   * The local day the event is planned for, `YYYY-MM-DD`.
+   */
+  day: string;
+  /**
+   * The activity type the event is planned as, `Ride`, `Run` and so on.
+   */
+  sport: string;
+  category: FfiPlannedCategory;
+  target: FfiPlanTarget | null;
+  /**
+   * The planned moving time, in seconds.
+   */
+  movingTime: number | null;
+  trainingLoad: number | null;
+  /**
+   * The workout's steps as the lines the athlete follows. Empty for an
+   * event that is not a workout, or a workout with nothing to follow.
+   */
+  lines: FfiPlanLine[];
+  /**
+   * The step bar, one block per line.
+   */
+  bar: FfiStepBlock[];
 };
 
 /**
@@ -2860,6 +3506,114 @@ export type FfiPreviewTrack = {
    * Delta+varint encoded coordinates
    */
   encodedCoords: Base64;
+};
+
+/**
+ * A section ranked by composite relevance score combining recency, improvement,
+ * anomaly detection, and engagement signals.
+ */
+export type FfiRankedSection = {
+  sectionId: string;
+  sectionName: string;
+  relevanceScore: number;
+  recencyScore: number;
+  improvementScore: number;
+  /**
+   * Signed fraction the athlete got faster by before the score clamps it,
+   * +0.14 for 14% faster and -1.5 for 150% slower. Absent with fewer than
+   * three efforts or a nonpositive earlier time, never an invented zero.
+   */
+  improvementChange: number | null;
+  /**
+   * What `improvement_change` compares, absent when it is.
+   */
+  improvementBasis: FfiImprovementBasis | null;
+  anomalyScore: number;
+  engagementScore: number;
+  traversalCount: number;
+  bestTimeSecs: number;
+  medianRecentSecs: number;
+  daysSinceLast: number;
+  /**
+   * -1 = declining, 0 = stable, 1 = improving
+   */
+  trend: number;
+  /**
+   * The last efforts on the section, oldest first, capped by the ranker's
+   * own limit. The scoring already holds every traversal to compute the
+   * medians above, so carrying the tail of them costs the ranker nothing.
+   */
+  recentEfforts: FfiSeriesPoint[];
+  /**
+   * The activity `best_time_secs` was set in. Absent when no stored
+   * traversal matches the best, which a stale rank cache can cause.
+   */
+  bestActivityId: string | null;
+};
+
+/**
+ * Ranked sections for one sport, paired with the sport label. One element
+ * per input sport in `get_ranked_sections_batch`.
+ */
+export type FfiRankedSectionsBySport = {
+  sportType: string;
+  sections: FfiRankedSection[];
+};
+
+/**
+ * A recent section PR detected in the last 7 days.
+ */
+export type FfiRecentPr = {
+  sectionId: string;
+  sectionName: string;
+  bestTime: number;
+  daysAgo: number;
+  /**
+   * The sport the record was set in. Shared ground holds a record in each
+   * sport that travels it and neither is measured against the other's laps,
+   * so a row that names no sport leaves the card labelling a run with a
+   * bicycle.
+   */
+  sportType: string;
+  /**
+   * Traversals in that sport, one per pass. A record set over three outings
+   * and one set over fifty are different claims, and the ranker has no other
+   * way to tell them apart. It counted the section's own traversals until
+   * 2026-09-20, so three runs on a much-ridden climb claimed the rides.
+   */
+  traversalCount: number;
+  /**
+   * Timed, eligible laps in the record's direction.
+   */
+  standingCount: number;
+  /**
+   * Percent of other counted laps slower than the record, when at least three count.
+   */
+  percentileFaster: number | null;
+  /**
+   * The next fastest counted lap in the record's direction.
+   */
+  previousBestTime: number | null;
+  previousBestDate: number | null;
+  deltaSeconds: number | null;
+  /**
+   * The last efforts on the section, oldest first, capped by
+   * `FfiInsightsParams::history_limit`. What the card draws, so the list
+   * does not read the engine again per card to draw a line it already had.
+   */
+  recentEfforts: FfiSeriesPoint[];
+  /**
+   * The section's own line, delta+varint encoded as every other track
+   * leaves the engine, thinned to what a thumbnail can draw. A record on
+   * "section 6" says nothing about which stretch of road that is, and the
+   * summary this row is built from already holds the geometry.
+   */
+  encodedPolyline: Base64;
+  /**
+   * The activity the record was set in, so the section opens at its best
+   * effort. Absent when the record's activity cannot be named.
+   */
+  bestActivityId: string | null;
 };
 
 /**
@@ -3135,6 +3889,101 @@ export type FfiRouteGroup = {
   avgTime: number | null;
   bestPace: number | null;
   bestActivityId: string | null;
+};
+
+/**
+ * One route's standing in one sport and one direction, for the insights
+ * panel. A route ridden and run is two rows, and forward and reverse are two
+ * more, because none of those attempts is measured against another's.
+ */
+export type FfiRouteInsight = {
+  routeId: string;
+  routeName: string;
+  sportType: string;
+  isReverse: boolean;
+  /**
+   * The bucket's fastest counted attempt beats every other and fell inside
+   * the recent record window.
+   */
+  isRecentRecord: boolean;
+  /**
+   * -1 slower, 0 stable or too few attempts, 1 faster, on the median
+   * window rule sections use.
+   */
+  trend: number;
+  /**
+   * The trend's size: the recent median moving time minus the previous
+   * median, in seconds, negative faster. `None` where `trend` is 0.
+   */
+  trendSeconds: number | null;
+  /**
+   * The fastest counted attempt's moving time, in seconds.
+   */
+  bestTime: number;
+  /**
+   * Whole days from the newest counted attempt to the end of the current
+   * week.
+   */
+  daysSinceLast: number;
+  /**
+   * Counted attempts: timed, not excluded, not partial, inside the
+   * distance band.
+   */
+  attemptCount: number;
+  /**
+   * The last counted attempts' moving times, oldest first, capped by
+   * `FfiInsightsParams::history_limit`.
+   */
+  recentEfforts: FfiSeriesPoint[];
+};
+
+export type FfiRouteLine = {
+  routeId: string;
+  /**
+   * The number the route is shown under, absent until one is minted
+   */
+  routeNumber: number | null;
+  /**
+   * The name the route is shown under, read when the map is, so a rename
+   * shows without the layer being rebuilt
+   */
+  name: string;
+  /**
+   * The activities in the route
+   */
+  activityCount: number;
+  /**
+   * The representative's distance in metres, the figure the route list
+   * shows, read when the map is
+   */
+  distanceMeters: number;
+  /**
+   * The representative's signature in `codec::encode_polyline` form
+   */
+  polyline: Base64;
+};
+
+/**
+ * The route-line layer the map draws, with the generation it was built from
+ * so the front end can keep what it decoded while the generation is unchanged.
+ */
+export type FfiRouteLineLayer = {
+  /**
+   * The route group generation the lines were built from. Declared as a
+   * double, which holds every generation a library reaches exactly.
+   */
+  generation: number;
+  /**
+   * The database state the layer was read in, which the caller passes back
+   * to say it still holds these lines. `None` when the read could not vouch
+   * for one.
+   */
+  stamp: number | null;
+  /**
+   * The lines, absent when the caller passed back this layer's `stamp`:
+   * nothing has committed since, so the lines and names it holds are these.
+   */
+  routes: FfiRouteLine[] | null;
 };
 
 /**
@@ -3477,6 +4326,26 @@ export type FfiSectionActivityRow = {
    * Metres per second; zero when moving time is zero.
    */
   averageSpeed: number;
+};
+
+/**
+ * A recent change on a live section, for the insights feed.
+ */
+export type FfiSectionChange = {
+  sectionId: string;
+  /**
+   * The name the athlete is shown for the section: their own, else its
+   * number, else the composition from its split parent. The id when the
+   * section has none.
+   */
+  sectionName: string;
+  kind: string;
+  at: string;
+  /**
+   * The section's line as it now stands, delta+varint encoded and thinned
+   * as `FfiRecentPr.encoded_polyline` is. Empty when it cannot be read.
+   */
+  encodedPolyline: Base64;
 };
 
 /**
@@ -4399,6 +5268,78 @@ export type FfiStagedHistory = {
 };
 
 /**
+ * One stale-PR opportunity: a section whose PR might be beatable because
+ * the user's threshold fitness (FTP for cycling, critical speed for run/swim)
+ * has improved since the PR was set, and the section hasn't been visited
+ * recently. Pure pattern recognition - TS formats as an Insight.
+ */
+export type FfiStalePrOpportunity = {
+  sectionId: string;
+  sectionName: string;
+  bestTimeSecs: number;
+  traversalCount: number;
+  /**
+   * Days since the last traversal. The insight gates on this, so it has to
+   * travel with the opportunity rather than be recovered downstream.
+   */
+  daysSinceLast: number;
+  /**
+   * "power" for cycling (FTP), "pace" for running/swimming (critical speed)
+   */
+  fitnessMetric: string;
+  currentValue: number;
+  previousValue: number;
+  gainPercent: number;
+  /**
+   * "W" for power, "/km" for running, "/100m" for swimming
+   */
+  unit: string;
+  /**
+   * The sport the section was ranked under. A section travelled in two
+   * sports is ranked in each, and the card names which one it is offering.
+   */
+  sportType: string;
+  /**
+   * The last efforts on the section, oldest first, with the record's own
+   * effort in front when it is older than all of them. The card's claim is
+   * that a fitness gain makes the section worth revisiting, and the efforts
+   * are what that claim is drawn against.
+   */
+  recentEfforts: FfiSeriesPoint[];
+  /**
+   * The activity the record being offered for a retry was set in.
+   */
+  bestActivityId: string | null;
+  /**
+   * When the record was set, epoch seconds. `previous_value` is the
+   * fitness on this day.
+   */
+  prDate: number;
+  /**
+   * The record effort's mean power in watts, for a cycling section whose
+   * record carried a power stream. Absent otherwise, never a zero.
+   */
+  prPower: number | null;
+  /**
+   * The record effort's mean speed in m/s, for a running or swimming
+   * section. Absent for cycling.
+   */
+  prSpeed: number | null;
+  /**
+   * The record effort as a percent of the fitness held that day: power
+   * over eFTP for cycling, speed over critical speed for running and
+   * swimming. Absent when the effort is.
+   */
+  prSharePercent: number | null;
+  /**
+   * The fitness `previous_value` and `current_value` are read from, oldest
+   * first, from the first of `recent_efforts` to the newest value, with a
+   * point at `pr_date` carrying `previous_value`.
+   */
+  fitnessHistory: FfiSeriesPoint[];
+};
+
+/**
  * One total of a period against the same elapsed part of the period before,
  * judged once in the engine.
  */
@@ -4417,6 +5358,40 @@ export type FfiStatTrend = {
    * that prints its own precision.
    */
   change: number;
+};
+
+/**
+ * One block of the step bar, one per plan line.
+ */
+export type FfiStepBlock = {
+  /**
+   * The width the block takes, in seconds of the plan.
+   */
+  seconds: number;
+  /**
+   * The athlete's training zone, 1 to 7, that the step's target falls in.
+   * `None` for a rest step and for a step with no target a zone can be
+   * worked out from.
+   */
+  zone: number | null;
+  rest: boolean;
+};
+
+/**
+ * A step's target as the plan supplied it, a single value being a range of one.
+ */
+export type FfiStepTarget = {
+  metric: FfiTargetMetric;
+  low: number;
+  high: number;
+  /**
+   * The units as the plan wrote them: `%ftp`, `w`, `power_zone` and so on.
+   */
+  units: string;
+  /**
+   * Present only when the plan carries a positive threshold to convert by.
+   */
+  absolute: FfiAbsoluteTarget | null;
 };
 
 /**
@@ -4480,6 +5455,20 @@ export type FfiStrengthCardSummary = {
    * Muscle groups the active sets work, primary over secondary.
    */
   muscles: FfiMuscleGroup[];
+};
+
+/**
+ * Bundled strength aggregation for the insights hook: one monthly summary
+ * plus N weekly summaries, each keyed to the corresponding input range.
+ * Collapses 5+ separate `getStrengthSummary` FFI calls into one round-trip.
+ */
+export type FfiStrengthInsightSeries = {
+  monthly: FfiStrengthSummary;
+  weekly: FfiStrengthSummary[];
+  /**
+   * One entry per muscle in `monthly`, in its order.
+   */
+  progressions: FfiStrengthProgression[];
 };
 
 /**
@@ -4756,6 +5745,11 @@ export type FfiSyncStep =
   | 'calendar';
 
 /**
+ * The measure one step target is set in.
+ */
+export type FfiTargetMetric = 'power' | 'heartRate' | 'pace';
+
+/**
  * Inclusive Unix-second range used for batched summary requests.
  */
 export type FfiTimestampRange = {
@@ -4814,6 +5808,21 @@ export type FfiTrendBandPoint = {
   value: number;
   upper: number;
   lower: number;
+};
+
+/**
+ * One week's totals and when the week starts.
+ */
+export type FfiWeeklyTotal = {
+  /**
+   * Epoch seconds of the week's first instant.
+   */
+  start: number;
+  stats: FfiPeriodStats;
+  /**
+   * The week is still running, so its totals cover only the days so far.
+   */
+  partial: boolean;
 };
 
 /**
@@ -4945,6 +5954,29 @@ export type FfiWellnessSummary = {
   weightBasis: FfiClaimBasis | null;
 };
 
+/**
+ * Enriched workout section for the home-screen "Sections for you" list.
+ * Composes ranking + performance lookups server-side so the TS hook is a
+ * thin pass-through instead of a per-section FFI loop.
+ */
+export type FfiWorkoutSection = {
+  id: string;
+  name: string;
+  prTimeSecs: number | null;
+  /**
+   * Second-best time (prior PR before current best)
+   */
+  previousBestTimeSecs: number | null;
+  lastTimeSecs: number | null;
+  daysSinceLast: number | null;
+  prDaysAgo: number | null;
+  /**
+   * -1 = declining, 0 = stable, 1 = improving. None when there is not
+   * enough history to say.
+   */
+  trend: number | null;
+};
+
 export type FfiYearCount = {
   year: number;
   count: number;
@@ -5001,6 +6033,58 @@ export type LibraryCoverage = {
 };
 
 /**
+ * Complete activity data for map display.
+ * Contains both spatial bounds and metadata for filtering and display.
+ */
+export type MapActivityComplete = {
+  /**
+   * Activity ID
+   */
+  activityId: string;
+  /**
+   * Sport type ("Run", "Ride", etc.)
+   */
+  sportType: string;
+  /**
+   * Whether the sport is recorded in a simulated world, so its track is not
+   * where the athlete rides.
+   */
+  isVirtual: boolean;
+  /**
+   * Bounding box for map display
+   */
+  bounds: FfiBounds;
+  /**
+   * Where the ride began, for the marker. `None` leaves the caller the
+   * bounds centre, which is where every marker used to start out before the
+   * signatures finished loading and moved it.
+   */
+  startLat: number | null;
+  startLng: number | null;
+  /**
+   * Start date as Unix timestamp (seconds since epoch)
+   */
+  date: number;
+  /**
+   * Activity name
+   */
+  name: string;
+  /**
+   * Total distance in meters
+   */
+  distance: number;
+  /**
+   * Total duration in seconds (moving time)
+   */
+  duration: number;
+};
+
+/**
+ * Distance range selected for the map in the current unit system.
+ */
+export type MapDistanceBand = 'all' | 'xShort' | 'short' | 'medium' | 'long';
+
+/**
  * Whether a date range holds nothing, owes a download, or is fully local.
  *
  * Activities are judged against the census, wellness against what is stored:
@@ -5055,6 +6139,9 @@ export type Methods = {
   'activity.intervals': { params: FfiLinkActivityAsk; result: FfiLinkActivityIntervals };
   'activity.sections': { params: FfiLinkActivityAsk; result: FfiLinkActivitySections };
   'activity.exerciseSets': { params: FfiLinkActivityAsk; result: FfiExerciseSession };
+  'insights.data': { params: FfiInsightsParams; result: FfiInsightsData };
+  'insights.plannedEvents': { params: FfiLinkPlannedEventsAsk; result: FfiLinkPlannedEvents };
+  'insights.workoutSections': { params: FfiLinkWorkoutSectionsAsk; result: FfiLinkWorkoutSections };
   'routes.screen': { params: FfiRoutesScreenQuery; result: FfiRoutesScreenData };
   'route.detail': { params: FfiLinkActivityAsk; result: FfiRouteDetailData };
   'route.performance': { params: FfiLinkPerformanceAsk; result: FfiSectionPerformanceData };
@@ -5076,6 +6163,11 @@ export type Methods = {
   'strength.muscle': { params: FfiLinkMuscleAsk; result: FfiMuscleGroupDetail };
   'recordings.list': { params: FfiLinkRecordingsAsk; result: FfiLinkRecordingsAnswer };
   'recordings.get': { params: FfiLinkRecordingAsk; result: FfiLinkRecordingAnswer };
+  'map.screen': { params: FfiLinkMapAsk; result: FfiLinkMapScreen };
+  'geo.routeLines': { params: FfiLinkNoAsk; result: FfiLinkGeoText };
+  'geo.sections': { params: FfiLinkNoAsk; result: FfiLinkGeoText };
+  'heatmap.tile': { params: FfiLinkHeatmapTileAsk; result: FfiLinkHeatmapTile };
+  'heatmap.progress': { params: FfiLinkNoAsk; result: FfiLinkHeatmapProgress };
   'settings.get': { params: FfiLinkSettingsAsk; result: FfiLinkSettingsAnswer };
   'settings.profile': { params: FfiLinkNoAsk; result: AthleteProfile };
   'status.backgroundJobs': { params: FfiLinkNoAsk; result: FfiBackgroundJobsData };

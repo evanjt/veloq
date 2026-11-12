@@ -8,7 +8,7 @@
  * style, and leaves terrain alone when none is on.
  */
 
-import { buildMap3DSetStyleScript, buildSetStyleScript } from '@/features/maps/lib/htmlBuilders';
+import { buildSetStyleScript } from '@/features/maps/lib/htmlBuilders';
 import { bootWorkerPage } from '../../__shared__/snapshotWorkerPage';
 
 /** A map that records the order of its terrain and style calls. */
@@ -34,19 +34,7 @@ function runSwap(script: string, terrainOn: boolean): string[] {
   return calls;
 }
 
-const swaps: [string, string][] = [
-  ['map surface', buildSetStyleScript('satellite')],
-  [
-    '3D map',
-    buildMap3DSetStyleScript({
-      mapStyle: 'satellite',
-      routeColor: '#2a9d8f',
-      terrainExaggeration: 1.5,
-      heatmapGeneration: 0,
-      showHeatmap: false,
-    }),
-  ],
-];
+const swaps: [string, string][] = [['map surface', buildSetStyleScript('satellite')]];
 
 describe.each(swaps)('the %s style swap', (_name, script) => {
   it('clears terrain before it sets the style', () => {

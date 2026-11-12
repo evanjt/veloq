@@ -75,6 +75,11 @@ pub struct Table {
     /// the part a delete would destroy. A consumer that reads `class` alone
     /// and ignores this throws that decision away.
     pub record_part: Option<&'static str>,
+    /// Set on a mirror table whose rows a record table can also own, as an SQL
+    /// condition over the row that holds when one does. A delete of a removed
+    /// activity's rows leaves those rows: they are the athlete's, and nothing
+    /// refills them.
+    pub claimed_when: Option<&'static str>,
 }
 
 const fn t(name: &'static str, class: TableClass, reason: &'static str) -> Table {
@@ -83,6 +88,7 @@ const fn t(name: &'static str, class: TableClass, reason: &'static str) -> Table
         class,
         reason,
         record_part: None,
+        claimed_when: None,
     }
 }
 
@@ -97,6 +103,22 @@ const fn mixed(
         class,
         reason,
         record_part: Some(record_part),
+        claimed_when: None,
+    }
+}
+
+const fn claimed(
+    name: &'static str,
+    class: TableClass,
+    reason: &'static str,
+    claimed_when: &'static str,
+) -> Table {
+    Table {
+        name,
+        class,
+        reason,
+        record_part: None,
+        claimed_when: Some(claimed_when),
     }
 }
 
@@ -186,10 +208,23 @@ static TABLES: &[Table] = &[
         Derived,
         "why a section was cut, recomputed with it",
     ),
-    t(
+    claimed(
         "exercise_sets",
         Mirror,
-        "strength sets as intervals.icu holds them",
+        "strength sets as intervals.icu holds them; those of a session recorded on the phone \
+         are written from the session tables, which a derived-data clear leaves",
+        "EXISTS (SELECT 1 FROM strength_sessions s WHERE s.kind = 'finished' \
+         AND s.activity_key = exercise_sets.activity_id)",
+    ),
+    t(
+        "exercise_usage",
+        Derived,
+        "each exercise's last day, session count and decayed use, rebuilt from the sets",
+    ),
+    t(
+        "exercise_followers",
+        Derived,
+        "how often one exercise followed another in a session, rebuilt from the sets",
     ),
     t(
         "swim_lengths",
@@ -373,6 +408,32 @@ static TABLES: &[Table] = &[
         "the number each section is shown under, which the athlete knows it by",
     ),
     t("section_pins", Record, "sections the athlete pinned"),
+    t(
+        "strength_sessions",
+        Record,
+        "strength sessions recorded on the phone and the workouts the athlete saved; side \
+         and groups reach no server and the sets reach none until an upload lands",
+    ),
+    t(
+        "strength_session_exercises",
+        Record,
+        "the exercises of a recorded or saved strength session, in order",
+    ),
+    t(
+        "strength_session_sets",
+        Record,
+        "the planned and done sets of a recorded or saved strength session, with side and warm-up",
+    ),
+    t(
+        "strength_session_groups",
+        Record,
+        "the rest planned after each group of exercises in a strength session",
+    ),
+    t(
+        "strength_session_rests",
+        Record,
+        "the rest periods of a recorded strength session as they happened",
+    ),
     t(
         "section_list_counts",
         Derived,

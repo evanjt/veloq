@@ -4,8 +4,10 @@
 // asked for. Nothing here touches the DOM, so a test drives it with a stand-in
 // for the ask.
 //
-//   veloq://geo/<kind>/<key>?v=<revision>   GeoJSON text from the method the kind names
-//   veloq://heatmap-<base>/{z}/{x}/{y}      one heatmap tile as a PNG
+//   veloq://geo/<kind>/<key>?v=<revision>   GeoJSON text from the method the kind names,
+//                                           answered as `{ text }`
+//   veloq://heatmap-<base>/{z}/{x}/{y}      one heatmap tile as a PNG, answered as
+//                                           `{ png }` in base64, or null for no heat
 
 /** What the handler needs of the link: one ask, any method, answered with the reply's result. */
 export type Ask = (method: string, params: object) => Promise<unknown>;
@@ -95,13 +97,15 @@ function aborted(): Error {
 /** The reply in the form the renderer asked for. */
 function respond(parsed: Parsed, result: unknown, type: Request['type']): Response {
   if (parsed.kind === 'heatmap') {
-    if (result !== null && typeof result !== 'string') throw new Error('the phone sent no tile');
-    return { data: buffer(result === null ? EMPTY_TILE : base64Bytes(result)) };
+    const png = (result as { png?: unknown } | null)?.png;
+    if (png !== null && typeof png !== 'string') throw new Error('the phone sent no tile');
+    return { data: buffer(png === null ? EMPTY_TILE : base64Bytes(png)) };
   }
-  if (typeof result !== 'string') throw new Error('the phone sent no GeoJSON text');
-  if (type === 'json') return { data: JSON.parse(result) as unknown };
-  if (type === 'string') return { data: result };
-  return { data: buffer(new TextEncoder().encode(result)) };
+  const text = (result as { text?: unknown } | null)?.text;
+  if (typeof text !== 'string') throw new Error('the phone sent no GeoJSON text');
+  if (type === 'json') return { data: JSON.parse(text) as unknown };
+  if (type === 'string') return { data: text };
+  return { data: buffer(new TextEncoder().encode(text)) };
 }
 
 /**

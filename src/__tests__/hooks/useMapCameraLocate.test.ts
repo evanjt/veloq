@@ -24,22 +24,18 @@ jest.mock('expo-location', () => ({
 const getPosition = Location.getCurrentPositionAsync as jest.Mock;
 let now = 1_000_000;
 
-async function mount(is3D = false) {
+async function mount() {
   const surface = { setCamera: jest.fn() };
-  const map3D = { setCamera: jest.fn() };
   const rendered = await renderHook(() =>
     useMapCamera({
       validCoordinates: [
         { latitude: 46.948, longitude: 7.447 },
         { latitude: 46.951, longitude: 7.45 },
       ],
-      is3DMode: is3D,
-      is3DReady: is3D,
-      map3DRef: { current: map3D as never },
     })
   );
   (rendered.result.current.surfaceRef as { current: unknown }).current = surface;
-  return { rendered, surface, map3D };
+  return { rendered, surface };
 }
 
 beforeEach(() => {
@@ -79,15 +75,6 @@ describe('useMapCamera locate', () => {
       await rendered.result.current.handleGetLocation();
     });
     expect(getPosition).toHaveBeenCalledTimes(2);
-  });
-
-  it('moves the 3D map, not the hidden surface, while 3D is showing', async () => {
-    const { rendered, surface, map3D } = await mount(true);
-    await act(async () => {
-      await rendered.result.current.handleGetLocation();
-    });
-    expect(map3D.setCamera).toHaveBeenCalledWith({ center: [7.5, 46.5], zoom: 13 }, 500);
-    expect(surface.setCamera).not.toHaveBeenCalled();
   });
 
   it('leaves the map and the dot alone when permission is refused', async () => {

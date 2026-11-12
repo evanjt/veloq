@@ -10548,6 +10548,190 @@ const FfiConverterTypeFfiExerciseDetailData = (() => {
 })();
 
 /**
+ * One exercise in the picker's list.
+ */
+export type FfiExercisePickerRow = {
+  category: number;
+  name: number;
+  labelKey: string;
+  /**
+   * The English name; a translation is looked up by `label_key`.
+   */
+  displayName: string;
+  equipment: string;
+  /**
+   * Whole days since the athlete last did it, `None` when never.
+   */
+  lastDoneDays?: number;
+  /**
+   * It has followed the exercise just done in the athlete's sessions.
+   */
+  usuallyNext: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiExercisePickerRow} record objects.
+ */
+export const FfiExercisePickerRow = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiExercisePickerRow,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiExercisePickerRow>,
+  });
+})();
+
+const FfiConverterTypeFfiExercisePickerRow = (() => {
+  type TypeName = FfiExercisePickerRow;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        category: FfiConverterUInt16.readFromCursor(c),
+        name: FfiConverterUInt16.readFromCursor(c),
+        labelKey: FfiConverterString.readFromCursor(c),
+        displayName: FfiConverterString.readFromCursor(c),
+        equipment: FfiConverterString.readFromCursor(c),
+        lastDoneDays: FfiConverterOptionalUInt32.readFromCursor(c),
+        usuallyNext: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt16.writeIntoCursor(value.category, c);
+      FfiConverterUInt16.writeIntoCursor(value.name, c);
+      FfiConverterString.writeIntoCursor(value.labelKey, c);
+      FfiConverterString.writeIntoCursor(value.displayName, c);
+      FfiConverterString.writeIntoCursor(value.equipment, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.lastDoneDays, c);
+      FfiConverterBool.writeIntoCursor(value.usuallyNext, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt16.allocationSize(value.category) +
+        FfiConverterUInt16.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.labelKey) +
+        FfiConverterString.allocationSize(value.displayName) +
+        FfiConverterString.allocationSize(value.equipment) +
+        FfiConverterOptionalUInt32.allocationSize(value.lastDoneDays) +
+        FfiConverterBool.allocationSize(value.usuallyNext)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A muscle the body pair can select and the region it belongs to.
+ */
+export type FfiPickerMuscle = {
+  slug: string;
+  region: string;
+};
+
+/**
+ * Generated factory for {@link FfiPickerMuscle} record objects.
+ */
+export const FfiPickerMuscle = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiPickerMuscle, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiPickerMuscle>,
+  });
+})();
+
+const FfiConverterTypeFfiPickerMuscle = (() => {
+  type TypeName = FfiPickerMuscle;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        slug: FfiConverterString.readFromCursor(c),
+        region: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.slug, c);
+      FfiConverterString.writeIntoCursor(value.region, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.slug) +
+        FfiConverterString.allocationSize(value.region)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The exercise picker: the narrowed list and the vocabulary its filters use.
+ */
+export type FfiExercisePickerData = {
+  rows: Array<FfiExercisePickerRow>;
+  equipment: Array<string>;
+  muscles: Array<FfiPickerMuscle>;
+};
+
+/**
+ * Generated factory for {@link FfiExercisePickerData} record objects.
+ */
+export const FfiExercisePickerData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiExercisePickerData,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiExercisePickerData>,
+  });
+})();
+
+const FfiConverterTypeFfiExercisePickerData = (() => {
+  type TypeName = FfiExercisePickerData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        rows: FfiConverterSequenceTypeFfiExercisePickerRow.readFromCursor(c),
+        equipment: FfiConverterSequenceString.readFromCursor(c),
+        muscles: FfiConverterSequenceTypeFfiPickerMuscle.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceTypeFfiExercisePickerRow.writeIntoCursor(
+        value.rows,
+        c,
+      );
+      FfiConverterSequenceString.writeIntoCursor(value.equipment, c);
+      FfiConverterSequenceTypeFfiPickerMuscle.writeIntoCursor(value.muscles, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterSequenceTypeFfiExercisePickerRow.allocationSize(
+          value.rows,
+        ) +
+        FfiConverterSequenceString.allocationSize(value.equipment) +
+        FfiConverterSequenceTypeFfiPickerMuscle.allocationSize(value.muscles)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One session's stored sets with the totals every surface shows for it.
  */
 export type FfiExerciseSession = {
@@ -13500,7 +13684,7 @@ export const FfiRecentPr = (() => {
   });
 })();
 
-const FfiConverterTypeFfiRecentPR = (() => {
+const FfiConverterTypeFfiRecentPr = (() => {
   type TypeName = FfiRecentPr;
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     readFromCursor(c: Cursor): TypeName {
@@ -14502,7 +14686,7 @@ export type FfiSectionChange = {
   at: string;
   /**
    * The section's line as it now stands, delta+varint encoded and thinned
-   * as `FfiRecentPR.encoded_polyline` is. Empty when it cannot be read.
+   * as `FfiRecentPr.encoded_polyline` is. Empty when it cannot be read.
    */
   encodedPolyline: ArrayBuffer;
 };
@@ -14876,7 +15060,7 @@ const FfiConverterTypeFfiInsightsData = (() => {
         ftpTrend: FfiConverterTypeFfiFtpTrend.readFromCursor(c),
         runPaceTrend: FfiConverterTypeFfiPaceTrend.readFromCursor(c),
         swimPaceTrend: FfiConverterTypeFfiPaceTrend.readFromCursor(c),
-        recentPrs: FfiConverterSequenceTypeFfiRecentPR.readFromCursor(c),
+        recentPrs: FfiConverterSequenceTypeFfiRecentPr.readFromCursor(c),
         sectionCount: FfiConverterUInt32.readFromCursor(c),
         sportTypes: FfiConverterSequenceString.readFromCursor(c),
         rankedSections:
@@ -14923,7 +15107,7 @@ const FfiConverterTypeFfiInsightsData = (() => {
       FfiConverterTypeFfiFtpTrend.writeIntoCursor(value.ftpTrend, c);
       FfiConverterTypeFfiPaceTrend.writeIntoCursor(value.runPaceTrend, c);
       FfiConverterTypeFfiPaceTrend.writeIntoCursor(value.swimPaceTrend, c);
-      FfiConverterSequenceTypeFfiRecentPR.writeIntoCursor(value.recentPrs, c);
+      FfiConverterSequenceTypeFfiRecentPr.writeIntoCursor(value.recentPrs, c);
       FfiConverterUInt32.writeIntoCursor(value.sectionCount, c);
       FfiConverterSequenceString.writeIntoCursor(value.sportTypes, c);
       FfiConverterSequenceTypeFfiRankedSectionsBySport.writeIntoCursor(
@@ -14986,7 +15170,7 @@ const FfiConverterTypeFfiInsightsData = (() => {
         FfiConverterTypeFfiFtpTrend.allocationSize(value.ftpTrend) +
         FfiConverterTypeFfiPaceTrend.allocationSize(value.runPaceTrend) +
         FfiConverterTypeFfiPaceTrend.allocationSize(value.swimPaceTrend) +
-        FfiConverterSequenceTypeFfiRecentPR.allocationSize(value.recentPrs) +
+        FfiConverterSequenceTypeFfiRecentPr.allocationSize(value.recentPrs) +
         FfiConverterUInt32.allocationSize(value.sectionCount) +
         FfiConverterSequenceString.allocationSize(value.sportTypes) +
         FfiConverterSequenceTypeFfiRankedSectionsBySport.allocationSize(
@@ -15962,11 +16146,209 @@ const FfiConverterTypeFfiLinkFitnessScreenAsk = (() => {
 })();
 
 /**
- * What `link.hello` is asked: the protocol the page was built for and a name
- * for the page.
+ * A GeoJSON `FeatureCollection` as its text.
+ */
+export type FfiLinkGeoText = {
+  text: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkGeoText} record objects.
+ */
+export const FfiLinkGeoText = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkGeoText, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkGeoText>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkGeoText = (() => {
+  type TypeName = FfiLinkGeoText;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        text: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.text, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterString.allocationSize(value.text);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `heatmap.progress` answers: the tiles the pass has drawn of the tiles
+ * it owes, both 0 while no pass runs.
+ */
+export type FfiLinkHeatmapProgress = {
+  processed: number;
+  total: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkHeatmapProgress} record objects.
+ */
+export const FfiLinkHeatmapProgress = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkHeatmapProgress,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkHeatmapProgress>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkHeatmapProgress = (() => {
+  type TypeName = FfiLinkHeatmapProgress;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        processed: FfiConverterUInt32.readFromCursor(c),
+        total: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.processed, c);
+      FfiConverterUInt32.writeIntoCursor(value.total, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.processed) +
+        FfiConverterUInt32.allocationSize(value.total)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `heatmap.tile` answers: the PNG, or `None` for a tile with no heat or
+ * one the pass has not drawn yet.
+ */
+export type FfiLinkHeatmapTile = {
+  png?: ArrayBuffer;
+};
+
+/**
+ * Generated factory for {@link FfiLinkHeatmapTile} record objects.
+ */
+export const FfiLinkHeatmapTile = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkHeatmapTile, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkHeatmapTile>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkHeatmapTile = (() => {
+  type TypeName = FfiLinkHeatmapTile;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        png: FfiConverterOptionalBytes.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalBytes.writeIntoCursor(value.png, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterOptionalBytes.allocationSize(value.png);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `heatmap.tile` is asked: one tile and the base map it is painted for.
+ */
+export type FfiLinkHeatmapTileAsk = {
+  z: number;
+  x: number;
+  y: number;
+  /**
+   * `light`, `dark` or `satellite`.
+   */
+  base: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkHeatmapTileAsk} record objects.
+ */
+export const FfiLinkHeatmapTileAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkHeatmapTileAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkHeatmapTileAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkHeatmapTileAsk = (() => {
+  type TypeName = FfiLinkHeatmapTileAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        z: FfiConverterUInt32.readFromCursor(c),
+        x: FfiConverterUInt32.readFromCursor(c),
+        y: FfiConverterUInt32.readFromCursor(c),
+        base: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.z, c);
+      FfiConverterUInt32.writeIntoCursor(value.x, c);
+      FfiConverterUInt32.writeIntoCursor(value.y, c);
+      FfiConverterString.writeIntoCursor(value.base, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.z) +
+        FfiConverterUInt32.allocationSize(value.x) +
+        FfiConverterUInt32.allocationSize(value.y) +
+        FfiConverterString.allocationSize(value.base)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `link.hello` is asked: the newest protocol the page speaks, the
+ * oldest when it speaks more than one, and a name for the page. A page that
+ * names no oldest speaks `protocol` alone.
  */
 export type FfiLinkHello = {
   protocol: number;
+  minProtocol?: number;
   page: string;
 };
 
@@ -15993,16 +16375,19 @@ const FfiConverterTypeFfiLinkHello = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         protocol: FfiConverterUInt32.readFromCursor(c),
+        minProtocol: FfiConverterOptionalUInt32.readFromCursor(c),
         page: FfiConverterString.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterUInt32.writeIntoCursor(value.protocol, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.minProtocol, c);
       FfiConverterString.writeIntoCursor(value.page, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterUInt32.allocationSize(value.protocol) +
+        FfiConverterOptionalUInt32.allocationSize(value.minProtocol) +
         FfiConverterString.allocationSize(value.page)
       );
     }
@@ -16011,12 +16396,15 @@ const FfiConverterTypeFfiLinkHello = (() => {
 })();
 
 /**
- * What `link.hello` answers: the protocol the phone speaks, the app version
+ * What `link.hello` answers: the protocol the two will speak (the phone's own
+ * newest when the ranges do not meet), the phone's range, the app version,
  * the name of every method it answers, and the name of the phone when it has
  * one. The name is optional, so a page reads an answer without it.
  */
 export type FfiLinkHelloAnswer = {
   protocol: number;
+  minProtocol: number;
+  maxProtocol: number;
   app: string;
   methods: Array<string>;
   device?: string;
@@ -16045,6 +16433,8 @@ const FfiConverterTypeFfiLinkHelloAnswer = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         protocol: FfiConverterUInt32.readFromCursor(c),
+        minProtocol: FfiConverterUInt32.readFromCursor(c),
+        maxProtocol: FfiConverterUInt32.readFromCursor(c),
         app: FfiConverterString.readFromCursor(c),
         methods: FfiConverterSequenceString.readFromCursor(c),
         device: FfiConverterOptionalString.readFromCursor(c),
@@ -16052,6 +16442,8 @@ const FfiConverterTypeFfiLinkHelloAnswer = (() => {
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterUInt32.writeIntoCursor(value.protocol, c);
+      FfiConverterUInt32.writeIntoCursor(value.minProtocol, c);
+      FfiConverterUInt32.writeIntoCursor(value.maxProtocol, c);
       FfiConverterString.writeIntoCursor(value.app, c);
       FfiConverterSequenceString.writeIntoCursor(value.methods, c);
       FfiConverterOptionalString.writeIntoCursor(value.device, c);
@@ -16059,6 +16451,8 @@ const FfiConverterTypeFfiLinkHelloAnswer = (() => {
     allocationSize(value: TypeName): number {
       return (
         FfiConverterUInt32.allocationSize(value.protocol) +
+        FfiConverterUInt32.allocationSize(value.minProtocol) +
+        FfiConverterUInt32.allocationSize(value.maxProtocol) +
         FfiConverterString.allocationSize(value.app) +
         FfiConverterSequenceString.allocationSize(value.methods) +
         FfiConverterOptionalString.allocationSize(value.device)
@@ -16153,6 +16547,1082 @@ const FfiConverterTypeFfiLinkLoadsAsk = (() => {
       return (
         FfiConverterFloat64.allocationSize(value.startTs) +
         FfiConverterFloat64.allocationSize(value.endTs)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Distance range selected for the map in the current unit system.
+ */
+export enum MapDistanceBand {
+  All,
+  XShort,
+  Short,
+  Medium,
+  Long,
+}
+
+const FfiConverterTypeMapDistanceBand = (() => {
+  type TypeName = MapDistanceBand;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return MapDistanceBand.All;
+        case 2:
+          return MapDistanceBand.XShort;
+        case 3:
+          return MapDistanceBand.Short;
+        case 4:
+          return MapDistanceBand.Medium;
+        case 5:
+          return MapDistanceBand.Long;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case MapDistanceBand.All:
+          return c.writeI32(1);
+        case MapDistanceBand.XShort:
+          return c.writeI32(2);
+        case MapDistanceBand.Short:
+          return c.writeI32(3);
+        case MapDistanceBand.Medium:
+          return c.writeI32(4);
+        case MapDistanceBand.Long:
+          return c.writeI32(5);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `map.screen` is asked: the phone's map filters. The date window is in
+ * epoch seconds, as the phone reads it; an empty `sportTypes` keeps every sport.
+ */
+export type FfiLinkMapAsk = {
+  startDate: number;
+  endDate: number;
+  sportTypes: Array<string>;
+  distanceBand: MapDistanceBand;
+  isMetric: boolean;
+  nameNeedle: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkMapAsk} record objects.
+ */
+export const FfiLinkMapAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkMapAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkMapAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkMapAsk = (() => {
+  type TypeName = FfiLinkMapAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        startDate: FfiConverterFloat64.readFromCursor(c),
+        endDate: FfiConverterFloat64.readFromCursor(c),
+        sportTypes: FfiConverterSequenceString.readFromCursor(c),
+        distanceBand: FfiConverterTypeMapDistanceBand.readFromCursor(c),
+        isMetric: FfiConverterBool.readFromCursor(c),
+        nameNeedle: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterFloat64.writeIntoCursor(value.startDate, c);
+      FfiConverterFloat64.writeIntoCursor(value.endDate, c);
+      FfiConverterSequenceString.writeIntoCursor(value.sportTypes, c);
+      FfiConverterTypeMapDistanceBand.writeIntoCursor(value.distanceBand, c);
+      FfiConverterBool.writeIntoCursor(value.isMetric, c);
+      FfiConverterString.writeIntoCursor(value.nameNeedle, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.startDate) +
+        FfiConverterFloat64.allocationSize(value.endDate) +
+        FfiConverterSequenceString.allocationSize(value.sportTypes) +
+        FfiConverterTypeMapDistanceBand.allocationSize(value.distanceBand) +
+        FfiConverterBool.allocationSize(value.isMetric) +
+        FfiConverterString.allocationSize(value.nameNeedle)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+export type FfiMapCategoryCount = {
+  family: FfiSportFamily;
+  count: number;
+};
+
+/**
+ * Generated factory for {@link FfiMapCategoryCount} record objects.
+ */
+export const FfiMapCategoryCount = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMapCategoryCount, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMapCategoryCount>,
+  });
+})();
+
+const FfiConverterTypeFfiMapCategoryCount = (() => {
+  type TypeName = FfiMapCategoryCount;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        family: FfiConverterTypeFfiSportFamily.readFromCursor(c),
+        count: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiSportFamily.writeIntoCursor(value.family, c);
+      FfiConverterUInt32.writeIntoCursor(value.count, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiSportFamily.allocationSize(value.family) +
+        FfiConverterUInt32.allocationSize(value.count)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Complete activity data for map display.
+ * Contains both spatial bounds and metadata for filtering and display.
+ */
+export type MapActivityComplete = {
+  /**
+   * Activity ID
+   */
+  activityId: string;
+  /**
+   * Sport type ("Run", "Ride", etc.)
+   */
+  sportType: string;
+  /**
+   * Whether the sport is recorded in a simulated world, so its track is not
+   * where the athlete rides.
+   */
+  isVirtual: boolean;
+  /**
+   * Bounding box for map display
+   */
+  bounds: FfiBounds;
+  /**
+   * Where the ride began, for the marker. `None` leaves the caller the
+   * bounds centre, which is where every marker used to start out before the
+   * signatures finished loading and moved it.
+   */
+  startLat?: number;
+  startLng?: number;
+  /**
+   * Start date as Unix timestamp (seconds since epoch)
+   */
+  date: number;
+  /**
+   * Activity name
+   */
+  name: string;
+  /**
+   * Total distance in meters
+   */
+  distance: number;
+  /**
+   * Total duration in seconds (moving time)
+   */
+  duration: number;
+};
+
+/**
+ * Generated factory for {@link MapActivityComplete} record objects.
+ */
+export const MapActivityComplete = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<MapActivityComplete, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<MapActivityComplete>,
+  });
+})();
+
+const FfiConverterTypeMapActivityComplete = (() => {
+  type TypeName = MapActivityComplete;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityId: FfiConverterString.readFromCursor(c),
+        sportType: FfiConverterString.readFromCursor(c),
+        isVirtual: FfiConverterBool.readFromCursor(c),
+        bounds: FfiConverterTypeFfiBounds.readFromCursor(c),
+        startLat: FfiConverterOptionalFloat64.readFromCursor(c),
+        startLng: FfiConverterOptionalFloat64.readFromCursor(c),
+        date: FfiConverterFloat64.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        distance: FfiConverterFloat64.readFromCursor(c),
+        duration: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterString.writeIntoCursor(value.sportType, c);
+      FfiConverterBool.writeIntoCursor(value.isVirtual, c);
+      FfiConverterTypeFfiBounds.writeIntoCursor(value.bounds, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.startLat, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.startLng, c);
+      FfiConverterFloat64.writeIntoCursor(value.date, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterFloat64.writeIntoCursor(value.distance, c);
+      FfiConverterUInt32.writeIntoCursor(value.duration, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterBool.allocationSize(value.isVirtual) +
+        FfiConverterTypeFfiBounds.allocationSize(value.bounds) +
+        FfiConverterOptionalFloat64.allocationSize(value.startLat) +
+        FfiConverterOptionalFloat64.allocationSize(value.startLng) +
+        FfiConverterFloat64.allocationSize(value.date) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterFloat64.allocationSize(value.distance) +
+        FfiConverterUInt32.allocationSize(value.duration)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+export type FfiRouteLine = {
+  routeId: string;
+  /**
+   * The number the route is shown under, absent until one is minted
+   */
+  routeNumber?: number;
+  /**
+   * The name the route is shown under, read when the map is, so a rename
+   * shows without the layer being rebuilt
+   */
+  name: string;
+  /**
+   * The activities in the route
+   */
+  activityCount: number;
+  /**
+   * The representative's distance in metres, the figure the route list
+   * shows, read when the map is
+   */
+  distanceMeters: number;
+  /**
+   * The representative's signature in `codec::encode_polyline` form
+   */
+  polyline: ArrayBuffer;
+};
+
+/**
+ * Generated factory for {@link FfiRouteLine} record objects.
+ */
+export const FfiRouteLine = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRouteLine, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRouteLine>,
+  });
+})();
+
+const FfiConverterTypeFfiRouteLine = (() => {
+  type TypeName = FfiRouteLine;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        routeId: FfiConverterString.readFromCursor(c),
+        routeNumber: FfiConverterOptionalUInt32.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        activityCount: FfiConverterUInt32.readFromCursor(c),
+        distanceMeters: FfiConverterFloat64.readFromCursor(c),
+        polyline: FfiConverterArrayBuffer.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.routeId, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.routeNumber, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterUInt32.writeIntoCursor(value.activityCount, c);
+      FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
+      FfiConverterArrayBuffer.writeIntoCursor(value.polyline, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.routeId) +
+        FfiConverterOptionalUInt32.allocationSize(value.routeNumber) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterArrayBuffer.allocationSize(value.polyline)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The route-line layer the map draws, with the generation it was built from
+ * so the front end can keep what it decoded while the generation is unchanged.
+ */
+export type FfiRouteLineLayer = {
+  /**
+   * The route group generation the lines were built from. Declared as a
+   * double, which holds every generation a library reaches exactly.
+   */
+  generation: number;
+  /**
+   * The database state the layer was read in, which the caller passes back
+   * to say it still holds these lines. `None` when the read could not vouch
+   * for one.
+   */
+  stamp?: number;
+  /**
+   * The lines, absent when the caller passed back this layer's `stamp`:
+   * nothing has committed since, so the lines and names it holds are these.
+   */
+  routes?: Array<FfiRouteLine>;
+};
+
+/**
+ * Generated factory for {@link FfiRouteLineLayer} record objects.
+ */
+export const FfiRouteLineLayer = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRouteLineLayer, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRouteLineLayer>,
+  });
+})();
+
+const FfiConverterTypeFfiRouteLineLayer = (() => {
+  type TypeName = FfiRouteLineLayer;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        generation: FfiConverterFloat64.readFromCursor(c),
+        stamp: FfiConverterOptionalFloat64.readFromCursor(c),
+        routes: FfiConverterOptionalSequenceTypeFfiRouteLine.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterFloat64.writeIntoCursor(value.generation, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.stamp, c);
+      FfiConverterOptionalSequenceTypeFfiRouteLine.writeIntoCursor(
+        value.routes,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.generation) +
+        FfiConverterOptionalFloat64.allocationSize(value.stamp) +
+        FfiConverterOptionalSequenceTypeFfiRouteLine.allocationSize(
+          value.routes,
+        )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A section as the regional map draws it: a line, a colour key and a label.
+ *
+ * The map used to take the whole `FfiSection` for this, which clones
+ * `activity_ids`, one `activity_portions` record per traversal and the point
+ * density per section, then converted every portion in JavaScript and threw all
+ * of it away. These are the six fields the map actually reads.
+ */
+export type FfiMapSection = {
+  id: string;
+  /**
+   * The live name when the section has one, so the caller needs no overlay read.
+   */
+  name?: string;
+  /**
+   * Every sport whose included outings have taken the section, sorted.
+   */
+  sportTypes: Array<string>;
+  /**
+   * Traversals, one per pass.
+   */
+  visitCount: number;
+  distanceMeters: number;
+  /**
+   * climb, descent, rolling, flat or loop; None when nothing says. With the
+   * grade below, this is what the auto-generated label is built from, so the
+   * map's names do not change when it stops taking the whole record.
+   */
+  klass?: string;
+  /**
+   * Steepest grade (%) held over 300 m of the slice.
+   */
+  maxGradePercent?: number;
+  /**
+   * Delta+varint encoded coordinates, as every other track leaves the engine.
+   */
+  encodedPolyline: ArrayBuffer;
+};
+
+/**
+ * Generated factory for {@link FfiMapSection} record objects.
+ */
+export const FfiMapSection = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMapSection, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMapSection>,
+  });
+})();
+
+const FfiConverterTypeFfiMapSection = (() => {
+  type TypeName = FfiMapSection;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        name: FfiConverterOptionalString.readFromCursor(c),
+        sportTypes: FfiConverterSequenceString.readFromCursor(c),
+        visitCount: FfiConverterUInt32.readFromCursor(c),
+        distanceMeters: FfiConverterFloat64.readFromCursor(c),
+        klass: FfiConverterOptionalString.readFromCursor(c),
+        maxGradePercent: FfiConverterOptionalFloat64.readFromCursor(c),
+        encodedPolyline: FfiConverterArrayBuffer.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterOptionalString.writeIntoCursor(value.name, c);
+      FfiConverterSequenceString.writeIntoCursor(value.sportTypes, c);
+      FfiConverterUInt32.writeIntoCursor(value.visitCount, c);
+      FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
+      FfiConverterOptionalString.writeIntoCursor(value.klass, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.maxGradePercent, c);
+      FfiConverterArrayBuffer.writeIntoCursor(value.encodedPolyline, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterOptionalString.allocationSize(value.name) +
+        FfiConverterSequenceString.allocationSize(value.sportTypes) +
+        FfiConverterUInt32.allocationSize(value.visitCount) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterOptionalString.allocationSize(value.klass) +
+        FfiConverterOptionalFloat64.allocationSize(value.maxGradePercent) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The section overlay the map draws, stamped so a filter change that re-reads
+ * the map does not ship a catalogue the caller already holds.
+ */
+export type FfiMapSectionLayer = {
+  /**
+   * The database state the overlay was read in, passed back to say the
+   * caller still holds it. `None` when the read could not vouch for one.
+   */
+  stamp?: number;
+  /**
+   * The sections, absent when the caller passed back this layer's `stamp`.
+   */
+  sections?: Array<FfiMapSection>;
+};
+
+/**
+ * Generated factory for {@link FfiMapSectionLayer} record objects.
+ */
+export const FfiMapSectionLayer = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMapSectionLayer, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMapSectionLayer>,
+  });
+})();
+
+const FfiConverterTypeFfiMapSectionLayer = (() => {
+  type TypeName = FfiMapSectionLayer;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        stamp: FfiConverterOptionalFloat64.readFromCursor(c),
+        sections:
+          FfiConverterOptionalSequenceTypeFfiMapSection.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalFloat64.writeIntoCursor(value.stamp, c);
+      FfiConverterOptionalSequenceTypeFfiMapSection.writeIntoCursor(
+        value.sections,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalFloat64.allocationSize(value.stamp) +
+        FfiConverterOptionalSequenceTypeFfiMapSection.allocationSize(
+          value.sections,
+        )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+// Enum: FfiMapEmptyReason
+export enum FfiMapEmptyReason_Tags {
+  NoActivities = "NoActivities",
+  Filtered = "Filtered",
+  TracksPending = "TracksPending",
+  NoGps = "NoGps",
+}
+/**
+ * Why the map draws no activity, so the tab names its cause rather than
+ * showing a bare basemap.
+ */
+export const FfiMapEmptyReason = (() => {
+  type NoActivities__interface = {
+    tag: FfiMapEmptyReason_Tags.NoActivities;
+  };
+  /**
+   * No activity falls inside the date window.
+   */
+  class NoActivities_ extends UniffiEnum implements NoActivities__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiMapEmptyReason";
+    readonly tag = FfiMapEmptyReason_Tags.NoActivities;
+    constructor() {
+      super("FfiMapEmptyReason", "NoActivities");
+    }
+
+    static new(): NoActivities_ {
+      return new NoActivities_();
+    }
+
+    static instanceOf(obj: any): obj is NoActivities_ {
+      return obj.tag === FfiMapEmptyReason_Tags.NoActivities;
+    }
+  }
+
+  type Filtered__interface = {
+    tag: FfiMapEmptyReason_Tags.Filtered;
+    inner: Readonly<{ mapped: number }>;
+  };
+  /**
+   * The window holds tracks and the sport, distance or name filters leave
+   * none of them. `mapped` is the window's tracks before those filters.
+   */
+  class Filtered_ extends UniffiEnum implements Filtered__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiMapEmptyReason";
+    readonly tag = FfiMapEmptyReason_Tags.Filtered;
+    readonly inner: Readonly<{ mapped: number }>;
+    constructor(inner: { mapped: number }) {
+      super("FfiMapEmptyReason", "Filtered");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { mapped: number }): Filtered_ {
+      return new Filtered_(inner);
+    }
+
+    static instanceOf(obj: any): obj is Filtered_ {
+      return obj.tag === FfiMapEmptyReason_Tags.Filtered;
+    }
+  }
+
+  type TracksPending__interface = {
+    tag: FfiMapEmptyReason_Tags.TracksPending;
+    inner: Readonly<{ activities: number; pending: number }>;
+  };
+  /**
+   * The window's activities have no stored track yet, and `pending` of them
+   * have one upstream that the GPS download has still to fetch.
+   */
+  class TracksPending_ extends UniffiEnum implements TracksPending__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiMapEmptyReason";
+    readonly tag = FfiMapEmptyReason_Tags.TracksPending;
+    readonly inner: Readonly<{ activities: number; pending: number }>;
+    constructor(inner: { activities: number; pending: number }) {
+      super("FfiMapEmptyReason", "TracksPending");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { activities: number; pending: number }): TracksPending_ {
+      return new TracksPending_(inner);
+    }
+
+    static instanceOf(obj: any): obj is TracksPending_ {
+      return obj.tag === FfiMapEmptyReason_Tags.TracksPending;
+    }
+  }
+
+  type NoGps__interface = {
+    tag: FfiMapEmptyReason_Tags.NoGps;
+    inner: Readonly<{ activities: number }>;
+  };
+  /**
+   * The window's activities have no track and none is owed: trainer, pool
+   * or strength sessions, or tracks the download gave up on.
+   */
+  class NoGps_ extends UniffiEnum implements NoGps__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiMapEmptyReason";
+    readonly tag = FfiMapEmptyReason_Tags.NoGps;
+    readonly inner: Readonly<{ activities: number }>;
+    constructor(inner: { activities: number }) {
+      super("FfiMapEmptyReason", "NoGps");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { activities: number }): NoGps_ {
+      return new NoGps_(inner);
+    }
+
+    static instanceOf(obj: any): obj is NoGps_ {
+      return obj.tag === FfiMapEmptyReason_Tags.NoGps;
+    }
+  }
+
+  function instanceOf(obj: any): obj is FfiMapEmptyReason {
+    return obj[uniffiTypeNameSymbol] === "FfiMapEmptyReason";
+  }
+
+  return Object.freeze({
+    instanceOf,
+    NoActivities: NoActivities_,
+    Filtered: Filtered_,
+    TracksPending: TracksPending_,
+    NoGps: NoGps_,
+  });
+})();
+/**
+ * Why the map draws no activity, so the tab names its cause rather than
+ * showing a bare basemap.
+ */
+export type FfiMapEmptyReason = InstanceType<
+  (typeof FfiMapEmptyReason)[
+    "NoActivities" | "Filtered" | "TracksPending" | "NoGps"]
+>;
+
+// FfiConverter for enum FfiMapEmptyReason
+const FfiConverterTypeFfiMapEmptyReason = (() => {
+  type TypeName = FfiMapEmptyReason;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return new FfiMapEmptyReason.NoActivities();
+        case 2:
+          return new FfiMapEmptyReason.Filtered({
+            mapped: FfiConverterUInt32.readFromCursor(c),
+          });
+        case 3:
+          return new FfiMapEmptyReason.TracksPending({
+            activities: FfiConverterUInt32.readFromCursor(c),
+            pending: FfiConverterUInt32.readFromCursor(c),
+          });
+        case 4:
+          return new FfiMapEmptyReason.NoGps({
+            activities: FfiConverterUInt32.readFromCursor(c),
+          });
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value.tag) {
+        case FfiMapEmptyReason_Tags.NoActivities: {
+          c.writeI32(1);
+          return;
+        }
+        case FfiMapEmptyReason_Tags.Filtered: {
+          c.writeI32(2);
+          const inner = value.inner;
+          FfiConverterUInt32.writeIntoCursor(inner.mapped, c);
+          return;
+        }
+        case FfiMapEmptyReason_Tags.TracksPending: {
+          c.writeI32(3);
+          const inner = value.inner;
+          FfiConverterUInt32.writeIntoCursor(inner.activities, c);
+          FfiConverterUInt32.writeIntoCursor(inner.pending, c);
+          return;
+        }
+        case FfiMapEmptyReason_Tags.NoGps: {
+          c.writeI32(4);
+          const inner = value.inner;
+          FfiConverterUInt32.writeIntoCursor(inner.activities, c);
+          return;
+        }
+        default:
+          // Throwing from here means that FfiMapEmptyReason_Tags hasn't matched an ordinal.
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    allocationSize(value: TypeName): number {
+      switch (value.tag) {
+        case FfiMapEmptyReason_Tags.NoActivities: {
+          return 4;
+        }
+        case FfiMapEmptyReason_Tags.Filtered: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterUInt32.allocationSize(inner.mapped);
+          return size;
+        }
+        case FfiMapEmptyReason_Tags.TracksPending: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterUInt32.allocationSize(inner.activities);
+          size += FfiConverterUInt32.allocationSize(inner.pending);
+          return size;
+        }
+        case FfiMapEmptyReason_Tags.NoGps: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterUInt32.allocationSize(inner.activities);
+          return size;
+        }
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The activities a map read keeps but cannot draw, by why.
+ */
+export type FfiMapUnmapped = {
+  /**
+   * No track is owed: no GPS upstream, a track refused for good, or one the
+   * download gave up on, as `FfiMapEmptyReason::NoGps` reads it.
+   */
+  withoutGps: number;
+  /**
+   * A track is upstream and the GPS download has still to fetch it.
+   */
+  downloading: number;
+};
+
+/**
+ * Generated factory for {@link FfiMapUnmapped} record objects.
+ */
+export const FfiMapUnmapped = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMapUnmapped, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMapUnmapped>,
+  });
+})();
+
+const FfiConverterTypeFfiMapUnmapped = (() => {
+  type TypeName = FfiMapUnmapped;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        withoutGps: FfiConverterUInt32.readFromCursor(c),
+        downloading: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.withoutGps, c);
+      FfiConverterUInt32.writeIntoCursor(value.downloading, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.withoutGps) +
+        FfiConverterUInt32.allocationSize(value.downloading)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Everything the map tab paints with in one call.
+ */
+export type FfiMapScreenData = {
+  /**
+   * Total activities held by the engine, before the date and sport filters
+   */
+  activityCount: number;
+  /**
+   * Sport types with at least one activity
+   */
+  availableSportTypes: Array<string>;
+  /**
+   * Mapped activities by display group in the date window before filters
+   */
+  categoryCounts: Array<FfiMapCategoryCount>;
+  /**
+   * Activities inside the requested window and sport filter
+   */
+  activities: Array<MapActivityComplete>;
+  /**
+   * Routes the map can draw: groups of at least two activities with a
+   * stored line. Zero while the route-line layer is stale.
+   */
+  routeCount: number;
+  /**
+   * The pre-built route lines, present only when the read asked for them
+   * and the layer is current
+   */
+  routeLines?: FfiRouteLineLayer;
+  /**
+   * Visible sections, regardless of whether the overlay was requested
+   */
+  sectionCount: number;
+  /**
+   * The section overlay, present only while the layer is requested
+   */
+  sections?: FfiMapSectionLayer;
+  /**
+   * Why the map draws no activity, from the date window's own counts.
+   * `None` while `activities` holds one.
+   */
+  emptyReason?: FfiMapEmptyReason;
+  /**
+   * The window's activities with no stored track that pass the same sport,
+   * distance and name filters as `activities`, so the two together are
+   * every activity in the period the filters keep.
+   */
+  unmapped: FfiMapUnmapped;
+};
+
+/**
+ * Generated factory for {@link FfiMapScreenData} record objects.
+ */
+export const FfiMapScreenData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMapScreenData, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMapScreenData>,
+  });
+})();
+
+const FfiConverterTypeFfiMapScreenData = (() => {
+  type TypeName = FfiMapScreenData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityCount: FfiConverterUInt32.readFromCursor(c),
+        availableSportTypes: FfiConverterSequenceString.readFromCursor(c),
+        categoryCounts:
+          FfiConverterSequenceTypeFfiMapCategoryCount.readFromCursor(c),
+        activities:
+          FfiConverterSequenceTypeMapActivityComplete.readFromCursor(c),
+        routeCount: FfiConverterUInt32.readFromCursor(c),
+        routeLines: FfiConverterOptionalTypeFfiRouteLineLayer.readFromCursor(c),
+        sectionCount: FfiConverterUInt32.readFromCursor(c),
+        sections: FfiConverterOptionalTypeFfiMapSectionLayer.readFromCursor(c),
+        emptyReason:
+          FfiConverterOptionalTypeFfiMapEmptyReason.readFromCursor(c),
+        unmapped: FfiConverterTypeFfiMapUnmapped.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.activityCount, c);
+      FfiConverterSequenceString.writeIntoCursor(value.availableSportTypes, c);
+      FfiConverterSequenceTypeFfiMapCategoryCount.writeIntoCursor(
+        value.categoryCounts,
+        c,
+      );
+      FfiConverterSequenceTypeMapActivityComplete.writeIntoCursor(
+        value.activities,
+        c,
+      );
+      FfiConverterUInt32.writeIntoCursor(value.routeCount, c);
+      FfiConverterOptionalTypeFfiRouteLineLayer.writeIntoCursor(
+        value.routeLines,
+        c,
+      );
+      FfiConverterUInt32.writeIntoCursor(value.sectionCount, c);
+      FfiConverterOptionalTypeFfiMapSectionLayer.writeIntoCursor(
+        value.sections,
+        c,
+      );
+      FfiConverterOptionalTypeFfiMapEmptyReason.writeIntoCursor(
+        value.emptyReason,
+        c,
+      );
+      FfiConverterTypeFfiMapUnmapped.writeIntoCursor(value.unmapped, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterSequenceString.allocationSize(value.availableSportTypes) +
+        FfiConverterSequenceTypeFfiMapCategoryCount.allocationSize(
+          value.categoryCounts,
+        ) +
+        FfiConverterSequenceTypeMapActivityComplete.allocationSize(
+          value.activities,
+        ) +
+        FfiConverterUInt32.allocationSize(value.routeCount) +
+        FfiConverterOptionalTypeFfiRouteLineLayer.allocationSize(
+          value.routeLines,
+        ) +
+        FfiConverterUInt32.allocationSize(value.sectionCount) +
+        FfiConverterOptionalTypeFfiMapSectionLayer.allocationSize(
+          value.sections,
+        ) +
+        FfiConverterOptionalTypeFfiMapEmptyReason.allocationSize(
+          value.emptyReason,
+        ) +
+        FfiConverterTypeFfiMapUnmapped.allocationSize(value.unmapped)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `map.screen` answers: the phone's map read without its line layers,
+ * and the revisions of the two layers the page fetches by URL, so a filter
+ * change that leaves a layer alone refetches nothing.
+ */
+export type FfiLinkMapScreen = {
+  screen: FfiMapScreenData;
+  /**
+   * The route group generation the route-line layer is built from; `None`
+   * while there is no layer.
+   */
+  routeGeneration?: number;
+  /**
+   * The database state the section layer is read in; `None` when the read
+   * cannot vouch for one.
+   */
+  sectionStamp?: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkMapScreen} record objects.
+ */
+export const FfiLinkMapScreen = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkMapScreen, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkMapScreen>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkMapScreen = (() => {
+  type TypeName = FfiLinkMapScreen;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        screen: FfiConverterTypeFfiMapScreenData.readFromCursor(c),
+        routeGeneration: FfiConverterOptionalFloat64.readFromCursor(c),
+        sectionStamp: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiMapScreenData.writeIntoCursor(value.screen, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.routeGeneration, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.sectionStamp, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiMapScreenData.allocationSize(value.screen) +
+        FfiConverterOptionalFloat64.allocationSize(value.routeGeneration) +
+        FfiConverterOptionalFloat64.allocationSize(value.sectionStamp)
       );
     }
   }
@@ -16519,6 +17989,571 @@ const FfiConverterTypeFfiLinkPerformanceAsk = (() => {
         FfiConverterUInt32.allocationSize(value.timeRangeDays) +
         FfiConverterOptionalString.allocationSize(value.sportFilter) +
         FfiConverterOptionalString.allocationSize(value.highlightActivityId)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What kind of entry a calendar event is.
+ */
+export enum FfiPlannedCategory {
+  Workout,
+  Race,
+  Note,
+  Target,
+  Season,
+  /**
+   * Every other entry: a holiday, an illness, a fitness setting.
+   */
+  Other,
+}
+
+const FfiConverterTypeFfiPlannedCategory = (() => {
+  type TypeName = FfiPlannedCategory;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiPlannedCategory.Workout;
+        case 2:
+          return FfiPlannedCategory.Race;
+        case 3:
+          return FfiPlannedCategory.Note;
+        case 4:
+          return FfiPlannedCategory.Target;
+        case 5:
+          return FfiPlannedCategory.Season;
+        case 6:
+          return FfiPlannedCategory.Other;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiPlannedCategory.Workout:
+          return c.writeI32(1);
+        case FfiPlannedCategory.Race:
+          return c.writeI32(2);
+        case FfiPlannedCategory.Note:
+          return c.writeI32(3);
+        case FfiPlannedCategory.Target:
+          return c.writeI32(4);
+        case FfiPlannedCategory.Season:
+          return c.writeI32(5);
+        case FfiPlannedCategory.Other:
+          return c.writeI32(6);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The measure a planned workout is prescribed in.
+ */
+export enum FfiPlanTarget {
+  Power,
+  HeartRate,
+  Pace,
+}
+
+const FfiConverterTypeFfiPlanTarget = (() => {
+  type TypeName = FfiPlanTarget;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiPlanTarget.Power;
+        case 2:
+          return FfiPlanTarget.HeartRate;
+        case 3:
+          return FfiPlanTarget.Pace;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiPlanTarget.Power:
+          return c.writeI32(1);
+        case FfiPlanTarget.HeartRate:
+          return c.writeI32(2);
+        case FfiPlanTarget.Pace:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Whether a plan line is effort or recovery.
+ */
+export enum FfiPlanLineKind {
+  Work,
+  Rest,
+}
+
+const FfiConverterTypeFfiPlanLineKind = (() => {
+  type TypeName = FfiPlanLineKind;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiPlanLineKind.Work;
+        case 2:
+          return FfiPlanLineKind.Rest;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiPlanLineKind.Work:
+          return c.writeI32(1);
+        case FfiPlanLineKind.Rest:
+          return c.writeI32(2);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The measure one step target is set in.
+ */
+export enum FfiTargetMetric {
+  Power,
+  HeartRate,
+  Pace,
+}
+
+const FfiConverterTypeFfiTargetMetric = (() => {
+  type TypeName = FfiTargetMetric;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiTargetMetric.Power;
+        case 2:
+          return FfiTargetMetric.HeartRate;
+        case 3:
+          return FfiTargetMetric.Pace;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiTargetMetric.Power:
+          return c.writeI32(1);
+        case FfiTargetMetric.HeartRate:
+          return c.writeI32(2);
+        case FfiTargetMetric.Pace:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A step's target as the plan supplied it, a single value being a range of one.
+ */
+export type FfiStepTarget = {
+  metric: FfiTargetMetric;
+  low: number;
+  high: number;
+  /**
+   * The units as the plan wrote them: `%ftp`, `w`, `power_zone` and so on.
+   */
+  units: string;
+  /**
+   * Present only when the plan carries a positive threshold to convert by.
+   */
+  absolute?: FfiAbsoluteTarget;
+};
+
+/**
+ * Generated factory for {@link FfiStepTarget} record objects.
+ */
+export const FfiStepTarget = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiStepTarget, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiStepTarget>,
+  });
+})();
+
+const FfiConverterTypeFfiStepTarget = (() => {
+  type TypeName = FfiStepTarget;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        metric: FfiConverterTypeFfiTargetMetric.readFromCursor(c),
+        low: FfiConverterFloat64.readFromCursor(c),
+        high: FfiConverterFloat64.readFromCursor(c),
+        units: FfiConverterString.readFromCursor(c),
+        absolute: FfiConverterOptionalTypeFfiAbsoluteTarget.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiTargetMetric.writeIntoCursor(value.metric, c);
+      FfiConverterFloat64.writeIntoCursor(value.low, c);
+      FfiConverterFloat64.writeIntoCursor(value.high, c);
+      FfiConverterString.writeIntoCursor(value.units, c);
+      FfiConverterOptionalTypeFfiAbsoluteTarget.writeIntoCursor(
+        value.absolute,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiTargetMetric.allocationSize(value.metric) +
+        FfiConverterFloat64.allocationSize(value.low) +
+        FfiConverterFloat64.allocationSize(value.high) +
+        FfiConverterString.allocationSize(value.units) +
+        FfiConverterOptionalTypeFfiAbsoluteTarget.allocationSize(value.absolute)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One line of the flat list the athlete follows.
+ */
+export type FfiPlanLine = {
+  kind: FfiPlanLineKind;
+  text: string;
+  durationSeconds?: number;
+  /**
+   * A prescribed distance. Any duration beside it is an estimate, not a countdown.
+   */
+  distanceMetres?: number;
+  targets: Array<FfiStepTarget>;
+};
+
+/**
+ * Generated factory for {@link FfiPlanLine} record objects.
+ */
+export const FfiPlanLine = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiPlanLine, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiPlanLine>,
+  });
+})();
+
+const FfiConverterTypeFfiPlanLine = (() => {
+  type TypeName = FfiPlanLine;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        kind: FfiConverterTypeFfiPlanLineKind.readFromCursor(c),
+        text: FfiConverterString.readFromCursor(c),
+        durationSeconds: FfiConverterOptionalFloat64.readFromCursor(c),
+        distanceMetres: FfiConverterOptionalFloat64.readFromCursor(c),
+        targets: FfiConverterSequenceTypeFfiStepTarget.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiPlanLineKind.writeIntoCursor(value.kind, c);
+      FfiConverterString.writeIntoCursor(value.text, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.durationSeconds, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.distanceMetres, c);
+      FfiConverterSequenceTypeFfiStepTarget.writeIntoCursor(value.targets, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiPlanLineKind.allocationSize(value.kind) +
+        FfiConverterString.allocationSize(value.text) +
+        FfiConverterOptionalFloat64.allocationSize(value.durationSeconds) +
+        FfiConverterOptionalFloat64.allocationSize(value.distanceMetres) +
+        FfiConverterSequenceTypeFfiStepTarget.allocationSize(value.targets)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One block of the step bar, one per plan line.
+ */
+export type FfiStepBlock = {
+  /**
+   * The width the block takes, in seconds of the plan.
+   */
+  seconds: number;
+  /**
+   * The athlete's training zone, 1 to 7, that the step's target falls in.
+   * `None` for a rest step and for a step with no target a zone can be
+   * worked out from.
+   */
+  zone?: number;
+  rest: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiStepBlock} record objects.
+ */
+export const FfiStepBlock = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiStepBlock, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiStepBlock>,
+  });
+})();
+
+const FfiConverterTypeFfiStepBlock = (() => {
+  type TypeName = FfiStepBlock;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        seconds: FfiConverterFloat64.readFromCursor(c),
+        zone: FfiConverterOptionalUInt32.readFromCursor(c),
+        rest: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterFloat64.writeIntoCursor(value.seconds, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.zone, c);
+      FfiConverterBool.writeIntoCursor(value.rest, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.seconds) +
+        FfiConverterOptionalUInt32.allocationSize(value.zone) +
+        FfiConverterBool.allocationSize(value.rest)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A calendar event as the screens read it.
+ */
+export type FfiPlannedEvent = {
+  /**
+   * The upstream event id.
+   */
+  id: number;
+  name: string;
+  /**
+   * The local day the event is planned for, `YYYY-MM-DD`.
+   */
+  day: string;
+  /**
+   * The activity type the event is planned as, `Ride`, `Run` and so on.
+   */
+  sport: string;
+  category: FfiPlannedCategory;
+  target?: FfiPlanTarget;
+  /**
+   * The planned moving time, in seconds.
+   */
+  movingTime?: number;
+  trainingLoad?: number;
+  /**
+   * The workout's steps as the lines the athlete follows. Empty for an
+   * event that is not a workout, or a workout with nothing to follow.
+   */
+  lines: Array<FfiPlanLine>;
+  /**
+   * The step bar, one block per line.
+   */
+  bar: Array<FfiStepBlock>;
+};
+
+/**
+ * Generated factory for {@link FfiPlannedEvent} record objects.
+ */
+export const FfiPlannedEvent = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiPlannedEvent, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiPlannedEvent>,
+  });
+})();
+
+const FfiConverterTypeFfiPlannedEvent = (() => {
+  type TypeName = FfiPlannedEvent;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterFloat64.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        day: FfiConverterString.readFromCursor(c),
+        sport: FfiConverterString.readFromCursor(c),
+        category: FfiConverterTypeFfiPlannedCategory.readFromCursor(c),
+        target: FfiConverterOptionalTypeFfiPlanTarget.readFromCursor(c),
+        movingTime: FfiConverterOptionalFloat64.readFromCursor(c),
+        trainingLoad: FfiConverterOptionalFloat64.readFromCursor(c),
+        lines: FfiConverterSequenceTypeFfiPlanLine.readFromCursor(c),
+        bar: FfiConverterSequenceTypeFfiStepBlock.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterFloat64.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterString.writeIntoCursor(value.day, c);
+      FfiConverterString.writeIntoCursor(value.sport, c);
+      FfiConverterTypeFfiPlannedCategory.writeIntoCursor(value.category, c);
+      FfiConverterOptionalTypeFfiPlanTarget.writeIntoCursor(value.target, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.movingTime, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.trainingLoad, c);
+      FfiConverterSequenceTypeFfiPlanLine.writeIntoCursor(value.lines, c);
+      FfiConverterSequenceTypeFfiStepBlock.writeIntoCursor(value.bar, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.day) +
+        FfiConverterString.allocationSize(value.sport) +
+        FfiConverterTypeFfiPlannedCategory.allocationSize(value.category) +
+        FfiConverterOptionalTypeFfiPlanTarget.allocationSize(value.target) +
+        FfiConverterOptionalFloat64.allocationSize(value.movingTime) +
+        FfiConverterOptionalFloat64.allocationSize(value.trainingLoad) +
+        FfiConverterSequenceTypeFfiPlanLine.allocationSize(value.lines) +
+        FfiConverterSequenceTypeFfiStepBlock.allocationSize(value.bar)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `insights.plannedEvents` answers: the calendar events in the window,
+ * oldest first.
+ */
+export type FfiLinkPlannedEvents = {
+  events: Array<FfiPlannedEvent>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkPlannedEvents} record objects.
+ */
+export const FfiLinkPlannedEvents = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkPlannedEvents,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkPlannedEvents>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkPlannedEvents = (() => {
+  type TypeName = FfiLinkPlannedEvents;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        events: FfiConverterSequenceTypeFfiPlannedEvent.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceTypeFfiPlannedEvent.writeIntoCursor(value.events, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterSequenceTypeFfiPlannedEvent.allocationSize(
+        value.events,
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `insights.plannedEvents` is asked: an inclusive window of wall-clock
+ * seconds, as the phone's calendar read takes it.
+ */
+export type FfiLinkPlannedEventsAsk = {
+  oldestTs: number;
+  newestTs: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkPlannedEventsAsk} record objects.
+ */
+export const FfiLinkPlannedEventsAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkPlannedEventsAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkPlannedEventsAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkPlannedEventsAsk = (() => {
+  type TypeName = FfiLinkPlannedEventsAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        oldestTs: FfiConverterFloat64.readFromCursor(c),
+        newestTs: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterFloat64.writeIntoCursor(value.oldestTs, c);
+      FfiConverterFloat64.writeIntoCursor(value.newestTs, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.oldestTs) +
+        FfiConverterFloat64.allocationSize(value.newestTs)
       );
     }
   }
@@ -18136,6 +20171,190 @@ const FfiConverterTypeFfiLinkWellnessAsk = (() => {
 })();
 
 /**
+ * Enriched workout section for the home-screen "Sections for you" list.
+ * Composes ranking + performance lookups server-side so the TS hook is a
+ * thin pass-through instead of a per-section FFI loop.
+ */
+export type FfiWorkoutSection = {
+  id: string;
+  name: string;
+  prTimeSecs?: number;
+  /**
+   * Second-best time (prior PR before current best)
+   */
+  previousBestTimeSecs?: number;
+  lastTimeSecs?: number;
+  daysSinceLast?: number;
+  prDaysAgo?: number;
+  /**
+   * -1 = declining, 0 = stable, 1 = improving. None when there is not
+   * enough history to say.
+   */
+  trend?: number;
+};
+
+/**
+ * Generated factory for {@link FfiWorkoutSection} record objects.
+ */
+export const FfiWorkoutSection = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiWorkoutSection, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWorkoutSection>,
+  });
+})();
+
+const FfiConverterTypeFfiWorkoutSection = (() => {
+  type TypeName = FfiWorkoutSection;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        prTimeSecs: FfiConverterOptionalFloat64.readFromCursor(c),
+        previousBestTimeSecs: FfiConverterOptionalFloat64.readFromCursor(c),
+        lastTimeSecs: FfiConverterOptionalFloat64.readFromCursor(c),
+        daysSinceLast: FfiConverterOptionalInt32.readFromCursor(c),
+        prDaysAgo: FfiConverterOptionalInt32.readFromCursor(c),
+        trend: FfiConverterOptionalInt8.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.prTimeSecs, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(
+        value.previousBestTimeSecs,
+        c,
+      );
+      FfiConverterOptionalFloat64.writeIntoCursor(value.lastTimeSecs, c);
+      FfiConverterOptionalInt32.writeIntoCursor(value.daysSinceLast, c);
+      FfiConverterOptionalInt32.writeIntoCursor(value.prDaysAgo, c);
+      FfiConverterOptionalInt8.writeIntoCursor(value.trend, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterOptionalFloat64.allocationSize(value.prTimeSecs) +
+        FfiConverterOptionalFloat64.allocationSize(value.previousBestTimeSecs) +
+        FfiConverterOptionalFloat64.allocationSize(value.lastTimeSecs) +
+        FfiConverterOptionalInt32.allocationSize(value.daysSinceLast) +
+        FfiConverterOptionalInt32.allocationSize(value.prDaysAgo) +
+        FfiConverterOptionalInt8.allocationSize(value.trend)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `insights.workoutSections` answers: the ranked sections for the sport.
+ */
+export type FfiLinkWorkoutSections = {
+  sections: Array<FfiWorkoutSection>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkWorkoutSections} record objects.
+ */
+export const FfiLinkWorkoutSections = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkWorkoutSections,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkWorkoutSections>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkWorkoutSections = (() => {
+  type TypeName = FfiLinkWorkoutSections;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        sections: FfiConverterSequenceTypeFfiWorkoutSection.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceTypeFfiWorkoutSection.writeIntoCursor(
+        value.sections,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterSequenceTypeFfiWorkoutSection.allocationSize(
+        value.sections,
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `insights.workoutSections` is asked: the sport and how many sections
+ * the list holds at most.
+ */
+export type FfiLinkWorkoutSectionsAsk = {
+  sportType: string;
+  limit: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkWorkoutSectionsAsk} record objects.
+ */
+export const FfiLinkWorkoutSectionsAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkWorkoutSectionsAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkWorkoutSectionsAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkWorkoutSectionsAsk = (() => {
+  type TypeName = FfiLinkWorkoutSectionsAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        sportType: FfiConverterString.readFromCursor(c),
+        limit: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.sportType, c);
+      FfiConverterUInt32.writeIntoCursor(value.limit, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterUInt32.allocationSize(value.limit)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What a write answers once it is made.
  */
 export type FfiLinkWriteDone = {
@@ -18234,898 +20453,65 @@ const FfiConverterTypeFfiLinkZonesAsk = (() => {
   return new FFIConverter();
 })();
 
-export type FfiMapCategoryCount = {
-  family: FfiSportFamily;
-  count: number;
+/**
+ * The library's sections and routes alone, the two layers a detail map draws
+ * under its subject. Each is the layer `FfiMapScreenData` carries, stamped the
+ * same way.
+ */
+export type FfiMapContextLayers = {
+  /**
+   * The section overlay, its sections absent when the caller held its stamp
+   */
+  sections?: FfiMapSectionLayer;
+  /**
+   * The route lines, absent while the layer is stale and its lines absent
+   * when the caller held its stamp
+   */
+  routes?: FfiRouteLineLayer;
 };
 
 /**
- * Generated factory for {@link FfiMapCategoryCount} record objects.
+ * Generated factory for {@link FfiMapContextLayers} record objects.
  */
-export const FfiMapCategoryCount = (() => {
+export const FfiMapContextLayers = (() => {
   const defaults = () => ({});
   const create = (() => {
-    return uniffiCreateRecord<FfiMapCategoryCount, ReturnType<typeof defaults>>(
+    return uniffiCreateRecord<FfiMapContextLayers, ReturnType<typeof defaults>>(
       defaults,
     );
   })();
   return Object.freeze({
     create,
     new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiMapCategoryCount>,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMapContextLayers>,
   });
 })();
 
-const FfiConverterTypeFfiMapCategoryCount = (() => {
-  type TypeName = FfiMapCategoryCount;
+const FfiConverterTypeFfiMapContextLayers = (() => {
+  type TypeName = FfiMapContextLayers;
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     readFromCursor(c: Cursor): TypeName {
       return {
-        family: FfiConverterTypeFfiSportFamily.readFromCursor(c),
-        count: FfiConverterUInt32.readFromCursor(c),
+        sections: FfiConverterOptionalTypeFfiMapSectionLayer.readFromCursor(c),
+        routes: FfiConverterOptionalTypeFfiRouteLineLayer.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterTypeFfiSportFamily.writeIntoCursor(value.family, c);
-      FfiConverterUInt32.writeIntoCursor(value.count, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterTypeFfiSportFamily.allocationSize(value.family) +
-        FfiConverterUInt32.allocationSize(value.count)
+      FfiConverterOptionalTypeFfiMapSectionLayer.writeIntoCursor(
+        value.sections,
+        c,
       );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * Complete activity data for map display.
- * Contains both spatial bounds and metadata for filtering and display.
- */
-export type MapActivityComplete = {
-  /**
-   * Activity ID
-   */
-  activityId: string;
-  /**
-   * Sport type ("Run", "Ride", etc.)
-   */
-  sportType: string;
-  /**
-   * Whether the sport is recorded in a simulated world, so its track is not
-   * where the athlete rides.
-   */
-  isVirtual: boolean;
-  /**
-   * Bounding box for map display
-   */
-  bounds: FfiBounds;
-  /**
-   * Where the ride began, for the marker. `None` leaves the caller the
-   * bounds centre, which is where every marker used to start out before the
-   * signatures finished loading and moved it.
-   */
-  startLat?: number;
-  startLng?: number;
-  /**
-   * Start date as Unix timestamp (seconds since epoch)
-   */
-  date: number;
-  /**
-   * Activity name
-   */
-  name: string;
-  /**
-   * Total distance in meters
-   */
-  distance: number;
-  /**
-   * Total duration in seconds (moving time)
-   */
-  duration: number;
-};
-
-/**
- * Generated factory for {@link MapActivityComplete} record objects.
- */
-export const MapActivityComplete = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<MapActivityComplete, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<MapActivityComplete>,
-  });
-})();
-
-const FfiConverterTypeMapActivityComplete = (() => {
-  type TypeName = MapActivityComplete;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        activityId: FfiConverterString.readFromCursor(c),
-        sportType: FfiConverterString.readFromCursor(c),
-        isVirtual: FfiConverterBool.readFromCursor(c),
-        bounds: FfiConverterTypeFfiBounds.readFromCursor(c),
-        startLat: FfiConverterOptionalFloat64.readFromCursor(c),
-        startLng: FfiConverterOptionalFloat64.readFromCursor(c),
-        date: FfiConverterFloat64.readFromCursor(c),
-        name: FfiConverterString.readFromCursor(c),
-        distance: FfiConverterFloat64.readFromCursor(c),
-        duration: FfiConverterUInt32.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.activityId, c);
-      FfiConverterString.writeIntoCursor(value.sportType, c);
-      FfiConverterBool.writeIntoCursor(value.isVirtual, c);
-      FfiConverterTypeFfiBounds.writeIntoCursor(value.bounds, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.startLat, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.startLng, c);
-      FfiConverterFloat64.writeIntoCursor(value.date, c);
-      FfiConverterString.writeIntoCursor(value.name, c);
-      FfiConverterFloat64.writeIntoCursor(value.distance, c);
-      FfiConverterUInt32.writeIntoCursor(value.duration, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterString.allocationSize(value.sportType) +
-        FfiConverterBool.allocationSize(value.isVirtual) +
-        FfiConverterTypeFfiBounds.allocationSize(value.bounds) +
-        FfiConverterOptionalFloat64.allocationSize(value.startLat) +
-        FfiConverterOptionalFloat64.allocationSize(value.startLng) +
-        FfiConverterFloat64.allocationSize(value.date) +
-        FfiConverterString.allocationSize(value.name) +
-        FfiConverterFloat64.allocationSize(value.distance) +
-        FfiConverterUInt32.allocationSize(value.duration)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-export type FfiRouteLine = {
-  routeId: string;
-  /**
-   * The number the route is shown under, absent until one is minted
-   */
-  routeNumber?: number;
-  /**
-   * The name the route is shown under, read when the map is, so a rename
-   * shows without the layer being rebuilt
-   */
-  name: string;
-  /**
-   * The activities in the route
-   */
-  activityCount: number;
-  /**
-   * The representative's distance in metres, the figure the route list
-   * shows, read when the map is
-   */
-  distanceMeters: number;
-  /**
-   * The representative's signature in `codec::encode_polyline` form
-   */
-  polyline: ArrayBuffer;
-};
-
-/**
- * Generated factory for {@link FfiRouteLine} record objects.
- */
-export const FfiRouteLine = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiRouteLine, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiRouteLine>,
-  });
-})();
-
-const FfiConverterTypeFfiRouteLine = (() => {
-  type TypeName = FfiRouteLine;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        routeId: FfiConverterString.readFromCursor(c),
-        routeNumber: FfiConverterOptionalUInt32.readFromCursor(c),
-        name: FfiConverterString.readFromCursor(c),
-        activityCount: FfiConverterUInt32.readFromCursor(c),
-        distanceMeters: FfiConverterFloat64.readFromCursor(c),
-        polyline: FfiConverterArrayBuffer.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.routeId, c);
-      FfiConverterOptionalUInt32.writeIntoCursor(value.routeNumber, c);
-      FfiConverterString.writeIntoCursor(value.name, c);
-      FfiConverterUInt32.writeIntoCursor(value.activityCount, c);
-      FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
-      FfiConverterArrayBuffer.writeIntoCursor(value.polyline, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.routeId) +
-        FfiConverterOptionalUInt32.allocationSize(value.routeNumber) +
-        FfiConverterString.allocationSize(value.name) +
-        FfiConverterUInt32.allocationSize(value.activityCount) +
-        FfiConverterFloat64.allocationSize(value.distanceMeters) +
-        FfiConverterArrayBuffer.allocationSize(value.polyline)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * The route-line layer the map draws, with the generation it was built from
- * so the front end can keep what it decoded while the generation is unchanged.
- */
-export type FfiRouteLineLayer = {
-  /**
-   * The route group generation the lines were built from. Declared as a
-   * double, which holds every generation a library reaches exactly.
-   */
-  generation: number;
-  /**
-   * The database state the layer was read in, which the caller passes back
-   * to say it still holds these lines. `None` when the read could not vouch
-   * for one.
-   */
-  stamp?: number;
-  /**
-   * The lines, absent when the caller passed back this layer's `stamp`:
-   * nothing has committed since, so the lines and names it holds are these.
-   */
-  routes?: Array<FfiRouteLine>;
-};
-
-/**
- * Generated factory for {@link FfiRouteLineLayer} record objects.
- */
-export const FfiRouteLineLayer = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiRouteLineLayer, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiRouteLineLayer>,
-  });
-})();
-
-const FfiConverterTypeFfiRouteLineLayer = (() => {
-  type TypeName = FfiRouteLineLayer;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        generation: FfiConverterFloat64.readFromCursor(c),
-        stamp: FfiConverterOptionalFloat64.readFromCursor(c),
-        routes: FfiConverterOptionalSequenceTypeFfiRouteLine.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterFloat64.writeIntoCursor(value.generation, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.stamp, c);
-      FfiConverterOptionalSequenceTypeFfiRouteLine.writeIntoCursor(
+      FfiConverterOptionalTypeFfiRouteLineLayer.writeIntoCursor(
         value.routes,
         c,
       );
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterFloat64.allocationSize(value.generation) +
-        FfiConverterOptionalFloat64.allocationSize(value.stamp) +
-        FfiConverterOptionalSequenceTypeFfiRouteLine.allocationSize(
-          value.routes,
-        )
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * A section as the regional map draws it: a line, a colour key and a label.
- *
- * The map used to take the whole `FfiSection` for this, which clones
- * `activity_ids`, one `activity_portions` record per traversal and the point
- * density per section, then converted every portion in JavaScript and threw all
- * of it away. These are the six fields the map actually reads.
- */
-export type FfiMapSection = {
-  id: string;
-  /**
-   * The live name when the section has one, so the caller needs no overlay read.
-   */
-  name?: string;
-  /**
-   * Every sport whose included outings have taken the section, sorted.
-   */
-  sportTypes: Array<string>;
-  /**
-   * Traversals, one per pass.
-   */
-  visitCount: number;
-  distanceMeters: number;
-  /**
-   * climb, descent, rolling, flat or loop; None when nothing says. With the
-   * grade below, this is what the auto-generated label is built from, so the
-   * map's names do not change when it stops taking the whole record.
-   */
-  klass?: string;
-  /**
-   * Steepest grade (%) held over 300 m of the slice.
-   */
-  maxGradePercent?: number;
-  /**
-   * Delta+varint encoded coordinates, as every other track leaves the engine.
-   */
-  encodedPolyline: ArrayBuffer;
-};
-
-/**
- * Generated factory for {@link FfiMapSection} record objects.
- */
-export const FfiMapSection = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiMapSection, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiMapSection>,
-  });
-})();
-
-const FfiConverterTypeFfiMapSection = (() => {
-  type TypeName = FfiMapSection;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        id: FfiConverterString.readFromCursor(c),
-        name: FfiConverterOptionalString.readFromCursor(c),
-        sportTypes: FfiConverterSequenceString.readFromCursor(c),
-        visitCount: FfiConverterUInt32.readFromCursor(c),
-        distanceMeters: FfiConverterFloat64.readFromCursor(c),
-        klass: FfiConverterOptionalString.readFromCursor(c),
-        maxGradePercent: FfiConverterOptionalFloat64.readFromCursor(c),
-        encodedPolyline: FfiConverterArrayBuffer.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.id, c);
-      FfiConverterOptionalString.writeIntoCursor(value.name, c);
-      FfiConverterSequenceString.writeIntoCursor(value.sportTypes, c);
-      FfiConverterUInt32.writeIntoCursor(value.visitCount, c);
-      FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
-      FfiConverterOptionalString.writeIntoCursor(value.klass, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.maxGradePercent, c);
-      FfiConverterArrayBuffer.writeIntoCursor(value.encodedPolyline, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.id) +
-        FfiConverterOptionalString.allocationSize(value.name) +
-        FfiConverterSequenceString.allocationSize(value.sportTypes) +
-        FfiConverterUInt32.allocationSize(value.visitCount) +
-        FfiConverterFloat64.allocationSize(value.distanceMeters) +
-        FfiConverterOptionalString.allocationSize(value.klass) +
-        FfiConverterOptionalFloat64.allocationSize(value.maxGradePercent) +
-        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * The section overlay the map draws, stamped so a filter change that re-reads
- * the map does not ship a catalogue the caller already holds.
- */
-export type FfiMapSectionLayer = {
-  /**
-   * The database state the overlay was read in, passed back to say the
-   * caller still holds it. `None` when the read could not vouch for one.
-   */
-  stamp?: number;
-  /**
-   * The sections, absent when the caller passed back this layer's `stamp`.
-   */
-  sections?: Array<FfiMapSection>;
-};
-
-/**
- * Generated factory for {@link FfiMapSectionLayer} record objects.
- */
-export const FfiMapSectionLayer = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiMapSectionLayer, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiMapSectionLayer>,
-  });
-})();
-
-const FfiConverterTypeFfiMapSectionLayer = (() => {
-  type TypeName = FfiMapSectionLayer;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        stamp: FfiConverterOptionalFloat64.readFromCursor(c),
-        sections:
-          FfiConverterOptionalSequenceTypeFfiMapSection.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterOptionalFloat64.writeIntoCursor(value.stamp, c);
-      FfiConverterOptionalSequenceTypeFfiMapSection.writeIntoCursor(
-        value.sections,
-        c,
-      );
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterOptionalFloat64.allocationSize(value.stamp) +
-        FfiConverterOptionalSequenceTypeFfiMapSection.allocationSize(
-          value.sections,
-        )
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-// Enum: FfiMapEmptyReason
-export enum FfiMapEmptyReason_Tags {
-  NoActivities = "NoActivities",
-  Filtered = "Filtered",
-  TracksPending = "TracksPending",
-  NoGps = "NoGps",
-}
-/**
- * Why the map draws no activity, so the tab names its cause rather than
- * showing a bare basemap.
- */
-export const FfiMapEmptyReason = (() => {
-  type NoActivities__interface = {
-    tag: FfiMapEmptyReason_Tags.NoActivities;
-  };
-  /**
-   * No activity falls inside the date window.
-   */
-  class NoActivities_ extends UniffiEnum implements NoActivities__interface {
-    /**
-     * @private
-     * This field is private and should not be used, use `tag` instead.
-     */
-    readonly [uniffiTypeNameSymbol] = "FfiMapEmptyReason";
-    readonly tag = FfiMapEmptyReason_Tags.NoActivities;
-    constructor() {
-      super("FfiMapEmptyReason", "NoActivities");
-    }
-
-    static new(): NoActivities_ {
-      return new NoActivities_();
-    }
-
-    static instanceOf(obj: any): obj is NoActivities_ {
-      return obj.tag === FfiMapEmptyReason_Tags.NoActivities;
-    }
-  }
-
-  type Filtered__interface = {
-    tag: FfiMapEmptyReason_Tags.Filtered;
-    inner: Readonly<{ mapped: number }>;
-  };
-  /**
-   * The window holds tracks and the sport, distance or name filters leave
-   * none of them. `mapped` is the window's tracks before those filters.
-   */
-  class Filtered_ extends UniffiEnum implements Filtered__interface {
-    /**
-     * @private
-     * This field is private and should not be used, use `tag` instead.
-     */
-    readonly [uniffiTypeNameSymbol] = "FfiMapEmptyReason";
-    readonly tag = FfiMapEmptyReason_Tags.Filtered;
-    readonly inner: Readonly<{ mapped: number }>;
-    constructor(inner: { mapped: number }) {
-      super("FfiMapEmptyReason", "Filtered");
-
-      this.inner = Object.freeze(inner);
-    }
-    static new(inner: { mapped: number }): Filtered_ {
-      return new Filtered_(inner);
-    }
-
-    static instanceOf(obj: any): obj is Filtered_ {
-      return obj.tag === FfiMapEmptyReason_Tags.Filtered;
-    }
-  }
-
-  type TracksPending__interface = {
-    tag: FfiMapEmptyReason_Tags.TracksPending;
-    inner: Readonly<{ activities: number; pending: number }>;
-  };
-  /**
-   * The window's activities have no stored track yet, and `pending` of them
-   * have one upstream that the GPS download has still to fetch.
-   */
-  class TracksPending_ extends UniffiEnum implements TracksPending__interface {
-    /**
-     * @private
-     * This field is private and should not be used, use `tag` instead.
-     */
-    readonly [uniffiTypeNameSymbol] = "FfiMapEmptyReason";
-    readonly tag = FfiMapEmptyReason_Tags.TracksPending;
-    readonly inner: Readonly<{ activities: number; pending: number }>;
-    constructor(inner: { activities: number; pending: number }) {
-      super("FfiMapEmptyReason", "TracksPending");
-
-      this.inner = Object.freeze(inner);
-    }
-    static new(inner: { activities: number; pending: number }): TracksPending_ {
-      return new TracksPending_(inner);
-    }
-
-    static instanceOf(obj: any): obj is TracksPending_ {
-      return obj.tag === FfiMapEmptyReason_Tags.TracksPending;
-    }
-  }
-
-  type NoGps__interface = {
-    tag: FfiMapEmptyReason_Tags.NoGps;
-    inner: Readonly<{ activities: number }>;
-  };
-  /**
-   * The window's activities have no track and none is owed: trainer, pool
-   * or strength sessions, or tracks the download gave up on.
-   */
-  class NoGps_ extends UniffiEnum implements NoGps__interface {
-    /**
-     * @private
-     * This field is private and should not be used, use `tag` instead.
-     */
-    readonly [uniffiTypeNameSymbol] = "FfiMapEmptyReason";
-    readonly tag = FfiMapEmptyReason_Tags.NoGps;
-    readonly inner: Readonly<{ activities: number }>;
-    constructor(inner: { activities: number }) {
-      super("FfiMapEmptyReason", "NoGps");
-
-      this.inner = Object.freeze(inner);
-    }
-    static new(inner: { activities: number }): NoGps_ {
-      return new NoGps_(inner);
-    }
-
-    static instanceOf(obj: any): obj is NoGps_ {
-      return obj.tag === FfiMapEmptyReason_Tags.NoGps;
-    }
-  }
-
-  function instanceOf(obj: any): obj is FfiMapEmptyReason {
-    return obj[uniffiTypeNameSymbol] === "FfiMapEmptyReason";
-  }
-
-  return Object.freeze({
-    instanceOf,
-    NoActivities: NoActivities_,
-    Filtered: Filtered_,
-    TracksPending: TracksPending_,
-    NoGps: NoGps_,
-  });
-})();
-/**
- * Why the map draws no activity, so the tab names its cause rather than
- * showing a bare basemap.
- */
-export type FfiMapEmptyReason = InstanceType<
-  (typeof FfiMapEmptyReason)[
-    "NoActivities" | "Filtered" | "TracksPending" | "NoGps"]
->;
-
-// FfiConverter for enum FfiMapEmptyReason
-const FfiConverterTypeFfiMapEmptyReason = (() => {
-  type TypeName = FfiMapEmptyReason;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return new FfiMapEmptyReason.NoActivities();
-        case 2:
-          return new FfiMapEmptyReason.Filtered({
-            mapped: FfiConverterUInt32.readFromCursor(c),
-          });
-        case 3:
-          return new FfiMapEmptyReason.TracksPending({
-            activities: FfiConverterUInt32.readFromCursor(c),
-            pending: FfiConverterUInt32.readFromCursor(c),
-          });
-        case 4:
-          return new FfiMapEmptyReason.NoGps({
-            activities: FfiConverterUInt32.readFromCursor(c),
-          });
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value.tag) {
-        case FfiMapEmptyReason_Tags.NoActivities: {
-          c.writeI32(1);
-          return;
-        }
-        case FfiMapEmptyReason_Tags.Filtered: {
-          c.writeI32(2);
-          const inner = value.inner;
-          FfiConverterUInt32.writeIntoCursor(inner.mapped, c);
-          return;
-        }
-        case FfiMapEmptyReason_Tags.TracksPending: {
-          c.writeI32(3);
-          const inner = value.inner;
-          FfiConverterUInt32.writeIntoCursor(inner.activities, c);
-          FfiConverterUInt32.writeIntoCursor(inner.pending, c);
-          return;
-        }
-        case FfiMapEmptyReason_Tags.NoGps: {
-          c.writeI32(4);
-          const inner = value.inner;
-          FfiConverterUInt32.writeIntoCursor(inner.activities, c);
-          return;
-        }
-        default:
-          // Throwing from here means that FfiMapEmptyReason_Tags hasn't matched an ordinal.
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    allocationSize(value: TypeName): number {
-      switch (value.tag) {
-        case FfiMapEmptyReason_Tags.NoActivities: {
-          return 4;
-        }
-        case FfiMapEmptyReason_Tags.Filtered: {
-          const inner = value.inner;
-          let size = 4;
-          size += FfiConverterUInt32.allocationSize(inner.mapped);
-          return size;
-        }
-        case FfiMapEmptyReason_Tags.TracksPending: {
-          const inner = value.inner;
-          let size = 4;
-          size += FfiConverterUInt32.allocationSize(inner.activities);
-          size += FfiConverterUInt32.allocationSize(inner.pending);
-          return size;
-        }
-        case FfiMapEmptyReason_Tags.NoGps: {
-          const inner = value.inner;
-          let size = 4;
-          size += FfiConverterUInt32.allocationSize(inner.activities);
-          return size;
-        }
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * The activities a map read keeps but cannot draw, by why.
- */
-export type FfiMapUnmapped = {
-  /**
-   * No track is owed: no GPS upstream, a track refused for good, or one the
-   * download gave up on, as `FfiMapEmptyReason::NoGps` reads it.
-   */
-  withoutGps: number;
-  /**
-   * A track is upstream and the GPS download has still to fetch it.
-   */
-  downloading: number;
-};
-
-/**
- * Generated factory for {@link FfiMapUnmapped} record objects.
- */
-export const FfiMapUnmapped = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiMapUnmapped, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiMapUnmapped>,
-  });
-})();
-
-const FfiConverterTypeFfiMapUnmapped = (() => {
-  type TypeName = FfiMapUnmapped;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        withoutGps: FfiConverterUInt32.readFromCursor(c),
-        downloading: FfiConverterUInt32.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterUInt32.writeIntoCursor(value.withoutGps, c);
-      FfiConverterUInt32.writeIntoCursor(value.downloading, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterUInt32.allocationSize(value.withoutGps) +
-        FfiConverterUInt32.allocationSize(value.downloading)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * Everything the map tab paints with in one call.
- */
-export type FfiMapScreenData = {
-  /**
-   * Total activities held by the engine, before the date and sport filters
-   */
-  activityCount: number;
-  /**
-   * Sport types with at least one activity
-   */
-  availableSportTypes: Array<string>;
-  /**
-   * Mapped activities by display group in the date window before filters
-   */
-  categoryCounts: Array<FfiMapCategoryCount>;
-  /**
-   * Activities inside the requested window and sport filter
-   */
-  activities: Array<MapActivityComplete>;
-  /**
-   * Routes the map can draw: groups of at least two activities with a
-   * stored line. Zero while the route-line layer is stale.
-   */
-  routeCount: number;
-  /**
-   * The pre-built route lines, present only when the read asked for them
-   * and the layer is current
-   */
-  routeLines?: FfiRouteLineLayer;
-  /**
-   * Visible sections, regardless of whether the overlay was requested
-   */
-  sectionCount: number;
-  /**
-   * The section overlay, present only while the layer is requested
-   */
-  sections?: FfiMapSectionLayer;
-  /**
-   * Why the map draws no activity, from the date window's own counts.
-   * `None` while `activities` holds one.
-   */
-  emptyReason?: FfiMapEmptyReason;
-  /**
-   * The window's activities with no stored track that pass the same sport,
-   * distance and name filters as `activities`, so the two together are
-   * every activity in the period the filters keep.
-   */
-  unmapped: FfiMapUnmapped;
-};
-
-/**
- * Generated factory for {@link FfiMapScreenData} record objects.
- */
-export const FfiMapScreenData = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiMapScreenData, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiMapScreenData>,
-  });
-})();
-
-const FfiConverterTypeFfiMapScreenData = (() => {
-  type TypeName = FfiMapScreenData;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        activityCount: FfiConverterUInt32.readFromCursor(c),
-        availableSportTypes: FfiConverterSequenceString.readFromCursor(c),
-        categoryCounts:
-          FfiConverterSequenceTypeFfiMapCategoryCount.readFromCursor(c),
-        activities:
-          FfiConverterSequenceTypeMapActivityComplete.readFromCursor(c),
-        routeCount: FfiConverterUInt32.readFromCursor(c),
-        routeLines: FfiConverterOptionalTypeFfiRouteLineLayer.readFromCursor(c),
-        sectionCount: FfiConverterUInt32.readFromCursor(c),
-        sections: FfiConverterOptionalTypeFfiMapSectionLayer.readFromCursor(c),
-        emptyReason:
-          FfiConverterOptionalTypeFfiMapEmptyReason.readFromCursor(c),
-        unmapped: FfiConverterTypeFfiMapUnmapped.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterUInt32.writeIntoCursor(value.activityCount, c);
-      FfiConverterSequenceString.writeIntoCursor(value.availableSportTypes, c);
-      FfiConverterSequenceTypeFfiMapCategoryCount.writeIntoCursor(
-        value.categoryCounts,
-        c,
-      );
-      FfiConverterSequenceTypeMapActivityComplete.writeIntoCursor(
-        value.activities,
-        c,
-      );
-      FfiConverterUInt32.writeIntoCursor(value.routeCount, c);
-      FfiConverterOptionalTypeFfiRouteLineLayer.writeIntoCursor(
-        value.routeLines,
-        c,
-      );
-      FfiConverterUInt32.writeIntoCursor(value.sectionCount, c);
-      FfiConverterOptionalTypeFfiMapSectionLayer.writeIntoCursor(
-        value.sections,
-        c,
-      );
-      FfiConverterOptionalTypeFfiMapEmptyReason.writeIntoCursor(
-        value.emptyReason,
-        c,
-      );
-      FfiConverterTypeFfiMapUnmapped.writeIntoCursor(value.unmapped, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterUInt32.allocationSize(value.activityCount) +
-        FfiConverterSequenceString.allocationSize(value.availableSportTypes) +
-        FfiConverterSequenceTypeFfiMapCategoryCount.allocationSize(
-          value.categoryCounts,
-        ) +
-        FfiConverterSequenceTypeMapActivityComplete.allocationSize(
-          value.activities,
-        ) +
-        FfiConverterUInt32.allocationSize(value.routeCount) +
-        FfiConverterOptionalTypeFfiRouteLineLayer.allocationSize(
-          value.routeLines,
-        ) +
-        FfiConverterUInt32.allocationSize(value.sectionCount) +
         FfiConverterOptionalTypeFfiMapSectionLayer.allocationSize(
           value.sections,
         ) +
-        FfiConverterOptionalTypeFfiMapEmptyReason.allocationSize(
-          value.emptyReason,
-        ) +
-        FfiConverterTypeFfiMapUnmapped.allocationSize(value.unmapped)
+        FfiConverterOptionalTypeFfiRouteLineLayer.allocationSize(value.routes)
       );
     }
   }
@@ -19257,7 +20643,7 @@ export type FfiMergeCandidate = {
   centerDistanceMeters: number;
   /**
    * The candidate's line thinned to what a row thumbnail draws, delta+varint
-   * encoded as `FfiRecentPR.encoded_polyline` is. Empty when it cannot be read.
+   * encoded as `FfiRecentPr.encoded_polyline` is. Empty when it cannot be read.
    */
   encodedPolyline: ArrayBuffer;
 };
@@ -20005,474 +21391,6 @@ const FfiConverterTypeFfiOpenProgress = (() => {
 })();
 
 /**
- * Whether a plan line is effort or recovery.
- */
-export enum FfiPlanLineKind {
-  Work,
-  Rest,
-}
-
-const FfiConverterTypeFfiPlanLineKind = (() => {
-  type TypeName = FfiPlanLineKind;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return FfiPlanLineKind.Work;
-        case 2:
-          return FfiPlanLineKind.Rest;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case FfiPlanLineKind.Work:
-          return c.writeI32(1);
-        case FfiPlanLineKind.Rest:
-          return c.writeI32(2);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * The measure one step target is set in.
- */
-export enum FfiTargetMetric {
-  Power,
-  HeartRate,
-  Pace,
-}
-
-const FfiConverterTypeFfiTargetMetric = (() => {
-  type TypeName = FfiTargetMetric;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return FfiTargetMetric.Power;
-        case 2:
-          return FfiTargetMetric.HeartRate;
-        case 3:
-          return FfiTargetMetric.Pace;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case FfiTargetMetric.Power:
-          return c.writeI32(1);
-        case FfiTargetMetric.HeartRate:
-          return c.writeI32(2);
-        case FfiTargetMetric.Pace:
-          return c.writeI32(3);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * A step's target as the plan supplied it, a single value being a range of one.
- */
-export type FfiStepTarget = {
-  metric: FfiTargetMetric;
-  low: number;
-  high: number;
-  /**
-   * The units as the plan wrote them: `%ftp`, `w`, `power_zone` and so on.
-   */
-  units: string;
-  /**
-   * Present only when the plan carries a positive threshold to convert by.
-   */
-  absolute?: FfiAbsoluteTarget;
-};
-
-/**
- * Generated factory for {@link FfiStepTarget} record objects.
- */
-export const FfiStepTarget = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiStepTarget, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiStepTarget>,
-  });
-})();
-
-const FfiConverterTypeFfiStepTarget = (() => {
-  type TypeName = FfiStepTarget;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        metric: FfiConverterTypeFfiTargetMetric.readFromCursor(c),
-        low: FfiConverterFloat64.readFromCursor(c),
-        high: FfiConverterFloat64.readFromCursor(c),
-        units: FfiConverterString.readFromCursor(c),
-        absolute: FfiConverterOptionalTypeFfiAbsoluteTarget.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterTypeFfiTargetMetric.writeIntoCursor(value.metric, c);
-      FfiConverterFloat64.writeIntoCursor(value.low, c);
-      FfiConverterFloat64.writeIntoCursor(value.high, c);
-      FfiConverterString.writeIntoCursor(value.units, c);
-      FfiConverterOptionalTypeFfiAbsoluteTarget.writeIntoCursor(
-        value.absolute,
-        c,
-      );
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterTypeFfiTargetMetric.allocationSize(value.metric) +
-        FfiConverterFloat64.allocationSize(value.low) +
-        FfiConverterFloat64.allocationSize(value.high) +
-        FfiConverterString.allocationSize(value.units) +
-        FfiConverterOptionalTypeFfiAbsoluteTarget.allocationSize(value.absolute)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * One line of the flat list the athlete follows.
- */
-export type FfiPlanLine = {
-  kind: FfiPlanLineKind;
-  text: string;
-  durationSeconds?: number;
-  /**
-   * A prescribed distance. Any duration beside it is an estimate, not a countdown.
-   */
-  distanceMetres?: number;
-  targets: Array<FfiStepTarget>;
-};
-
-/**
- * Generated factory for {@link FfiPlanLine} record objects.
- */
-export const FfiPlanLine = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiPlanLine, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiPlanLine>,
-  });
-})();
-
-const FfiConverterTypeFfiPlanLine = (() => {
-  type TypeName = FfiPlanLine;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        kind: FfiConverterTypeFfiPlanLineKind.readFromCursor(c),
-        text: FfiConverterString.readFromCursor(c),
-        durationSeconds: FfiConverterOptionalFloat64.readFromCursor(c),
-        distanceMetres: FfiConverterOptionalFloat64.readFromCursor(c),
-        targets: FfiConverterSequenceTypeFfiStepTarget.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterTypeFfiPlanLineKind.writeIntoCursor(value.kind, c);
-      FfiConverterString.writeIntoCursor(value.text, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.durationSeconds, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.distanceMetres, c);
-      FfiConverterSequenceTypeFfiStepTarget.writeIntoCursor(value.targets, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterTypeFfiPlanLineKind.allocationSize(value.kind) +
-        FfiConverterString.allocationSize(value.text) +
-        FfiConverterOptionalFloat64.allocationSize(value.durationSeconds) +
-        FfiConverterOptionalFloat64.allocationSize(value.distanceMetres) +
-        FfiConverterSequenceTypeFfiStepTarget.allocationSize(value.targets)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * What kind of entry a calendar event is.
- */
-export enum FfiPlannedCategory {
-  Workout,
-  Race,
-  Note,
-  Target,
-  Season,
-  /**
-   * Every other entry: a holiday, an illness, a fitness setting.
-   */
-  Other,
-}
-
-const FfiConverterTypeFfiPlannedCategory = (() => {
-  type TypeName = FfiPlannedCategory;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return FfiPlannedCategory.Workout;
-        case 2:
-          return FfiPlannedCategory.Race;
-        case 3:
-          return FfiPlannedCategory.Note;
-        case 4:
-          return FfiPlannedCategory.Target;
-        case 5:
-          return FfiPlannedCategory.Season;
-        case 6:
-          return FfiPlannedCategory.Other;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case FfiPlannedCategory.Workout:
-          return c.writeI32(1);
-        case FfiPlannedCategory.Race:
-          return c.writeI32(2);
-        case FfiPlannedCategory.Note:
-          return c.writeI32(3);
-        case FfiPlannedCategory.Target:
-          return c.writeI32(4);
-        case FfiPlannedCategory.Season:
-          return c.writeI32(5);
-        case FfiPlannedCategory.Other:
-          return c.writeI32(6);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * The measure a planned workout is prescribed in.
- */
-export enum FfiPlanTarget {
-  Power,
-  HeartRate,
-  Pace,
-}
-
-const FfiConverterTypeFfiPlanTarget = (() => {
-  type TypeName = FfiPlanTarget;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return FfiPlanTarget.Power;
-        case 2:
-          return FfiPlanTarget.HeartRate;
-        case 3:
-          return FfiPlanTarget.Pace;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case FfiPlanTarget.Power:
-          return c.writeI32(1);
-        case FfiPlanTarget.HeartRate:
-          return c.writeI32(2);
-        case FfiPlanTarget.Pace:
-          return c.writeI32(3);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * One block of the step bar, one per plan line.
- */
-export type FfiStepBlock = {
-  /**
-   * The width the block takes, in seconds of the plan.
-   */
-  seconds: number;
-  /**
-   * The athlete's training zone, 1 to 7, that the step's target falls in.
-   * `None` for a rest step and for a step with no target a zone can be
-   * worked out from.
-   */
-  zone?: number;
-  rest: boolean;
-};
-
-/**
- * Generated factory for {@link FfiStepBlock} record objects.
- */
-export const FfiStepBlock = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiStepBlock, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiStepBlock>,
-  });
-})();
-
-const FfiConverterTypeFfiStepBlock = (() => {
-  type TypeName = FfiStepBlock;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        seconds: FfiConverterFloat64.readFromCursor(c),
-        zone: FfiConverterOptionalUInt32.readFromCursor(c),
-        rest: FfiConverterBool.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterFloat64.writeIntoCursor(value.seconds, c);
-      FfiConverterOptionalUInt32.writeIntoCursor(value.zone, c);
-      FfiConverterBool.writeIntoCursor(value.rest, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterFloat64.allocationSize(value.seconds) +
-        FfiConverterOptionalUInt32.allocationSize(value.zone) +
-        FfiConverterBool.allocationSize(value.rest)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * A calendar event as the screens read it.
- */
-export type FfiPlannedEvent = {
-  /**
-   * The upstream event id.
-   */
-  id: number;
-  name: string;
-  /**
-   * The local day the event is planned for, `YYYY-MM-DD`.
-   */
-  day: string;
-  /**
-   * The activity type the event is planned as, `Ride`, `Run` and so on.
-   */
-  sport: string;
-  category: FfiPlannedCategory;
-  target?: FfiPlanTarget;
-  /**
-   * The planned moving time, in seconds.
-   */
-  movingTime?: number;
-  trainingLoad?: number;
-  /**
-   * The workout's steps as the lines the athlete follows. Empty for an
-   * event that is not a workout, or a workout with nothing to follow.
-   */
-  lines: Array<FfiPlanLine>;
-  /**
-   * The step bar, one block per line.
-   */
-  bar: Array<FfiStepBlock>;
-};
-
-/**
- * Generated factory for {@link FfiPlannedEvent} record objects.
- */
-export const FfiPlannedEvent = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiPlannedEvent, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiPlannedEvent>,
-  });
-})();
-
-const FfiConverterTypeFfiPlannedEvent = (() => {
-  type TypeName = FfiPlannedEvent;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        id: FfiConverterFloat64.readFromCursor(c),
-        name: FfiConverterString.readFromCursor(c),
-        day: FfiConverterString.readFromCursor(c),
-        sport: FfiConverterString.readFromCursor(c),
-        category: FfiConverterTypeFfiPlannedCategory.readFromCursor(c),
-        target: FfiConverterOptionalTypeFfiPlanTarget.readFromCursor(c),
-        movingTime: FfiConverterOptionalFloat64.readFromCursor(c),
-        trainingLoad: FfiConverterOptionalFloat64.readFromCursor(c),
-        lines: FfiConverterSequenceTypeFfiPlanLine.readFromCursor(c),
-        bar: FfiConverterSequenceTypeFfiStepBlock.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterFloat64.writeIntoCursor(value.id, c);
-      FfiConverterString.writeIntoCursor(value.name, c);
-      FfiConverterString.writeIntoCursor(value.day, c);
-      FfiConverterString.writeIntoCursor(value.sport, c);
-      FfiConverterTypeFfiPlannedCategory.writeIntoCursor(value.category, c);
-      FfiConverterOptionalTypeFfiPlanTarget.writeIntoCursor(value.target, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.movingTime, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.trainingLoad, c);
-      FfiConverterSequenceTypeFfiPlanLine.writeIntoCursor(value.lines, c);
-      FfiConverterSequenceTypeFfiStepBlock.writeIntoCursor(value.bar, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterFloat64.allocationSize(value.id) +
-        FfiConverterString.allocationSize(value.name) +
-        FfiConverterString.allocationSize(value.day) +
-        FfiConverterString.allocationSize(value.sport) +
-        FfiConverterTypeFfiPlannedCategory.allocationSize(value.category) +
-        FfiConverterOptionalTypeFfiPlanTarget.allocationSize(value.target) +
-        FfiConverterOptionalFloat64.allocationSize(value.movingTime) +
-        FfiConverterOptionalFloat64.allocationSize(value.trainingLoad) +
-        FfiConverterSequenceTypeFfiPlanLine.allocationSize(value.lines) +
-        FfiConverterSequenceTypeFfiStepBlock.allocationSize(value.bar)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * A ranked riding area: one connected region of the user's library.
  */
 export type FfiPreviewCentre = {
@@ -21198,6 +22116,78 @@ const FfiConverterTypeFfiRecordScreenData = (() => {
     }
     allocationSize(value: TypeName): number {
       return FfiConverterSequenceString.allocationSize(value.librarySports);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One write a linked browser made, as the athlete reads it.
+ */
+export type FfiRemoteWrite = {
+  deviceId: string;
+  /**
+   * The protocol method, such as `section.rename`.
+   */
+  method: string;
+  /**
+   * What the write changed: a section id, for a section rename.
+   */
+  targetId: string;
+  /**
+   * The write in words, naming its target and its new value.
+   */
+  summary: string;
+  /**
+   * Unix seconds.
+   */
+  at: number;
+};
+
+/**
+ * Generated factory for {@link FfiRemoteWrite} record objects.
+ */
+export const FfiRemoteWrite = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRemoteWrite, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRemoteWrite>,
+  });
+})();
+
+const FfiConverterTypeFfiRemoteWrite = (() => {
+  type TypeName = FfiRemoteWrite;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        deviceId: FfiConverterString.readFromCursor(c),
+        method: FfiConverterString.readFromCursor(c),
+        targetId: FfiConverterString.readFromCursor(c),
+        summary: FfiConverterString.readFromCursor(c),
+        at: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.deviceId, c);
+      FfiConverterString.writeIntoCursor(value.method, c);
+      FfiConverterString.writeIntoCursor(value.targetId, c);
+      FfiConverterString.writeIntoCursor(value.summary, c);
+      FfiConverterFloat64.writeIntoCursor(value.at, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.deviceId) +
+        FfiConverterString.allocationSize(value.method) +
+        FfiConverterString.allocationSize(value.targetId) +
+        FfiConverterString.allocationSize(value.summary) +
+        FfiConverterFloat64.allocationSize(value.at)
+      );
     }
   }
   return new FFIConverter();
@@ -29440,90 +30430,6 @@ const FfiConverterTypeFfiWidgetContext = (() => {
 })();
 
 /**
- * Enriched workout section for the home-screen "Sections for you" list.
- * Composes ranking + performance lookups server-side so the TS hook is a
- * thin pass-through instead of a per-section FFI loop.
- */
-export type FfiWorkoutSection = {
-  id: string;
-  name: string;
-  prTimeSecs?: number;
-  /**
-   * Second-best time (prior PR before current best)
-   */
-  previousBestTimeSecs?: number;
-  lastTimeSecs?: number;
-  daysSinceLast?: number;
-  prDaysAgo?: number;
-  /**
-   * -1 = declining, 0 = stable, 1 = improving. None when there is not
-   * enough history to say.
-   */
-  trend?: number;
-};
-
-/**
- * Generated factory for {@link FfiWorkoutSection} record objects.
- */
-export const FfiWorkoutSection = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiWorkoutSection, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiWorkoutSection>,
-  });
-})();
-
-const FfiConverterTypeFfiWorkoutSection = (() => {
-  type TypeName = FfiWorkoutSection;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        id: FfiConverterString.readFromCursor(c),
-        name: FfiConverterString.readFromCursor(c),
-        prTimeSecs: FfiConverterOptionalFloat64.readFromCursor(c),
-        previousBestTimeSecs: FfiConverterOptionalFloat64.readFromCursor(c),
-        lastTimeSecs: FfiConverterOptionalFloat64.readFromCursor(c),
-        daysSinceLast: FfiConverterOptionalInt32.readFromCursor(c),
-        prDaysAgo: FfiConverterOptionalInt32.readFromCursor(c),
-        trend: FfiConverterOptionalInt8.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.id, c);
-      FfiConverterString.writeIntoCursor(value.name, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.prTimeSecs, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(
-        value.previousBestTimeSecs,
-        c,
-      );
-      FfiConverterOptionalFloat64.writeIntoCursor(value.lastTimeSecs, c);
-      FfiConverterOptionalInt32.writeIntoCursor(value.daysSinceLast, c);
-      FfiConverterOptionalInt32.writeIntoCursor(value.prDaysAgo, c);
-      FfiConverterOptionalInt8.writeIntoCursor(value.trend, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.id) +
-        FfiConverterString.allocationSize(value.name) +
-        FfiConverterOptionalFloat64.allocationSize(value.prTimeSecs) +
-        FfiConverterOptionalFloat64.allocationSize(value.previousBestTimeSecs) +
-        FfiConverterOptionalFloat64.allocationSize(value.lastTimeSecs) +
-        FfiConverterOptionalInt32.allocationSize(value.daysSinceLast) +
-        FfiConverterOptionalInt32.allocationSize(value.prDaysAgo) +
-        FfiConverterOptionalInt8.allocationSize(value.trend)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * A sport's time in each zone, with the athlete's own name for each zone.
  */
 export type FfiZoneDistribution = {
@@ -31225,57 +32131,6 @@ const FfiConverterTypeFfiSwapState = (() => {
         case FfiSwapState.Checkable:
           return c.writeI32(4);
         case FfiSwapState.Unchanged:
-          return c.writeI32(5);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * Distance range selected for the map in the current unit system.
- */
-export enum MapDistanceBand {
-  All,
-  XShort,
-  Short,
-  Medium,
-  Long,
-}
-
-const FfiConverterTypeMapDistanceBand = (() => {
-  type TypeName = MapDistanceBand;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return MapDistanceBand.All;
-        case 2:
-          return MapDistanceBand.XShort;
-        case 3:
-          return MapDistanceBand.Short;
-        case 4:
-          return MapDistanceBand.Medium;
-        case 5:
-          return MapDistanceBand.Long;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case MapDistanceBand.All:
-          return c.writeI32(1);
-        case MapDistanceBand.XShort:
-          return c.writeI32(2);
-        case MapDistanceBand.Short:
-          return c.writeI32(3);
-        case MapDistanceBand.Medium:
-          return c.writeI32(4);
-        case MapDistanceBand.Long:
           return c.writeI32(5);
       }
     }
@@ -36990,6 +37845,19 @@ export interface MapManagerLike {
   ) /*throws*/ : Promise<FfiActivitiesUnderPoint>;
   getAllSignatures() /*throws*/ : Array<FfiMapSignature>;
   /**
+   * The library's sections and routes alone, for a detail map that draws
+   * them under its subject: the two layers `get_screen_data` carries, from
+   * the same builders, without the activities.
+   *
+   * `held_sections` and `held_routes` are the stamps of the layers the
+   * caller already holds. A layer whose stamp is still current comes back
+   * without its lines, so a card push re-reads nothing.
+   */
+  getContextLayers(
+    heldSections: number | undefined,
+    heldRoutes: number | undefined,
+  ) /*throws*/ : FfiMapContextLayers;
+  /**
    * Everything the map tab paints with: the engine total, the sport types
    * the filter chips offer, and the activities inside the window.
    *
@@ -37119,6 +37987,46 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
     );
     try {
       return FfiConverterSequenceTypeFfiMapSignature.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The library's sections and routes alone, for a detail map that draws
+   * them under its subject: the two layers `get_screen_data` carries, from
+   * the same builders, without the activities.
+   *
+   * `held_sections` and `held_routes` are the stamps of the layers the
+   * caller already holds. A layer whose stamp is still current comes back
+   * without its lines, so a card push re-reads nothing.
+   */
+  getContextLayers(
+    heldSections: number | undefined,
+    heldRoutes: number | undefined,
+  ): FfiMapContextLayers /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_mapmanager_get_context_layers(
+          uniffiTypeMapManagerObjectFactory.clonePointer(this),
+          FfiConverterOptionalFloat64.lower(
+            heldSections,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterOptionalFloat64.lower(
+            heldRoutes,
+            nativeModule().rustbuffer_alloc,
+          ),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiMapContextLayers.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -37956,6 +38864,14 @@ export interface RemoteManagerLike {
    */
   pairingRequest(): string | undefined;
   /**
+   * The most recent changes one linked browser made, newest first, read on
+   * the read connections so a list never waits behind a write.
+   */
+  recentWrites(
+    deviceId: string,
+    limit: number,
+  ) /*throws*/ : Array<FfiRemoteWrite>;
+  /**
    * Unlink a browser so it can never reconnect, and end its connection
    * if it has one. Written on the connection no engine lock stands in
    * front of: an unlink is a tap, and must not wait behind a sync batch.
@@ -38188,6 +39104,35 @@ export class RemoteManager
     );
     try {
       return FfiConverterOptionalString.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The most recent changes one linked browser made, newest first, read on
+   * the read connections so a list never waits behind a write.
+   */
+  recentWrites(
+    deviceId: string,
+    limit: number,
+  ): Array<FfiRemoteWrite> /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_remotemanager_recent_writes(
+          uniffiTypeRemoteManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(deviceId, nativeModule().rustbuffer_alloc),
+          FfiConverterUInt32.lower(limit, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterSequenceTypeFfiRemoteWrite.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -41954,6 +42899,20 @@ export interface StrengthManagerLike {
     exerciseCategory: number,
   ) /*throws*/ : FfiExerciseDetailData;
   /**
+   * The exercise picker's list, narrowed by equipment, region, muscle and a typed query
+   * and ordered by what the athlete does. `after_category` and `after_name` name the
+   * exercise just done, whose usual followers lead; unknown filter words match nothing.
+   */
+  getExercisePickerData(
+    equipment: Array<string>,
+    region: string | undefined,
+    muscle: string | undefined,
+    query: string,
+    afterCategory: number | undefined,
+    afterName: number | undefined,
+    now: number,
+  ) /*throws*/ : FfiExercisePickerData;
+  /**
    * Get cached exercise sets for an activity (from SQLite).
    * Returns empty vec if not yet downloaded/parsed.
    */
@@ -42003,6 +42962,17 @@ export interface StrengthManagerLike {
    * Check if FIT file has been processed for this activity.
    */
   isFitProcessed(activityId: string) /*throws*/ : boolean;
+  /**
+   * Catalogue label keys best match first for a typed query. `relevance` maps a label
+   * key to how much the athlete does it, larger first; an empty query returns every key.
+   */
+  searchExercises(query: string, relevance: Map<string, number>): Array<string>;
+  /**
+   * Hands the engine the athlete's exercise labels, a catalogue label key to its text.
+   * Called once per language change; it rebuilds the held search and changes the names
+   * exercises are shown under from then on.
+   */
+  setExerciseLabels(labels: Map<string, string>): void;
 }
 /**
  * @deprecated Use `StrengthManagerLike` instead.
@@ -42140,6 +43110,61 @@ export class StrengthManager
     );
     try {
       return FfiConverterTypeFfiExerciseDetailData.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The exercise picker's list, narrowed by equipment, region, muscle and a typed query
+   * and ordered by what the athlete does. `after_category` and `after_name` name the
+   * exercise just done, whose usual followers lead; unknown filter words match nothing.
+   */
+  getExercisePickerData(
+    equipment: Array<string>,
+    region: string | undefined,
+    muscle: string | undefined,
+    query: string,
+    afterCategory: number | undefined,
+    afterName: number | undefined,
+    now: number,
+  ): FfiExercisePickerData /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_exercise_picker_data(
+          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+          FfiConverterSequenceString.lower(
+            equipment,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterOptionalString.lower(
+            region,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterOptionalString.lower(
+            muscle,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterString.lower(query, nativeModule().rustbuffer_alloc),
+          FfiConverterOptionalUInt16.lower(
+            afterCategory,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterOptionalUInt16.lower(
+            afterName,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterFloat64.lower(now, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiExercisePickerData.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -42336,6 +43361,56 @@ export class StrengthManager
     );
   }
 
+  /**
+   * Catalogue label keys best match first for a typed query. `relevance` maps a label
+   * key to how much the athlete does it, larger first; an empty query returns every key.
+   */
+  searchExercises(
+    query: string,
+    relevance: Map<string, number>,
+  ): Array<string> {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_search_exercises(
+          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(query, nativeModule().rustbuffer_alloc),
+          FfiConverterMapStringFloat64.lower(
+            relevance,
+            nativeModule().rustbuffer_alloc,
+          ),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterSequenceString.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * Hands the engine the athlete's exercise labels, a catalogue label key to its text.
+   * Called once per language change; it rebuilds the held search and changes the names
+   * exercises are shown under from then on.
+   */
+  setExerciseLabels(labels: Map<string, string>): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_set_exercise_labels(
+          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+          FfiConverterMapStringString.lower(
+            labels,
+            nativeModule().rustbuffer_alloc,
+          ),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
   uniffiDestroy(): void {
     const ptr = (this as any)[destructorGuardSymbol];
     if (ptr !== undefined) {
@@ -42521,9 +43596,9 @@ export interface SyncManagerLike {
    * so a library of 1,598 rides with 400 tracks stored reported "12/12" and
    * then nothing. This is the window the athlete asked for, counted off the census.
    *
-   * No credential and no open engine both answer zeros, which every surface
-   * reads as nothing to report: nothing is known about the account, and a
-   * figure would be a claim.
+   * No open engine answers zeros, which every surface reads as nothing to
+   * report: nothing is known about the account, and a figure would be a
+   * claim. With no credential the figures count the Garmin rows stored.
    */
   libraryCoverage(): LibraryCoverage;
   /**
@@ -42544,8 +43619,9 @@ export interface SyncManagerLike {
    * "no data" for a range nobody pulled is the collapse this answers. The
    * read is a count over the census, so it is a screen read and not a sync.
    *
-   * No credential and no open engine both answer `NotFetched`: nothing is
-   * known about the range either way, and `Empty` would be a claim.
+   * No open engine answers `NotFetched`: nothing is known about the range
+   * either way, and `Empty` would be a claim. With no credential the rows
+   * are Garmin's, and the backfill's progress says how far they reach.
    */
   rangeCoverage(oldest: string, newest: string): RangeCoverage;
   /**
@@ -43162,9 +44238,9 @@ export class SyncManager
    * so a library of 1,598 rides with 400 tracks stored reported "12/12" and
    * then nothing. This is the window the athlete asked for, counted off the census.
    *
-   * No credential and no open engine both answer zeros, which every surface
-   * reads as nothing to report: nothing is known about the account, and a
-   * figure would be a claim.
+   * No open engine answers zeros, which every surface reads as nothing to
+   * report: nothing is known about the account, and a figure would be a
+   * claim. With no credential the figures count the Garmin rows stored.
    */
   libraryCoverage(): LibraryCoverage {
     const __rb: Uint8Array = uniffiCaller.rustCall(
@@ -43231,8 +44307,9 @@ export class SyncManager
    * "no data" for a range nobody pulled is the collapse this answers. The
    * read is a count over the census, so it is a screen read and not a sync.
    *
-   * No credential and no open engine both answer `NotFetched`: nothing is
-   * known about the range either way, and `Empty` would be a claim.
+   * No open engine answers `NotFetched`: nothing is known about the range
+   * either way, and `Empty` would be a claim. With no credential the rows
+   * are Garmin's, and the backfill's progress says how far they reach.
    */
   rangeCoverage(oldest: string, newest: string): RangeCoverage {
     const __rb: Uint8Array = uniffiCaller.rustCall(
@@ -45459,6 +46536,16 @@ const FfiConverterSequenceTypeFfiExerciseHistorySession = new FfiConverterArray(
   FfiConverterTypeFfiExerciseHistorySession,
 );
 
+// FfiConverter for Array<FfiExercisePickerRow>
+const FfiConverterSequenceTypeFfiExercisePickerRow = new FfiConverterArray(
+  FfiConverterTypeFfiExercisePickerRow,
+);
+
+// FfiConverter for Array<FfiPickerMuscle>
+const FfiConverterSequenceTypeFfiPickerMuscle = new FfiConverterArray(
+  FfiConverterTypeFfiPickerMuscle,
+);
+
 // FfiConverter for Array<FfiFeedCard>
 const FfiConverterSequenceTypeFfiFeedCard = new FfiConverterArray(
   FfiConverterTypeFfiFeedCard,
@@ -45520,8 +46607,8 @@ const FfiConverterSequenceTypeFfiWeeklyTotal = new FfiConverterArray(
 );
 
 // FfiConverter for Array<FfiRecentPr>
-const FfiConverterSequenceTypeFfiRecentPR = new FfiConverterArray(
-  FfiConverterTypeFfiRecentPR,
+const FfiConverterSequenceTypeFfiRecentPr = new FfiConverterArray(
+  FfiConverterTypeFfiRecentPr,
 );
 
 // FfiConverter for FfiImprovementBasis | undefined
@@ -45628,6 +46715,56 @@ const FfiConverterSequenceTypeFfiPreviewTrack = new FfiConverterArray(
   FfiConverterTypeFfiPreviewTrack,
 );
 
+// FfiConverter for ArrayBuffer | undefined
+const FfiConverterOptionalBytes = new FfiConverterOptional(
+  FfiConverterArrayBuffer,
+);
+
+// FfiConverter for Array<FfiMapCategoryCount>
+const FfiConverterSequenceTypeFfiMapCategoryCount = new FfiConverterArray(
+  FfiConverterTypeFfiMapCategoryCount,
+);
+
+// FfiConverter for Array<MapActivityComplete>
+const FfiConverterSequenceTypeMapActivityComplete = new FfiConverterArray(
+  FfiConverterTypeMapActivityComplete,
+);
+
+// FfiConverter for Array<FfiRouteLine>
+const FfiConverterSequenceTypeFfiRouteLine = new FfiConverterArray(
+  FfiConverterTypeFfiRouteLine,
+);
+
+// FfiConverter for Array<FfiRouteLine> | undefined
+const FfiConverterOptionalSequenceTypeFfiRouteLine = new FfiConverterOptional(
+  FfiConverterSequenceTypeFfiRouteLine,
+);
+
+// FfiConverter for FfiRouteLineLayer | undefined
+const FfiConverterOptionalTypeFfiRouteLineLayer = new FfiConverterOptional(
+  FfiConverterTypeFfiRouteLineLayer,
+);
+
+// FfiConverter for Array<FfiMapSection>
+const FfiConverterSequenceTypeFfiMapSection = new FfiConverterArray(
+  FfiConverterTypeFfiMapSection,
+);
+
+// FfiConverter for Array<FfiMapSection> | undefined
+const FfiConverterOptionalSequenceTypeFfiMapSection = new FfiConverterOptional(
+  FfiConverterSequenceTypeFfiMapSection,
+);
+
+// FfiConverter for FfiMapSectionLayer | undefined
+const FfiConverterOptionalTypeFfiMapSectionLayer = new FfiConverterOptional(
+  FfiConverterTypeFfiMapSectionLayer,
+);
+
+// FfiConverter for FfiMapEmptyReason | undefined
+const FfiConverterOptionalTypeFfiMapEmptyReason = new FfiConverterOptional(
+  FfiConverterTypeFfiMapEmptyReason,
+);
+
 // FfiConverter for Map<string, FfiCurveActivity>
 const FfiConverterMapStringTypeFfiCurveActivity = new FfiConverterMap(
   FfiConverterString,
@@ -45637,6 +46774,36 @@ const FfiConverterMapStringTypeFfiCurveActivity = new FfiConverterMap(
 // FfiConverter for FfiPaceCurve | undefined
 const FfiConverterOptionalTypeFfiPaceCurve = new FfiConverterOptional(
   FfiConverterTypeFfiPaceCurve,
+);
+
+// FfiConverter for FfiPlanTarget | undefined
+const FfiConverterOptionalTypeFfiPlanTarget = new FfiConverterOptional(
+  FfiConverterTypeFfiPlanTarget,
+);
+
+// FfiConverter for FfiAbsoluteTarget | undefined
+const FfiConverterOptionalTypeFfiAbsoluteTarget = new FfiConverterOptional(
+  FfiConverterTypeFfiAbsoluteTarget,
+);
+
+// FfiConverter for Array<FfiStepTarget>
+const FfiConverterSequenceTypeFfiStepTarget = new FfiConverterArray(
+  FfiConverterTypeFfiStepTarget,
+);
+
+// FfiConverter for Array<FfiPlanLine>
+const FfiConverterSequenceTypeFfiPlanLine = new FfiConverterArray(
+  FfiConverterTypeFfiPlanLine,
+);
+
+// FfiConverter for Array<FfiStepBlock>
+const FfiConverterSequenceTypeFfiStepBlock = new FfiConverterArray(
+  FfiConverterTypeFfiStepBlock,
+);
+
+// FfiConverter for Array<FfiPlannedEvent>
+const FfiConverterSequenceTypeFfiPlannedEvent = new FfiConverterArray(
+  FfiConverterTypeFfiPlannedEvent,
 );
 
 // FfiConverter for Array<FfiPowerModel>
@@ -45699,49 +46866,9 @@ const FfiConverterSequenceTypeFfiLinkSettingValue = new FfiConverterArray(
   FfiConverterTypeFfiLinkSettingValue,
 );
 
-// FfiConverter for Array<FfiMapCategoryCount>
-const FfiConverterSequenceTypeFfiMapCategoryCount = new FfiConverterArray(
-  FfiConverterTypeFfiMapCategoryCount,
-);
-
-// FfiConverter for Array<MapActivityComplete>
-const FfiConverterSequenceTypeMapActivityComplete = new FfiConverterArray(
-  FfiConverterTypeMapActivityComplete,
-);
-
-// FfiConverter for Array<FfiRouteLine>
-const FfiConverterSequenceTypeFfiRouteLine = new FfiConverterArray(
-  FfiConverterTypeFfiRouteLine,
-);
-
-// FfiConverter for Array<FfiRouteLine> | undefined
-const FfiConverterOptionalSequenceTypeFfiRouteLine = new FfiConverterOptional(
-  FfiConverterSequenceTypeFfiRouteLine,
-);
-
-// FfiConverter for FfiRouteLineLayer | undefined
-const FfiConverterOptionalTypeFfiRouteLineLayer = new FfiConverterOptional(
-  FfiConverterTypeFfiRouteLineLayer,
-);
-
-// FfiConverter for Array<FfiMapSection>
-const FfiConverterSequenceTypeFfiMapSection = new FfiConverterArray(
-  FfiConverterTypeFfiMapSection,
-);
-
-// FfiConverter for Array<FfiMapSection> | undefined
-const FfiConverterOptionalSequenceTypeFfiMapSection = new FfiConverterOptional(
-  FfiConverterSequenceTypeFfiMapSection,
-);
-
-// FfiConverter for FfiMapSectionLayer | undefined
-const FfiConverterOptionalTypeFfiMapSectionLayer = new FfiConverterOptional(
-  FfiConverterTypeFfiMapSectionLayer,
-);
-
-// FfiConverter for FfiMapEmptyReason | undefined
-const FfiConverterOptionalTypeFfiMapEmptyReason = new FfiConverterOptional(
-  FfiConverterTypeFfiMapEmptyReason,
+// FfiConverter for Array<FfiWorkoutSection>
+const FfiConverterSequenceTypeFfiWorkoutSection = new FfiConverterArray(
+  FfiConverterTypeFfiWorkoutSection,
 );
 
 // FfiConverter for Array<FfiDepartedRide>
@@ -45764,31 +46891,6 @@ const FfiConverterOptionalTypeFfiInitOutcome = new FfiConverterOptional(
   FfiConverterTypeFfiInitOutcome,
 );
 
-// FfiConverter for FfiAbsoluteTarget | undefined
-const FfiConverterOptionalTypeFfiAbsoluteTarget = new FfiConverterOptional(
-  FfiConverterTypeFfiAbsoluteTarget,
-);
-
-// FfiConverter for Array<FfiStepTarget>
-const FfiConverterSequenceTypeFfiStepTarget = new FfiConverterArray(
-  FfiConverterTypeFfiStepTarget,
-);
-
-// FfiConverter for FfiPlanTarget | undefined
-const FfiConverterOptionalTypeFfiPlanTarget = new FfiConverterOptional(
-  FfiConverterTypeFfiPlanTarget,
-);
-
-// FfiConverter for Array<FfiPlanLine>
-const FfiConverterSequenceTypeFfiPlanLine = new FfiConverterArray(
-  FfiConverterTypeFfiPlanLine,
-);
-
-// FfiConverter for Array<FfiStepBlock>
-const FfiConverterSequenceTypeFfiStepBlock = new FfiConverterArray(
-  FfiConverterTypeFfiStepBlock,
-);
-
 // FfiConverter for Array<FfiPreviewSection>
 const FfiConverterSequenceTypeFfiPreviewSection = new FfiConverterArray(
   FfiConverterTypeFfiPreviewSection,
@@ -45802,11 +46904,6 @@ const FfiConverterSequenceTypeFfiRecordStep = new FfiConverterArray(
 // FfiConverter for Array<WholeNumber>
 const FfiConverterSequenceTypeWholeNumber = new FfiConverterArray(
   FfiConverterTypeWholeNumber,
-);
-
-// FfiConverter for ArrayBuffer | undefined
-const FfiConverterOptionalBytes = new FfiConverterOptional(
-  FfiConverterArrayBuffer,
 );
 
 // FfiConverter for Array<FfiRetiredMapSection>
@@ -46124,11 +47221,6 @@ const FfiConverterOptionalTypeFfiSampleLibrary = new FfiConverterOptional(
   FfiConverterTypeFfiSampleLibrary,
 );
 
-// FfiConverter for Array<FfiPlannedEvent>
-const FfiConverterSequenceTypeFfiPlannedEvent = new FfiConverterArray(
-  FfiConverterTypeFfiPlannedEvent,
-);
-
 // FfiConverter for Array<FfiWeeklySummary>
 const FfiConverterSequenceTypeFfiWeeklySummary = new FfiConverterArray(
   FfiConverterTypeFfiWeeklySummary,
@@ -46137,6 +47229,11 @@ const FfiConverterSequenceTypeFfiWeeklySummary = new FfiConverterArray(
 // FfiConverter for Array<FfiHeatmapHiddenActivity>
 const FfiConverterSequenceTypeFfiHeatmapHiddenActivity = new FfiConverterArray(
   FfiConverterTypeFfiHeatmapHiddenActivity,
+);
+
+// FfiConverter for Array<FfiRemoteWrite>
+const FfiConverterSequenceTypeFfiRemoteWrite = new FfiConverterArray(
+  FfiConverterTypeFfiRemoteWrite,
 );
 
 // FfiConverter for Array<FfiRouteTurn>
@@ -46162,11 +47259,6 @@ const FfiConverterSequenceTypeFfiNamedCorridor = new FfiConverterArray(
 // FfiConverter for Array<FfiRetiredSection>
 const FfiConverterSequenceTypeFfiRetiredSection = new FfiConverterArray(
   FfiConverterTypeFfiRetiredSection,
-);
-
-// FfiConverter for Array<FfiWorkoutSection>
-const FfiConverterSequenceTypeFfiWorkoutSection = new FfiConverterArray(
-  FfiConverterTypeFfiWorkoutSection,
 );
 
 // FfiConverter for Array<FfiSectionMatch>
@@ -46211,6 +47303,12 @@ const FfiConverterOptionalTypeAthleteProfile = new FfiConverterOptional(
 // FfiConverter for Array<SettingPair>
 const FfiConverterSequenceTypeSettingPair = new FfiConverterArray(
   FfiConverterTypeSettingPair,
+);
+
+// FfiConverter for Map<string, number>
+const FfiConverterMapStringFloat64 = new FfiConverterMap(
+  FfiConverterString,
+  FfiConverterFloat64,
 );
 
 // FfiConverter for GarminAccount | undefined
@@ -47352,6 +48450,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_context_layers() !==
+    15940
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_mapmanager_get_context_layers",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_screen_data() !==
     16920
   ) {
@@ -47557,6 +48663,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_remotemanager_pairing_request",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_remotemanager_recent_writes() !==
+    15337
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_remotemanager_recent_writes",
     );
   }
   if (
@@ -48328,6 +49442,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_picker_data() !==
+    12284
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_picker_data",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets() !==
     43333
   ) {
@@ -48381,6 +49503,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_search_exercises() !==
+    35663
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_search_exercises",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_set_exercise_labels() !==
+    63524
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_set_exercise_labels",
     );
   }
   if (
@@ -48497,7 +49635,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_library_coverage() !==
-    21953
+    13
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_library_coverage",
@@ -48521,7 +49659,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_range_coverage() !==
-    21996
+    20908
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_range_coverage",
@@ -49034,6 +50172,8 @@ export default Object.freeze({
     FfiConverterTypeFfiExerciseDetailData,
     FfiConverterTypeFfiExerciseGroup,
     FfiConverterTypeFfiExerciseHistorySession,
+    FfiConverterTypeFfiExercisePickerData,
+    FfiConverterTypeFfiExercisePickerRow,
     FfiConverterTypeFfiExerciseSession,
     FfiConverterTypeFfiExerciseSet,
     FfiConverterTypeFfiExerciseSummary,
@@ -49085,15 +50225,23 @@ export default Object.freeze({
     FfiConverterTypeFfiLinkFeedPage,
     FfiConverterTypeFfiLinkFeedPageAsk,
     FfiConverterTypeFfiLinkFitnessScreenAsk,
+    FfiConverterTypeFfiLinkGeoText,
+    FfiConverterTypeFfiLinkHeatmapProgress,
+    FfiConverterTypeFfiLinkHeatmapTile,
+    FfiConverterTypeFfiLinkHeatmapTileAsk,
     FfiConverterTypeFfiLinkHello,
     FfiConverterTypeFfiLinkHelloAnswer,
     FfiConverterTypeFfiLinkHighlightsAsk,
     FfiConverterTypeFfiLinkLoadsAsk,
+    FfiConverterTypeFfiLinkMapAsk,
+    FfiConverterTypeFfiLinkMapScreen,
     FfiConverterTypeFfiLinkMuscleAsk,
     FfiConverterTypeFfiLinkNoAsk,
     FfiConverterTypeFfiLinkPaceCurve,
     FfiConverterTypeFfiLinkPaceCurveAsk,
     FfiConverterTypeFfiLinkPerformanceAsk,
+    FfiConverterTypeFfiLinkPlannedEvents,
+    FfiConverterTypeFfiLinkPlannedEventsAsk,
     FfiConverterTypeFfiLinkPowerCurve,
     FfiConverterTypeFfiLinkPowerCurveAsk,
     FfiConverterTypeFfiLinkRecordingAnswer,
@@ -49112,12 +50260,15 @@ export default Object.freeze({
     FfiConverterTypeFfiLinkStrengthAsk,
     FfiConverterTypeFfiLinkSummaryAsk,
     FfiConverterTypeFfiLinkWellnessAsk,
+    FfiConverterTypeFfiLinkWorkoutSections,
+    FfiConverterTypeFfiLinkWorkoutSectionsAsk,
     FfiConverterTypeFfiLinkWriteDone,
     FfiConverterTypeFfiLinkZonesAsk,
     FfiConverterTypeFfiLinkedDevice,
     FfiConverterTypeFfiLoadDot,
     FfiConverterTypeFfiLoadMetric,
     FfiConverterTypeFfiMapCategoryCount,
+    FfiConverterTypeFfiMapContextLayers,
     FfiConverterTypeFfiMapEmptyReason,
     FfiConverterTypeFfiMapScreenData,
     FfiConverterTypeFfiMapSection,
@@ -49145,6 +50296,7 @@ export default Object.freeze({
     FfiConverterTypeFfiPerformanceSubject,
     FfiConverterTypeFfiPeriodComparison,
     FfiConverterTypeFfiPeriodStats,
+    FfiConverterTypeFfiPickerMuscle,
     FfiConverterTypeFfiPlanLine,
     FfiConverterTypeFfiPlanLineKind,
     FfiConverterTypeFfiPlanTarget,
@@ -49167,7 +50319,7 @@ export default Object.freeze({
     FfiConverterTypeFfiQuarantineReport,
     FfiConverterTypeFfiRankedSection,
     FfiConverterTypeFfiRankedSectionsBySport,
-    FfiConverterTypeFfiRecentPR,
+    FfiConverterTypeFfiRecentPr,
     FfiConverterTypeFfiRecordCheck,
     FfiConverterTypeFfiRecordMove,
     FfiConverterTypeFfiRecordProgressions,
@@ -49177,6 +50329,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRecordStep,
     FfiConverterTypeFfiRecordingEntry,
     FfiConverterTypeFfiReferenceSource,
+    FfiConverterTypeFfiRemoteWrite,
     FfiConverterTypeFfiRequestBudget,
     FfiConverterTypeFfiRetiredMapData,
     FfiConverterTypeFfiRetiredMapPair,

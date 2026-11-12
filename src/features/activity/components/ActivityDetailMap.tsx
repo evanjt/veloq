@@ -17,6 +17,7 @@ import {
   ActivityMapView,
   resolveTerrain3D,
   submitSectionCreation,
+  useContextPress,
   useInMapSurfaceSlot,
   type CreationState,
   type SectionCreationError,
@@ -63,6 +64,7 @@ export function ActivityDetailMap({ activityId: id }: ActivityDetailMapProps) {
   // An activity card pushed onto another subject's host reads that host's entry.
   const hostKey = useMapSheetHost()?.key ?? mapSheetHostKey('activity', id);
   const inSlot = useInMapSurfaceSlot();
+  const handleContextPress = useContextPress(hostKey);
   const { data: activity } = useActivity(id);
   const { data: streams, coordinates } = useActivityDetailStreams(id);
   const detail = useCardDetail(hostKey, id);
@@ -238,6 +240,7 @@ export function ActivityDetailMap({ activityId: id }: ActivityDetailMapProps) {
             activeTab={activeTab}
             highlightedSectionId={activeTab === 'sections' ? highlightedSectionId : null}
             onSectionMarkerPress={isRouteMatchingOn ? handleSectionMarkerPress : undefined}
+            onContextPress={handleContextPress}
           />
         </ComponentErrorBoundary>
       ) : null}

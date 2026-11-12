@@ -154,3 +154,61 @@ describe('the heatmap and activities layer checks', () => {
     expect(await AsyncStorage.getItem(HEATMAP_KEY)).toBe('true');
   });
 });
+
+describe('the heatmap on the detail maps', () => {
+  it('is off for every map kind until turned on', async () => {
+    await initialiseHeatmapPreference();
+
+    expect(useHeatmapPreference.getState().detailHeatmap).toEqual({
+      activity: false,
+      section: false,
+      route: false,
+    });
+  });
+
+  it('is remembered per map kind, leaving the others and the global map alone', async () => {
+    await initialiseHeatmapPreference();
+    useHeatmapPreference.getState().setDetailHeatmap('section', true);
+    await Promise.resolve();
+
+    useHeatmapPreference.setState({
+      detailHeatmap: { activity: false, section: false, route: false },
+    });
+    await initialiseHeatmapPreference();
+
+    expect(useHeatmapPreference.getState().detailHeatmap).toEqual({
+      activity: false,
+      section: true,
+      route: false,
+    });
+    expect(useHeatmapPreference.getState().heatmapVisible).toBe(true);
+  });
+});
+
+describe('the library layers on the detail maps', () => {
+  const allOff = {
+    sections: { activity: false, section: false, route: false },
+    routes: { activity: false, section: false, route: false },
+  };
+
+  it('are off for every map kind until turned on', async () => {
+    await initialiseHeatmapPreference();
+
+    expect(useHeatmapPreference.getState().detailContext).toEqual(allOff);
+  });
+
+  it('are remembered per layer and map kind, leaving the other layer and the heatmap alone', async () => {
+    await initialiseHeatmapPreference();
+    useHeatmapPreference.getState().setDetailContext('routes', 'section', true);
+    await Promise.resolve();
+
+    useHeatmapPreference.setState({ detailContext: allOff });
+    await initialiseHeatmapPreference();
+
+    expect(useHeatmapPreference.getState().detailContext).toEqual({
+      ...allOff,
+      routes: { activity: false, section: true, route: false },
+    });
+    expect(useHeatmapPreference.getState().detailHeatmap.section).toBe(false);
+  });
+});

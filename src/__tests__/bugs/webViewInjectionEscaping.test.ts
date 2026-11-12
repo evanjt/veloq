@@ -9,7 +9,6 @@
  */
 
 import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
-import { buildMap3DHtml } from '@/features/maps/lib/htmlBuilders/map3D';
 import { buildRenderSnapshotScript } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 
 describe('a value interpolated into injected JavaScript', () => {
@@ -48,29 +47,6 @@ describe('a value interpolated into injected JavaScript', () => {
       const script = buildRenderSnapshotScript(request, 0, 1);
       const literal = /window\._renderSnapshot\((.*)\);\n/.exec(script)![1];
       expect(eval(`(${literal})`).activityId).toBe(hostile);
-      expect((globalThis as Record<string, unknown>).__injected).toBeUndefined();
-    });
-
-    it('reads the 3D view route colour back as the value it was given', () => {
-      const html = buildMap3DHtml({
-        coordinates: [[7, 46]],
-        bounds: null,
-        centerOverride: null,
-        zoom: 10,
-        bearing: 0,
-        pitch: 0,
-        hasSavedCamera: false,
-        cameraPinned: false,
-        terrainExaggeration: 1,
-        initStyle: 'light',
-        mapStyle: 'light',
-        routeColor: hostile,
-        showHeatmap: false,
-        devicePixelRatio: 2,
-        reduceMotion: false,
-      });
-      const literal = /\n\s*routeColor: (".*"),\n/.exec(html)![1];
-      expect(eval(`(${literal})`)).toBe(hostile);
       expect((globalThis as Record<string, unknown>).__injected).toBeUndefined();
     });
   });

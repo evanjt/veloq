@@ -73,6 +73,24 @@
       "write": false
     },
     {
+      "name": "insights.data",
+      "params": "FfiInsightsParams",
+      "result": "FfiInsightsData",
+      "write": false
+    },
+    {
+      "name": "insights.plannedEvents",
+      "params": "FfiLinkPlannedEventsAsk",
+      "result": "FfiLinkPlannedEvents",
+      "write": false
+    },
+    {
+      "name": "insights.workoutSections",
+      "params": "FfiLinkWorkoutSectionsAsk",
+      "result": "FfiLinkWorkoutSections",
+      "write": false
+    },
+    {
       "name": "routes.screen",
       "params": "FfiRoutesScreenQuery",
       "result": "FfiRoutesScreenData",
@@ -199,6 +217,36 @@
       "write": false
     },
     {
+      "name": "map.screen",
+      "params": "FfiLinkMapAsk",
+      "result": "FfiLinkMapScreen",
+      "write": false
+    },
+    {
+      "name": "geo.routeLines",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiLinkGeoText",
+      "write": false
+    },
+    {
+      "name": "geo.sections",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiLinkGeoText",
+      "write": false
+    },
+    {
+      "name": "heatmap.tile",
+      "params": "FfiLinkHeatmapTileAsk",
+      "result": "FfiLinkHeatmapTile",
+      "write": false
+    },
+    {
+      "name": "heatmap.progress",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiLinkHeatmapProgress",
+      "write": false
+    },
+    {
       "name": "settings.get",
       "params": "FfiLinkSettingsAsk",
       "result": "FfiLinkSettingsAnswer",
@@ -253,5 +301,6 @@
       "write": true
     }
   ],
+  "minProtocol": 2,
   "protocol": 3
 }

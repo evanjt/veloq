@@ -145,6 +145,14 @@ function stateOf(key: string): MapSheetStopState {
   return useMapSheetStops.getState().sheets[key] ?? OPENED;
 }
 
+/**
+ * The stop a sheet rests at, or the opening one before it has any. A sheet presented again after
+ * a window change, such as a foldable folding, opens here and not at the opening stop.
+ */
+export function restingStop(key: string): number {
+  return stateOf(key).stop;
+}
+
 function presenterOf(key: string): MapSheetPresenter | undefined {
   return useMapSheetStops.getState().presenters[key]?.at(-1);
 }

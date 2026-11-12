@@ -47,6 +47,15 @@ pub struct HeatmapManager {
     pub(crate) _private: (),
 }
 
+/// The heatmap pass's progress as (processed, total), (0, 0) while none runs.
+pub(crate) fn tile_generation_progress() -> (u32, u32) {
+    crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .map_or((0, 0), |handle| handle.get_progress())
+}
+
 #[uniffi::export]
 impl HeatmapManager {
     #[uniffi::constructor]
@@ -176,17 +185,8 @@ impl HeatmapManager {
 
     /// Get tile generation progress: (processed, total). Returns (0, 0) if idle.
     fn get_progress(&self) -> Result<Vec<u32>, VeloqError> {
-        let handle_guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-
-        match handle_guard.as_ref() {
-            Some(handle) => {
-                let (processed, total) = handle.get_progress();
-                Ok(vec![processed, total])
-            }
-            None => Ok(vec![0, 0]),
-        }
+        let (processed, total) = tile_generation_progress();
+        Ok(vec![processed, total])
     }
 }
 

@@ -1,4 +1,5 @@
 export { BodyPairWithLoupe } from './components/BodyPairWithLoupe';
+export { ExercisePicker } from './components/ExercisePicker';
 export { ExerciseTable } from './components/ExerciseTable';
 export { MuscleGroupView } from './components/MuscleGroupView';
 export { StrengthActivityCard, type StrengthCardData } from './components/StrengthActivityCard';

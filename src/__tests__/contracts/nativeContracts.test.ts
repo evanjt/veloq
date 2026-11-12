@@ -12,6 +12,9 @@ import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
+import { loadableLocales, loadLocale, localesToLoad } from '@/i18n/localeBundles';
+import type { SupportedLocale } from '@/i18n/types';
+
 import {
   MAPLIBRE_GL_CSS_FILE,
   MAPLIBRE_GL_CSS_SHA256,
@@ -25,6 +28,8 @@ import {
   FRAME_BYTES,
   FRAME_HEADER_BYTES,
   FRAME_VERSION,
+  FRAMED_FROM,
+  PAGE_MIN_PROTOCOL,
   PAGE_PROTOCOL,
   STUN_SERVER,
 } from '../../../web/connect/link';
@@ -36,6 +41,11 @@ import {
 } from '@/features/maps/lib/veloqWebView';
 import { SATELLITE_SOURCES } from '@/features/maps/components/mapStyles';
 import { mapPalette } from '@/theme';
+import {
+  EFFICIENCY_DIRECTION,
+  IMPROVEMENT_BASIS,
+  LOAD_METRIC,
+} from '@/features/insights/lib/engineEnums';
 import { LIBERTY_SOURCES } from '@/features/maps/styles/liberty/sources';
 import { widgetPalette } from '@/shared/theme/widgetTheme';
 import { SPORT_FAMILY_ORDER } from '@/shared/activity/sportCategories';
@@ -85,7 +95,6 @@ it('limits native map release to pages with a registered rebuild path', () => {
   const manager = read('modules/veloqrs/android/src/main/java/com/veloq/VeloqWebViewManager.java');
   const marker = 'window._veloqReleasableMap';
   expect(manager).toContain(`${marker} && window.map`);
-  expect(read('src/features/maps/lib/htmlBuilders/map3D.ts')).toContain(`${marker} = true`);
   expect(read('src/features/maps/lib/htmlBuilders/mapSurface.ts')).toContain(`${marker} = true`);
   expect(read('src/features/maps/lib/htmlBuilders/snapshotWorker.ts')).toContain(
     `${marker} = true`
@@ -2442,11 +2451,18 @@ describe('the connect page frames replies the way the engine does', () => {
     expect(FLAG_GZIP).toBe(engine('FRAME_GZIP'));
     expect(FLAG_LAST).toBe(engine('FRAME_LAST'));
   });
+
+  it('frames replies from the version the engine frames them from', () => {
+    expect(FRAMED_FROM).toBe(engine('FRAMED_FROM'));
+  });
 });
 
 describe('the connect page schema follows the engine', () => {
-  const methods: { protocol: number; methods: { name: string; params: string; result: string }[] } =
-    JSON.parse(read('web/connect/methods.json'));
+  const methods: {
+    protocol: number;
+    minProtocol: number;
+    methods: { name: string; params: string; result: string }[];
+  } = JSON.parse(read('web/connect/methods.json'));
   const schema = read('web/connect/schema.d.ts');
 
   /** The sources that declare uniffi records and enums, with the attributes above each. */
@@ -2492,6 +2508,14 @@ describe('the connect page schema follows the engine', () => {
     )?.[1];
     expect(methods.protocol).toBe(Number(engine));
     expect(PAGE_PROTOCOL).toBe(methods.protocol);
+  });
+
+  it('speaks the oldest protocol the engine still answers', () => {
+    const engine = /pub const MIN_PROTOCOL_VERSION: u32 = (\d+);/.exec(
+      read(`${RUST}/remote/protocol.rs`)
+    )?.[1];
+    expect(methods.minProtocol).toBe(Number(engine));
+    expect(PAGE_MIN_PROTOCOL).toBe(methods.minProtocol);
   });
 
   it('names only records the generated bindings declare', () => {
@@ -2548,5 +2572,87 @@ describe('the connect page schema follows the engine', () => {
       'FfiRoutePerformance',
       'FfiSectionPerformanceRecord',
     ]);
+  });
+
+  it('gives the insights generators the numbers the bindings give each enum the reply carries', () => {
+    // The generators compare these numbers rather than import the enums, and
+    // the page turns the reply's words into them. A variant added or moved in
+    // the bindings changes the engine's numbers under both.
+    const bindings = read(GENERATED);
+    const variants = (name: string) => {
+      const body = new RegExp(`^export enum ${name} \\{\\n([\\s\\S]*?)^\\}`, 'm').exec(
+        bindings
+      )?.[1];
+      expect(body).toBeDefined();
+      return [...(body ?? '').matchAll(/^ {2}(\w+),$/gm)].map(
+        (match) => match[1]!.charAt(0).toLowerCase() + match[1]!.slice(1)
+      );
+    };
+    const numbered = (table: Record<string, number>) =>
+      Object.entries(table)
+        .sort((a, b) => a[1] - b[1])
+        .map(([word]) => word);
+    expect(numbered(EFFICIENCY_DIRECTION)).toEqual(variants('EfficiencyDirection'));
+    expect(numbered(LOAD_METRIC)).toEqual(variants('FfiLoadMetric'));
+    expect(numbered(IMPROVEMENT_BASIS)).toEqual(variants('FfiImprovementBasis'));
+    // And the words are the ones the page schema writes for them.
+    const words = (name: string) =>
+      [
+        ...(new RegExp(`export type ${name} = ([^;]+);`).exec(schema)?.[1] ?? '').matchAll(
+          /'(\w+)'/g
+        ),
+      ].map((match) => match[1]);
+    expect(words('EfficiencyDirection')).toEqual(numbered(EFFICIENCY_DIRECTION));
+    expect(words('FfiLoadMetric')).toEqual(numbered(LOAD_METRIC));
+    expect(words('FfiImprovementBasis')).toEqual(numbered(IMPROVEMENT_BASIS));
+  });
+});
+
+describe('every exercise in the engine catalogue has a label in every locale', () => {
+  const catalogueKeys = (): string[] => {
+    const table = fs.readFileSync(
+      path.join(__dirname, '../../../modules/veloqrs/rust/veloqrs/src/strength/catalogue_table.rs'),
+      'utf8'
+    );
+    return [...new Set([...table.matchAll(/^ {8}"([a-z0-9_]+)",$/gm)].map((m) => m[1]))];
+  };
+  // Locales that carry only the words that differ from the language they fall back to.
+  const REGIONAL = new Set(['en-AU', 'en-US', 'es-ES', 'es-419', 'de-CH', 'pt-BR']);
+
+  const labelsOf = (locale: SupportedLocale): Record<string, string> =>
+    (loadLocale(locale).exerciseLabels ?? {}) as Record<string, string>;
+
+  it('finds the catalogue', () => {
+    expect(catalogueKeys().length).toBeGreaterThan(1000);
+  });
+
+  it.each(loadableLocales())(
+    '%s reads a label for every key through its fallback chain',
+    (locale) => {
+      const chain = localesToLoad(locale).map(labelsOf);
+      const unlabelled = catalogueKeys().filter(
+        (key) => !chain.some((labels) => (labels[key] ?? '').trim() !== '')
+      );
+      expect(unlabelled).toEqual([]);
+    }
+  );
+
+  it.each(loadableLocales().filter((locale) => !REGIONAL.has(locale)))(
+    '%s holds a label of its own for every key',
+    (locale) => {
+      const own = labelsOf(locale);
+      const missing = catalogueKeys().filter((key) => (own[key] ?? '').trim() === '');
+      expect(missing).toEqual([]);
+    }
+  );
+
+  it('holds no label for a key the catalogue lacks', () => {
+    const keys = new Set(catalogueKeys());
+    const stray = loadableLocales().flatMap((locale) =>
+      Object.keys(labelsOf(locale))
+        .filter((key) => !keys.has(key))
+        .map((key) => `${locale}: ${key}`)
+    );
+    expect(stray).toEqual([]);
   });
 });

@@ -431,6 +431,7 @@
     "restorePromptDismiss": "Nicht mehr anbieten",
     "restoreDatedBackup": "Backup vom {{date}} wiederherstellen",
     "recordRestored": "Datensicherung wiederhergestellt. Aktivitäten werden erneut synchronisiert.",
+    "recordRestoredGarmin": "Datensicherung wiederhergestellt. Aktivitäten werden eingeordnet, sobald Garmin sie liefert.",
     "exportHomeLeftOut": "I dem Backup isch din Heimatort für de Export-Datenschutz nöd drin. De Export-Datenschutz bliibt us, bis du de Heimatort neu feschtleisch.",
     "setExportHome": "Heimatort feschtlege",
     "unplacedRecords_one": "{{count}} Eintrag us dr Sicherig wartet na uf d Wiederherstellig.",
@@ -3154,6 +3155,8 @@
     "sheetTitle": "Verchnüpfti Browser",
     "connectedSince": "Verbunde syt {{time}}",
     "notConnected": "Nid verbunde",
+    "noChanges": "Noch keine Änderungen",
+    "wrote": "{{browser}}: {{summary}}",
     "manage": "Verchnüpfti Grät verwalte"
   }
 }

@@ -3,6 +3,7 @@ import {
   View,
   ScrollView,
   Platform,
+  useWindowDimensions,
   StyleSheet,
   type LayoutChangeEvent,
   type ViewInstance,
@@ -63,7 +64,10 @@ import {
   CHART_CONFIGS,
 } from '@/features/activity/lib/chartConfig';
 import { fullscreenPlotFrame } from '@/features/activity/lib/fullscreenPlotFrame';
-import { fullscreenPlotOrientation } from '@/features/activity/lib/fullscreenPlotOrientation';
+import {
+  fullscreenPlotOrientation,
+  type FullscreenPlotOrientation,
+} from '@/features/activity/lib/fullscreenPlotOrientation';
 import { formatDurationHuman } from '@/shared/format/format';
 import { type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import {
@@ -251,20 +255,33 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
     });
   }, []);
 
-  // A phone's landscape lock lives exactly as long as the full-screen view, so
+  // The window decides whether the plot is turned, so a fold or a resize reads it again. The lock
+  // is taken and handed back with the orientation in force when the plot opened, since a window
+  // that changes while it is open must not release a lock it did not take.
+  const windowSize = useWindowDimensions();
+  const plotOrientation = fullscreenPlotOrientation({ os: Platform.OS, window: windowSize });
+  const [openPlot, setOpenPlot] = useState<FullscreenPlotOrientation | null>(null);
+
+  // A compact window's landscape lock lives exactly as long as the full-screen view, so
   // closing it and unmounting the section with it open both hand the app back to
-  // portrait. An iPad is not rotated for the plot and takes no lock either way.
+  // portrait. A regular window is not rotated for the plot and takes no lock either way.
   React.useEffect(() => {
-    if (!isChartFullscreen) return undefined;
-    const { lockOnOpen, lockOnClose } = PLOT_ORIENTATION;
+    if (openPlot === null) return undefined;
+    const { lockOnOpen, lockOnClose } = openPlot;
     if (lockOnOpen !== null) void ScreenOrientation.lockAsync(lockOnOpen);
     return () => {
       if (lockOnClose !== null) void ScreenOrientation.lockAsync(lockOnClose);
     };
-  }, [isChartFullscreen]);
+  }, [openPlot]);
 
-  const openChartFullscreen = useCallback(() => setIsChartFullscreen(true), []);
-  const closeChartFullscreen = useCallback(() => setIsChartFullscreen(false), []);
+  const openChartFullscreen = useCallback(() => {
+    setOpenPlot(plotOrientation);
+    setIsChartFullscreen(true);
+  }, [plotOrientation]);
+  const closeChartFullscreen = useCallback(() => {
+    setOpenPlot(null);
+    setIsChartFullscreen(false);
+  }, []);
 
   // The key above the intervals table, one chip per zone or role in its band's fill, a
   // neutral chip with no dot for an interval that has no band.
@@ -646,7 +663,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         animationType="fade"
         statusBarTranslucent
         navigationBarTranslucent
-        supportedOrientations={PLOT_ORIENTATION.supportedOrientations}
+        supportedOrientations={(openPlot ?? plotOrientation).supportedOrientations}
         onRequestClose={closeChartFullscreen}
       >
         <GestureHandlerRootView style={{ flex: 1 }}>
@@ -776,11 +793,6 @@ function FullscreenPlotLayout({
     </View>
   );
 }
-
-const PLOT_ORIENTATION = fullscreenPlotOrientation({
-  os: Platform.OS,
-  isPad: Platform.OS === 'ios' && Platform.isPad,
-});
 
 const BOTTOM_BAR_HEIGHT = 80;
 

@@ -191,9 +191,8 @@ describe('glyph-stacks', () => {
   const LABELLED =
     "layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'] }\n";
   const SCRIPTS = {
-    'src/features/maps/components/Map3DWebView.tsx': LABELLED,
-    'src/features/maps/lib/htmlBuilders/map3DScripts.ts': LABELLED,
-    'src/features/maps/lib/htmlBuilders/map3D.ts': LABELLED,
+    'src/features/maps/components/activityMapLayerSpecs.ts': LABELLED,
+    'src/features/maps/components/regional/regionalMapLayerSpecs.ts': LABELLED,
   };
 
   it('passes a text-field with a text-font beside it', () => {
@@ -203,26 +202,28 @@ describe('glyph-stacks', () => {
   it('fails a text-field with no text-font', () => {
     const root = fixture({
       ...SCRIPTS,
-      'src/features/maps/lib/htmlBuilders/map3D.ts': `${LABELLED}layout: { 'text-field': 'x' }\n`,
+      'src/features/maps/components/regional/regionalMapLayerSpecs.ts': `${LABELLED}layout: { 'text-field': 'x' }\n`,
     });
 
     const { status, output } = runRule('glyph-stacks', root);
 
     expect(status).toBe(1);
-    expect(output).toContain('map3D.ts  names 2 text-field and 1 text-font');
+    expect(output).toContain('regionalMapLayerSpecs.ts  names 2 text-field and 1 text-font');
   });
 
   it('passes a script that draws only icons', () => {
-    const root = fixture({ ...SCRIPTS, 'src/features/maps/lib/htmlBuilders/map3D.ts': '\n' });
+    const root = fixture({
+      ...SCRIPTS,
+      'src/features/maps/components/regional/regionalMapLayerSpecs.ts': '\n',
+    });
 
     expect(runRule('glyph-stacks', root).status).toBe(0);
   });
 
   it('fails when no script labels anything, so the rule reads nothing', () => {
     const root = fixture({
-      'src/features/maps/components/Map3DWebView.tsx': '\n',
-      'src/features/maps/lib/htmlBuilders/map3DScripts.ts': '\n',
-      'src/features/maps/lib/htmlBuilders/map3D.ts': '\n',
+      'src/features/maps/components/activityMapLayerSpecs.ts': '\n',
+      'src/features/maps/components/regional/regionalMapLayerSpecs.ts': '\n',
     });
 
     const { status, output } = runRule('glyph-stacks', root);

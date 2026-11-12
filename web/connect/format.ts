@@ -1,6 +1,14 @@
 // How the page writes a measurement.
 
 let locale = 'en-GB';
+let units: 'metric' | 'imperial' = 'metric';
+
+/** The unit system distances and speeds are written in; the phone's preference. */
+export function setUnitSystem(system: 'metric' | 'imperial') {
+  units = system;
+}
+
+const METRES_PER_MILE = 1609.344;
 
 /** The tag numbers are written in; set once the page has chosen its language. */
 export function setNumberLocale(tag: string) {
@@ -13,7 +21,11 @@ const oneDecimal = (value: number) =>
   );
 
 export const km = (metres: number | null | undefined) =>
-  metres == null ? null : `${oneDecimal(metres / 1000)} km`;
+  metres == null
+    ? null
+    : units === 'imperial'
+      ? `${oneDecimal(metres / METRES_PER_MILE)} mi`
+      : `${oneDecimal(metres / 1000)} km`;
 
 export function clock(seconds: number | null | undefined) {
   if (seconds == null) return null;
@@ -23,7 +35,11 @@ export function clock(seconds: number | null | undefined) {
 }
 
 export const kmh = (speed: number | null | undefined) =>
-  speed == null ? null : `${oneDecimal(speed * 3.6)} km/h`;
+  speed == null
+    ? null
+    : units === 'imperial'
+      ? `${oneDecimal((speed * 3600) / METRES_PER_MILE)} mph`
+      : `${oneDecimal(speed * 3.6)} km/h`;
 
 /** A live clock: `m:ss`, or `h:mm:ss` past an hour. Under zero reads as zero. */
 export function elapsed(milliseconds: number) {

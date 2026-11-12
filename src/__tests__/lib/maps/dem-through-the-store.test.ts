@@ -1,5 +1,5 @@
 /**
- * Scenario: the terrain DEM reaches the 3D page, the map surface page and the
+ * Scenario: the terrain DEM reaches the map surface page, and the
  * preview worker through the tile intercept, so the Rust store is the one tier
  * that holds it. The page kept a second DEM cache beside it: a `cached-terrain` protocol, a
  * `veloq-terrain-dem-v1` Cache API bucket, a zoom prefetch into that bucket and
@@ -13,11 +13,7 @@
 import { Platform } from 'react-native';
 
 import { TERRAIN_UPSTREAM_TEMPLATE } from '@/features/maps/components/mapStyles';
-import {
-  buildMap3DHtml,
-  buildMapSurfaceHtml,
-  buildSnapshotWorkerHtml,
-} from '@/features/maps/lib/htmlBuilders';
+import { buildMapSurfaceHtml, buildSnapshotWorkerHtml } from '@/features/maps/lib/htmlBuilders';
 import { tileProtocolsScript } from '@/features/maps/lib/htmlBuilders/shared';
 import { buildRenderSnapshotScript } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
 import type { SnapshotRequest } from '@/features/maps/lib/htmlBuilders/terrainSnapshotScripts';
@@ -39,28 +35,6 @@ function onPlatform(os: 'android' | 'ios') {
 }
 
 afterEach(() => onPlatform('ios'));
-
-const map3DHtml = () =>
-  buildMap3DHtml({
-    coordinates: [
-      [7.447, 46.948],
-      [7.449, 46.95],
-    ],
-    bounds: { sw: [7.447, 46.948], ne: [7.449, 46.95] },
-    centerOverride: null,
-    zoom: 12,
-    bearing: 0,
-    pitch: 60,
-    hasSavedCamera: false,
-    cameraPinned: false,
-    terrainExaggeration: 1.5,
-    initStyle: 'light',
-    mapStyle: 'light',
-    routeColor: '#FF6B35',
-    showHeatmap: false,
-    devicePixelRatio: 2,
-    reduceMotion: false,
-  });
 
 const request: SnapshotRequest = {
   activityId: 'a1',
@@ -85,12 +59,6 @@ describe('no page keeps a DEM cache of its own', () => {
 
   it('carries no protocol decoder, every request is answered by the intercept', () => {
     expect(tileProtocolsScript()).not.toContain('demBlobToImage');
-  });
-
-  it('leaves the 3D page with no prefetch and no terrain protocol', () => {
-    const html = map3DHtml();
-    expect(html).not.toContain('_prefetchTerrainTile');
-    expect(html).not.toContain('cached-terrain');
   });
 
   it('leaves the preview worker with no terrain protocol', () => {

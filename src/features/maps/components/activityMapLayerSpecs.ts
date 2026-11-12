@@ -33,6 +33,7 @@ import { buildEndpointLayers, ENDPOINT_IMAGES } from '@/features/maps/lib/endpoi
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 import {
+  MAP_3D_SCALE,
   OVERLAY_LINE_WIDTH,
   SUBJECT_CASING_WIDTH,
   SUBJECT_LINE_WIDTH,
@@ -70,6 +71,11 @@ export interface ActivityLayerInput {
   hasHighlightPoint: boolean;
   creationMode: boolean;
   hasUserLocation: boolean;
+  /**
+   * The map is tilted over terrain. The layers are the same and every width and radius is drawn
+   * at `MAP_3D_SCALE`, nothing else changing.
+   */
+  terrain?: boolean;
 }
 
 type GeoJSONData = GeoJSON.FeatureCollection | GeoJSON.Feature;
@@ -163,8 +169,11 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
     overlayHasData,
     creationMode,
     hasUserLocation,
+    terrain = false,
   } = input;
 
+  const scale = terrain ? MAP_3D_SCALE : 1;
+  const size = (px: number) => px * scale;
   const highlighted = !!highlightedSectionId;
   const isHighlightedSection = ['==', ['get', 'id'], highlightedSectionId ?? ''];
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
@@ -175,7 +184,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
   const portionColor = sectionPortionColour(palette);
 
   return [
-    ...overlayLayers('', overlayHasData, palette),
+    ...overlayLayers('', overlayHasData, palette, scale),
     {
       id: 'route-casing',
       type: 'line',
@@ -183,7 +192,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       layout: roundLine,
       paint: {
         'line-color': palette.casing,
-        'line-width': SUBJECT_CASING_WIDTH,
+        'line-width': size(SUBJECT_CASING_WIDTH),
         'line-opacity': highlighted ? 0 : 1,
       },
     },
@@ -194,7 +203,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       layout: roundLine,
       paint: {
         'line-color': routeColour,
-        'line-width': SUBJECT_LINE_WIDTH,
+        'line-width': size(SUBJECT_LINE_WIDTH),
         // The solid line gives way entirely when gradient colouring is on.
         'line-opacity': gradientActive ? 0 : 1,
       },
@@ -206,7 +215,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       layout: roundLine,
       paint: {
         'line-color': palette.route,
-        'line-width': SUBJECT_LINE_WIDTH,
+        'line-width': size(SUBJECT_LINE_WIDTH),
         'line-opacity': gradientActive ? 1 : 0,
         ...(gradientActive && gradientLineExpression
           ? { 'line-gradient': gradientLineExpression }
@@ -220,7 +229,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       layout: roundLine,
       paint: {
         'line-color': palette.casing,
-        'line-width': highlighted ? ['case', isHighlightedSection, 7, 5] : 6,
+        'line-width': highlighted ? ['case', isHighlightedSection, size(7), size(5)] : size(6),
         // A portion outside the highlight is context, which carries no casing.
         'line-opacity': hasSectionOverlays
           ? highlighted
@@ -238,21 +247,21 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'line-color': highlighted
           ? ['case', isHighlightedSection, palette.ink, palette.muted]
           : portionColor,
-        'line-width': highlighted ? ['case', isHighlightedSection, 5, 3] : 4,
+        'line-width': highlighted ? ['case', isHighlightedSection, size(5), size(3)] : size(4),
         // Dashed over its casing, so a portion reads as the track with the
         // casing showing through and overlapping portions stay apart.
         'line-dasharray': [...SECTION_LINE_DASH],
         'line-opacity': hasSectionOverlays ? 1 : 0,
       },
     },
-    ...buildEndpointLayers(palette),
+    ...buildEndpointLayers(palette, { scale }),
     {
       id: 'section-creation-line',
       type: 'line',
       source: 'section-creation-line',
       layout: roundLine,
       paint: {
-        ...sectionCreationLinePaint(palette),
+        ...sectionCreationLinePaint(palette, scale),
         'line-opacity': creationMode ? 1 : 0,
       },
     },
@@ -261,7 +270,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       type: 'circle',
       source: 'section-creation-markers',
       paint: {
-        ...sectionCreationMarkerPaint('position', palette),
+        ...sectionCreationMarkerPaint('position', palette, scale),
         'circle-opacity': creationMode ? 1 : 0,
         'circle-stroke-opacity': creationMode ? 1 : 0,
       },
@@ -290,7 +299,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       type: 'circle',
       source: 'section-markers',
       filter: ['!=', ['get', 'isPR'], true],
-      paint: { 'circle-radius': 14, 'circle-color': palette.casing },
+      paint: { 'circle-radius': size(14), 'circle-color': palette.casing },
     },
     {
       id: 'section-marker-circle',
@@ -298,9 +307,9 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'section-markers',
       filter: ['!=', ['get', 'isPR'], true],
       paint: {
-        'circle-radius': 12,
+        'circle-radius': size(12),
         'circle-color': palette.route,
-        'circle-stroke-width': 2,
+        'circle-stroke-width': size(2),
         'circle-stroke-color': palette.casing,
       },
     },
@@ -338,7 +347,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       type: 'circle',
       source: 'highlight',
       paint: {
-        'circle-radius': 7,
+        'circle-radius': size(7),
         'circle-color': palette.casing,
         'circle-opacity': hasHighlightPoint ? 1 : 0,
       },
@@ -348,12 +357,12 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       type: 'circle',
       source: 'highlight',
       paint: {
-        'circle-radius': 5,
+        'circle-radius': size(5),
         'circle-color': palette.ink,
         'circle-opacity': hasHighlightPoint ? 1 : 0,
       },
     },
-    ...buildUserLocationLayers(hasUserLocation, palette),
+    ...buildUserLocationLayers(hasUserLocation, palette, scale),
   ];
 }
 
@@ -361,7 +370,8 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
 function overlayLayers(
   prefix: string,
   overlayHasData: boolean,
-  palette: MapPalette
+  palette: MapPalette,
+  scale = 1
 ): MapLayerSpec[] {
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   return [
@@ -372,7 +382,7 @@ function overlayLayers(
       layout: roundLine,
       paint: {
         'line-color': palette.muted,
-        'line-width': OVERLAY_LINE_WIDTH,
+        'line-width': OVERLAY_LINE_WIDTH * scale,
         'line-opacity': overlayHasData ? 1 : 0,
       },
     },

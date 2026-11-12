@@ -98,3 +98,29 @@ it('ignores a type that is not exported over uniffi', () => {
     0
   );
 });
+
+it('reads an empty record as having no fields, so a later plain struct is not its body', () => {
+  const rust = [
+    '#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]',
+    'pub struct Ask {}',
+    '',
+    '#[derive(Debug, Clone)]',
+    'pub struct Message {',
+    '    pub bytes: Vec<u8>,',
+    '}',
+  ].join('\n');
+  expect(runGuard(rust)).toMatchObject({ status: 0 });
+});
+
+it('still reads the fields of a record whose brace opens on the next line', () => {
+  const rust = [
+    '#[derive(Debug, serde::Serialize, uniffi::Record)]',
+    'pub struct Trace',
+    '{',
+    '    pub points: Vec<u8>,',
+    '}',
+  ].join('\n');
+  const { status, output } = runGuard(rust);
+  expect(status).toBe(1);
+  expect(output).toContain('Trace.pub points: Vec<u8>');
+});

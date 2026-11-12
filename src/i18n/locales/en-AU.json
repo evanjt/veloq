@@ -53,6 +53,7 @@
     "unplacedActivityPending": "Fetching the activities your backup mentions",
     "noBackupsAtDestination": "No backups at this destination, sorry.",
     "recordRestored": "Your names, sections and routes are back. Their activities are coming down again.",
+    "recordRestoredGarmin": "Your names, sections and routes are back. Their rides are placed as Garmin's rides come down.",
     "unplacedRecords_one": "{{count}} item from your backup can't be restored just yet.",
     "unplacedRecords_other": "{{count}} items from your backup can't be restored just yet.",
     "namesNotRestored_one": "{{count}} route name didn't come back, because its route was merged into another.",

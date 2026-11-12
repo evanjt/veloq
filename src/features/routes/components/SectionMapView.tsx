@@ -21,8 +21,8 @@ import {
   cameraMove,
   colorWithOpacity,
   colors,
-  duration,
   iconSize,
+  layout,
   mapPalette,
   opacity,
   spacing,
@@ -34,17 +34,17 @@ import { useMapHeldFocus, useMapSheetHost } from '@/shared/app/MapSheetHost';
 import {
   useSettleCamera,
   BaseMapView,
+  TERRAIN_3D_CONFIG,
   boundsOfLngLat,
   featureCollection,
   getStyleIcon,
   statusBarStyleForMap,
   lngLatFromShort,
   lngLatFromShortPoint,
-  Map3DWebView,
-  type Map3DWebViewRef,
   type LineDirection,
   ENDPOINT_AND_DIRECTION_IMAGES,
   type MapCameraState,
+  type MapPressEvent,
   type MapSurfaceRef,
   AttributionOverlay,
   SlottedMapSurface,
@@ -55,19 +55,22 @@ import {
   useMapStyleToggle,
   useSurfaceAttribution,
   useTerrainFallback,
-  buildSectionTrimCollection,
   EMPTY_FEATURE_COLLECTION,
-  cameraAfter3D,
-  type Camera3DState,
   buildUserLocationCollection,
   useLocateUser,
   mapControlColumnLayout,
   MapControlButton,
+  MapLayersButton,
+  MapLayersMenu,
+  layersMenuPlacement,
+  useDetailLayers,
+  useLayersMenu,
+  withContextLayers,
   visibleMapInset,
   HIGHLIGHT_THROTTLE_MS,
 } from '@/features/maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ComponentErrorBoundary } from '@/shared/ui';
+import { useSharedTerrain3D } from '@/features/maps/hooks/useHostTerrain3D';
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { useThrottledValue } from '@/shared/ui/useThrottledValue';
 import { Icon } from '@/shared/ui/Icon';
@@ -75,7 +78,6 @@ import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 import { toActivityType } from '@/features/routes/types';
 import { onlySport } from '@/shared/activity/sportSet';
 import { useSectionMapLayers } from './useSectionMapLayers';
-import { buildSection3DOverlays } from './sectionMap3DOverlays';
 import {
   cutLineByProgress,
   deltaLineBands,
@@ -100,7 +102,6 @@ import {
   sectionCameraSpec,
 } from '@/features/routes/lib/sectionMapCamera';
 import { styles } from './sectionMapView.styles';
-import { motionTiming } from '@/shared/ui/reduceMotion';
 
 interface SectionMapViewProps {
   section: FrequentSection;
@@ -166,6 +167,8 @@ interface SectionMapViewProps {
    * the section's screen. Ignored when the map is interactive.
    */
   onPress?: (() => void) | undefined;
+  /** Opens the library section or route a tap landed on, returning whether it named one. */
+  onContextPress?: ((event: MapPressEvent) => boolean) | undefined;
   /** Says what `onPress` does, for a screen reader. */
   pressLabel?: string | undefined;
 }
@@ -198,6 +201,7 @@ export const SectionMapView = memo(function SectionMapView({
   deltaLine = null,
   shownDirection = null,
   onPress,
+  onContextPress,
   pressLabel,
 }: SectionMapViewProps) {
   const { t } = useTranslation();
@@ -229,50 +233,35 @@ export const SectionMapView = memo(function SectionMapView({
   } = useMapStyleToggle(currentMapStyle, setCurrentMapStyle);
   const activityColor = getActivityColor(validSportType ?? 'Other');
   const palette = mapPalette(drawnMapStyle);
+  // Controls and legends over the map follow the app theme, not the base drawn under them.
+  const { isDark } = useTheme();
   const surfaceRef = useRef<MapSurfaceRef>(null);
   const [mapReady, setMapReady] = useState(false);
   const handleMapReady = useCallback(() => setMapReady(true), []);
   const inSlot = useInMapSurfaceSlot();
-  // The surface is unmounted while the 3D layer covers it, so the viewport it
-  // settled on is what a remount opens with, not the section fit again.
-  const settledCameraRef = useRef<{
-    center: [number, number];
-    zoom: number;
-  } | null>(null);
-  const [cameraOnHide, setCameraOnHide] = useState<{
-    center: [number, number];
-    zoom: number;
-  } | null>(null);
   // Interactive-mode state
-  const [is3DMode, setIs3DMode] = useState(false);
+  const { is3D: is3DMode, setIs3D: setIs3DMode } = useSharedTerrain3D(false);
+  const detailLayers = useDetailLayers('section', drawnMapStyle, isDark, {
+    sectionId: section.id,
+    terrain: is3DMode,
+  });
+  const layersMenu = useLayersMenu(detailLayers.rows.length > 0);
   const { attributionRef, initialAttribution, trackAttribution } = useSurfaceAttribution(
     drawnMapStyle,
     { is3D: is3DMode }
   );
   const handleRegionDidChange = useCallback(
     (state: MapCameraState) => {
-      settledCameraRef.current = { center: state.center, zoom: state.zoom };
       trackAttribution(state);
     },
     [trackAttribution]
   );
-  const camera3DRef = useRef<Camera3DState | null>(null);
-  const handleCamera3DChange = useCallback((camera: Camera3DState) => {
-    camera3DRef.current = camera;
-  }, []);
-  // A camera from an earlier 3D visit is not where this one was left.
-  useEffect(() => {
-    if (is3DMode) camera3DRef.current = null;
-  }, [is3DMode]);
-  const [is3DReady, setIs3DReady] = useState(false);
   const { userLocation, locationLoading, locate } = useLocateUser();
-  const map3DRef = useRef<Map3DWebViewRef>(null);
   // A screen covered by another keeps its WebViews but releases their maps,
   // which hold the GL context and every tile texture in it. A map in a host
   // stays held under its own sheet.
   const sheetKey = useMapSheetHost()?.key;
   const screenFocused = useMapHeldFocus();
-  const map3DOpacity = useRef(new Animated.Value(0)).current;
   const bearingAnim = useRef(new Animated.Value(0)).current;
 
   // Memoised so the empty fallback is one array rather than a fresh one each
@@ -306,10 +295,6 @@ export const SectionMapView = memo(function SectionMapView({
     useMemo(() => scrubMarkerCollection(scrubPoint), [scrubPoint]),
     HIGHLIGHT_THROTTLE_MS
   );
-  const scrubCoordinate3D = useMemo<[number, number] | null>(
-    () => (scrubPoint ? [scrubPoint.lng, scrubPoint.lat] : null),
-    [scrubPoint]
-  );
 
   // Expand mode fits the whole context window, not just the section portion, so
   // the user can see what there is to expand into.
@@ -321,7 +306,11 @@ export const SectionMapView = memo(function SectionMapView({
   // Fullscreen button is part of control stack when interactive
   const isTrimming = !!trimRange;
   // Style, compass and location always show; 3D needs a line, full screen is off while trimming.
-  const controlCount = 3 + (hasRoute ? 1 : 0) + (enableFullscreen && !isTrimming ? 1 : 0);
+  const controlCount =
+    3 +
+    (detailLayers.rows.length > 0 ? 1 : 0) +
+    (hasRoute ? 1 : 0) +
+    (enableFullscreen && !isTrimming ? 1 : 0);
   const {
     maxHeight: controlsMaxHeight,
     width: controlsWidth,
@@ -352,29 +341,13 @@ export const SectionMapView = memo(function SectionMapView({
       coveredRight,
     ]
   );
-  const frameSize = useMemo(() => ({ width: mapWidth, height }), [mapWidth, height]);
-  // Controls and legends over the map follow the app theme, not the base drawn under them.
-  const { isDark } = useTheme();
-
-  // The 2D surface comes down once the 3D layer covers it, so where it was is
-  // captured on the way out and handed back to the remount. A slot's surface is
-  // shared with the subjects beneath this one, so it stays under the 3D layer.
-  const show2DSurface = inSlot || !(is3DMode && is3DReady);
-  const is3DLoading = is3DMode && !is3DReady;
-  useEffect(() => {
-    if (!show2DSurface) {
-      setCameraOnHide(settledCameraRef.current);
-      setMapReady(false);
-    }
-  }, [show2DSurface]);
 
   // Stop in-flight animations on unmount
   useEffect(() => {
     return () => {
-      map3DOpacity.stopAnimation();
       bearingAnim.stopAnimation();
     };
-  }, [map3DOpacity, bearingAnim]);
+  }, [bearingAnim]);
 
   // Frame each section once and again on entering or leaving expand mode. A change in what covers the
   // map, as the sheet settles at another stop or a tool's bar replaces it, moves the camera through
@@ -403,31 +376,9 @@ export const SectionMapView = memo(function SectionMapView({
     markFramed();
   }, [frameKey, extensionCoords, sectionCoords, isExpanding, fitPadding, markFramed]);
 
-  // Reset 3D ready state when toggling off
-  useEffect(() => {
-    if (!is3DMode) {
-      setIs3DReady(false);
-      map3DOpacity.setValue(0);
-    }
-  }, [is3DMode, map3DOpacity]);
-
-  // Handle 3D map ready - fade in the 3D view
-  // A 3D page that cannot render drops back to the 2D map, otherwise the
-  // spinner has no terminal path. Same landing as the error boundary below.
-  const handleMap3DFailed = useCallback(() => {
-    setIs3DReady(false);
-    setIs3DMode(false);
-  }, []);
-  const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(handleMap3DFailed);
-
-  const handleMap3DReady = useCallback(() => {
-    setIs3DReady(true);
-    motionTiming(map3DOpacity, {
-      toValue: 1,
-      duration: duration.slow,
-      useNativeDriver: true,
-    }).start();
-  }, [map3DOpacity]);
+  // A surface with no elevation tiles for the terrain reports it and the map lies flat again.
+  const handleTerrainFailed = useCallback(() => setIs3DMode(false), [setIs3DMode]);
+  const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(handleTerrainFailed);
 
   // Handle bearing changes from either renderer (for compass sync)
   const handleBearingChange = useCallback(
@@ -440,21 +391,14 @@ export const SectionMapView = memo(function SectionMapView({
   // Toggle 3D mode
   const toggle3D = useCallback(() => {
     setIs3DMode((current) => !current);
-  }, []);
+  }, [setIs3DMode]);
 
   // Reset orientation (bearing and pitch in 3D)
   const resetOrientation = useCallback(() => {
-    if (is3DMode && is3DReady) {
-      map3DRef.current?.resetOrientation();
-    } else {
-      surfaceRef.current?.resetOrientation();
-    }
-  }, [is3DMode, is3DReady]);
+    surfaceRef.current?.resetOrientation();
+  }, []);
 
-  const handleGetLocation = useCallback(
-    () => locate(is3DMode && is3DReady ? map3DRef.current : surfaceRef.current),
-    [locate, is3DMode, is3DReady]
-  );
+  const handleGetLocation = useCallback(() => locate(surfaceRef.current), [locate]);
 
   const sectionLayerData = useSectionMapLayers({
     section,
@@ -466,11 +410,6 @@ export const SectionMapView = memo(function SectionMapView({
     trimRange,
     extensionTrack,
   });
-
-  const overlays3D = useMemo(
-    () => buildSection3DOverlays(sectionLayerData, highlightedActivityId),
-    [sectionLayerData, highlightedActivityId]
-  );
 
   const deltaBands = useMemo(
     () =>
@@ -537,17 +476,6 @@ export const SectionMapView = memo(function SectionMapView({
     TRIM_UPDATE_THROTTLE_MS
   );
 
-  const sectionTrimGeoJSON = useMemo(
-    () =>
-      buildSectionTrimCollection({
-        trimRange,
-        trimmed: trimmedGeoJSON,
-        extension: sectionLayerData.extensionGeoJSON,
-        endpoints,
-      }),
-    [trimRange, trimmedGeoJSON, sectionLayerData.extensionGeoJSON, endpoints]
-  );
-
   const specInput = useMemo(
     () => ({
       ...sectionLayerData,
@@ -582,19 +510,44 @@ export const SectionMapView = memo(function SectionMapView({
 
   const specs = useMemo(
     () =>
-      sectionMapSpecs({
-        ...specInput,
-        palette,
-        userLocationGeoJSON,
-        hasUserLocation: userLocation !== null,
-        showExtensionAndSection: true,
-        trimCasingWidth: 5,
-        trimLineWidth: 4,
-        traceCasingWidth: 5,
-        traceLineWidth: 4,
-        extentCoords: extensionCoords.length > 0 ? extensionCoords : sectionCoords,
-      }),
-    [specInput, palette, userLocationGeoJSON, userLocation, extensionCoords, sectionCoords]
+      withContextLayers(
+        sectionMapSpecs({
+          ...specInput,
+          palette,
+          userLocationGeoJSON,
+          hasUserLocation: userLocation !== null,
+          showExtensionAndSection: true,
+          trimCasingWidth: 5,
+          trimLineWidth: 4,
+          traceCasingWidth: 5,
+          traceLineWidth: 4,
+          terrain: is3DMode,
+          extentCoords: extensionCoords.length > 0 ? extensionCoords : sectionCoords,
+        }),
+        detailLayers.context
+      ),
+    [
+      detailLayers.context,
+      specInput,
+      palette,
+      userLocationGeoJSON,
+      userLocation,
+      extensionCoords,
+      sectionCoords,
+      is3DMode,
+    ]
+  );
+  // 3D is this map tilted over the elevation model: the same sources, layers
+  // and taps, with pitch and rotate gestures while it is on.
+  const terrain = useMemo(
+    () =>
+      is3DMode
+        ? {
+            exaggeration: TERRAIN_3D_CONFIG.defaultExaggeration,
+            pitch: TERRAIN_3D_CONFIG.defaultPitch,
+          }
+        : null,
+    [is3DMode]
   );
   // The extent moves only with the line framed, not with what is picked on it.
   const bounds = useStableBy(specs.bounds, JSON.stringify(specs.bounds));
@@ -645,16 +598,15 @@ export const SectionMapView = memo(function SectionMapView({
     <SlottedMapSurface
       ref={surfaceRef}
       mapStyle={drawnMapStyle}
-      initialCamera={
-        cameraAfter3D(camera3DRef.current, cameraOnHide) ?? {
-          ...sectionCameraSpec(bounds, fitPadding),
-          maxZoom: SECTION_MAP_MAX_ZOOM,
-        }
-      }
+      initialCamera={{
+        ...sectionCameraSpec(bounds, fitPadding),
+        maxZoom: SECTION_MAP_MAX_ZOOM,
+      }}
       sources={specs.sources}
       layers={specs.layers}
       images={specs.images}
       interactiveLayers={specs.interactiveLayers}
+      terrain={terrain}
       scrollEnabled={interactive}
       zoomEnabled={interactive}
       rotateEnabled={interactive}
@@ -663,6 +615,8 @@ export const SectionMapView = memo(function SectionMapView({
       onMapReady={handleMapReady}
       onRegionIsChanging={handleRegionChanging}
       onRegionDidChange={handleRegionDidChange}
+      onTerrainUnavailable={onTerrainUnavailable}
+      onPress={onContextPress}
     />
   );
 
@@ -693,45 +647,9 @@ export const SectionMapView = memo(function SectionMapView({
             style={styles.container}
             pointerEvents={touchThrough}
           >
-            {/* 2D Map layer. Unmounted once the 3D layer covers it, because a
-                hidden WebView holds its GL context and tile textures. */}
-            {show2DSurface ? (
-              <View style={styles.mapLayer} pointerEvents={touchThrough}>
-                {mapContent}
-              </View>
-            ) : null}
-
-            {/* 3D Map layer */}
-            {is3DMode && hasRoute ? (
-              <ComponentErrorBoundary
-                part="map3d"
-                debugName="3D Map"
-                onError={() => setIs3DMode(false)}
-              >
-                <Animated.View
-                  style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}
-                  pointerEvents={is3DReady ? 'auto' : 'none'}
-                >
-                  <Map3DWebView
-                    ref={map3DRef}
-                    coordinates={sectionCoords}
-                    mapStyle={drawnMapStyle}
-                    routeColor={palette.route}
-                    fitPadding={fitPadding}
-                    frameSize={frameSize}
-                    sectionTrimGeoJSON={sectionTrimGeoJSON}
-                    highlightedTraceGeoJSON={overlays3D.highlightGeoJSON}
-                    highlightCoordinate={scrubCoordinate3D}
-                    released={!screenFocused}
-                    onMapReady={handleMap3DReady}
-                    onMapFailed={handleMap3DFailed}
-                    onTerrainUnavailable={onTerrainUnavailable}
-                    onBearingChange={handleBearingChange}
-                    onCameraStateChange={handleCamera3DChange}
-                  />
-                </Animated.View>
-              </ComponentErrorBoundary>
-            ) : null}
+            <View style={styles.mapLayer} pointerEvents={touchThrough}>
+              {mapContent}
+            </View>
 
             {terrainNotice}
           </View>
@@ -756,21 +674,24 @@ export const SectionMapView = memo(function SectionMapView({
                 <MapControlButton.Glyph name={getStyleIcon(nextMapStyle)} />
               </MapControlButton>
 
+              {/* Layers - only shown when there is a layer to toggle */}
+              {detailLayers.rows.length > 0 ? (
+                <MapLayersButton
+                  testID="section-map-layers"
+                  open={layersMenu.open}
+                  onPress={layersMenu.toggle}
+                />
+              ) : null}
+
               {/* 3D toggle */}
               {hasRoute ? (
                 <MapControlButton
                   testID="section-map-3d-toggle"
                   accessibilityLabel={t(is3DMode ? 'maps.disable3D' : 'maps.enable3D')}
-                  accessibilityState={{ busy: is3DLoading }}
                   selected={is3DMode}
                   onPress={toggle3D}
-                  disabled={is3DLoading}
                 >
-                  {is3DLoading ? (
-                    <MapControlButton.Spinner testID="section-map-3d-busy" />
-                  ) : (
-                    <MapControlButton.Glyph name="terrain" />
-                  )}
+                  <MapControlButton.Glyph name="terrain" />
                 </MapControlButton>
               ) : null}
 
@@ -809,6 +730,17 @@ export const SectionMapView = memo(function SectionMapView({
                 </MapControlButton>
               ) : null}
             </View>
+          ) : null}
+
+          {layersMenu.open && detailLayers.rows.length > 0 ? (
+            <MapLayersMenu
+              testID="section-map-layers-menu"
+              backdropTestID="section-map-layers-backdrop"
+              rows={detailLayers.rows}
+              isDark={isDark}
+              onClose={layersMenu.close}
+              {...layersMenuPlacement(overlayTop, 1, layout.cardMargin)}
+            />
           ) : null}
 
           {/* The layers drawn over the section's own line, named. */}

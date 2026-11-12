@@ -1,0 +1,96 @@
+/**
+ * Scalar inputs for the engine's insights bundle, built from the clock and the
+ * configuration alone.
+ *
+ * Nothing here reaches React Native, the native module or a settings store, so
+ * the app and the linked browser ask for the same windows.
+ */
+
+import type { InsightsParams } from 'veloqrs';
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
+import { trailingWeekRanges } from '@/shared/time/trailingWeeks';
+
+import { INSIGHTS_CONFIG, maxAgeDaysFor, maxPerCategoryFor, minAgeDaysFor } from './config';
+import { wellnessWindow } from './wellnessWindow';
+
+/**
+ * The trailing window form is read from.
+ *
+ * Thirty days is what both callers asked for before the engine did the reading:
+ * the tab through `useWellness('1m')` and the headless task through its own
+ * `getWellnessDays`. Only the newest day in it is the reading, so the window is
+ * what decides whether there is one at all.
+ */
+/**
+ * History points a card carries at most, per section and per trend.
+ *
+ * The graphic is a strip a few dozen pixels wide, so more than this crosses
+ * the bridge for pixels nobody can tell apart. The engine caps its own series
+ * too, in `persistence/screens.rs` and `sections/ranking.rs`, so a caller
+ * asking for more gets what the read holds rather than a library of laps.
+ */
+const HISTORY_LIMIT = 20;
+
+const WELLNESS_WINDOW_DAYS = 30;
+
+const toTs = (d: Date) => localWallClockToEpochSeconds(d);
+
+/** How many trailing weeks the strength insights compare. */
+const STRENGTH_WEEKS = 4;
+
+/** The trailing 28 days the monthly strength summary covers. */
+function trailingStrengthMonth(): { startTs: number; endTs: number } {
+  const end = new Date();
+  end.setHours(23, 59, 59, 0);
+  const start = new Date(end);
+  start.setDate(start.getDate() - 27);
+  start.setHours(0, 0, 0, 0);
+
+  return { startTs: toTs(start), endTs: toTs(end) };
+}
+
+/**
+ * Build the parameters for `getInsightsData` / `getStartupData` from the
+ * current clock and the insights configuration. `includeSections` is whether
+ * the athlete has route matching on; the caller reads it, so the linked
+ * browser builds the same parameters without the app's settings store.
+ * The phone calls this through `buildInsightsParams`.
+ */
+export function insightsParamsFor(includeSections: boolean): InsightsParams {
+  const now = new Date();
+
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+
+  const wellness = wellnessWindow(now, WELLNESS_WINDOW_DAYS);
+
+  return {
+    historyLimit: HISTORY_LIMIT,
+    currentStart: 0,
+    currentEnd: toTs(now),
+    prevStart: 0,
+    prevEnd: 0,
+    chronicStart: 0,
+    todayStart: toTs(todayStart),
+    includeSections,
+    rankedLimit: INSIGHTS_CONFIG.limits.rankedPerSport,
+    activeWindowDays: INSIGHTS_CONFIG.activeWindowDays,
+    efficiencyPerSport: INSIGHTS_CONFIG.limits.efficiencyPerSport,
+    efficiencyMinHrChangeBpm: INSIGHTS_CONFIG.thresholds.efficiencyMinHrChangeBpm,
+    efficiencyLimit: maxPerCategoryFor('efficiency_trend'),
+    efficiencyMinEfforts: INSIGHTS_CONFIG.repetition.efficiency_trend_min,
+    efficiencyDecliningMinEfforts: INSIGHTS_CONFIG.repetition.efficiency_trend_declining_min,
+    strengthMonth: trailingStrengthMonth(),
+    strengthWeeks: trailingWeekRanges(STRENGTH_WEEKS),
+    wellnessOldest: wellness.oldest,
+    wellnessNewest: wellness.newest,
+    hrvWindowDays: INSIGHTS_CONFIG.windows.hrvDays,
+    sectionChangeWindowDays: maxAgeDaysFor('section_changed'),
+    staleThresholdDays: minAgeDaysFor('stale_pr'),
+    staleMinGainPercent: INSIGHTS_CONFIG.thresholds.staleMinGainPercent,
+    staleMaxOpportunities: INSIGHTS_CONFIG.thresholds.staleMaxOpportunities,
+    staleMinTraversals: INSIGHTS_CONFIG.repetition.stale_pr_min_lifetime,
+    recentPrWindowDays: maxAgeDaysFor('section_pr'),
+    recentPrMinOutings: INSIGHTS_CONFIG.repetition.section_pr_min_outings,
+  };
+}

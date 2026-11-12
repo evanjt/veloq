@@ -124,6 +124,11 @@ fn every_class_is_used_and_the_record_set_is_named() {
             "section_intents",
             "section_numbers",
             "section_pins",
+            "strength_sessions",
+            "strength_session_exercises",
+            "strength_session_sets",
+            "strength_session_groups",
+            "strength_session_rests",
         ],
         "the record set changed, which changes what a backup has to carry"
     );

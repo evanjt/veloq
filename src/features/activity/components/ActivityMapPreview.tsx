@@ -205,7 +205,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // terrain drape when the activity qualifies, a flat top-down basemap
   // otherwise. FlatList windowing is the throttle: only near-viewport cards
   // mount.
-  // Deferred until the feed screen is focused - avoids competing with the detail view's Map3DWebView
+  // Deferred until the feed screen is focused - avoids competing with the detail view's map
   // Mounted is not the same as near enough to be worth rendering. The list
   // keeps two to three screens either side alive for smooth scrolling; a render
   // is only worth starting for a card on screen or one screen from it, and this

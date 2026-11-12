@@ -228,3 +228,16 @@ it('routes a browser write onto the channel of the fact it moved', async () => {
   expect(seen.sort()).toEqual(['sections', 'settings']);
   offs.forEach((off) => off());
 });
+
+it('announces a browser write on remoteWrote only for a fact this build knows', async () => {
+  const { client, observer } = clientWithFakeEngine();
+  const seen: string[] = [];
+  const off = client.subscribe('remoteWrote', () => seen.push('remoteWrote'));
+
+  observer.remoteWrote('sections');
+  observer.remoteWrote('a kind this build does not know');
+  await flush();
+
+  expect(seen).toEqual(['remoteWrote']);
+  off();
+});

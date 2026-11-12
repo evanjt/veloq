@@ -64,7 +64,7 @@ describe('the veloq page protocol urls', () => {
 describe('the veloq page protocol handler', () => {
   it('answers a geo url as the parsed GeoJSON when the renderer asks for JSON', async () => {
     const collection = { type: 'FeatureCollection', features: [] };
-    const { asked, handler } = fake(async () => JSON.stringify(collection));
+    const { asked, handler } = fake(async () => ({ text: JSON.stringify(collection) }));
     const reply = await handler(
       request('veloq://geo/route-lines/all?v=1', 'json'),
       new AbortController()
@@ -75,7 +75,7 @@ describe('the veloq page protocol handler', () => {
 
   it('answers a geo url as the text, or its bytes, when the renderer asks for those', async () => {
     const text = '{"type":"FeatureCollection","features":[]}';
-    const { handler } = fake(async () => text);
+    const { handler } = fake(async () => ({ text }));
     expect(
       (await handler(request('veloq://geo/sections/all', 'string'), new AbortController())).data
     ).toBe(text);
@@ -86,7 +86,7 @@ describe('the veloq page protocol handler', () => {
   });
 
   it('answers a heatmap tile as the PNG bytes of the base64 result', async () => {
-    const { asked, handler } = fake(async () => PNG_BASE64);
+    const { asked, handler } = fake(async () => ({ png: PNG_BASE64 }));
     const reply = await handler(
       request('veloq://heatmap-light/4/8/5', 'arrayBuffer'),
       new AbortController()
@@ -98,7 +98,7 @@ describe('the veloq page protocol handler', () => {
   });
 
   it('answers a tile with no heat as an empty transparent PNG', async () => {
-    const { handler } = fake(async () => null);
+    const { handler } = fake(async () => ({ png: null }));
     const reply = await handler(
       request('veloq://heatmap-dark/4/8/5', 'arrayBuffer'),
       new AbortController()
@@ -113,7 +113,7 @@ describe('the veloq page protocol handler', () => {
     await expect(
       tile.handler(request('veloq://heatmap-dark/4/8/5'), new AbortController())
     ).rejects.toThrow('no tile');
-    const geo = fake(async () => null);
+    const geo = fake(async () => ({ text: null }));
     await expect(
       geo.handler(request('veloq://geo/sections/all'), new AbortController())
     ).rejects.toThrow('no GeoJSON');
@@ -129,7 +129,7 @@ describe('the veloq page protocol handler', () => {
   });
 
   it('refuses a url that stands for no ask without asking', async () => {
-    const { asked, handler } = fake(async () => '{}');
+    const { asked, handler } = fake(async () => ({ text: '{}' }));
     await expect(
       handler(request('veloq://geo/unknown/all'), new AbortController())
     ).rejects.toThrow('no geo kind unknown');
@@ -137,7 +137,7 @@ describe('the veloq page protocol handler', () => {
   });
 
   it('sends nothing for a request aborted before it is sent', async () => {
-    const { asked, handler } = fake(async () => '{}');
+    const { asked, handler } = fake(async () => ({ text: '{}' }));
     const abort = new AbortController();
     abort.abort();
     await expect(handler(request('veloq://geo/sections/all'), abort)).rejects.toMatchObject({
@@ -153,7 +153,7 @@ describe('the veloq page protocol handler', () => {
     const settled = handler(request('veloq://heatmap-dark/4/8/5'), abort);
     abort.abort();
     await expect(settled).rejects.toMatchObject({ name: 'AbortError' });
-    answer(PNG_BASE64);
+    answer({ png: PNG_BASE64 });
     await Promise.resolve();
     expect(asked).toHaveLength(1);
   });
@@ -165,11 +165,11 @@ describe('the veloq page protocol handler', () => {
     const first = handler(request(url), new AbortController());
     const second = handler(request(url), new AbortController());
     expect(asked).toHaveLength(1);
-    answers[0]?.(PNG_BASE64);
+    answers[0]?.({ png: PNG_BASE64 });
     await Promise.all([first, second]);
     const third = handler(request(url), new AbortController());
     expect(asked).toHaveLength(2);
-    answers[1]?.(null);
+    answers[1]?.({ png: null });
     await third;
   });
 
@@ -182,7 +182,7 @@ describe('the veloq page protocol handler', () => {
     const kept = handler(request(url), new AbortController());
     aborted.abort();
     await expect(dropped).rejects.toMatchObject({ name: 'AbortError' });
-    answer(PNG_BASE64);
+    answer({ png: PNG_BASE64 });
     expect(new Uint8Array((await kept).data as ArrayBuffer)).toEqual(PNG);
     expect(asked).toHaveLength(1);
   });
@@ -196,8 +196,8 @@ describe('installing the scheme', () => {
         registered[scheme] = handler;
       }),
     };
-    const first = jest.fn(async () => '{"a":1}');
-    const second = jest.fn(async () => '{"b":2}');
+    const first = jest.fn(async () => ({ text: '{"a":1}' }));
+    const second = jest.fn(async () => ({ text: '{"b":2}' }));
     const releaseFirst = installProtocol(renderer, first);
     const releaseSecond = installProtocol(renderer, second);
     expect(renderer.addProtocol).toHaveBeenCalledTimes(1);

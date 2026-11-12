@@ -51,6 +51,11 @@ export interface MapSheetHostEntry {
   cards: readonly MapSheetCard[];
   /** How many mounted screens hold this entry. */
   holders: number;
+  /**
+   * Whether the host's map is tilted over terrain, shared by every card so a push or a pop keeps
+   * the mode. Unset until a map in the host has set it.
+   */
+  terrain3D?: boolean;
 }
 
 export type MapSheetHosts = Readonly<Record<string, MapSheetHostEntry>>;
@@ -139,6 +144,13 @@ export function patchTopCard(
   return count === 0 ? hosts : patchCard(hosts, key, count - 1, patch);
 }
 
+/** The hosts with this host's 3D mode set. The same hosts come back for a host not open or a mode unchanged. */
+export function setTerrain3D(hosts: MapSheetHosts, key: string, on: boolean): MapSheetHosts {
+  const entry = hosts[key];
+  if (!entry || entry.terrain3D === on) return hosts;
+  return { ...hosts, [key]: { ...entry, terrain3D: on } };
+}
+
 /** The card on show in a host's sheet, or undefined for a host not open. */
 export function topCard(hosts: MapSheetHosts, key: string): MapSheetCard | undefined {
   const cards = hosts[key]?.cards;
@@ -185,6 +197,21 @@ export function patchHostCard(
 /** Merges `patch` into the state of the card on show in a host's sheet. */
 export function patchHostTopCard(key: string, patch: Readonly<Record<string, unknown>>): void {
   updateHosts((hosts) => patchTopCard(hosts, key, patch));
+}
+
+/** Sets whether a host's map is in 3D, for every card in it. */
+export function setHostTerrain3D(key: string, on: boolean): void {
+  updateHosts((hosts) => setTerrain3D(hosts, key, on));
+}
+
+/** A host's 3D mode, undefined for a host not open or one no map has set it on. */
+export function hostTerrain3D(key: string): boolean | undefined {
+  return useMapSheetHosts.getState().hosts[key]?.terrain3D;
+}
+
+/** A host's 3D mode, rendering its reader only when it changes. */
+export function useHostTerrain3D(key: string | undefined): boolean | undefined {
+  return useMapSheetHosts((store) => (key ? store.hosts[key]?.terrain3D : undefined));
 }
 
 /** One field of the state of the card on show, rendering its reader only when it changes. */

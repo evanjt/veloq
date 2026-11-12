@@ -1569,6 +1569,77 @@ fn a_strength_session_is_read_for_its_sets_from_the_live_documents_directory() {
     .unwrap();
 }
 
+/// Scenario: a strength session recorded on the phone, with side and groups
+/// only its session rows hold, lands as an upload.
+/// Expected behaviour: the session takes the id intervals.icu gave the ride
+/// and its sets stay under the ride's key as the session wrote them; the file
+/// is not read again, so its verdict stays the session's.
+#[test]
+fn a_recorded_strength_session_keeps_its_own_sets_when_the_upload_lands() {
+    use crate::persistence::strength_sessions::{
+        SessionExercise, SessionKind, SessionSet, StrengthSession,
+    };
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_strength_session.db");
+    let mut entry = ride(&dir, "lift", 1_000);
+    entry.activity_type = "WeightTraining".into();
+    // The file holds no sets, so reading it would settle the ride as empty.
+    std::fs::write(dir.path().join("lift.fit"), crate::fit::recorded_ride_fit()).unwrap();
+    let entry = with_provisional(entry, "local-lift");
+    insert(&entry);
+    with_persistent_engine(|e| {
+        e.save_strength_session(&StrengthSession {
+            id: "lift-session".into(),
+            kind: SessionKind::Finished,
+            name: None,
+            activity_key: Some("local-lift".into()),
+            intervals_id: None,
+            started_at: Some(900),
+            ended_at: Some(1_900),
+            last_used_at: None,
+            created_at: 900,
+            exercises: vec![SessionExercise {
+                exercise_category: 0,
+                exercise_name: Some(1),
+                group_no: None,
+                rest_secs: None,
+                sets: vec![SessionSet {
+                    reps: Some(10),
+                    weight_kg: Some(60.0),
+                    side: Some("left".into()),
+                    done: true,
+                    ..SessionSet::default()
+                }],
+            }],
+            groups: Vec::new(),
+            rests: Vec::new(),
+        })
+        .unwrap()
+    })
+    .unwrap();
+    let fake = Fake::answering(vec![landed("i-lift")]);
+
+    let outcome = upload_ride("lift", false, &fake, &now).outcome;
+
+    assert_eq!(outcome, FfiUploadOutcome::Uploaded);
+    with_persistent_engine(|e| {
+        assert_eq!(e.get_exercise_sets("local-lift").unwrap().len(), 1);
+        assert_eq!(e.get_exercise_sets("i-lift").unwrap().len(), 0);
+        let session = e.get_strength_session("lift-session").unwrap().unwrap();
+        assert_eq!(session.intervals_id.as_deref(), Some("i-lift"));
+        assert_eq!(session.exercises[0].sets[0].side.as_deref(), Some("left"));
+        let has_sets: i64 =
+            e.db.query_row(
+                "SELECT has_sets FROM fit_file_status WHERE activity_id = 'local-lift'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(has_sets, 1, "the session's verdict, not the file's");
+    })
+    .unwrap();
+}
+
 /// Scenario: a ride stored by its name under the documents directory, and one
 /// stored by an absolute path into a container an update has since moved.
 /// Expected behaviour: both files are found under the live documents directory

@@ -47,6 +47,8 @@ const scripts = (
 const NOT_GATES: Record<string, string> = {
   'check-native-tree.mjs': 'the native build scripts and bundle:android, before each starts',
   'check-toolchain.mjs': 'the android and ios build scripts, before each starts',
+  'check-xcode-version.mjs':
+    'the iOS build workflow, after setup-xcode, with the pinned version as its argument',
   'lint-android-bundle.mjs': 'check:android-bundle, before a device build is trusted',
   'lint-native-record-shapes.mjs': 'check:native-records, after every android:debug build',
   'check-app-crashes.mjs':

@@ -108,5 +108,7 @@ declare namespace maplibregl {
     jumpTo(options: { center?: LngLat; zoom?: number }): this;
     getZoom(): number;
     getBounds(): { toArray(): [[number, number], [number, number]] };
+    unproject(point: [number, number]): { lng: number; lat: number };
+    boxZoom: { disable(): void };
   }
 }

@@ -22,7 +22,11 @@ import {
   getTerrainPreviewCacheSize,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { clearCrashLog } from '@/shared/debug/crashLog';
-import { forgetCachedAthleteId, forgetStoredActivityCount } from './cachedAthleteId';
+import {
+  forgetCachedAthleteId,
+  forgetLinkedGarminId,
+  forgetStoredActivityCount,
+} from './cachedAthleteId';
 import { deleteRecordTemporaries, platformRecordUri } from './platformRecord';
 import { clearImageDiskCache } from '@/shared/native/imageDiskCache';
 import { deleteCachedAthleteFiles } from './cacheFiles';
@@ -458,6 +462,7 @@ export async function wipeLibrary(): Promise<void> {
     () => clearCrashLog(),
     ...LEGACY_LIBRARY_KEYS.map((key) => () => removeSetting(key)),
     () => forgetCachedAthleteId(),
+    () => forgetLinkedGarminId(),
     () => forgetStoredActivityCount(),
     () => forgetInsightFingerprint(),
     () => deleteBackupFiles(),

@@ -10,6 +10,8 @@ export interface ActivityMapControlFlags {
   shown: boolean;
   /** Whether the gradient toggle is drawn. */
   hasGradientData: boolean;
+  /** Whether the layers menu holds the heatmap row, which draws the layers button without a gradient. */
+  hasContextRows?: boolean;
   /** Whether the 3D toggle is drawn. */
   hasRoute: boolean;
   /** Whether the fullscreen button is drawn. */
@@ -24,11 +26,14 @@ export interface ActivityMapControlFlags {
 export function activityMapControlCount({
   shown,
   hasGradientData,
+  hasContextRows = false,
   hasRoute,
   enableFullscreen,
 }: ActivityMapControlFlags): number {
   if (!shown) return 0;
-  return 3 + Number(hasGradientData) + Number(hasRoute) + Number(enableFullscreen);
+  return (
+    3 + Number(hasGradientData || hasContextRows) + Number(hasRoute) + Number(enableFullscreen)
+  );
 }
 
 export interface MapControlColumnLayout {

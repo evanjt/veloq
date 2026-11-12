@@ -20,11 +20,6 @@ import {
   type MapSurfaceHtmlConfig,
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import { MAX_MAP_PITCH, visibleInsetScript } from '@/features/maps/lib/htmlBuilders/shared';
-import {
-  buildMap3DHtml,
-  buildSetRouteScript,
-  type Map3DHtmlConfig,
-} from '@/features/maps/lib/htmlBuilders';
 
 type Move = { method: string; options: Record<string, unknown> };
 
@@ -56,7 +51,6 @@ function runInjected(script: string, reduceMotion: boolean): Move[] {
       getPitch: () => 0,
       cameraForBounds: () => ({ center: { lng: 7.45, lat: 46.95 }, zoom: 13 }),
     },
-    _veloq3d: { setRoute: () => {} },
     _veloqReduceMotion: reduceMotion,
   };
   sandbox.window = sandbox;
@@ -80,17 +74,6 @@ const SCRIPTS: { name: string; script: string; duration: number }[] = [
   },
   { name: 'a bounds fit', script: buildFitBoundsScript(BOUNDS, 40, 400), duration: 400 },
   { name: 'the orientation reset', script: buildResetOrientationScript(), duration: 500 },
-  {
-    name: 'the 3D route fit',
-    script: buildSetRouteScript(
-      [
-        [7.4, 46.9],
-        [7.5, 47],
-      ],
-      BOUNDS
-    ),
-    duration: 600,
-  },
 ];
 
 describe('scripted camera moves follow the live reduce-motion setting', () => {
@@ -186,34 +169,9 @@ function surfaceConfig(reduceMotion: boolean): MapSurfaceHtmlConfig {
   };
 }
 
-function map3DConfig(reduceMotion: boolean): Map3DHtmlConfig {
-  return {
-    coordinates: [
-      [7.447, 46.948],
-      [7.449, 46.95],
-    ],
-    bounds: { sw: [7.447, 46.948], ne: [7.449, 46.95] },
-    centerOverride: null,
-    zoom: 12,
-    bearing: 0,
-    pitch: 60,
-    hasSavedCamera: false,
-    cameraPinned: false,
-    terrainExaggeration: 1.5,
-    initStyle: 'light',
-    mapStyle: 'light',
-    routeColor: '#FF6B35',
-    showHeatmap: false,
-    devicePixelRatio: 2,
-    reduceMotion,
-  };
-}
-
 describe('a map page starts from the reduce-motion setting it was built with', () => {
-  it.each([
-    ['2D surface', (on: boolean) => buildMapSurfaceHtml(surfaceConfig(on))],
-    ['3D terrain', (on: boolean) => buildMap3DHtml(map3DConfig(on))],
-  ])('%s page hands MapLibre the setting and keeps its own copy', (_name, build) => {
+  it('hands MapLibre the setting and keeps its own copy', () => {
+    const build = (on: boolean) => buildMapSurfaceHtml(surfaceConfig(on));
     const on = mapOptionsOf(build(true));
     expect(on.options?.reduceMotion).toBe(true);
     expect(on.pageFlag).toBe(true);
@@ -225,11 +183,10 @@ describe('a map page starts from the reduce-motion setting it was built with', (
 });
 
 describe('map tilt limit', () => {
-  it.each([
-    ['2D surface', () => buildMapSurfaceHtml(surfaceConfig(false))],
-    ['3D terrain', () => buildMap3DHtml(map3DConfig(false))],
-  ])('%s page stops the tilt before the track can leave the view', (_name, build) => {
-    expect(mapOptionsOf(build()).options?.maxPitch).toBe(MAX_MAP_PITCH);
+  it('stops the tilt before the track can leave the view', () => {
+    expect(mapOptionsOf(buildMapSurfaceHtml(surfaceConfig(false))).options?.maxPitch).toBe(
+      MAX_MAP_PITCH
+    );
     expect(MAX_MAP_PITCH).toBeLessThan(72);
   });
 });

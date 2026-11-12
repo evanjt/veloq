@@ -1,11 +1,11 @@
-// Interactive GPS track map. Combines a MapLibre GL JS surface with a 3D
-// terrain overlay, style switching, chart-scrub highlighting, and section
+// Interactive GPS track map. One MapLibre GL JS surface, tilted over terrain
+// for 3D, with style switching, chart-scrub highlighting, and section
 // creation. Layer descriptions live in activityMapLayerSpecs, the control stack
 // in ActivityMapControls, and styles in ActivityMapView.styles.
 
 import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StatusBar, Animated, Image, useWindowDimensions } from 'react-native';
+import { View, StatusBar, Image, useWindowDimensions } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 
 import { LatLng } from '@/shared/geo/polyline';
@@ -16,8 +16,9 @@ import {
   getTerrainPreviewUri,
   hasTerrainPreview,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
-import { duration, iconSize, mapPalette, themePalette, type MapPalette } from '@/theme';
+import { cameraMove, iconSize, mapPalette, themePalette, type MapPalette } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { useSharedTerrain3D } from '@/features/maps/hooks/useHostTerrain3D';
 import { useMapHeldFocus, useMapSheetHost } from '@/shared/app/MapSheetHost';
 import { useMapPreferences } from '@/features/settings/light';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
@@ -27,7 +28,6 @@ import { useStoredTrackUrl } from '@/features/maps/hooks/useStoredTrackUrl';
 import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
 import { useThrottledValue } from '@/shared/ui/useThrottledValue';
 import { useTerrainFallback } from '@/features/maps/hooks/useTerrainFallback';
-import { ComponentErrorBoundary } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { Spinner } from '@/shared/ui/Spinner';
 import {
@@ -36,30 +36,35 @@ import {
   pointFeature,
 } from '@/features/maps/lib/coordinates';
 import { HIGHLIGHT_THROTTLE_MS, REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
-import { cameraAfter3D } from '@/features/maps/lib/cameraAfter3D';
 import { TRACK_FIT_PADDING, visibleMapInset } from '@/features/maps/lib/activityCamera';
+import { paddedFit, terrainOpeningCamera } from '@/features/maps/lib/cameraPadding';
 import { useSettleCamera } from '@/features/maps/lib/useSettleCamera';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView } from './BaseMapView';
-import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { type MapCameraState, type MapPressEvent } from './MapSurface';
 import { SlottedMapSurface, useInMapSurfaceSlot, useMapSurfaceSlotLive } from './MapSurfaceSlot';
-import type { MapCameraSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
+import type { MapCameraSpec, MapTerrainSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import {
   SectionCreationOverlay,
   type CreationState,
   type SectionCreationError,
 } from './SectionCreationOverlay';
-import { type MapStyleType, MAP_ATTRIBUTIONS, statusBarStyleForMap } from './mapStyles';
+import {
+  type MapStyleType,
+  MAP_ATTRIBUTIONS,
+  TERRAIN_3D_CONFIG,
+  statusBarStyleForMap,
+} from './mapStyles';
 import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
 import { ActivityMapControls } from './ActivityMapControls';
 import { ActivityMapKey } from './ActivityMapKey';
 import { activityKeyRows } from './activityMapKey';
+import { withContextLayers } from '../lib/contextLayerSpecs';
+import { useDetailLayers } from './DetailMapLayers';
 import { activityMapControlCount, useMapControlColumn } from '../lib/mapControlColumnLayout';
 import {
   ACTIVITY_MAP_IMAGES,
   activityMapSpecs,
-  buildActivity3DCollections,
   type ActivityLayerInput,
   type ActivitySourceInput,
   buildFullscreenMatchedRouteLayers,
@@ -68,7 +73,6 @@ import {
   FULLSCREEN_SECTION_MARKER_LAYER_IDS,
 } from './activityMapLayerSpecs';
 import { styles } from './ActivityMapView.styles';
-import { motionTiming } from '@/shared/ui/reduceMotion';
 
 /** The 2D layer, held transparent until the surface reports one way or the other. */
 export const ACTIVITY_MAP_2D_LAYER_TEST_ID = 'activity-map-2d-layer';
@@ -76,7 +80,7 @@ export const ACTIVITY_MAP_2D_LAYER_TEST_ID = 'activity-map-2d-layer';
 /** The feed's own snapshot, stood up while the surface behind it boots. */
 export const ACTIVITY_MAP_POSTER_TEST_ID = 'activity-map-poster';
 
-/** The wait cue over the snapshot while the 3D page boots. */
+/** The wait cue over the snapshot while the surface boots in 3D. */
 export const ACTIVITY_MAP_LOADING_CUE_TEST_ID = 'activity-map-loading-cue';
 
 /** Section overlay for map visualization */
@@ -168,6 +172,8 @@ interface ActivityMapViewProps {
   highlightedSectionId?: string | null | undefined;
   /** Called when a section marker is tapped on the map */
   onSectionMarkerPress?: ((sectionId: string) => void) | undefined;
+  /** Opens the library section or route a tap landed on, returning whether it named one. */
+  onContextPress?: ((event: MapPressEvent) => boolean) | undefined;
   /** Called when user exits 3D mode with a custom camera position */
   onCameraCapture?: (camera: {
     center: [number, number];
@@ -219,6 +225,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   activeTab,
   highlightedSectionId,
   onSectionMarkerPress,
+  onContextPress,
   onCameraCapture,
   initial3DCamera,
   initial3DCameraPinned,
@@ -243,36 +250,35 @@ export const ActivityMapView = memo(function ActivityMapView({
     cycle: toggleMapStyle,
   } = useMapStyleToggle(chosenStyle, chooseStyle);
   const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
-  const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
-  const [is3DReady, setIs3DReady] = useState(false);
-  const map3DRef = useRef<Map3DWebViewRef>(null);
+  const {
+    is3D: is3DMode,
+    setIs3D: setIs3DMode,
+    inherited: modeInherited,
+  } = useSharedTerrain3D(!!initial3DCamera);
   // A screen covered by another keeps its WebViews but releases their maps,
   // which hold the GL context and every tile texture in it. Inside a detail host the screen is
   // the host's, so the map stays held under its own sheet.
   const sheetKey = useMapSheetHost()?.key;
   const screenFocused = useMapHeldFocus();
-  const map3DOpacity = useRef(new Animated.Value(0)).current;
 
-  // Track the latest 3D camera state for capture on exit
-  const camera3DRef = useRef<{
+  // The last camera an athlete's gesture left in 3D. The page also posts one for its
+  // own resize and fit, which is not an angle anyone chose.
+  const gestureCameraRef = useRef<{
     center: [number, number];
     zoom: number;
     bearing: number;
     pitch: number;
   } | null>(null);
-  // The last camera an athlete's gesture left. The page also posts one for its
-  // own resize and fit, which is not an angle anyone chose.
-  const gestureCameraRef = useRef<typeof camera3DRef.current>(null);
   const markAthleteMovedRef = useRef<() => void>(() => {});
   const prev3DModeRef = useRef(false);
-  // A page that could not draw is not the athlete choosing the flat map. The
+  // A page with no elevation tiles is not the athlete choosing the flat map. The
   // caller persists what it is told, ahead of the per-sport and the global
   // preference and with nothing to clear it, so one failed load turned 3D off
   // for that activity for ever on a device where nobody touched the toggle.
   const modeFromFailureRef = useRef(false);
   // The athlete's own toggle or a failed page both settle the mode for this
   // visit, so a camera that arrives afterwards must not override either.
-  const userChose3DRef = useRef(false);
+  const userChose3DRef = useRef(modeInherited);
   const hadInitialCameraRef = useRef(!!initial3DCamera);
 
   // Parse and validate coordinates early so they're available for callbacks
@@ -308,12 +314,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     settledCameraRef,
     resetOrientation,
     handleGetLocation,
-  } = useMapCamera({
-    validCoordinates,
-    is3DMode,
-    is3DReady,
-    map3DRef,
-  });
+  } = useMapCamera({ validCoordinates });
 
   // The line comes from the engine whenever it holds the track, so the page
   // fetches it rather than taking it as text on every mount.
@@ -344,16 +345,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     trackUrl,
     mapStyle,
   });
-
-  const inline3DCollections = useMemo(
-    () =>
-      buildActivity3DCollections({
-        portions: consolidatedPortionsGeoJSON,
-        matchedRoute: overlayGeoJSON,
-        markers: sectionMarkersGeoJSON,
-      }),
-    [consolidatedPortionsGeoJSON, overlayGeoJSON, sectionMarkersGeoJSON]
-  );
 
   // "Color by gradient" toggle - session-local, per-activity.
   // Off by default so the normal solid-color experience is unchanged.
@@ -397,7 +388,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   const toggle3D = useCallback(() => {
     userChose3DRef.current = true;
     setIs3DMode((current) => !current);
-  }, []);
+  }, [setIs3DMode]);
 
   // Streams stored after the screen opened turn the camera from null into one.
   // Switch on once, and leave the preference alone since the athlete did not ask.
@@ -407,7 +398,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     if (userChose3DRef.current || modeFromFailureRef.current) return;
     modeFromFailureRef.current = true;
     setIs3DMode(true);
-  }, [initial3DCamera]);
+  }, [initial3DCamera, setIs3DMode]);
 
   // Notify parent when 3D mode changes (outside of render cycle)
   // Also fire onCameraCapture when exiting 3D mode with a saved camera
@@ -449,22 +440,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     onStyleChange?.(chosenStyle);
   }, [chosenStyle, onStyleChange]);
 
-  // A camera from an earlier 3D visit is not where this one was left.
-  useEffect(() => {
-    if (is3DMode) camera3DRef.current = null;
-  }, [is3DMode]);
-
-  // Reset 3D ready state when toggling off
-  useEffect(() => {
-    if (!is3DMode) {
-      setIs3DReady(false);
-      setMap3DCrashed(false);
-      map3DOpacity.setValue(0);
-    }
-  }, [is3DMode, map3DOpacity]);
-
-  // Refs used by the attribution pipeline - declared here so the 3D camera
-  // handler below can mirror camera state into them without TDZ issues.
+  // Refs the attribution pipeline reads, so a camera event always sees the latest values.
   const attributionRef = useRef<AttributionOverlayRef>(null);
   const initialAttributionRef = useRef(MAP_ATTRIBUTIONS[mapStyle]);
   const mapStyleRef = useRef(mapStyle);
@@ -474,67 +450,15 @@ export const ActivityMapView = memo(function ActivityMapView({
   is3DModeRef.current = is3DMode;
   onAttributionChangeRef.current = onAttributionChange;
 
-  // Track 3D camera state for capture on exit, and mirror into the shared
-  // center/zoom refs so the attribution pipeline reflects the 3D viewport.
-  const handleCameraStateChange = useCallback(
-    (
-      camera: { center: [number, number]; zoom: number; bearing: number; pitch: number },
-      gesture: boolean
-    ) => {
-      camera3DRef.current = camera;
-      if (gesture) {
-        gestureCameraRef.current = camera;
-        markAthleteMovedRef.current();
-      }
-      if (is3DModeRef.current) {
-        currentCenterRef.current = camera.center;
-        currentZoomRef.current = camera.zoom;
-        // The 3D camera reports no extent, so the credit follows its centre.
-        currentBoundsRef.current = null;
-        const newAttribution = computeAttribution({
-          style: mapStyleRef.current,
-          is3D: true,
-          center: camera.center,
-          zoom: camera.zoom,
-        });
-        attributionRef.current?.setAttribution(newAttribution);
-        onAttributionChangeRef.current?.(newAttribution);
-      }
-    },
-    [currentCenterRef, currentZoomRef, currentBoundsRef]
-  );
-
-  // The 3D layer is the only thing that can clear its own spinner, so a page
-  // that cannot render drops back to the 2D map rather than spinning forever.
-  // Same landing as the error boundary below.
-  const handleMap3DFailed = useCallback(() => {
+  // A page with no elevation tiles draws the flat map with 3D on top, so the map leaves 3D and
+  // says why. The mode is not the athlete's choice and is not reported as one.
+  const leave3DForMissingTerrain = useCallback(() => {
     modeFromFailureRef.current = true;
     userChose3DRef.current = true;
-    setIs3DReady(false);
     setIs3DMode(false);
-  }, []);
+  }, [setIs3DMode]);
 
-  const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(handleMap3DFailed);
-
-  // Handle 3D map ready
-  const handleMap3DReady = useCallback(() => {
-    setIs3DReady(true);
-    motionTiming(map3DOpacity, {
-      toValue: 1,
-      duration: duration.slow,
-      useNativeDriver: true,
-    }).start();
-  }, [map3DOpacity]);
-
-  // A page that crashed once may crash again, so from then on the 2D map
-  // stands behind it rather than the poster alone.
-  const [map3DCrashed, setMap3DCrashed] = useState(false);
-  const handleMap3DReloading = useCallback(() => {
-    map3DOpacity.stopAnimation();
-    map3DOpacity.setValue(0);
-    setIs3DReady(false);
-    setMap3DCrashed(true);
-  }, [map3DOpacity]);
+  const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(leave3DForMissingTerrain);
 
   // The card that was just tapped was drawn from a JPEG of this activity, in
   // this style and this camera, and it is already on disk. The surface behind
@@ -556,20 +480,12 @@ export const ActivityMapView = memo(function ActivityMapView({
     return null;
   }, [activityId, mapStyle, is3DMode]);
 
-  // The 3D layer draws over the 2D one once it is ready, and fullscreen draws
-  // over both, so in either case the inline 2D surface is invisible and comes
-  // down rather than being hidden. Where it was is captured on the way out, so
-  // the remount opens there instead of fitting the track again. While the 3D
-  // page boots the poster covers the hero, so a 2D page not already on screen
-  // is not built behind it: creating that WebView costs the tap's first frames.
-  const is3DLoading = is3DMode && !is3DReady;
-  const posterCovers3DBoot =
-    is3DLoading && posterUri !== null && !(mapReady || mapFailed) && !map3DCrashed;
-  // A slot's surface is shared with the subjects beneath this one, so it stays under the 3D
-  // layer and the fullscreen map, and popping back to a flat subject needs no load.
+  // Fullscreen draws its own map over this one, so the inline surface comes down rather than
+  // being hidden. Where it was is captured on the way out, so the remount opens there instead of
+  // fitting the track again. A slot's surface is shared with the subjects beneath this one, so it
+  // stays under the fullscreen map, and popping back to a flat subject needs no load.
   const inSlot = useInMapSurfaceSlot();
-  const show2DSurface =
-    inSlot || (!(is3DMode && is3DReady) && !isFullscreen && !posterCovers3DBoot);
+  const show2DSurface = inSlot || !isFullscreen;
   const touchThrough = inSlot ? 'box-none' : 'auto';
 
   // The commit that mounts this view is the open's own frame, and creating a map page in it
@@ -592,7 +508,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     };
   }, [pageDue]);
 
-  const surfaceReady = is3DMode ? is3DReady : mapReady || mapFailed;
+  const surfaceReady = mapReady || mapFailed;
   const [camera2DOnHide, setCamera2DOnHide] = useState<MapCameraSpec | null>(null);
   useEffect(() => {
     if (!show2DSurface) {
@@ -601,44 +517,12 @@ export const ActivityMapView = memo(function ActivityMapView({
     }
   }, [show2DSurface, settledCameraRef, resetSurface]);
 
-  // Stop in-flight animations on unmount to prevent updates on unmounted component
-  useEffect(() => {
-    return () => {
-      map3DOpacity.stopAnimation();
-    };
-  }, [map3DOpacity]);
-
-  // Handle 3D map bearing changes (for compass sync)
-  const handleBearingChange = useCallback(
-    (bearing: number) => {
-      bearingAnim.setValue(-bearing);
-    },
-    [bearingAnim]
-  );
-
-  // Handle 3D map click - forward to section creation hook
-  const handle3DMapClick = useCallback(
-    (coordinate: [number, number]) => {
-      if (creationMode) {
-        handleCreationTap(coordinate[0], coordinate[1]);
-      }
-    },
-    [creationMode, handleCreationTap]
-  );
-
-  // Handle 3D section click - forward to parent handler
-  const handle3DSectionClick = useCallback(
-    (sectionId: string) => {
-      onSectionMarkerPress?.(sectionId);
-    },
-    [onSectionMarkerPress]
-  );
-
-  // One tap path for both platforms: the page resolves the hit and tells us
+  // One tap path for the flat map and 3D: the page resolves the hit and tells us
   // whether a section marker was under the finger before we treat the tap as a
   // section-creation point.
   const handleSurfacePress = useCallback(
-    ({ coordinate, feature }: MapPressEvent) => {
+    (event: MapPressEvent) => {
+      const { coordinate, feature } = event;
       const sectionId = feature?.properties?.sectionId;
       if (typeof sectionId === 'string') {
         onSectionMarkerPress?.(sectionId);
@@ -646,12 +530,14 @@ export const ActivityMapView = memo(function ActivityMapView({
       }
       if (creationMode) {
         handleCreationTap(coordinate[0], coordinate[1]);
+        return;
       }
+      onContextPress?.(event);
     },
-    [creationMode, handleCreationTap, onSectionMarkerPress]
+    [creationMode, handleCreationTap, onSectionMarkerPress, onContextPress]
   );
 
-  // Section creation start/end coordinates in [lng, lat] format for 3D map
+  // Section creation start/end coordinates in [lng, lat] format
   const sectionCreationStartCoord: [number, number] | null = useMemo(
     () =>
       creationMode && sectionStartPoint
@@ -671,11 +557,29 @@ export const ActivityMapView = memo(function ActivityMapView({
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
   const hasRoute = routeCoords.length > 0;
+  // 3D is this map tilted over the elevation model: the same sources, layers and taps, with pitch
+  // and rotate gestures while it is on. A page with no elevation tiles says so and the map lies
+  // flat again. A camera the athlete chose is never turned off a ridge that hides the line.
+  const terrainOn = is3DMode && hasRoute;
+  const terrainPitch = initial3DCamera?.pitch ?? TERRAIN_3D_CONFIG.defaultPitch;
+  const terrainPinned = !!initial3DCamera && initial3DCameraPinned === true;
+  const terrain = useMemo((): MapTerrainSpec | null => {
+    if (!terrainOn) return null;
+    return {
+      exaggeration: TERRAIN_3D_CONFIG.defaultExaggeration,
+      pitch: terrainPitch,
+      subjectSource: 'route',
+      cameraPinned: terrainPinned,
+    };
+  }, [terrainOn, terrainPitch, terrainPinned]);
+  const is3DLoading = terrainOn && !surfaceReady;
+  const detailLayers = useDetailLayers('activity', mapStyle, isDark, { terrain: terrainOn });
   // The fullscreen modal covers the hero, so its hidden column keeps its reserve and the hero text
   // does not reflow on the way back.
   const controlCount = activityMapControlCount({
     shown: showStyleToggle && bounds != null && validCoordinates.length > 0,
     hasGradientData,
+    hasContextRows: detailLayers.rows.length > 0,
     hasRoute,
     enableFullscreen,
   });
@@ -700,11 +604,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   );
 
   // A sheet settle moves whichever surface is showing to the new frame.
-  const { markMoved: markAthleteMoved } = useSettleCamera(
-    fitPadding,
-    is3DMode ? map3DRef : surfaceRef,
-    surfaceReady
-  );
+  const { markMoved: markAthleteMoved } = useSettleCamera(fitPadding, surfaceRef, surfaceReady);
   useEffect(() => {
     markAthleteMovedRef.current = markAthleteMoved;
   }, [markAthleteMoved]);
@@ -718,6 +618,37 @@ export const ActivityMapView = memo(function ActivityMapView({
     }),
     [fitPadding]
   );
+
+  // The camera the page opens with, and the one a remount opens with after fullscreen: the
+  // athlete's or the smart 3D camera in 3D, else where the surface was left, else the track fitted.
+  const terrainCamera = useMemo((): MapCameraSpec | null => {
+    if (!bounds || !initial3DCamera) return null;
+    return terrainOpeningCamera(initial3DCamera, fitPadding, {
+      bounds: { sw: bounds.sw, ne: bounds.ne },
+      width: mapWidth,
+      height,
+    });
+  }, [bounds, initial3DCamera, fitPadding, mapWidth, height]);
+  const initialCamera = useMemo((): MapCameraSpec => {
+    // With no track the view draws its placeholder and no surface.
+    if (!bounds) return { center: [0, 0], zoom: 2 };
+    if (camera2DOnHide) return camera2DOnHide;
+    if (terrainOn && terrainCamera) return terrainCamera;
+    return paddedFit({ sw: bounds.sw, ne: bounds.ne }, fitPadding);
+  }, [bounds, camera2DOnHide, terrainOn, terrainCamera, fitPadding]);
+
+  // Turning 3D on over a surface that is already up flies to the angle that was kept, as the
+  // page opens at it when it is built in 3D.
+  const terrainCameraRef = useRef(terrainCamera);
+  terrainCameraRef.current = terrainCamera;
+  const terrainWasOnRef = useRef(terrainOn);
+  useEffect(() => {
+    const entered = terrainOn && !terrainWasOnRef.current;
+    terrainWasOnRef.current = terrainOn;
+    if (entered && terrainCameraRef.current) {
+      surfaceRef.current?.setCamera(terrainCameraRef.current, cameraMove.move);
+    }
+  }, [terrainOn, surfaceRef]);
 
   const endpointsGeoJSON = useMemo(() => {
     const start = lngLatFromLatLngPoint(startPoint);
@@ -773,13 +704,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     ]
   );
 
-  // Held while the point is, so the 3D page is sent a highlight only when it moves.
-  const highlightCoordinate = useMemo(
-    (): [number, number] | null =>
-      highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : null,
-    [highlightPoint]
-  );
-
   // Keyed on whether there is a highlight, not where it is, so a scrub leaves
   // the layer list alone.
   const hasHighlightPoint = !!highlightPoint;
@@ -816,6 +740,7 @@ export const ActivityMapView = memo(function ActivityMapView({
       hasHighlightPoint,
       creationMode,
       hasUserLocation: userLocation !== null,
+      terrain: terrainOn,
     }),
     [
       basePalette,
@@ -827,13 +752,21 @@ export const ActivityMapView = memo(function ActivityMapView({
       hasHighlightPoint,
       creationMode,
       userLocation,
+      terrainOn,
     ]
   );
 
   const specs = useMemo(
     () =>
-      activityMapSpecs({ sources: sourceInput, layers: layerInput, coordinates: validCoordinates }),
-    [sourceInput, layerInput, validCoordinates]
+      withContextLayers(
+        activityMapSpecs({
+          sources: sourceInput,
+          layers: layerInput,
+          coordinates: validCoordinates,
+        }),
+        detailLayers.context
+      ),
+    [sourceInput, layerInput, validCoordinates, detailLayers.context]
   );
 
   const fullscreenSources = useMemo(
@@ -880,19 +813,32 @@ export const ActivityMapView = memo(function ActivityMapView({
     [currentCenterRef, currentZoomRef, currentBoundsRef]
   );
 
+  // The camera an athlete's gesture leaves in 3D, which is what leaving 3D keeps. The surface
+  // moves the camera itself too, for the tilt and a turn off a ridge, and those are not a gesture.
+  const rememberGestureCamera = useCallback((state: MapCameraState, isUserInteraction: boolean) => {
+    if (!isUserInteraction || !is3DModeRef.current) return;
+    gestureCameraRef.current = {
+      center: state.center,
+      zoom: state.zoom,
+      bearing: state.bearing,
+      pitch: state.pitch,
+    };
+  }, []);
+
   const handleRegionChanging = useCallback(
-    (state: MapCameraState) => {
+    (state: MapCameraState, isUserInteraction: boolean) => {
       markAthleteMoved();
+      rememberGestureCamera(state, isUserInteraction);
       handleRegionIsChanging(state);
     },
-    [markAthleteMoved, handleRegionIsChanging]
+    [markAthleteMoved, rememberGestureCamera, handleRegionIsChanging]
   );
-  const frameSize = useMemo(() => ({ width: mapWidth, height }), [mapWidth, height]);
 
   // Compose camera region-did-change with attribution debounce
   const handleRegionDidChange = useCallback(
-    (state: MapCameraState) => {
+    (state: MapCameraState, isUserInteraction: boolean) => {
       handleCameraRegionDidChange(state);
+      rememberGestureCamera(state, isUserInteraction);
 
       // Debounce attribution update so it does not fight with map gestures
       if (attributionTimeoutRef.current) {
@@ -905,7 +851,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         onAttributionChangeRef.current?.(newAttribution);
       }, REGION_SETTLE_DEBOUNCE_MS);
     },
-    [handleCameraRegionDidChange, computeAttributionFromRefs]
+    [handleCameraRegionDidChange, rememberGestureCamera, computeAttributionFromRefs]
   );
 
   // Update attribution when mapStyle or is3DMode changes (immediate, not debounced)
@@ -965,9 +911,9 @@ export const ActivityMapView = memo(function ActivityMapView({
           </View>
         ) : null}
 
-        {/* 2D Map layer. Unmounted, not hidden, whenever another surface is the
-            one being looked at: a hidden WebView keeps its GL context and its
-            tile textures, which is the whole cost of having it. */}
+        {/* The map surface, flat or tilted over terrain. Unmounted, not hidden, whenever the
+            fullscreen map is the one being looked at: a hidden WebView keeps its GL context and
+            its tile textures, which is the whole cost of having it. */}
         {show2DSurface && pageDue ? (
           <View style={styles.mapLayer} pointerEvents={touchThrough}>
             <View
@@ -978,64 +924,22 @@ export const ActivityMapView = memo(function ActivityMapView({
               <SlottedMapSurface
                 ref={surfaceRef}
                 mapStyle={mapStyle}
-                initialCamera={
-                  cameraAfter3D(camera3DRef.current, camera2DOnHide) ?? {
-                    bounds: { sw: bounds.sw, ne: bounds.ne },
-                    padding: fitPadding,
-                    padCamera: true,
-                  }
-                }
+                initialCamera={initialCamera}
                 sources={specs.sources}
                 layers={specs.layers}
                 images={specs.images}
                 interactiveLayers={specs.interactiveLayers}
+                terrain={terrain}
                 released={!screenFocused}
                 onMapReady={handleMapReady}
                 onMapFailed={handleMapFailed}
                 onPress={handleSurfacePress}
                 onRegionIsChanging={handleRegionChanging}
                 onRegionDidChange={handleRegionDidChange}
+                onTerrainUnavailable={onTerrainUnavailable}
               />
             </View>
           </View>
-        ) : null}
-
-        {/* 3D Map layer */}
-        {/* Error boundary prevents a 3D crash from taking out the entire map */}
-        {is3DMode && hasRoute && !isFullscreen && pageDue ? (
-          <ComponentErrorBoundary part="map3d" debugName="3D Map" onError={handleMap3DFailed}>
-            <Animated.View
-              style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}
-              pointerEvents={is3DReady ? 'auto' : 'none'}
-            >
-              <Map3DWebView
-                ref={map3DRef}
-                coordinates={routeCoords}
-                mapStyle={mapStyle}
-                routeColor={basePalette.route}
-                fitPadding={fitPadding}
-                frameSize={frameSize}
-                routeGradient={gradientActive ? gradientLineExpression : null}
-                highlightCoordinate={highlightCoordinate}
-                {...inline3DCollections}
-                highlightedSectionId={highlightedSectionId}
-                released={!screenFocused}
-                onMapReady={handleMap3DReady}
-                onMapReloading={handleMap3DReloading}
-                onMapFailed={handleMap3DFailed}
-                onTerrainUnavailable={onTerrainUnavailable}
-                onBearingChange={handleBearingChange}
-                onCameraStateChange={handleCameraStateChange}
-                initialCamera={initial3DCamera}
-                initialCameraPinned={initial3DCameraPinned}
-                onMapClick={handle3DMapClick}
-                onSectionClick={handle3DSectionClick}
-                sectionCreationGeoJSON={creationMode ? sectionGeoJSON : null}
-                sectionCreationStart={sectionCreationStartCoord}
-                sectionCreationEnd={sectionCreationEndCoord}
-              />
-            </Animated.View>
-          </ComponentErrorBoundary>
         ) : null}
 
         {terrainNotice}
@@ -1064,6 +968,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           isDark={isDark}
           basePalette={basePalette}
           hasGradientData={hasGradientData}
+          contextRows={detailLayers.rows}
           gradientActive={gradientActive}
           onToggleGradient={toggleColorByGradient}
           is3DMode={is3DMode}

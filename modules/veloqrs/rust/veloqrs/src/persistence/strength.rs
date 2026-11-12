@@ -62,10 +62,33 @@ impl FitIntake {
 /// per intake, so the queue and [`FitIntake::for_sport`] name the same sports.
 const OWED_FIT_SPORTS: &str = "('WeightTraining', 'Swim')";
 
+/// Write the settled verdict on an activity's FIT file.
+pub(super) fn write_fit_outcome(
+    conn: &rusqlite::Connection,
+    activity_id: &str,
+    outcome: FitOutcome,
+) -> SqlResult<()> {
+    conn.execute(
+        "INSERT OR REPLACE INTO fit_file_status (activity_id, processed_at, has_sets, outcome)
+         VALUES (?, ?, ?, ?)",
+        params![
+            activity_id,
+            chrono::Utc::now().timestamp(),
+            outcome.has_sets() as i32,
+            outcome.as_str(),
+        ],
+    )?;
+    Ok(())
+}
+
 impl PersistentEngine {
     /// Store parsed exercise sets for an activity.
+    ///
+    /// An activity a recorded session claims keeps the sets that session wrote:
+    /// its FIT file is the one the phone made, so reading the copy
+    /// intervals.icu serves back would store the same session twice.
     pub fn store_exercise_sets(&self, activity_id: &str, sets: &[FitExerciseSet]) -> SqlResult<()> {
-        if sets.is_empty() {
+        if sets.is_empty() || super::strength_sessions::claims(&self.db, activity_id)? {
             return Ok(());
         }
 
@@ -83,7 +106,12 @@ impl PersistentEngine {
         Ok(())
     }
 
-    fn write_exercise_sets(&self, activity_id: &str, sets: &[FitExerciseSet]) -> SqlResult<()> {
+    pub(super) fn write_exercise_sets(
+        &self,
+        activity_id: &str,
+        sets: &[FitExerciseSet],
+    ) -> SqlResult<()> {
+        let before = super::exercise_usage::detach(&self.db, activity_id)?;
         let mut stmt = self.db.prepare(
             "INSERT OR REPLACE INTO exercise_sets
              (activity_id, set_order, exercise_category, exercise_name,
@@ -105,7 +133,7 @@ impl PersistentEngine {
             ])?;
         }
 
-        Ok(())
+        super::exercise_usage::attach(&self.db, activity_id, &before)
     }
 
     /// Store the sets a FIT file gave an activity and settle its verdict:
@@ -195,17 +223,7 @@ impl PersistentEngine {
     /// refused by this build's decoder. A download that failed for any other
     /// reason writes nothing and is retried.
     pub fn mark_fit_outcome(&self, activity_id: &str, outcome: FitOutcome) -> SqlResult<()> {
-        self.db.execute(
-            "INSERT OR REPLACE INTO fit_file_status (activity_id, processed_at, has_sets, outcome)
-             VALUES (?, ?, ?, ?)",
-            params![
-                activity_id,
-                chrono::Utc::now().timestamp(),
-                outcome.has_sets() as i32,
-                outcome.as_str(),
-            ],
-        )?;
-        Ok(())
+        write_fit_outcome(&self.db, activity_id, outcome)
     }
 
     /// Check if a FIT file has been processed for an activity.

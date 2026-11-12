@@ -7,12 +7,14 @@
  */
 
 import { computeInsightsFromData } from '@/features/insights/lib/computeInsightsData';
-import { decodeCoords } from 'veloqrs';
+import { decodeCoords } from 'veloqrs/src/coords';
 import type { InsightsData } from 'veloqrs';
 
-jest.mock('veloqrs', () =>
-  require('../__shared__/veloqrsStub').withOverrides({ decodeCoords: jest.fn() })
-);
+jest.mock('veloqrs/src/coords', () => ({
+  ...jest.requireActual('veloqrs/src/coords'),
+  decodeCoords: jest.fn(),
+}));
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides({}));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   isRouteMatchingEnabled: jest.fn(() => true),

@@ -121,6 +121,7 @@
     "check:oauth-proxy-types": "node scripts/check-oauth-proxy-types.mjs",
     "check:link-relay-types": "node scripts/check-oauth-proxy-types.mjs --package link-relay",
     "build:connect": "node scripts/build-connect-page.mjs",
+    "connect:screenshots": "tsx scripts/connect-screenshots.ts",
     "check:connect-page-local": "node scripts/check-connect-page-local.mjs",
     "check:link-relay-unlogged": "node scripts/check-link-relay-unlogged.mjs",
     "lint:detector-ordering": "node scripts/lint-detector-ordering.mjs",

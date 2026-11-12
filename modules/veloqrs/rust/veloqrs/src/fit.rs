@@ -1051,7 +1051,14 @@ fn top_candidate(value: &fitparser::Value) -> Option<u16> {
 
 /// Get a human-readable display name for a FIT exercise category and optional sub-type.
 /// Category IDs follow FIT SDK Profile v21.133 ExerciseCategory enum.
-pub fn exercise_display_name(category: u16, _subcategory: Option<u16>) -> String {
+/// A (category, name) pair the exercise catalogue holds is named exactly; any other pair
+/// takes its category's name.
+pub fn exercise_display_name(category: u16, subcategory: Option<u16>) -> String {
+    if let Some(exact) =
+        subcategory.and_then(|n| crate::strength::catalogue::display_name(category, n))
+    {
+        return exact;
+    }
     match category {
         0 => "Bench Press".into(),
         1 => "Calf Raise".into(),
@@ -1843,7 +1850,9 @@ pub(crate) mod tests {
     fn test_exercise_display_name() {
         assert_eq!(exercise_display_name(0, None), "Bench Press");
         assert_eq!(exercise_display_name(28, None), "Squat");
-        assert_eq!(exercise_display_name(7, Some(0)), "Curl");
+        assert_eq!(exercise_display_name(7, Some(0xFFF0)), "Curl");
+        assert_eq!(exercise_display_name(0, Some(6)), "Dumbbell Bench Press");
+        assert_eq!(exercise_display_name(0, None), "Bench Press");
         assert_eq!(exercise_display_name(0xFFFF, None), "Unknown Exercise");
         assert_eq!(exercise_display_name(99, None), "Exercise 99");
     }

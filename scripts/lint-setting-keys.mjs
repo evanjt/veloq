@@ -30,6 +30,10 @@ const ENGINE_ONLY_KEYS = new Map([
     'Device-only Garmin connector choice, never carried by a backup',
   ],
   ['__athlete_id', 'Engine library identity'],
+  [
+    '__garmin_library_id',
+    'Engine library identity: the Garmin account the library holds, which describes the library and is never carried by a backup',
+  ],
   ['__detection_enabled', 'Engine-only detection preference'],
   ['__export_home_lat', 'Engine-only export privacy preference'],
   ['__export_home_lng', 'Engine-only export privacy preference'],
@@ -78,6 +82,14 @@ const DYNAMIC_WRITERS = new Map([
   [
     'src/shared/storage/migrateSettingsToSqlite.ts:sentinelKey',
     'Migration writes its completion marker',
+  ],
+  [
+    'src/features/maps/stores/HeatmapPreferenceStore.ts:DETAIL_HEATMAP_KEYS[kind]',
+    'One key per detail map kind, each listed in the preference inventory',
+  ],
+  [
+    'src/features/maps/stores/HeatmapPreferenceStore.ts:DETAIL_CONTEXT_KEYS[layer][kind]',
+    'One key per library layer and detail map kind, each listed in the preference inventory',
   ],
 ]);
 

@@ -143,7 +143,15 @@ function BottomTabBarComponent() {
         pointerEvents="none"
       />
       {/* Icons row - positioned at bottom above safe area */}
-      <View accessibilityRole="tablist" style={[styles.tabRow, { marginBottom: insets.bottom }]}>
+      <View
+        testID="bottom-tab-row"
+        accessibilityRole="tablist"
+        style={[
+          styles.tabRow,
+          // A side edge that carries the status bar or a cutout when the window is turned.
+          { marginBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right },
+        ]}
+      >
         {MENU_ITEMS.map((item) => {
           const isActive =
             item.route === '/'

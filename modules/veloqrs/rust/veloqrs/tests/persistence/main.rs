@@ -57,6 +57,9 @@ mod recording_kind_column;
 #[path = "../recording_upload_recovery.rs"]
 mod recording_upload_recovery;
 
+#[path = "../strength_sessions.rs"]
+mod strength_sessions;
+
 #[path = "../settings_batch_write.rs"]
 mod settings_batch_write;
 

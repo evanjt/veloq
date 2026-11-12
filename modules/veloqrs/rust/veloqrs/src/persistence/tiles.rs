@@ -466,6 +466,18 @@ pub(super) fn publish_heatmap_source(source: Option<HeatmapSource>) {
     }
 }
 
+/// Serve the tiles under `dir` as the heatmap source, or none, for a test in
+/// another module that reads a tile through the engine's own lookup.
+#[cfg(test)]
+pub(crate) fn serve_heatmap_dir_for_test(dir: Option<&Path>) {
+    publish_heatmap_source(dir.map(|dir| HeatmapSource {
+        dir: dir.to_string_lossy().into_owned(),
+        db_path: String::new(),
+        bounds: Arc::new(rstar::RTree::new()),
+        hidden: Arc::new(HashSet::new()),
+    }));
+}
+
 pub(super) fn heatmap_source() -> Option<Arc<HeatmapSource>> {
     match HEATMAP_SOURCE.read() {
         Ok(held) => held.clone(),

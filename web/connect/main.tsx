@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
 
 import { App } from './App';
+import { bindI18n } from './shims/appI18n';
 import { setNumberLocale } from './format';
 import { browserLocaleEnv, changeLanguage, startI18n } from './i18n';
 import { parse, restore } from './router';
@@ -17,6 +18,7 @@ if (!container) throw new Error('the page has no #app');
 const localeEnv = browserLocaleEnv();
 const { locale, i18n } = await startI18n(localeEnv);
 setNumberLocale(locale);
+bindI18n(i18n);
 document.title = i18n.t('connectPage.title');
 
 createRoot(container).render(

@@ -38,8 +38,12 @@ mod throttle;
 pub use composite::{CompositeMember, GeoBox};
 pub use fetch::{FILL_PACE, TileFetchError, TileFetcher};
 pub use geo::geo_answer;
-#[cfg(test)]
 pub(crate) use geo::route_lines_collection;
+#[cfg(test)]
+pub(crate) use geo::route_palette_key as palette_key;
+pub(crate) use geo::sections_collection;
+#[cfg(test)]
+pub(crate) use geo::sections_features;
 pub use preseed::{
     GROUND_BUDGET_BYTES, GROUND_ZOOMS, PlannedTile, PreseedSource, SeedOutcome, TERRAIN_ZOOMS,
     plan_area_preseed, plan_preseed, seed_preseed, seed_ranked_preseed, seed_terrain_background,
@@ -817,6 +821,18 @@ fn next_candidate(
     Candidate::Exhausted
 }
 
+/// The heatmap tile at `z/x/y` in the palette of `base`, `None` while the pass
+/// has not drawn it or it holds no heat.
+pub(crate) fn heatmap_tile(
+    base: crate::tiles::HeatmapBase,
+    z: u8,
+    x: u32,
+    y: u32,
+) -> Option<Vec<u8>> {
+    crate::persistence::tiles::heatmap_tile_bytes(z, x, y)
+        .and_then(|png| crate::tiles::tile_for_base(&png, base))
+}
+
 /// [`lookup_tile`] for a source that holds its own tiles.
 fn lookup_provider(source: &str, z: u8, x: u32, y: u32) -> TileLookup {
     // The heatmap is drawn here rather than fetched from a host, so it is not a
@@ -824,9 +840,7 @@ fn lookup_provider(source: &str, z: u8, x: u32, y: u32) -> TileLookup {
     // and any other miss means the pass has not reached that tile, which is a
     // 404. The one tile set is served in the asking base's palette.
     if let Some(base) = heatmap_base(source) {
-        let tile = crate::persistence::tiles::heatmap_tile_bytes(z, x, y)
-            .and_then(|png| crate::tiles::tile_for_base(&png, base));
-        return match tile {
+        return match heatmap_tile(base, z, x, y) {
             Some(bytes) => TileLookup::Ready(bytes),
             None => TileLookup::Refused(NO_TILE),
         };

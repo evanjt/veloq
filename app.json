@@ -19,6 +19,12 @@
       "buildNumber": "30",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en-AU",
+        "UISupportedInterfaceOrientations": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown",
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight"
+        ],
         "UIBackgroundModes": [
           "location",
           "bluetooth-central",

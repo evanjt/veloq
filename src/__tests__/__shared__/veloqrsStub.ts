@@ -535,6 +535,7 @@ export const connectivity = {
 
 export const maps = {
   getMapScreenData: jest.fn(),
+  getMapContextLayers: jest.fn(),
   getAllMapSignatures: jest.fn(),
   getActivitiesUnderPoint: jest.fn(),
 };
@@ -589,6 +590,9 @@ export const recordings = {
 export const strength = {
   getExerciseSets: jest.fn(),
   getExerciseDetailData: jest.fn(),
+  getExercisePickerData: jest.fn(),
+  setExerciseLabels: jest.fn(),
+  searchExercises: jest.fn(() => []),
   isFitProcessed: jest.fn(),
   fetchAndParseExerciseSets: jest.fn(),
   getMuscleGroups: jest.fn(),
@@ -636,6 +640,7 @@ export const detection = {
 export const remote = {
   listLinkedDevices: jest.fn(() => []),
   removeLinkedDevice: jest.fn(() => false),
+  recentWrites: jest.fn(() => []),
   linkedRooms: jest.fn(() => []),
   acceptOffer: jest.fn(),
   disconnectAll: jest.fn(),

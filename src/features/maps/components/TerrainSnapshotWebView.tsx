@@ -10,7 +10,7 @@
  * - Routes messages back via workerId
  *
  * Terrain, hillshade, sky, and route layers are added via the map API after
- * the base style loads - mirrors Map3DWebView so the first terrain drape
+ * the base style loads - mirrors MapSurface's terrain so the first terrain drape
  * render already includes the route polyline.
  */
 

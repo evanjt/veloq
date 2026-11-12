@@ -3,7 +3,7 @@
  * out, so a map page drawn in a WebView would show its imagery and route hues
  * as a negative.
  *
- * Expected behaviour: the WebView of both the 2D and the 3D surface sits inside
+ * Expected behaviour: the WebView of the map surface sits inside
  * a view that opts out, so the map is drawn as it is.
  */
 
@@ -13,7 +13,6 @@ import { render } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
 import { MapSurface } from '@/features/maps/components/MapSurface';
-import { Map3DWebView } from '@/features/maps/components/Map3DWebView';
 
 jest.mock('react-native-webview', () => ({
   get WebView() {
@@ -48,25 +47,13 @@ function optsOutOfInvert(node: ReactTestInstance): boolean {
 }
 
 describe('a map surface under iOS Smart Invert', () => {
-  it('keeps the 2D map page out of the inversion', async () => {
+  it('keeps the map page out of the inversion', async () => {
     const { UNSAFE_root } = await render(
       <MapSurface
         mapStyle="satellite"
         initialCamera={{ center: [7.448, 46.949], zoom: 12 }}
         sources={{}}
         layers={[]}
-      />
-    );
-
-    expect(optsOutOfInvert(UNSAFE_root.findByType(mockWebView))).toBe(true);
-  });
-
-  it('keeps the 3D map page out of the inversion', async () => {
-    const { UNSAFE_root } = await render(
-      <Map3DWebView
-        coordinates={[[7.448, 46.949]]}
-        mapStyle="satellite"
-        routesGeoJSON={{ type: 'FeatureCollection', features: [] }}
       />
     );
 

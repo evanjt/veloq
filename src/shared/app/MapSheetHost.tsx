@@ -36,7 +36,7 @@ import {
   type MapSheetCardKind,
   type MapSheetKind,
 } from './mapSheetHost';
-import { MAP_SHEET_HALF_STOP, useMapSheetStop } from './mapSheetStop';
+import { MAP_SHEET_HALF_STOP, restingStop, useMapSheetStop } from './mapSheetStop';
 import { NativeDismissRefused } from './useBackDismiss';
 import { mapSheetPanelWidth, mapSheetScreenOptions, sheetSurface } from './screenHeaders';
 import { useSheetWindow } from './TopSafeAreaContext';
@@ -224,8 +224,8 @@ export function useMapSheetPanelWidth(): number | null {
  * map's leading edge keeps the stack's edge swipe, which the map's pan would otherwise take.
  *
  * At regular width `panel` is drawn in a side panel over the map's leading edge instead, the full
- * height below the header, and no sheet is presented and no presenter registered, so nothing
- * moves a stop there. A window that crosses the width, such as a resized iPad window, presents
+ * height below the header, and no sheet is presented, so a presenter asked to move a stop does
+ * nothing there. A window that crosses the width, such as a resized iPad window, presents
  * the sheet as it narrows and takes it down as it widens.
  */
 export function MapSheetHostMap({
@@ -248,10 +248,18 @@ export function MapSheetHostMap({
     sheetParams.current = params;
   });
 
+  // The presenter stays registered through a window change, since the stop store drops a sheet's
+  // stop when its last presenter goes, and the stop is what a fold back to a sheet restores.
+  const dockedRef = useRef(docked);
+  useEffect(() => {
+    dockedRef.current = docked;
+  });
+
   // A push of the sheet dispatched and not yet in the stack this screen last rendered.
   const sheetPending = useRef(false);
   const present = useCallback(
     (stop: number | null) => {
+      if (dockedRef.current) return;
       // Without the merge a pop to the map screen clears the params it was opened with, which
       // the sheet is presented with again.
       navigation.dispatch(StackActions.popTo('index', undefined, { merge: true }));
@@ -261,7 +269,7 @@ export function MapSheetHostMap({
     },
     [navigation]
   );
-  const { toolActive } = useMapSheetStop(hostKey, docked ? undefined : present);
+  const { toolActive } = useMapSheetStop(hostKey, present);
   const sheetKey = useNavigationState(
     (state) => state.routes.find((route) => route.name === MAP_SHEET_SCREEN)?.key ?? null
   );
@@ -275,9 +283,11 @@ export function MapSheetHostMap({
       if (docked) navigation.dispatch(StackActions.popTo('index', undefined, { merge: true }));
     } else if (!docked && !toolActive && !sheetPending.current) {
       sheetPending.current = true;
-      navigation.dispatch(StackActions.push(MAP_SHEET_SCREEN, { ...sheetParams.current }));
+      navigation.dispatch(
+        StackActions.push(MAP_SHEET_SCREEN, { ...sheetParams.current, stop: restingStop(hostKey) })
+      );
     }
-  }, [navigation, docked, sheetKey, toolActive]);
+  }, [navigation, docked, sheetKey, toolActive, hostKey]);
 
   return (
     <View testID="map-sheet-host-map" style={styles.fill}>

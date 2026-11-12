@@ -63,23 +63,6 @@ const mockSurfaceProbe: {
   setCamera: jest.fn(),
 };
 
-// The terrain page is wrapped only to see whether anything mounts it.
-const mockMap3DProbe: { props: Record<string, unknown> | null } = { props: null };
-
-jest.mock('@/features/maps/components/Map3DWebView', () => {
-  const ReactLocal = require('react');
-  const actual = jest.requireActual('@/features/maps/components/Map3DWebView');
-  return {
-    ...actual,
-    Map3DWebView: ReactLocal.forwardRef(
-      (props: Record<string, unknown>, ref: React.Ref<unknown>) => {
-        mockMap3DProbe.props = props;
-        return ReactLocal.createElement(actual.Map3DWebView, { ...props, ref });
-      }
-    ),
-  };
-});
-
 jest.mock('@/features/maps/components/MapSurface', () => {
   const ReactLocal = require('react');
   const actual = jest.requireActual('@/features/maps/components/MapSurface');
@@ -329,11 +312,10 @@ describe('BaseMapView', () => {
 
   describe('in 3D', () => {
     beforeEach(() => {
-      mockMap3DProbe.props = null;
       mockSurfaceProbe.mounts = 0;
     });
 
-    it('tilts the one surface over terrain and mounts no separate terrain page', async () => {
+    it('tilts the one surface over terrain', async () => {
       await renderMap({ routeCoordinates: ROUTE });
       expect(mockSurfaceProbe.terrain).toBeNull();
 
@@ -343,7 +325,6 @@ describe('BaseMapView', () => {
         exaggeration: TERRAIN_3D_CONFIG.defaultExaggeration,
         pitch: TERRAIN_3D_CONFIG.defaultPitch,
       });
-      expect(mockMap3DProbe.props).toBeNull();
       expect(screen.getAllByTestId('maplibre-map', MAP_PAGE)).toHaveLength(1);
 
       await fireEvent.press(screen.getByTestId('map-3d-toggle'));

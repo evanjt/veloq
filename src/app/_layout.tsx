@@ -20,6 +20,7 @@ import { connectivity, isRetryableInit, launch } from 'veloqrs';
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { handleAppBackground } from '@/shared/app/appBackground';
+import { useAppOrientation } from '@/shared/app/appOrientation';
 import { refreshSampleWidgets } from '@/features/home';
 import { useInteractionPacing } from '@/shared/app/useInteractionPacing';
 import {
@@ -128,6 +129,7 @@ import {
   launchIdentityAction,
   completeLaunchIdentity,
   getCachedAthleteId,
+  nameLibrary,
 } from '@/features/auth';
 
 // Registers the background insight task at module scope (required by TaskManager)
@@ -356,8 +358,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             // A failed read is not an absent identity: proceeding on it would sync
             // one athlete's credentials into a library that may be another's.
             let cachedAthleteId: string | undefined;
+            let garminLibraryId: string | undefined;
             try {
               cachedAthleteId = engine.getSetting('__athlete_id');
+              garminLibraryId = engine.getSetting('__garmin_library_id');
             } catch {
               return 'failed';
             }
@@ -366,7 +370,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             const action = launchIdentityAction(
               cachedAthleteId,
               credentialsAthleteId,
-              activityCount
+              activityCount,
+              garminLibraryId
             );
             if (action !== 'proceed' && __DEV__) {
               log.log(
@@ -381,8 +386,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               // An adopted library keeps every row and takes the signed-in
               // athlete's identity before the launch sync runs under it.
               adopt: () => {
-                engine.setSetting('__athlete_id', credentialsAthleteId as string);
-                rememberCachedAthleteId(credentialsAthleteId as string).catch(() => {});
+                nameLibrary(credentialsAthleteId as string).catch(() => {});
               },
               // The wipe runs on a Rust thread, so the re-open has to follow it
               // rather than race it. It takes the other athlete's files with
@@ -521,8 +525,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           settleOwnerlessAdoptions().then(
             () => {
               if (cancelled) return;
-              engine.setSetting('__athlete_id', currentAthleteId);
-              rememberCachedAthleteId(currentAthleteId).catch(() => {});
+              nameLibrary(currentAthleteId).catch(() => {});
               enterApp();
             },
             () => {
@@ -533,8 +536,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             cancelled = true;
           };
         }
-        engine.setSetting('__athlete_id', currentAthleteId);
-        rememberCachedAthleteId(currentAthleteId).catch(() => {});
+        nameLibrary(currentAthleteId).catch(() => {});
       }
       // Authenticated but on login screen - redirect to main app
       enterApp();
@@ -614,6 +616,7 @@ export default function RootLayout() {
   const isDark = colorScheme === 'dark';
   const theme = isDark ? darkTheme : lightTheme;
   const { t } = useTranslation();
+  useAppOrientation();
 
   useEffect(() => {
     let mounted = true;

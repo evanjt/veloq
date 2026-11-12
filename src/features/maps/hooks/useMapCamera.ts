@@ -16,7 +16,6 @@ import { type LatLng, getMapLibreBounds } from '@/shared/geo/polyline';
 import type { MapCameraState, MapSurfaceRef } from '@/features/maps/components/MapSurface';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 import type { MapCameraSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
-import type { Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
 import { useLocateUser } from './useLocateUser';
 
 /** Bounds returned by getMapLibreBounds */
@@ -27,9 +26,6 @@ interface MapBounds {
 
 interface UseMapCameraParams {
   validCoordinates: LatLng[];
-  is3DMode: boolean;
-  is3DReady: boolean;
-  map3DRef: React.RefObject<Map3DWebViewRef | null>;
 }
 
 interface UseMapCameraResult {
@@ -77,12 +73,7 @@ interface UseMapCameraResult {
   handleGetLocation: () => Promise<void>;
 }
 
-export function useMapCamera({
-  validCoordinates,
-  is3DMode,
-  is3DReady,
-  map3DRef,
-}: UseMapCameraParams): UseMapCameraResult {
+export function useMapCamera({ validCoordinates }: UseMapCameraParams): UseMapCameraResult {
   const surfaceRef = useRef<MapSurfaceRef>(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
@@ -147,17 +138,10 @@ export function useMapCamera({
   }, []);
 
   const resetOrientation = useCallback(() => {
-    if (is3DMode && is3DReady) {
-      map3DRef.current?.resetOrientation();
-    } else {
-      surfaceRef.current?.resetOrientation();
-    }
-  }, [is3DMode, is3DReady, map3DRef]);
+    surfaceRef.current?.resetOrientation();
+  }, []);
 
-  const handleGetLocation = useCallback(
-    () => locate(is3DMode && is3DReady ? map3DRef.current : surfaceRef.current),
-    [locate, is3DMode, is3DReady, map3DRef]
-  );
+  const handleGetLocation = useCallback(() => locate(surfaceRef.current), [locate]);
 
   return {
     surfaceRef,

@@ -13,6 +13,7 @@ import {
   chartDataOf,
   doublesOf,
   factsOfDetail,
+  portionHolds,
   type DetailData,
   type Laps,
   type Streams,
@@ -95,7 +96,62 @@ describe('the activity page data', () => {
     ]);
     expect(facts.sections?.map((row) => row.id)).toEqual(['s1', 'c1']);
     expect(facts.sections?.[1]?.name).toBe('c1');
-    expect(factsOfDetail(undefined, undefined)).toEqual({ sections: [], intervals: [] });
+    expect(factsOfDetail(undefined, undefined)).toEqual({
+      sections: [],
+      routes: [],
+      intervals: [],
+      zones: [],
+      notes: [],
+    });
+  });
+
+  it('fills the right column from the whole detail read', () => {
+    const detail = {
+      matchedSections: [{ id: 's1', name: 'Col', distanceMeters: 1200 }],
+      customSections: [
+        {
+          id: 'c1',
+          name: 'Ford',
+          distanceMeters: 400,
+          activityPortions: [
+            { activityId: 'other', startIndex: 1, endIndex: 2 },
+            { activityId: 'a1', startIndex: 10, endIndex: 20 },
+          ],
+        },
+      ],
+      routeGroups: [
+        { groupId: 'g1', customName: 'Lake loop', activityIds: ['a1', 'a2'], bestTime: 100 },
+        { groupId: 'g2', customName: null, activityIds: ['a1'], bestTime: null },
+      ],
+      hrZones: [{ zone: 2, minBpm: 110, maxBpm: 130, share: 0.25 }],
+      powerZones: [{ zone: 3, minWatts: 150, maxWatts: null, share: 0.5 }],
+      fitnessImpact: { fitness: 1.26, fatigue: 4.5, form: -3.2 },
+      provenance: 'garminOnPhone',
+      ledgerChanges: [{ eventId: 1, sectionId: 's1', sectionName: 'Col', kind: 'moved' }],
+    } as unknown as DetailData;
+    const facts = factsOfDetail(undefined, detail, 'a1');
+    expect(facts.routes).toEqual([
+      { id: 'g1', name: 'Lake loop', detail: '2 rides' },
+      { id: 'g2', name: 'g2', detail: '1 ride' },
+    ]);
+    expect(facts.sections?.map((row) => row.portion)).toEqual([undefined, { from: 10, to: 20 }]);
+    expect(facts.zones?.map((zone) => zone.rows)).toEqual([
+      [{ name: 'Z2 110–130 bpm', share: 0.25 }],
+      [{ name: 'Z3 150+ W', share: 0.5 }],
+    ]);
+    const notes = Object.fromEntries((facts.notes ?? []).map((note) => [note.label, note.value]));
+    expect(notes['Fitness impact']).toBe('+1.3 fitness, +4.5 fatigue, -3.2 form');
+    expect(notes['Source']).toBe('Recorded on the phone from Garmin');
+    expect(notes['Section changes']).toBe('1');
+  });
+
+  it('lights a section while the crosshair is inside its portion', () => {
+    const portion = { from: 10, to: 20 };
+    expect(portionHolds(portion, 10)).toBe(true);
+    expect(portionHolds(portion, 20)).toBe(true);
+    expect(portionHolds(portion, 21)).toBe(false);
+    expect(portionHolds(portion, null)).toBe(false);
+    expect(portionHolds(undefined, 12)).toBe(false);
   });
 
   it('withdraws the first ride’s series when a second ride is opened', async () => {

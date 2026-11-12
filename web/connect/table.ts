@@ -2,6 +2,8 @@
 // presets, and the feed's state in the hash query. Pure, so a test drives it
 // without a browser.
 
+import type { ParseKeys } from 'i18next';
+
 import type { Route } from './router';
 import { readIds, writeIds } from './compare';
 import type { Card } from './session';
@@ -16,19 +18,34 @@ type Value = string | number | null | undefined;
 
 export const COLUMNS: {
   key: ColumnKey;
-  label: string;
+  label: ParseKeys;
   numeric: boolean;
   value: (row: Row) => Value;
 }[] = [
-  { key: 'date', label: 'Date', numeric: false, value: (r) => r.startDateLocal },
-  { key: 'name', label: 'Name', numeric: false, value: (r) => r.name },
-  { key: 'sport', label: 'Sport', numeric: false, value: (r) => r.sportType },
-  { key: 'distance', label: 'Distance', numeric: true, value: (r) => r.distance },
-  { key: 'time', label: 'Time', numeric: true, value: (r) => r.movingTime },
-  { key: 'climb', label: 'Climb', numeric: true, value: (r) => r.elevationGain },
-  { key: 'load', label: 'Load', numeric: true, value: (r) => r.trainingLoad },
-  { key: 'hr', label: 'HR', numeric: true, value: (r) => r.avgHr },
-  { key: 'power', label: 'Power', numeric: true, value: (r) => r.avgPower },
+  {
+    key: 'date',
+    label: 'connectPage.columns.date',
+    numeric: false,
+    value: (r) => r.startDateLocal,
+  },
+  { key: 'name', label: 'connectPage.columns.name', numeric: false, value: (r) => r.name },
+  { key: 'sport', label: 'connectPage.columns.sport', numeric: false, value: (r) => r.sportType },
+  {
+    key: 'distance',
+    label: 'connectPage.columns.distance',
+    numeric: true,
+    value: (r) => r.distance,
+  },
+  { key: 'time', label: 'connectPage.columns.time', numeric: true, value: (r) => r.movingTime },
+  {
+    key: 'climb',
+    label: 'connectPage.columns.climb',
+    numeric: true,
+    value: (r) => r.elevationGain,
+  },
+  { key: 'load', label: 'connectPage.columns.load', numeric: true, value: (r) => r.trainingLoad },
+  { key: 'hr', label: 'connectPage.columns.hr', numeric: true, value: (r) => r.avgHr },
+  { key: 'power', label: 'connectPage.columns.power', numeric: true, value: (r) => r.avgPower },
 ];
 
 export type Sort = { column: ColumnKey; dir: 'asc' | 'desc' };
@@ -63,10 +80,11 @@ export function sortRows<R extends Row>(rows: readonly R[], sort: Sort | null): 
 export const RANGES = ['last90Days', 'thisYear', 'lastYear'] as const;
 export type RangePreset = (typeof RANGES)[number];
 
-export const RANGE_LABELS: Record<RangePreset, string> = {
-  last90Days: 'Last 90 days',
-  thisYear: 'This year',
-  lastYear: 'Last year',
+/** The key of each preset's chip. */
+export const RANGE_LABELS: Record<RangePreset, ParseKeys> = {
+  last90Days: 'connectPage.ranges.last90Days',
+  thisYear: 'connectPage.ranges.thisYear',
+  lastYear: 'connectPage.ranges.lastYear',
 };
 
 /**

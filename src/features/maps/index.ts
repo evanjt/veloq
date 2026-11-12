@@ -22,6 +22,15 @@ export {
   MapControlButton,
   type MapControlButtonProps,
 } from './components/MapControlButton';
+export {
+  MapLayersButton,
+  MapLayersMenu,
+  layersMenuPlacement,
+  useLayersMenu,
+} from './components/MapLayersMenu';
+export { useDetailLayers } from './components/DetailMapLayers';
+export { withContextLayers } from './lib/contextLayerSpecs';
+export { useContextPress } from './hooks/useContextPress';
 export { BaseMapView } from './components/BaseMapView';
 export { ACTIVITY_COUNT_GLYPH, DIRECTION_GLYPH, FIT_GLYPH, LOCATE_GLYPH } from './lib/mapGlyphs';
 export {
@@ -29,7 +38,6 @@ export {
   HomeRadiusMap,
   type HomeRadiusMapProps,
 } from './components/HomeRadiusMap';
-export { Map3DWebView, type Map3DWebViewRef } from './components/Map3DWebView';
 export { MapKey, MapKeyRamp, MapKeySwatch } from './components/MapKey';
 export { DivergingKeyScale } from './components/DivergingKeyScale';
 export {
@@ -61,6 +69,7 @@ export {
   type TerrainSnapshotWebViewRef,
 } from './components/TerrainSnapshotWebView';
 export {
+  TERRAIN_3D_CONFIG,
   getStyleIcon,
   isDarkStyle,
   statusBarStyleForMap,
@@ -86,7 +95,6 @@ export {
   SMART_3D_MIN_RELIEF_M,
   type TerrainCamera,
 } from './lib/cameraAngle';
-export { cameraAfter3D, type Camera3DState } from './lib/cameraAfter3D';
 export { computeAttribution } from './lib/computeAttribution';
 export { mapDataLicenceEntries } from './lib/mapSourceCredits';
 export {

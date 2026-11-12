@@ -22,6 +22,14 @@ jest.mock('expo-screen-orientation', () => ({
   lockAsync: jest.fn(() => Promise.resolve()),
 }));
 
+// The plot turns a compact window to landscape, so the window is a phone's. Jest's default window
+// is tablet-sized and would take the regular-width path, which requests no lock.
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  ...jest.requireActual('react-native/Libraries/Utilities/useWindowDimensions'),
+  __esModule: true,
+  default: () => ({ width: 440, height: 956, scale: 3, fontScale: 1 }),
+}));
+
 const MODAL_INSETS = { top: 0, right: 0, bottom: 21, left: 59 };
 const MODAL_HEIGHT = 440;
 

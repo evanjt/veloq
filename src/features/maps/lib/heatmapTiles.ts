@@ -12,6 +12,7 @@ import type { MapBase } from '@/theme';
 import { readHeatmapCacheSize } from './readHeatmapCacheSize';
 import { nativeHeatmapTileUrl } from './tileTransport';
 import { heatmap } from 'veloqrs';
+import type { MapRasterSourceSpec } from './htmlBuilders/mapSurface';
 
 const HEATMAP_DIR = `${FileSystem.cacheDirectory}heatmap-tiles/`;
 
@@ -32,6 +33,26 @@ export function heatmapTileTemplate(base: MapBase, generation = 0): string {
   // will not ask a URL it has already resolved. The interceptor reads the path
   // and drops the query on both platforms, so the version only moves the URL.
   return generation > 0 ? `${template}?v=${generation}` : template;
+}
+
+/** The raster source id the heatmap layer reads, whichever map declares it. */
+export const HEATMAP_SOURCE_ID = 'heatmap-tiles';
+
+/** The highest zoom the engine draws heatmap tiles at. */
+const HEATMAP_SOURCE_MAXZOOM = 17;
+
+/**
+ * The raster source every map that draws the heatmap declares: the one writer
+ * of its URL, so the global map and the detail maps ask for the same tiles.
+ */
+export function heatmapRasterSource(base: MapBase, generation = 0): MapRasterSourceSpec {
+  return {
+    kind: 'raster',
+    tiles: [heatmapTileTemplate(base, generation)],
+    tileSize: 256,
+    minzoom: HEATMAP_SOURCE_MINZOOM,
+    maxzoom: HEATMAP_SOURCE_MAXZOOM,
+  };
 }
 
 /** The base directory where heatmap tiles are stored */

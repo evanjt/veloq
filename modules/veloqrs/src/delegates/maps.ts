@@ -7,6 +7,7 @@
 
 import type {
   FfiActivitiesUnderPoint,
+  FfiMapContextLayers,
   FfiMapScreenData,
   MapDistanceBand,
 } from '../generated/veloqrs';
@@ -51,6 +52,24 @@ export function getMapScreenData(
         heldRouteLines,
         heldSections
       )
+  );
+}
+
+/**
+ * The library's sections and routes alone, for a detail map that draws them under its subject:
+ * the two layers `getMapScreenData` carries, without the activities.
+ *
+ * `heldSections` and `heldRoutes` are the stamps of the layers the caller already holds. A layer
+ * still current under its stamp comes back without its lines.
+ */
+export function getMapContextLayers(
+  host: DelegateHost,
+  heldSections?: number,
+  heldRoutes?: number
+): FfiMapContextLayers | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getMapContextLayers', () =>
+    host.engine.maps().getContextLayers(heldSections, heldRoutes)
   );
 }
 

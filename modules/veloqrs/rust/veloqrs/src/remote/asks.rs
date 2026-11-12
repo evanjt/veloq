@@ -90,8 +90,9 @@ impl Pending {
     }
 }
 
-/// A reply a worker made, with the channel it goes back on.
-pub type Reply = (ChannelId, String);
+/// A reply a worker made, with the channel it goes back on and the protocol
+/// version its request asked it in.
+pub type Reply = (ChannelId, String, u32);
 
 /// One connection's asks.
 pub struct Conn {
@@ -183,7 +184,8 @@ impl Conn {
         let mut pending = lock(&self.pending);
         let cancelled = job.id.is_some_and(|id| pending.cancelled.remove(&id));
         if !cancelled {
-            let _ = self.replies.send((job.channel, text));
+            let wire = protocol::wire_of(&job.request);
+            let _ = self.replies.send((job.channel, text, wire));
         }
         // After the send, so the serving loop never sees the ask gone before
         // its reply is on the channel.

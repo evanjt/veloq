@@ -185,6 +185,54 @@ pub(crate) fn route_lines_collection(conn: &Connection) -> rusqlite::Result<Stri
     })))
 }
 
+/// The map's sections as a `FeatureCollection`, one `LineString` per section
+/// with a line to draw, in the map read's order.
+///
+/// Each carries the section's `id`, `name` or null, `visitCount`,
+/// `distanceMeters` and `palette`, the colour key the routes use too, which
+/// the page reduces modulo its section palette. A section whose polyline does
+/// not decode, or that is left under two finite points, is left out.
+pub(crate) fn sections_collection(conn: &Connection) -> String {
+    sections_features(crate::persistence::screens::pooled::map_section_list(conn).iter())
+}
+
+/// [`sections_collection`] over sections already in hand.
+pub(crate) fn sections_features<'a>(
+    sections: impl IntoIterator<Item = &'a crate::FfiMapSection>,
+) -> String {
+    let mut out = String::from(r#"{"type":"FeatureCollection","features":["#);
+    let mut written = 0usize;
+    for section in sections {
+        let Some(points) = codec::decode_polyline(&section.encoded_polyline) else {
+            continue;
+        };
+        if !has_line(&points) {
+            continue;
+        }
+        if written > 0 {
+            out.push(',');
+        }
+        let id = serde_json::to_string(&section.id).unwrap_or_else(|_| "null".to_string());
+        let name = serde_json::to_string(&section.name).unwrap_or_else(|_| "null".to_string());
+        let distance = if section.distance_meters.is_finite() {
+            section.distance_meters
+        } else {
+            0.0
+        };
+        let _ = write!(
+            out,
+            r#"{{"type":"Feature","id":{id},"properties":{{"id":{id},"name":{name},"visitCount":{},"distanceMeters":{distance},"palette":{}}},"geometry":{{"type":"LineString","coordinates":["#,
+            section.visit_count,
+            route_palette_key(&section.id),
+        );
+        push_positions(&mut out, &points);
+        out.push_str("]}}");
+        written += 1;
+    }
+    out.push_str("]}");
+    out
+}
+
 /// One route's decoded line, as the collection writes it.
 struct RouteLinePoints<'a> {
     route_id: &'a str,
@@ -229,7 +277,7 @@ fn route_lines_features<'a>(lines: impl IntoIterator<Item = RouteLinePoints<'a>>
 /// wrapped to 32 bits and taken unsigned. It hangs off the id rather than the
 /// route's place in the layer, so a regroup that reorders the routes leaves
 /// each its colour.
-fn route_palette_key(route_id: &str) -> u32 {
+pub(crate) fn route_palette_key(route_id: &str) -> u32 {
     route_id
         .encode_utf16()
         .fold(0i32, |hash, unit| {

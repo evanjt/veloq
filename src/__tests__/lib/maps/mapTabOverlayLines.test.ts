@@ -1,19 +1,12 @@
 /**
  * Scenario: the Map tab draws section and route lines over the ground, the
- * heat and the imagery, on the flat map and on the 3D page.
+ * heat and the imagery.
  *
  * Expected behaviour: every section and route line sits on the base's edge,
- * wider than the line at every zoom, whether or not anything is selected, and
- * the 3D page draws the section line and its edge at the flat widths scaled to
- * 3D, so the two maps draw a section the same way.
+ * wider than the line at every zoom, whether or not anything is selected.
  */
 import { buildRegionalLayers } from '@/features/maps/components/regional/regionalMapLayerSpecs';
-import { buildStyleOverlayScript, buildUpdateLayersScript } from '@/features/maps/lib/htmlBuilders';
-import {
-  MAP_3D_SCALE,
-  OVERLAY_EDGE_MARGIN,
-  SECTION_LINE_WIDTHS,
-} from '@/features/maps/lib/mapLineWidths';
+import { OVERLAY_EDGE_MARGIN } from '@/features/maps/lib/mapLineWidths';
 import type { MapLayerSpec } from '@/features/maps/lib/htmlBuilders';
 import { mapPalette, type MapPalette } from '@/theme';
 
@@ -131,53 +124,5 @@ describe('the Map tab overlay lines on the flat map', () => {
 
     expect(paint(layers, 'sections-outline')['line-opacity']).toBe(0);
     expect(paint(layers, 'routes-outline')['line-opacity']).toBe(0);
-  });
-});
-
-type Overlay = { id: string; paint: Record<string, unknown> };
-
-const sections: GeoJSON.FeatureCollection = {
-  type: 'FeatureCollection',
-  features: [
-    {
-      type: 'Feature',
-      properties: { color: '#00BCD4' },
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [7, 46],
-          [7.1, 46.1],
-        ],
-      },
-    },
-  ],
-};
-
-/** The line layers a 3D page draws after it was sent the sections and swapped its style. */
-function overlays3D(palette: MapPalette): Overlay[] {
-  const page: { _veloq3d?: unknown } = {};
-  new Function('window', buildUpdateLayersScript({ sectionsGeoJSON: sections }, palette))(page);
-  const { layers } = new Function(
-    'window',
-    `${buildStyleOverlayScript(palette)}; return veloqOverlays([], '#112233');`
-  )(page) as { layers: Overlay[] };
-  return layers;
-}
-
-describe('the Map tab section line on the 3D page', () => {
-  it.each(BASES)('draws the flat widths at the 3D scale on the %s base', (base) => {
-    const palette = mapPalette(base);
-    const layers = overlays3D(palette);
-    const line = paint(layers, 'sections-layer');
-    const edge = paint(layers, 'sections-layer-outline');
-
-    expect(edge['line-color']).toBe(palette.edge);
-    expect(line['line-dasharray']).toEqual([2, 1.2]);
-    for (const [zoom, width] of SECTION_LINE_WIDTHS) {
-      expect(widthAt(line['line-width'], zoom)).toBeCloseTo(width * MAP_3D_SCALE);
-      expect(widthAt(edge['line-width'], zoom)).toBeCloseTo(
-        (width + OVERLAY_EDGE_MARGIN) * MAP_3D_SCALE
-      );
-    }
   });
 });

@@ -42,6 +42,39 @@ export async function readCachedAthleteIdMirror(): Promise<string | null> {
 }
 
 /**
+ * AsyncStorage mirror of the engine's `__garmin_library_id` setting: the Garmin
+ * account an intervals.icu sign-in adopted the library from. Mirrored for the
+ * reason above, and removed by `wipeLibrary` with the cached athlete id, since
+ * an account identity must not outlive a hand-off to another athlete.
+ */
+const LINKED_GARMIN_ID_KEY = 'linked_garmin_id';
+
+export async function rememberLinkedGarminId(garminId: string): Promise<void> {
+  if (!garminId) return;
+  try {
+    await AsyncStorage.setItem(LINKED_GARMIN_ID_KEY, garminId);
+  } catch {
+    // Best-effort, as above
+  }
+}
+
+export async function forgetLinkedGarminId(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(LINKED_GARMIN_ID_KEY);
+  } catch {
+    // Best-effort, as above
+  }
+}
+
+export async function readLinkedGarminIdMirror(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(LINKED_GARMIN_ID_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * How many activities the library on disk holds, mirrored the same way and for
  * the same reason as the id above.
  *

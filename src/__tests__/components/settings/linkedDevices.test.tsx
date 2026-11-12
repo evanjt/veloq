@@ -9,12 +9,27 @@
  */
 
 import React from 'react';
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { useCameraPermissions } from 'expo-camera';
 
 import { LinkedDevices } from '@/features/settings/components/LinkedDevices';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
+
+const listeners = new Map<string, Set<() => void>>();
+const mockEngine = {
+  subscribe: (event: string, callback: () => void) => {
+    const set = listeners.get(event) ?? new Set<() => void>();
+    listeners.set(event, set.add(callback));
+    return () => set.delete(callback);
+  },
+};
+const emit = (event: string) => listeners.get(event)?.forEach((callback) => callback());
+
+jest.mock('@/shared/native/engine', () => ({
+  ...jest.requireActual('@/shared/native/engine'),
+  getEngine: () => mockEngine,
+}));
 
 type CameraProps = { onBarcodeScanned?: (result: { data: string }) => void };
 const camera: { props: CameraProps } = { props: {} };
@@ -38,6 +53,7 @@ jest.mock('veloqrs', () =>
     remote: {
       listLinkedDevices: jest.fn(),
       removeLinkedDevice: jest.fn(),
+      recentWrites: jest.fn(),
       beginPairing: jest.fn(),
       pairingRequest: jest.fn(),
       confirmPairing: jest.fn(),
@@ -56,6 +72,21 @@ const mockLink = jest.requireMock('@/features/settings/lib/remoteLinkSession').r
 >;
 
 const LAPTOP = { id: '7', name: 'Firefox on Linux', createdAt: 1_700_000_000, lastSeenAt: null };
+const TABLET = { id: '8', name: 'Chrome on Android', createdAt: 1_700_000_001, lastSeenAt: null };
+const NEWEST = {
+  deviceId: '7',
+  method: 'section.rename',
+  targetId: 's_a',
+  summary: 'Renamed section Climb 1 to Col',
+  at: 1_700_000_200,
+};
+const OLDER = {
+  deviceId: '7',
+  method: 'section.rename',
+  targetId: 's_b',
+  summary: 'Renamed section Climb 2 to Ridge',
+  at: 1_700_000_100,
+};
 const ROOM = 'room-0123456789abcdefghij';
 const GOOD_CODE = '{"v":1,"room":"room-0123456789abcdefghij"}';
 
@@ -72,6 +103,7 @@ beforeEach(() => {
     jest.fn().mockResolvedValue(undefined),
   ]);
   mockRemote.listLinkedDevices.mockReturnValue([LAPTOP]);
+  mockRemote.recentWrites.mockReturnValue([]);
   mockRemote.pairingRequest.mockReturnValue(null);
   mockRemote.beginPairing.mockImplementation((qr: string) => {
     if (qr !== GOOD_CODE) throw new Error('pairing refused: Malformed');
@@ -151,5 +183,46 @@ describe('linked devices', () => {
     expect(mockRemote.cancelPairing).toHaveBeenCalled();
     expect(mockLink.leave).toHaveBeenCalledWith(ROOM);
     expect(tree.getByText('remoteLink.expired')).toBeTruthy();
+  });
+});
+
+describe('recent changes', () => {
+  beforeEach(() => {
+    mockRemote.listLinkedDevices.mockReturnValue([LAPTOP, TABLET]);
+    mockRemote.recentWrites.mockImplementation((id: string) =>
+      id === LAPTOP.id ? [NEWEST, OLDER] : []
+    );
+  });
+
+  it('lists each browser changes under its own row, newest first', async () => {
+    const tree = await render(<LinkedDevices />);
+    const laptop = within(tree.getByTestId(`linked-device-writes-${LAPTOP.id}`));
+
+    expect(mockRemote.recentWrites).toHaveBeenCalledWith(LAPTOP.id, expect.any(Number));
+    expect(laptop.getAllByText(/^Renamed section/).map((node) => node.props.children)).toEqual([
+      NEWEST.summary,
+      OLDER.summary,
+    ]);
+    expect(laptop.queryByText('remoteLink.noChanges')).toBeNull();
+  });
+
+  it('says there are no changes under a browser that has made none', async () => {
+    const tree = await render(<LinkedDevices />);
+    const tablet = within(tree.getByTestId(`linked-device-writes-${TABLET.id}`));
+
+    expect(tablet.getByText('remoteLink.noChanges')).toBeTruthy();
+    expect(tablet.queryByText(NEWEST.summary)).toBeNull();
+    expect(tree.queryAllByText(NEWEST.summary)).toHaveLength(1);
+  });
+
+  it('reads the changes again when a linked browser writes while the screen is open', async () => {
+    mockRemote.recentWrites.mockReturnValue([]);
+    const tree = await render(<LinkedDevices />);
+    expect(tree.queryByText(NEWEST.summary)).toBeNull();
+
+    mockRemote.recentWrites.mockImplementation((id: string) => (id === LAPTOP.id ? [NEWEST] : []));
+    await act(async () => emit('remoteWrote'));
+
+    expect(tree.getByText(NEWEST.summary)).toBeTruthy();
   });
 });

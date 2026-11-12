@@ -131,8 +131,10 @@ pub use settings::settings_keys;
 pub mod bodies;
 pub mod calendar;
 pub mod curves;
+pub mod exercise_usage;
 pub mod intervals;
 pub(crate) mod strength;
+pub mod strength_sessions;
 pub use strength::{FitIntake, FitOutcome};
 pub mod tiles;
 pub(crate) mod track_index;
@@ -265,6 +267,7 @@ pub struct GroupSummary {
 /// Contains both spatial bounds and metadata for filtering and display.
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
 pub struct MapActivityComplete {
     /// Activity ID
     pub activity_id: String,
@@ -274,6 +277,7 @@ pub struct MapActivityComplete {
     /// where the athlete rides.
     pub is_virtual: bool,
     /// Bounding box for map display
+    #[serde(with = "crate::remote::bounds")]
     pub bounds: crate::Bounds,
     /// Where the ride began, for the marker. `None` leaves the caller the
     /// bounds centre, which is where every marker used to start out before the
@@ -4319,6 +4323,10 @@ fn whole_points(name: &str, coords: &[f64]) -> Result<(), VeloqError> {
 // ============================================================================
 // Tests
 // ============================================================================
+
+#[cfg(test)]
+#[path = "tests/garmin_only_library.rs"]
+mod garmin_only_library_tests;
 
 #[cfg(test)]
 #[path = "tests/backfill_activity_metadata.rs"]

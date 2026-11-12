@@ -20,7 +20,6 @@ import {
 } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import {
   buildApplyScript,
-  buildMap3DHtml,
   buildMapSurfaceHtml,
   buildRenderSnapshotScript,
   buildSnapshotWorkerHtml,
@@ -178,8 +177,8 @@ const layerLength = (layers: MapLayerSpec[]) => JSON.stringify(layers).length;
 
 describe('map page size', () => {
   // Every page inlines the whole MapLibre GL bundle and stylesheet in its head,
-  // which is most of each number. Measured: map surface 1,159,689, 3D map with
-  // no route 1,163,444, snapshot worker 1,104,248.
+  // which is most of each number. Measured: map surface 1,159,689, snapshot
+  // worker 1,104,248.
   const PAGE_CEILING = 1_400_000;
 
   it('keeps the map surface page within its ceiling', () => {
@@ -196,32 +195,6 @@ describe('map page size', () => {
 
   it('keeps the snapshot worker page within its ceiling', () => {
     expect(buildSnapshotWorkerHtml(0).length).toBeLessThanOrEqual(PAGE_CEILING);
-  });
-
-  it('carries a three-hour ride on the 3D page once', () => {
-    const coordinates = track(RIDE_POINTS);
-    const config = {
-      coordinates,
-      bounds: { sw: [6.6, 46.5] as [number, number], ne: [6.9, 46.8] as [number, number] },
-      centerOverride: null,
-      zoom: 12,
-      bearing: 0,
-      pitch: 60,
-      hasSavedCamera: false,
-      cameraPinned: false,
-      terrainExaggeration: 1.5,
-      initStyle: 'light' as const,
-      mapStyle: 'light' as const,
-      routeColor: '#14B8A6',
-      showHeatmap: false,
-      devicePixelRatio: 2,
-      reduceMotion: false,
-    };
-    const empty = buildMap3DHtml({ ...config, coordinates: [] }).length;
-    const ride = buildMap3DHtml(config).length;
-
-    expect(empty).toBeLessThanOrEqual(PAGE_CEILING);
-    expect(ride - empty).toBeLessThanOrEqual(1.1 * JSON.stringify(coordinates).length);
   });
 });
 

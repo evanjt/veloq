@@ -695,6 +695,42 @@ footer button {
   cursor: pointer;
 }
 
+#routes-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.2fr);
+  gap: 24px;
+}
+
+#map-slot {
+  min-height: 360px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+#rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#rows button[data-kept='true'] {
+  border-color: var(--primary);
+}
+
+#routes-page .tabs a[aria-current='true'] {
+  border-bottom: 2px solid var(--primary);
+}
+
+#routes-page .chip[aria-pressed='true'] {
+  border-color: var(--primary);
+}
+
+#passes {
+  width: 100%;
+  border-collapse: collapse;
+}
+
 #map-screen {
   display: flex;
   flex-direction: column;
@@ -705,8 +741,63 @@ footer button {
 
 #map-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px 12px;
+}
+
+#map-bar [role='group'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+#map-bar [aria-pressed='true'] {
+  background: var(--border);
+}
+
+#map-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+
+#map-body > .map-pane {
+  height: 100%;
+}
+
+#map-side {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.map-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.map-list li[aria-current='true'] {
+  background: var(--border);
+}
+
+.map-list li button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 2px 4px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.map-box {
+  position: absolute;
+  border: 1px solid currentColor;
+  background: rgba(127, 127, 127, 0.2);
+  pointer-events: none;
 }
 
 #map-bar button {
@@ -826,6 +917,24 @@ footer button {
   border-collapse: collapse;
 }
 
+#passes tr[data-pr='true'] {
+  font-weight: 600;
+}
+
+#routes-page button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1100px) {
+  #routes-page {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  #map-slot {
+    display: none;
+  }
+}
 #compare-table th[scope='row'] {
   text-align: left;
   color: var(--text-muted);
@@ -841,3 +950,169 @@ footer button {
 #compare-table th.compare-line-1 { border-bottom: 3px solid #00798c; }
 #compare-table th.compare-line-2 { border-bottom: 3px solid #edae49; }
 #compare-table th.compare-line-3 { border-bottom: 3px solid #66a182; }
+
+#fitness-page .columns,
+#insights-page .columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+#fitness-page .column,
+#insights-page .column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  #fitness-page .columns,
+  #insights-page .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+#fitness-page .dot,
+#insights-page .dot {
+  fill: var(--chart-a);
+  cursor: pointer;
+}
+
+#fitness-page .dot.open {
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+
+#fitness-page .year h4 {
+  margin: 8px 0 4px;
+}
+
+#fitness-page .weeks {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+}
+
+#fitness-page .week {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#fitness-page .day {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+#fitness-page .day.none {
+  background: transparent;
+}
+
+#fitness-page .day.level-1 {
+  opacity: 0.45;
+  background: var(--chart-a);
+}
+
+#fitness-page .day.level-2 {
+  opacity: 0.65;
+  background: var(--chart-a);
+}
+
+#fitness-page .day.level-3 {
+  opacity: 0.85;
+  background: var(--chart-a);
+}
+
+#fitness-page .day.level-4 {
+  background: var(--chart-a);
+}
+
+#fitness-page th button {
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+#insights-page .panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+#insights-page figure {
+  margin: 0;
+}
+
+#insights-page svg {
+  width: 100%;
+  height: auto;
+}
+
+#insights-page .line-a {
+  stroke: var(--chart-a);
+  stroke-width: 2;
+}
+
+#insights-page .readout,
+#insights-page .empty {
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+
+#insights-page table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#insights-page th,
+#insights-page td {
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+#insights-page tr[tabindex] {
+  cursor: pointer;
+}
+
+#insights-page tr.open {
+  background: var(--card);
+  outline: 1px solid var(--primary);
+}
+.insight-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.insight-cards article {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.insight-cards h3 {
+  margin: 0 0 4px;
+}
+
+.insight-cards .subtitle {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+}
+
+.insight-cards details {
+  margin-top: 8px;
+}

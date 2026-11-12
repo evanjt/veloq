@@ -182,6 +182,59 @@ function jsonType(owner, type, refs) {
   return out;
 }
 
+/** The JSON type a converter of a scalar reads and writes. */
+const SCALAR_CONVERTERS = new Map([
+  ['FfiConverterUInt8', 'number'],
+  ['FfiConverterUInt16', 'number'],
+  ['FfiConverterUInt32', 'number'],
+  ['FfiConverterInt8', 'number'],
+  ['FfiConverterInt16', 'number'],
+  ['FfiConverterInt32', 'number'],
+  ['FfiConverterFloat32', 'number'],
+  ['FfiConverterFloat64', 'number'],
+  ['FfiConverterBool', 'boolean'],
+  ['FfiConverterString', 'string'],
+]);
+
+/**
+ * A data-carrying enum as serde writes it with `rename_all = "camelCase"`: a
+ * variant with no fields is its name as a string, one with fields is an object
+ * with the name as its one key. The variants and their fields are read off the
+ * enum's converter in the bindings, and a field of any type but a scalar stops
+ * the run, since the scalar converters are the shapes known to match.
+ * @param {string} name
+ * @param {string} bindings
+ */
+function dataEnumType(name, bindings) {
+  const start = bindings.indexOf(`const FfiConverterType${name} = (() => {`);
+  const end = bindings.indexOf('\n})();', start);
+  if (start < 0 || end < 0) throw new Error(`${name}: no converter in ${BINDINGS_FILE}`);
+  const converter = bindings.slice(start, end);
+  const read = converter.slice(0, converter.indexOf('writeIntoCursor'));
+  const variants = [];
+  for (const found of read.matchAll(
+    new RegExp(`return new ${name}\\.(\\w+)\\((?:\\{([^}]*)\\})?\\);`, 'g')
+  )) {
+    const [, variant, body] = found;
+    const key = `${variant[0].toLowerCase()}${variant.slice(1)}`;
+    const fields = [];
+    for (const field of (body ?? '')
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)) {
+      const parsed = /^(\w+): (\w+)\.readFromCursor\(c\)$/.exec(field);
+      const type = parsed && SCALAR_CONVERTERS.get(parsed[2]);
+      if (!parsed || !type || /[A-Z]/.test(parsed[1])) {
+        throw new Error(`${name}.${variant}: cannot say the field \`${field}\` in JSON`);
+      }
+      fields.push(`${parsed[1]}: ${type}`);
+    }
+    variants.push(fields.length === 0 ? `'${key}'` : `{ ${key}: { ${fields.join('; ')} } }`);
+  }
+  if (variants.length === 0) throw new Error(`${name}: no variants in its converter`);
+  return variants.join(' | ');
+}
+
 /**
  * The text as `npm run format` writes it, under the repository's Prettier
  * config. `format:check` reads the schema back, so a generated file that
@@ -256,6 +309,11 @@ export function renderSchema(table, bindings) {
     } else if (found.kind === 'alias' && !/InstanceType/.test(found.body[0])) {
       const written = jsonType(name, found.body[0], refs);
       rendered.set(name, `export type ${name} = ${written};\n`);
+    } else if (
+      found.kind === 'other' ||
+      (found.kind === 'alias' && /InstanceType/.test(found.body[0]))
+    ) {
+      rendered.set(name, `${doc}export type ${name} = ${dataEnumType(name, bindings)};\n`);
     } else {
       throw new Error(
         `${name} is a data-carrying enum or an object, which the link does not yet say in JSON`

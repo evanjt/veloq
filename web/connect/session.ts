@@ -4,6 +4,8 @@
 // stands in for each. What is drawn reads `get` and listens through
 // `subscribe`.
 
+import type { ParseKeys } from 'i18next';
+
 import { factsOf, type Facts, type StatRow } from './connection';
 import { DETAIL_SLOTS, DETAIL_STREAM_TYPES } from './activity';
 import { createClient, type Client } from './client';
@@ -16,10 +18,18 @@ import {
   screenAsk,
   type PanelAsk,
 } from './fitness';
+import {
+  INSIGHT_SETTING_KEYS,
+  INSIGHTS_PARTS_KEY,
+  insightsAsk,
+  insightsSettings,
+  type InsightsParts,
+} from './insights';
 import { browserKeys, type Keys } from './keys';
 import {
   AskCache,
   INVITATION_TTL_SECS,
+  PAGE_MIN_PROTOCOL,
   PAGE_NAME,
   PAGE_PROTOCOL,
   answerFingerprint,
@@ -30,6 +40,7 @@ import {
   invitation as invitationText,
   isSuperseded,
   normaliseFingerprint,
+  olderPage,
   peerConfiguration,
   proof,
   proofsMatch,
@@ -39,6 +50,7 @@ import {
   wallSeconds,
   withoutHiddenCandidates,
   writeNotice,
+  type Build,
   type Effect,
   type Event,
   type FeedFilter,
@@ -120,6 +132,10 @@ export interface Environment {
   setTimeout: (work: () => void, ms: number) => unknown;
   clearTimeout: (timer: unknown) => void;
   keys: Keys;
+  /** The page builds kept online beside this one, or none when the list cannot be read. */
+  builds: () => Promise<Build[]>;
+  /** Leave this page for the one at `path`, relative to this page's own address. */
+  navigate: (path: string) => void;
   userAgent: string;
   /** Logs the room's inputs to the console. */
   debug: boolean;
@@ -141,6 +157,11 @@ export function browserEnvironment(): Environment {
     setTimeout: (work, ms) => setTimeout(work, ms),
     clearTimeout: (timer) => clearTimeout(timer as ReturnType<typeof setTimeout>),
     keys: browserKeys,
+    builds: async () => {
+      const listed = await fetch('builds.json', { cache: 'no-store' });
+      return listed.ok ? ((await listed.json()) as Build[]) : [];
+    },
+    navigate: (path) => location.assign(new URL(path, location.href).href),
     userAgent: navigator.userAgent,
     debug: new URLSearchParams(location.search).has('debug'),
   };
@@ -178,10 +199,12 @@ export type Snapshot = {
   fitness: Readonly<Record<string, { answer: unknown } | 'failed'>>;
   /** The days the fitness page's range control reads. */
   fitnessRange: number;
+  /** The sport the fitness page's zone and curve panels read. */
+  fitnessSport: string;
   /** The days the best efforts read, 0 for all time. */
   bestEffortDays: number;
   /** Why the phone refused the last write, such as being locked; null once a write goes through. */
-  writeNotice: string | null;
+  writeNotice: ParseKeys | null;
   /**
    * How many times on this connection the phone said its library changed. A
    * screen asks its reads again when it moves; the lists and details held are
@@ -219,10 +242,18 @@ export interface Session {
   requestStrength: (periodDays: number) => void;
   /** Ask for the settings screen's reads, once per connection. */
   requestSettings: () => void;
+  /**
+   * Ask for the insights page's reads, once per connection: the settings its
+   * cards depend on, then the bundle over the windows those settings choose.
+   * Kept under `INSIGHTS_PARTS_KEY`.
+   */
+  requestInsights: () => void;
   /** Ask every fitness panel, once per connection. */
   requestFitness: () => void;
   /** Read the panels that follow the range over `days`. */
   setFitnessRange: (days: number) => void;
+  /** Read the zone and curve panels for another sport. */
+  setFitnessSport: (sport: string) => void;
   /** Read the best efforts over `days`, 0 for all time. */
   setBestEffortDays: (days: number) => void;
   /** Narrow the feed and read it again from the top. */
@@ -262,6 +293,7 @@ export function createSession(env: Environment): Session {
     settings: {},
     fitness: {},
     fitnessRange: RANGES[1],
+    fitnessSport: 'Ride',
     bestEffortDays: BEST_EFFORT_PERIODS[0],
     writeNotice: null,
     libraryChanges: 0,
@@ -388,6 +420,12 @@ export function createSession(env: Environment): Session {
         break;
       case 'hello':
         await hello();
+        break;
+      case 'speak':
+        client?.speak(effect.version);
+        break;
+      case 'redirect':
+        await redirect(effect.protocol);
         break;
       case 'fetchFeed':
         await fetchFeed();
@@ -580,17 +618,38 @@ export function createSession(env: Environment): Session {
   async function hello() {
     const mine = generation;
     try {
-      const answer = await client?.ask('link.hello', { protocol: PAGE_PROTOCOL, page: PAGE_NAME });
+      const answer = await client?.ask('link.hello', {
+        protocol: PAGE_PROTOCOL,
+        minProtocol: PAGE_MIN_PROTOCOL,
+        page: PAGE_NAME,
+      });
       if (answer && mine === generation) {
         dispatch({
           type: 'hello',
           protocol: answer.protocol,
+          // A phone on a build before ranges names none, and its one version is the whole of it.
+          minProtocol: answer.minProtocol,
+          maxProtocol: answer.maxProtocol,
           methods: answer.methods,
           device: answer.device,
         });
       }
     } catch {
       if (mine === generation) dispatch({ type: 'drop' });
+    }
+  }
+
+  /**
+   * Go to the kept build of the page that speaks a phone's version, when there
+   * is one. A list that cannot be read, or holds none, leaves the update notice.
+   */
+  async function redirect(protocol: number) {
+    const mine = generation;
+    try {
+      const path = olderPage(await env.builds(), protocol, PAGE_PROTOCOL);
+      if (path !== null && mine === generation) env.navigate(path);
+    } catch {
+      // The notice already on screen stands.
     }
   }
 
@@ -705,6 +764,34 @@ export function createSession(env: Environment): Session {
     const settled = await Promise.allSettled(asks);
     // A read a newer ride replaced may be asked for again when its screen returns.
     if (settled.some((outcome) => outcome.status === 'rejected')) asked.delete(key);
+  }
+
+  /** The insights page's reads: the settings first, since they choose the bundle's windows. */
+  async function fetchInsights() {
+    const mine = generation;
+    const methods = snapshot.state.name === 'connected' ? (snapshot.state.methods ?? []) : [];
+    keyed.set(askKey('insights.parts', {}), INSIGHTS_PARTS_KEY);
+    if (!methods.includes('insights.data')) return;
+    let held: InsightsParts = {};
+    const keep = (patch: InsightsParts) => {
+      held = { ...held, ...patch };
+      if (screens.put(INSIGHTS_PARTS_KEY, mine, held)) publishScreens();
+    };
+    try {
+      const settings = methods.includes('settings.get')
+        ? await read('settings.get', { keys: INSIGHT_SETTING_KEYS })
+        : undefined;
+      if (settings) keep({ settings });
+      const data = await read(
+        'insights.data',
+        insightsAsk(insightsSettings(settings, '')),
+        'insights.data'
+      );
+      keep({ data });
+    } catch {
+      // A read a newer ask replaced, or a connection that dropped, may be asked for again.
+      asked.delete(INSIGHTS_PARTS_KEY);
+    }
   }
 
   /** Each read the settings screen shows, stored as it answers. */
@@ -868,6 +955,13 @@ export function createSession(env: Environment): Session {
       asked.add(key);
       void fetchActivityParts(id);
     },
+    requestInsights() {
+      const { state } = snapshot;
+      if (state.name !== 'connected' || state.methods === null) return;
+      if (asked.has(INSIGHTS_PARTS_KEY)) return;
+      asked.add(INSIGHTS_PARTS_KEY);
+      void fetchInsights();
+    },
     requestSettings() {
       const { state } = snapshot;
       if (state.name !== 'connected' || state.methods === null) return;
@@ -888,14 +982,25 @@ export function createSession(env: Environment): Session {
       if (asked.has('fitness')) return;
       asked.add('fitness');
       const now = new Date(env.now());
-      for (const panel of rangeAsks(snapshot.fitnessRange, now)) void askPanel(panel);
+      for (const panel of rangeAsks(snapshot.fitnessRange, now, snapshot.fitnessSport)) {
+        void askPanel(panel);
+      }
       void askPanel(screenAsk(now));
       void askPanel(bestEffortsAsk(snapshot.bestEffortDays));
     },
     setFitnessRange(days) {
       if (days === snapshot.fitnessRange) return;
       change({ fitnessRange: days });
-      for (const panel of rangeAsks(days, new Date(env.now()))) void askPanel(panel);
+      for (const panel of rangeAsks(days, new Date(env.now()), snapshot.fitnessSport)) {
+        void askPanel(panel);
+      }
+    },
+    setFitnessSport(sport) {
+      if (sport === snapshot.fitnessSport) return;
+      change({ fitnessSport: sport });
+      for (const panel of rangeAsks(snapshot.fitnessRange, new Date(env.now()), sport)) {
+        if (panel.slot === 'zones' || panel.slot === 'paceCurve') void askPanel(panel);
+      }
     },
     setBestEffortDays(days) {
       if (days === snapshot.bestEffortDays) return;

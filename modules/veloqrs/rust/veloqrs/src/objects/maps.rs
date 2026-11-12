@@ -57,6 +57,27 @@ impl MapManager {
         })
     }
 
+    /// The library's sections and routes alone, for a detail map that draws
+    /// them under its subject: the two layers `get_screen_data` carries, from
+    /// the same builders, without the activities.
+    ///
+    /// `held_sections` and `held_routes` are the stamps of the layers the
+    /// caller already holds. A layer whose stamp is still current comes back
+    /// without its lines, so a card push re-reads nothing.
+    fn get_context_layers(
+        &self,
+        held_sections: Option<f64>,
+        held_routes: Option<f64>,
+    ) -> Result<crate::FfiMapContextLayers, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::screens::pooled::map_context_layers(
+                conn,
+                held_sections,
+                held_routes,
+            )
+        })
+    }
+
     /// The activities whose tracks pass under a point on the heatmap, grouped
     /// by route and capped, newest first.
     ///
@@ -528,6 +549,56 @@ mod tests {
         );
         assert!(unknown.route_lines.and_then(|layer| layer.routes).is_some());
         assert!(unknown.sections.and_then(|layer| layer.sections).is_some());
+    }
+
+    /// Scenario: a detail map draws the library's sections and routes under
+    /// its subject and asks for those two layers alone.
+    ///
+    /// Expected behaviour: the read returns the same sections and routes the
+    /// map read returns for the same library, ships neither layer when handed
+    /// the stamps it returned, and ships the one whose stamp is not current.
+    #[test]
+    fn the_context_layers_are_the_map_reads_layers_and_honour_held_stamps() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("map_context_layers.db");
+        let maps = MapManager::new();
+        with_persistent_engine(seed_layers).unwrap();
+
+        let screen = read_layers(&maps, "", None, None);
+        let context = maps.get_context_layers(None, None).unwrap();
+
+        let ids = |sections: &Option<crate::FfiMapSectionLayer>| {
+            sections
+                .as_ref()
+                .and_then(|layer| layer.sections.as_ref())
+                .map(|list| list.iter().map(|s| s.id.clone()).collect::<Vec<_>>())
+        };
+        assert_eq!(ids(&context.sections), ids(&screen.sections));
+        assert_eq!(ids(&context.sections).map(|list| list.len()), Some(2));
+        let route_ids = |layer: &Option<crate::ffi_types::FfiRouteLineLayer>| {
+            layer
+                .as_ref()
+                .and_then(|layer| layer.routes.as_ref())
+                .map(|list| list.iter().map(|r| r.route_id.clone()).collect::<Vec<_>>())
+        };
+        assert_eq!(route_ids(&context.routes), route_ids(&screen.route_lines));
+        assert!(route_ids(&context.routes).is_some_and(|list| !list.is_empty()));
+        let (route_stamp, section_stamp) = stamps(&screen);
+        assert_eq!(context.sections.as_ref().unwrap().stamp, section_stamp);
+        assert_eq!(context.routes.as_ref().unwrap().stamp, route_stamp);
+
+        let held = maps.get_context_layers(section_stamp, route_stamp).unwrap();
+        assert!(held.sections.unwrap().sections.is_none());
+        assert!(held.routes.unwrap().routes.is_none());
+
+        let stale = maps
+            .get_context_layers(
+                section_stamp.map(|stamp| stamp + 1.0),
+                route_stamp.map(|stamp| stamp + 1.0),
+            )
+            .unwrap();
+        assert!(stale.sections.unwrap().sections.is_some());
+        assert!(stale.routes.unwrap().routes.is_some());
     }
 
     /// Scenario: the map holds both layers, then a section and a route are

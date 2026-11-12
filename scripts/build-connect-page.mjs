@@ -13,9 +13,18 @@
 // merged in so the page fetches one file. The page names the chunks in an
 // inline data block.
 //
-// Usage: node scripts/build-connect-page.mjs [--root <repo>] [--out <dir>]
+// The page speaks a range of protocol versions (`web/connect/methods.json`
+// names the newest and the oldest). The build is also published, whole, at
+// `v<newest>/`, and every page in `web/connect/kept.json` is built from its
+// commit at its own path, so a page for an older range stays online after the
+// current one moves on. `builds.json` lists each build with the versions it
+// speaks, which is how the current page finds an older one for a phone below
+// its range.
 //
-// `--out` defaults to `docs/connect` under the root.
+// Usage: node scripts/build-connect-page.mjs [--root <repo>] [--out <dir>] [--plain]
+//
+// `--out` defaults to `docs/connect` under the root. `--plain` writes the page
+// alone, which is how a kept page is built from its own commit.
 //
 // The map renderer is not bundled: it is the app's own vendored copy, a UMD
 // build that sets a global, so it is copied from the basemap assets under a
@@ -24,13 +33,40 @@
 // unless they are the bytes `maplibreRenderer.generated.ts` pins, so the page's
 // renderer is the one the app ships and a bump is one commit for both.
 
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 
 import { build, transform } from 'esbuild';
 
+import { gitFreeEnv } from './lib/indexedSources.mjs';
+
 const SOURCE = 'web/connect';
+const SCHEMA_INPUT = 'methods.json';
+const KEPT = 'kept.json';
+const BUILDS = 'builds.json';
+/** What a kept page is built from at its commit: the page, its scripts and what it imports. */
+const KEPT_SOURCES = [
+  SOURCE,
+  'scripts',
+  'src',
+  'modules/veloqrs/src',
+  'modules/veloqrs/assets/basemap',
+];
+/** Where the template reaches the shared icon, one directory above the page. */
+const ICON = 'href="../icon.png"';
 const TEMPLATE = 'index.html';
 /** Copied beside the output unchanged: the vendored encoder's licence. */
 const NOTICES = ['qr.LICENSE.txt'];
@@ -149,6 +185,50 @@ function themeSubset(root) {
   };
 }
 
+/**
+ * The app's formatting module reads react-native, expo-localization and the
+ * i18n singleton, none of which a browser has. For that module and the locale
+ * helper beside it, and no other importer, those specifiers resolve to the
+ * page's own small versions, so an import of the real package from anywhere
+ * else still fails the build.
+ */
+const SHIMMED = [
+  { filter: /^react-native$/, importers: ['src/shared/format/format.ts'], shim: 'reactNative.ts' },
+  {
+    filter: /^expo-localization$/,
+    importers: ['src/shared/format/format.ts'],
+    shim: 'expoLocalization.ts',
+  },
+  {
+    filter: /^@\/i18n$/,
+    importers: ['src/shared/format/format.ts', 'src/shared/format/locale.ts'],
+    shim: 'appI18n.ts',
+  },
+  {
+    filter: /^@\/i18n\/localeBundles$/,
+    importers: ['src/shared/format/locale.ts'],
+    shim: 'localeBundles.ts',
+  },
+];
+
+function appShims(root) {
+  return {
+    name: 'app-shims',
+    setup(build) {
+      for (const { filter, importers, shim } of SHIMMED) {
+        build.onResolve({ filter }, (args) => {
+          // A checkout that links the app's source resolves to its real path, so the
+          // importer is matched by the tail that names it.
+          if (!importers.some((importer) => args.importer.endsWith(`/${importer}`))) {
+            return undefined;
+          }
+          return { path: join(root, SOURCE, 'shims', shim) };
+        });
+      }
+    },
+  };
+}
+
 /** The app's supported tags and fallback chains, read from the type module. */
 async function localeTables(root) {
   const source = readFileSync(join(root, 'src/i18n/types.ts'), 'utf8');
@@ -188,7 +268,7 @@ async function localeChunks(root) {
   return { files, manifest };
 }
 
-export async function buildConnectPage({ root, out }) {
+export async function buildConnectPage({ root, out, plain = false }) {
   const source = join(root, SOURCE);
   const template = readFileSync(join(source, TEMPLATE), 'utf8');
   for (const entry of ENTRIES) {
@@ -200,8 +280,8 @@ export async function buildConnectPage({ root, out }) {
   const result = await build({
     absWorkingDir: root,
     // The page imports the app's pure modules by the alias the app uses.
-    alias: { '@': join(root, 'src') },
-    plugins: [themeSubset(root)],
+    alias: { '@': join(root, 'src'), 'veloqrs/src': join(root, 'modules/veloqrs/src') },
+    plugins: [themeSubset(root), appShims(root)],
     entryPoints: ENTRIES.map((entry) => join(SOURCE, entry)),
     outdir: out,
     bundle: true,
@@ -241,7 +321,91 @@ export async function buildConnectPage({ root, out }) {
   writeFileSync(join(out, TEMPLATE), page);
   for (const notice of NOTICES) cpSync(join(source, notice), join(out, notice));
   for (const file of renderer) writeFileSync(join(out, file.name), file.bytes);
-  return [...names.values(), ...renderer.map((file) => file.name)];
+  const built = [...names.values(), ...renderer.map((file) => file.name)];
+  if (plain) return built;
+  const { protocol, minProtocol } = JSON.parse(readFileSync(join(source, SCHEMA_INPUT), 'utf8'));
+  const current = `v${protocol}/`;
+  const listed = [{ path: current, min: minProtocol, max: protocol }];
+  // The same files again one directory down, the icon now two levels up.
+  const versioned = join(out, current);
+  for (const name of readdirSync(out).filter((name) => !/^v\d+$/.test(name))) {
+    cpSync(join(out, name), join(versioned, name), { recursive: true });
+  }
+  writeFileSync(join(versioned, TEMPLATE), page.replace(ICON, 'href="../../icon.png"'));
+
+  for (const kept of keptPages(source)) {
+    if (listed.some((entry) => entry.path === kept.path)) {
+      throw new Error(`${KEPT} names ${kept.path}, which the build already writes`);
+    }
+    buildKept({ root, out, kept });
+    listed.push({ path: kept.path, min: kept.min, max: kept.max });
+  }
+  writeFileSync(join(out, BUILDS), `${JSON.stringify(listed, null, 2)}\n`);
+  return built;
+}
+
+/** The pages `kept.json` asks to be kept online: path, versions spoken and commit. */
+function keptPages(source) {
+  const file = join(source, KEPT);
+  if (!existsSync(file)) return [];
+  const pages = JSON.parse(readFileSync(file, 'utf8'));
+  for (const page of pages) {
+    if (!/^v\d+\/$/.test(page.path) || ![page.min, page.max].every(Number.isInteger) || !page.ref) {
+      throw new Error(`${KEPT}: ${JSON.stringify(page)} needs a path like v2/, min, max and ref`);
+    }
+  }
+  return pages;
+}
+
+/** Build the page as it was at `kept.ref` into `kept.path` beside the current build. */
+function buildKept({ root, out, kept }) {
+  const git = (args, options = {}) =>
+    execFileSync('git', args, {
+      cwd: root,
+      env: gitFreeEnv(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      ...options,
+    });
+  const scratch = mkdtempSync(join(tmpdir(), 'connect-kept-'));
+  try {
+    try {
+      // The page imports the app's own modules, locales and map assets, so the
+      // build at the commit reads every part of the tree the page draws on.
+      const held = KEPT_SOURCES.filter(
+        (path) => git(['ls-tree', '--name-only', kept.ref, '--', path]).length > 0
+      );
+      const archive = git(['archive', kept.ref, ...held], {
+        maxBuffer: 256 * 1024 * 1024,
+      });
+      execFileSync('tar', ['-x', '-C', scratch], { input: archive });
+    } catch (error) {
+      const detail = error.stderr?.toString().trim() || error.message;
+      throw new Error(`${KEPT}: cannot read ${kept.ref} for ${kept.path}: ${detail}`);
+    }
+    // The page's packages are resolved from the root it builds in.
+    symlinkSync(join(root, 'node_modules'), join(scratch, 'node_modules'));
+    const target = join(out, kept.path);
+    execFileSync(
+      process.execPath,
+      [
+        join(scratch, 'scripts/build-connect-page.mjs'),
+        '--root',
+        scratch,
+        '--out',
+        target,
+        '--plain',
+      ],
+      { cwd: scratch, env: gitFreeEnv(), stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    const index = join(target, TEMPLATE);
+    writeFileSync(index, readFileSync(index, 'utf8').replace(ICON, 'href="../../icon.png"'));
+  } catch (error) {
+    if (error.stderr)
+      throw new Error(`${KEPT}: ${kept.ref} did not build: ${error.stderr.toString().trim()}`);
+    throw error;
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
 }
 
 async function main() {
@@ -253,7 +417,7 @@ async function main() {
     process.exit(1);
   }
   try {
-    const entries = await buildConnectPage({ root, out });
+    const entries = await buildConnectPage({ root, out, plain: argv.includes('--plain') });
     console.log(`build-connect-page: ${entries.join(', ')} in ${relative(root, out) || '.'}`);
   } catch (error) {
     console.error(`build-connect-page: ${error instanceof Error ? error.message : error}`);

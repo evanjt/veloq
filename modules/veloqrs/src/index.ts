@@ -312,6 +312,9 @@ export type {
   FfiExerciseGroup as ExerciseGroup,
   FfiExerciseSession as ExerciseSession,
   FfiExerciseDetailData as ExerciseDetailData,
+  FfiExercisePickerData as ExercisePickerData,
+  FfiExercisePickerRow as ExercisePickerRow,
+  FfiPickerMuscle as PickerMuscle,
   FfiMuscleGroup as MuscleGroup,
   FfiActivityNotification as ActivityNotification,
 } from './generated/veloqrs';

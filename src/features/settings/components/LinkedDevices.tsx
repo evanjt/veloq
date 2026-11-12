@@ -1,11 +1,12 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { remote, type FfiLinkedDevice } from 'veloqrs';
+import { remote, type FfiLinkedDevice, type FfiRemoteWrite } from 'veloqrs';
 import { useTheme } from '@/shared/app';
-import { formatDateTime } from '@/shared/format';
-import { Button, Icon, Row, RowGroup, Spinner } from '@/shared/ui';
+import { formatDateTime, formatRelativeDateTime } from '@/shared/format';
+import { useEngineReady } from '@/shared/native/useEngineReady';
+import { Button, Icon, ROW_DIVIDER_INSET, Row, RowGroup, Spinner } from '@/shared/ui';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import { confirmAction } from '@/shared/ui/dialog';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
@@ -15,18 +16,45 @@ import { remoteLink } from '../lib/remoteLinkSession';
 import { QrScanner } from './QrScanner';
 import { settingsStyles } from './settingsStyles';
 
+/** The changes each browser's row lists, newest first. */
+const CHANGES_LISTED = 5;
+
+/** A linked browser, with the changes it made most recently, newest first. */
+interface LinkedBrowser {
+  device: FfiLinkedDevice;
+  writes: FfiRemoteWrite[];
+}
+
+function readBrowsers(): LinkedBrowser[] {
+  return remote
+    .listLinkedDevices()
+    .map((device) => ({ device, writes: remote.recentWrites(device.id, CHANGES_LISTED) }));
+}
+
+/** When a change landed, as the phone reads a day and a time. */
+function whenChanged(at: number): string {
+  const instant = new Date(at * 1000); // true-instant: a write stamped in Unix seconds
+  return formatRelativeDateTime(instant.toISOString());
+}
+
 /** The browsers linked to this library, with remove, and the way to link one more. */
 export function LinkedDevices() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
-  const [devices, setDevices] = useState<FfiLinkedDevice[]>(() => remote.listLinkedDevices());
+  const engine = useEngineReady();
+  const [browsers, setBrowsers] = useState<LinkedBrowser[]>(readBrowsers);
 
   const reload = useCallback(() => {
-    setDevices(remote.listLinkedDevices());
+    setBrowsers(readBrowsers());
     remoteLink.refresh();
   }, []);
   const pairing = useDevicePairing(reload);
+
+  useEffect(() => {
+    if (!engine) return undefined;
+    return engine.subscribe('remoteWrote', () => setBrowsers(readBrowsers()));
+  }, [engine]);
 
   const askRemove = (device: FfiLinkedDevice) =>
     confirmAction({
@@ -50,30 +78,49 @@ export function LinkedDevices() {
     <View style={styles.page}>
       <Text style={[styles.intro, { color: palette.textSecondary }]}>{t('remoteLink.intro')}</Text>
 
-      {devices.length > 0 ? (
+      {browsers.length > 0 ? (
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <RowGroup>
-            {devices.map((device) => (
-              <Row
-                key={device.id}
-                testID={`linked-device-${device.id}`}
-                behaviour="act"
-                onPress={() => askRemove(device)}
-                accessibilityLabel={composeAccessibilityLabel(
-                  device.name,
-                  seen(device),
-                  t('remoteLink.remove')
-                )}
-              >
-                <Icon name="laptop" size={iconSize.lg} color={palette.textSecondary} />
-                <View style={styles.fill}>
-                  <Text style={[styles.name, { color: palette.textPrimary }]}>{device.name}</Text>
-                  <Text style={[styles.detail, { color: palette.textSecondary }]}>
-                    {seen(device)}
-                  </Text>
+            {browsers.map(({ device, writes }) => (
+              <View key={device.id}>
+                <Row
+                  testID={`linked-device-${device.id}`}
+                  behaviour="act"
+                  onPress={() => askRemove(device)}
+                  accessibilityLabel={composeAccessibilityLabel(
+                    device.name,
+                    seen(device),
+                    t('remoteLink.remove')
+                  )}
+                >
+                  <Icon name="laptop" size={iconSize.lg} color={palette.textSecondary} />
+                  <View style={styles.fill}>
+                    <Text style={[styles.name, { color: palette.textPrimary }]}>{device.name}</Text>
+                    <Text style={[styles.detail, { color: palette.textSecondary }]}>
+                      {seen(device)}
+                    </Text>
+                  </View>
+                  <Icon name="close" size={iconSize.md} color={palette.textSecondary} />
+                </Row>
+                <View style={styles.changes} testID={`linked-device-writes-${device.id}`}>
+                  {writes.length === 0 ? (
+                    <Text style={[styles.detail, { color: palette.textSecondary }]}>
+                      {t('remoteLink.noChanges')}
+                    </Text>
+                  ) : (
+                    writes.map((write, index) => (
+                      <View key={index} style={styles.change}>
+                        <Text style={[styles.changeText, { color: palette.textPrimary }]}>
+                          {write.summary}
+                        </Text>
+                        <Text style={[styles.detail, { color: palette.textSecondary }]}>
+                          {whenChanged(write.at)}
+                        </Text>
+                      </View>
+                    ))
+                  )}
                 </View>
-                <Icon name="close" size={iconSize.md} color={palette.textSecondary} />
-              </Row>
+              </View>
             ))}
           </RowGroup>
         </View>
@@ -141,6 +188,18 @@ const styles = StyleSheet.create({
   },
   detail: {
     ...typography.caption,
+  },
+  changes: {
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+    paddingLeft: ROW_DIVIDER_INSET,
+    paddingRight: spacing.md,
+  },
+  change: {
+    gap: spacing.xs,
+  },
+  changeText: {
+    ...typography.bodySmall,
   },
   waiting: {
     alignItems: 'center',

@@ -45,6 +45,7 @@ jest.mock('@/shared/storage', () => ({
 }));
 jest.mock('@/features/auth/lib/accountChange', () => ({
   getCachedAthleteId: jest.fn().mockResolvedValue('i-first'),
+  getGarminLibraryId: jest.fn().mockResolvedValue(null),
   accountChangeAction: jest.fn().mockReturnValue('confirm-then-wipe'),
   confirmAccountChange: jest.fn().mockResolvedValue(false),
 }));

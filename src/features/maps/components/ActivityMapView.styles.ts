@@ -15,9 +15,6 @@ export const styles = StyleSheet.create({
   mapLayer: {
     ...StyleSheet.absoluteFill,
   },
-  map3DLayer: {
-    zIndex: layers.raised,
-  },
   loadingCue: {
     alignItems: 'center',
     justifyContent: 'center',

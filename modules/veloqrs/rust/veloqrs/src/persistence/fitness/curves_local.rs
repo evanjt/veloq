@@ -23,6 +23,7 @@ use serde_json::{Value, json};
 
 use crate::net::offline_prefetch::{ALL_TIME_CURVE_DAYS, CURVE_DAYS, CURVE_KEYS};
 use crate::net::types::StreamDto;
+use crate::persistence::settings::settings_keys;
 use crate::persistence::{bodies::CurveKind, codec};
 
 /// The `source` of a body worked out here.
@@ -491,10 +492,29 @@ pub(crate) fn pace_body(rides: &[&RideCurve], window: Window) -> Option<String> 
 // Storage
 // ============================================================================
 
-/// Whether the library holds nothing from intervals.icu: no activity under an
-/// intervals.icu id, and none a Garmin original was linked to one. Only such a
-/// library works its curves out here.
+/// Whether the library's source is Garmin, so that it works its own figures
+/// out: its ride figures, its wellness series and its curves.
+///
+/// It is when the library holds nothing from intervals.icu: no activity under
+/// an intervals.icu id, and none a Garmin original was linked to one. It is
+/// also when the library is named for the Garmin account it was recorded as
+/// leaving to an intervals.icu sign-in, because the athlete came back by that
+/// account: the intervals.icu rows stay as stored and keep their numbers, and
+/// what they did not serve is worked out here. A library named for a Garmin
+/// account that was never recorded as left holds intervals.icu's rows only
+/// because a sign-in is still adopting it, and shows none of Veloq's figures.
 pub(crate) fn is_garmin_only(conn: &Connection) -> SqlResult<bool> {
+    let named = |key: &str| -> SqlResult<Option<String>> {
+        conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+            row.get(0)
+        })
+        .optional()
+    };
+    if let Some(held) = named(settings_keys::GARMIN_LIBRARY_ID)?
+        && named(settings_keys::ATHLETE_ID)?.as_deref() == Some(held.as_str())
+    {
+        return Ok(true);
+    }
     let holds: bool = conn.query_row(
         "SELECT EXISTS (SELECT 1 FROM activities
                          WHERE intervals_id IS NOT NULL
@@ -503,7 +523,51 @@ pub(crate) fn is_garmin_only(conn: &Connection) -> SqlResult<bool> {
         [],
         |row| row.get(0),
     )?;
-    Ok(!holds)
+    if holds {
+        return Ok(false);
+    }
+    Ok(!holds_server_wellness(conn)?)
+}
+
+/// Whether a wellness day came from intervals.icu: a figure in a column, or a
+/// body key, that Veloq's own fold and eFTP entries do not account for. The
+/// fold writes `source = 'veloq'` days and the eFTP entries sit marked in
+/// `sportInfo`, so neither counts.
+fn holds_server_wellness(conn: &Connection) -> SqlResult<bool> {
+    let typed: bool = conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM wellness
+                         WHERE source IS NULL
+                           AND (ctl IS NOT NULL OR atl IS NOT NULL OR ramp_rate IS NOT NULL
+                             OR hrv IS NOT NULL OR resting_hr IS NOT NULL OR weight IS NOT NULL
+                             OR sleep_secs IS NOT NULL OR sleep_score IS NOT NULL
+                             OR soreness IS NOT NULL OR fatigue IS NOT NULL OR stress IS NOT NULL
+                             OR mood IS NOT NULL OR motivation IS NOT NULL))",
+        [],
+        |row| row.get(0),
+    )?;
+    if typed {
+        return Ok(true);
+    }
+    let mut stmt = conn.prepare("SELECT raw FROM wellness WHERE raw IS NOT NULL")?;
+    let bodies = stmt.query_map([], |row| row.get::<_, String>(0))?;
+    for raw in bodies {
+        let Ok(Value::Object(map)) = serde_json::from_str::<Value>(&raw?) else {
+            continue;
+        };
+        let foreign_key = map.keys().any(|key| key != "sportInfo");
+        let foreign_entry = map
+            .get("sportInfo")
+            .and_then(Value::as_array)
+            .is_some_and(|entries| {
+                entries.iter().any(|entry| {
+                    entry.get(ENTRY_MARK).and_then(Value::as_str) != Some(SOURCE_LOCAL)
+                })
+            });
+        if foreign_key || foreign_entry {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn stream_values(streams: &[StreamDto], kind: &str) -> Option<Vec<Option<f64>>> {
@@ -790,6 +854,20 @@ fn write_daily_eftp(conn: &Connection, date: &str, eftp: f64) -> SqlResult<()> {
         .and_then(|raw| serde_json::from_str(&raw).ok())
         .filter(Value::is_object)
         .unwrap_or_else(|| json!({}));
+    let served = body
+        .get("sportInfo")
+        .and_then(Value::as_array)
+        .is_some_and(|entries| {
+            entries.iter().any(|e| {
+                e.get("type")
+                    .and_then(Value::as_str)
+                    .is_some_and(crate::sport::is_cycling)
+                    && e.get(ENTRY_MARK).and_then(Value::as_str) != Some(SOURCE_LOCAL)
+            })
+        });
+    if served {
+        return Ok(());
+    }
     let entries = body
         .as_object_mut()
         .and_then(|o| {

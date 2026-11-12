@@ -86,6 +86,13 @@ pub mod metrics;
 
 // FIT file parser for strength training exercise data
 pub mod fit;
+pub mod strength;
+
+// The binary layer shared by the FIT writers
+pub(crate) mod fit_write;
+
+// A strength session written as a FIT file
+pub mod fit_strength;
 
 // Activity FIT files built to the profile, for tests
 #[cfg(test)]
