@@ -444,7 +444,7 @@ describe('the map pages in a headless Chromium', () => {
       PAGE_TIMEOUT_MS
     );
 
-    vaultIt(
+    it(
       'never asks for a pick when the terrain names no subject',
       async () => {
         const { bearing, picks } = await terrainOn({});
@@ -479,13 +479,15 @@ describe('the map pages in a headless Chromium', () => {
     PAGE_TIMEOUT_MS
   );
 
-  vaultIt(
+  it(
     'fails a renderer whose setTerrain throws',
     async () => {
       const broken =
         "maplibregl.Map.prototype.setTerrain = function() { throw new Error('setTerrain is broken'); };";
 
-      const { failures } = await smoke(browser, PAGES[1], broken);
+      const surface = PAGES.find((target) => target.name === 'map surface');
+      if (!surface) throw new Error('the map surface page is not in the list');
+      const { failures } = await smoke(browser, surface, broken);
 
       expect(failures.some((failure) => failure.includes('setTerrain is broken'))).toBe(true);
     },
