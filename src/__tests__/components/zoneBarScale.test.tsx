@@ -72,7 +72,7 @@ describe('zone bar scale', () => {
     expect(percent(bar(2).width)).toBe(0);
   });
 
-  it('ends each bar in the shared 4px rounded end rather than a pill', async () => {
+  vaultIt('ends each bar in the shared 4px rounded end rather than a pill', async () => {
     const { bar } = await drawn(BANDS);
 
     expect(bar(1).borderRadius).toBe(4);

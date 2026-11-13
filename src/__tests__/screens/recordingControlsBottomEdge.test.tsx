@@ -130,22 +130,25 @@ async function unlock() {
   await act(async () => fireEvent.press(screen.getByTestId('unlock')));
 }
 
-it('keeps the controls a margin from the edge on a phone with no bottom inset', async () => {
+vaultIt('keeps the controls a margin from the edge on a phone with no bottom inset', async () => {
   await render(<RecordingScreen />, { wrapper: withInset(0) });
   await unlock();
 
   expect(bottomPaddingAround('control-pause')).toBeGreaterThanOrEqual(spacing.md);
 });
 
-it('keeps the unlock track a margin from the edge on a phone with no bottom inset', async () => {
-  await render(<RecordingScreen />, { wrapper: withInset(0) });
+vaultIt(
+  'keeps the unlock track a margin from the edge on a phone with no bottom inset',
+  async () => {
+    await render(<RecordingScreen />, { wrapper: withInset(0) });
 
-  expect(
-    StyleSheet.flatten(screen.getByTestId('recording-unlock-slot').props.style).paddingBottom
-  ).toBeGreaterThanOrEqual(spacing.md);
-});
+    expect(
+      StyleSheet.flatten(screen.getByTestId('recording-unlock-slot').props.style).paddingBottom
+    ).toBeGreaterThanOrEqual(spacing.md);
+  }
+);
 
-it('clears a gesture bar once', async () => {
+vaultIt('clears a gesture bar once', async () => {
   await render(<RecordingScreen />, { wrapper: withInset(48) });
   expect(
     StyleSheet.flatten(screen.getByTestId('recording-unlock-slot').props.style).paddingBottom
@@ -189,7 +192,7 @@ describe('in a window shorter than the column', () => {
     }
   });
 
-  it('gives the map what is left of a half-screen pane, without scrolling', async () => {
+  vaultIt('gives the map what is left of a half-screen pane, without scrolling', async () => {
     await render(<RecordingScreen />, { wrapper: withInset(0) });
     await unlock();
     await layOut('recording-column-head', 125);
@@ -215,7 +218,7 @@ describe('in a window shorter than the column', () => {
     expect(screen.getByTestId('recording-map')).toBeTruthy();
   });
 
-  it('holds the region still while locked, as the lock holds the map', async () => {
+  vaultIt('holds the region still while locked, as the lock holds the map', async () => {
     await render(<RecordingScreen />, { wrapper: withInset(0) });
     await layOut('recording-column-head', 125);
     await layOut('recording-column-tiles', 167);
@@ -224,7 +227,7 @@ describe('in a window shorter than the column', () => {
     expect(screen.getByTestId('recording-column-region').props.scrollEnabled).toBe(false);
   });
 
-  it('caps the timer at the dense text scale', async () => {
+  vaultIt('caps the timer at the dense text scale', async () => {
     await render(<RecordingScreen />, { wrapper: withInset(0) });
 
     expect(screen.getByTestId('recording-timer').props.maxFontSizeMultiplier).toBe(

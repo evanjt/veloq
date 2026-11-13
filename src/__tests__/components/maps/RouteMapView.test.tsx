@@ -70,7 +70,7 @@ function renderRoute(props: Partial<React.ComponentProps<typeof RouteMapView>> =
 }
 
 describe('RouteMapView', () => {
-  it('mounts the route container and a map', async () => {
+  vaultIt('mounts the route container and a map', async () => {
     await renderRoute();
 
     expect(screen.getByTestId('route-map-container')).toBeTruthy();
@@ -100,7 +100,7 @@ describe('RouteMapView', () => {
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
   });
 
-  it('renders highlighted traces from activity signatures', async () => {
+  vaultIt('renders highlighted traces from activity signatures', async () => {
     await renderRoute({
       activitySignatures: {
         a1: { points: POINTS },
@@ -112,7 +112,7 @@ describe('RouteMapView', () => {
     expect(screen.getByTestId('route-map-container')).toBeTruthy();
   });
 
-  it('accepts a highlighted lap that is shorter than the route', async () => {
+  vaultIt('accepts a highlighted lap that is shorter than the route', async () => {
     await renderRoute({
       activitySignatures: { a1: { points: POINTS } },
       highlightedLapPoints: POINTS.slice(1, 3),
@@ -121,13 +121,13 @@ describe('RouteMapView', () => {
     expect(screen.getByTestId('route-map-container')).toBeTruthy();
   });
 
-  it("sits the credit above the sheet covering the map's foot", async () => {
+  vaultIt("sits the credit above the sheet covering the map's foot", async () => {
     await renderRoute({ interactive: true, coveredBottom: 240 });
 
     expect(StyleSheet.flatten(screen.getByTestId('map-attribution').props.style).bottom).toBe(240);
   });
 
-  it('stands the credit clear of the rounded corners of the sheet under it', async () => {
+  vaultIt('stands the credit clear of the rounded corners of the sheet under it', async () => {
     await renderRoute({ interactive: true, coveredBottom: 240, coveredBottomRadius: 28 });
 
     const credit = StyleSheet.flatten(screen.getByTestId('map-attribution').props.style);
@@ -188,7 +188,7 @@ describe('RouteMapView', () => {
     });
   });
 
-  it('credits the basemap inline, outside the fullscreen view', async () => {
+  vaultIt('credits the basemap inline, outside the fullscreen view', async () => {
     await renderRoute({ enableFullscreen: true });
 
     expect(screen.getByTestId('map-attribution-text').props.children).toBe(MAP_ATTRIBUTIONS.light);

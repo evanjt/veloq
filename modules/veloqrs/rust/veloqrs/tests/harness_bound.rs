@@ -25,11 +25,13 @@ fn panic_message(outcome: Result<(), Box<dyn std::any::Any + Send>>) -> String {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_body_that_returns_in_time_passes() {
     within(Duration::from_secs(5), "quick", || {});
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_body_that_overruns_fails_naming_the_label_and_the_bound() {
     let outcome = catch_unwind(AssertUnwindSafe(|| {
         within(Duration::from_millis(50), "runaway", || {
@@ -43,6 +45,7 @@ fn a_body_that_overruns_fails_naming_the_label_and_the_bound() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_bodys_own_panic_comes_through_unchanged() {
     let outcome = catch_unwind(AssertUnwindSafe(|| {
         within(Duration::from_secs(5), "asserting", || {

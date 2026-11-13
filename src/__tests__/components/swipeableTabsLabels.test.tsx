@@ -41,7 +41,7 @@ function renderStrip() {
 }
 
 describe('the tab strip', () => {
-  it.each(TABS.map((t) => t.label))('keeps %s on one line', async (label) => {
+  vaultIt.each(TABS.map((t) => t.label))('keeps %s on one line', async (label) => {
     const { getByText } = await renderStrip();
 
     expect(getByText(label).props.numberOfLines).toBe(1);
@@ -79,13 +79,13 @@ describe('what a screen reader hears on a tab', () => {
     expect(getByRole('tab', { name: 'Laps, 12' })).toBeTruthy();
   });
 
-  it('speaks the count, a zero included', () => {
+  vaultIt('speaks the count, a zero included', () => {
     const { getByRole } = renderBadged();
 
     expect(getByRole('tab', { name: 'Notes, 0' })).toBeTruthy();
   });
 
-  it('speaks only the name of a tab with no badge', () => {
+  vaultIt('speaks only the name of a tab with no badge', () => {
     const { getByRole } = renderBadged();
 
     expect(getByRole('tab', { name: 'Gear' })).toBeTruthy();

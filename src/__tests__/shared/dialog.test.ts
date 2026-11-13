@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 describe('confirmAction', () => {
-  it('can be dismissed, and a dismissal is the cancel', () => {
+  vaultIt('can be dismissed, and a dismissal is the cancel', () => {
     const onCancel = jest.fn();
     const onConfirm = jest.fn();
     confirmAction({
@@ -53,7 +53,7 @@ describe('confirmAction', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-  it('puts the cancel first, so Android shows the action as the positive button', () => {
+  vaultIt('puts the cancel first, so Android shows the action as the positive button', () => {
     const onConfirm = jest.fn();
     confirmAction({
       title: 'Delete ride?',
@@ -75,7 +75,7 @@ describe('confirmAction', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it('dismisses without a cancel handler and calls nothing', () => {
+  vaultIt('dismisses without a cancel handler and calls nothing', () => {
     const onConfirm = jest.fn();
     confirmAction({ title: 'Rename?', confirmLabel: 'Rename', cancelLabel: 'Keep', onConfirm });
 
@@ -86,7 +86,7 @@ describe('confirmAction', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-  it('holds a required decision open against back and the scrim', () => {
+  vaultIt('holds a required decision open against back and the scrim', () => {
     confirmAction({
       title: 'Whose library?',
       confirmLabel: 'Mine',
@@ -101,7 +101,7 @@ describe('confirmAction', () => {
 });
 
 describe('chooseAction', () => {
-  it('puts the cancel in the negative slot and the last action in the positive one', () => {
+  vaultIt('puts the cancel in the negative slot and the last action in the positive one', () => {
     const onCancel = jest.fn();
     chooseAction({
       title: 'No GPS',
@@ -124,7 +124,7 @@ describe('chooseAction', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('can be dismissed with no cancel button at all', () => {
+  vaultIt('can be dismissed with no cancel button at all', () => {
     const onDismiss = jest.fn();
     chooseAction({
       title: 'Resume ride?',
@@ -142,7 +142,7 @@ describe('chooseAction', () => {
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('holds a required choice open', () => {
+  vaultIt('holds a required choice open', () => {
     chooseAction({
       title: 'Whose library?',
       cancelLabel: 'Back',
@@ -155,7 +155,7 @@ describe('chooseAction', () => {
 });
 
 describe('inform', () => {
-  it('can be dismissed', () => {
+  vaultIt('can be dismissed', () => {
     inform({ title: 'Backup not restored', message: 'The file is damaged.' });
 
     const [title, message, buttons, options] = lastCall();
@@ -165,7 +165,7 @@ describe('inform', () => {
     expect(options?.cancelable).toBe(true);
   });
 
-  it('runs the same handler for its button and for a dismissal', () => {
+  vaultIt('runs the same handler for its button and for a dismissal', () => {
     const onDismiss = jest.fn();
     inform({ title: 'Library rebuilt', dismissLabel: 'Got it', onDismiss });
 
@@ -188,7 +188,7 @@ describe('inform', () => {
  * fire none.
  */
 describe('destructive accepts', () => {
-  it('fires one medium impact before the confirm runs', () => {
+  vaultIt('fires one medium impact before the confirm runs', () => {
     const onConfirm = jest.fn();
     confirmAction({
       title: 'Delete section?',
@@ -229,7 +229,7 @@ describe('destructive accepts', () => {
     expect(finished).toBe(true);
   });
 
-  it('fires nothing when the destructive confirm is cancelled or dismissed', () => {
+  vaultIt('fires nothing when the destructive confirm is cancelled or dismissed', () => {
     const onCancel = jest.fn();
     confirmAction({
       title: 'Delete section?',
@@ -246,7 +246,7 @@ describe('destructive accepts', () => {
     expect(haptics.medium).not.toHaveBeenCalled();
   });
 
-  it('fires nothing for a confirm that is not destructive', () => {
+  vaultIt('fires nothing for a confirm that is not destructive', () => {
     const onConfirm = jest.fn();
     confirmAction({ title: 'Rename?', confirmLabel: 'Rename', cancelLabel: 'Keep', onConfirm });
 
@@ -255,26 +255,29 @@ describe('destructive accepts', () => {
     expect(haptics.medium).not.toHaveBeenCalled();
   });
 
-  it('fires one medium impact when a destructive choice is taken, and none for the others', () => {
-    const onDelete = jest.fn();
-    const onSettings = jest.fn();
-    chooseAction({
-      title: 'No GPS',
-      cancelLabel: 'Carry on',
-      actions: [
-        { label: 'Stop', destructive: true, onPress: onDelete },
-        { label: 'Settings', onPress: onSettings },
-      ],
-    });
+  vaultIt(
+    'fires one medium impact when a destructive choice is taken, and none for the others',
+    () => {
+      const onDelete = jest.fn();
+      const onSettings = jest.fn();
+      chooseAction({
+        title: 'No GPS',
+        cancelLabel: 'Carry on',
+        actions: [
+          { label: 'Stop', destructive: true, onPress: onDelete },
+          { label: 'Settings', onPress: onSettings },
+        ],
+      });
 
-    lastCall()[2]?.[2]?.onPress?.();
-    expect(haptics.medium).not.toHaveBeenCalled();
+      lastCall()[2]?.[2]?.onPress?.();
+      expect(haptics.medium).not.toHaveBeenCalled();
 
-    lastCall()[2]?.[0]?.onPress?.();
-    expect(onDelete).toHaveBeenCalledTimes(1);
-    expect(haptics.medium).toHaveBeenCalledTimes(1);
-    expect(jest.mocked(haptics.medium).mock.invocationCallOrder[0]).toBeLessThan(
-      onDelete.mock.invocationCallOrder[0]
-    );
-  });
+      lastCall()[2]?.[0]?.onPress?.();
+      expect(onDelete).toHaveBeenCalledTimes(1);
+      expect(haptics.medium).toHaveBeenCalledTimes(1);
+      expect(jest.mocked(haptics.medium).mock.invocationCallOrder[0]).toBeLessThan(
+        onDelete.mock.invocationCallOrder[0]
+      );
+    }
+  );
 });

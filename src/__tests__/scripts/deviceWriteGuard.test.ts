@@ -70,7 +70,7 @@ mod tests {
 `;
 
 describe('the device write guard', () => {
-  it('passes a tree whose every write site is listed', () => {
+  vaultIt('passes a tree whose every write site is listed', () => {
     const root = treeWith({ 'src/shared/a.ts': TS_STORE });
 
     expect(runGuard(root, { 'src/shared/a.ts': 1 }).status).toBe(0);
@@ -94,7 +94,7 @@ describe('the device write guard', () => {
     expect(run.output).toContain('src/shared/a.ts  2, listed 1');
   });
 
-  it('counts a direct byte write through a File', () => {
+  vaultIt('counts a direct byte write through a File', () => {
     const root = treeWith({
       'src/shared/a.ts': `${TS_STORE}\nnew File(path).write(new Uint8Array(buffer));\n`,
     });
@@ -104,7 +104,7 @@ describe('the device write guard', () => {
     expect(run.output).toContain('src/shared/a.ts  2, listed 1');
   });
 
-  it('refuses a listed file that no longer writes', () => {
+  vaultIt('refuses a listed file that no longer writes', () => {
     const root = treeWith({ 'src/shared/a.ts': 'export const nothing = 1;\n' });
 
     expect(runGuard(root, { 'src/shared/a.ts': 1 }).status).toBe(1);
@@ -127,7 +127,7 @@ describe('the device write guard', () => {
     ).toBe(0);
   });
 
-  it('counts only what a checkout tracks, not a generated file git ignores', () => {
+  vaultIt('counts only what a checkout tracks, not a generated file git ignores', () => {
     const root = treeWith({
       '.gitignore': 'android/app/src/main/java/com/veloq/app/dev/\n',
       'src/shared/a.ts': TS_STORE,
@@ -142,7 +142,7 @@ describe('the device write guard', () => {
     expect(run.status).toBe(0);
   });
 
-  it('counts no comment, test, config plugin or Rust test module', () => {
+  vaultIt('counts no comment, test, config plugin or Rust test module', () => {
     const root = treeWith({
       'src/shared/a.ts':
         '// AsyncStorage.setItem(k, v) is how this used to work\nexport const x = 1;\n',

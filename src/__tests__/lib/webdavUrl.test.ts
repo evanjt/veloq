@@ -151,7 +151,7 @@ describe('webdavTestMessage', () => {
     '@/features/settings/lib/autobackup/webdavTestMessage'
   );
 
-  it('words every failure from its kind and keeps the status code', () => {
+  vaultIt('words every failure from its kind and keeps the status code', () => {
     expect(webdavTestMessage({ kind: 'status', code: 503 }, t, null)).toBe('Server returned 503');
     expect(webdavTestMessage({ kind: 'transport' }, t, null)).toBe('Connection failed');
     expect(webdavTestMessage({ kind: 'urlProblem', problem: 'invalid' }, t, 'bad address')).toBe(

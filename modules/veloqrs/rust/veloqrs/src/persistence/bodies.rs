@@ -950,6 +950,7 @@ mod tests {
     /// run on a pooled reader into an autocommit write that serialises with the
     /// sync, and rewrites `idx_stream_bodies_updated` with it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_freshly_stamped_body_is_not_restamped_on_every_read() {
         let (_dir, engine) = engine();
         engine.set_stream_body("a1", "time", "body").unwrap();
@@ -983,6 +984,7 @@ mod tests {
     /// read of a body older than the interval does move it to the front. The
     /// point of the interval is to stop the write, not to stop the LRU.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stale_body_is_restamped_so_it_outlives_an_untouched_neighbour() {
         let (_dir, engine) = engine();
         engine.set_stream_body("a1", "time", "body").unwrap();
@@ -1005,6 +1007,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stored_42_day_pace_body_records_the_curve_end_date() {
         let (_dir, engine) = engine();
         let body = r#"{"list":[{"end_date_local":"2026-08-20T18:30:00",
@@ -1045,6 +1048,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn curve_bodies_are_keyed_by_every_parameter() {
         let (_dir, engine) = engine();
 
@@ -1094,6 +1098,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn refetching_a_curve_replaces_it() {
         let (_dir, engine) = engine();
         engine
@@ -1116,6 +1121,7 @@ mod tests {
     /// nothing to date it with, because the read answers the body alone while
     /// the column has been written since `015_curve_interval_calendar_bodies`.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stored_curve_answers_when_it_was_fetched() {
         let (_dir, engine) = engine();
         let before = std::time::SystemTime::now()
@@ -1136,6 +1142,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_curve_that_was_never_fetched_answers_nothing() {
         let (_dir, engine) = engine();
 
@@ -1148,6 +1155,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refetch_moves_the_fetched_time_with_the_body() {
         let (_dir, engine) = engine();
         engine
@@ -1171,6 +1179,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_fetched_time_is_keyed_the_same_way_the_body_is() {
         let (_dir, engine) = engine();
         engine
@@ -1186,6 +1195,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn stream_bodies_are_keyed_by_series_selection() {
         let (_dir, engine) = engine();
 
@@ -1229,6 +1239,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn stream_bodies_stay_under_the_byte_budget() {
         let (_dir, engine) = engine();
         let body = quarter_budget_body();
@@ -1247,6 +1258,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn one_body_larger_than_the_whole_budget_is_still_kept() {
         let (_dir, engine) = engine();
         let huge = "x".repeat((MAX_STREAM_BODY_BYTES + 1024) as usize);
@@ -1282,6 +1294,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn reading_a_stream_body_saves_it_from_eviction() {
         let (_dir, engine) = engine();
         let body = quarter_budget_body();
@@ -1307,6 +1320,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_read_keeps_the_row_at_the_head() {
         let (_dir, engine) = engine();
         let body = quarter_budget_body();
@@ -1325,6 +1339,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_missed_read_stores_nothing() {
         let (_dir, engine) = engine();
         engine.set_stream_body("a1", "time", "payload").unwrap();
@@ -1338,6 +1353,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_budget_is_reached_without_evicting() {
         let (_dir, engine) = engine();
         let body = quarter_budget_body();
@@ -1355,6 +1371,7 @@ mod tests {
     /// Expected behaviour: the raw body is a cache and may go, but the series
     /// themselves are stored, so the read still answers from the device.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stored_series_survives_the_body_cache_ceiling() {
         let (_dir, engine) = engine();
         let body =
@@ -1518,6 +1535,7 @@ mod tests {
     /// A time stream whose blob will not decode leaves the clock out of the
     /// body on both read paths, and both say why.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_undecodable_time_stream_is_dropped_out_loud() {
         crate::test_log::capturing();
         let (_dir, engine) = engine();
@@ -1635,6 +1653,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn interval_bodies_are_stored_without_their_null_fields() {
         let (_dir, engine) = engine();
         let fixture: serde_json::Value = serde_json::from_str(FETCHED_BODIES).unwrap();
@@ -1660,6 +1679,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_interval_body_with_nothing_to_drop_is_stored_as_given() {
         let (_dir, engine) = engine();
         for raw in [
@@ -1700,6 +1720,7 @@ mod tests {
     /// rather than storing one, so a pass that was killed halfway resumes by
     /// re-deriving what is still missing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_interval_queue_is_what_has_no_body_yet_newest_first() {
         let (_dir, mut engine) = engine();
         engine
@@ -1725,6 +1746,7 @@ mod tests {
     /// records the server's id, tracked or trackless, and keeps every server
     /// row.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_interval_queue_leaves_out_a_local_recording_no_server_has_named() {
         let (_dir, mut engine) = engine();
         engine
@@ -1763,6 +1785,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn replacing_a_calendar_window_drops_cancelled_events() {
         let (_dir, mut engine) = engine();
         engine
@@ -1854,6 +1877,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_preview_reads_from_the_stored_track_when_no_body_was_cached() {
         let (_dir, mut engine) = engine();
         engine
@@ -1886,6 +1910,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cached_body_wins_over_the_reconstruction() {
         let (_dir, mut engine) = engine();
         engine
@@ -1907,6 +1932,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_selection_the_track_cannot_serve_reads_as_absent() {
         let (_dir, mut engine) = engine();
         engine
@@ -1930,6 +1956,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_reconstruction_carries_time_when_it_indexes_the_same_samples() {
         let (_dir, mut engine) = engine();
         engine
@@ -1968,6 +1995,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_track_with_no_elevation_serves_the_line_without_a_profile() {
         let (_dir, mut engine) = engine();
         let flat: Vec<crate::GpsPoint> = (0..4)
@@ -1989,6 +2017,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_corrected_altitude_selection_is_served_as_plain_altitude() {
         let (_dir, mut engine) = engine();
         engine
@@ -2007,6 +2036,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_with_no_stored_track_has_nothing_to_reconstruct() {
         let (_dir, engine) = engine();
         assert!(
@@ -2034,6 +2064,7 @@ mod tests {
     /// device, in the server's own sample index, carrying what the server's
     /// body carried and leaving out the coordinates and altitude it never had.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_trackless_activity_answers_its_detail_selection_once_its_body_is_evicted() {
         let (_dir, engine) = engine();
         engine.set_stream_body("gym", DETAIL, STRENGTH).unwrap();
@@ -2072,6 +2103,7 @@ mod tests {
     /// Expected behaviour: nothing written in the server's index survives
     /// beside them, so no series is addressed against the wrong samples.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn series_stored_without_a_track_do_not_survive_one_arriving() {
         let (_dir, mut engine) = engine();
         engine.set_stream_body("gym", DETAIL, STRENGTH).unwrap();
@@ -2096,6 +2128,7 @@ mod tests {
     /// its series stored serves the track's coordinates, and never a `time`
     /// series from the store, which keeps none for it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ride_with_a_track_stores_no_clock_of_its_own() {
         let (_dir, mut engine) = engine();
         engine
@@ -2128,6 +2161,7 @@ mod tests {
     /// out the way the server's own body leaves them out. A series outside
     /// what the stocking fetch asks for is still unanswered.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stocked_ride_without_power_answers_its_detail_selection_offline() {
         let (_dir, mut engine) = engine();
         engine
@@ -2196,6 +2230,7 @@ mod tests {
     /// Expected behaviour: the detail selection is not answered, so the
     /// screen still fetches the series rather than drawing a track alone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unstocked_ride_leaves_its_detail_selection_to_the_fetch() {
         let (_dir, mut engine) = engine();
         engine
@@ -2211,6 +2246,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_reconstruction_does_not_displace_the_cache_ceiling() {
         let (_dir, mut engine) = engine();
         engine
@@ -2232,6 +2268,7 @@ mod tests {
     /// autocommits, so one activity's streams was six fsyncs under the
     /// engine lock.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn storing_a_stream_body_is_one_commit() {
         let (_dir, engine) = engine();
         let raw = r#"[{"type":"watts","data":[100,200]},
@@ -2248,6 +2285,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_body_for_the_same_activity_is_one_commit() {
         let (_dir, engine) = engine();
         let raw = r#"[{"type":"watts","data":[100,200]}]"#;
@@ -2262,6 +2300,7 @@ mod tests {
     /// A body that will not parse is still cached, and the cache write is the
     /// only commit.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unparseable_body_is_one_commit_and_still_cached() {
         let (_dir, engine) = engine();
         let commits = super::super::commit_counter::watch(&engine);

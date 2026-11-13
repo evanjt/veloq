@@ -233,16 +233,16 @@ describe('disconnecting', () => {
 });
 
 describe('the connector state', () => {
-  it('reads "Key needed" when the connector was enabled and no key is kept', () => {
+  vaultIt('reads "Key needed" when the connector was enabled and no key is kept', () => {
     expect(garminConnectorState({ enabled: true, keyKept: false })).toBe('keyNeeded');
   });
 
-  it('reads "connected" whenever a key is kept', () => {
+  vaultIt('reads "connected" whenever a key is kept', () => {
     expect(garminConnectorState({ enabled: true, keyKept: true })).toBe('connected');
     expect(garminConnectorState({ enabled: false, keyKept: true })).toBe('connected');
   });
 
-  it('reads "off" when it was never enabled or was disconnected', () => {
+  vaultIt('reads "off" when it was never enabled or was disconnected', () => {
     expect(garminConnectorState({ enabled: false, keyKept: false })).toBe('off');
   });
 
@@ -295,7 +295,7 @@ describe('restoring at launch', () => {
 });
 
 describe('the duplicate warning', () => {
-  it('shows only when uploads are on while intervals.icu imports Garmin itself', () => {
+  vaultIt('shows only when uploads are on while intervals.icu imports Garmin itself', () => {
     expect(garminDuplicateWarning({ syncsActivities: true, uploadOn: true })).toBe(true);
     expect(garminDuplicateWarning({ syncsActivities: true, uploadOn: false })).toBe(false);
     expect(garminDuplicateWarning({ syncsActivities: false, uploadOn: true })).toBe(false);
@@ -304,17 +304,20 @@ describe('the duplicate warning', () => {
 });
 
 describe('reading the account after a key is connected', () => {
-  it('hands back the engine reading, and none when the engine has no account to give', async () => {
-    const account = {
-      displayName: 'Invented Athlete',
-    };
-    expect(await readGarminAccount({ engine: engine(GarminKeyStatus.Connected, account) })).toEqual(
-      account
-    );
-    expect(
-      await readGarminAccount({ engine: engine(GarminKeyStatus.Connected, undefined) })
-    ).toBeUndefined();
-  });
+  vaultIt(
+    'hands back the engine reading, and none when the engine has no account to give',
+    async () => {
+      const account = {
+        displayName: 'Invented Athlete',
+      };
+      expect(
+        await readGarminAccount({ engine: engine(GarminKeyStatus.Connected, account) })
+      ).toEqual(account);
+      expect(
+        await readGarminAccount({ engine: engine(GarminKeyStatus.Connected, undefined) })
+      ).toBeUndefined();
+    }
+  );
 
   it('reads as no account when the engine read fails, and the connection stands', async () => {
     const e = engine(GarminKeyStatus.Connected);

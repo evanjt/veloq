@@ -68,6 +68,7 @@ fn spoken(value: &serde_json::Value) -> &str {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rising_fitness_says_its_verdict_in_words() {
     let snapshot = compose(&rising_fitness(), &context(english()), clock());
     assert_eq!(snapshot.metrics.fitness.spoken, "Fitness 52, improved");
@@ -82,6 +83,7 @@ fn a_rising_fitness_says_its_verdict_in_words() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_move_with_no_polarity_says_which_way_and_a_flat_one_says_steady() {
     let snapshot = compose(&rising_fitness(), &context(english()), clock());
     assert_eq!(snapshot.metrics.form.spoken, "Form -8, rising");
@@ -92,6 +94,7 @@ fn a_move_with_no_polarity_says_which_way_and_a_flat_one_says_steady() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_metric_with_no_reading_says_so_rather_than_a_dash() {
     let snapshot = compose(&rising_fitness(), &context(english()), clock());
     assert_eq!(snapshot.metrics.hrv.spoken, "HRV, no reading");
@@ -105,6 +108,7 @@ fn a_metric_with_no_reading_says_so_rather_than_a_dash() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn each_chart_carries_a_one_line_summary() {
     let snapshot = compose(&rising_fitness(), &context(english()), clock());
     let charts = &snapshot.display.chart_labels;
@@ -120,6 +124,7 @@ fn each_chart_carries_a_one_line_summary() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_chart_with_too_few_days_to_draw_carries_no_summary() {
     let mut data = rising_fitness();
     data.sparklines = Some(FfiWellnessSparklines {
@@ -138,6 +143,7 @@ fn a_chart_with_too_few_days_to_draw_carries_no_summary() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_context_stored_before_the_words_still_speaks_the_label_and_value() {
     let mut strings = english();
     strings.retain(|key, _| !key.starts_with("systemSurfaces.spoken."));
@@ -147,6 +153,7 @@ fn a_context_stored_before_the_words_still_speaks_the_label_and_value() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_route_record_body_and_insight_tones_are_worded() {
     let snapshot = demo();
     let latest = &snapshot["latest"];
@@ -172,6 +179,7 @@ fn the_route_record_body_and_insight_tones_are_worded() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_with_no_strength_work_has_no_body_to_describe() {
     let snapshot = compose(&rising_fitness(), &context(english()), clock());
     assert_eq!(snapshot.strength.windows.last30.body_label, None);

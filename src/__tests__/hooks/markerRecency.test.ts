@@ -15,15 +15,15 @@ const YEAR = 365 * DAY;
 describe('recencyAge', () => {
   const now = localWallClockToEpochSeconds(new Date(2026, 10, 9, 10, 0));
 
-  it('reads a ride stamped now as brand new', () => {
+  vaultIt('reads a ride stamped now as brand new', () => {
     expect(recencyAge(now, now)).toBe(0);
   });
 
-  it('reads a ride from half a year back as half a year old', () => {
+  vaultIt('reads a ride from half a year back as half a year old', () => {
     expect(recencyAge(now - YEAR / 2, now)).toBeCloseTo(0.5, 12);
   });
 
-  it('caps a ride older than a year at one', () => {
+  vaultIt('caps a ride older than a year at one', () => {
     expect(recencyAge(now - 3 * YEAR, now)).toBe(1);
   });
 

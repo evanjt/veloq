@@ -40,7 +40,7 @@ describe('fitness pull-to-refresh', () => {
     expect(result.current.isRefreshing).toBe(false);
   });
 
-  it('stops the spinner when the wellness refetch rejects', async () => {
+  vaultIt('stops the spinner when the wellness refetch rejects', async () => {
     const refetchWellness = jest.fn().mockRejectedValue(new Error('offline'));
     const { result } = await renderHook(() => useFitnessRefresh(refetchWellness, jest.fn()), {
       wrapper,

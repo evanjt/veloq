@@ -85,7 +85,7 @@ describe('StreamHistoryRow', () => {
     mockEngineHandle = buildEngine();
   });
 
-  it('keeps everything on an install that has never chosen', async () => {
+  vaultIt('keeps everything on an install that has never chosen', async () => {
     const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
     expect(DEFAULT_STREAM_RETENTION_DAYS).toBe(0);
     expect(getByTestId('settings-stream-window').props.children).toBe(
@@ -98,7 +98,7 @@ describe('StreamHistoryRow', () => {
     expect(getByTestId('settings-stream-bytes').props.children).toBe('4.2 MB');
   });
 
-  it('reads the window and bytes in one screen call', async () => {
+  vaultIt('reads the window and bytes in one screen call', async () => {
     const engine = {
       ...buildEngine(),
       streamRetentionDays: jest.fn(() => {
@@ -172,7 +172,7 @@ describe('StreamHistoryRow', () => {
     expect(setStreamRetentionDays).toHaveBeenCalledWith(90);
   });
 
-  it('reset widens to keep-everything without asking', async () => {
+  vaultIt('reset widens to keep-everything without asking', async () => {
     stored = 365;
     const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
 
@@ -182,7 +182,7 @@ describe('StreamHistoryRow', () => {
     expect(setStreamRetentionDays).toHaveBeenCalledWith(DEFAULT_STREAM_RETENTION_DAYS);
   });
 
-  it('shrinking the window drops the readout', async () => {
+  vaultIt('shrinking the window drops the readout', async () => {
     bytes = 9 * 1024 * 1024;
     const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
     expect(getByTestId('settings-stream-bytes').props.children).toBe('9.4 MB');
@@ -199,7 +199,7 @@ describe('StreamHistoryRow', () => {
     expect(setStreamRetentionDays).toHaveBeenCalledTimes(STREAM_RETENTION_CHOICES_DAYS.length);
   });
 
-  it('names the widest window rather than printing zero days', async () => {
+  vaultIt('names the widest window rather than printing zero days', async () => {
     stored = 0;
     const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
     expect(getByTestId('settings-stream-window').props.children).toBe(
@@ -207,7 +207,7 @@ describe('StreamHistoryRow', () => {
     );
   });
 
-  it('offers a reset only when the window is not the default', async () => {
+  vaultIt('offers a reset only when the window is not the default', async () => {
     const { getByTestId, queryByTestId, rerender } = await render(
       <StreamHistoryRow isDark={false} />
     );
@@ -234,17 +234,20 @@ describe('StreamHistoryRow', () => {
     expect(mockUpdateRouteSettings).not.toHaveBeenCalled();
   });
 
-  it('renders nothing when the engine cannot answer', async () => {
+  vaultIt('renders nothing when the engine cannot answer', async () => {
     mockEngineHandle = null;
     const { queryByTestId } = await render(<StreamHistoryRow isDark={false} />);
     expect(queryByTestId('settings-stream-history')).toBeNull();
   });
 
-  it('renders nothing while the engine is open but unready, rather than the default', async () => {
-    stored = undefined;
-    const { queryByTestId } = await render(<StreamHistoryRow isDark={false} />);
-    expect(queryByTestId('settings-stream-history')).toBeNull();
-  });
+  vaultIt(
+    'renders nothing while the engine is open but unready, rather than the default',
+    async () => {
+      stored = undefined;
+      const { queryByTestId } = await render(<StreamHistoryRow isDark={false} />);
+      expect(queryByTestId('settings-stream-history')).toBeNull();
+    }
+  );
 
   it('names a failed size read rather than showing an empty store', async () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {});

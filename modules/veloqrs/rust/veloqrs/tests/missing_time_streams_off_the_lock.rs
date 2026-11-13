@@ -55,6 +55,7 @@ fn seeded_engine() -> (TempDir, Vec<String>) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_answer_does_not_wait_for_the_writer_and_matches_the_engine() {
     let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());

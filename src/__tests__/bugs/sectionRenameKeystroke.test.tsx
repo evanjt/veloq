@@ -83,7 +83,7 @@ describe('renaming a section', () => {
     mockRenameSection.mockResolvedValue(undefined);
   });
 
-  it('does not render the screen root on a keystroke', async () => {
+  vaultIt('does not render the screen root on a keystroke', async () => {
     await render(<Root />);
     await fireEvent.press(screen.getByTestId('section-rename-button'));
     const before = rootRendered.mock.calls.length;

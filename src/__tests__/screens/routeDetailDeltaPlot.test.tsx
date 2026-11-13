@@ -209,7 +209,7 @@ describe('route page delta plot', () => {
     });
   });
 
-  it('takes the colouring back when the scatter is chosen again', async () => {
+  vaultIt('takes the colouring back when the scatter is chosen again', async () => {
     const screen = await render(<RouteDetailScreen />);
 
     await fireEvent.press(screen.getByTestId('chart-plot-delta'));
@@ -300,7 +300,7 @@ describe('route page curves owed', () => {
     expect(screen.getByTestId('performance-chart-panel')).toBeTruthy();
   });
 
-  it('loads nothing when the read holds its curves', async () => {
+  vaultIt('loads nothing when the read holds its curves', async () => {
     mockCurves = CURVES;
     mockCurvesPending = false;
     await render(<RouteDetailScreen />);

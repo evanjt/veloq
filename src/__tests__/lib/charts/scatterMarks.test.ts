@@ -39,13 +39,13 @@ describe('scatterMarkFor', () => {
     expect(mark).toEqual({ kind: 'dot', record: true, thisActivity: true, selected: false });
   });
 
-  it('gives a plain this-activity point the reticle only', () => {
+  vaultIt('gives a plain this-activity point the reticle only', () => {
     const mark = scatterMarkFor(attempt({ activityId: 'mine' }), CTX);
     expect(mark.thisActivity).toBe(true);
     expect(mark.record).toBe(false);
   });
 
-  it('gives the record held by another activity the ring and no reticle', () => {
+  vaultIt('gives the record held by another activity the ring and no reticle', () => {
     const mark = scatterMarkFor(attempt({ activityId: 'other', isBest: true }), CTX);
     expect(mark).toEqual({ kind: 'dot', record: true, thisActivity: false, selected: false });
   });
@@ -60,18 +60,18 @@ describe('scatterMarkFor', () => {
     expect(mark).toMatchObject({ kind: 'excluded', record: false });
   });
 
-  it('puts a fast attempt past the range at the top edge and a slow one at the bottom', () => {
+  vaultIt('puts a fast attempt past the range at the top edge and a slow one at the bottom', () => {
     expect(scatterMarkFor(attempt({ offScale: 'fast' }), CTX).kind).toBe('offScaleTop');
     expect(scatterMarkFor(attempt({ offScale: 'slow' }), CTX).kind).toBe('offScaleBottom');
   });
 
-  it('flags an excluded attempt past the range at the edge as well', () => {
+  vaultIt('flags an excluded attempt past the range at the edge as well', () => {
     expect(scatterMarkFor(attempt({ offScale: 'slow', isExcluded: true }), CTX).kind).toBe(
       'offScaleBottom'
     );
   });
 
-  it('never puts the highlighted point off the scale', () => {
+  vaultIt('never puts the highlighted point off the scale', () => {
     const mark = scatterMarkFor(attempt({ activityId: 'mine', offScale: 'slow' }), CTX);
     expect(mark.kind).toBe('dot');
     expect(mark.thisActivity).toBe(true);
@@ -104,7 +104,7 @@ describe('scatterRange', () => {
     expect(scatterRange(undefined, [])).toBeNull();
   });
 
-  it('holds a value past the range at its edge', () => {
+  vaultIt('holds a value past the range at its edge', () => {
     expect(clampToRange(30, [4, 6])).toBe(6);
     expect(clampToRange(1, [4, 6])).toBe(4);
     expect(clampToRange(5, [4, 6])).toBe(5);
@@ -179,7 +179,7 @@ describe('placeRecordStaircase', () => {
     expect(placed.steps).toEqual([{ x: 0.02, value: 700 }]);
   });
 
-  it('draws nothing with no progression', () => {
+  vaultIt('draws nothing with no progression', () => {
     expect(placeRecordStaircase([], dates, 'speed', [4, 6])).toEqual({
       carriedIn: null,
       steps: [],
@@ -212,7 +212,7 @@ describe('scatterStanding', () => {
     expect(scatterStanding(point, [], 'speed')).toEqual({ kind: 'offRecord', gap: 0.3 });
   });
 
-  it('says nothing where the engine gives no gap', () => {
+  vaultIt('says nothing where the engine gives no gap', () => {
     expect(scatterStanding(attempt({}), [], 'speed')).toBeNull();
   });
 });
@@ -240,18 +240,18 @@ describe('nearestScatterPointIndex within reach', () => {
 });
 
 describe('estimated times', () => {
-  it('draws an estimated section pass as the hollow variant of the dot', () => {
+  vaultIt('draws an estimated section pass as the hollow variant of the dot', () => {
     expect(scatterMarkFor(attempt({ estimated: true }), CTX).kind).toBe('estimated');
     expect(scatterMarkFor(attempt({ estimated: false }), CTX).kind).toBe('dot');
     expect(scatterMarkFor(attempt({}), CTX).kind).toBe('dot');
   });
 
-  it('keeps an estimated record holder hollow and ringed', () => {
+  vaultIt('keeps an estimated record holder hollow and ringed', () => {
     const mark = scatterMarkFor(attempt({ estimated: true, isBest: true }), CTX);
     expect(mark).toMatchObject({ kind: 'estimated', record: true });
   });
 
-  it('lets an excluded or off-scale estimated pass take the mark of that state', () => {
+  vaultIt('lets an excluded or off-scale estimated pass take the mark of that state', () => {
     expect(scatterMarkFor(attempt({ estimated: true, isExcluded: true }), CTX).kind).toBe(
       'excluded'
     );

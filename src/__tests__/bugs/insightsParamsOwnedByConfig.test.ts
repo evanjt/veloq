@@ -29,7 +29,7 @@ describe('insights engine parameters', () => {
     }
   });
 
-  it('reads the curation numbers from the configuration', () => {
+  vaultIt('reads the curation numbers from the configuration', () => {
     const params = buildInsightsParams();
     expect(params.rankedLimit).toBe(INSIGHTS_CONFIG.limits.rankedPerSport);
     expect(params.efficiencyPerSport).toBe(INSIGHTS_CONFIG.limits.efficiencyPerSport);

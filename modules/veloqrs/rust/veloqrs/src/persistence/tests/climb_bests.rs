@@ -105,6 +105,7 @@ fn a_run_holds_a_row_per_window_matching_the_computation() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_virtual_ride_holds_no_rows() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -115,6 +116,7 @@ fn a_virtual_ride_holds_no_rows() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stream_one_point_short_holds_no_rows() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -125,6 +127,7 @@ fn a_stream_one_point_short_holds_no_rows() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_measure_undecodable_time_stream_logs_and_returns_empty() {
     let _serial = crate::test_globals::serial_global_state();
     crate::test_log::capturing();
@@ -167,6 +170,7 @@ fn a_track_replaced_under_its_stream_moves_the_rows() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sport_change_on_an_identical_track_moves_the_rows() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -181,6 +185,7 @@ fn a_sport_change_on_an_identical_track_moves_the_rows() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_flatter_splice_lowers_the_short_window() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -205,6 +210,7 @@ fn a_flatter_splice_lowers_the_short_window() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_identical_restore_rewrites_nothing() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -296,6 +302,7 @@ fn a_library_without_rows_owes_each_measurable_activity_until_a_pass_writes_them
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_pass_over_a_filled_library_does_no_work() {
     let _serial = crate::test_globals::serial_global_state();
     let engine = upgraded_library();
@@ -327,6 +334,7 @@ fn window_rows(engine: &PersistentEngine, id: &str) -> Vec<Row> {
 /// Expected behaviour: it is measured once and then no longer owed, so the
 /// next pass takes nothing, and it holds no window.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_that_measures_to_nothing_is_no_longer_owed() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = upgraded_library();
@@ -348,6 +356,7 @@ fn an_activity_that_measures_to_nothing_is_no_longer_owed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_stored_with_no_elevation_is_never_owed() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -359,6 +368,7 @@ fn an_activity_stored_with_no_elevation_is_never_owed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unreadable_stream_of_the_right_length_is_no_longer_owed_once_measured() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = upgraded_library();
@@ -383,6 +393,7 @@ fn an_unreadable_stream_of_the_right_length_is_no_longer_owed_once_measured() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn elevation_gained_later_replaces_the_no_window_row_with_windows() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -407,6 +418,7 @@ fn elevation_gained_later_replaces_the_no_window_row_with_windows() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_that_loses_its_stream_length_drops_the_no_window_row() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -427,6 +439,7 @@ fn a_track_that_loses_its_stream_length_drops_the_no_window_row() {
 /// Expected behaviour: the owed work started at open fills the rows on its own
 /// thread, and asking again once nothing is owed starts nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_owed_work_at_open_fills_the_rows_without_a_credential() {
     use crate::objects::FfiStartOutcome;
     use crate::persistence::with_persistent_engine;
@@ -498,6 +511,9 @@ fn an_upgrade_clears_rows_written_before_the_final_step_fix_and_owes_them_again(
                  ALTER TABLE push_runs DROP COLUMN posted_body;
                  DROP TABLE activity_sync_failures;
                  ALTER TABLE wellness DROP COLUMN source;
+                 ALTER TABLE strength_sessions DROP COLUMN current_exercise;
+                 ALTER TABLE strength_sessions DROP COLUMN current_set;
+                 ALTER TABLE strength_sessions DROP COLUMN rest_started_at;
                  DROP TABLE remote_writes;
                  DROP TABLE activity_curves;
                  ALTER TABLE curve_bodies DROP COLUMN source;

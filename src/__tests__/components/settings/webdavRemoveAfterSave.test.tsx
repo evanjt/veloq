@@ -68,13 +68,16 @@ it('hides Remove again after it removes the stored configuration', async () => {
   await waitFor(() => expect(screen.queryByTestId('backup-remove-webdav')).toBeNull());
 });
 
-it('shows Remove straight away when the configuration was stored before the form opened', async () => {
-  mockStored = {
-    url: 'https://x.example/dav/',
-    username: 'keeper',
-    password: 'lighthouse',
-  };
-  await render(<WebdavConfigForm onConfigChange={jest.fn()} onRemoved={jest.fn()} />);
+vaultIt(
+  'shows Remove straight away when the configuration was stored before the form opened',
+  async () => {
+    mockStored = {
+      url: 'https://x.example/dav/',
+      username: 'keeper',
+      password: 'lighthouse',
+    };
+    await render(<WebdavConfigForm onConfigChange={jest.fn()} onRemoved={jest.fn()} />);
 
-  expect(screen.getByTestId('backup-remove-webdav')).toBeTruthy();
-});
+    expect(screen.getByTestId('backup-remove-webdav')).toBeTruthy();
+  }
+);

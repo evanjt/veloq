@@ -55,7 +55,7 @@ describe('memory pressure reclaimers', () => {
     expect(release.mock.calls).toEqual([[TRIM_MODERATE], [TRIM_COMPLETE]]);
   });
 
-  it('reports which reclaimers ran', () => {
+  vaultIt('reports which reclaimers ran', () => {
     const { registerReclaimer, dispatchMemoryPressure } = load();
     registerReclaimer({ name: 'queries', minLevel: TRIM_UI_HIDDEN, release: jest.fn() });
     registerReclaimer({ name: 'tiles', minLevel: TRIM_MODERATE, release: jest.fn() });
@@ -80,7 +80,7 @@ describe('memory pressure reclaimers', () => {
     expect(second).toHaveBeenCalledWith(TRIM_COMPLETE);
   });
 
-  it('unregisters', () => {
+  vaultIt('unregisters', () => {
     const { registerReclaimer, dispatchMemoryPressure } = load();
     const release = jest.fn();
     const off = registerReclaimer({ name: 'tiles', minLevel: TRIM_RUNNING_LOW, release });
@@ -90,7 +90,7 @@ describe('memory pressure reclaimers', () => {
     expect(release).not.toHaveBeenCalled();
   });
 
-  it('registers a name only once', () => {
+  vaultIt('registers a name only once', () => {
     const { registerReclaimer, dispatchMemoryPressure } = load();
     const release = jest.fn();
     registerReclaimer({ name: 'tiles', minLevel: TRIM_UI_HIDDEN, release });
@@ -191,7 +191,7 @@ describe('memory pressure listener', () => {
     });
   });
 
-  it('stops listening when torn down', () => {
+  vaultIt('stops listening when torn down', () => {
     const { startMemoryPressureListener } = load();
     const remove = jest.fn();
     const spy = jest

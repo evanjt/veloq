@@ -88,7 +88,7 @@ it('gives every key back as null when the whole keychain is refusing', async () 
   expect(store.attempts).toHaveLength(6);
 });
 
-it('reads nothing when asked for no keys', async () => {
+vaultIt('reads nothing when asked for no keys', async () => {
   const store = keychain({});
   await expect(readCredentialKeys(store.read, [])).resolves.toEqual({
     values: [],

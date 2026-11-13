@@ -103,7 +103,7 @@ describe('MapSurface under memory pressure', () => {
     await view.unmount();
   });
 
-  it('holds no offscreen hardware layer, which redraws whole on every pan frame', async () => {
+  vaultIt('holds no offscreen hardware layer, which redraws whole on every pan frame', async () => {
     const view = await renderSurface();
     expect(androidLayerType).not.toBe('hardware');
     await view.unmount();

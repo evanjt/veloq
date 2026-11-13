@@ -45,13 +45,16 @@ beforeEach(() => {
 });
 
 describe('uploadRecordingNow', () => {
-  it("hands the engine the ride's id as the athlete's own request, with the live documents directory", async () => {
-    await uploadRecordingNow('rec-1');
+  vaultIt(
+    "hands the engine the ride's id as the athlete's own request, with the live documents directory",
+    async () => {
+      await uploadRecordingNow('rec-1');
 
-    expect(mockUploadRecording).toHaveBeenCalledWith('rec-1', true, 'file:///docs/');
-  });
+      expect(mockUploadRecording).toHaveBeenCalledWith('rec-1', true, 'file:///docs/');
+    }
+  );
 
-  it("answers the engine's outcome and detail as they were given", async () => {
+  vaultIt("answers the engine's outcome and detail as they were given", async () => {
     mockUploadRecording.mockResolvedValue({
       outcome: UploadOutcome.Rejected,
       errorDetail: 'File type not supported',
@@ -74,7 +77,7 @@ describe('uploadRecordingNow', () => {
     expect(mockTransition).not.toHaveBeenCalled();
   });
 
-  it('answers that nothing started for the demo athlete without the demo flag', async () => {
+  vaultIt('answers that nothing started for the demo athlete without the demo flag', async () => {
     mockAuthState.athleteId = 'demo';
 
     expect(await uploadRecordingNow('rec-1')).toEqual({ outcome: UploadOutcome.NotStarted });

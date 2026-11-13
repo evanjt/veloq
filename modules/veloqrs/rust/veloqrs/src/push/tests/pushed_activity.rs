@@ -365,6 +365,7 @@ fn library_rows(id: &str) -> Vec<(String, Vec<Row>)> {
 /// since the push already stored the detail, the detail streams and the
 /// intervals.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pushed_activity_leaves_the_ready_pass_nothing_to_fetch() {
     let _guard = serial_global_state();
     let _tmp = signed_in_library("pushed-ready.db");
@@ -434,6 +435,7 @@ fn a_list_page_keeps_a_pushed_detail_until_the_census_names_a_moved_version() {
 /// Expected behaviour: no census row is written for it, so the sync still owes
 /// it rather than trusting a version nobody named.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_detail_with_no_version_marks_no_census_row() {
     let _guard = serial_global_state();
     let _tmp = signed_in_library("pushed-unversioned.db");
@@ -576,6 +578,7 @@ fn activities_announced(recorder: &crate::objects::observer::recorder::Recorder)
 /// channel, as a sync does once its rows are committed, so the list reads it
 /// again rather than waiting for the next sync.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stored_push_tells_the_feed_its_list_changed() {
     use crate::objects::observer::{recorder::Recorder, set_observer};
 
@@ -606,6 +609,7 @@ fn a_stored_push_tells_the_feed_its_list_changed() {
 ///
 /// Expected behaviour: the feed is not told anything landed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_dropped_push_tells_the_feed_nothing() {
     use crate::objects::observer::{recorder::Recorder, set_observer};
 
@@ -652,6 +656,7 @@ fn a_dropped_push_tells_the_feed_nothing() {
 ///
 /// Expected behaviour: the feed is not told anything landed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_gated_push_tells_the_feed_nothing() {
     use crate::objects::observer::{recorder::Recorder, set_observer};
 
@@ -730,6 +735,7 @@ fn grouped_route_of_three() {
 /// route membership has settled rather than before the regroup that settles
 /// it has committed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_new_ride_faster_than_every_earlier_one_on_its_route_is_announced_as_a_route_pr() {
     let _guard = serial_global_state();
     let _tmp = signed_in_library("pushed-route-pr.db");

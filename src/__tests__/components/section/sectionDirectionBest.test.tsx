@@ -100,7 +100,7 @@ describe('direction Best and Avg', () => {
     expect(getByTestId('year-best-reverse-2026').props.children).toBe('5:40');
   });
 
-  it('names the direction of every Best and Avg on the Summary card in words', async () => {
+  vaultIt('names the direction of every Best and Avg on the Summary card in words', async () => {
     const { getByTestId } = await card({
       bestForwardRecord: record(550),
       bestReverseRecord: record(340),
@@ -121,7 +121,7 @@ describe('direction Best and Avg', () => {
     }
   });
 
-  it('names each direction in words on the calendar year row and month entries', async () => {
+  vaultIt('names each direction in words on the calendar year row and month entries', async () => {
     const calendar: CalendarSummary = {
       years: [
         {

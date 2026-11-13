@@ -208,6 +208,7 @@ mod tests {
     use super::connected_since;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_connected_browser_reads_when_its_connection_came_up() {
         let up = vec![
             ("aa".to_owned(), 1_700_000_100),
@@ -217,6 +218,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_browser_with_no_open_connection_reads_none() {
         let up = vec![("aa".to_owned(), 1_700_000_100)];
         assert_eq!(connected_since(&up, "cc"), None);
@@ -224,6 +226,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_browser_with_two_open_connections_reads_the_earlier() {
         let up = vec![
             ("aa".to_owned(), 1_700_000_100),

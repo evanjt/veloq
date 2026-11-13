@@ -127,7 +127,7 @@ async function draw(element: React.ReactElement) {
 }
 
 describe('the selected-attempt card', () => {
-  it('opens on this activity and offers labelled buttons, none a bare icon', async () => {
+  vaultIt('opens on this activity and offers labelled buttons, none a bare icon', async () => {
     const tree = await draw(
       panel({
         chartData: FORWARD_ONLY,
@@ -147,7 +147,7 @@ describe('the selected-attempt card', () => {
     expect(card.UNSAFE_queryAllByType(IconButton)).toHaveLength(0);
   });
 
-  it('reads the standing the engine gave beside the value', async () => {
+  vaultIt('reads the standing the engine gave beside the value', async () => {
     const tree = await draw(panel({ chartData: FORWARD_ONLY, highlightedActivityId: 'ride-2' }));
 
     expect(
@@ -208,23 +208,26 @@ describe('the selected-attempt card', () => {
 });
 
 describe('excluded attempts', () => {
-  it('sit behind a link that names how many there are, and no eye toggle remains', async () => {
-    const onToggleShowExcluded = jest.fn();
-    const tree = await draw(
-      panel({
-        chartData: FORWARD_ONLY,
-        excludedCount: 1,
-        showExcluded: false,
-        onToggleShowExcluded,
-      })
-    );
+  vaultIt(
+    'sit behind a link that names how many there are, and no eye toggle remains',
+    async () => {
+      const onToggleShowExcluded = jest.fn();
+      const tree = await draw(
+        panel({
+          chartData: FORWARD_ONLY,
+          excludedCount: 1,
+          showExcluded: false,
+          onToggleShowExcluded,
+        })
+      );
 
-    expect(tree.queryByRole('button', { name: 'sections.showExcludedActivities' })).toBeNull();
-    await fireEvent.press(tree.getByText('sections.showExcludedAttempts:{"count":1}'));
-    expect(onToggleShowExcluded).toHaveBeenCalledTimes(1);
-  });
+      expect(tree.queryByRole('button', { name: 'sections.showExcludedActivities' })).toBeNull();
+      await fireEvent.press(tree.getByText('sections.showExcludedAttempts:{"count":1}'));
+      expect(onToggleShowExcluded).toHaveBeenCalledTimes(1);
+    }
+  );
 
-  it('draws the excluded attempt once shown, and offers to hide it again', async () => {
+  vaultIt('draws the excluded attempt once shown, and offers to hide it again', async () => {
     const shown = [
       ...FORWARD_ONLY,
       { ...FORWARD_ONLY[0]!, id: 'lap-x', activityId: 'ride-x', isExcluded: true },
@@ -242,13 +245,13 @@ describe('excluded attempts', () => {
     expect(tree.queryByText('sections.showExcludedAttempts:{"count":1}')).toBeNull();
   });
 
-  it('offers no link when nothing is excluded', async () => {
+  vaultIt('offers no link when nothing is excluded', async () => {
     const tree = await draw(panel({ chartData: FORWARD_ONLY, excludedCount: 0 }));
 
     expect(tree.queryByText(/sections\.showExcludedAttempts/)).toBeNull();
   });
 
-  it('keeps the link on a section whose every attempt is excluded', async () => {
+  vaultIt('keeps the link on a section whose every attempt is excluded', async () => {
     const onToggleShowExcluded = jest.fn();
     const tree = await draw(
       <SectionPerformanceSection
@@ -277,7 +280,7 @@ describe('excluded attempts', () => {
 });
 
 describe('the panel header', () => {
-  it('chooses the range from one menu control rather than a row of chips', async () => {
+  vaultIt('chooses the range from one menu control rather than a row of chips', async () => {
     const tree = await draw(
       <SectionPerformanceSection
         isDark={false}
@@ -302,7 +305,7 @@ describe('the panel header', () => {
 });
 
 describe('the direction row and the views', () => {
-  it('holds the direction switch in the same place under every view', async () => {
+  vaultIt('holds the direction switch in the same place under every view', async () => {
     const tree = await draw(
       panel({ histograms: HISTOGRAMS, curves: CURVES, highlightedActivityId: 'ride-4' })
     );
@@ -327,14 +330,14 @@ describe('the direction row and the views', () => {
     }
   });
 
-  it('leaves the direction row out for a section ridden one way', async () => {
+  vaultIt('leaves the direction row out for a section ridden one way', async () => {
     const tree = await draw(panel({ chartData: FORWARD_ONLY, histograms: HISTOGRAMS }));
 
     expect(tree.queryByTestId('performance-direction-row')).toBeNull();
     expect(tree.UNSAFE_queryAllByType(DirectionSwitch)).toHaveLength(0);
   });
 
-  it('shows Compare with only under Ahead or behind, in the direction row', async () => {
+  vaultIt('shows Compare with only under Ahead or behind, in the direction row', async () => {
     const tree = await draw(
       panel({ histograms: HISTOGRAMS, curves: CURVES, highlightedActivityId: 'ride-4' })
     );
@@ -348,7 +351,7 @@ describe('the direction row and the views', () => {
     ).toBeTruthy();
   });
 
-  it("gives the direction switch the row's width, alone and beside Compare with", async () => {
+  vaultIt("gives the direction switch the row's width, alone and beside Compare with", async () => {
     const tree = await draw(
       panel({ histograms: HISTOGRAMS, curves: CURVES, highlightedActivityId: 'ride-4' })
     );
@@ -361,13 +364,13 @@ describe('the direction row and the views', () => {
     expect(grows()).toBe(1);
   });
 
-  it('offers Ahead or behind with curves and nothing chosen', async () => {
+  vaultIt('offers Ahead or behind with curves and nothing chosen', async () => {
     const tree = await draw(panel({ curves: CURVES }));
 
     expect(tree.getByTestId('chart-plot-delta')).toBeTruthy();
   });
 
-  it('names each view by its question', async () => {
+  vaultIt('names each view by its question', async () => {
     const tree = await draw(panel({ histograms: HISTOGRAMS, curves: CURVES }));
 
     expect(tree.getByText('sections.viewOverTime')).toBeTruthy();
@@ -377,7 +380,7 @@ describe('the direction row and the views', () => {
 });
 
 describe('the views offered', () => {
-  it('are Over time, Spread and Ahead or behind, in that order', () => {
+  vaultIt('are Over time, Spread and Ahead or behind, in that order', () => {
     expect(
       availablePlots({ histogram: true, curves: true }).map((p) => PLOT_LABEL_KEYS[p])
     ).toEqual(['sections.viewOverTime', 'sections.viewSpread', 'sections.viewAheadOrBehind']);

@@ -1721,6 +1721,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failed_trim_leaves_no_ledger_event_or_version() {
         let (mut engine, _) = engine_with_section(10, "custom");
         let versions = engine.section_geometry_versions("s1").len();
@@ -1736,6 +1737,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_bounds_reset_is_a_ledger_event_linked_to_the_restored_line() {
         let (mut engine, _) = engine_with_section(10, "auto");
         engine.trim_section("s1", 2, 7).unwrap();
@@ -1755,6 +1757,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_expand_is_a_ledger_event_linked_to_the_new_line() {
         let (mut engine, _) = engine_with_section(10, "auto");
 
@@ -1822,6 +1825,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn accepting_a_section_is_a_ledger_event() {
         let (mut engine, _) = engine_with_section(10, "auto");
 
@@ -1831,6 +1835,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn accepting_all_sections_writes_one_event_per_section() {
         let (mut engine, _) = engine_with_section(10, "auto");
         engine
@@ -1851,6 +1856,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rename_records_the_name_before_and_after() {
         let (mut engine, _) = engine_with_section(10, "custom");
         engine.set_section_name("s1", Some("Hill")).unwrap();
@@ -1866,6 +1872,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn setting_the_reference_is_a_ledger_event_linked_to_the_new_line() {
         let (mut engine, polyline) = engine_with_section(10, "auto");
         engine
@@ -1880,6 +1887,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn resetting_the_reference_is_a_ledger_event() {
         let (mut engine, _) = engine_with_section(10, "auto");
         engine.trim_section("s1", 2, 7).unwrap();
@@ -1891,6 +1899,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_merge_is_a_ledger_event_on_the_survivor_naming_the_absorbed_id() {
         let (mut engine, polyline) = engine_with_section(10, "custom");
         engine
@@ -1921,6 +1930,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_merged_section_is_retired_under_the_name_and_distance_it_last_had() {
         let (mut engine, polyline) = engine_with_section(10, "custom");
         engine
@@ -1953,6 +1963,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_retirement_recorded_without_a_name_reads_the_last_rename() {
         let engine = PersistentEngine::in_memory().unwrap();
         ledger_row(
@@ -1975,6 +1986,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_retirement_recorded_without_a_name_or_rename_reads_its_numbered_label() {
         let engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -2007,6 +2019,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_name_cleared_before_retirement_is_not_read_back() {
         let engine = PersistentEngine::in_memory().unwrap();
         ledger_row(

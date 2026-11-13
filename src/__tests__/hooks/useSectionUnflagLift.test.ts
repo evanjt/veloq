@@ -99,7 +99,7 @@ describe('unflagging a section the detector called lift ground', () => {
     expect(onSectionRefresh).not.toHaveBeenCalled();
   });
 
-  it('says what the confirmation does, and offers a way out of it', async () => {
+  vaultIt('says what the confirmation does, and offers a way out of it', async () => {
     const { hook } = await mountWith({ setSectionIsLift: jest.fn(() => true) });
 
     await act(() => hook.result.current.handleUnflagLift());
@@ -134,7 +134,7 @@ describe('unflagging a section the detector called lift ground', () => {
     expect(onSectionRefresh).not.toHaveBeenCalled();
   });
 
-  it('does not ask when the engine is not up', async () => {
+  vaultIt('does not ask when the engine is not up', async () => {
     const { hook, onSectionRefresh } = await mountWith(null);
 
     await act(() => hook.result.current.handleUnflagLift());
@@ -154,7 +154,7 @@ describe('unflagging a section the detector called lift ground', () => {
     expect(onSectionRefresh).not.toHaveBeenCalled();
   });
 
-  it('names the custom section selected for deletion', async () => {
+  vaultIt('names the custom section selected for deletion', async () => {
     mockedGetEngine.mockReturnValue(null);
     const section = { ...SECTION, sectionType: 'custom' as const, name: 'River climb' };
     const hook = await renderHook(() =>

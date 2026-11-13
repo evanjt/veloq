@@ -219,6 +219,7 @@ fn edited_intervals_are_kept_only_when_the_athlete_edited_them() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_identical_file_sends_nothing() {
     let link = Fake::new(full(), full());
 
@@ -252,6 +253,7 @@ fn an_activity_that_is_not_a_garmin_import_is_never_written_to() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refusal_changes_nothing_and_leaves_nothing_to_undo() {
     let link = Fake::new(full(), thin());
     *link.answer.borrow_mut() = http(422);
@@ -265,6 +267,7 @@ fn a_refusal_changes_nothing_and_leaves_nothing_to_undo() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refused_grant_is_reported_as_permission() {
     let _serial = crate::test_globals::serial_global_state();
     let link = Fake::new(full(), thin());
@@ -278,6 +281,7 @@ fn a_refused_grant_is_reported_as_permission() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refused_grant_raises_the_permission_announcement_and_an_expired_credential_does_not() {
     use crate::objects::observer::{recorder::Recorder, set_observer};
     let _serial = crate::test_globals::serial_global_state();
@@ -313,6 +317,7 @@ fn a_refused_grant_raises_the_permission_announcement_and_an_expired_credential_
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unchanged_answer_is_reported_unchanged_and_keeps_no_earlier_file() {
     let link = Fake::new(full(), thin());
     *link.answer.borrow_mut() = ok(None);
@@ -324,6 +329,7 @@ fn an_unchanged_answer_is_reported_unchanged_and_keeps_no_earlier_file() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_read_back_that_differs_is_reported_and_undo_stays_offered() {
     let mut link = Fake::new(full(), thin());
     link.drops = true;
@@ -335,6 +341,7 @@ fn a_read_back_that_differs_is_reported_and_undo_stays_offered() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_request_that_failed_in_transport_is_checked_before_it_is_called_failed() {
     let link = Fake::new(full(), thin());
     *link.answer.borrow_mut() = FfiCallOutcome {
@@ -350,6 +357,7 @@ fn a_request_that_failed_in_transport_is_checked_before_it_is_called_failed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unreadable_answer_to_a_file_that_landed_is_checked_and_reported_replaced() {
     let mut link = Fake::new(full(), thin());
     link.lands_unannounced = true;
@@ -368,6 +376,7 @@ fn an_unreadable_answer_to_a_file_that_landed_is_checked_and_reported_replaced()
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unreadable_answer_to_a_file_that_did_not_land_is_failed() {
     let link = Fake::new(full(), thin());
     *link.answer.borrow_mut() = FfiCallOutcome {
@@ -398,6 +407,7 @@ fn undo_puts_the_earlier_file_back_byte_for_byte_and_forgets_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn undo_with_nothing_kept_sends_nothing() {
     let link = Fake::new(full(), thin());
 
@@ -431,6 +441,7 @@ fn an_undo_whose_activity_cannot_be_read_sends_nothing_and_keeps_the_earlier_fil
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_undo_whose_activity_does_not_say_whether_its_intervals_were_edited_sends_nothing() {
     let mut link = Fake::new(full(), thin());
     replace(&link, "i500");
@@ -459,6 +470,7 @@ fn an_undo_keeps_the_athletes_edited_intervals() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn garmin_being_unreachable_sends_nothing() {
     let mut link = Fake::new(full(), thin());
     link.original = Err("Garmin refused the key".into());
@@ -471,6 +483,7 @@ fn garmin_being_unreachable_sends_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_offer_shows_only_with_a_key_and_a_file_holding_more() {
     let link = Fake::new(full(), thin());
     assert_eq!(check(&link, "offer-more"), FfiSwapState::Available);
@@ -489,6 +502,7 @@ fn the_offer_shows_only_with_a_key_and_a_file_holding_more() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn opening_a_served_import_asks_the_network_for_nothing_and_offers_the_check() {
     let link = Fake::new(full(), thin());
 
@@ -499,6 +513,7 @@ fn opening_a_served_import_asks_the_network_for_nothing_and_offers_the_check() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_check_answers_available_when_garmin_holds_more_and_unchanged_when_identical() {
     let more = Fake::new(full(), thin());
     assert_eq!(check(&more, "more"), FfiSwapState::Available);
@@ -508,6 +523,7 @@ fn the_check_answers_available_when_garmin_holds_more_and_unchanged_when_identic
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_check_that_could_not_be_made_stays_checkable_and_is_not_remembered() {
     let mut link = Fake::new(full(), thin());
     link.original = Err("garmin is down".into());
@@ -518,6 +534,7 @@ fn a_check_that_could_not_be_made_stays_checkable_and_is_not_remembered() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_check_is_remembered_and_read_back_without_a_request() {
     let link = Fake::new(full(), thin());
     check(&link, "kept");
@@ -536,6 +553,7 @@ fn a_check_is_remembered_and_read_back_without_a_request() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_new_analysed_time_clears_the_remembered_check() {
     let mut link = Fake::new(full(), thin());
     check(&link, "later");
@@ -547,6 +565,7 @@ fn a_new_analysed_time_clears_the_remembered_check() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_swap_or_an_undo_clears_the_remembered_check() {
     let link = Fake::new(full(), thin());
     check(&link, "i500");
@@ -558,6 +577,7 @@ fn a_swap_or_an_undo_clears_the_remembered_check() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_check_keeps_both_files_and_the_fields_garmins_holds_alone() {
     let (garmin, intervals) = (full(), thin());
     let link = Fake::new(garmin.clone(), intervals.clone());
@@ -585,6 +605,7 @@ fn a_check_keeps_both_files_and_the_fields_garmins_holds_alone() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_check_of_identical_files_keeps_the_match_with_no_missing_fields() {
     let link = Fake::new(full(), full());
     check(&link, "same");
@@ -595,6 +616,7 @@ fn a_check_of_identical_files_keeps_the_match_with_no_missing_fields() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_check_that_could_not_be_made_keeps_no_match() {
     let mut link = Fake::new(full(), thin());
     link.original = Err("garmin is down".into());
@@ -603,6 +625,7 @@ fn a_check_that_could_not_be_made_keeps_no_match() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_new_analysed_time_drops_the_match() {
     let mut link = Fake::new(full(), thin());
     check(&link, "later");
@@ -611,6 +634,7 @@ fn a_new_analysed_time_drops_the_match() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_swap_keeps_the_match_for_undo_and_an_undo_drops_it() {
     let (garmin, intervals) = (full(), thin());
     let link = Fake::new(garmin.clone(), intervals.clone());
@@ -626,6 +650,7 @@ fn a_swap_keeps_the_match_for_undo_and_an_undo_drops_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_swap_with_no_earlier_check_still_keeps_the_match() {
     let link = Fake::new(full(), thin());
     replace(&link, "i500");
@@ -640,6 +665,7 @@ fn a_check_never_writes_to_intervals_icu() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_check_needs_a_garmin_import_with_a_file_to_compare() {
     let mut other = Fake::new(full(), thin());
     other.json = serde_json::json!({"source": "STRAVA", "external_id": "9"}).to_string();
@@ -659,6 +685,7 @@ fn an_activity_with_no_file_on_intervals_icu_is_neither_offered_nor_written() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stub_with_a_garmin_id_is_offered_without_reading_either_file() {
     let link = Fake::stub(full());
 
@@ -668,6 +695,7 @@ fn a_stub_with_a_garmin_id_is_offered_without_reading_either_file() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stub_without_the_key_or_with_a_foreign_id_is_not_offered() {
     let mut keyless = Fake::stub(full());
     keyless.key = false;
@@ -730,6 +758,7 @@ fn a_stub_that_intervals_icu_refuses_to_replace_changes_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stub_swap_stores_nothing_when_garmin_gives_nothing_or_an_unreadable_file() {
     let mut gone = Fake::stub(full());
     gone.original = Err("Garmin refused".into());
@@ -745,6 +774,7 @@ fn a_stub_swap_stores_nothing_when_garmin_gives_nothing_or_an_unreadable_file() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stub_swap_that_could_not_be_kept_on_the_phone_still_reports_the_post() {
     let mut link = Fake::stub(full());
     link.keep_answer = Err("no room".into());
@@ -756,6 +786,7 @@ fn a_stub_swap_that_could_not_be_kept_on_the_phone_still_reports_the_post() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stub_intervals_icu_serves_takes_the_served_path_with_an_undo() {
     let mut link = Fake::new(full(), thin());
     link.json = stub_json(GARMIN_ID.to_string());
@@ -768,6 +799,7 @@ fn a_stub_intervals_icu_serves_takes_the_served_path_with_an_undo() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_automatic_pass_swaps_a_stub_through_the_stub_path() {
     let link = Fake::stub(full());
 
@@ -822,6 +854,7 @@ fn an_import_of_any_sport_is_swapped_and_a_manual_activity_is_not() {
 /// Expected behaviour: a remembered value reads back, an empty value forgets
 /// it, and the stored body of an activity is served as it was stored.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_live_link_remembers_a_check_and_serves_a_stored_body() {
     let _serial = crate::test_globals::serial_global_state();
     let _dir = crate::test_globals::init_global_engine("swap_live_link.db");
@@ -856,6 +889,7 @@ fn the_live_link_remembers_a_check_and_serves_a_stored_body() {
 /// Expected behaviour: a stub that is not an activity is refused, and keeping
 /// the same original twice stores it once and succeeds both times.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_live_link_keeps_an_original_once() {
     let _serial = crate::test_globals::serial_global_state();
     let _dir = crate::test_globals::init_global_engine("swap_keep_original.db");

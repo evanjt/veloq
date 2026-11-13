@@ -87,6 +87,7 @@ fn a_ride_without_power_takes_its_load_from_threshold_heart_rate() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn heart_rate_load_grows_with_effort_and_time() {
     let at = |hr: f64, secs| {
         compute(
@@ -106,6 +107,7 @@ fn heart_rate_load_grows_with_effort_and_time() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_with_neither_stream_gets_nothing() {
     let samples = Samples {
         time: (0..600).map(f64::from).collect(),
@@ -117,6 +119,7 @@ fn a_ride_with_neither_stream_gets_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn without_thresholds_the_figures_that_need_them_are_absent() {
     let m = compute(&ride(600, |_| 200.0, |_| 140.0), &Judged::default());
     assert_eq!(m.training_load, None);
@@ -145,6 +148,7 @@ fn zone_seconds_follow_percent_of_ftp_bounds() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_reading_on_a_zone_bound_belongs_to_the_zone_it_closes() {
     let m = compute(&ride(60, |_| FTP * 0.55, |_| 140.0), &judged());
     assert_eq!(m.power_zone_seconds, Some([60, 0, 0, 0, 0, 0, 0]));
@@ -181,6 +185,7 @@ fn a_pause_is_not_counted_as_riding_time() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_shorter_than_the_rolling_window_has_no_normalised_power() {
     let m = compute(&ride(20, |_| FTP, |_| 150.0), &judged());
     assert_eq!(m.normalised_power, None);
@@ -201,6 +206,7 @@ fn an_hour_at_threshold_pace_with_no_heart_rate_or_power_is_a_hundred_load() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn pace_load_grows_with_the_square_of_speed_and_with_time() {
     let judged = Judged {
         threshold_pace: Some(4.0),
@@ -211,6 +217,7 @@ fn pace_load_grows_with_the_square_of_speed_and_with_time() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_with_no_threshold_pace_or_no_speed_has_no_load() {
     assert_eq!(
         compute(&run(3600, 3.5), &Judged::default()).training_load,
@@ -228,6 +235,7 @@ fn a_run_with_no_threshold_pace_or_no_speed_has_no_load() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn heart_rate_and_power_loads_come_before_the_pace_load() {
     let judged = Judged {
         threshold_pace: Some(3.5),

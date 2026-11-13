@@ -181,43 +181,46 @@ beforeEach(() => {
 });
 
 describe('fitness tab with the wellness read failing', () => {
-  it('keeps the header, range selector, refresh and independent sections mounted', async () => {
-    const frames = runFrames();
-    try {
-      await render(<FitnessScreen />);
-      await frames.flush();
-      expect(screen.getByTestId('native-header-right')).toBeTruthy();
-      const fitness = within(screen.getByTestId('tab-page-fitness'));
-      expect(fitness.getByTestId('time-range')).toBeTruthy();
-      expect(fitness.getByTestId('fitness-chart-canvas')).toBeTruthy();
+  vaultIt(
+    'keeps the header, range selector, refresh and independent sections mounted',
+    async () => {
+      const frames = runFrames();
+      try {
+        await render(<FitnessScreen />);
+        await frames.flush();
+        expect(screen.getByTestId('native-header-right')).toBeTruthy();
+        const fitness = within(screen.getByTestId('tab-page-fitness'));
+        expect(fitness.getByTestId('time-range')).toBeTruthy();
+        expect(fitness.getByTestId('fitness-chart-canvas')).toBeTruthy();
 
-      const calendar = await visit('calendar', frames);
-      expect(calendar.getByTestId('weekly-summary')).toBeTruthy();
-      expect(calendar.getByTestId('activity-heatmap-canvas')).toBeTruthy();
-      expect(calendar.getByTestId('season-comparison')).toBeTruthy();
-      const performance = await visit('performance', frames);
-      expect(performance.getByTestId('time-range')).toBeTruthy();
-      expect(performance.getByTestId('performance-curves')).toBeTruthy();
-      const trends = await visit('trends', frames);
-      expect(trends.getByTestId('time-range')).toBeTruthy();
-      expect(trends.getByTestId('fitness-trends')).toBeTruthy();
-      expect(screen.UNSAFE_getAllByType(RefreshControl)).toHaveLength(4);
-      expect(mockCardProps.at(-1)).toEqual(
-        expect.objectContaining({
-          readError: mockError,
-          onRetry: expect.any(Function),
-        })
-      );
-      expect(mockWellnessCardProps.at(-1)).toEqual(
-        expect.objectContaining({
-          readError: mockError,
-          onRetry: expect.any(Function),
-        })
-      );
-    } finally {
-      frames.restore();
+        const calendar = await visit('calendar', frames);
+        expect(calendar.getByTestId('weekly-summary')).toBeTruthy();
+        expect(calendar.getByTestId('activity-heatmap-canvas')).toBeTruthy();
+        expect(calendar.getByTestId('season-comparison')).toBeTruthy();
+        const performance = await visit('performance', frames);
+        expect(performance.getByTestId('time-range')).toBeTruthy();
+        expect(performance.getByTestId('performance-curves')).toBeTruthy();
+        const trends = await visit('trends', frames);
+        expect(trends.getByTestId('time-range')).toBeTruthy();
+        expect(trends.getByTestId('fitness-trends')).toBeTruthy();
+        expect(screen.UNSAFE_getAllByType(RefreshControl)).toHaveLength(4);
+        expect(mockCardProps.at(-1)).toEqual(
+          expect.objectContaining({
+            readError: mockError,
+            onRetry: expect.any(Function),
+          })
+        );
+        expect(mockWellnessCardProps.at(-1)).toEqual(
+          expect.objectContaining({
+            readError: mockError,
+            onRetry: expect.any(Function),
+          })
+        );
+      } finally {
+        frames.restore();
+      }
     }
-  });
+  );
 });
 
 describe('fitness chart card with the wellness read failing', () => {
@@ -248,7 +251,7 @@ describe('fitness chart card with the wellness read failing', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('names a busy engine rather than a generic failure', async () => {
+  vaultIt('names a busy engine rather than a generic failure', async () => {
     await renderFailedCard(jest.fn(), {
       tag: 'Busy',
       message: 'a job is running',
@@ -257,7 +260,7 @@ describe('fitness chart card with the wellness read failing', () => {
     expect(screen.queryByText('emptyState.error.description')).toBeNull();
   });
 
-  it("names a failure that is not the engine's with the generic line", async () => {
+  vaultIt("names a failure that is not the engine's with the generic line", async () => {
     await renderFailedCard(jest.fn(), new TypeError('Network request failed'));
     expect(screen.getByText('emptyState.error.description')).toBeTruthy();
   });

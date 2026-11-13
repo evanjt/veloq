@@ -80,6 +80,7 @@ fn test_reopen_marks_stored_ungrouped_activity_dirty() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_reopen_keeps_regrouped_library_clean() {
     let _serial = crate::test_globals::serial_global_state();
     let dir = TempDir::new().unwrap();
@@ -99,6 +100,7 @@ fn test_reopen_keeps_regrouped_library_clean() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_reopen_without_signatures_keeps_groups_clean() {
     let _serial = crate::test_globals::serial_global_state();
     let dir = TempDir::new().unwrap();
@@ -125,6 +127,7 @@ fn test_reopen_without_signatures_keeps_groups_clean() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_reopen_ignores_ungroupable_signature() {
     let _serial = crate::test_globals::serial_global_state();
     let dir = TempDir::new().unwrap();
@@ -144,6 +147,7 @@ fn test_reopen_ignores_ungroupable_signature() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_reopen_leaves_rejected_signature_pool_clean() {
     let _serial = crate::test_globals::serial_global_state();
     let dir = TempDir::new().unwrap();

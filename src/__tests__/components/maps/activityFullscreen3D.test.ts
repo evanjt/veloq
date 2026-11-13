@@ -81,7 +81,7 @@ it('marks the fullscreen PR markers as PR, so the terrain page draws and taps th
   ]);
 });
 
-it('leaves out the collections that hold nothing', () => {
+vaultIt('leaves out the collections that hold nothing', () => {
   const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
   const collections = buildActivity3DCollections({

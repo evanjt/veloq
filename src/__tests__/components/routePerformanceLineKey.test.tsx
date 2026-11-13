@@ -60,7 +60,7 @@ beforeEach(() => {
   mockStanding = { currentRank: null, attemptCount: 0 };
 });
 
-it('keys the activity line and the route line to their map colours', async () => {
+vaultIt('keys the activity line and the route line to their map colours', async () => {
   const view = await render(<RoutePerformanceSection activityId="a_1" activityType="Ride" />);
 
   expect(swatchColour(view, 'route-key-activity')).toBe(mapPalette('dark').route);
@@ -69,7 +69,7 @@ it('keys the activity line and the route line to their map colours', async () =>
   expect(view.getByText('activityDetail.lineKeyRoute')).toBeTruthy();
 });
 
-it('states how much a record beat the previous best by', async () => {
+vaultIt('states how much a record beat the previous best by', async () => {
   mockStanding = { currentRank: 1, attemptCount: 5 };
   const view = await render(
     <RoutePerformanceSection activityId="a_1" activityType="Ride" improvementSeconds={14} />
@@ -78,7 +78,7 @@ it('states how much a record beat the previous best by', async () => {
   expect(view.getByText('routes.standingBestBy|{"total":5,"improvement":"14 s"}')).toBeTruthy();
 });
 
-it('names the best alone when the screen has no improvement to hand over', async () => {
+vaultIt('names the best alone when the screen has no improvement to hand over', async () => {
   mockStanding = { currentRank: 1, attemptCount: 5 };
   const view = await render(<RoutePerformanceSection activityId="a_1" activityType="Ride" />);
 
@@ -112,7 +112,7 @@ it("states a slower attempt's gap as the engine's route highlight gives it", asy
   );
 });
 
-it('puts the standing line above the route header', async () => {
+vaultIt('puts the standing line above the route header', async () => {
   mockStanding = { currentRank: 3, attemptCount: 4 };
   const view = await render(
     <RoutePerformanceSection activityId="a_1" activityType="Ride" gapToBestSeconds={95} />

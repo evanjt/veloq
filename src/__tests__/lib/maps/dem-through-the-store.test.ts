@@ -47,7 +47,7 @@ const request: SnapshotRequest = {
 };
 
 describe('no page keeps a DEM cache of its own', () => {
-  it('registers no terrain protocol and no prefetch into a bucket', () => {
+  vaultIt('registers no terrain protocol and no prefetch into a bucket', () => {
     const script = tileProtocolsScript();
     expect(script).not.toContain('cached-terrain');
     // Named once, to be deleted, never opened.
@@ -57,11 +57,11 @@ describe('no page keeps a DEM cache of its own', () => {
     expect(script).not.toContain('terrainTile(');
   });
 
-  it('carries no protocol decoder, every request is answered by the intercept', () => {
+  vaultIt('carries no protocol decoder, every request is answered by the intercept', () => {
     expect(tileProtocolsScript()).not.toContain('demBlobToImage');
   });
 
-  it('leaves the preview worker with no terrain protocol', () => {
+  vaultIt('leaves the preview worker with no terrain protocol', () => {
     const html = buildSnapshotWorkerHtml(0);
     expect(html).not.toContain('cached-terrain');
     expect(html).not.toContain(`TERRAIN_CACHE = '${TERRAIN_BUCKET}'`);

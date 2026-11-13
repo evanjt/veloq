@@ -14,7 +14,7 @@ const at = (x: number) => ({ x });
 const identity = (p: { x: number }) => p.x;
 
 describe('sameXCoords', () => {
-  it('matches an empty cache against no points', () => {
+  vaultIt('matches an empty cache against no points', () => {
     expect(sameXCoords([], [], identity)).toBe(true);
   });
 
@@ -31,11 +31,11 @@ describe('sameXCoords', () => {
     expect(sameXCoords([0, 10, 100], [at(0), at(10), at(100)], identity)).toBe(true);
   });
 
-  it('does not match when only the first position moved', () => {
+  vaultIt('does not match when only the first position moved', () => {
     expect(sameXCoords([0, 10, 100], [at(1), at(10), at(100)], identity)).toBe(false);
   });
 
-  it('does not match when only the last position moved', () => {
+  vaultIt('does not match when only the last position moved', () => {
     expect(sameXCoords([0, 10, 100], [at(0), at(10), at(99)], identity)).toBe(false);
   });
 
@@ -43,7 +43,7 @@ describe('sameXCoords', () => {
     expect(sameXCoords([0, 10, 100], [at(0), at(60), at(100)], identity)).toBe(false);
   });
 
-  it('matches a single point whose position is unchanged', () => {
+  vaultIt('matches a single point whose position is unchanged', () => {
     expect(sameXCoords([42], [at(42)], identity)).toBe(true);
   });
 

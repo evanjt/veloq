@@ -69,7 +69,7 @@ describe('route engine hooks', () => {
     expect(engineErrorTag(result.current.error)).toBe('Database');
   });
 
-  it('useGroupSummaries reads nothing while disabled', async () => {
+  vaultIt('useGroupSummaries reads nothing while disabled', async () => {
     const { result } = await renderHook(() => useGroupSummaries({ enabled: false }));
     expect(engine.getFilteredGroupSummaries).not.toHaveBeenCalled();
     expect(result.current.error).toBeUndefined();

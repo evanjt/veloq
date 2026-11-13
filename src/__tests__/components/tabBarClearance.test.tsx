@@ -68,7 +68,7 @@ afterEach(() => {
 
 describe('the clearance figures', () => {
   // The bar is opaque to its top edge, so content ends at the bar and not above a fade zone.
-  it('ends content at the top of the 60 dp bar', () => {
+  vaultIt('ends content at the top of the 60 dp bar', () => {
     expect(TAB_BAR_HEIGHT).toBe(60);
     expect(TAB_BAR_SAFE_PADDING).toBe(TAB_BAR_HEIGHT);
     expect(scrollEndInset(true, 24, false, 'ios')).toBe(60);
@@ -79,12 +79,12 @@ describe('the clearance figures', () => {
 });
 
 describe('useBottomClearance', () => {
-  it('clears the navigation bar on a stack screen', async () => {
+  vaultIt('clears the navigation bar on a stack screen', async () => {
     mockSegments = ['recording', 'review'];
     expect(await clearance(48)).toBe(48);
   });
 
-  it('keeps a floor from the screen edge on a phone that reports no inset', async () => {
+  vaultIt('keeps a floor from the screen edge on a phone that reports no inset', async () => {
     mockSegments = ['recording', 'review'];
     expect(await clearance(0)).toBe(spacing.md);
     expect(await clearance(spacing.md - 4)).toBe(spacing.md);
@@ -106,45 +106,51 @@ describe('useBottomClearance', () => {
 });
 
 describe('useScrollEndInset', () => {
-  it('pads a stack scroll view by the inset on Android, where nothing else insets it', async () => {
-    Platform.OS = 'android';
-    mockSegments = ['section', 'laps', '[id]'];
-    expect(await scrollEnd(48)).toBe(48);
-  });
+  vaultIt(
+    'pads a stack scroll view by the inset on Android, where nothing else insets it',
+    async () => {
+      Platform.OS = 'android';
+      mockSegments = ['section', 'laps', '[id]'];
+      expect(await scrollEnd(48)).toBe(48);
+    }
+  );
 
-  it('leaves the inset to the system on iOS', async () => {
+  vaultIt('leaves the inset to the system on iOS', async () => {
     Platform.OS = 'ios';
     mockSegments = ['section', 'laps', '[id]'];
     expect(await scrollEnd(34)).toBe(0);
   });
 
-  it('adds the tab bar on a tab screen, and the inset only where a safe area has not', async () => {
-    Platform.OS = 'android';
-    mockSegments = ['(tabs)', 'training'];
-    expect(await scrollEnd(48)).toBe(TAB_BAR_SAFE_PADDING + 48);
-    expect(await scrollEnd(48, true)).toBe(TAB_BAR_SAFE_PADDING);
-  });
+  vaultIt(
+    'adds the tab bar on a tab screen, and the inset only where a safe area has not',
+    async () => {
+      Platform.OS = 'android';
+      mockSegments = ['(tabs)', 'training'];
+      expect(await scrollEnd(48)).toBe(TAB_BAR_SAFE_PADDING + 48);
+      expect(await scrollEnd(48, true)).toBe(TAB_BAR_SAFE_PADDING);
+    }
+  );
 });
 
 describe('isTabBarRoute', () => {
-  it('holds for a route in the tabs group', () => {
+  vaultIt('holds for a route in the tabs group', () => {
     expect(isTabBarRoute(['(tabs)'])).toBe(true);
     expect(isTabBarRoute(['(tabs)', 'map'])).toBe(true);
   });
 
-  it('fails for a stack route, including one that names a tab further down', () => {
+  vaultIt('fails for a stack route, including one that names a tab further down', () => {
     expect(isTabBarRoute(['detection-preview'])).toBe(false);
     expect(isTabBarRoute(['recording', '[type]'])).toBe(false);
     expect(isTabBarRoute(['settings', '(tabs)'])).toBe(false);
   });
 
-  it('fails while the route is unresolved', () => {
+  vaultIt('fails while the route is unresolved', () => {
     expect(isTabBarRoute([])).toBe(false);
   });
 });
 
 describe('useTabBarClearance', () => {
-  it('clears the bar on a tab screen', async () => {
+  vaultIt('clears the bar on a tab screen', async () => {
     mockSegments = ['(tabs)', 'map'];
     expect(await (await renderHook(() => useTabBarClearance())).result.current).toBe(
       TAB_BAR_SAFE_PADDING
@@ -152,17 +158,17 @@ describe('useTabBarClearance', () => {
     expect(TAB_BAR_SAFE_PADDING).toBeGreaterThan(0);
   });
 
-  it('clears nothing on a stack screen', async () => {
+  vaultIt('clears nothing on a stack screen', async () => {
     mockSegments = ['detection-preview'];
     expect(await (await renderHook(() => useTabBarClearance())).result.current).toBe(0);
   });
 
-  it('clears nothing while the route is unresolved', async () => {
+  vaultIt('clears nothing while the route is unresolved', async () => {
     mockSegments = [];
     expect(await (await renderHook(() => useTabBarClearance())).result.current).toBe(0);
   });
 
-  it('follows the route when it changes under the same component', async () => {
+  vaultIt('follows the route when it changes under the same component', async () => {
     mockSegments = ['(tabs)'];
     const hook = await renderHook(() => useTabBarClearance());
     expect(hook.result.current).toBe(TAB_BAR_SAFE_PADDING);

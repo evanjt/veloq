@@ -65,27 +65,27 @@ describe('the stamp of the gate tree', () => {
 });
 
 describe('the simulator', () => {
-  it('is the one booted when none is named', () => {
+  vaultIt('is the one booted when none is named', () => {
     const list = simulators({ udid: UDID, state: 'Booted' }, { udid: OTHER, state: 'Shutdown' });
     expect(chooseSimulator(list)).toEqual({ udid: UDID });
   });
 
-  it('is refused when none is booted', () => {
+  vaultIt('is refused when none is booted', () => {
     const list = simulators({ udid: UDID, state: 'Shutdown' });
     expect(chooseSimulator(list).problem).toMatch(/no simulator is booted/);
   });
 
-  it('is refused when the one named is not booted', () => {
+  vaultIt('is refused when the one named is not booted', () => {
     const list = simulators({ udid: UDID, state: 'Shutdown' }, { udid: OTHER, state: 'Booted' });
     expect(chooseSimulator(list, UDID).problem).toMatch(new RegExp(`${UDID}.*Shutdown`));
   });
 
-  it('is refused when the one named does not exist', () => {
+  vaultIt('is refused when the one named does not exist', () => {
     const list = simulators({ udid: OTHER, state: 'Booted' });
     expect(chooseSimulator(list, UDID).problem).toMatch(/no simulator/);
   });
 
-  it('is refused when two are booted, since the install goes to whichever is booted', () => {
+  vaultIt('is refused when two are booted, since the install goes to whichever is booted', () => {
     const list = simulators({ udid: UDID, state: 'Booted' }, { udid: OTHER, state: 'Booted' });
     expect(chooseSimulator(list).problem).toMatch(/2 simulators are booted/);
     expect(chooseSimulator(list, UDID).problem).toMatch(/2 simulators are booted/);
@@ -93,7 +93,7 @@ describe('the simulator', () => {
 });
 
 describe('the flows a JUnit report carries', () => {
-  it('splits passed from failed, an error counting as failed', () => {
+  vaultIt('splits passed from failed, an error counting as failed', () => {
     const xml = [
       '<?xml version="1.0" encoding="UTF-8"?>',
       '<testsuites><testsuite name="Test Suite" tests="4" failures="2">',
@@ -229,7 +229,7 @@ describe('the prune step', () => {
     fs.rmSync(home, { recursive: true, force: true });
   });
 
-  it('frees old recordings and all but the two newest gate builds, and nothing else', () => {
+  vaultIt('frees old recordings and all but the two newest gate builds, and nothing else', () => {
     const daemon = container('InternalDaemon', 'C0FFEE01', 'com.apple.testmanagerd');
     const old = write(
       path.join(daemon, 'Attachments/run-a/screen.mov'),
@@ -274,7 +274,7 @@ describe('the prune step', () => {
     expect(freed.bytes).toBe(freed.attachments.bytes + freed.derivedData.bytes);
   });
 
-  it('frees nothing on a second run', () => {
+  vaultIt('frees nothing on a second run', () => {
     const daemon = container('InternalDaemon', 'C0FFEE01', 'com.apple.testmanagerd');
     write(path.join(daemon, 'Attachments/screen.mov'), Buffer.alloc(5000), 3 * DAY);
     const workspace = path.join(gateTree, 'ios/VeloqDev.xcworkspace');
@@ -290,7 +290,7 @@ describe('the prune step', () => {
     expect(prune({ home, simulator: UDID, gate: gateTree, now: NOW }).bytes).toBe(0);
   });
 
-  it('frees nothing when the simulator has no test manager container or DerivedData', () => {
+  vaultIt('frees nothing when the simulator has no test manager container or DerivedData', () => {
     container('Application', 'BEEF0001', 'com.veloq.app');
 
     const freed = prune({ home, simulator: UDID, gate: gateTree, now: NOW });
@@ -301,7 +301,7 @@ describe('the prune step', () => {
 });
 
 describe('the verify command', () => {
-  it('exits non-zero on a record whose installed buildCommit differs', () => {
+  vaultIt('exits non-zero on a record whose installed buildCommit differs', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ios-gate-verify-'));
     const file = path.join(dir, 'record.json');
     fs.writeFileSync(
@@ -558,7 +558,7 @@ describe('scripts/ios-gate.sh', () => {
     fs.rmSync(f.root, { recursive: true, force: true });
   });
 
-  it('pushes the sha, builds, installs, runs the flows and brings back a green record', () => {
+  vaultIt('pushes the sha, builds, installs, runs the flows and brings back a green record', () => {
     const run = gate(f);
 
     expect(run.out).toContain('ios-gate: passed');
@@ -588,7 +588,7 @@ describe('scripts/ios-gate.sh', () => {
     expect(fs.readdirSync(path.join(f.home, '.veloq-locks'))).toEqual([]);
   });
 
-  it('is refused when the gate tree is not the pushed sha after prebuild', () => {
+  vaultIt('is refused when the gate tree is not the pushed sha after prebuild', () => {
     fs.writeFileSync(path.join(f.fake, 'dirty-prebuild'), '');
 
     const run = gate(f);
@@ -599,7 +599,7 @@ describe('scripts/ios-gate.sh', () => {
     expect(fs.readFileSync(path.join(f.fake, 'calls.log'), 'utf8')).not.toMatch(/run-ios/);
   });
 
-  it('is refused when the installed app carries another buildCommit', () => {
+  vaultIt('is refused when the installed app carries another buildCommit', () => {
     fs.writeFileSync(path.join(f.fake, 'installed-commit'), '767ed98');
 
     const run = gate(f);
@@ -608,7 +608,7 @@ describe('scripts/ios-gate.sh', () => {
     expect(run.out).toMatch(/installed.*767ed98/);
   });
 
-  it('is refused before anything is built when the simulator is not booted', () => {
+  vaultIt('is refused before anything is built when the simulator is not booted', () => {
     fs.writeFileSync(
       path.join(f.fake, 'simulators.json'),
       JSON.stringify(simulators({ udid: UDID, state: 'Shutdown' }))
@@ -621,7 +621,7 @@ describe('scripts/ios-gate.sh', () => {
     expect(fs.readFileSync(path.join(f.fake, 'calls.log'), 'utf8')).not.toMatch(/npm ci|run-ios/);
   });
 
-  it('names the step when a Pod is missing', () => {
+  vaultIt('names the step when a Pod is missing', () => {
     fs.writeFileSync(path.join(f.fake, 'fail-prebuild'), '');
 
     const run = gate(f);
@@ -632,7 +632,7 @@ describe('scripts/ios-gate.sh', () => {
     expect(record(f).failedStep).toBe('prebuild');
   });
 
-  it('fails when a flow fails, naming it, and still brings the record back', () => {
+  vaultIt('fails when a flow fails, naming it, and still brings the record back', () => {
     fs.writeFileSync(path.join(f.fake, 'fail-flow'), '');
 
     const run = gate(f);
@@ -642,7 +642,7 @@ describe('scripts/ios-gate.sh', () => {
     expect(record(f).flows.failed.length).toBeGreaterThan(0);
   });
 
-  it('runs again on the same gate tree for a later commit', () => {
+  vaultIt('runs again on the same gate tree for a later commit', () => {
     expect(gate(f).status).toBe(0);
     fs.writeFileSync(path.join(f.local, 'app.json'), '{"later":true}\n');
     runGit(['commit', '-q', '-am', 'later'], f.local);
@@ -653,7 +653,7 @@ describe('scripts/ios-gate.sh', () => {
     expect(record(f).sha).toBe(head(f));
   });
 
-  it('refuses when the simulator lock is held, naming the holder', () => {
+  vaultIt('refuses when the simulator lock is held, naming the holder', () => {
     const lock = path.join(f.home, '.veloq-locks', `sim-${UDID}`);
     fs.mkdirSync(lock, { recursive: true });
     // The lock ages a holder by the shell's clock, which Jest's fake timers do not reach.
@@ -669,7 +669,7 @@ describe('scripts/ios-gate.sh', () => {
     expect(run.out).toMatch(/pid=4242/);
   });
 
-  it('refuses without a gate remote configured', () => {
+  vaultIt('refuses without a gate remote configured', () => {
     runGit(['config', '--unset', 'veloq.iosGateRemote'], f.local);
 
     const run = gate(f);
@@ -678,7 +678,7 @@ describe('scripts/ios-gate.sh', () => {
     expect(run.out).toMatch(/veloq.iosGateRemote/);
   });
 
-  it('gates a submodule pin published nowhere when the Mac checkout holds it', () => {
+  vaultIt('gates a submodule pin published nowhere when the Mac checkout holds it', () => {
     pinUnpublished(f, true);
 
     const run = gate(f);
@@ -688,7 +688,7 @@ describe('scripts/ios-gate.sh', () => {
     expect(runGit(['rev-parse', 'refs/heads/gate/main'], f.remote).trim()).toBe(head(f));
   });
 
-  it('moves a gate tree whose submodule sits behind the pin before it reads the stamp', () => {
+  vaultIt('moves a gate tree whose submodule sits behind the pin before it reads the stamp', () => {
     pinUnpublished(f, true);
     expect(gate(f).status).toBe(0);
     const library = path.join(f.remote, PIN_PATH);
@@ -705,13 +705,16 @@ describe('scripts/ios-gate.sh', () => {
     expect(runGit(['rev-parse', 'HEAD'], path.join(`${f.remote}-gate`, PIN_PATH)).trim()).toBe(pin);
   });
 
-  it('refuses before pushing a submodule pin neither the Mac holds nor anywhere publishes', () => {
-    const pin = pinUnpublished(f, false);
+  vaultIt(
+    'refuses before pushing a submodule pin neither the Mac holds nor anywhere publishes',
+    () => {
+      const pin = pinUnpublished(f, false);
 
-    const run = gate(f);
+      const run = gate(f);
 
-    expect(run.status).not.toBe(0);
-    expect(run.out).toContain(pin);
-    expect(runGit(['branch', '--list', 'gate/main'], f.remote).trim()).toBe('');
-  });
+      expect(run.status).not.toBe(0);
+      expect(run.out).toContain(pin);
+      expect(runGit(['branch', '--list', 'gate/main'], f.remote).trim()).toBe('');
+    }
+  );
 });

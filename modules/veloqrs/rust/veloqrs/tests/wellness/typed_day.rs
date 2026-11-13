@@ -100,6 +100,7 @@ fn a_day_stored_before_the_body_column_reads_its_columns_and_no_loads() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_body_that_will_not_parse_is_a_day_with_no_breakdown() {
     let (_tmp, mut engine) = engine();
     engine
@@ -116,6 +117,7 @@ fn a_body_that_will_not_parse_is_a_day_with_no_breakdown() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn days_come_back_oldest_first() {
     let (_tmp, mut engine) = engine();
     engine

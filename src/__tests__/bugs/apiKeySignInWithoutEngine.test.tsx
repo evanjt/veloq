@@ -67,7 +67,7 @@ describe('API key sign-in with no engine open', () => {
     return setError;
   }
 
-  it('checks the key without an engine handle', async () => {
+  vaultIt('checks the key without an engine handle', async () => {
     await signIn();
 
     expect(mockValidateCredentials).toHaveBeenCalledWith('api_key', 'a-valid-key');

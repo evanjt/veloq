@@ -76,13 +76,16 @@ describe('the Rust input hash', () => {
     expect(hashRustInputs(rustDir, ['a', 'b'])).not.toBe(hashRustInputs(rustDir, ['a']));
   });
 
-  it('reads a feature list from comma or space separated text, sorted and without blanks', () => {
-    expect(parseFeatures(undefined)).toEqual([]);
-    expect(parseFeatures(' ')).toEqual([]);
-    expect(parseFeatures('lock-trace, alpha,,alpha')).toEqual(['alpha', 'lock-trace']);
-  });
+  vaultIt(
+    'reads a feature list from comma or space separated text, sorted and without blanks',
+    () => {
+      expect(parseFeatures(undefined)).toEqual([]);
+      expect(parseFeatures(' ')).toEqual([]);
+      expect(parseFeatures('lock-trace, alpha,,alpha')).toEqual(['alpha', 'lock-trace']);
+    }
+  );
 
-  it('is unchanged when nothing the crate compiles has changed', () => {
+  vaultIt('is unchanged when nothing the crate compiles has changed', () => {
     const first = hashRustInputs(rustDir);
     write('engine/README.md', 'notes');
     write('engine/target/release/libengine.so', 'built');
@@ -102,7 +105,7 @@ describe('the Rust input hash', () => {
     expect(hashRustInputs(rustDir)).not.toBe(before);
   });
 
-  it('takes in a resource once a source starts embedding it', () => {
+  vaultIt('takes in a resource once a source starts embedding it', () => {
     write('engine/migrations/002_index.sql', 'CREATE INDEX a ON b (c);');
     const unreferenced = hashRustInputs(rustDir);
     write('engine/migrations/002_index.sql', 'CREATE INDEX a ON b (d);');
@@ -133,14 +136,14 @@ pub const LATE: &str = include_str!("../late.sql");
     expect(rustInputFiles(rustDir)).toContain(join(rustDir, 'engine/late.sql'));
   });
 
-  it('refuses an embedded resource that has been deleted, naming it and its reader', () => {
+  vaultIt('refuses an embedded resource that has been deleted, naming it and its reader', () => {
     rmSync(join(rustDir, 'engine/migrations/001_init.sql'));
     expect(() => hashRustInputs(rustDir)).toThrow(
       /engine\/src\/lib\.rs:3 embeds \.\.\/migrations\/001_init\.sql, which does not exist/
     );
   });
 
-  it('refuses an include whose path is not a literal it can resolve', () => {
+  vaultIt('refuses an include whose path is not a literal it can resolve', () => {
     write(
       'engine/src/lib.rs',
       `${LIB}pub const X: &str = include_str!(concat!(env!("OUT_DIR"), "/x.sql"));\n`
@@ -148,7 +151,7 @@ pub const LATE: &str = include_str!("../late.sql");
     expect(() => hashRustInputs(rustDir)).toThrow(/engine\/src\/lib\.rs:5 .*literal path/);
   });
 
-  it('refuses a build script, whose inputs cannot be read from its source', () => {
+  vaultIt('refuses a build script, whose inputs cannot be read from its source', () => {
     write('engine/build.rs', 'fn main() {}\n');
     expect(() => hashRustInputs(rustDir)).toThrow(/engine\/build\.rs/);
   });
@@ -170,13 +173,13 @@ describe('the CI Rust library caches', () => {
     );
   });
 
-  it('finds every Rust library cache', () => {
+  vaultIt('finds every Rust library cache', () => {
     expect(caches.map(({ label }) => label)).toEqual(['build-android build', 'build-ios build']);
   });
 
   // Runs the step that names the key in a copy of the script and a fixture tree,
   // so the key is the shared hash rather than a second list of file kinds.
-  it.each(caches.map((cache) => [cache.label, cache]))(
+  vaultIt.each(caches.map((cache) => [cache.label, cache]))(
     '%s keys on the Rust input hash',
     (_, cache) => {
       const match = /steps\.([\w-]+)\.outputs\.([\w-]+)/.exec(cache.step.with?.key ?? '');
@@ -252,34 +255,37 @@ describe('the CI Rust library caches', () => {
     const named = (key: string | undefined) =>
       [...(key ?? '').matchAll(/steps\.native\.outputs\.([\w-]+)/g)].map(([, name]) => name);
 
-    it('restores the Rust library on the same key', () => {
+    vaultIt('restores the Rust library on the same key', () => {
       const names = named(rustCache.with?.key);
       expect(names).not.toEqual([]);
       for (const name of names) expect(after[name]).toBe(before[name]);
     });
 
-    it('builds the app again', () => {
+    vaultIt('builds the app again', () => {
       const names = named(appCache.with?.key);
       expect(names.some((name) => after[name] !== before[name])).toBe(true);
     });
   });
 
-  it('names every bundled floor tile in the real crate, so a tile change moves the hash', () => {
-    const realRust = join(ROOT, 'modules/veloqrs/rust');
-    const floor = join(realRust, 'veloqrs/floor');
-    const files = rustInputFiles(realRust);
-    const tiles = [
-      'openmaptiles/0/0/0.pbf',
-      'openmaptiles/1/0/0.pbf',
-      'openmaptiles/1/0/1.pbf',
-      'openmaptiles/1/1/0.pbf',
-      'openmaptiles/1/1/1.pbf',
-      'ne2_shaded/0/0/0.png',
-      'ne2_shaded/1/0/0.png',
-      'ne2_shaded/1/0/1.png',
-      'ne2_shaded/1/1/0.png',
-      'ne2_shaded/1/1/1.png',
-    ].map((t) => join(floor, t));
-    expect(files).toEqual(expect.arrayContaining(tiles));
-  });
+  vaultIt(
+    'names every bundled floor tile in the real crate, so a tile change moves the hash',
+    () => {
+      const realRust = join(ROOT, 'modules/veloqrs/rust');
+      const floor = join(realRust, 'veloqrs/floor');
+      const files = rustInputFiles(realRust);
+      const tiles = [
+        'openmaptiles/0/0/0.pbf',
+        'openmaptiles/1/0/0.pbf',
+        'openmaptiles/1/0/1.pbf',
+        'openmaptiles/1/1/0.pbf',
+        'openmaptiles/1/1/1.pbf',
+        'ne2_shaded/0/0/0.png',
+        'ne2_shaded/1/0/0.png',
+        'ne2_shaded/1/0/1.png',
+        'ne2_shaded/1/1/0.png',
+        'ne2_shaded/1/1/1.png',
+      ].map((t) => join(floor, t));
+      expect(files).toEqual(expect.arrayContaining(tiles));
+    }
+  );
 });

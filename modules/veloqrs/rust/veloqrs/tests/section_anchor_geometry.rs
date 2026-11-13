@@ -109,6 +109,7 @@ fn trim_and_expand_keep_the_anchor_matching_the_polyline() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn expand_rejects_a_range_outside_the_track() {
     let tmp = TempDir::new().expect("temp dir");
     let path = tmp.path().join("anchor_bounds.db");
@@ -273,6 +274,7 @@ fn expand_onto_another_ride_moves_the_reference_triple() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn reset_bounds_puts_the_reference_triple_back() {
     let (tmp, id, mut engine, track, _) = cut_section("reset_triple");
     engine.trim_section(&id, 10, 60).expect("trim");
@@ -320,6 +322,7 @@ fn set_then_reset_reference_keeps_the_line_rebuildable() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn trim_of_a_line_with_no_triple_leaves_no_triple() {
     let (tmp, id, mut engine, _, _) = cut_section("no_triple");
     let db = Connection::open(tmp.path().join("no_triple.db")).expect("raw open");

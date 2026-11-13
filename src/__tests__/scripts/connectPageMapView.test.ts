@@ -74,7 +74,7 @@ describe('what the viewport holds', () => {
     expect(held.sections.map((s) => s.id)).toEqual(['s-inside']);
   });
 
-  it('holds nothing over an empty library', () => {
+  vaultIt('holds nothing over an empty library', () => {
     expect(inView(viewport, { activities: [], routes: [], sections: [] })).toEqual({
       activities: [],
       routes: [],
@@ -108,7 +108,7 @@ describe('a dragged box', () => {
 });
 
 describe('the bounds of what is listed', () => {
-  it('fits the lines and the activities, and nothing when there are none', () => {
+  vaultIt('fits the lines and the activities, and nothing when there are none', () => {
     expect(
       boundsOfFeatures(
         [
@@ -130,7 +130,7 @@ describe('the bounds of what is listed', () => {
 });
 
 describe('the map in the hash', () => {
-  it('writes nothing for the defaults', () => {
+  vaultIt('writes nothing for the defaults', () => {
     expect(mapHash(DEFAULT_MAP)).toBe('#/map');
   });
 
@@ -147,12 +147,12 @@ describe('the map in the hash', () => {
     expect(readMapQuery(parse(hash))).toEqual({ ...state, layers: [...state.layers] });
   });
 
-  it('keeps a map with every layer off distinct from the default', () => {
+  vaultIt('keeps a map with every layer off distinct from the default', () => {
     const none = { ...DEFAULT_MAP, layers: [] };
     expect(readMapQuery(parse(mapHash(none))).layers).toEqual([]);
   });
 
-  it('reads an unknown range, band or layer as the default', () => {
+  vaultIt('reads an unknown range, band or layer as the default', () => {
     const route = parse('#/map?range=forever&band=huge&layers=heatmap,lava&open=bogus');
     const state = readMapQuery(route);
     expect(state.range).toBeNull();
@@ -163,7 +163,7 @@ describe('the map in the hash', () => {
 });
 
 describe('the open detail', () => {
-  it('names a route or a section and nothing else', () => {
+  vaultIt('names a route or a section and nothing else', () => {
     expect(openRef('section:s_9')).toEqual({ kind: 'section', id: 's_9' });
     expect(openRef('route:r-1')).toEqual({ kind: 'route', id: 'r-1' });
     expect(openRef('activity:a1')).toBeNull();
@@ -173,7 +173,7 @@ describe('the open detail', () => {
 });
 
 describe('the distance bands', () => {
-  it("are named by the engine's cuts in the athlete's unit", () => {
+  vaultIt("are named by the engine's cuts in the athlete's unit", () => {
     expect(BANDS.map((band) => bandLabel(band, true))).toEqual([
       '',
       '<5 km',
@@ -185,7 +185,7 @@ describe('the distance bands', () => {
     expect(bandLabel('long', false)).toBe('30+ mi');
   });
 
-  it('read the resolved unit system, metric when it says nothing', () => {
+  vaultIt('read the resolved unit system, metric when it says nothing', () => {
     expect(isMetricSetting('imperial')).toBe(false);
     expect(isMetricSetting('"imperial"')).toBe(false);
     expect(isMetricSetting('metric')).toBe(true);

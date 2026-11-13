@@ -42,7 +42,7 @@ beforeEach(() => {
 });
 
 describe('the notification category switches', () => {
-  it('offers one for each flag once notifications are on', async () => {
+  vaultIt('offers one for each flag once notifications are on', async () => {
     givenPreferences(true, { sectionPr: true, fitnessMilestone: true });
     const { getByTestId } = await render(<NotificationSection />);
     expect(getByTestId('settings-notifications-sectionPr')).toBeTruthy();
@@ -61,14 +61,14 @@ describe('the notification category switches', () => {
     expect(setCategoryEnabled).toHaveBeenLastCalledWith('fitnessMilestone', false);
   });
 
-  it('reads the flags rather than holding its own copy', async () => {
+  vaultIt('reads the flags rather than holding its own copy', async () => {
     givenPreferences(true, { sectionPr: false, fitnessMilestone: true });
     const { getByTestId } = await render(<NotificationSection />);
     expect(getByTestId('settings-notifications-sectionPr')).not.toBeChecked();
     expect(getByTestId('settings-notifications-fitnessMilestone')).toBeChecked();
   });
 
-  it('names every switch, the two categories apart', async () => {
+  vaultIt('names every switch, the two categories apart', async () => {
     givenPreferences(true, { sectionPr: true, fitnessMilestone: true });
     const { getAllByRole, getByRole } = await render(<NotificationSection />);
 
@@ -78,7 +78,7 @@ describe('the notification category switches', () => {
     expect(getByRole('switch', { name: 'notifications.settings.fitnessMilestone' })).toBeTruthy();
   });
 
-  it('turns a category off from a tap on its name', async () => {
+  vaultIt('turns a category off from a tap on its name', async () => {
     givenPreferences(true, { sectionPr: true, fitnessMilestone: true });
     const { getByText } = await render(<NotificationSection />);
 
@@ -88,7 +88,7 @@ describe('the notification category switches', () => {
     expect(setCategoryEnabled).toHaveBeenCalledWith('sectionPr', false);
   });
 
-  it('is inert while notifications are off, so a switch cannot promise a push', async () => {
+  vaultIt('is inert while notifications are off, so a switch cannot promise a push', async () => {
     givenPreferences(false, { sectionPr: true, fitnessMilestone: true });
     const { getByTestId } = await render(<NotificationSection />);
     expect(getByTestId('settings-notifications-sectionPr')).toBeDisabled();

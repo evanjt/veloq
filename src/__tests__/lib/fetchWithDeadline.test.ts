@@ -74,7 +74,7 @@ describe('a fetch with a deadline', () => {
     }
   });
 
-  it('takes the interactive ceiling from the lane the engine already uses', () => {
+  vaultIt('takes the interactive ceiling from the lane the engine already uses', () => {
     expect(NET_DEADLINE_MS.interactive).toBe(10_000);
     expect(NET_DEADLINE_MS.transfer).toBe(30_000);
   });

@@ -88,19 +88,19 @@ describe('the tab pager on a pushed screen', () => {
     expect(mgr.fail).not.toHaveBeenCalled();
   });
 
-  it('activates a leftward swipe at the first tab', async () => {
+  vaultIt('activates a leftward swipe at the first tab', async () => {
     const mgr = swipe(await renderPager('one'), MID, MID - 60);
     expect(mgr.activate).toHaveBeenCalledTimes(1);
     expect(mgr.fail).not.toHaveBeenCalled();
   });
 
-  it('keeps a swipe it has taken when the finger turns back past where it began', async () => {
+  vaultIt('keeps a swipe it has taken when the finger turns back past where it began', async () => {
     const mgr = swipe(await renderPager('one'), MID, MID - 60, MID + 60);
     expect(mgr.activate).toHaveBeenCalledTimes(1);
     expect(mgr.fail).not.toHaveBeenCalled();
   });
 
-  it('keeps a swipe it has taken when a second finger lands', async () => {
+  vaultIt('keeps a swipe it has taken when a second finger lands', async () => {
     const handlers = await renderPager('one');
     const mgr = swipe(handlers, MID, MID - 60);
     const second = { absoluteX: 600, absoluteY: 300, x: 600, y: 100 };
@@ -116,7 +116,7 @@ describe('the tab pager on a pushed screen', () => {
     expect(swipe(handlers, MID, MID + 60).fail).toHaveBeenCalled();
   });
 
-  it('fails a leftward swipe at the last tab', async () => {
+  vaultIt('fails a leftward swipe at the last tab', async () => {
     const mgr = swipe(await renderPager('three'), MID, MID - 60);
     expect(mgr.fail).toHaveBeenCalled();
     expect(mgr.activate).not.toHaveBeenCalled();

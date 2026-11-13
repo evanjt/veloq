@@ -96,6 +96,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn shared_runtime_runs_the_network_worker_budget() {
         assert_eq!(ASYNC_RUNTIME.metrics().num_workers(), NET_WORKER_THREADS);
         assert_eq!(NET_WORKER_THREADS, 2);

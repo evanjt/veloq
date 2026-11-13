@@ -67,13 +67,13 @@ it('agrees on a surrogate pair, which is one code point of four bytes', () => {
   expect(contentStateBytes(paired)).toBe(encoded(paired));
 });
 
-it('agrees on a high surrogate that begins no pair', () => {
+vaultIt('agrees on a high surrogate that begins no pair', () => {
   const lone = state({ distanceLabel: '\ud800€' });
 
   expect(contentStateBytes(lone)).toBe(encoded(lone));
 });
 
-it('agrees on a trailing high surrogate at the end of a label', () => {
+vaultIt('agrees on a trailing high surrogate at the end of a label', () => {
   const trailing = state({ distanceLabel: '12.4 km \ud800' });
 
   expect(contentStateBytes(trailing)).toBe(encoded(trailing));

@@ -34,6 +34,7 @@ fn seed_engine() -> (PersistentEngine, TempDir) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn second_pass_generates_nothing_new() {
     let _serial_state = super::serial_state();
     let (mut engine, tmp) = seed_engine();

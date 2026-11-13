@@ -88,6 +88,7 @@ fn layer_of(conn: &Connection) -> Option<Vec<RouteLine>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_regroup_leaves_a_line_for_each_route_it_kept() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -108,6 +109,7 @@ fn a_regroup_leaves_a_line_for_each_route_it_kept() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_representative_choice_changes_only_its_own_line() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -125,6 +127,7 @@ fn a_representative_choice_changes_only_its_own_line() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clearing_routes_and_sections_leaves_no_lines() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -137,6 +140,7 @@ fn clearing_routes_and_sections_leaves_no_lines() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clearing_derived_data_leaves_no_lines() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -168,6 +172,7 @@ fn clearing_the_library_leaves_no_lines() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_layer_from_an_older_generation_reads_as_none() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -245,6 +250,9 @@ fn a_library_upgraded_with_stored_groups_reads_its_lines_after_the_load() {
                  ALTER TABLE push_runs DROP COLUMN posted_body;
                  DROP TABLE activity_sync_failures;
                  ALTER TABLE wellness DROP COLUMN source;
+                 ALTER TABLE strength_sessions DROP COLUMN current_exercise;
+                 ALTER TABLE strength_sessions DROP COLUMN current_set;
+                 ALTER TABLE strength_sessions DROP COLUMN rest_started_at;
                  DROP TABLE remote_writes;
                  DROP TABLE activity_curves;
                  ALTER TABLE curve_bodies DROP COLUMN source;
@@ -341,6 +349,7 @@ fn answered_positions(feature: &serde_json::Value) -> Vec<(f64, f64)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_geo_answer_draws_each_route_with_a_line_in_layer_order() {
     let _serial = crate::test_globals::serial_global_state();
     let engine = PersistentEngine::in_memory().unwrap();
@@ -421,6 +430,7 @@ fn the_geo_answer_follows_a_regroup_and_is_empty_for_a_stale_layer() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_geo_answer_is_empty_with_no_layer() {
     let _serial = crate::test_globals::serial_global_state();
     let engine = PersistentEngine::in_memory().unwrap();

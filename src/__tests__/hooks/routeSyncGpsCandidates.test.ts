@@ -99,7 +99,7 @@ describe('the tracks a route sync owes', () => {
     expect(mockGetFeedCards).not.toHaveBeenCalled();
   });
 
-  it('puts the cards the feed is showing first', async () => {
+  vaultIt('puts the cards the feed is showing first', async () => {
     setFeedHeadIds(['run']);
     await renderHook(() => useRouteDataSync(true));
     await act(async () => {});
@@ -116,7 +116,7 @@ describe('the tracks a route sync owes', () => {
     expect(pendingSeen[0]).toEqual([]);
   });
 
-  it('asks the fixtures, not the engine, in demo mode', async () => {
+  vaultIt('asks the fixtures, not the engine, in demo mode', async () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: true });
     mockGetFeedCards.mockReturnValue([
       feedCard({ id: 'stored', hasGps: true, sportType: 'Ride' }),

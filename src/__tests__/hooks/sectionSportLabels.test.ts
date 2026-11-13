@@ -60,7 +60,7 @@ const stale = (sectionId: string, sportType: string): StalePrOpportunity => ({
 });
 
 describe('a section PR card', () => {
-  it('names its own sport in the title when it is the only card', () => {
+  vaultIt('names its own sport in the title when it is the only card', () => {
     const [run] = generateSectionPRInsights([pr('Run')], NOW, t);
     const [ride] = generateSectionPRInsights([pr('Ride')], NOW, t);
     expect(run.title).toContain('activityTypes.Run');
@@ -68,7 +68,7 @@ describe('a section PR card', () => {
     expect(run.title).not.toBe(ride.title);
   });
 
-  it('keeps the plain section name when the record carries no sport', () => {
+  vaultIt('keeps the plain section name when the record carries no sport', () => {
     const [insight] = generateSectionPRInsights([pr(undefined)], NOW, t);
     expect(insight.title).not.toContain('activityTypes');
   });
@@ -82,19 +82,19 @@ describe('a section trend card', () => {
     expect(gravel.supportingData?.sections?.[0]?.sportType).toBe('GravelRide');
   });
 
-  it('keeps a row without a sport distinct from a sport row', () => {
+  vaultIt('keeps a row without a sport distinct from a sport row', () => {
     const [insight] = generateSectionTrendInsights([trend(undefined)], new Set(), NOW, t);
     expect(insight.supportingData?.sections?.[0]?.sportType).toBeUndefined();
   });
 });
 
 describe('a stale PR card', () => {
-  it('names its own sport in the title', () => {
+  vaultIt('names its own sport in the title', () => {
     const insight = stalePROpportunityToInsight(stale('a', 'Run') as StalePROpportunity, t, NOW);
     expect(insight.title).toContain('activityTypes.Run');
   });
 
-  it('names each sport in the group body, Ride apart from GravelRide', () => {
+  vaultIt('names each sport in the group body, Ride apart from GravelRide', () => {
     const [group] = generateStalePRInsights([stale('a', 'Ride'), stale('b', 'GravelRide')], t, NOW);
     const named = (key: string, params?: Record<string, string | number>) =>
       key === 'insights.sectionWithSport' ? `${params?.name} / ${params?.sport}` : (key as string);
@@ -117,13 +117,13 @@ describe('the sheet row key', () => {
     );
   });
 
-  it('does not depend on position', () => {
+  vaultIt('does not depend on position', () => {
     expect(sectionRowKey({ sectionId: 'cedar', sportType: 'Run' })).toBe(
       sectionRowKey({ sectionId: 'cedar', sportType: 'Run' })
     );
   });
 
-  it('is stable for a row with no sport', () => {
+  vaultIt('is stable for a row with no sport', () => {
     expect(sectionRowKey({ sectionId: 'cedar' })).toBe('cedar:');
   });
 });

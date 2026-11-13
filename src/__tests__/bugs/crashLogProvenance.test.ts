@@ -60,7 +60,7 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe('the crash log header', () => {
-  it('opens with the version, the build commit and the platform', () => {
+  vaultIt('opens with the version, the build commit and the platform', () => {
     const log = formatCrashLog([entry]);
     const first = log.split('\n')[0];
     expect(first).toContain('0.9.3');
@@ -70,23 +70,23 @@ describe('the crash log header', () => {
     expect(log).toContain('[2026-01-02T03:04:05.000Z] (js-global, fatal) screen=feed\nboom');
   });
 
-  it('says the engine is open', () => {
+  vaultIt('says the engine is open', () => {
     mockEngine.ready = true;
     expect(headerOf(formatCrashLog([entry]))).toMatch(/engine open/i);
   });
 
-  it('names why the engine failed to open', () => {
+  vaultIt('names why the engine failed to open', () => {
     useEngineStatus.setState({ initFailed: true, initFailureReason: InitOutcome.ForwardSchema });
     const header = headerOf(formatCrashLog([entry]));
     expect(header).toMatch(/failed/i);
     expect(header).toContain('ForwardSchema');
   });
 
-  it('says the engine is not open when it has not opened', () => {
+  vaultIt('says the engine is not open when it has not opened', () => {
     expect(headerOf(formatCrashLog([entry]))).toMatch(/not open/i);
   });
 
-  it('carries the iOS build number, and the version alone without a stamp', () => {
+  vaultIt('carries the iOS build number, and the version alone without a stamp', () => {
     jest.replaceProperty(Platform, 'OS', 'ios');
     jest.spyOn(Platform, 'Version', 'get').mockReturnValue('18.2');
     mockExpoConfig.extra = {};
@@ -105,7 +105,7 @@ describe('the crash log header', () => {
     expect(log).toContain('boom');
   });
 
-  it('is empty when there is nothing to report', () => {
+  vaultIt('is empty when there is nothing to report', () => {
     expect(formatCrashLog([])).toBe('');
   });
 });

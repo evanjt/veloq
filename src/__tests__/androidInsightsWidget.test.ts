@@ -53,7 +53,7 @@ function infoAttributes(xml: string): Record<string, string> {
 }
 
 describe('the Insights widget in the Android gallery', () => {
-  it('is registered with a label from the string resources', () => {
+  vaultIt('is registered with a label from the string resources', () => {
     const app: { receiver: Entry[] } = { receiver: [] };
     androidPlugin.applyReceivers(app);
     const insights = app.receiver.find(
@@ -62,7 +62,7 @@ describe('the Insights widget in the Android gallery', () => {
     expect(insights?.$['android:label']).toBe('@string/widget_insights_label');
   });
 
-  it('registers its picker with the launcher', () => {
+  vaultIt('registers its picker with the launcher', () => {
     const app: { activity: Entry[] } = { activity: [] };
     androidPlugin.applyActivities(app);
     const picker = app.activity.find(
@@ -72,24 +72,29 @@ describe('the Insights widget in the Android gallery', () => {
     expect(JSON.stringify(picker)).toContain('android.appwidget.action.APPWIDGET_CONFIGURE');
   });
 
-  it('names a picker class that is generated into the package, and makes opening it optional', () => {
-    const main = generate();
-    const info = infoAttributes(
-      fs.readFileSync(path.join(main, 'res', 'xml', 'widget_insights_info.xml'), 'utf8')
-    );
-    expect(info['android:configure']).toBe(`${PKG}.widget.InsightsWidgetConfigureActivity`);
-    expect(info['android:widgetFeatures']).toBe('reconfigurable|configuration_optional');
-    expect(info['android:description']).toBe('@string/widget_insights_description');
-    for (const file of [
-      'InsightsWidgetConfigureActivity.kt',
-      'VeloqInsightsWidgetProvider.kt',
-      'InsightsWidgetRenderer.kt',
-    ]) {
-      expect(fs.existsSync(path.join(main, 'java', ...PKG.split('.'), 'widget', file))).toBe(true);
+  vaultIt(
+    'names a picker class that is generated into the package, and makes opening it optional',
+    () => {
+      const main = generate();
+      const info = infoAttributes(
+        fs.readFileSync(path.join(main, 'res', 'xml', 'widget_insights_info.xml'), 'utf8')
+      );
+      expect(info['android:configure']).toBe(`${PKG}.widget.InsightsWidgetConfigureActivity`);
+      expect(info['android:widgetFeatures']).toBe('reconfigurable|configuration_optional');
+      expect(info['android:description']).toBe('@string/widget_insights_description');
+      for (const file of [
+        'InsightsWidgetConfigureActivity.kt',
+        'VeloqInsightsWidgetProvider.kt',
+        'InsightsWidgetRenderer.kt',
+      ]) {
+        expect(fs.existsSync(path.join(main, 'java', ...PKG.split('.'), 'widget', file))).toBe(
+          true
+        );
+      }
     }
-  });
+  );
 
-  it('defines the strings it points at, one name for every category, in every locale', () => {
+  vaultIt('defines the strings it points at, one name for every category, in every locale', () => {
     const main = generate();
     const files: Record<string, string> = strings.androidStringFiles(strings.loadLocaleBundles());
     const defined = (xml: string) =>
@@ -118,16 +123,21 @@ describe('the Insights widget in the Android gallery', () => {
     }
   });
 
-  it('writes the count of further rows from a template that keeps its slot in every locale', () => {
-    const files: Record<string, string> = strings.androidStringFiles(strings.loadLocaleBundles());
-    for (const [dir, xml] of Object.entries(files)) {
-      const more = new DOMParser().parseFromString(xml, 'text/xml').getElementsByTagName('string');
-      const template = Array.from(more).find(
-        (s) => s.getAttribute('name') === 'widget_insights_more'
-      );
-      expect([dir, template?.textContent?.includes('{{rest}}')]).toEqual([dir, true]);
+  vaultIt(
+    'writes the count of further rows from a template that keeps its slot in every locale',
+    () => {
+      const files: Record<string, string> = strings.androidStringFiles(strings.loadLocaleBundles());
+      for (const [dir, xml] of Object.entries(files)) {
+        const more = new DOMParser()
+          .parseFromString(xml, 'text/xml')
+          .getElementsByTagName('string');
+        const template = Array.from(more).find(
+          (s) => s.getAttribute('name') === 'widget_insights_more'
+        );
+        expect([dir, template?.textContent?.includes('{{rest}}')]).toEqual([dir, true]);
+      }
     }
-  });
+  );
 });
 
 describe('the Insights widget in the iOS bundles', () => {
@@ -150,7 +160,7 @@ describe('the Insights widget in the iOS bundles', () => {
     expect(kinds).toEqual(['VeloqInsightsWidget', 'VeloqInsightsWidget']);
   });
 
-  it('compiles the Swift files the widget is written in', () => {
+  vaultIt('compiles the Swift files the widget is written in', () => {
     const compiled = iosPlugin.widgetSwiftFiles(projectRoot);
     for (const file of [
       'InsightsWidgetModel.swift',

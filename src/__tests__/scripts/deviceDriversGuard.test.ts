@@ -64,7 +64,7 @@ describe('a script that drives the handset', () => {
     expect(result.out).toContain('scripts/foo.sh');
   });
 
-  it('is refused when it reaches adb through a variable without the lock', () => {
+  vaultIt('is refused when it reaches adb through a variable without the lock', () => {
     const result = guard({
       'scripts/foo.sh': '#!/bin/sh\nADB=adb\n"$ADB" install -r app.apk\n',
     });
@@ -72,7 +72,7 @@ describe('a script that drives the handset', () => {
     expect(result.code).not.toBe(0);
   });
 
-  it('is refused when a Node script shells out to adb without the lock', () => {
+  vaultIt('is refused when a Node script shells out to adb without the lock', () => {
     const result = guard({
       'scripts/foo.mjs':
         "import { execSync } from 'node:child_process';\nexecSync(`adb shell input tap 1 1`);\n",
@@ -82,7 +82,7 @@ describe('a script that drives the handset', () => {
     expect(result.out).toContain('scripts/foo.mjs');
   });
 
-  it('passes when it takes the lock', () => {
+  vaultIt('passes when it takes the lock', () => {
     const result = guard({
       'scripts/foo.sh': `#!/bin/sh\n${LOCKED}\nadb shell am force-stop com.veloq.app.dev\n`,
     });
@@ -99,7 +99,7 @@ describe('a script that drives the handset', () => {
     expect(result.out).toContain('with-maestro.sh');
   });
 
-  it('is refused for a bare maestro hierarchy too', () => {
+  vaultIt('is refused for a bare maestro hierarchy too', () => {
     const result = guard({
       'scripts/foo.sh': `#!/bin/sh\n${LOCKED}\nmaestro hierarchy 2>/dev/null | cat\n`,
     });
@@ -107,7 +107,7 @@ describe('a script that drives the handset', () => {
     expect(result.code).not.toBe(0);
   });
 
-  it('is refused when a variable names the Maestro binary', () => {
+  vaultIt('is refused when a variable names the Maestro binary', () => {
     const result = guard({
       'scripts/foo.sh': `#!/bin/sh\n${LOCKED}\nMAESTRO="$HOME/.maestro/bin/maestro"\n"$MAESTRO" test flow.yaml\n`,
     });
@@ -115,7 +115,7 @@ describe('a script that drives the handset', () => {
     expect(result.code).not.toBe(0);
   });
 
-  it('passes when a variable names the wrapper', () => {
+  vaultIt('passes when a variable names the wrapper', () => {
     const result = guard({
       'scripts/foo.sh': `#!/bin/sh\n${LOCKED}\nMAESTRO="$(dirname "$0")/with-maestro.sh"\n"$MAESTRO" test flow.yaml\n`,
     });
@@ -123,7 +123,7 @@ describe('a script that drives the handset', () => {
     expect(result.code).toBe(0);
   });
 
-  it('passes when it runs Maestro on a simulator it holds the simulator lock for', () => {
+  vaultIt('passes when it runs Maestro on a simulator it holds the simulator lock for', () => {
     const result = guard({
       'scripts/foo.sh': `#!/bin/sh\n${SIMULATOR_LOCKED}\nmaestro --device "$udid" test flow.yaml\n`,
     });
@@ -131,7 +131,7 @@ describe('a script that drives the handset', () => {
     expect(result.code).toBe(0);
   });
 
-  it('is refused when it holds the simulator lock but Maestro names no device', () => {
+  vaultIt('is refused when it holds the simulator lock but Maestro names no device', () => {
     const result = guard({
       'scripts/foo.sh': `#!/bin/sh\n${SIMULATOR_LOCKED}\nmaestro test flow.yaml\n`,
     });
@@ -140,7 +140,7 @@ describe('a script that drives the handset', () => {
     expect(result.out).toContain('scripts/foo.sh');
   });
 
-  it('is refused when it holds only the simulator lock and runs adb', () => {
+  vaultIt('is refused when it holds only the simulator lock and runs adb', () => {
     const result = guard({
       'scripts/foo.sh': `#!/bin/sh\n${SIMULATOR_LOCKED}\nadb shell am force-stop com.veloq.app.dev\n`,
     });
@@ -148,7 +148,7 @@ describe('a script that drives the handset', () => {
     expect(result.code).not.toBe(0);
   });
 
-  it('passes when Maestro goes through the wrapper', () => {
+  vaultIt('passes when Maestro goes through the wrapper', () => {
     const result = guard({
       'scripts/foo.sh': `#!/bin/sh\n${LOCKED}\n"$(dirname "$0")/with-maestro.sh" test flow.yaml\n`,
     });
@@ -167,7 +167,7 @@ describe('a shell script under .maestro', () => {
     expect(result.out).toContain('.maestro/suite.sh');
   });
 
-  it('passes when it takes the lock', () => {
+  vaultIt('passes when it takes the lock', () => {
     const result = guard({
       '.maestro/suite.sh': `#!/bin/sh\n${LOCKED}\nadb kill-server\n`,
     });
@@ -177,7 +177,7 @@ describe('a shell script under .maestro', () => {
 });
 
 describe('what is not a driver', () => {
-  it('passes a comment or a message that names adb', () => {
+  vaultIt('passes a comment or a message that names adb', () => {
     const result = guard({
       'scripts/foo.sh':
         '#!/bin/sh\n# Read it with adb logcat -s veloqrs.\necho "clear it with adb disconnect"\n',
@@ -187,7 +187,7 @@ describe('what is not a driver', () => {
     expect(result.code).toBe(0);
   });
 
-  it('passes a Node message that starts with the word', () => {
+  vaultIt('passes a Node message that starts with the word', () => {
     const result = guard({
       'scripts/foo.mjs': 'console.log(`maestro id guard: 3 ids asserted`);\n',
     });
@@ -195,7 +195,7 @@ describe('what is not a driver', () => {
     expect(result.code).toBe(0);
   });
 
-  it('passes the lock machinery, which reads adb to choose the lock', () => {
+  vaultIt('passes the lock machinery, which reads adb to choose the lock', () => {
     const result = guard({
       'scripts/device-lock-path.sh': 'attached=$(adb devices | awk \'$2 == "device"\')\n',
     });
@@ -203,7 +203,7 @@ describe('what is not a driver', () => {
     expect(result.code).toBe(0);
   });
 
-  it('is refused when it boots an emulator itself', () => {
+  vaultIt('is refused when it boots an emulator itself', () => {
     const result = guard({
       'scripts/foo.sh':
         '#!/bin/sh\n"$ANDROID_HOME/emulator/emulator" -no-window -avd Quarry_Phone &\n',
@@ -214,7 +214,7 @@ describe('what is not a driver', () => {
     expect(result.out).toContain('boot-emulator.sh');
   });
 
-  it('is refused when a Node script spawns an emulator itself', () => {
+  vaultIt('is refused when a Node script spawns an emulator itself', () => {
     const result = guard({
       'scripts/foo.mjs':
         "import { spawn } from 'node:child_process';\nspawn('emulator', ['@Quarry_Phone']);\n",
@@ -224,7 +224,7 @@ describe('what is not a driver', () => {
     expect(result.out).toContain('scripts/foo.mjs');
   });
 
-  it('passes a script that boots through the emulator lock or only lists the images', () => {
+  vaultIt('passes a script that boots through the emulator lock or only lists the images', () => {
     const result = guard({
       'scripts/foo.sh':
         '#!/bin/sh\nemulator -list-avds\nserial=$(scripts/boot-emulator.sh Quarry_Phone)\n',
@@ -235,7 +235,7 @@ describe('what is not a driver', () => {
     expect(result.code).toBe(0);
   });
 
-  it('passes a check that only asks whether the tool is installed', () => {
+  vaultIt('passes a check that only asks whether the tool is installed', () => {
     const result = guard({
       'scripts/foo.sh':
         '#!/bin/sh\ncommand -v maestro >/dev/null || exit 1\ncommand -v adb >/dev/null 2>&1\n',
@@ -246,7 +246,7 @@ describe('what is not a driver', () => {
 });
 
 describe('a script that drives a shared simulator', () => {
-  it('is refused when it installs on the booted simulator without the simulator lock', () => {
+  vaultIt('is refused when it installs on the booted simulator without the simulator lock', () => {
     const result = guard({
       'scripts/foo.sh': '#!/bin/sh\nxcrun simctl install booted Foo.app\n',
     });
@@ -256,7 +256,7 @@ describe('a script that drives a shared simulator', () => {
     expect(result.out).toContain('with-simulator-lock.sh');
   });
 
-  it('passes when the command goes through the simulator lock', () => {
+  vaultIt('passes when the command goes through the simulator lock', () => {
     const result = guard({
       'scripts/foo.sh':
         '#!/bin/sh\n"$(dirname "$0")/with-simulator-lock.sh" booted xcrun simctl install booted Foo.app\n',
@@ -265,7 +265,7 @@ describe('a script that drives a shared simulator', () => {
     expect(result.code).toBe(0);
   });
 
-  it('passes one that only lists the simulators', () => {
+  vaultIt('passes one that only lists the simulators', () => {
     const result = guard({
       'scripts/foo.sh': '#!/bin/sh\nxcrun simctl list devices booted -j\n',
     });
@@ -273,7 +273,7 @@ describe('a script that drives a shared simulator', () => {
     expect(result.code).toBe(0);
   });
 
-  it('passes one that creates a simulator of its own and drives only that', () => {
+  vaultIt('passes one that creates a simulator of its own and drives only that', () => {
     const result = guard({
       'scripts/foo.sh':
         '#!/bin/sh\nUDID=$(xcrun simctl create probe "iPhone 17")\nxcrun simctl boot "$UDID"\nxcrun simctl install "$UDID" Foo.app\n',
@@ -282,7 +282,7 @@ describe('a script that drives a shared simulator', () => {
     expect(result.code).toBe(0);
   });
 
-  it('passes a message that names simctl', () => {
+  vaultIt('passes a message that names simctl', () => {
     const result = guard({
       'scripts/foo.sh': '#!/bin/sh\necho "install it with xcrun simctl install booted"\n',
     });

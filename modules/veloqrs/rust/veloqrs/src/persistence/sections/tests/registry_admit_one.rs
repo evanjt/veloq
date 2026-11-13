@@ -111,6 +111,7 @@ fn hysteresis_json(engine: &PersistentEngine) -> Value {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn readmitting_one_section_plans_nothing_and_leaves_every_held_entry_alone() {
     let mut engine = engine_with_one_section_let_go();
     let before = hysteresis_json(&engine);
@@ -176,6 +177,7 @@ fn readmitting_one_section_plans_nothing_and_leaves_every_held_entry_alone() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn readmitting_a_section_already_held_changes_nothing() {
     let mut engine = engine_with_one_section_let_go();
     engine.section_identity_admit(READMITTED);

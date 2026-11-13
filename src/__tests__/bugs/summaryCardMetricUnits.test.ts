@@ -49,7 +49,7 @@ function metrics(bundle: object, ids: string[]) {
 }
 
 describe('the summary card supporting metrics', () => {
-  it('give HRV, resting heart rate and power their units', () => {
+  vaultIt('give HRV, resting heart rate and power their units', () => {
     const [hrv, rhr, ftp] = metrics(BUNDLE, ['hrv', 'rhr', 'ftp']);
 
     expect(hrv).toMatchObject({ value: 52, unit: 'units.ms' });
@@ -65,21 +65,21 @@ describe('the summary card supporting metrics', () => {
     expect(`${css.value}${css.unit}`).toBe('1:08/100yd');
   });
 
-  it('read them per kilometre and per 100 metres when metric', () => {
+  vaultIt('read them per kilometre and per 100 metres when metric', () => {
     const [pace, css] = metrics(BUNDLE, ['thresholdPace', 'css']);
 
     expect(pace.unit).toBe('/km');
     expect(css.unit).toBe('/100m');
   });
 
-  it('give a placeholder no unit', () => {
+  vaultIt('give a placeholder no unit', () => {
     const empty = { ...BUNDLE, wellness: {}, ftpTrend: {}, runPaceTrend: {}, swimPaceTrend: {} };
     for (const metric of metrics(empty, ['hrv', 'rhr', 'ftp', 'thresholdPace'])) {
       expect(metric.unit).toBeUndefined();
     }
   });
 
-  it('write the week total as hours and minutes, not decimal hours', () => {
+  vaultIt('write the week total as hours and minutes, not decimal hours', () => {
     const week = { ...BUNDLE, currentWeek: { count: 4, totalDuration: 23400 } };
     const [hours] = metrics(week, ['weekHours']);
 

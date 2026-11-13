@@ -219,14 +219,17 @@ describe('a Start tap is answered at once', () => {
     expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1);
   });
 
-  it('asks for nothing when a live session sends the athlete straight back to it', async () => {
-    useRecordingStore.getState().startRecording('Ride', 'gps');
-    await render(<RecordScreen />);
+  vaultIt(
+    'asks for nothing when a live session sends the athlete straight back to it',
+    async () => {
+      useRecordingStore.getState().startRecording('Ride', 'gps');
+      await render(<RecordScreen />);
 
-    await act(async () => {});
-    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
-    expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
-  });
+      await act(async () => {});
+      expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+      expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+    }
+  );
 
   it('navigates to the armed recording screen and does nothing else', async () => {
     await render(<RecordScreen />);
@@ -240,7 +243,7 @@ describe('a Start tap is answered at once', () => {
     expect(useRecordingStore.getState().status).toBe('idle');
   });
 
-  it('names the header cog for the recording settings it opens', async () => {
+  vaultIt('names the header cog for the recording settings it opens', async () => {
     await render(<RecordScreen />);
 
     expect(screen.getByTestId('record-settings').props.accessibilityLabel).toBe(
@@ -257,7 +260,7 @@ describe('a Start tap is answered at once', () => {
     expect(replaceTo).toHaveBeenCalledWith('/recording/Run?from=entry');
   });
 
-  it('a chip chooses the sport without leaving the screen', async () => {
+  vaultIt('a chip chooses the sport without leaving the screen', async () => {
     await render(<RecordScreen />);
 
     await fireEvent.press(screen.getByTestId('record-type-Walk'));
@@ -280,7 +283,7 @@ describe('a Start tap is answered at once', () => {
     expect(replaceTo).toHaveBeenCalledWith('/recording/GravelRide?from=entry');
   });
 
-  it('keeps the sport when the sheet is dismissed without a choice', async () => {
+  vaultIt('keeps the sport when the sheet is dismissed without a choice', async () => {
     const entry = await render(<RecordScreen />);
 
     void fireEvent.press(entry.getByTestId('record-sport-more'));
@@ -294,7 +297,7 @@ describe('a Start tap is answered at once', () => {
     expect(replaceTo).toHaveBeenCalledWith('/recording/Ride?from=entry');
   });
 
-  it('swaps the map for the sport surface indoors', async () => {
+  vaultIt('swaps the map for the sport surface indoors', async () => {
     const entry = await render(<RecordScreen />);
     expect(entry.getByTestId('recording-map')).toBeTruthy();
 
@@ -305,7 +308,7 @@ describe('a Start tap is answered at once', () => {
     expect(entry.getByTestId('record-surface-indoor')).toBeTruthy();
   });
 
-  it('opens on the manual surface when the last sport is entered by hand', async () => {
+  vaultIt('opens on the manual surface when the last sport is entered by hand', async () => {
     useRecordingPreferences.setState({ recentActivityTypes: ['Yoga', 'Ride'] });
     await render(<RecordScreen />);
 
@@ -315,7 +318,7 @@ describe('a Start tap is answered at once', () => {
     expect(replaceTo).toHaveBeenCalledWith('/recording/Yoga?from=entry');
   });
 
-  it('offers the rest of the sports from a Button named More', async () => {
+  vaultIt('offers the rest of the sports from a Button named More', async () => {
     await render(<RecordScreen />);
 
     expect(screen.getByTestId('record-sport-more-label')).toHaveTextContent('More');
@@ -339,7 +342,7 @@ describe('notifications on Android, which carry the ride outside the app', () =>
     Platform.OS = platform;
   });
 
-  it('raises the dialog once, not again on the next visit after a refusal', async () => {
+  vaultIt('raises the dialog once, not again on the next visit after a refusal', async () => {
     notificationsAre({ status: 'denied', canAskAgain: true });
 
     const first = await render(<RecordScreen />);
@@ -351,7 +354,7 @@ describe('notifications on Android, which carry the ride outside the app', () =>
     expect(askRequested()).toBe(1);
   });
 
-  it('asks nothing before the preferences load, or a restart would ask again', async () => {
+  vaultIt('asks nothing before the preferences load, or a restart would ask again', async () => {
     notificationsAre({ status: 'denied', canAskAgain: true });
     useRecordingPreferences.setState({ isLoaded: false });
     useRecordingPreferences.setState({ initialise: jest.fn(async () => undefined) } as never);
@@ -361,7 +364,7 @@ describe('notifications on Android, which carry the ride outside the app', () =>
     expect(askRequested()).toBe(0);
   });
 
-  it('says what a refusal costs, and Allow raises the dialog again while it can', async () => {
+  vaultIt('says what a refusal costs, and Allow raises the dialog again while it can', async () => {
     notificationsAre({ status: 'denied', canAskAgain: true });
     useRecordingPreferences.setState({ notificationsAsked: true } as never);
     await render(<RecordScreen />);
@@ -381,7 +384,7 @@ describe('notifications on Android, which carry the ride outside the app', () =>
     await waitFor(() => expect(screen.queryByTestId('record-outside-app-notice')).toBeNull());
   });
 
-  it('offers the app settings once the system will not ask again', async () => {
+  vaultIt('offers the app settings once the system will not ask again', async () => {
     const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
     notificationsAre({ status: 'denied', canAskAgain: false });
     await render(<RecordScreen />);
@@ -394,23 +397,26 @@ describe('notifications on Android, which carry the ride outside the app', () =>
     openSettings.mockRestore();
   });
 
-  it('drops the line when the athlete comes back from settings having allowed them', async () => {
-    notificationsAre({ status: 'denied', canAskAgain: false });
-    await render(<RecordScreen />);
-    await screen.findByTestId('record-outside-app-notice');
+  vaultIt(
+    'drops the line when the athlete comes back from settings having allowed them',
+    async () => {
+      notificationsAre({ status: 'denied', canAskAgain: false });
+      await render(<RecordScreen />);
+      await screen.findByTestId('record-outside-app-notice');
 
-    notificationsAre({ status: 'granted', canAskAgain: true });
-    const appStateListeners = (AppState.addEventListener as jest.Mock).mock.calls
-      .filter(([event]) => event === 'change')
-      .map(([, listener]) => listener as (state: string) => void);
-    await act(async () => {
-      for (const listener of appStateListeners) listener('active');
-    });
+      notificationsAre({ status: 'granted', canAskAgain: true });
+      const appStateListeners = (AppState.addEventListener as jest.Mock).mock.calls
+        .filter(([event]) => event === 'change')
+        .map(([, listener]) => listener as (state: string) => void);
+      await act(async () => {
+        for (const listener of appStateListeners) listener('active');
+      });
 
-    expect(screen.queryByTestId('record-outside-app-notice')).toBeNull();
-  });
+      expect(screen.queryByTestId('record-outside-app-notice')).toBeNull();
+    }
+  );
 
-  it('shows nothing and asks nothing when notifications are allowed', async () => {
+  vaultIt('shows nothing and asks nothing when notifications are allowed', async () => {
     notificationsAre({ status: 'granted', canAskAgain: true });
     await render(<RecordScreen />);
 
@@ -441,7 +447,7 @@ describe('the lock-screen card on iOS', () => {
     (isLiveActivitySupported as jest.Mock).mockReturnValue(true);
   });
 
-  it('says the controls stay in the app when Live Activities are off', async () => {
+  vaultIt('says the controls stay in the app when Live Activities are off', async () => {
     (isLiveActivitySupported as jest.Mock).mockReturnValue(false);
     await render(<RecordScreen />);
 
@@ -451,13 +457,13 @@ describe('the lock-screen card on iOS', () => {
     expect(askRequested()).toBe(0);
   });
 
-  it('shows nothing while the card is on', async () => {
+  vaultIt('shows nothing while the card is on', async () => {
     await render(<RecordScreen />);
     await act(async () => {});
     expect(screen.queryByTestId('record-outside-app-notice')).toBeNull();
   });
 
-  it('shows nothing on a tablet, which has no lock-screen card to turn on', async () => {
+  vaultIt('shows nothing on a tablet, which has no lock-screen card to turn on', async () => {
     Object.defineProperty(Platform, 'isPad', { value: true, configurable: true });
     (isLiveActivitySupported as jest.Mock).mockReturnValue(false);
     await render(<RecordScreen />);
@@ -467,7 +473,7 @@ describe('the lock-screen card on iOS', () => {
 });
 
 describe("today's planned workout", () => {
-  it('is absent when nothing is planned, not an empty card', async () => {
+  vaultIt('is absent when nothing is planned, not an empty card', async () => {
     await render(<RecordScreen />);
     expect(screen.queryByTestId('record-event-77')).toBeNull();
   });
@@ -480,7 +486,7 @@ describe("today's planned workout", () => {
     expect(replaceTo).toHaveBeenCalledWith('/recording/Run?from=entry&pairedEventId=77');
   });
 
-  it('offers only the workout when a note shares its day', async () => {
+  vaultIt('offers only the workout when a note shares its day', async () => {
     mockEvents = [note, planned];
     await render(<RecordScreen />);
 
@@ -488,7 +494,7 @@ describe("today's planned workout", () => {
     expect(screen.queryByTestId('record-event-78')).toBeNull();
   });
 
-  it('appears when the engine stores the calendar body for today', async () => {
+  vaultIt('appears when the engine stores the calendar body for today', async () => {
     await render(<RecordScreen />);
     expect(screen.queryByTestId('record-event-77')).toBeNull();
 
@@ -500,7 +506,7 @@ describe("today's planned workout", () => {
     expect(screen.getByTestId('record-event-77')).toBeTruthy();
   });
 
-  it('does not re-read for a body of another kind', async () => {
+  vaultIt('does not re-read for a body of another kind', async () => {
     await render(<RecordScreen />);
 
     mockEvents = [planned];
@@ -511,7 +517,7 @@ describe("today's planned workout", () => {
     expect(screen.queryByTestId('record-event-77')).toBeNull();
   });
 
-  it('still re-reads when a sync settles on the activities channel', async () => {
+  vaultIt('still re-reads when a sync settles on the activities channel', async () => {
     await render(<RecordScreen />);
 
     mockEvents = [planned];
@@ -522,7 +528,7 @@ describe("today's planned workout", () => {
     expect(screen.getByTestId('record-event-77')).toBeTruthy();
   });
 
-  it('clips the GPS warning line to the radius of the tint it wraps', async () => {
+  vaultIt('clips the GPS warning line to the radius of the tint it wraps', async () => {
     (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValueOnce({
       status: 'denied',
     });
@@ -549,7 +555,7 @@ describe("today's planned workout", () => {
 });
 
 describe('the bottom edge', () => {
-  it('clears the home indicator once, through the safe area alone', async () => {
+  vaultIt('clears the home indicator once, through the safe area alone', async () => {
     await render(
       <SafeAreaInsetsContext.Provider value={{ top: 47, left: 0, right: 0, bottom: 34 }}>
         <RecordScreen />
@@ -586,7 +592,7 @@ describe('the paired sensors and the fix before Start', () => {
   const STRAP = { id: 'strap-1', name: 'Chest strap', kinds: ['heartRate' as const] };
   const METER = { id: 'meter-1', name: 'Crank meter', kinds: ['power' as const] };
 
-  it('connects the paired sensors on arrival and holds them for this screen', async () => {
+  vaultIt('connects the paired sensors on arrival and holds them for this screen', async () => {
     useSensorStore.setState({ knownSensors: [STRAP] });
     await render(<RecordScreen />);
 
@@ -594,7 +600,7 @@ describe('the paired sensors and the fix before Start', () => {
     expect(holdSensors).toHaveBeenCalledWith('entry');
   });
 
-  it('connects nothing when no sensor is paired, and lists none', async () => {
+  vaultIt('connects nothing when no sensor is paired, and lists none', async () => {
     await render(<RecordScreen />);
     await act(async () => {});
 
@@ -602,7 +608,7 @@ describe('the paired sensors and the fix before Start', () => {
     expect(screen.queryByTestId('entry-sensors')).toBeNull();
   });
 
-  it('offers to add a sensor above the sport chips when none is paired', async () => {
+  vaultIt('offers to add a sensor above the sport chips when none is paired', async () => {
     await render(<RecordScreen />);
 
     const add = screen.getByTestId('entry-sensor-add');
@@ -612,7 +618,7 @@ describe('the paired sensors and the fix before Start', () => {
     expect(navigateTo).toHaveBeenCalledWith('/sensor-settings');
   });
 
-  it('puts the paired sensors above the sport chips with a link to sensor setup', async () => {
+  vaultIt('puts the paired sensors above the sport chips with a link to sensor setup', async () => {
     useSensorStore.setState({ knownSensors: [STRAP] });
     await render(<RecordScreen />);
 
@@ -622,18 +628,21 @@ describe('the paired sensors and the fix before Start', () => {
     expect(navigateTo).toHaveBeenCalledWith('/sensor-settings');
   });
 
-  it('says what to turn on when a paired heart rate sensor is connected and silent', async () => {
-    useSensorStore.setState({
-      knownSensors: [STRAP],
-      connections: { [STRAP.id]: { status: 'noData', name: STRAP.name, kinds: STRAP.kinds } },
-    });
-    await render(<RecordScreen />);
+  vaultIt(
+    'says what to turn on when a paired heart rate sensor is connected and silent',
+    async () => {
+      useSensorStore.setState({
+        knownSensors: [STRAP],
+        connections: { [STRAP.id]: { status: 'noData', name: STRAP.name, kinds: STRAP.kinds } },
+      });
+      await render(<RecordScreen />);
 
-    expect(screen.getByTestId('entry-sensor-status-strap-1')).toHaveTextContent(
-      'Connected, but not sending heart rate. Turn on heart rate broadcast on the device.'
-    );
-    expect(screen.queryByText(/Connected, no data/)).toBeNull();
-  });
+      expect(screen.getByTestId('entry-sensor-status-strap-1')).toHaveTextContent(
+        'Connected, but not sending heart rate. Turn on heart rate broadcast on the device.'
+      );
+      expect(screen.queryByText(/Connected, no data/)).toBeNull();
+    }
+  );
 
   it('connects nothing when the screen is left while Bluetooth access is being asked', async () => {
     let answer!: (access: string) => void;
@@ -667,7 +676,7 @@ describe('the paired sensors and the fix before Start', () => {
     expect(releaseSensors).toHaveBeenCalledWith('entry');
   });
 
-  it('lists each paired sensor with its kind, state, live value and battery', async () => {
+  vaultIt('lists each paired sensor with its kind, state, live value and battery', async () => {
     useSensorStore.setState({
       knownSensors: [STRAP, METER],
       connections: {
@@ -695,7 +704,7 @@ describe('the paired sensors and the fix before Start', () => {
     );
   });
 
-  it('disconnects one sensor for the session, and offers to connect it again', async () => {
+  vaultIt('disconnects one sensor for the session, and offers to connect it again', async () => {
     useSensorStore.setState({
       knownSensors: [STRAP],
       connections: { [STRAP.id]: { status: 'connected', name: STRAP.name, kinds: STRAP.kinds } },
@@ -715,7 +724,7 @@ describe('the paired sensors and the fix before Start', () => {
     expect(connectSensorForSession).toHaveBeenCalledWith(STRAP.id);
   });
 
-  it('leaves forgetting a pairing to sensor setup', async () => {
+  vaultIt('leaves forgetting a pairing to sensor setup', async () => {
     useSensorStore.setState({ knownSensors: [STRAP, METER] });
     await render(<RecordScreen />);
 
@@ -723,7 +732,7 @@ describe('the paired sensors and the fix before Start', () => {
     expect(screen.queryByText('Forget')).toBeNull();
   });
 
-  it('lists the sensors indoors too, where there is no fix to show', async () => {
+  vaultIt('lists the sensors indoors too, where there is no fix to show', async () => {
     useRecordingPreferences.setState({ recentActivityTypes: ['VirtualRide'] });
     useSensorStore.setState({ knownSensors: [STRAP] });
     await render(<RecordScreen />);
@@ -732,7 +741,7 @@ describe('the paired sensors and the fix before Start', () => {
     expect(screen.queryByTestId('record-gps-accuracy')).toBeNull();
   });
 
-  it('gives the fix state with its accuracy in metres', async () => {
+  vaultIt('gives the fix state with its accuracy in metres', async () => {
     (Location.watchPositionAsync as jest.Mock).mockImplementationOnce(
       async (_options: unknown, onFix: (p: unknown) => void) => {
         onFix({ coords: { latitude: -33.9, longitude: 151.2, accuracy: 6 } });
@@ -746,7 +755,7 @@ describe('the paired sensors and the fix before Start', () => {
     );
   });
 
-  it('names the fix state alone before the first fix', async () => {
+  vaultIt('names the fix state alone before the first fix', async () => {
     await render(<RecordScreen />);
     await act(async () => {});
 

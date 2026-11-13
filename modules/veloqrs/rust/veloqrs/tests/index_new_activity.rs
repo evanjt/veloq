@@ -111,6 +111,7 @@ fn indexes_new_activity_against_existing_sections() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn returns_empty_summary_for_unknown_or_tiny_activity() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("index_empty.db");

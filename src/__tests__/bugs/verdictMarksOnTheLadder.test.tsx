@@ -125,7 +125,7 @@ describe.each([false, true])('the sheet comparison, dark %s', (isDark) => {
     mockTheme.isDark = isDark;
   });
 
-  it('draws a strength rise of 25% as a bare up arrow on the neutral rung', async () => {
+  vaultIt('draws a strength rise of 25% as a bare up arrow on the neutral rung', async () => {
     const insight = strengthProgression();
     expect(insight.supportingData?.trend).toEqual({ direction: 'up', verdict: 'moved' });
 
@@ -134,7 +134,7 @@ describe.each([false, true])('the sheet comparison, dark %s', (isDark) => {
     expect(glyph).toEqual({ name: 'trending-up', color: verdictColor('neutral', isDark) });
   });
 
-  it.each([
+  vaultIt.each([
     [{ direction: 'down', verdict: 'improved' }, 'trending-up', 'positive'],
     [{ direction: 'up', verdict: 'declined' }, 'trending-down', 'negative'],
     [{ direction: 'down', verdict: 'moved' }, 'trending-down', 'neutral'],
@@ -146,14 +146,17 @@ describe.each([false, true])('the sheet comparison, dark %s', (isDark) => {
     if (rung !== 'neutral') expect(drawn).toContain(verdictFill(rung, isDark));
   });
 
-  it('draws a comparison with no judged move on the neutral rung whatever its context says', async () => {
-    const { glyph, fills: drawn } = await comparisonOf({
-      comparisonData: { ...COMPARISON, change: { ...COMPARISON.change, context: 'concern' } },
-    });
+  vaultIt(
+    'draws a comparison with no judged move on the neutral rung whatever its context says',
+    async () => {
+      const { glyph, fills: drawn } = await comparisonOf({
+        comparisonData: { ...COMPARISON, change: { ...COMPARISON.change, context: 'concern' } },
+      });
 
-    expect(glyph).toEqual({ name: 'minus', color: verdictColor('neutral', isDark) });
-    expect(drawn).not.toContain(verdictFill('negative', isDark));
-  });
+      expect(glyph).toEqual({ name: 'minus', color: verdictColor('neutral', isDark) });
+      expect(drawn).not.toContain(verdictFill('negative', isDark));
+    }
+  );
 });
 
 /** The change badge's glyph on the milestone sheet. */
@@ -171,7 +174,7 @@ describe.each([false, true])('the milestone sheet, dark %s', (isDark) => {
     mockTheme.isDark = isDark;
   });
 
-  it.each([
+  vaultIt.each([
     ['a rising', 10],
     ['a falling', -10],
   ])('draws %s eFTP with the glyph and rung of the move the card carries', async (_, delta) => {
@@ -195,7 +198,7 @@ describe.each([false, true])('the milestone sheet, dark %s', (isDark) => {
     });
   });
 
-  it('draws a milestone with no judged move as a dash on the neutral rung', async () => {
+  vaultIt('draws a milestone with no judged move as a dash on the neutral rung', async () => {
     const [rising] = generateFitnessMilestoneInsights(ftp(10), null, null, NOW, t);
     const insight = { ...rising, supportingData: { ...rising.supportingData, trend: undefined } };
 
@@ -220,7 +223,7 @@ describe.each([false, true])('a data row verdict, dark %s', (isDark) => {
     mockTheme.isDark = isDark;
   });
 
-  it.each([
+  vaultIt.each([
     ['good', 'check-circle', 'positive'],
     ['warning', 'alert', 'caution'],
     ['concern', 'alert-octagon', 'negative'],
@@ -229,7 +232,7 @@ describe.each([false, true])('a data row verdict, dark %s', (isDark) => {
     expect(await row(context)).toEqual([{ name, color: verdictColor(rung, isDark) }]);
   });
 
-  it('gives good, warning and concern three different glyphs', async () => {
+  vaultIt('gives good, warning and concern three different glyphs', async () => {
     const names: (string | undefined)[] = [];
     for (const context of ['good', 'warning', 'concern'] as const) {
       names.push((await row(context))[0]?.name);
@@ -238,7 +241,7 @@ describe.each([false, true])('a data row verdict, dark %s', (isDark) => {
     expect(new Set(names).size).toBe(3);
   });
 
-  it.each(['good', 'warning', 'concern', 'neutral'] as const)(
+  vaultIt.each(['good', 'warning', 'concern', 'neutral'] as const)(
     'names the %s verdict in the row label',
     async (context) => {
       await render(<DataPointRow dataPoint={{ label: 'Ramp', value: 7, unit: 'pts', context }} />);
@@ -247,7 +250,7 @@ describe.each([false, true])('a data row verdict, dark %s', (isDark) => {
     }
   );
 
-  it('draws no verdict glyph and names none for a value with no verdict', async () => {
+  vaultIt('draws no verdict glyph and names none for a value with no verdict', async () => {
     expect(await row(undefined)).toEqual([]);
     await render(<DataPointRow dataPoint={{ label: 'Ramp', value: 7 }} />);
 

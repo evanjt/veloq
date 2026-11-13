@@ -61,7 +61,7 @@ describe('the insights channel name', () => {
     for (const name of channelNames()) expect(name).not.toMatch(/^notifications\./);
   });
 
-  it('describes the channel in the same language', () => {
+  vaultIt('describes the channel in the same language', () => {
     const [, channel] = (Notifications.setNotificationChannelAsync as jest.Mock).mock.calls.at(-1);
     expect(channel.description).toBe(i18n.t('notifications.channel.insightsDescription'));
   });
@@ -93,7 +93,7 @@ describe('the activity channel', () => {
     expect(Notifications.deleteNotificationChannelAsync).toHaveBeenCalledWith('veloq-insights');
   });
 
-  it('touches no channel on iOS', () => {
+  vaultIt('touches no channel on iOS', () => {
     (Platform as { OS: string }).OS = 'ios';
     try {
       initialiseNotifications();

@@ -53,7 +53,7 @@ describe('a chart holding its previous render', () => {
     expect(plot).toBeBusy();
   });
 
-  it('draws the plot at full strength once the curve is the range asked for', async () => {
+  vaultIt('draws the plot at full strength once the curve is the range asked for', async () => {
     await render(<PowerCurveChart />);
 
     const plot = screen.getByRole('image');
@@ -63,7 +63,7 @@ describe('a chart holding its previous render', () => {
 });
 
 describe('a screen part holding its previous render', () => {
-  it('dims what it holds and reports it busy', async () => {
+  vaultIt('dims what it holds and reports it busy', async () => {
     await render(
       <HeldRender held testID="held">
         <Text>last week</Text>
@@ -75,7 +75,7 @@ describe('a screen part holding its previous render', () => {
     expect(screen.getByText('last week')).toBeTruthy();
   });
 
-  it('leaves current content at full strength', async () => {
+  vaultIt('leaves current content at full strength', async () => {
     await render(
       <HeldRender held={false} testID="held">
         <Text>this week</Text>

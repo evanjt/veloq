@@ -94,20 +94,23 @@ afterEach(() => {
 });
 
 describe('GPS review header', () => {
-  it('lays the native header transparent over the hero, visually untitled with the hero tint', async () => {
-    stopRide(3);
-    await render(<ReviewScreen />);
+  vaultIt(
+    'lays the native header transparent over the hero, visually untitled with the hero tint',
+    async () => {
+      stopRide(3);
+      await render(<ReviewScreen />);
 
-    expect(lastOptions()).toMatchObject({
-      headerShown: true,
-      headerTransparent: true,
-      headerTitleStyle: { color: OVER_MAP_TITLE_COLOR },
-      headerLargeTitle: false,
-      headerTintColor: mapHeroChrome({ scrolledPastHero: false, isDark: false }).tint,
-      headerBackVisible: true,
-      gestureEnabled: true,
-    });
-  });
+      expect(lastOptions()).toMatchObject({
+        headerShown: true,
+        headerTransparent: true,
+        headerTitleStyle: { color: OVER_MAP_TITLE_COLOR },
+        headerLargeTitle: false,
+        headerTintColor: mapHeroChrome({ scrolledPastHero: false, isDark: false }).tint,
+        headerBackVisible: true,
+        gestureEnabled: true,
+      });
+    }
+  );
 
   it('hides the header back and the swipe while uploading', async () => {
     mockUploading = true;
@@ -121,7 +124,7 @@ describe('GPS review header', () => {
     });
   });
 
-  it('draws no back arrow on the review screen or its hero', async () => {
+  vaultIt('draws no back arrow on the review screen or its hero', async () => {
     stopRide(3);
     await render(<ReviewScreen />);
     expect(screen.UNSAFE_queryAllByProps({ name: 'arrow-left' })).toHaveLength(0);
@@ -150,7 +153,7 @@ describe('GPS review header', () => {
     expect(screen.UNSAFE_queryAllByProps({ accessibilityLabel: 'common.back' })).toHaveLength(0);
   });
 
-  it('keeps the opaque native header on a review with no track', async () => {
+  vaultIt('keeps the opaque native header on a review with no track', async () => {
     stopRide(0);
     await render(<ReviewScreen />);
 

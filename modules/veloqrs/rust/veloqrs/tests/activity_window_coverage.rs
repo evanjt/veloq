@@ -71,6 +71,7 @@ fn covered_library() -> (TempDir, PersistentEngine) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_whose_ids_are_all_local_and_current_owes_nothing() {
     let (_dir, engine) = covered_library();
 
@@ -117,6 +118,7 @@ fn an_activity_that_moved_upstream_since_it_was_fetched_owes_the_window() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_the_census_names_nothing_in_is_covered() {
     let (_dir, engine) = covered_library();
 
@@ -176,6 +178,7 @@ fn a_fetch_mark_names_the_version_it_fetched_rather_than_the_time_it_ran() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_uploaded_trackless_ride_stored_under_its_local_key_is_not_owed() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);

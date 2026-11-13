@@ -466,6 +466,7 @@ const ACTIVITY_KEYED_TABLES: &[&str] = &[
     "stream_bodies",
     "interval_bodies",
     "exercise_sets",
+    "strength_signatures",
     "swim_lengths",
     "pool_swims",
     "fit_file_status",
@@ -2849,6 +2850,7 @@ impl PersistentEngine {
              DELETE FROM exercise_sets;
              DELETE FROM exercise_usage;
              DELETE FROM exercise_followers;
+             DELETE FROM strength_signatures;
              DELETE FROM swim_lengths;
              DELETE FROM pool_swims;
              DELETE FROM fit_file_status;
@@ -5513,6 +5515,7 @@ mod tests {
     /// demo row's stored id is its own key and names no page upstream, and a
     /// recording names none until an upload answers.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_web_link_names_only_an_id_intervals_has_given() {
         let cases: [(&str, Option<&str>, Option<&str>); 7] = [
             ("i901", Some("i901"), Some("i901")),
@@ -5538,6 +5541,7 @@ mod tests {
     /// Expected behaviour: the pooled read finds the id on the body, the same
     /// answer the engine's own lookup gives.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_stored_id_of_a_trackless_recording_is_read_from_its_body() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -5556,6 +5560,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn resyncing_unchanged_activities_leaves_grouping_settled() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -5580,6 +5585,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_new_or_replaced_track_marks_grouping_owed() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -5662,6 +5668,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn provisional_empty_track_and_committed_retry_are_complete() {
         for points in [
             Vec::new(),
@@ -5790,6 +5797,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_uploaded_duplicate_leaves_no_cached_metrics_or_time_stream() {
         let mut engine = engine_with_track("local-recording", bounds_at(46.0));
         engine
@@ -5833,6 +5841,7 @@ mod tests {
     /// with its track, and without the exemption it reads 0 against the track's
     /// 2 and offers the activity on every pass.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_stream_row_reads_as_answered() {
         let mut engine = engine_with_track("a1", bounds_at(46.0));
         let ids = vec!["a1".to_string()];
@@ -5855,6 +5864,7 @@ mod tests {
     /// Expected behaviour: the cache does not answer for it; the length rule
     /// decides, so the activity is still owed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cached_stream_of_the_wrong_length_is_still_missing() {
         let mut engine = engine_with_track("a1", bounds_at(46.0));
         let ids = vec!["a1".to_string()];
@@ -5872,6 +5882,7 @@ mod tests {
     /// for refetch, which is what puts every released 0.3.x row back in front
     /// of the sync.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stream_shorter_than_its_track_is_still_missing() {
         let mut engine = engine_with_track("a1", bounds_at(46.0));
         let ids = vec!["a1".to_string()];
@@ -5884,6 +5895,7 @@ mod tests {
 
     /// A stream that matches its track is answered, empty row or not.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stream_matching_its_track_is_answered() {
         let mut engine = engine_with_track("a1", bounds_at(46.0));
         let ids = vec!["a1".to_string()];
@@ -5900,6 +5912,7 @@ mod tests {
     /// Storing the empty answer twice is the same answer. The second pass must
     /// not reopen the activity, since a repeat sync is the ordinary case.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_repeated_empty_answer_stays_answered() {
         let mut engine = engine_with_track("a1", bounds_at(46.0));
         let ids = vec!["a1".to_string()];
@@ -5917,6 +5930,7 @@ mod tests {
     /// An activity that was never asked has no row at all, and that is still
     /// the missing case. The exemption is on a row that exists and says zero.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_with_no_row_is_missing() {
         let engine = engine_with_track("a1", bounds_at(46.0));
         let ids = vec!["a1".to_string()];
@@ -5926,6 +5940,7 @@ mod tests {
 
     /// An activity with no track at all, an indoor ride, answers empty too.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_answer_without_a_track_is_answered() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -5952,6 +5967,7 @@ mod tests {
     /// than rebuilt, so the activity stayed on disk and gone from the feed for
     /// the rest of the session.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_row_deletes_leave_the_memory_tiers_alone() {
         let mut engine = engine_with_track("a1", bounds_at(47.0));
 
@@ -6074,6 +6090,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn clearing_derived_activities_drops_their_metrics_from_memory() {
         let mut engine = engine_with_track("a1", bounds_at(47.0));
         engine
@@ -6491,6 +6508,7 @@ mod tests {
     /// as an empty one.
     #[cfg(unix)]
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_clear_that_cannot_list_the_tiles_reports_failure() {
         let _guard = crate::test_globals::serial_global_state();
         let tmp = tempfile::TempDir::new().expect("tempdir");
@@ -6515,6 +6533,7 @@ mod tests {
     /// as an empty one.
     #[cfg(unix)]
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_wipe_that_cannot_list_the_tiles_reports_failure() {
         let _guard = crate::test_globals::serial_global_state();
         let tmp = crate::test_globals::init_global_engine("unlisted-wipe.db");
@@ -6544,6 +6563,7 @@ mod tests {
     /// rather than spawning a thread apiece, each overwriting the cancel token
     /// of the one before it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_deferred_removal_hands_back_its_bounds_and_sweeps_nothing() {
         let mut engine = engine_with_track("gone", bounds_at(46.0));
 
@@ -6566,6 +6586,7 @@ mod tests {
     /// nothing rather than a rectangle at the origin, which at z17 is a walk of
     /// the Gulf of Guinea.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_removal_with_no_bounds_owes_no_sweep() {
         let mut engine = engine_with_track("gone", bounds_at(46.0));
         engine.activity_metadata.remove("gone");
@@ -6579,6 +6600,7 @@ mod tests {
     /// Expected behaviour: the removal stamps its sport for the sweep, and a
     /// clear takes the stamp with the library it described.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_departed_activity_stamps_its_sport_for_the_curve_sweep() {
         let mut engine = engine_with_track("gone", bounds_at(46.0));
         assert!(engine.try_curve_removals_by_sport().unwrap().is_empty());
@@ -6597,6 +6619,7 @@ mod tests {
     /// A body stored without a metrics row or a track still names its sport,
     /// so its departure refetches that family's curves.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_departed_body_with_no_metrics_row_stamps_its_type() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -6617,6 +6640,7 @@ mod tests {
     /// A departure kept for a section leaves a marker beside its stamp, and
     /// both describe the library a clear takes.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_clear_takes_a_kept_departures_marker() {
         let mut engine = engine_with_track("gone", bounds_at(46.0));
         stamp_kept_departure(&engine.db, "gone").unwrap();
@@ -6644,6 +6668,7 @@ mod tests {
     /// The stamp is written in the removal's own transaction, so a removal
     /// that does not commit leaves the sweep nothing to act on.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_departed_removal_that_fails_stamps_nothing() {
         let mut engine = engine_with_track("gone", bounds_at(46.0));
         engine
@@ -6663,6 +6688,7 @@ mod tests {
     /// Nothing to sweep spawns nothing: a reconcile that removed only
     /// activities with no track must not start a thread to do nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_sweep_starts_nothing() {
         let mut engine = engine_with_track("kept", bounds_at(46.0));
         engine.heatmap_tiles_path = None;
@@ -6682,6 +6708,7 @@ mod tests {
     /// every stored activity at every zoom, deleting tiles that were correct,
     /// and then marked the whole set dirty for a redraw nobody needed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn only_new_and_mutated_activities_owe_a_tile_sweep() {
         let batch = vec![
             ("fresh".to_string(), track_at(46.0), "Ride".to_string()),
@@ -6709,6 +6736,7 @@ mod tests {
     /// sweep at all, so no thread is spawned and the tile set is not marked
     /// dirty. That is the case a routine sync is mostly made of.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_batch_of_verbatim_re_ingests_owes_no_sweep() {
         let batch = vec![
             ("a".to_string(), track_at(46.0), "Ride".to_string()),
@@ -6722,6 +6750,7 @@ mod tests {
     /// Expected behaviour: a first sync, where the catalogue is empty, still
     /// sweeps everything. The narrowing must not read as "never sweep".
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_first_sync_sweeps_every_activity_it_stored() {
         let batch = vec![
             ("a".to_string(), track_at(46.0), "Ride".to_string()),
@@ -6787,6 +6816,7 @@ mod tests {
     /// Expected behaviour: the walk hands over only what was asked for, and
     /// never pays the blob read or the decode for the rest.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_track_walk_decodes_only_the_ids_it_was_asked_for() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let coords = vec![
@@ -6820,6 +6850,7 @@ mod tests {
     /// A corrupt row the caller did not ask for is not its problem, and
     /// decoding it to find out would be the cost the filter exists to avoid.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_corrupt_row_outside_the_wanted_set_is_not_counted() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let coords = vec![GpsPoint {
@@ -6874,6 +6905,7 @@ mod tests {
     /// An activity in no section still commits once, and removing an id that
     /// was never there writes nothing to roll back.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn removing_an_activity_in_no_section_is_one_commit() {
         let mut engine = engine_with_activity_in_sections(0);
         let commits = commit_counter::watch(&engine);
@@ -7002,6 +7034,7 @@ mod tests {
 
     /// The removal stays one commit with eleven more deletes inside it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn removing_an_activity_with_every_table_seeded_is_still_one_commit() {
         let mut engine = engine_with_activity_in_sections(12);
         seed_activity_keyed_rows(&mut engine, "a1");
@@ -7100,6 +7133,7 @@ mod tests {
     /// An empty request needs no query, and answers with an empty map rather
     /// than an error.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_id_reconcile_answers_without_a_query() {
         let engine = PersistentEngine::in_memory().unwrap();
 
@@ -7167,6 +7201,7 @@ mod tests {
     /// Expected behaviour: the batch reports exactly the ids whose stored
     /// track it replaced with a different one.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_batch_reports_the_tracks_it_replaced_with_different_ones() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -7197,6 +7232,7 @@ mod tests {
     /// A first sync is every activity arriving at once, which is the batch a
     /// reader must not be told to re-read anything for.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_first_sync_reports_no_mutations() {
         let mut engine = PersistentEngine::in_memory().unwrap();
 
@@ -7208,6 +7244,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn removing_the_same_activity_twice_is_one_commit_each() {
         let mut engine = engine_with_activity_in_sections(3);
         engine.remove_activity("a1").unwrap();
@@ -7292,6 +7329,7 @@ mod statement_cache_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_walk_of_the_signatures_parses_the_select_once() {
         let ids = ["a1", "a2", "a3", "a4"];
         let engine = engine_with(&ids);
@@ -7310,6 +7348,7 @@ mod statement_cache_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_walk_of_the_time_streams_parses_the_select_once() {
         let ids = ["a1", "a2", "a3", "a4"];
         let mut engine = engine_with(&ids);

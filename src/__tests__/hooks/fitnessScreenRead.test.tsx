@@ -167,7 +167,7 @@ describe('the fitness screen read', () => {
     ]);
   });
 
-  it('carries the fitness and fatigue days the engine read gives', async () => {
+  vaultIt('carries the fitness and fatigue days the engine read gives', async () => {
     const { result } = await renderHook(useFitnessScreenRead);
 
     expect(result.current.fitnessDays).toBe(28);
@@ -219,7 +219,7 @@ describe('the fitness screen read', () => {
     expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(2);
   });
 
-  it('ignores an event the read does not depend on', async () => {
+  vaultIt('ignores an event the read does not depend on', async () => {
     await renderHook(useFitnessScreenRead);
 
     await emit('sections');
@@ -227,7 +227,7 @@ describe('the fitness screen read', () => {
     expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(1);
   });
 
-  it('holds its answer across a render that changes nothing', async () => {
+  vaultIt('holds its answer across a render that changes nothing', async () => {
     const { result, rerender } = await renderHook(useFitnessScreenRead);
     const first = result.current;
 

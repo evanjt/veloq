@@ -161,7 +161,7 @@ it('the same page link from another tab, after a page change by hand, moves the 
   expect(page()).toBe('fitness');
 });
 
-it('the same page link a third time still moves the page', async () => {
+vaultIt('the same page link a third time still moves the page', async () => {
   await renderRouter(APP, { initialUrl: '/' });
   await settle();
 

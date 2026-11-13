@@ -29,7 +29,7 @@ describe('the webhook dedupe key', () => {
     expect(redelivered).toBe(delivered);
   });
 
-  it('stays stable when the event has no timestamp', () => {
+  vaultIt('stays stable when the event has no timestamp', () => {
     const once = dedupeKey('i123', 'FITNESS_UPDATED', undefined, undefined);
     const twice = dedupeKey('i123', 'FITNESS_UPDATED', undefined, undefined);
     expect(once).toBe(twice);

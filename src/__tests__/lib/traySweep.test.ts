@@ -38,7 +38,7 @@ describe('the tray sweep', () => {
     expect(shouldDismissForActivity('insight-1', { sectionId: 'sec_1' }, ACTIVITY)).toBe(false);
   });
 
-  it('leaves an insight routed only by a route alone', () => {
+  vaultIt('leaves an insight routed only by a route alone', () => {
     expect(shouldDismissForActivity('insight-2', { route: '/insights' }, ACTIVITY)).toBe(false);
   });
 

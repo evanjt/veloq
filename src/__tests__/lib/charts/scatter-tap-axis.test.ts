@@ -30,7 +30,7 @@ describe('nearestScatterPointIndex', () => {
     expect(nearestScatterPointIndex(points, NEAR_BOTTOM, [5, 8])).toBe(0);
   });
 
-  it('does not fall back to the speed ranking on a time-axis chart', () => {
+  vaultIt('does not fall back to the speed ranking on a time-axis chart', () => {
     // Traversal 0 is the fastest by time and the slowest by speed, which is
     // what a shorter matched portion looks like.
     const byTime = [

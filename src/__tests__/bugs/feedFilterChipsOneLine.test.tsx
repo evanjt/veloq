@@ -33,7 +33,7 @@ function renderChips() {
 }
 
 describe('feed filter chips', () => {
-  it('draws every sport chip', async () => {
+  vaultIt('draws every sport chip', async () => {
     await renderChips();
 
     for (const testID of [
@@ -46,7 +46,7 @@ describe('feed filter chips', () => {
     }
   });
 
-  it('draws every sport chip with its family dot', async () => {
+  vaultIt('draws every sport chip with its family dot', async () => {
     await renderChips();
 
     for (const group of FEED_GROUPS) {

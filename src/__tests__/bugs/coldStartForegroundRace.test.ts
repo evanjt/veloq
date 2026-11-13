@@ -139,7 +139,7 @@ describe('a cold start that beats the foreground transition', () => {
 });
 
 describe('a refused start is not a weak signal', () => {
-  it('outranks the GPS warning and says something else', () => {
+  vaultIt('outranks the GPS warning and says something else', () => {
     const { selectStatusMessage } =
       require('@/features/recording/lib/statusSlot') as typeof import('@/features/recording/lib/statusSlot');
     const message = selectStatusMessage({

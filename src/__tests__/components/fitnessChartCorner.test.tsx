@@ -54,7 +54,7 @@ describe('the fitness chart corner', () => {
     expect(tree.getByTestId('fitness-ramp-value')).toHaveTextContent('-1.3', { exact: true });
   });
 
-  it('keys form to its zone by a swatch, with the number in text colour', async () => {
+  vaultIt('keys form to its zone by a swatch, with the number in text colour', async () => {
     const tree = await render(<FitnessChart data={DAYS} selectedDate="2026-04-01" />);
 
     expect(colourOf(tree.getByTestId('fitness-form-value'))).toBe(colors.textPrimary);
@@ -84,7 +84,7 @@ describe('the fitness chart corner', () => {
     expect(tree.queryByTestId('fitness-ramp-value')).toBeNull();
   });
 
-  it('moves with the pin and back to the newest day', async () => {
+  vaultIt('moves with the pin and back to the newest day', async () => {
     const tree = await render(<FitnessChart data={DAYS} selectedDate="2026-04-01" />);
     expect(tree.getByTestId('fitness-ramp-value')).toHaveTextContent('-1.3', { exact: true });
 

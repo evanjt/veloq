@@ -171,7 +171,7 @@ function layOutFooter(row: number, widths: { skip: number; showMe: number; next:
 }
 
 describe('the tour footer on a narrow card', () => {
-  it('keeps Skip, Show me and Next in one row when they fit', () => {
+  vaultIt('keeps Skip, Show me and Next in one row when they fit', () => {
     openTour();
     layOutFooter(248, { skip: 52, showMe: 96, next: 60 });
 
@@ -182,7 +182,7 @@ describe('the tour footer on a narrow card', () => {
     expect(row.getByTestId('whats-new-next')).toBeTruthy();
   });
 
-  it('puts Show me in a row of its own above Skip and Next when the labels do not fit', () => {
+  vaultIt('puts Show me in a row of its own above Skip and Next when the labels do not fit', () => {
     openTour();
     layOutFooter(208, { skip: 106, showMe: 100, next: 62 });
 
@@ -206,7 +206,7 @@ describe('the tour footer on a narrow card', () => {
     expect(useWhatsNewStore.getState().tourState?.exploring).toBe(true);
   });
 
-  it('keeps the stacked footer, and Done in it, on the last slide', () => {
+  vaultIt('keeps the stacked footer, and Done in it, on the last slide', () => {
     openTour();
     layOutFooter(208, { skip: 106, showMe: 100, next: 62 });
     fireEvent.press(screen.getByTestId('whats-new-next'));
@@ -246,7 +246,7 @@ describe('the tour when the window changes width', () => {
     expect(exposedTitles()).toStrictEqual(['tour.jetty']);
   });
 
-  it('snaps without an animation, so no frame shows two slides', () => {
+  vaultIt('snaps without an animation, so no frame shows two slides', () => {
     openTour();
     fireEvent.press(screen.getByRole('button', { name: 'whatsNew.nextButton' }));
     act(() => advanceAnimationByTime(300));
@@ -265,7 +265,7 @@ describe('the first-load line on the tour', () => {
     mockSyncStatus = null;
   });
 
-  it('shows while the first sync runs, and hides once it is done', () => {
+  vaultIt('shows while the first sync runs, and hides once it is done', () => {
     mockSyncState = SyncState.Syncing;
     mockSyncStatus = { state: SyncState.Syncing };
     openTour();

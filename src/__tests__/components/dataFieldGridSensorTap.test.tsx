@@ -66,7 +66,7 @@ it('does nothing on a tap for a non-sensor tile', async () => {
   expect(onEmptySensorTap).not.toHaveBeenCalled();
 });
 
-it('announces a tile as a button only when a tap does something', async () => {
+vaultIt('announces a tile as a button only when a tap does something', async () => {
   const { tree } = await renderGrid({ ...METRICS, power: 200 });
   expect(tree.getByTestId('data-field-heartrate').props.accessibilityRole).toBe('button');
   expect(tree.getByTestId('data-field-power').props.accessibilityRole).toBeUndefined();

@@ -71,14 +71,14 @@ beforeEach(() => {
 });
 
 describe('useActivityBoundsCache', () => {
-  it('takes the write lock once at mount, not twice', async () => {
+  vaultIt('takes the write lock once at mount, not twice', async () => {
     await renderHook(() => useActivityBoundsCache());
 
     await waitFor(() => expect(mockEngine.getStats).toHaveBeenCalled());
     expect(mockEngine.getActivityCount).not.toHaveBeenCalled();
   });
 
-  it('takes it once more per activities event, not twice', async () => {
+  vaultIt('takes it once more per activities event, not twice', async () => {
     const { result } = await renderHook(() => useActivityBoundsCache());
     await waitFor(() => expect(mockEngine.getStats).toHaveBeenCalled());
     const notify = activitiesSubscriber();

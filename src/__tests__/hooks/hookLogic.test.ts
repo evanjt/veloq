@@ -15,7 +15,7 @@ jest.mock('@/shared/native/engine', () => ({
 describe('PRIMARY_SPORT_FAMILY', () => {
   const primarySports: PrimarySport[] = ['Cycling', 'Running', 'Swimming'];
 
-  it('each sport draws in a distinct family', () => {
+  vaultIt('each sport draws in a distinct family', () => {
     const families = primarySports.map((s) => PRIMARY_SPORT_FAMILY[s]);
     const unique = new Set(families);
     expect(unique.size).toBe(primarySports.length);

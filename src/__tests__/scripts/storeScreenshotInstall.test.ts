@@ -57,7 +57,7 @@ describe('installSets', () => {
     write(path.join(store, 'feature', play, 'featureGraphic.jpg'), `feature-${play}`);
   }
 
-  it('writes a capture into its mirror on both stores', () => {
+  vaultIt('writes a capture into its mirror on both stores', () => {
     const store = tmp();
     const fastlane = tmp();
     rendered(store, 'en-AU');
@@ -76,22 +76,25 @@ describe('installSets', () => {
     }
   });
 
-  it('fills English (Canada) on the App Store from the en-US capture, and no Play locale', () => {
-    const store = tmp();
-    const fastlane = tmp();
-    rendered(store, 'en-US');
-    installSets(store, fastlane, [capture('en-US')]);
-    expect(fs.readFileSync(path.join(fastlane, 'screenshots/en-CA/01.jpg'), 'utf8')).toBe(
-      'phone-en-US-01'
-    );
-    expect(fs.existsSync(path.join(fastlane, 'metadata/android/en-CA'))).toBe(false);
-    expect(list(path.join(fastlane, 'metadata/android/en-US/images/phoneScreenshots'))).toEqual([
-      '01.jpg',
-      '02.jpg',
-    ]);
-  });
+  vaultIt(
+    'fills English (Canada) on the App Store from the en-US capture, and no Play locale',
+    () => {
+      const store = tmp();
+      const fastlane = tmp();
+      rendered(store, 'en-US');
+      installSets(store, fastlane, [capture('en-US')]);
+      expect(fs.readFileSync(path.join(fastlane, 'screenshots/en-CA/01.jpg'), 'utf8')).toBe(
+        'phone-en-US-01'
+      );
+      expect(fs.existsSync(path.join(fastlane, 'metadata/android/en-CA'))).toBe(false);
+      expect(list(path.join(fastlane, 'metadata/android/en-US/images/phoneScreenshots'))).toEqual([
+        '01.jpg',
+        '02.jpg',
+      ]);
+    }
+  );
 
-  it('names an App Store set by the Apple locale code', () => {
+  vaultIt('names an App Store set by the Apple locale code', () => {
     const store = tmp();
     const fastlane = tmp();
     rendered(store, 'it-IT');
@@ -100,23 +103,26 @@ describe('installSets', () => {
     expect(fs.existsSync(path.join(fastlane, 'screenshots/it-IT'))).toBe(false);
   });
 
-  it('replaces a locale set whole, so a shot dropped from the run leaves the store too', () => {
-    const store = tmp();
-    const fastlane = tmp();
-    write(path.join(fastlane, 'metadata/android/fr-FR/images/phoneScreenshots/07.jpg'));
-    write(path.join(fastlane, 'screenshots/fr-FR/07.jpg'));
-    write(path.join(fastlane, 'metadata/android/fr-FR/images/icon.png'), 'icon');
-    rendered(store, 'fr-FR');
-    installSets(store, fastlane, [capture('fr-FR')]);
-    expect(list(path.join(fastlane, 'metadata/android/fr-FR/images/phoneScreenshots'))).toEqual([
-      '01.jpg',
-      '02.jpg',
-    ]);
-    expect(list(path.join(fastlane, 'screenshots/fr-FR'))).not.toContain('07.jpg');
-    expect(
-      fs.readFileSync(path.join(fastlane, 'metadata/android/fr-FR/images/icon.png'), 'utf8')
-    ).toBe('icon');
-  });
+  vaultIt(
+    'replaces a locale set whole, so a shot dropped from the run leaves the store too',
+    () => {
+      const store = tmp();
+      const fastlane = tmp();
+      write(path.join(fastlane, 'metadata/android/fr-FR/images/phoneScreenshots/07.jpg'));
+      write(path.join(fastlane, 'screenshots/fr-FR/07.jpg'));
+      write(path.join(fastlane, 'metadata/android/fr-FR/images/icon.png'), 'icon');
+      rendered(store, 'fr-FR');
+      installSets(store, fastlane, [capture('fr-FR')]);
+      expect(list(path.join(fastlane, 'metadata/android/fr-FR/images/phoneScreenshots'))).toEqual([
+        '01.jpg',
+        '02.jpg',
+      ]);
+      expect(list(path.join(fastlane, 'screenshots/fr-FR'))).not.toContain('07.jpg');
+      expect(
+        fs.readFileSync(path.join(fastlane, 'metadata/android/fr-FR/images/icon.png'), 'utf8')
+      ).toBe('icon');
+    }
+  );
 
   it('refuses a capture with nothing rendered rather than leaving its locales empty', () => {
     const fastlane = tmp();
@@ -127,7 +133,7 @@ describe('installSets', () => {
 });
 
 describe('CAPTIONS', () => {
-  it.each(captureLocales().map((c) => c.play))('captions every shot in %s', (play) => {
+  vaultIt.each(captureLocales().map((c) => c.play))('captions every shot in %s', (play) => {
     const strings = CAPTIONS[play];
     expect(strings).toBeDefined();
     expect(strings.shots).toHaveLength(CAPTURED_STEMS.length);
@@ -147,7 +153,7 @@ describe('rawCaptures', () => {
     }
   }
 
-  it('reads a locale captures from its own directory', () => {
+  vaultIt('reads a locale captures from its own directory', () => {
     const root = tmp();
     raws(root, 'android', 'ja-JP', [1080, 2340]);
     expect(rawCaptures('play', root, 'ja-JP', 3)).toEqual(
@@ -155,13 +161,13 @@ describe('rawCaptures', () => {
     );
   });
 
-  it('refuses a locale that was not captured, naming it', () => {
+  vaultIt('refuses a locale that was not captured, naming it', () => {
     const root = tmp();
     raws(root, 'android', 'en-US', [1080, 2340]);
     expect(() => rawCaptures('play', root, 'pl-PL', 3)).toThrow(/pl-PL/);
   });
 
-  it('passes iPhone and iPad captures at their store slot size', () => {
+  vaultIt('passes iPhone and iPad captures at their store slot size', () => {
     const root = tmp();
     raws(root, 'ios', 'en-US', [1320, 2868]);
     raws(root, 'ipad', 'en-US', [2064, 2752]);
@@ -192,7 +198,7 @@ describe('webRaws', () => {
     }
   }
 
-  it('takes the dark set from the dark captures, not the light ones', () => {
+  vaultIt('takes the dark set from the dark captures, not the light ones', () => {
     const root = tmp();
     capture(root, false);
     capture(root, true);
@@ -203,9 +209,12 @@ describe('webRaws', () => {
     }
   });
 
-  it('refuses a missing dark capture rather than drawing the light one on a dark stage', () => {
-    const root = tmp();
-    capture(root, false);
-    expect(() => webRaws('play', root)).toThrow(/dark captures/);
-  });
+  vaultIt(
+    'refuses a missing dark capture rather than drawing the light one on a dark stage',
+    () => {
+      const root = tmp();
+      capture(root, false);
+      expect(() => webRaws('play', root)).toThrow(/dark captures/);
+    }
+  );
 });

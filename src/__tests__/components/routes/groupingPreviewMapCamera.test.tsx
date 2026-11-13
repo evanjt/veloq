@@ -100,7 +100,7 @@ describe('GroupingPreviewMap camera', () => {
     expect(mockFitBounds).toHaveBeenCalledTimes(1);
   });
 
-  it('refits when the athlete chooses another area', () => {
+  vaultIt('refits when the athlete chooses another area', () => {
     const tree = render(
       <GroupingPreviewMap
         routes={[LOOP, COMMUTE]}
@@ -149,7 +149,7 @@ describe('GroupingPreviewMap camera', () => {
     expect(mockFitBounds).toHaveBeenCalledTimes(2);
   });
 
-  it('decodes each route line once across knob answers', () => {
+  vaultIt('decodes each route line once across knob answers', () => {
     // Fresh buffers, since a line decoded by an earlier test stays cached.
     const routes = [
       { ...LOOP, encodedPolyline: new ArrayBuffer(8) },

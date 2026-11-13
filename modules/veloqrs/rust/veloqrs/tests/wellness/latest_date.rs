@@ -36,12 +36,14 @@ fn engine() -> (TempDir, PersistentEngine) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_table_has_no_latest_date() {
     let (_tmp, engine) = engine();
     assert_eq!(engine.latest_wellness_date().expect("query"), None);
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_latest_date_is_the_newest_row_whatever_the_insert_order() {
     let (_tmp, mut engine) = engine();
     engine

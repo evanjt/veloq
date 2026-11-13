@@ -74,7 +74,7 @@ beforeEach(() => {
 });
 
 describe('section rows in the insight sheets', () => {
-  it('draws the supporting sections as shared rows that open the section', async () => {
+  vaultIt('draws the supporting sections as shared rows that open the section', async () => {
     const tree = await render(
       <SupportingDataSection data={{ sections: SECTIONS }} category="route" />
     );
@@ -116,15 +116,18 @@ describe('section rows in the insight sheets', () => {
     expect(navigateTo).toHaveBeenCalledWith('/section/hill?activityId=a1&origin=insights');
   });
 
-  it('leaves the efficiency section to the sheet data link rather than a row of its own', async () => {
-    const tree = await render(
-      <EfficiencyTrendContent insight={insight(SECTIONS.slice(0, 1), 'efficiency_trend')} />
-    );
-    expect(chevronIds(tree)).toEqual([]);
-    expect(tree.queryAllByRole('button', { name: 'Quarry Hill' })).toEqual([]);
-  });
+  vaultIt(
+    'leaves the efficiency section to the sheet data link rather than a row of its own',
+    async () => {
+      const tree = await render(
+        <EfficiencyTrendContent insight={insight(SECTIONS.slice(0, 1), 'efficiency_trend')} />
+      );
+      expect(chevronIds(tree)).toEqual([]);
+      expect(tree.queryAllByRole('button', { name: 'Quarry Hill' })).toEqual([]);
+    }
+  );
 
-  it('holds each section trend accordion item in a flat card', async () => {
+  vaultIt('holds each section trend accordion item in a flat card', async () => {
     const tree = await render(<SectionTrendContent insight={insight(SECTIONS, 'section_trend')} />);
     const cards = tree
       .UNSAFE_queryAllByType(Card)

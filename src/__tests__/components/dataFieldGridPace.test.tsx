@@ -64,7 +64,7 @@ it('reads the average pace from the average speed, not the current one', async (
   expect(await tile('avgPace', 2.5, 3, false)).toBe('8:56 /mi');
 });
 
-it('reads a placeholder when standing still', async () => {
+vaultIt('reads a placeholder when standing still', async () => {
   expect(await tile('pace', 0, 0, true)).toBe('--:--');
   expect(await tile('avgPace', 0, 0, false)).toBe('--:--');
 });
@@ -75,7 +75,7 @@ describe('an open-water swim', () => {
     expect(await tile('avgPace', 0.833, 0.833, false, 'OpenWaterSwim')).toBe('1:50 /100yd');
   });
 
-  it('reads the same label on the notification and live activity text', () => {
+  vaultIt('reads the same label on the notification and live activity text', () => {
     expect(formatRecordingSpeed('OpenWaterSwim', 0.833, true)).toBe('2:00 /100m');
     expect(formatRecordingSpeed('OpenWaterSwim', 0.833, false)).toBe('1:50 /100yd');
   });

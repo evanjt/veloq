@@ -32,7 +32,7 @@ const stats = (totalTss: number, totalDuration = 4 * 3600, count = 4) => ({
 });
 
 describe('insight card captions', () => {
-  it('states the latest HRV against the window mean', () => {
+  vaultIt('states the latest HRV against the window mean', () => {
     const [card] = generateHrvTrendInsight(
       {
         label: 'trendingDown',
@@ -48,7 +48,7 @@ describe('insight card captions', () => {
     expect(card.subtitle).toBe('insights.caption.latestAgainstMean:{"latest":58,"avg":62}');
   });
 
-  it('states this week against last week in the comparison unit', () => {
+  vaultIt('states this week against last week in the comparison unit', () => {
     const [card] = generatePeriodComparisonInsights(
       stats(450),
       stats(340),
@@ -65,7 +65,7 @@ describe('insight card captions', () => {
     );
   });
 
-  it('states a rest week against the four-week average in time', () => {
+  vaultIt('states a rest week against the four-week average in time', () => {
     const [card] = generatePeriodComparisonInsights(
       stats(0, 0, 0),
       stats(100, 2 * 3600),
@@ -88,7 +88,7 @@ describe('insight card captions', () => {
     );
   });
 
-  it('writes summed week time as hours and minutes in both the body and the caption', () => {
+  vaultIt('writes summed week time as hours and minutes in both the body and the caption', () => {
     const [card] = generatePeriodComparisonInsights(
       stats(0, 23_400),
       stats(0, 18_000),
@@ -104,7 +104,7 @@ describe('insight card captions', () => {
     expect(card.subtitle).toContain('"current":"6 h 30 min"');
   });
 
-  it('states the eFTP against the one it was compared with', () => {
+  vaultIt('states the eFTP against the one it was compared with', () => {
     const cards = generateFitnessMilestoneInsights(
       {
         latestFtp: 252,
@@ -125,7 +125,7 @@ describe('insight card captions', () => {
     );
   });
 
-  it('states the pace against the earlier one in the athlete unit', () => {
+  vaultIt('states the pace against the earlier one in the athlete unit', () => {
     const cards = generateFitnessMilestoneInsights(
       null,
       {
@@ -165,7 +165,7 @@ describe('insight card captions', () => {
     }
   });
 
-  it('states the balance ratio beside the sets on each side', () => {
+  vaultIt('states the balance ratio beside the sets on each side', () => {
     const summary: StrengthSummary = {
       muscleVolumes: [],
       activityCount: 4,

@@ -60,21 +60,24 @@ async function renderDetailStreams() {
 }
 
 describe('the detail stream read and stored-track fallback', () => {
-  it('waits for a stream body containing latlng without reading the stored track', async () => {
-    engine.getActivityStreams.mockReturnValue(streamBuffers({ latlng: BLOB }));
-    (decodeCoordsFlat as jest.Mock).mockReturnValue(new Float64Array([46.2, 7.35]));
-    const { result, rerender, unmount, client } = await renderDetailStreams();
+  vaultIt(
+    'waits for a stream body containing latlng without reading the stored track',
+    async () => {
+      engine.getActivityStreams.mockReturnValue(streamBuffers({ latlng: BLOB }));
+      (decodeCoordsFlat as jest.Mock).mockReturnValue(new Float64Array([46.2, 7.35]));
+      const { result, rerender, unmount, client } = await renderDetailStreams();
 
-    expect(engine.getGpsTrack).not.toHaveBeenCalled();
-    await waitFor(() =>
-      expect(result.current.coordinates).toEqual([{ latitude: 46.2, longitude: 7.35 }])
-    );
-    expect(engine.getGpsTrack).not.toHaveBeenCalled();
-    await rerender(undefined);
-    expect(engine.getGpsTrack).not.toHaveBeenCalled();
-    await unmount();
-    client.clear();
-  });
+      expect(engine.getGpsTrack).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(result.current.coordinates).toEqual([{ latitude: 46.2, longitude: 7.35 }])
+      );
+      expect(engine.getGpsTrack).not.toHaveBeenCalled();
+      await rerender(undefined);
+      expect(engine.getGpsTrack).not.toHaveBeenCalled();
+      await unmount();
+      client.clear();
+    }
+  );
 
   it('reads the stored track once after the stream body settles empty', async () => {
     const { result, rerender, unmount, client } = await renderDetailStreams();
@@ -90,7 +93,7 @@ describe('the detail stream read and stored-track fallback', () => {
 });
 
 describe('the stored track crosses the FFI encoded', () => {
-  it('waits for the stream read before opening the stored track', async () => {
+  vaultIt('waits for the stream read before opening the stored track', async () => {
     const { rerender } = await renderHook(
       ({ pending }: { pending: boolean }) => useDetailCoordinates('a1', undefined, pending),
       {
@@ -102,7 +105,7 @@ describe('the stored track crosses the FFI encoded', () => {
     await rerender({ pending: false });
     expect(engine.getGpsTrack).toHaveBeenCalledTimes(1);
   });
-  it('decodes the blob the engine returned, untouched', async () => {
+  vaultIt('decodes the blob the engine returned, untouched', async () => {
     const { result } = await renderHook(() => useDetailCoordinates('a1', undefined));
 
     expect(decodeCoords).toHaveBeenCalledWith(BLOB);

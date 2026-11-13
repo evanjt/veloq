@@ -94,7 +94,7 @@ describe('Settings recording permission', () => {
     signIn('oauth');
   });
 
-  it('waits for permission hydration before pointing at the grant', async () => {
+  vaultIt('waits for permission hydration before pointing at the grant', async () => {
     useUploadPermissionStore.getState().reset();
     const { queryByTestId, getByTestId } = await render(<SettingsScreen />);
     expect(queryByTestId('settings-recording-permission-link')).toBeNull();
@@ -110,7 +110,7 @@ describe('Settings recording permission', () => {
     expect(mockNavigateTo).toHaveBeenCalledWith('/recording-settings');
   });
 
-  it('puts the notice above every group, under the account card', async () => {
+  vaultIt('puts the notice above every group, under the account card', async () => {
     const { toJSON } = await render(<SettingsScreen />);
     const order: string[] = [];
     const walk = (node: unknown): void => {
@@ -139,19 +139,19 @@ describe('Settings recording permission', () => {
     ]);
   });
 
-  it('links there when the write scope was explicitly refused', async () => {
+  vaultIt('links there when the write scope was explicitly refused', async () => {
     useUploadPermissionStore.setState({ hasWritePermission: false });
     const { getByTestId } = await render(<SettingsScreen />);
     expect(getByTestId('settings-recording-permission-link')).toBeTruthy();
   });
 
-  it('says nothing once the write permission is confirmed', async () => {
+  vaultIt('says nothing once the write permission is confirmed', async () => {
     useUploadPermissionStore.setState({ hasWritePermission: true });
     const { queryByTestId } = await render(<SettingsScreen />);
     expect(queryByTestId('settings-recording-permission-link')).toBeNull();
   });
 
-  it.each(['apiKey', 'demo'] as const)('says nothing for a %s sign-in', async (authMethod) => {
+  vaultIt.each(['apiKey', 'demo'] as const)('says nothing for a %s sign-in', async (authMethod) => {
     signIn(authMethod);
     const { queryByTestId } = await render(<SettingsScreen />);
     expect(queryByTestId('settings-recording-permission-link')).toBeNull();

@@ -199,6 +199,7 @@ mod tests {
     const TWO_PERCENT: f64 = 0.02;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_medians_are_the_three_before_and_the_last_three() {
         let times = [3000.0, 3010.0, 3020.0, 2900.0, 2910.0, 2920.0];
         assert_eq!(median_window_medians(&times), Some((3010.0, 2910.0)));
@@ -206,6 +207,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn five_times_have_no_medians() {
         assert_eq!(
             median_window_medians(&[3000.0, 3010.0, 3020.0, 2900.0, 2910.0]),
@@ -224,18 +226,21 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn inside_the_deadband_is_stable_in_both_directions() {
         assert_eq!(classify_time(100.0, 99.0, TWO_PERCENT), Some(0));
         assert_eq!(classify_time(100.0, 101.0, TWO_PERCENT), Some(0));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn exactly_the_deadband_is_stable() {
         assert_eq!(classify_time(100.0, 98.0, TWO_PERCENT), Some(0));
         assert_eq!(classify_time(100.0, 102.0, TWO_PERCENT), Some(0));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unchanged_value_is_stable_even_with_no_deadband() {
         assert_eq!(classify_time(100.0, 100.0, 0.0), Some(0));
     }
@@ -254,6 +259,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn classify_change_reads_a_raw_fraction() {
         assert_eq!(classify_change(0.05, 0.03), 1);
         assert_eq!(classify_change(-0.05, 0.03), -1);
@@ -275,6 +281,7 @@ mod median_window_trend_tests {
     const TWO_PERCENT: f64 = 0.02;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn five_traversals_with_a_fast_last_one_are_no_trend() {
         // 380, 400, 405, 410, 372: first against last called this improving
         // while the middle three were the athlete's slowest.
@@ -283,6 +290,7 @@ mod median_window_trend_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn five_traversals_are_no_trend_in_either_direction() {
         assert_eq!(
             median_window_trend(&[405.0, 400.0, 395.0, 385.0, 380.0], TWO_PERCENT),
@@ -295,6 +303,7 @@ mod median_window_trend_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn six_traversals_speak_in_either_direction() {
         assert_eq!(
             median_window_trend(&[405.0, 400.0, 395.0, 385.0, 380.0, 375.0], TWO_PERCENT),
@@ -307,6 +316,7 @@ mod median_window_trend_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn three_traversals_are_no_trend() {
         // A headwind on the first ride is not a season of progress.
         assert_eq!(median_window_trend(&[400.0, 395.0, 380.0], TWO_PERCENT), 0);
@@ -326,6 +336,7 @@ mod median_window_trend_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_move_inside_the_deadband_is_stable() {
         // Medians 400 then 398, half a per cent.
         let times = [401.0, 400.0, 399.0, 399.0, 398.0, 397.0];
@@ -333,6 +344,7 @@ mod median_window_trend_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_windows_are_the_newest_six_and_the_order_inside_one_does_not_matter() {
         let times = [900.0, 900.0, 405.0, 400.0, 395.0, 385.0, 380.0, 375.0];
         let shuffled = [900.0, 900.0, 400.0, 405.0, 395.0, 375.0, 380.0, 385.0];
@@ -350,6 +362,7 @@ mod estimate_tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn t_critical_values_match_the_table_and_approach_the_normal() {
         assert_eq!(t_critical_95(1), 12.706);
         assert_eq!(t_critical_95(3), 3.182);
@@ -362,6 +375,7 @@ mod estimate_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_perfect_line_has_its_slope_and_no_error() {
         let change = slope_change(&[(0.0, 1.0), (1.0, 3.0), (2.0, 5.0), (3.0, 7.0)]).unwrap();
         assert!((change.size - 2.0).abs() < 1e-12);
@@ -374,6 +388,7 @@ mod estimate_tests {
     /// residuals -0.3, 0.9, -0.9, 0.3, so the residual variance is 1.8 / 2 and
     /// the slope's standard error is sqrt(0.9 / 5).
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_slope_error_comes_from_the_residuals() {
         let change = slope_change(&[(0.0, 1.0), (1.0, 3.0), (2.0, 2.0), (3.0, 4.0)]).unwrap();
         assert!((change.size - 0.8).abs() < 1e-12);
@@ -384,6 +399,7 @@ mod estimate_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_slope_needs_three_points_and_more_than_one_x() {
         assert_eq!(slope_change(&[(0.0, 1.0), (1.0, 2.0)]), None);
         assert_eq!(slope_change(&[(1.0, 1.0), (1.0, 2.0), (1.0, 3.0)]), None);
@@ -396,6 +412,7 @@ mod estimate_tests {
     /// Hand-checked: groups 1, 2, 3 and 5, 6, 7 each sum squares to 2, so the
     /// pooled variance is 4 / 4 and the error on a shift of 4 is sqrt(2 / 3).
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_mean_shift_is_judged_against_the_pooled_spread() {
         let change = mean_shift(&[1.0, 2.0, 3.0], &[5.0, 6.0, 7.0]).unwrap();
         assert!((change.size - 4.0).abs() < 1e-12);
@@ -408,12 +425,14 @@ mod estimate_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_shift_inside_the_scatter_is_no_change() {
         let change = mean_shift(&[1.0, 9.0, 5.0], &[3.0, 11.0, 7.0]).unwrap();
         assert_eq!(classify_estimate(&change, 0.0), 0);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_shift_needs_two_groups_and_a_spare_degree_of_freedom() {
         assert_eq!(mean_shift(&[], &[1.0, 2.0]), None);
         assert_eq!(mean_shift(&[1.0, 2.0], &[]), None);
@@ -422,6 +441,7 @@ mod estimate_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_clear_change_no_larger_than_the_floor_is_no_change() {
         let change = Change {
             size: 2.0,
@@ -440,12 +460,14 @@ mod estimate_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn no_change_at_all_is_no_change_even_with_no_error() {
         let change = mean_shift(&[50.0, 50.0], &[50.0, 50.0, 50.0]).unwrap();
         assert_eq!(classify_estimate(&change, 0.0), 0);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_non_finite_change_has_no_direction() {
         let change = Change {
             size: f64::NAN,

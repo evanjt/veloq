@@ -65,7 +65,7 @@ describe('the sport before the ride starts', () => {
       expect(started()).toHaveBeenCalledWith('Ride', 'gps', undefined);
     });
 
-    it('records the sport actually started as the recent one', async () => {
+    vaultIt('records the sport actually started as the recent one', async () => {
       jest.spyOn(useRecordingStore.getState(), 'startRecording').mockImplementation(jest.fn());
       const {
         useRecordingPreferences,
@@ -148,7 +148,7 @@ describe('a sport chosen and then abandoned', () => {
     expect(useRecordingStore.getState().mode).toBe('indoor');
   });
 
-  it('starts the sport tapped on a second screen when nothing was chosen there', async () => {
+  vaultIt('starts the sport tapped on a second screen when nothing was chosen there', async () => {
     const first = await renderHook(() =>
       useInitRecordingEffect('idle', 'Ride', undefined, true, 'quickstart')
     );
@@ -238,7 +238,7 @@ describe('the layout the recording screen draws', () => {
     );
   });
 
-  it('uses the route param before anything is in the store', () => {
+  vaultIt('uses the route param before anything is in the store', () => {
     expect(
       screenRecordingMode({ status: 'idle', mode: null, activityType: null }, 'Treadmill')
     ).toBe('indoor');

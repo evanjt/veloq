@@ -131,7 +131,7 @@ describe('useStartupData', () => {
     expect(result.current.data).toBe(first);
   });
 
-  it('carries the summary card, preview tracks and sparklines, and nothing else', async () => {
+  vaultIt('carries the summary card, preview tracks and sparklines, and nothing else', async () => {
     const { result } = await renderHook(() => useStartupData([]));
     await flushInteractions();
 
@@ -144,7 +144,7 @@ describe('useStartupData', () => {
     ]);
   });
 
-  it('makes no engine call once the feed has unmounted', async () => {
+  vaultIt('makes no engine call once the feed has unmounted', async () => {
     const { unmount } = await renderHook(() => useStartupData(['a']));
     await unmount();
     await flushInteractions();

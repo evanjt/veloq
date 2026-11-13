@@ -17,11 +17,13 @@ fn detection(phase: &str, percent: u32) -> DetectionWork {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn nothing_running_is_no_stage() {
     assert_eq!(stage_of(&TrackWork::default()), None);
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_download_is_reported_whatever_else_runs_beside_it() {
     let stage = stage_of(&TrackWork {
         download: Some((3, 12)),
@@ -43,6 +45,7 @@ fn a_download_is_reported_whatever_else_runs_beside_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn detection_is_reported_once_the_download_ends_with_its_own_weighted_percent() {
     let stage = stage_of(&TrackWork {
         download: None,
@@ -64,6 +67,7 @@ fn detection_is_reported_once_the_download_ends_with_its_own_weighted_percent() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_detection_run_left_in_an_ending_phase_is_not_analysing() {
     for phase in ["complete", "aborted", "cancelled"] {
         let stage = stage_of(&TrackWork {
@@ -77,6 +81,7 @@ fn a_detection_run_left_in_an_ending_phase_is_not_analysing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_heatmap_is_reported_when_nothing_before_it_runs() {
     let stage = stage_of(&TrackWork {
         download: None,
@@ -98,6 +103,7 @@ fn the_heatmap_is_reported_when_nothing_before_it_runs() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_step_that_has_not_counted_its_work_reads_zero_rather_than_dividing_by_it() {
     let download = stage_of(&TrackWork {
         download: Some((0, 0)),
@@ -119,6 +125,7 @@ fn a_step_that_has_not_counted_its_work_reads_zero_rather_than_dividing_by_it() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_count_past_its_total_is_held_at_the_total() {
     let stage = stage_of(&TrackWork {
         download: Some((14, 12)),
@@ -143,6 +150,7 @@ fn held(until_ms: i64, by_upstream: bool) -> Option<HeldDownload> {
 /// again, not detection's percent, which read as the widened range being
 /// almost done while most of its tracks were still owed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_held_download_is_reported_ahead_of_the_detection_beside_it() {
     let stage = stage_of(&TrackWork {
         download: None,
@@ -166,6 +174,7 @@ fn a_held_download_is_reported_ahead_of_the_detection_beside_it() {
 /// Expected behaviour: a held pass the engine has started again is a
 /// download, and a cooldown intervals.icu asked for says so.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_running_download_outranks_the_hold_and_a_refusal_names_itself() {
     let running = stage_of(&TrackWork {
         download: Some((3, 12)),

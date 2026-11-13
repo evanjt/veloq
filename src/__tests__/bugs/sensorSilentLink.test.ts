@@ -74,7 +74,7 @@ async function settle(): Promise<void> {
 describe('sensorConnectionHealth', () => {
   const base = { attempt: 'first' as const, subscribedAt: null, lastSampleAt: null, now: 1000 };
 
-  it('is connecting until the monitors are registered', () => {
+  vaultIt('is connecting until the monitors are registered', () => {
     expect(sensorConnectionHealth(base)).toBe('connecting');
     expect(sensorConnectionHealth({ ...base, attempt: 'retry' })).toBe('reconnecting');
   });
@@ -173,7 +173,7 @@ describe('a sensor that connects and sends nothing', () => {
     expect(useSensorStore.getState().connections[SENSOR.id]?.status).toBe('connected');
   });
 
-  it('logs the monitor error instead of dropping it', async () => {
+  vaultIt('logs the monitor error instead of dropping it', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     void connectKnownSensors();
     await settle();
@@ -225,18 +225,21 @@ describe.each(['android', 'ios'] as const)('a reconnect of a silent link on %s',
     else expect(options).not.toHaveProperty('refreshGatt');
   });
 
-  it('records the reconnect discovery as refreshed only when the table was asked for', async () => {
-    void connectKnownSensors();
-    await settle();
-    jest.advanceTimersByTime(SENSOR_NO_DATA_MS + 1000);
-    void reconnectSensor(SENSOR.id);
-    await settle();
+  vaultIt(
+    'records the reconnect discovery as refreshed only when the table was asked for',
+    async () => {
+      void connectKnownSensors();
+      await settle();
+      jest.advanceTimersByTime(SENSOR_NO_DATA_MS + 1000);
+      void reconnectSensor(SENSOR.id);
+      await settle();
 
-    const discoveries = sensorLinkEvents().filter((e) => e.kind === 'discovered');
-    expect(discoveries).toHaveLength(2);
-    expect(discoveries[0]?.detail).toBeUndefined();
-    expect(discoveries[1]?.detail).toBe(os === 'android' ? 'refreshed' : undefined);
-  });
+      const discoveries = sensorLinkEvents().filter((e) => e.kind === 'discovered');
+      expect(discoveries).toHaveLength(2);
+      expect(discoveries[0]?.detail).toBeUndefined();
+      expect(discoveries[1]?.detail).toBe(os === 'android' ? 'refreshed' : undefined);
+    }
+  );
 });
 
 describe.each(['android', 'ios'] as const)('a monitor error on %s', (os) => {

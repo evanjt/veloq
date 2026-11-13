@@ -26,7 +26,7 @@ describe('the feed holds the preview pool while it moves', () => {
     jest.useRealTimers();
   });
 
-  it('holds when a drag begins', () => {
+  vaultIt('holds when a drag begins', () => {
     handlers.onScrollBeginDrag();
 
     expect(calls).toEqual([true]);
@@ -57,7 +57,7 @@ describe('the feed holds the preview pool while it moves', () => {
     expect(calls).toEqual([true, false]);
   });
 
-  it('a second drag inside the settle keeps the hold', () => {
+  vaultIt('a second drag inside the settle keeps the hold', () => {
     handlers.onScrollBeginDrag();
     handlers.onScrollEndDrag();
     handlers.onScrollBeginDrag();
@@ -74,7 +74,7 @@ describe('the feed holds the preview pool while it moves', () => {
     expect(calls).toEqual([true, false]);
   });
 
-  it('releases nothing on disconnect when it holds nothing', () => {
+  vaultIt('releases nothing on disconnect when it holds nothing', () => {
     disconnect();
 
     expect(calls).toEqual([]);

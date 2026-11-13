@@ -43,14 +43,14 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('schedules no timer while the engine is absent', async () => {
+vaultIt('schedules no timer while the engine is absent', async () => {
   const setIntervalSpy = jest.spyOn(global, 'setInterval');
   await renderHook(() => useStartupData(['a1']));
   expect(setIntervalSpy).not.toHaveBeenCalled();
   setIntervalSpy.mockRestore();
 });
 
-it('subscribes to the signals once when the engine is present', async () => {
+vaultIt('subscribes to the signals once when the engine is present', async () => {
   const subscribe = jest.fn(() => () => {});
   mockGetEngine.mockReturnValue({
     subscribe,

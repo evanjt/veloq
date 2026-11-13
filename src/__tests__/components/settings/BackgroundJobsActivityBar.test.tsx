@@ -58,35 +58,38 @@ describe('BackgroundJobsActivityBar', () => {
     await changeLanguage('en-GB');
   });
 
-  it('says all jobs are done when none runs or owes work and none has run', async () => {
+  vaultIt('says all jobs are done when none runs or owes work and none has run', async () => {
     mockUseBackgroundJobs.mockReturnValue([job('detection'), job('streamBackfill')]);
     const tree = await render(<BackgroundJobsActivityBar />);
     expect(tree.getByTestId('background-jobs-empty')).toHaveTextContent('All background jobs done');
     expect(tree.queryByTestId('background-jobs-activity-toggle')).toBeNull();
   });
 
-  it('lists each running or owed job open, with its progress and a status colour', async () => {
-    mockUseBackgroundJobs.mockReturnValue([
-      job('detection', { state: 'running', completed: 4, total: 12 }),
-      job('elevationBackfill', { state: 'complete', lastRun: finishedRun }),
-      job('cutover', { remaining: 1 }),
-      job('streamBackfill', { remaining: 8 }),
-    ]);
-    const tree = await render(<BackgroundJobsActivityBar />);
+  vaultIt(
+    'lists each running or owed job open, with its progress and a status colour',
+    async () => {
+      mockUseBackgroundJobs.mockReturnValue([
+        job('detection', { state: 'running', completed: 4, total: 12 }),
+        job('elevationBackfill', { state: 'complete', lastRun: finishedRun }),
+        job('cutover', { remaining: 1 }),
+        job('streamBackfill', { remaining: 8 }),
+      ]);
+      const tree = await render(<BackgroundJobsActivityBar />);
 
-    expect(tree.getByTestId('background-job-detection-detail').props.children).toBe('4 of 12');
-    expect(tree.getByTestId('background-job-cutover')).toBeTruthy();
-    expect(tree.getByTestId('background-job-streamBackfill')).toBeTruthy();
-    expect(tree.getByTestId('background-job-detection-status')).toHaveTextContent('Running');
-    // The finished job is history, folded until the athlete opens it.
-    expect(tree.queryByTestId('background-job-elevationBackfill')).toBeNull();
-    await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
-    expect(tree.getByTestId('background-job-elevationBackfill-status')).toHaveTextContent(
-      'Finished'
-    );
-  });
+      expect(tree.getByTestId('background-job-detection-detail').props.children).toBe('4 of 12');
+      expect(tree.getByTestId('background-job-cutover')).toBeTruthy();
+      expect(tree.getByTestId('background-job-streamBackfill')).toBeTruthy();
+      expect(tree.getByTestId('background-job-detection-status')).toHaveTextContent('Running');
+      // The finished job is history, folded until the athlete opens it.
+      expect(tree.queryByTestId('background-job-elevationBackfill')).toBeNull();
+      await fireEvent.press(tree.getByTestId('background-jobs-activity-toggle'));
+      expect(tree.getByTestId('background-job-elevationBackfill-status')).toHaveTextContent(
+        'Finished'
+      );
+    }
+  );
 
-  it('draws running, finished, waiting and stopped jobs in four different inks', async () => {
+  vaultIt('draws running, finished, waiting and stopped jobs in four different inks', async () => {
     mockUseBackgroundJobs.mockReturnValue([
       job('detection', { state: 'running' }),
       job('elevationBackfill', { state: 'waiting', remaining: 3 }),
@@ -107,7 +110,7 @@ describe('BackgroundJobsActivityBar', () => {
     );
   });
 
-  it('moves a finished job from the open list into the folded history', async () => {
+  vaultIt('moves a finished job from the open list into the folded history', async () => {
     mockUseBackgroundJobs.mockReturnValue([job('detection', { state: 'running' })]);
     const tree = await render(<BackgroundJobsActivityBar />);
     expect(tree.getByTestId('background-job-detection')).toBeTruthy();
@@ -121,7 +124,7 @@ describe('BackgroundJobsActivityBar', () => {
     expect(tree.getByTestId('background-jobs-activity-toggle')).toBeTruthy();
   });
 
-  it('shows translated cutover and detection phases in the active locale', async () => {
+  vaultIt('shows translated cutover and detection phases in the active locale', async () => {
     await changeLanguage('de-DE');
     mockUseBackgroundJobs.mockReturnValue([
       job('cutover', { state: 'running', phase: 'draining' }),
@@ -137,7 +140,7 @@ describe('BackgroundJobsActivityBar', () => {
     );
   });
 
-  it('shows an unknown engine phase without a translation', async () => {
+  vaultIt('shows an unknown engine phase without a translation', async () => {
     mockUseBackgroundJobs.mockReturnValue([
       job('cutover', { state: 'running', phase: 'new_phase' }),
     ]);
@@ -154,16 +157,19 @@ describe('BackgroundJobsActivityBar', () => {
    * the days it takes, so the athlete is not left to read a slow count as a
    * stuck app.
    */
-  it('says a resting download is paced on intervals.icu caps, with the days it takes', async () => {
-    mockUseBackgroundJobs.mockReturnValue([
-      job('streamBackfill', { remaining: 1400, pacedDays: 3 }),
-    ]);
-    const tree = await render(<BackgroundJobsActivityBar />);
+  vaultIt(
+    'says a resting download is paced on intervals.icu caps, with the days it takes',
+    async () => {
+      mockUseBackgroundJobs.mockReturnValue([
+        job('streamBackfill', { remaining: 1400, pacedDays: 3 }),
+      ]);
+      const tree = await render(<BackgroundJobsActivityBar />);
 
-    expect(tree.getByTestId('background-job-streamBackfill-detail').props.children).toBe(
-      "1400 activities · At least 3 days to finish, because of intervals.icu's daily limit"
-    );
-  });
+      expect(tree.getByTestId('background-job-streamBackfill-detail').props.children).toBe(
+        "1400 activities · At least 3 days to finish, because of intervals.icu's daily limit"
+      );
+    }
+  );
 
   /**
    * Scenario: the cut was promoted over the newest slice and older activities
@@ -172,7 +178,7 @@ describe('BackgroundJobsActivityBar', () => {
    * Expected behaviour: the cutover row is listed with the history progress, in
    * place of the waiting line, and the bar counts it as owed work.
    */
-  it("shows a staged cut's history joining on the cutover row", async () => {
+  vaultIt("shows a staged cut's history joining on the cutover row", async () => {
     mockUseBackgroundJobs.mockReturnValue([
       job('cutover', {
         state: 'complete',
@@ -188,7 +194,7 @@ describe('BackgroundJobsActivityBar', () => {
     expect(tree.queryByTestId('background-jobs-activity-toggle')).toBeNull();
   });
 
-  it('names no pacing for a queue the engine did not price in days', async () => {
+  vaultIt('names no pacing for a queue the engine did not price in days', async () => {
     mockUseBackgroundJobs.mockReturnValue([
       job('streamBackfill', { remaining: 40, pacedDays: null }),
     ]);
@@ -235,7 +241,7 @@ describe('BackgroundJobsActivityBar', () => {
     );
   });
 
-  it('says a waiting download is waiting when it has no count or time to show', async () => {
+  vaultIt('says a waiting download is waiting when it has no count or time to show', async () => {
     mockUseBackgroundJobs.mockReturnValue([
       job('elevationBackfill', { state: 'waiting', remaining: null, resumesAt: null }),
     ]);
@@ -246,7 +252,7 @@ describe('BackgroundJobsActivityBar', () => {
     );
   });
 
-  it('says when a waiting download resumes in every locale', async () => {
+  vaultIt('says when a waiting download resumes in every locale', async () => {
     await changeLanguage('de-DE');
     const resumesAt = Date.now() + 15 * 60_000;
     mockUseBackgroundJobs.mockReturnValue([
@@ -275,7 +281,7 @@ describe('BackgroundJobsActivityBar', () => {
       expect(mockRetryDownloadsNow).toHaveBeenCalledTimes(2);
     });
 
-    it('is not offered on a running, finished or non-download row', async () => {
+    vaultIt('is not offered on a running, finished or non-download row', async () => {
       mockUseBackgroundJobs.mockReturnValue([
         job('elevationBackfill', { state: 'running', remaining: 12 }),
         job('streamBackfill', { state: 'complete', remaining: 3 }),
@@ -312,23 +318,26 @@ describe('BackgroundJobsActivityBar', () => {
       );
     });
 
-    it('names the request limit, not intervals.icu, when the install is the one holding back', async () => {
-      const until = Date.now() + 5 * 60_000;
-      mockUseBackgroundJobs.mockReturnValue([
-        job('streamBackfill', {
-          state: 'partial',
-          remaining: 12,
-          held: { until, byUpstream: false },
-        }),
-      ]);
-      const tree = await render(<BackgroundJobsActivityBar />);
+    vaultIt(
+      'names the request limit, not intervals.icu, when the install is the one holding back',
+      async () => {
+        const until = Date.now() + 5 * 60_000;
+        mockUseBackgroundJobs.mockReturnValue([
+          job('streamBackfill', {
+            state: 'partial',
+            remaining: 12,
+            held: { until, byUpstream: false },
+          }),
+        ]);
+        const tree = await render(<BackgroundJobsActivityBar />);
 
-      expect(tree.getByTestId('background-job-streamBackfill-retry')).toBeDisabled();
-      const detail = tree.getByTestId('background-job-streamBackfill-detail');
-      expect(detail).toHaveTextContent(
-        `12 activities · Request limit reached, waiting until ${formatClockOrDate(until)}`
-      );
-      expect(detail).not.toHaveTextContent(/intervals\.icu asked/);
-    });
+        expect(tree.getByTestId('background-job-streamBackfill-retry')).toBeDisabled();
+        const detail = tree.getByTestId('background-job-streamBackfill-detail');
+        expect(detail).toHaveTextContent(
+          `12 activities · Request limit reached, waiting until ${formatClockOrDate(until)}`
+        );
+        expect(detail).not.toHaveTextContent(/intervals\.icu asked/);
+      }
+    );
   });
 });

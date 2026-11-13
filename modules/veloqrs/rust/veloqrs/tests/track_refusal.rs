@@ -42,6 +42,7 @@ fn walk_and_ride() -> Vec<ActivityCensusEntry> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refused_track_is_listed_and_a_track_never_refused_is_not() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine_with_census(&dir, &walk_and_ride());
@@ -54,6 +55,7 @@ fn a_refused_track_is_listed_and_a_track_never_refused_is_not() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn both_refusal_kinds_are_remembered() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine_with_census(&dir, &walk_and_ride());
@@ -74,6 +76,7 @@ fn both_refusal_kinds_are_remembered() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refusal_for_an_activity_the_census_does_not_name_is_ignored() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine_with_census(&dir, &walk_and_ride());
@@ -93,6 +96,7 @@ fn a_refusal_for_an_activity_the_census_does_not_name_is_ignored() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_refusal_survives_a_second_census_naming_the_same_version() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine_with_census(&dir, &walk_and_ride());
@@ -110,6 +114,7 @@ fn the_refusal_survives_a_second_census_naming_the_same_version() {
 /// An edit upstream can add the track the first download lacked, so the
 /// refusal is only good for the version it was made against.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_version_moved_upstream_retires_the_refusal() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine_with_census(&dir, &walk_and_ride());
@@ -131,6 +136,7 @@ fn a_version_moved_upstream_retires_the_refusal() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refused_track_no_longer_counts_as_owed_by_the_library() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine_with_census(&dir, &walk_and_ride());

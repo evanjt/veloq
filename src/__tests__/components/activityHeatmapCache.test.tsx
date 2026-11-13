@@ -70,7 +70,7 @@ describe('ActivityHeatmap', () => {
     expect(engine.getFeedCards).not.toHaveBeenCalled();
   });
 
-  it('draws the grid from the cache alone', async () => {
+  vaultIt('draws the grid from the cache alone', async () => {
     const view = await render(
       <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
       { wrapper }
@@ -80,7 +80,7 @@ describe('ActivityHeatmap', () => {
     expect(heatmapDays).toHaveBeenCalled();
   });
 
-  it('caps the weekday, month and legend labels, which sit at the cell pitch', async () => {
+  vaultIt('caps the weekday, month and legend labels, which sit at the cell pitch', async () => {
     const view = await render(
       <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
       { wrapper }
@@ -223,7 +223,7 @@ function leftOf(node: ReturnType<Awaited<ReturnType<typeof render>>['getByText']
 }
 
 describe('ActivityHeatmap month labels', () => {
-  it('keeps the leftmost labels apart on 24 September 2026', async () => {
+  vaultIt('keeps the leftmost labels apart on 24 September 2026', async () => {
     jest.setSystemTime(new Date(2026, 8, 24, 12, 0));
 
     const view = await render(
@@ -246,23 +246,26 @@ describe('ActivityHeatmap year in view', () => {
   /** A 360 dp screen: 296 px inside the card, less the weekday gutter. */
   const VIEWPORT = 272;
 
-  it('pins the year of the leftmost visible column and labels January with its own', async () => {
-    jest.setSystemTime(new Date(2027, 0, 10, 12, 0));
+  vaultIt(
+    'pins the year of the leftmost visible column and labels January with its own',
+    async () => {
+      jest.setSystemTime(new Date(2027, 0, 10, 12, 0));
 
-    const view = await render(
-      <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
-      { wrapper }
-    );
-    await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
-    await fireEvent(view.getByTestId('activity-heatmap-scroll'), 'layout', {
-      nativeEvent: { layout: { width: VIEWPORT, height: 100, x: 0, y: 0 } },
-    });
+      const view = await render(
+        <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>,
+        { wrapper }
+      );
+      await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
+      await fireEvent(view.getByTestId('activity-heatmap-scroll'), 'layout', {
+        nativeEvent: { layout: { width: VIEWPORT, height: 100, x: 0, y: 0 } },
+      });
 
-    expect(view.getByTestId('activity-heatmap-year')).toHaveTextContent('2026');
-    expect(view.getByText('2027')).toBeTruthy();
-  });
+      expect(view.getByTestId('activity-heatmap-year')).toHaveTextContent('2026');
+      expect(view.getByText('2027')).toBeTruthy();
+    }
+  );
 
-  it.each([
+  vaultIt.each([
     ['July', new Date(2026, 6, 15, 12, 0), '2026'],
     ['October', new Date(2026, 9, 15, 12, 0), '2026'],
     ['January', new Date(2026, 0, 15, 12, 0), '2025'],
@@ -284,7 +287,7 @@ describe('ActivityHeatmap year in view', () => {
     expect(view.getByTestId('activity-heatmap-year')).toHaveTextContent(year);
   });
 
-  it('follows the scroll back to the first column', async () => {
+  vaultIt('follows the scroll back to the first column', async () => {
     jest.setSystemTime(new Date(2026, 8, 23, 12, 0));
 
     const view = await render(
@@ -319,7 +322,7 @@ describe('ActivityHeatmap in the app language', () => {
     await changeLanguage('en-US');
   });
 
-  it('names months and weekdays in that language', async () => {
+  vaultIt('names months and weekdays in that language', async () => {
     jest.setSystemTime(new Date(2026, 9, 15, 12, 0));
 
     const view = await render(

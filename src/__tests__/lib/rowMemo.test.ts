@@ -14,7 +14,7 @@ import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 const record = { id: 'a1', name: 'Morning Ride' };
 
 describe('when a row can skip its render', () => {
-  it('skips when the record and every extra are the same', () => {
+  vaultIt('skips when the record and every extra are the same', () => {
     expect(rowIsUnchanged({ record, extras: [1, true] }, { record, extras: [1, true] })).toBe(true);
   });
 
@@ -32,7 +32,7 @@ describe('when a row can skip its render', () => {
     expect(rowIsUnchanged({ record, extras: [1] }, { record, extras: [2] })).toBe(false);
   });
 
-  it('renders when the extras are not even the same shape', () => {
+  vaultIt('renders when the extras are not even the same shape', () => {
     expect(rowIsUnchanged({ record, extras: [1] }, { record, extras: [1, 2] })).toBe(false);
   });
 });

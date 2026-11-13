@@ -725,6 +725,7 @@ mod tests {
     /// window. The setting and the clock are now read once for the batch, so
     /// the decision is pinned here on its own.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_window_decision_reads_a_day_boundary_the_same_way_whoever_asks() {
         use super::inside_stream_window_at;
         let now = 1_700_000_000;
@@ -738,6 +739,7 @@ mod tests {
     /// No window keeps everything, an undated activity is outside any window,
     /// and a zero window keeps only activities starting now.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_window_decision_keeps_everything_when_there_is_no_window() {
         use super::inside_stream_window_at;
         let now = 1_700_000_000;
@@ -758,6 +760,7 @@ mod tests {
     /// 500-activity sync into a 5,000-activity library scans 2.5 million rows
     /// it does not need, all of it holding the lock every screen read waits on.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_retention_prune_does_not_scan_every_activity() {
         let (_dir, engine) = engine();
 
@@ -792,6 +795,7 @@ mod tests {
     // Expected behaviour: an athlete who has never chosen keeps everything, and
     // one who has chosen keeps exactly what they chose.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_athlete_who_never_chose_keeps_every_series() {
         let (_dir, engine) = engine();
         activity_aged(&engine, "old", 4000);
@@ -827,6 +831,7 @@ mod tests {
     /// Expected behaviour: the backfill queue names exactly the activities with
     /// no stored series, and nothing it already has them for.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_queue_names_only_activities_with_no_stored_series() {
         let (_dir, engine) = engine();
         activity_aged(&engine, "bare", 400);
@@ -875,6 +880,7 @@ mod tests {
     /// the ride the track fetch still owes. The count agrees, and storing the
     /// session's series takes it out.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_queue_lists_a_trackless_activity_only_when_upstream_holds_a_series_for_it() {
         let (_dir, mut engine) = engine();
         for id in ["i1", "i2", "i3", "i4"] {
@@ -931,6 +937,7 @@ mod tests {
     /// session recorded on the device and uploaded later joins the queue under
     /// the census row its upload named.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_trackless_recording_joins_the_queue_through_its_intervals_id() {
         let (_dir, mut engine) = engine();
         activity_aged(&engine, "local-gym", 10);
@@ -959,6 +966,7 @@ mod tests {
     /// Expected behaviour: the count is the queue's own, and the moving
     /// seconds are summed over exactly those activities.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_estimate_sums_moving_seconds_over_the_queue_only() {
         let (_dir, engine) = engine();
         for (id, secs) in [("a", 600), ("b", 1800), ("stocked", 9000)] {
@@ -1028,6 +1036,7 @@ mod tests {
     /// three times the session; a body that lists nothing requested, or no
     /// body at all, falls back to the flat rate rather than to nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_estimate_prices_each_activity_by_the_series_it_lists() {
         use crate::net::stream_backfill::WIRE_BYTES_PER_MOVING_SECOND;
         let flat = 3000 * WIRE_BYTES_PER_MOVING_SECOND;
@@ -1065,6 +1074,7 @@ mod tests {
     /// Expected behaviour: the price follows the samples the track holds, so
     /// the run with a third of the samples costs a third as much.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_estimate_prices_the_samples_the_track_holds() {
         let body = r#"{"stream_types":["time","latlng","heartrate","altitude"]}"#;
         let every_second = priced_alone(3000, Some(body));
@@ -1079,6 +1089,7 @@ mod tests {
     /// Expected behaviour: the queue and its count leave it out until an
     /// intervals id is recorded for it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_local_recording_with_no_server_id_is_not_in_the_stream_queue() {
         let (_dir, engine) = engine();
         for id in ["i1", "local-unsent", "local-sent"] {
@@ -1104,6 +1115,7 @@ mod tests {
     /// The queue is derived, so a pass that stored half its batch and died
     /// resumes on what is left rather than starting over.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stored_activity_leaves_the_queue_without_any_bookkeeping() {
         let (_dir, engine) = engine();
         for id in ["a", "b"] {
@@ -1128,6 +1140,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn counting_the_stream_queue_does_not_sort_but_reading_it_does() {
         let (_dir, engine) = engine();
         let plan = |sql: String| {
@@ -1154,6 +1167,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_backfill_remaining_attempt_retention_edges() {
         let (_dir, engine) = engine();
         for (id, start_date) in [
@@ -1199,6 +1213,7 @@ mod tests {
     /// An athlete who narrowed the window is asking for less on disk, so the
     /// backfill must not download what the prune would delete on arrival.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_narrow_window_backfills_nothing_outside_it() {
         let (_dir, engine) = engine();
         activity_aged(&engine, "recent", 10);
@@ -1222,6 +1237,7 @@ mod tests {
     /// unbounded. The queue applies the same rule, or the backfill would
     /// download series the prune leaves alone but the sync never asked for.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_undated_activity_follows_the_same_rule_the_sync_widens_by() {
         let (_dir, engine) = engine();
         engine
@@ -1255,6 +1271,7 @@ mod tests {
     /// Expected behaviour: the asks are counted and the activity retires, so a
     /// library of such rides lets a pass end rather than never draining.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_upstream_never_answers_for_retires_out_of_the_queue() {
         let (_dir, engine) = engine();
         activity_aged(&engine, "sensorless", 400);
@@ -1300,6 +1317,7 @@ mod tests {
     /// outside. Widening on a guess is how a first sync downloads thirteen
     /// series apiece and hands twelve of them to the prune.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_window_decides_which_activities_the_sync_widens_for() {
         let (_dir, engine) = engine();
         engine.set_stream_retention_days(90).unwrap();
@@ -1311,6 +1329,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_window_opened_all_the_way_widens_for_everything_including_an_unknown_date() {
         let (_dir, engine) = engine();
         engine.set_stream_retention_days(0).unwrap();
@@ -1323,6 +1342,7 @@ mod tests {
     /// retention age is still widened rather than falling through the gap
     /// between "kept" and "downloaded".
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_edge_of_the_window_is_inside_it() {
         let (_dir, engine) = engine();
         // The default keeps everything, so this needs a window of its own.
@@ -1421,6 +1441,7 @@ mod tests {
     /// Expected behaviour: a later read of power and heart rate is served
     /// from the store, with no fetch and no body cached for it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_wide_sync_leaves_power_and_heart_rate_readable_without_a_fetch() {
         let (_dir, engine) = engine();
         let response = vec![
@@ -1507,6 +1528,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_track_series_are_not_stored_twice() {
         let (_dir, engine) = engine();
         engine
@@ -1526,6 +1548,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_series_is_not_stored() {
         let (_dir, engine) = engine();
         engine
@@ -1551,6 +1574,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_default_window_keeps_everything() {
         let (_dir, engine) = engine();
         assert_eq!(
@@ -1561,6 +1585,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn zero_days_keeps_everything() {
         let (_dir, engine) = engine();
         engine.set_stream_retention_days(0).unwrap();
@@ -1574,6 +1599,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_window_nobody_can_read_falls_back_to_the_default() {
         let (_dir, engine) = engine();
         for bad in ["", "  ", "not a number", "-5"] {
@@ -1587,6 +1613,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_window_evicts_oldest_first_and_keeps_the_newest() {
         let (_dir, engine) = engine();
         engine.set_stream_retention_days(90).unwrap();
@@ -1618,6 +1645,7 @@ mod tests {
     /// the window doing its job, and the screen is still served from the
     /// cached body rather than showing a gap.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn opening_an_old_activity_does_not_stock_the_durable_store() {
         let (_dir, engine) = engine();
         engine.set_stream_retention_days(90).unwrap();
@@ -1639,6 +1667,7 @@ mod tests {
     /// The same fetch for an activity inside the window does stock it, so the
     /// test above is measuring the window and not a broken write path.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn opening_a_recent_activity_stocks_the_durable_store() {
         let (_dir, engine) = engine();
         activity_aged(&engine, "recent", 10);
@@ -1658,6 +1687,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_with_no_start_date_is_kept() {
         let (_dir, engine) = engine();
         engine
@@ -1677,6 +1707,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_readout_counts_what_is_stored() {
         let (_dir, engine) = engine();
         assert_eq!(engine.stream_store_bytes().unwrap(), 0);
@@ -1728,6 +1759,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_write_of_the_same_body_is_one_commit() {
         let (_dir, engine) = engine();
         let body = [
@@ -1745,6 +1777,7 @@ mod tests {
     /// Nothing to write is still one prune per call, never one per skipped
     /// series.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_with_nothing_storable_is_one_commit_per_call() {
         let (_dir, engine) = engine();
         let commits = super::super::commit_counter::watch(&engine);

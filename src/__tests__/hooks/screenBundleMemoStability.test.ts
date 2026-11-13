@@ -56,7 +56,7 @@ beforeEach(() => {
 describe('useSectionMatches over a rebuilt bundle wrapper', () => {
   const sections = [nativeSection('s1'), nativeSection('s2')];
 
-  it('decodes each matched section once across re-renders', async () => {
+  vaultIt('decodes each matched section once across re-renders', async () => {
     const { result, rerender } = await renderHook(
       ({ count }: { count: number }) =>
         useSectionMatches('act-1', { sections, sectionCount: count }),
@@ -74,7 +74,7 @@ describe('useSectionMatches over a rebuilt bundle wrapper', () => {
     expect(mockDecodeCoords).toHaveBeenCalledTimes(2);
   });
 
-  it('recomputes when the matched sections themselves change', async () => {
+  vaultIt('recomputes when the matched sections themselves change', async () => {
     const { result, rerender } = await renderHook(
       ({ list }: { list: SectionWithPolyline[] }) =>
         useSectionMatches('act-1', { sections: list, sectionCount: list.length }),
@@ -89,7 +89,7 @@ describe('useSectionMatches over a rebuilt bundle wrapper', () => {
     expect(mockDecodeCoords).toHaveBeenCalledTimes(5);
   });
 
-  it('holds an empty result stable and reports the bundle count', async () => {
+  vaultIt('holds an empty result stable and reports the bundle count', async () => {
     const empty: SectionWithPolyline[] = [];
     const { result, rerender } = await renderHook(() =>
       useSectionMatches('act-1', { sections: empty, sectionCount: 7 })
@@ -130,7 +130,7 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
   const sectionTraces = { s1: coordinates };
   const prSectionIds = new Set(['s1']);
 
-  it('returns the same overlays across re-renders that rebuild the wrapper', async () => {
+  vaultIt('returns the same overlays across re-renders that rebuild the wrapper', async () => {
     const { result, rerender } = await renderHook(() =>
       useSectionOverlays('act-1', matches, noCustom, coordinates, {
         sectionTraces,
@@ -279,7 +279,7 @@ describe('section detail traces', () => {
     mapSignatures: [firstSignature],
   };
 
-  it('decodes signatures once across re-renders of the same detail read', async () => {
+  vaultIt('decodes signatures once across re-renders of the same detail read', async () => {
     (getEngine as jest.Mock).mockReturnValue({
       subscribe: () => () => {},
       getSectionDetailData: () => firstBundle,
@@ -294,7 +294,7 @@ describe('section detail traces', () => {
     expect(mockDecodeCoords).toHaveBeenCalledTimes(1);
   });
 
-  it('re-decodes when a refreshed detail read carries new signatures', async () => {
+  vaultIt('re-decodes when a refreshed detail read carries new signatures', async () => {
     let bundle = firstBundle;
     (getEngine as jest.Mock).mockReturnValue({
       subscribe: () => () => {},

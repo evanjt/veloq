@@ -50,7 +50,7 @@ describe.each([
     expect(useWhatsNewStore.getState().tourState?.mode).toBe('tutorial');
   });
 
-  it('names each row by its title', async () => {
+  vaultIt('names each row by its title', async () => {
     const { getByRole } = await render(<FooterSection />);
 
     expect(getByRole('button', { name: 't(settings.releaseNotes)' })).toBeTruthy();

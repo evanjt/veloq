@@ -23,7 +23,7 @@ describe('dailyLimitLines', () => {
     expect(lines.reset).toBe('settings.dailyLimitResets:{"time":"clock@1000"}');
   });
 
-  it('prints only the counts and the reset, with no shared-limit line', () => {
+  vaultIt('prints only the counts and the reset, with no shared-limit line', () => {
     const lines = dailyLimitLines({ used: 120, perDay: 650, resetsAtMs: 1_000 }, t, clock)!;
 
     expect(Object.keys(lines).sort()).toEqual(['reset', 'today']);

@@ -97,7 +97,7 @@ const METHOD_EXPORTS = FFI_EXPORTS.filter((e) => e.object);
 
 describe('FFI Binding Validation', () => {
   describe('Standalone flat exports', () => {
-    it('should include the known standalone FFI functions', () => {
+    vaultIt('should include the known standalone FFI functions', () => {
       const names = new Set(STANDALONE_EXPORTS.map((e) => e.name));
       expect(names.has('get_download_progress')).toBe(false);
       expect(names.has('validate_backup_database')).toBe(true);
@@ -159,27 +159,27 @@ describe('FFI Binding Validation', () => {
       expect(names.has('run_detector_cutover')).toBe(false);
     });
 
-    it('should have exports sourced from ffi.rs and persistence/mod.rs', () => {
+    vaultIt('should have exports sourced from ffi.rs and persistence/mod.rs', () => {
       const files = new Set(STANDALONE_EXPORTS.map((e) => e.file));
       expect(files.has('ffi.rs')).toBe(true);
       expect(files.has('persistence/mod.rs')).toBe(true);
     });
 
-    it('should have correct snake_case to camelCase conversion', () => {
+    vaultIt('should have correct snake_case to camelCase conversion', () => {
       expect(RUST_TO_TS_NAME['get_fetch_run_progress']).toBe('getFetchRunProgress');
       expect(RUST_TO_TS_NAME['compute_polyline_overlap']).toBe('computePolylineOverlap');
     });
   });
 
   describe('UniFFI Objects', () => {
-    it('should discover all domain objects from Rust source', () => {
+    vaultIt('should discover all domain objects from Rust source', () => {
       // Detected by scanning `#[uniffi::export] impl Foo` blocks. The exact
       // count is whatever the generator found - assert a sensible lower bound
       // and that every discovered object has a file mapping in this test.
       expect(UNIFFI_OBJECTS.length).toBeGreaterThanOrEqual(8);
     });
 
-    it('should have Rust source files for each object', () => {
+    vaultIt('should have Rust source files for each object', () => {
       const missing: string[] = [];
       for (const obj of UNIFFI_OBJECTS) {
         const fileName = OBJECT_SOURCE_FILES[obj];
@@ -195,7 +195,7 @@ describe('FFI Binding Validation', () => {
       expect(missing).toEqual([]);
     });
 
-    it('should have #[uniffi::export] impl blocks in each object file', () => {
+    vaultIt('should have #[uniffi::export] impl blocks in each object file', () => {
       const missingExport: string[] = [];
       for (const obj of UNIFFI_OBJECTS) {
         const fileName = OBJECT_SOURCE_FILES[obj];
@@ -210,7 +210,7 @@ describe('FFI Binding Validation', () => {
       expect(missingExport).toEqual([]);
     });
 
-    it('every impl-method export should reference a known UniFFI Object', () => {
+    vaultIt('every impl-method export should reference a known UniFFI Object', () => {
       const knownObjects = new Set(UNIFFI_OBJECTS);
       const orphans = METHOD_EXPORTS.filter((e) => !knownObjects.has(e.object ?? ''));
       expect(orphans.map((e) => `${e.object}::${e.name}`)).toEqual([]);
@@ -218,11 +218,11 @@ describe('FFI Binding Validation', () => {
   });
 
   describe('TypeScript index.ts structure', () => {
-    it('should have wildcard re-export from generated module', () => {
+    vaultIt('should have wildcard re-export from generated module', () => {
       expect(hasWildcardReexport()).toBe(true);
     });
 
-    it('should import standalone functions in index.ts', () => {
+    vaultIt('should import standalone functions in index.ts', () => {
       const imports = extractGeneratedImports();
       expect(imports.size).toBeGreaterThan(0);
     });
@@ -235,7 +235,7 @@ describe('FFI Binding Validation', () => {
       tsImports = extractGeneratedImports();
     });
 
-    it('should import the generated values used in index.ts', () => {
+    vaultIt('should import the generated values used in index.ts', () => {
       const standaloneFunctions = ['BasemapManager'];
 
       const missing: string[] = [];
@@ -250,7 +250,7 @@ describe('FFI Binding Validation', () => {
   });
 
   describe('Binding alignment validation', () => {
-    it('should not have function imports that do not exist in Rust exports', () => {
+    vaultIt('should not have function imports that do not exist in Rust exports', () => {
       const tsImports = extractGeneratedImports();
       const orphanImports: string[] = [];
 
@@ -312,7 +312,7 @@ describe('FFI Binding Validation', () => {
       expect(missing).toEqual([]);
     });
 
-    it('generates no standalone function the manifest does not name', () => {
+    vaultIt('generates no standalone function the manifest does not name', () => {
       const named = new Set(standalone.map((exp) => exp.camelName));
       // The generated module also exports its own helpers and converters, which
       // are not FFI functions. Only names the manifest has ever used are
@@ -375,11 +375,11 @@ describe('FFI Binding Validation', () => {
       expect(methodDrift(generatedSource).missing).toEqual([]);
     });
 
-    it('generates no class method the manifest has dropped', () => {
+    vaultIt('generates no class method the manifest has dropped', () => {
       expect(methodDrift(generatedSource).orphans).toEqual([]);
     });
 
-    it('reports a manifest method deleted from the generated class', () => {
+    vaultIt('reports a manifest method deleted from the generated class', () => {
       const target = METHOD_EXPORTS.find(
         (e) => e.object === 'SettingsManager' && e.camelName === 'deleteSetting'
       );
@@ -395,7 +395,7 @@ describe('FFI Binding Validation', () => {
   });
 
   describe('Signature manifest', () => {
-    it('records arity and return type for every export', () => {
+    vaultIt('records arity and return type for every export', () => {
       for (const exp of FFI_EXPORTS) {
         expect(typeof exp.paramCount).toBe('number');
         expect(exp.paramCount).toBeGreaterThanOrEqual(0);

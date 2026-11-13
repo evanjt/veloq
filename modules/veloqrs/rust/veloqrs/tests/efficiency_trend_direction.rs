@@ -174,6 +174,7 @@ fn speeding_up_at_the_same_heart_rate_is_an_improvement() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_count_is_the_efforts_the_regression_used() {
     let dir = TempDir::new().expect("tempdir");
     // The second effort is 15 s/km, faster than the 60 s/km floor, so the
@@ -208,6 +209,7 @@ fn the_count_is_the_efforts_the_regression_used() {
 /// The athlete named the section, and the name lives on the named overlay
 /// rather than on the detected row. The card titles the trend with it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_trend_carries_the_name_the_athlete_gave_the_section() {
     let dir = TempDir::new().expect("tmp");
     let mut engine = engine_with_efforts(&dir, &[(300.0, 150.0), (300.0, 148.0), (300.0, 146.0)]);

@@ -173,7 +173,7 @@ describe('the grouping parameter editor', () => {
     );
   });
 
-  it('keeps the match percentage a percentage', async () => {
+  vaultIt('keeps the match percentage a percentage', async () => {
     const { getByTestId } = await renderWithSheet(
       <GroupingParamPanel
         params={{ minMatchPercentage: 55, endpointThreshold: 250 }}

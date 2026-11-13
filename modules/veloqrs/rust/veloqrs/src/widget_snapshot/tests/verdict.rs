@@ -108,6 +108,7 @@ fn assert_close(actual: Option<f64>, expected: f64) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn resting_hr_rise_draws_as_a_decline_in_the_metric_and_the_summary_entry() {
     let d = data(
         WidgetWellnessSummary {
@@ -129,6 +130,7 @@ fn resting_hr_rise_draws_as_a_decline_in_the_metric_and_the_summary_entry() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn resting_hr_fall_draws_as_an_improvement() {
     let d = data(
         WidgetWellnessSummary {
@@ -147,6 +149,7 @@ fn resting_hr_fall_draws_as_an_improvement() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn resting_hr_with_no_engine_arrow_draws_flat() {
     let d = data(
         WidgetWellnessSummary {
@@ -178,6 +181,7 @@ fn earlier_readings(population: u32) -> FfiClaimBasis {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn fatigue_draws_no_move_on_one_earlier_reading() {
     let mut w = fatigue(46.0, 40.0);
     w.fatigue_basis = Some(earlier_readings(1));
@@ -187,6 +191,7 @@ fn fatigue_draws_no_move_on_one_earlier_reading() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn fatigue_is_a_move_with_no_judgement_in_either_direction() {
     let up = snapshot(&data(fatigue(46.0, 40.0), sparklines()));
     assert_judged(&up.metrics.fatigue, "up", "moved");
@@ -195,12 +200,14 @@ fn fatigue_is_a_move_with_no_judgement_in_either_direction() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn fatigue_is_flat_inside_the_deadband() {
     let s = snapshot(&data(fatigue(40.5, 40.0), sparklines()));
     assert_judged(&s.metrics.fatigue, "flat", "flat");
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn form_is_flat_in_the_metric_and_the_entry_when_the_engine_says_flat_whatever_the_sparkline_did() {
     // The engine rounds sparklines to whole numbers, so a rise is 10 to 12 here.
     let d = data(
@@ -221,6 +228,7 @@ fn form_is_flat_in_the_metric_and_the_entry_when_the_engine_says_flat_whatever_t
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn form_moves_with_no_judgement_when_the_engine_draws_a_direction() {
     let d = data(
         WidgetWellnessSummary {
@@ -305,6 +313,7 @@ fn fatigue_with_no_reading_prints_a_dash_not_a_zero() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fatigue_reading_prints_no_dash_so_the_native_falls_through_to_the_number() {
     let d = data(
         WidgetWellnessSummary {
@@ -318,6 +327,7 @@ fn a_fatigue_reading_prints_no_dash_so_the_native_falls_through_to_the_number() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_hrv_reading_prints_no_dash_so_the_native_falls_through_to_the_number() {
     let d = data(
         WidgetWellnessSummary {
@@ -337,6 +347,7 @@ fn an_hrv_reading_prints_no_dash_so_the_native_falls_through_to_the_number() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn fitness_draws_the_engine_arrow_when_the_last_two_sparkline_days_are_both_carried_forward() {
     let d = data(
         WidgetWellnessSummary {
@@ -366,18 +377,21 @@ fn with_run_pace(latest: f64, previous: f64, g: &str) -> FfiWidgetSnapshotData {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_faster_pace_draws_as_an_improvement_from_the_engine_glyph() {
     let s = snapshot(&with_run_pace(3.5, 3.3, "↑"));
     assert_entry(&entry(&s, "thresholdPace"), "up", "improved");
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_slower_pace_draws_as_a_decline() {
     let s = snapshot(&with_run_pace(3.1, 3.3, "↓"));
     assert_entry(&entry(&s, "thresholdPace"), "down", "declined");
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_longer_week_is_judged_an_improvement() {
     let mut d = data(WidgetWellnessSummary::default(), sparklines());
     d.summary.current_week = week(4, 14_400.0, 1.0);
@@ -508,6 +522,7 @@ fn fatigue_reads_the_newest_row_not_a_sparkline_that_carried_yesterday_forward()
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn fatigue_is_a_move_with_no_judgement_against_the_engine_baseline() {
     let up = snapshot(&data(fatigue(46.0, 40.0), sparklines()))
         .metrics
@@ -768,6 +783,7 @@ mod pace_one_source {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn prints_the_measured_paces_in_metric() {
         // 1000 / 3.5 is 285.7 s a kilometre, and 100 / 1.35 rounds to 74 s a hundred metres.
         let (pace, css) = entries(run(), swim(), true);
@@ -776,6 +792,7 @@ mod pace_one_source {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn prints_the_measured_paces_in_imperial() {
         // 285.7 / 0.621371 is 459.8 s a mile, and 91.44 / 1.35 rounds to 68 s a hundred yards.
         let (pace, css) = entries(run(), swim(), false);
@@ -784,6 +801,7 @@ mod pace_one_source {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn draws_the_glyph_the_engine_judged_up_for_a_faster_pace() {
         let (pace, css) = entries(pace(3.95, 3.8, "↑"), pace(1.25, 1.35, "↓"), true);
         assert_eq!((pace.trend_dir, pace.verdict), ("up", "improved"));
@@ -791,6 +809,7 @@ mod pace_one_source {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn draws_flat_for_a_move_the_engine_called_flat() {
         let (pace, _) = entries(pace(3.83, 3.8, "→"), FfiPaceTrend::default(), true);
         assert_eq!((pace.trend_dir, pace.verdict), ("flat", "flat"));

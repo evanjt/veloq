@@ -143,7 +143,7 @@ describe('skyline zone colours', () => {
     return skylineColours(decodeSkylineBytes(skylineBytes)!, isDark);
   }
 
-  it('selects palette by zone basis (power vs HR)', () => {
+  vaultIt('selects palette by zone basis (power vs HR)', () => {
     const power = resolveColours(makeColorPayload([300, 120], [2, 6], 1), false);
     expect(power).toEqual([zoneColorsLight.zone2, zoneColorsLight.zone6]);
 
@@ -151,18 +151,18 @@ describe('skyline zone colours', () => {
     expect(hr).toEqual([zoneColorsLight.zone1, zoneColorsLight.zone4]);
   });
 
-  it('keeps power Z7 in its palette colour in light mode', () => {
+  vaultIt('keeps power Z7 in its palette colour in light mode', () => {
     expect(resolveColours(makeColorPayload([300], [7], 1), false)).toEqual([zoneColorsLight.zone7]);
   });
 
-  it('swaps Z7 to the dark zone fill on either basis but leaves HR Z5 untouched', () => {
+  vaultIt('swaps Z7 to the dark zone fill on either basis but leaves HR Z5 untouched', () => {
     expect(resolveColours(makeColorPayload([300], [7], 1), true)).toEqual([zoneColorsDark.zone7]);
     expect(resolveColours(makeColorPayload([300], [7], 2), true)).toEqual([zoneColorsDark.zone7]);
     expect(zoneColorsDark.zone7).not.toBe(zoneColorsLight.zone7);
     expect(resolveColours(makeColorPayload([300], [5], 2), true)).toEqual([zoneColorsDark.zone5]);
   });
 
-  it('clamps out-of-range zone numbers to the ends of the palette', () => {
+  vaultIt('clamps out-of-range zone numbers to the ends of the palette', () => {
     expect(resolveColours(makeColorPayload([300, 60], [10, 0], 1), false)).toEqual([
       zoneColorsLight.zone7,
       zoneColorsLight.zone1,

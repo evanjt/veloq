@@ -77,6 +77,7 @@ fn zip_of(entries: &[(&str, &[u8])]) -> Vec<u8> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_token_request_carries_the_key_and_a_second_call_reuses_the_token() {
     let server = MockServer::start();
     let token = token_expiring_in(day().num_seconds());
@@ -111,6 +112,7 @@ fn the_token_request_carries_the_key_and_a_second_call_reuses_the_token() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_token_inside_the_renewal_margin_is_exchanged_again() {
     let server = MockServer::start();
     let near_expiry = token_expiring_in(60);
@@ -166,6 +168,7 @@ fn a_full_page_asks_for_the_next_and_a_short_one_stops() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_page_of_exactly_ninety_nine_is_followed_by_one_more_ask() {
     let server = MockServer::start();
     let token = token_expiring_in(day().num_seconds());
@@ -213,6 +216,7 @@ fn a_download_yields_the_fit_inside_the_zip() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_zip_without_a_fit_is_a_decode_error() {
     let err = endpoints::unzip_fit(&zip_of(&[("readme.txt", b"x")])).unwrap_err();
     assert!(matches!(err, NetError::Decode(_)), "{err}");
@@ -223,6 +227,7 @@ fn a_zip_without_a_fit_is_a_decode_error() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_token_endpoint_refusing_the_key_reports_it_rejected_or_malformed() {
     for (status, rejected) in [(401, true), (400, false)] {
         let server = MockServer::start();
@@ -241,6 +246,7 @@ fn the_token_endpoint_refusing_the_key_reports_it_rejected_or_malformed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_401_on_data_after_a_fresh_token_parks_the_key_without_retrying() {
     let server = MockServer::start();
     let token = token_expiring_in(day().num_seconds());
@@ -264,6 +270,7 @@ fn a_401_on_data_after_a_fresh_token_parks_the_key_without_retrying() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_401_on_a_cached_token_renews_it_once_and_asks_again() {
     let server = MockServer::start();
     let old = token_expiring_in(day().num_seconds());
@@ -298,6 +305,7 @@ fn a_401_on_a_cached_token_renews_it_once_and_asks_again() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_client_shares_the_process_governor_in_its_own_lane() {
     let c = GarminClient::new("pasted-key");
     assert!(Arc::ptr_eq(c.governor(), &governor::GOVERNOR));
@@ -306,6 +314,7 @@ fn the_client_shares_the_process_governor_in_its_own_lane() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn neither_the_key_nor_a_token_appears_in_the_debug_text() {
     let c = GarminClient::new("pasted-key");
     *c.cached.lock().unwrap() = Some(CachedToken {
@@ -320,6 +329,7 @@ fn neither_the_key_nor_a_token_appears_in_the_debug_text() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_redirect_answer_is_an_error_and_sends_nothing_to_the_other_host() {
     let origin = MockServer::start();
     let elsewhere = MockServer::start();
@@ -342,6 +352,7 @@ fn a_redirect_answer_is_an_error_and_sends_nothing_to_the_other_host() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_plain_http_base_is_refused_without_a_request() {
     let server = MockServer::start();
     let any = server.mock(|when, _| {
@@ -358,6 +369,7 @@ fn a_plain_http_base_is_refused_without_a_request() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_production_client_roots_at_garmin_over_https() {
     let c = GarminClient::new("pasted-key");
     assert!(c.base_url.starts_with("https://") && c.https_only);
@@ -389,6 +401,7 @@ fn refused_download<'a>(
 /// retry loop sends nothing more, and the next request waits out the hold
 /// without reaching Garmin.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_429_without_retry_after_holds_the_lane_fifteen_minutes() {
     let server = MockServer::start();
     let download = refused_download(&server, None);
@@ -414,6 +427,7 @@ fn a_429_without_retry_after_holds_the_lane_fifteen_minutes() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_429_with_retry_after_holds_the_lane_for_it_and_leaves_intervals_alone() {
     let server = MockServer::start();
     refused_download(&server, Some("7"));
@@ -432,6 +446,7 @@ fn a_429_with_retry_after_holds_the_lane_for_it_and_leaves_intervals_alone() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_account_settings_are_read_with_the_token_and_name_the_account() {
     let server = MockServer::start();
     let token = token_expiring_in(day().num_seconds());
@@ -453,6 +468,7 @@ fn the_account_settings_are_read_with_the_token_and_name_the_account() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_account_id_is_the_token_subject_and_costs_no_settings_request() {
     let server = MockServer::start();
     let token = token_with(day().num_seconds(), json!({"sub": "acct-9001"}));
@@ -471,6 +487,7 @@ fn the_account_id_is_the_token_subject_and_costs_no_settings_request() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_account_id_comes_from_the_settings_when_the_token_names_nobody() {
     let server = MockServer::start();
     let token = token_expiring_in(day().num_seconds());
@@ -490,6 +507,7 @@ fn the_account_id_comes_from_the_settings_when_the_token_names_nobody() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_account_with_no_id_anywhere_names_nobody_and_a_rejected_key_is_an_error() {
     let server = MockServer::start();
     let token = token_expiring_in(day().num_seconds());

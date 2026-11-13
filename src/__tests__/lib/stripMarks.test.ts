@@ -54,7 +54,7 @@ function expectInBoundsWithoutOverlap(marks: ReturnType<typeof stripMarks>, widt
 }
 
 describe('stripMarks', () => {
-  it('draws 91 days as 91 one-date marks that do not overlap', () => {
+  vaultIt('draws 91 days as 91 one-date marks that do not overlap', () => {
     const marks = stripMarks(
       days(91, () => [{ type: 'Ride', load: 50 }]),
       WIDTH
@@ -64,7 +64,7 @@ describe('stripMarks', () => {
     expectInBoundsWithoutOverlap(marks, WIDTH);
   });
 
-  it('draws a year as one mark per date, never folded into weeks', () => {
+  vaultIt('draws a year as one mark per date, never folded into weeks', () => {
     const marks = stripMarks(
       days(365, () => [{ type: 'Run', load: 40 }]),
       WIDTH
@@ -74,7 +74,7 @@ describe('stripMarks', () => {
     expectInBoundsWithoutOverlap(marks, WIDTH);
   });
 
-  it('keeps four active dates as four daily marks at 365 dates', () => {
+  vaultIt('keeps four active dates as four daily marks at 365 dates', () => {
     const loads = [40, 60, 374, 0];
     const window = days(365, (n) => (n < 4 ? [{ type: 'Ride', load: loads[n] }] : []));
     const marks = stripMarks(window, WIDTH);
@@ -87,7 +87,7 @@ describe('stripMarks', () => {
     expectInBoundsWithoutOverlap(marks, WIDTH);
   });
 
-  it('draws the same height whatever the load, the window or the width', () => {
+  vaultIt('draws the same height whatever the load, the window or the width', () => {
     const heights = [
       stripMarks([day(0, [{ type: 'Ride', load: 40 }])], WIDTH),
       stripMarks([day(0, [{ type: 'Ride', load: 4000 }])], 100),
@@ -103,7 +103,7 @@ describe('stripMarks', () => {
     expect(heights).toEqual([MARK_HEIGHT, MARK_HEIGHT, MARK_HEIGHT, MARK_HEIGHT]);
   });
 
-  it('gives distinct sports equal portions in a stable order, whatever their load', () => {
+  vaultIt('gives distinct sports equal portions in a stable order, whatever their load', () => {
     const [a, b] = stripMarks(
       [
         day(0, [
@@ -128,13 +128,16 @@ describe('stripMarks', () => {
     expect(a.noLoad).toBe(false);
   });
 
-  it("stacks a day's families ride, winter, run, water, foot, strength, other from the bottom", () => {
-    const [mark] = stripMarks([day(0, ALL_FAMILIES)], WIDTH);
+  vaultIt(
+    "stacks a day's families ride, winter, run, water, foot, strength, other from the bottom",
+    () => {
+      const [mark] = stripMarks([day(0, ALL_FAMILIES)], WIDTH);
 
-    expect(mark.segments.map((s) => s.group)).toEqual(STACK_ORDER);
-  });
+      expect(mark.segments.map((s) => s.group)).toEqual(STACK_ORDER);
+    }
+  );
 
-  it('draws one portion per activity, so three rides on one day are three portions', () => {
+  vaultIt('draws one portion per activity, so three rides on one day are three portions', () => {
     const [mark] = stripMarks(
       [
         day(0, [
@@ -152,21 +155,24 @@ describe('stripMarks', () => {
     ]);
   });
 
-  it('draws a ride and a run as two portions in stack order, whatever their order arrived', () => {
-    const [mark] = stripMarks(
-      [
-        day(0, [
-          { type: 'Run', load: 50 },
-          { type: 'Ride', load: 50 },
-        ]),
-      ],
-      WIDTH
-    );
-    expect(mark.segments).toEqual([
-      { group: 'Ride', fraction: 0.5 },
-      { group: 'Run', fraction: 0.5 },
-    ]);
-  });
+  vaultIt(
+    'draws a ride and a run as two portions in stack order, whatever their order arrived',
+    () => {
+      const [mark] = stripMarks(
+        [
+          day(0, [
+            { type: 'Run', load: 50 },
+            { type: 'Ride', load: 50 },
+          ]),
+        ],
+        WIDTH
+      );
+      expect(mark.segments).toEqual([
+        { group: 'Ride', fraction: 0.5 },
+        { group: 'Run', fraction: 0.5 },
+      ]);
+    }
+  );
 
   it('draws every activity of one group as that group, one portion each', () => {
     const [mark] = stripMarks(
@@ -191,7 +197,7 @@ describe('stripMarks', () => {
     expect(mark.segments.every((s) => s.fraction === 1 / 5)).toBe(true);
   });
 
-  it('fills the mark: its portions sum to one whatever the number of activities', () => {
+  vaultIt('fills the mark: its portions sum to one whatever the number of activities', () => {
     for (const count of [1, 2, 3, 7, 12]) {
       const [mark] = stripMarks(
         [
@@ -208,7 +214,7 @@ describe('stripMarks', () => {
     }
   });
 
-  it('draws a sport no group names under Other', () => {
+  vaultIt('draws a sport no group names under Other', () => {
     const [mark] = stripMarks([day(0, [{ type: 'Unlisted' as ActivityType, load: 5 }])], WIDTH);
     expect(mark.segments).toEqual([{ group: 'Other', fraction: 1 }]);
   });
@@ -218,14 +224,14 @@ describe('stripMarks', () => {
     expect(marks.map((m) => m.dates[0])).toEqual(['2026-06-01']);
   });
 
-  it('draws a single day inside the bounds, capped in width', () => {
+  vaultIt('draws a single day inside the bounds, capped in width', () => {
     const marks = stripMarks([day(0, [{ type: 'Ride', load: 40 }])], WIDTH);
     expect(marks).toHaveLength(1);
     expectInBoundsWithoutOverlap(marks, WIDTH);
     expect(marks[0].width).toBeLessThanOrEqual(6);
   });
 
-  it('draws nothing for no days, no or negative width, or a window that never trained', () => {
+  vaultIt('draws nothing for no days, no or negative width, or a window that never trained', () => {
     const trained = days(10, () => [{ type: 'Ride', load: 1 }]);
     expect(stripMarks([], WIDTH)).toEqual([]);
     expect(stripMarks(trained, 0)).toEqual([]);
@@ -274,14 +280,14 @@ describe('a group that trained without load', () => {
     expect(marks.map((m) => m.noLoad)).toEqual([false, true, false]);
   });
 
-  it('draws once, as a neutral outline, rather than as a sport at the floor', () => {
+  vaultIt('draws once, as a neutral outline, rather than as a sport at the floor', () => {
     const [mark] = stripMarks([day(0, [{ type: 'Walk', load: 0 }])], WIDTH);
 
     expect(mark.height).toBe(MARK_HEIGHT);
     expect(markFills(mark, MUTED, colorOf)).toEqual([{ color: MUTED, fraction: 1, outline: true }]);
   });
 
-  it('mutes every mark when no group in the window carries load', () => {
+  vaultIt('mutes every mark when no group in the window carries load', () => {
     const marks = stripMarks(
       [
         day(0, [{ type: 'Ride', load: 0 }]),
@@ -303,7 +309,7 @@ describe('a group that trained without load', () => {
     }
   });
 
-  it('does not invent a split across the sports it holds', () => {
+  vaultIt('does not invent a split across the sports it holds', () => {
     const [mark] = stripMarks(
       [
         day(0, [
@@ -317,7 +323,7 @@ describe('a group that trained without load', () => {
     expect(markFills(mark, MUTED, colorOf)).toHaveLength(1);
   });
 
-  it('draws a date that did carry load by its sports in equal portions', () => {
+  vaultIt('draws a date that did carry load by its sports in equal portions', () => {
     const [mark] = stripMarks(
       [
         day(0, [
@@ -339,13 +345,13 @@ describe('a group that trained without load', () => {
 describe('portionGap', () => {
   const MARK = 32;
 
-  it('leaves the bar gap between a few portions', () => {
+  vaultIt('leaves the bar gap between a few portions', () => {
     expect(portionGap(MARK, 1)).toBe(BAR_GAP);
     expect(portionGap(MARK, 2)).toBe(BAR_GAP);
     expect(portionGap(MARK, 3)).toBe(BAR_GAP);
   });
 
-  it('narrows the gap on a crowded day so the portions keep at least half the mark', () => {
+  vaultIt('narrows the gap on a crowded day so the portions keep at least half the mark', () => {
     for (const portions of [9, 10, 16, 17, 40, 200]) {
       const gap = portionGap(MARK, portions);
       const drawn = MARK - (portions - 1) * gap;
@@ -354,7 +360,7 @@ describe('portionGap', () => {
     }
   });
 
-  it('never gives a portion a negative height at any count', () => {
+  vaultIt('never gives a portion a negative height at any count', () => {
     for (let portions = 1; portions <= 60; portions++) {
       const gap = portionGap(MARK, portions);
       const each = (MARK - (portions - 1) * gap) / portions;
@@ -364,7 +370,7 @@ describe('portionGap', () => {
 });
 
 describe('stripKey', () => {
-  it('lists the sports the marks draw in colour, in stack order, once each', () => {
+  vaultIt('lists the sports the marks draw in colour, in stack order, once each', () => {
     const key = stripKey([
       day(0, [{ type: 'Run', load: 30 }]),
       day(1, [
@@ -392,13 +398,13 @@ describe('stripKey', () => {
     expect(key.groups).toEqual(['Ride', 'Run', 'Other']);
   });
 
-  it('lists the families in the order a mark stacks them', () => {
+  vaultIt('lists the families in the order a mark stacks them', () => {
     const key = stripKey([day(0, ALL_FAMILIES)]);
 
     expect(key.groups).toEqual(STACK_ORDER);
   });
 
-  it('names only the sport that appears for a single-sport window', () => {
+  vaultIt('names only the sport that appears for a single-sport window', () => {
     const key = stripKey(days(5, (n) => (n % 2 ? [{ type: 'Swim', load: 40 }] : [])));
 
     expect(key.groups).toEqual(['Water']);
@@ -414,7 +420,7 @@ describe('stripKey', () => {
     expect(key.noLoad).toBe(true);
   });
 
-  it('is empty for a window of rest days', () => {
+  vaultIt('is empty for a window of rest days', () => {
     expect(stripKey(days(4, () => []))).toEqual({ groups: [], noLoad: false });
   });
 });

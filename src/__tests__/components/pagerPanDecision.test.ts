@@ -62,7 +62,7 @@ describe('pagerPanDecision', () => {
     expect(decide(2, MID, -15)).toBe('fail');
   });
 
-  it('activates a rightward pan at the last tab', () => {
+  vaultIt('activates a rightward pan at the last tab', () => {
     expect(decide(2, MID, 15)).toBe('activate');
   });
 
@@ -140,7 +140,7 @@ describe('pagerPanDecision on a touch that began on a scroller', () => {
     expect(decide(0, MID, 15, false, atOldest)).toBe('fail');
   });
 
-  it('waits below the activation offset at an end', () => {
+  vaultIt('waits below the activation offset at an end', () => {
     expect(decide(1, MID, -5, false, atNewest)).toBe('wait');
   });
 });

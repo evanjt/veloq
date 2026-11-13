@@ -40,7 +40,7 @@ beforeEach(() => {
 afterEach(() => Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true }));
 
 describe('the satellite style', () => {
-  it('draws through one raster layer per composite source', () => {
+  vaultIt('draws through one raster layer per composite source', () => {
     const style = getCombinedSatelliteStyle();
 
     const rasters = style.layers.filter((layer) => layer.type === 'raster');
@@ -65,25 +65,28 @@ describe('the satellite style', () => {
     expect(regions && 'minzoom' in regions ? regions.minzoom : null).toBe(13);
   });
 
-  it('treats a 404 from the regions source alone as out of coverage', () => {
+  vaultIt('treats a 404 from the regions source alone as out of coverage', () => {
     expect(regionalSatelliteSourceIds()).toEqual(['satellite-regions']);
   });
 });
 
 describe('the providers a composite answers from', () => {
-  it('lists the regions topmost first and ends the global composite on the world imagery', () => {
-    const names = satelliteProviders('satellite-global').map((p) => p.source);
+  vaultIt(
+    'lists the regions topmost first and ends the global composite on the world imagery',
+    () => {
+      const names = satelliteProviders('satellite-global').map((p) => p.source);
 
-    expect(names[0]).toBe('satellite-swisstopo');
-    expect(names.indexOf('satellite-swisstopo')).toBeLessThan(names.indexOf('satellite-ign'));
-    expect(names.indexOf('satellite-ign')).toBeLessThan(names.indexOf('satellite-spain'));
-    expect(names.at(-1)).toBe('satellite-eox');
-    expect(satelliteProviders('satellite-regions').map((p) => p.source)).toEqual(
-      names.slice(0, -1)
-    );
-  });
+      expect(names[0]).toBe('satellite-swisstopo');
+      expect(names.indexOf('satellite-swisstopo')).toBeLessThan(names.indexOf('satellite-ign'));
+      expect(names.indexOf('satellite-ign')).toBeLessThan(names.indexOf('satellite-spain'));
+      expect(names.at(-1)).toBe('satellite-eox');
+      expect(satelliteProviders('satellite-regions').map((p) => p.source)).toEqual(
+        names.slice(0, -1)
+      );
+    }
+  );
 
-  it('gives every provider its own maxzoom, and the world imagery no boxes', () => {
+  vaultIt('gives every provider its own maxzoom, and the world imagery no boxes', () => {
     const providers = satelliteProviders('satellite-global');
 
     expect(providers.find((p) => p.source === 'satellite-naip')?.maxZoom).toBe(17);
@@ -101,7 +104,7 @@ describe('the providers a composite answers from', () => {
     }
   });
 
-  it('hands the engine every provider template and both composites', () => {
+  vaultIt('hands the engine every provider template and both composites', () => {
     rewriteSatelliteUrls(getCombinedSatelliteStyle());
 
     const templated = mockSetSourceTemplate.mock.calls.map(([name]) => name);

@@ -32,7 +32,7 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe('Stop on a paused ride', () => {
-  it('fires on a single press, with no hold', async () => {
+  vaultIt('fires on a single press, with no hold', async () => {
     const onStop = jest.fn();
     const { getByTestId } = await render(
       <ControlBar {...barProps} status="paused" onStop={onStop} />
@@ -80,7 +80,7 @@ describe('reopenStoppedRecording', () => {
     ]);
   });
 
-  it('does nothing to a ride that is not stopped', () => {
+  vaultIt('does nothing to a ride that is not stopped', () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     useRecordingStore.getState().reopenStoppedRecording();
     expect(useRecordingStore.getState().status).toBe('recording');

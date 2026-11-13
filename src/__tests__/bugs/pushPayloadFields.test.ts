@@ -24,11 +24,11 @@ describe('the push data', () => {
     ]);
   });
 
-  it('carries a null activity id when the event has no activity', () => {
+  vaultIt('carries a null activity id when the event has no activity', () => {
     expect(pushDataFor({ type: 'X', athlete_id: 'i123' }).activity_id).toBeNull();
   });
 
-  it('adds only the tap keys to the iOS visible push and nothing to the silent one', () => {
+  vaultIt('adds only the tap keys to the iOS visible push and nothing to the silent one', () => {
     const data = pushDataFor(EVENT);
     const [visible, silent] = buildPushMessages(TOKEN, data, { title: 't', body: 'b' }, 'ios');
     expect(Object.keys(visible.data as object).sort()).toEqual([
@@ -55,7 +55,7 @@ describe('the privacy page', () => {
   };
   const pushListKeys = ['thirdParty.expo.item2', 'pushNotifications.howItWorks.item2'];
 
-  it('names the athlete id in every sentence that lists what the push carries', () => {
+  vaultIt('names the athlete id in every sentence that lists what the push carries', () => {
     const sentences = pushListKeys.flatMap((key) => {
       const markup = page.match(new RegExp(`data-i18n="${key}">([^<]*)<`));
       const table = [...page.matchAll(new RegExp(`"${key}": "((?:[^"\\\\]|\\\\.)*)"`, 'g'))];

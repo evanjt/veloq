@@ -29,6 +29,7 @@ fn test_activity_fields_request_and_parse_peak_metrics() {
 /// intervals.icu's stored value, and the Fitness card, which reads stored
 /// bodies, had nothing for a ride the athlete never opened.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_list_request_asks_for_the_stored_decoupling() {
     let fields: Vec<&str> = ACTIVITY_FIELDS.split(',').collect();
     assert!(fields.contains(&"decoupling"));
@@ -40,6 +41,7 @@ fn the_list_request_asks_for_the_stored_decoupling() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_activity_fields_request_stored_intensity() {
     assert!(
         super::stored_activity_fields()
@@ -52,6 +54,7 @@ fn test_activity_fields_request_stored_intensity() {
 /// opened online had no text on its detail screen. `polyline` is not a field of
 /// the Activity schema, so asking for it returns nothing and is left out.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_list_request_asks_for_the_description_and_not_a_polyline() {
     let fields: Vec<&str> = ACTIVITY_FIELDS.split(',').collect();
     assert!(fields.contains(&"description"));
@@ -71,6 +74,7 @@ fn the_list_request_asks_for_the_description_and_not_a_polyline() {
 /// list request stops asking for leaves every card without that figure, with
 /// nothing failing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_list_request_asks_for_every_key_the_feed_card_reads() {
     let stored = super::stored_activity_fields();
     let fields: Vec<&str> = stored.split(',').collect();

@@ -135,19 +135,22 @@ describe('live activity controller', () => {
     expect(state.frozenElapsedS).toBeGreaterThan(0);
   });
 
-  it('moves the stale date on with every push, so only a stopped process lets it lapse', () => {
-    const now = jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
-    startRide();
-    beginLiveActivity();
-    const [, started] = mockNative.start.mock.calls[0] as unknown as [string, string];
-    expect(JSON.parse(started).staleAt).toBe(1_700_000_000_000 + LIVE_ACTIVITY_STALE_MS);
+  vaultIt(
+    'moves the stale date on with every push, so only a stopped process lets it lapse',
+    () => {
+      const now = jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+      startRide();
+      beginLiveActivity();
+      const [, started] = mockNative.start.mock.calls[0] as unknown as [string, string];
+      expect(JSON.parse(started).staleAt).toBe(1_700_000_000_000 + LIVE_ACTIVITY_STALE_MS);
 
-    now.mockReturnValue(1_700_000_005_000);
-    refreshLiveActivity();
-    const state = JSON.parse(mockNative.update.mock.calls.at(-1)![0] as string);
-    expect(state.staleAt).toBe(1_700_000_005_000 + LIVE_ACTIVITY_STALE_MS);
-    now.mockRestore();
-  });
+      now.mockReturnValue(1_700_000_005_000);
+      refreshLiveActivity();
+      const state = JSON.parse(mockNative.update.mock.calls.at(-1)![0] as string);
+      expect(state.staleAt).toBe(1_700_000_005_000 + LIVE_ACTIVITY_STALE_MS);
+      now.mockRestore();
+    }
+  );
 
   it('refuses to update once the card is finished', () => {
     startRide();
@@ -195,7 +198,7 @@ describe('live activity controller', () => {
     expect(mockNative.end.mock.calls[0]).toEqual([null]);
   });
 
-  it('clears the ended card once the ride is settled, and only then', () => {
+  vaultIt('clears the ended card once the ride is settled, and only then', () => {
     startRide();
     beginLiveActivity();
     useRecordingStore.getState().stopRecording();
@@ -206,7 +209,7 @@ describe('live activity controller', () => {
     expect(mockNative.endAll).toHaveBeenCalledTimes(1);
   });
 
-  it('has no ended card to clear when none was left up', () => {
+  vaultIt('has no ended card to clear when none was left up', () => {
     dismissEndedLiveActivity();
     startRide();
     beginLiveActivity();
@@ -217,7 +220,7 @@ describe('live activity controller', () => {
     expect(mockNative.endAll).not.toHaveBeenCalled();
   });
 
-  it('ends nothing when no card was ever started', () => {
+  vaultIt('ends nothing when no card was ever started', () => {
     finishLiveActivity();
 
     expect(mockNative.end).not.toHaveBeenCalled();

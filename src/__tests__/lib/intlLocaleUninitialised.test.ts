@@ -15,7 +15,7 @@ describe('the Intl locale before i18n is initialised', () => {
     expect(getIntlLocale()).toBe('en-GB');
   });
 
-  it('spells a full date the same whatever the host locale is', () => {
+  vaultIt('spells a full date the same whatever the host locale is', () => {
     expect(formatFullDate(new Date(2024, 0, 15))).toBe('15 Jan 2024');
   });
 });

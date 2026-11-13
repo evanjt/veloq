@@ -225,6 +225,7 @@ mod tests {
     /// A relationship with a hand-checkable answer: y = 2x + 1 is perfect, so
     /// r is 1 and the interval is the point itself.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_perfect_line_is_r_of_one() {
         let xs = some(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         let ys = some(&[3.0, 5.0, 7.0, 9.0, 11.0, 13.0]);
@@ -238,6 +239,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_perfect_inverse_line_is_r_of_minus_one() {
         let xs = some(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         let ys = some(&[13.0, 11.0, 9.0, 7.0, 5.0, 3.0]);
@@ -331,6 +333,7 @@ mod tests {
     /// A gap on either side removes the pair, so two gaps in different places
     /// cost two pairs and the remainder falls under Fisher's own floor.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_missing_value_on_either_side_drops_the_pair() {
         let xs = vec![Some(1.0), Some(2.0), None, Some(4.0), Some(5.0)];
         let ys = vec![Some(3.0), None, Some(7.0), Some(9.0), Some(11.0)];
@@ -340,6 +343,7 @@ mod tests {
 
     /// NaN and infinity are not values, and they must not reach the sums.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_non_finite_value_is_not_a_pair() {
         let xs = vec![
             Some(1.0),
@@ -359,6 +363,7 @@ mod tests {
     /// The floor is the whole point of the type: below it there is no number
     /// to render, only a count.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sample_under_the_floor_carries_no_coefficient() {
         let xs = some(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]);
         let ys = some(&[3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0]);
@@ -371,6 +376,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sample_exactly_on_the_floor_is_answered() {
         let xs = some(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         let ys = some(&[3.0, 5.0, 7.0, 9.0, 11.0, 13.0]);
@@ -382,6 +388,7 @@ mod tests {
     /// Fisher's transform needs four pairs whatever the caller's floor says,
     /// because the standard error divides by `n - 3`.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_floor_below_fishers_own_is_raised_to_it() {
         let xs = some(&[1.0, 2.0, 3.0]);
         let ys = some(&[3.0, 5.0, 7.0]);
@@ -391,6 +398,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn empty_and_single_samples_carry_no_coefficient() {
         assert_eq!(correlate(&[], &[], 4), Correlation::TooFew { n: 0 });
         assert_eq!(
@@ -421,6 +429,7 @@ mod tests {
     /// A repeated value that is not exact in binary leaves a mean an ulp off,
     /// so the accumulated variance is a tiny positive number, not zero.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_constant_series_inexact_in_binary_is_undefined() {
         let varying: Vec<Option<f64>> = (0..24).map(|i| Some(f64::from(i * i % 7))).collect();
         for value in [50.2, 0.1] {
@@ -464,6 +473,7 @@ mod tests {
     /// More of the same relationship narrows the interval. This is what makes
     /// `n` worth printing beside `r` rather than only the coefficient.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_larger_sample_narrows_the_interval() {
         let short_x = some(&[1.0, 2.0, 3.0, 4.0, 5.0]);
         let short_y = some(&[2.0, 4.0, 5.0, 4.0, 8.0]);
@@ -493,6 +503,7 @@ mod tests {
     /// Order is the pairing, not the value: shuffling both series the same way
     /// is the same relationship.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_coefficient_does_not_depend_on_the_order_of_the_pairs() {
         let xs = some(&[1.0, 2.0, 3.0, 4.0, 5.0]);
         let ys = some(&[2.0, 4.0, 5.0, 4.0, 8.0]);
@@ -561,11 +572,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_p_holds_when_each_clears_its_step() {
         assert_eq!(holm(&[0.001, 0.02, 0.012], 0.05), vec![true, true, true]);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_family_holds_nothing() {
         assert!(holm(&[], 0.05).is_empty());
     }
@@ -612,6 +625,7 @@ mod tests {
     /// One tested variable is a family of one, and its label is the label its
     /// own interval gives.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_family_of_one_keeps_its_own_verdict() {
         let mover = Correlation::Mover(estimate(0.47, 20));
         let (adjusted, size) = adjust_family(vec![mover.clone(), Correlation::Undefined { n: 20 }]);
@@ -620,6 +634,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_family_with_no_estimate_has_size_zero() {
         let (adjusted, size) = adjust_family(vec![Correlation::TooFew { n: 2 }]);
         assert_eq!(size, 0);
@@ -628,6 +643,7 @@ mod tests {
 
     /// The interval always contains the coefficient, on every shape above.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_interval_always_contains_the_coefficient() {
         let cases: [(&[f64], &[f64]); 3] = [
             (&[1.0, 2.0, 3.0, 4.0, 5.0], &[2.0, 4.0, 5.0, 4.0, 8.0]),

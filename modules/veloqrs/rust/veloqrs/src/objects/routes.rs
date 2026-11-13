@@ -351,6 +351,7 @@ mod tests {
     use crate::test_globals::{init_global_engine, serial_global_state};
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_library_answers_every_read_with_nothing() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("routes.db");
@@ -414,6 +415,7 @@ mod tests {
     /// writes a flag on `activity_matches`, and the rebuild it used to run
     /// cost 31 to 39 ms of the JS thread plus a library-wide lap backfill.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_route_exclusion_leaves_the_indicator_table_alone() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("routes.db");
@@ -445,6 +447,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_name_and_an_exclusion_are_stored_against_the_route_id() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("routes.db");
@@ -558,6 +561,7 @@ mod pooled_read_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_route_list_reads_while_a_writer_holds_the_engine() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("routes_list_under_writer.db");
@@ -570,6 +574,7 @@ mod pooled_read_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn route_performances_read_while_a_writer_holds_the_engine() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("routes_perf_under_writer.db");
@@ -586,6 +591,7 @@ mod pooled_read_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_pooled_reads_equal_the_engines_on_a_clean_grouping() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("routes_parity.db");
@@ -634,6 +640,7 @@ mod pooled_read_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_dirty_grouping_is_listed_as_last_saved_and_left_for_the_worker() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("routes_dirty.db");

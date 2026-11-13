@@ -83,7 +83,7 @@ afterEach(() => {
 });
 
 describe('usePowerCurve', () => {
-  it('reads the stored body once across re-renders', async () => {
+  vaultIt('reads the stored body once across re-renders', async () => {
     engine.getPowerCurve.mockImplementation((sport: string) => POWER(sport));
 
     const { result, rerender } = await renderHook(
@@ -115,7 +115,7 @@ describe('usePowerCurve', () => {
     expect(engine.getPowerCurve).toHaveBeenCalledTimes(1);
   });
 
-  it('reads once more when the sport changes, not once per render', async () => {
+  vaultIt('reads once more when the sport changes, not once per render', async () => {
     engine.getPowerCurve.mockImplementation((sport: string) => POWER(sport));
 
     const { result, rerender } = await renderHook(
@@ -132,7 +132,7 @@ describe('usePowerCurve', () => {
 });
 
 describe('usePaceCurve', () => {
-  it('reads the stored body once across re-renders', async () => {
+  vaultIt('reads the stored body once across re-renders', async () => {
     engine.getPaceCurve.mockImplementation((sport: string) => PACE(sport));
 
     const { result, rerender } = await renderHook(() => usePaceCurve({ sport: 'Run', days: 42 }), {
@@ -155,7 +155,7 @@ describe('usePaceCurve', () => {
 });
 
 describe('useActivityIntervals', () => {
-  it('reads the stored body once across re-renders', async () => {
+  vaultIt('reads the stored body once across re-renders', async () => {
     engine.getActivityIntervals.mockReturnValue(INTERVALS);
 
     const { result, rerender } = await renderHook(() => useActivityIntervals('a1'), { wrapper });
@@ -177,7 +177,7 @@ describe('useActivityIntervals', () => {
     expect(engine.syncActivityIntervals).toHaveBeenCalledTimes(1);
   });
 
-  it('reads nothing and asks for nothing without an id', async () => {
+  vaultIt('reads nothing and asks for nothing without an id', async () => {
     const { rerender } = await renderHook(() => useActivityIntervals(''), { wrapper });
     await rerender({});
 

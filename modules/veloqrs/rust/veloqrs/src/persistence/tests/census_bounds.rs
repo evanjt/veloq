@@ -59,6 +59,7 @@ fn test_reconcile_uses_body_date_when_track_metadata_has_no_date() {
 /// moved, so an identical pull writes nothing, and a pull that changes one
 /// entry and drops another writes exactly those two rows.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_census_rewrites_only_what_changed() {
     fn total_changes(engine: &PersistentEngine) -> i64 {
         engine

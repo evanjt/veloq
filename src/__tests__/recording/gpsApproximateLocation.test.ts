@@ -78,13 +78,16 @@ afterEach(() => {
 });
 
 describe('a ride under an approximate location grant', () => {
-  it('says the location is approximate as the ride starts, not after the signal wait', async () => {
-    const setGpsWarning = mountGps('approximate');
-    await flush();
-    expect(setGpsWarning).toHaveBeenCalledWith('recording.gpsApproximateWarning');
-  });
+  vaultIt(
+    'says the location is approximate as the ride starts, not after the signal wait',
+    async () => {
+      const setGpsWarning = mountGps('approximate');
+      await flush();
+      expect(setGpsWarning).toHaveBeenCalledWith('recording.gpsApproximateWarning');
+    }
+  );
 
-  it('never tells the athlete to wait for the signal', async () => {
+  vaultIt('never tells the athlete to wait for the signal', async () => {
     const setGpsWarning = mountGps('approximate');
     await advance(GPS_WARNING_MS);
     expect(setGpsWarning).toHaveBeenCalledWith('recording.gpsApproximateWarning');

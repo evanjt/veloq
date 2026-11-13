@@ -98,13 +98,13 @@ describe('the feed card wellness numbers', () => {
     expect(metric(metrics, '⚖️')?.trend).toBeUndefined();
   });
 
-  it('makes no wellness read of its own', async () => {
+  vaultIt('makes no wellness read of its own', async () => {
     await renderHook(() => useSummaryCardData(CARD, { awaitPrecomputed: true }));
 
     expect(engine.getWellnessDays).not.toHaveBeenCalled();
   });
 
-  it('gives placeholders and no arrows before a bundle arrives', async () => {
+  vaultIt('gives placeholders and no arrows before a bundle arrives', async () => {
     const { result } = await renderHook(() =>
       useSummaryCardData(undefined, { awaitPrecomputed: true })
     );

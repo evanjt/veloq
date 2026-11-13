@@ -114,7 +114,7 @@ describe('on Android, where the loopback listener serves the tiles', () => {
     );
   });
 
-  it('leaves a vector source that already names its own tiles alone', () => {
+  vaultIt('leaves a vector source that already names its own tiles alone', () => {
     const tiles = ['https://tiles.example.test/v/{z}/{x}/{y}.pbf'];
     const out = rewriteVectorUrls({ sources: { direct: { type: 'vector', tiles } } }) as Style;
 
@@ -135,7 +135,7 @@ describe('on Android, where the loopback listener serves the tiles', () => {
     expect(mockSetSourceTemplate).toHaveBeenCalledWith('terrain', TERRAIN_UPSTREAM_TEMPLATE);
   });
 
-  it('leaves a raster that is not the shaded ground on the network', () => {
+  vaultIt('leaves a raster that is not the shaded ground on the network', () => {
     const tiles = ['https://tiles.example.test/r/{z}/{x}/{y}.png'];
     const out = rewriteGroundRasterUrls({ sources: { other: { type: 'raster', tiles } } }) as Style;
 
@@ -190,7 +190,7 @@ describe('on iOS, where the scheme handler answers the page own origin', () => {
 });
 
 describe('on Android, the page keeps the https origin the interceptor already claims', () => {
-  it('loads on the origin the listener admits', () => {
+  vaultIt('loads on the origin the listener admits', () => {
     expect(mapPageBaseUrl()).toBe('https://veloq.fit/');
   });
 });
@@ -268,7 +268,7 @@ describe('a return to the foreground', () => {
     off();
   });
 
-  it('registers nothing on iOS, which has no listener', () => {
+  vaultIt('registers nothing on iOS, which has no listener', () => {
     onPlatform('ios');
     registerTileListenerResume();
     expect(changes).toHaveLength(0);

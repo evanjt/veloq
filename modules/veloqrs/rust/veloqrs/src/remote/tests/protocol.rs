@@ -36,6 +36,7 @@ fn reply_as(engine: &PersistentEngine, athlete: Option<&str>, request: &str) -> 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_feed_page_is_the_feed_read_itself() {
     let engine = engine_with_rides();
     let got = reply(
@@ -68,6 +69,7 @@ fn the_feed_page_is_the_feed_read_itself() {
 /// Expected behaviour: the page carries the phone card's preview line for the
 /// ride and none for the indoor one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_feed_page_carries_each_gps_cards_preview_line() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     engine
@@ -106,6 +108,7 @@ fn the_feed_page_carries_each_gps_cards_preview_line() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_page_larger_than_the_cap_is_cut_to_it() {
     let engine = engine_with_rides();
     let got = reply(
@@ -119,6 +122,7 @@ fn a_page_larger_than_the_cap_is_cut_to_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_summary_is_the_detail_read_summary() {
     let engine = engine_with_rides();
     let got = reply(
@@ -134,6 +138,7 @@ fn the_summary_is_the_detail_read_summary() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unknown_method_is_an_error_not_a_panic() {
     let engine = engine_with_rides();
     let got = reply(&engine, r#"{"id":3,"method":"activities.delete"}"#);
@@ -143,6 +148,7 @@ fn an_unknown_method_is_an_error_not_a_panic() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn bad_params_and_malformed_requests_are_errors() {
     let engine = engine_with_rides();
     let got = reply(
@@ -213,6 +219,7 @@ fn a_taken_name_keeps_its_name_in_the_refusal_and_changes_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rename_with_bad_params_is_refused() {
     let mut engine = engine_with_a_section();
     let got = written(
@@ -263,6 +270,7 @@ fn logged(engine: &PersistentEngine) -> Vec<crate::persistence::linked_devices::
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rename_over_the_link_is_logged_under_the_browser_that_made_it() {
     let mut engine = engine_with_a_section();
     written(&mut engine, &rename_request(1, "s_a", "Col"));
@@ -279,6 +287,7 @@ fn a_rename_over_the_link_is_logged_under_the_browser_that_made_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clearing_a_name_is_logged_as_a_clear() {
     let mut engine = engine_with_a_section();
     written(&mut engine, &rename_request(1, "s_a", ""));
@@ -303,6 +312,7 @@ fn a_refused_write_leaves_no_row() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_log_keeps_the_last_two_hundred_writes() {
     let mut engine = engine_with_a_section();
     for k in 0..201 {
@@ -347,6 +357,7 @@ fn a_write_from_an_unlinked_peer_is_logged_nowhere() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rename_announces_the_sections_that_moved_once_and_a_refusal_announces_nothing() {
     use crate::objects::observer::{recorder::Recorder, set_observer};
     let _serial = crate::test_globals::serial_global_state();
@@ -456,6 +467,7 @@ fn sample_params(method: &str) -> &'static str {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn hello_names_the_protocol_the_app_and_every_method() {
     let engine = engine_with_rides();
     let got = reply(
@@ -477,6 +489,7 @@ fn hello_names_the_protocol_the_app_and_every_method() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn hello_carries_the_phones_name_only_when_it_has_one() {
     let named = serde_json::to_value(hello_answer("  Pixel 8 ", PROTOCOL_VERSION)).expect("json");
     assert_eq!(named["device"], "Pixel 8");
@@ -487,6 +500,7 @@ fn hello_carries_the_phones_name_only_when_it_has_one() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn hello_answers_a_page_on_another_protocol_with_the_phones_own() {
     let engine = engine_with_rides();
     let got = reply(
@@ -497,6 +511,7 @@ fn hello_answers_a_page_on_another_protocol_with_the_phones_own() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn hello_from_a_page_that_speaks_a_range_answers_the_highest_common_version() {
     let engine = engine_with_rides();
     let got = reply(
@@ -509,6 +524,7 @@ fn hello_from_a_page_that_speaks_a_range_answers_the_highest_common_version() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn hello_from_a_page_built_for_the_previous_version_alone_answers_that_version() {
     let engine = engine_with_rides();
     let got = reply(
@@ -521,6 +537,7 @@ fn hello_from_a_page_built_for_the_previous_version_alone_answers_that_version()
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn hello_from_a_page_below_the_range_answers_the_phones_own_range() {
     let engine = engine_with_rides();
     let got = reply(
@@ -543,6 +560,7 @@ fn the_highest_version_both_sides_speak_is_chosen() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_request_with_no_protocol_is_answered_in_the_oldest_format() {
     assert_eq!(
         wire_of(r#"{"id":1,"method":"feed.page"}"#),
@@ -556,6 +574,7 @@ fn a_request_with_no_protocol_is_answered_in_the_oldest_format() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_previous_version_gets_each_reply_as_one_text_message() {
     let reply = format!(r#"{{"id":4,"result":"{}"}}"#, "x".repeat(3 * FRAME_BYTES));
     let sent = messages(&reply, 2);
@@ -565,6 +584,7 @@ fn the_previous_version_gets_each_reply_as_one_text_message() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_current_version_gets_binary_frames() {
     let sent = messages(r#"{"id":4,"result":1}"#, PROTOCOL_VERSION);
     assert_eq!(sent.len(), 1);
@@ -573,6 +593,7 @@ fn the_current_version_gets_binary_frames() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_listed_method_answers_a_well_formed_ask() {
     let engine = engine_with_a_route_and_a_section();
     let mut sections = engine_with_a_section();
@@ -597,6 +618,7 @@ fn every_listed_method_answers_a_well_formed_ask() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn method_names_are_unique() {
     let mut names: Vec<&str> = METHODS.iter().map(|method| method.name).collect();
     names.sort_unstable();
@@ -606,6 +628,7 @@ fn method_names_are_unique() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_page_schema_input_is_the_rendered_table() {
     let path = concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -666,6 +689,7 @@ fn the_wire_format_is_pinned_to_the_protocol_version() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_wire_pins_are_in_version_order() {
     for pair in WIRE_PINS.windows(2) {
         assert!(pair[0].0 < pair[1].0, "pins out of order: {pair:?}");
@@ -701,6 +725,7 @@ fn joined(cut: &[Vec<u8>]) -> (u32, String) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_small_reply_is_one_plain_last_frame() {
     let reply = json!({ "id": 3, "result": "short" }).to_string();
     let cut = frames(&reply);
@@ -710,6 +735,7 @@ fn a_small_reply_is_one_plain_last_frame() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_reply_over_the_gzip_threshold_travels_gzipped_and_smaller() {
     let reply = json!({ "id": 4, "result": "0123456789".repeat(1000) }).to_string();
     assert!(reply.len() > GZIP_OVER);
@@ -739,12 +765,14 @@ fn a_reply_that_stays_large_once_gzipped_is_cut_into_frames_that_join_back() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_reply_with_no_numeric_id_travels_under_id_zero() {
     let reply = json!({ "id": null, "error": "malformed request" }).to_string();
     assert_eq!(joined(&frames(&reply)), (0, reply));
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_reply_is_one_empty_last_frame() {
     let cut = frames("");
     assert_eq!(cut.len(), 1);
@@ -753,6 +781,7 @@ fn an_empty_reply_is_one_empty_last_frame() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_feed_page_narrows_by_sport_family_and_window() {
     let engine = engine_with_rides();
     let got = reply(
@@ -774,6 +803,7 @@ fn the_feed_page_narrows_by_sport_family_and_window() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_summary_card_is_the_summary_card_read_itself() {
     let engine = engine_with_rides();
     let now = 1_737_050_000.0_f64;
@@ -787,6 +817,7 @@ fn the_summary_card_is_the_summary_card_read_itself() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_sparklines_are_the_sparklines_read_itself() {
     let engine = engine_with_rides();
     let got = reply(
@@ -803,6 +834,7 @@ fn the_sparklines_are_the_sparklines_read_itself() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_highlights_are_the_highlight_bundle_of_the_cards_asked() {
     let engine = engine_with_rides();
     let got = reply(
@@ -815,6 +847,7 @@ fn the_highlights_are_the_highlight_bundle_of_the_cards_asked() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn highlights_for_more_ids_than_a_page_are_cut_to_a_page() {
     let engine = engine_with_rides();
     let ids: Vec<String> = (0..MAX_PAGE * 2).map(|n| format!("x{n}")).collect();
@@ -828,6 +861,7 @@ fn highlights_for_more_ids_than_a_page_are_cut_to_a_page() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_routes_screen_answers_the_routes_read_for_the_same_query() {
     let engine = engine_with_a_section();
     let got = reply(
@@ -847,6 +881,7 @@ fn the_routes_screen_answers_the_routes_read_for_the_same_query() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_routes_ask_reads_the_screens_defaults() {
     let engine = engine_with_a_section();
     let got = reply(&engine, r#"{"id":3,"method":"routes.screen","params":{}}"#);
@@ -855,6 +890,7 @@ fn an_empty_routes_ask_reads_the_screens_defaults() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_detail_is_the_section_detail_read_with_its_history_and_versions() {
     let engine = engine_with_a_section();
     let got = reply(
@@ -868,6 +904,7 @@ fn a_section_detail_is_the_section_detail_read_with_its_history_and_versions() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_route_detail_is_the_route_detail_read() {
     let engine = engine_with_a_route_and_a_section();
     let got = reply(
@@ -881,6 +918,7 @@ fn a_route_detail_is_the_route_detail_read() {
 /// `scripts/generate-link-schema.mjs` writes these enums by hand, as serde
 /// writes them; this is the other half of that pin.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_empty_reasons_are_written_as_the_page_schema_says() {
     use crate::{FfiCatalogueEmptyReason as Reason, FfiDetectionHold as Hold};
     let json = |reason: &Reason| serde_json::to_value(reason).unwrap();
@@ -916,6 +954,7 @@ fn the_empty_reasons_are_written_as_the_page_schema_says() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_message_is_a_cancel_an_ask_or_nothing_to_answer() {
     assert_eq!(
         incoming(r#"{"method":"cancel","params":{"id":7}}"#),
@@ -940,6 +979,7 @@ fn a_message_is_a_cancel_an_ask_or_nothing_to_answer() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_busy_reply_names_the_ask_it_refuses() {
     let got: Value = serde_json::from_str(&busy(Some(17))).unwrap();
     assert_eq!(got, json!({ "id": 17, "error": "busy" }));
@@ -986,6 +1026,7 @@ fn result_of(engine: &PersistentEngine, method: &str, params: &str) -> Value {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn wellness_is_the_wellness_read_with_its_coverage() {
     let engine = engine_with_fitness();
     let got = result_of(
@@ -1026,6 +1067,7 @@ fn the_power_curve_is_the_stored_curve_and_null_when_never_fetched() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_pace_curve_is_null_when_never_fetched() {
     let engine = engine_with_fitness();
     let got = result_of(
@@ -1037,6 +1079,7 @@ fn the_pace_curve_is_null_when_never_fetched() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn loads_and_zones_are_their_reads() {
     let engine = engine_with_fitness();
     let loads = result_of(
@@ -1067,6 +1110,7 @@ fn loads_and_zones_are_their_reads() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn best_efforts_carry_the_power_the_stored_curve_holds() {
     let engine = engine_with_fitness();
     let got = result_of(&engine, "fitness.bestEfforts", r#"{"days":42}"#);
@@ -1083,6 +1127,7 @@ const INSIGHTS_ASK: &str = r#"{"currentStart":0,"currentEnd":1737050000,"prevSta
 /// Expected behaviour: the answer is the insights read itself over those
 /// parameters once the engine has set the week bounds.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_insights_data_over_a_fitness_library_is_the_insights_read() {
     let engine = engine_with_fitness();
     let got = result_of(&engine, "insights.data", INSIGHTS_ASK);
@@ -1094,6 +1139,7 @@ fn the_insights_data_over_a_fitness_library_is_the_insights_read() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_insights_ask_missing_a_parameter_is_bad_params() {
     let engine = engine_with_fitness();
     let got = reply(
@@ -1109,6 +1155,7 @@ fn an_insights_ask_missing_a_parameter_is_bad_params() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_fitness_screen_is_the_screen_read() {
     let engine = engine_with_fitness();
     let windows = r#"{"heatmapFirstDay":"2025-01-01","heatmapLastDay":"2025-12-31","months":{"startTs":0,"endTs":86400},"yearCurrent":{"startTs":0,"endTs":86400},"yearPrevious":{"startTs":0,"endTs":86400},"monthCurrent":{"startTs":0,"endTs":86400},"monthPrevious":{"startTs":0,"endTs":86400},"nowWallSeconds":86400}"#;
@@ -1129,6 +1176,7 @@ fn the_fitness_screen_is_the_screen_read() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_range_the_phone_would_not_ask_for_is_bad_params() {
     let engine = engine_with_fitness();
     for (method, params) in [
@@ -1233,6 +1281,7 @@ fn primary_slug() -> String {
 const NOW_WALL: i64 = WEIGHT_TRAINING_BASE + 2 * DAY + 1_000;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_strength_screen_is_the_strength_read_over_the_phones_windows() {
     let engine = engine_with_strength();
     let got = reply(
@@ -1270,6 +1319,7 @@ fn the_period_is_the_days_ending_tonight_and_the_weeks_are_seven_days_each() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_exercise_detail_is_the_exercise_read_itself() {
     let engine = engine_with_strength();
     let got = reply(
@@ -1287,6 +1337,7 @@ fn the_exercise_detail_is_the_exercise_read_itself() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_muscle_detail_is_the_muscle_read_of_one_activity() {
     let engine = engine_with_strength();
     let slug = primary_slug();
@@ -1415,6 +1466,7 @@ fn reply_from(engine: &PersistentEngine, caller: &Caller, request: &str) -> Valu
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_allowed_setting_is_the_setting_the_phone_reads() {
     let engine = engine_with_rides();
     engine
@@ -1495,6 +1547,7 @@ fn no_allowed_setting_key_is_a_credential_or_an_account_key() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_profile_is_the_profile_the_phone_reads() {
     let engine = engine_with_rides();
     engine
@@ -1507,6 +1560,7 @@ fn the_profile_is_the_profile_the_phone_reads() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn each_status_is_the_read_the_phone_screen_makes() {
     let engine = engine_with_rides();
     let status = |method: &str| {
@@ -1540,6 +1594,7 @@ fn each_status_is_the_read_the_phone_screen_makes() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_linked_devices_mark_the_browser_that_asked() {
     let engine = engine_with_rides();
     crate::persistence::linked_devices::add(&engine.db, "Laptop", "sha-256 AA", 10).unwrap();
@@ -1631,6 +1686,7 @@ fn engine_with_a_whole_ride() -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_detail_is_the_detail_read_itself() {
     let engine = engine_with_a_whole_ride();
     let got = result_of(&engine, "activity.detail", r#"{"id":"r1"}"#);
@@ -1640,6 +1696,7 @@ fn the_detail_is_the_detail_read_itself() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_record_is_the_typed_record_the_phone_reads() {
     let engine = engine_with_a_whole_ride();
     let got = result_of(&engine, "activity.record", r#"{"id":"r1"}"#);
@@ -1652,6 +1709,7 @@ fn the_record_is_the_typed_record_the_phone_reads() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_streams_are_the_chart_series_with_bytes_as_base64() {
     let engine = engine_with_a_whole_ride();
     let got = result_of(
@@ -1668,6 +1726,7 @@ fn the_streams_are_the_chart_series_with_bytes_as_base64() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn streams_for_an_activity_with_none_are_empty_not_an_error() {
     let engine = engine_with_a_whole_ride();
     let got = result_of(
@@ -1680,6 +1739,7 @@ fn streams_for_an_activity_with_none_are_empty_not_an_error() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_laps_are_the_stored_intervals() {
     let engine = engine_with_a_whole_ride();
     let got = result_of(&engine, "activity.intervals", r#"{"id":"r1"}"#);
@@ -1693,6 +1753,7 @@ fn the_laps_are_the_stored_intervals() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_custom_sections_are_those_naming_the_activity() {
     let engine = engine_with_a_whole_ride();
     let got = result_of(&engine, "activity.sections", r#"{"id":"r1"}"#);
@@ -1703,6 +1764,7 @@ fn the_custom_sections_are_those_naming_the_activity() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_exercise_sets_are_the_session_the_phone_reads() {
     let engine = engine_with_a_whole_ride();
     let got = result_of(&engine, "activity.exerciseSets", r#"{"id":"r1"}"#);
@@ -1731,6 +1793,7 @@ fn engine_with_a_mapped_ride() -> PersistentEngine {
 /// ones the engine's own map read answers for the same parameters, with no
 /// layer in them.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_map_screen_is_the_map_read_without_its_layers() {
     let engine = engine_with_a_mapped_ride();
     let got = reply(
@@ -1761,6 +1824,7 @@ fn the_map_screen_is_the_map_read_without_its_layers() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_map_screen_refuses_a_distance_band_it_does_not_know() {
     let engine = engine_with_rides();
     let got = reply(
@@ -1796,6 +1860,7 @@ fn section(id: &str, name: Option<&str>, points: &[(f64, f64)]) -> crate::FfiMap
 /// Expected behaviour: one feature, carrying the id, name, visit count,
 /// length and palette key; the single-point section is left out.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_section_layer_writes_one_feature_per_section_with_a_line() {
     let sections = [
         section("s_a", Some("Col \"1\""), &[(46.2, 7.3), (46.21, 7.31)]),
@@ -1824,6 +1889,7 @@ fn the_section_layer_writes_one_feature_per_section_with_a_line() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_section_layer_is_empty_without_sections() {
     let engine = engine_with_rides();
     let got = reply(&engine, r#"{"id":1,"method":"geo.sections","params":{}}"#);
@@ -1832,6 +1898,7 @@ fn the_section_layer_is_empty_without_sections() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_route_layer_is_the_collection_the_phone_fetches() {
     let engine = engine_with_rides();
     let got = reply(&engine, r#"{"id":1,"method":"geo.routeLines","params":{}}"#);
@@ -1848,6 +1915,7 @@ fn the_route_layer_is_the_collection_the_phone_fetches() {
 /// serves over that base; a tile with no heat is null; z0, z18, an unknown
 /// base and a column off the world are errors.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_heatmap_tile_is_the_tile_the_phone_serves() {
     let _serial = crate::test_globals::serial_global_state();
     let tmp = tempfile::tempdir().expect("tempdir");
@@ -1956,6 +2024,7 @@ fn engine_with_ride_metrics() -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_insights_read_is_the_insights_screen_read_itself() {
     let engine = engine_with_ride_metrics();
     let ask = insights_ask(1_737_050_000);
@@ -1985,6 +2054,7 @@ fn the_insights_read_derives_its_week_windows_from_the_clock_it_is_given() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_planned_events_and_workout_sections_are_the_phones_reads() {
     let engine = engine_with_rides();
     let got = reply(
@@ -2102,6 +2172,7 @@ fn as_json<T: Serialize>(value: &T) -> Value {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_routes_screen_is_the_screen_read_itself() {
     let engine = engine_with_a_route_and_a_section();
     let got = result_of(
@@ -2120,6 +2191,7 @@ fn the_routes_screen_is_the_screen_read_itself() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_routes_page_larger_than_the_cap_is_cut_to_it() {
     let engine = engine_with_a_route_and_a_section();
     let got = result_of(
@@ -2137,6 +2209,7 @@ fn a_routes_page_larger_than_the_cap_is_cut_to_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_reads_are_the_phones_reads() {
     use crate::persistence::sections::lap_curves::pooled::CurveRead;
     let engine = engine_with_a_route_and_a_section();
@@ -2189,6 +2262,7 @@ fn route_reads_are_the_phones_reads() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_reads_are_the_phones_reads() {
     use crate::persistence::sections::lap_curves::pooled::CurveRead;
     let engine = engine_with_a_route_and_a_section();
@@ -2231,6 +2305,7 @@ fn section_reads_are_the_phones_reads() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_section_history_carries_both_versions_and_the_names_its_chips_draw() {
     let engine = engine_with_a_route_and_a_section();
     let got = result_of(&engine, "section.history", r#"{"id":"s1"}"#);
@@ -2254,6 +2329,7 @@ fn the_section_history_carries_both_versions_and_the_names_its_chips_draw() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unknown_route_or_section_is_an_error_naming_it() {
     let engine = engine_with_a_route_and_a_section();
     for (method, params, named) in [
@@ -2279,6 +2355,7 @@ fn an_unknown_route_or_section_is_an_error_naming_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn heatmap_progress_is_zero_while_no_pass_runs() {
     let engine = engine_with_rides();
     let got = reply(
@@ -2289,6 +2366,7 @@ fn heatmap_progress_is_zero_while_no_pass_runs() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_catalogue_reason_that_carries_data_is_written_as_the_page_reads_it() {
     use crate::{FfiCatalogueEmptyReason as Reason, FfiDetectionHold as Hold};
     for (reason, written) in [

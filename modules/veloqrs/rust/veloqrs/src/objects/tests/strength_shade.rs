@@ -30,6 +30,7 @@ fn shade_of(summary: &FfiStrengthSummary, slug: &str) -> u8 {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn diagram_shade_steps_each_muscle_against_the_most_trained() {
     let shades: Vec<u8> = [10.0, 6.0, 5.0, 2.0, 0.5]
         .iter()
@@ -39,6 +40,7 @@ fn diagram_shade_steps_each_muscle_against_the_most_trained() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn diagram_shade_of_an_untrained_scale_is_the_lightest() {
     assert_eq!(diagram_shade(0.0, 0.0), 1);
 }
@@ -47,6 +49,7 @@ fn diagram_shade_of_an_untrained_scale_is_the_lightest() {
 /// Expected behaviour: biceps 10, triceps 6, forearm 5 (curl's secondary at
 /// half) and calves 2 shade as 5, 3, 3 and 1 against a maximum of 10.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_summary_carries_each_muscles_shade_and_the_scales_maximum() {
     let mut sets = sets_of(7, 10);
     sets.extend(sets_of(30, 6));
@@ -62,6 +65,7 @@ fn the_summary_carries_each_muscles_shade_and_the_scales_maximum() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_single_muscle_is_the_darkest_shade() {
     let summary = aggregate_strength_sets(&sets_of(1, 1));
 
@@ -71,6 +75,7 @@ fn a_single_muscle_is_the_darkest_shade() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_window_has_no_volumes_and_a_maximum_of_zero() {
     let summary = aggregate_strength_sets(&[]);
 
@@ -108,6 +113,7 @@ fn each_muscle_counts_the_sessions_that_worked_it_once_each() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_sets_count_no_sessions() {
     assert!(muscle_session_counts(&[]).is_empty());
 }

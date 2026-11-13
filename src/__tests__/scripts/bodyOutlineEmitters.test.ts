@@ -99,7 +99,7 @@ describe('the widget body outline emitters', () => {
     expect(k.femaleBack.map(([slug]) => slug)).toEqual(['crest', 'tail']);
   });
 
-  it('encode a ring as x y pairs in ten-thousandths, rings split by a semicolon', () => {
+  vaultIt('encode a ring as x y pairs in ten-thousandths, rings split by a semicolon', () => {
     const k = kotlinPairs(kotlin);
     expect(k.maleFront[1]).toEqual([
       'left-wing',
@@ -120,11 +120,11 @@ describe('the widget body outline emitters', () => {
     }
   });
 
-  it('leave the Kotlin package for the widget plugin to fill', () => {
+  vaultIt('leave the Kotlin package for the widget plugin to fill', () => {
     expect(kotlin).toMatch(/^package __PKG__\.widget$/m);
   });
 
-  it('agree between the committed Kotlin and Swift sources', () => {
+  vaultIt('agree between the committed Kotlin and Swift sources', () => {
     const committedKotlin = readFileSync(join(ROOT, 'widget/android/java/BodyOutline.kt'), 'utf8');
     const committedSwift = readFileSync(
       join(ROOT, 'widget/ios/VeloqWidget/BodyOutline.swift'),

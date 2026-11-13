@@ -119,7 +119,7 @@ describe('the recordings list', () => {
   });
 
   /** The retry belongs to its own row, and pressing it opens no detail screen. */
-  it('leaves the other rows alone', async () => {
+  vaultIt('leaves the other rows alone', async () => {
     mockLibrary.entries = [entry('r1', 'failed'), entry('r2', 'uploaded')];
 
     await render(<RecordingsLibraryScreen />);
@@ -130,7 +130,7 @@ describe('the recordings list', () => {
   });
 
   /** The mark the item asks for, which the screen already drew. */
-  it('marks a local-only recording as being on this device', async () => {
+  vaultIt('marks a local-only recording as being on this device', async () => {
     mockLibrary.entries = [entry('r1', 'localOnly')];
 
     await render(<RecordingsLibraryScreen />);
@@ -161,7 +161,7 @@ describe('a recordings row for a screen reader', () => {
     expect(mockUploadNow).toHaveBeenCalledTimes(1);
   });
 
-  it('offers no upload while the upload is in flight', async () => {
+  vaultIt('offers no upload while the upload is in flight', async () => {
     mockLibrary.entries = [entry('r1', 'failed')];
     mockLibrary.uploadingId = 'r1';
 
@@ -170,7 +170,7 @@ describe('a recordings row for a screen reader', () => {
     expect(row('r1').props.accessibilityActions).toBeUndefined();
   });
 
-  it('offers no upload once the recording is uploaded', async () => {
+  vaultIt('offers no upload once the recording is uploaded', async () => {
     mockLibrary.entries = [entry('r1', 'uploaded')];
 
     await render(<RecordingsLibraryScreen />);
@@ -178,7 +178,7 @@ describe('a recordings row for a screen reader', () => {
     expect(row('r1').props.accessibilityActions).toBeUndefined();
   });
 
-  it('names itself by recording, distance, duration and upload status', async () => {
+  vaultIt('names itself by recording, distance, duration and upload status', async () => {
     mockLibrary.entries = [entry('r1', 'failed')];
 
     await render(<RecordingsLibraryScreen />);

@@ -2916,6 +2916,7 @@ mod tests {
     /// take their turn rather than refuse. That is the design. What must never
     /// happen is a spawn whose handle is thrown away.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_final_detect_never_spawns_a_worker_it_drops() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2939,6 +2940,7 @@ mod tests {
     /// Expected behaviour: one ordinary detect starts for what landed, a pass
     /// that landed nothing starts none, and an owed cutover keeps it refused.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn landed_elevation_starts_one_ordinary_detect() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2983,6 +2985,7 @@ mod tests {
     /// Expected behaviour: no ordinary detect starts, so the library is cut
     /// once, whole, when the queue drains.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn landed_elevation_waits_for_the_rest_of_the_queue() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -3009,6 +3012,7 @@ mod tests {
     /// Expected behaviour: a re-cut that finds the slot still held drains it
     /// first, so the cold cut it needs is the one that lands.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_final_detect_drains_a_run_it_finds_in_the_slot() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -3041,6 +3045,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_final_recut_clears_the_previous_runs_outcome() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -3073,6 +3078,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unclaimed_recut_keeps_another_starts_detect_claim() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -3100,6 +3106,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_busy_refusal_during_an_unclaimed_recut_keeps_the_failure_ladder() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -3158,6 +3165,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_queue_reads_as_finished_not_as_zero() {
         let snapshot = BackfillSnapshot {
             phase: BACKFILL_PHASE_COMPLETE,
@@ -3170,6 +3178,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn percent_tracks_the_queue() {
         let at = |completed, total| {
             BackfillSnapshot {
@@ -3188,6 +3197,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_response_with_no_finite_altitude_is_unavailable() {
         let parsed = ParsedStreams {
             latlng: vec![[46.0, 7.0], [46.1, 7.1]],
@@ -3198,6 +3208,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_response_with_no_altitude_series_is_unavailable() {
         let parsed = ParsedStreams {
             latlng: vec![[46.0, 7.0], [46.1, 7.1]],
@@ -3225,6 +3236,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_track_too_short_to_store_is_unavailable_rather_than_retried() {
         let parsed = ParsedStreams {
             latlng: vec![[46.0, 7.0]],
@@ -3242,6 +3254,7 @@ mod tests {
     /// Expected behaviour: an engine that is not there cannot answer, so the
     /// export raises rather than reporting a finished library.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_engineless_remaining_call_raises_rather_than_reading_zero() {
         let _serial = serial_global_state();
         // The pool goes with the engine, or a pool an earlier test bound
@@ -3261,6 +3274,7 @@ mod tests {
     /// pool, so an empty queue answers `NotOwed` without waiting for the
     /// writer.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_start_counts_its_queue_without_waiting_for_a_writer() {
         let _serial = serial_global_state();
         let _tmp = init_global_engine("elevation_start_under_writer.db");
@@ -3272,6 +3286,7 @@ mod tests {
     /// With no engine and no pool there is no queue to read, which is not an
     /// empty one: the start declines as not ready rather than as finished.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_engineless_start_is_not_ready() {
         let _serial = serial_global_state();
         crate::persistence::clear_persistent_engine();
@@ -3282,6 +3297,7 @@ mod tests {
     /// sync may hold the write lock, so the query failing has to be
     /// distinguishable from a drained queue.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failing_queue_query_is_an_error_rather_than_zero() {
         let dir = TempDir::new().expect("tempdir");
         let path = dir.path().join("broken.db");
@@ -3297,6 +3313,7 @@ mod tests {
     /// The same failure seen through the export, which is what the delegate's
     /// catch turns into the null both triggers already handle.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failing_queue_query_raises_through_the_export() {
         let _serial = serial_global_state();
         let dir = TempDir::new().expect("tempdir");
@@ -3325,6 +3342,7 @@ mod tests {
     /// pay for the queue's order. A plan that sorts is a plan that materialised
     /// every row to do it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn counting_the_queue_neither_sorts_nor_scans_activities_twice() {
         let dir = TempDir::new().expect("tempdir");
         let path = dir.path().join("plan.db");
@@ -3341,6 +3359,7 @@ mod tests {
     /// The queue's own read still sorts, and should: the order is what makes a
     /// scrolling athlete's newest activities convert first.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn reading_the_queue_still_takes_its_order() {
         let dir = TempDir::new().expect("tempdir");
         let path = dir.path().join("plan.db");
@@ -3359,6 +3378,7 @@ mod tests {
     /// lookup per row and holds the contract that a missing `activities` table
     /// is an error rather than a zero.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_count_agrees_with_the_queue() {
         let dir = TempDir::new().expect("tempdir");
         let path = dir.path().join("agree.db");
@@ -3400,6 +3420,7 @@ mod tests {
     /// Only `UNKNOWN` is in the queue. A state upstream has already answered
     /// for must not be counted, or no pass over such a library could end.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_count_holds_only_the_tracks_still_to_ask_about() {
         let dir = TempDir::new().expect("tempdir");
         let path = dir.path().join("states.db");
@@ -3470,6 +3491,7 @@ mod tests {
     /// A drained queue still has to read as drained, or the backfill would
     /// retry for ever and the cutover would never fire.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_drained_queue_still_reads_as_zero() {
         let dir = TempDir::new().expect("tempdir");
         let path = dir.path().join("empty.db");
@@ -3545,6 +3567,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_ride_no_upload_has_named_is_not_queued_asked_or_counted() {
             let _serial = serial_global_state();
             let _tmp = engine_with_recorded_ride();
@@ -3571,6 +3594,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_uploaded_ride_is_asked_for_under_its_upstream_id() {
             let _serial = serial_global_state();
             let _tmp = engine_with_recorded_ride();
@@ -3653,6 +3677,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_pass_records_its_last_run() {
             let _serial = serial_global_state();
             let _tmp = engine_with(&["i1", "i2", "i3"]);
@@ -3709,6 +3734,7 @@ mod tests {
         use tracematch::GpsPoint;
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn one_pass_drains_every_track_upstream_answered_for() {
             let _serial = serial_global_state();
             let _tmp = init_global_engine("elevation_answered_empty.db");
@@ -3831,6 +3857,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_pass_the_allowance_defers_reports_when_it_resumes() {
             let _serial = serial_global_state();
             let _tmp = engine_with(&["i1", "i2", "i3"]);
@@ -3924,6 +3951,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_demo_library_owes_no_elevation_and_holds_nothing() {
             let _serial = serial_global_state();
             let _tmp = engine_with(&["demo-test-0", "demo-2026-08-08-301"]);
@@ -4015,6 +4043,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_track_failing_beside_answered_ones_retires_and_the_queue_drains() {
             let _serial = serial_global_state();
             let _tmp = engine_with(&["good-a", "bad", "good-b"]);
@@ -4050,6 +4079,7 @@ mod tests {
         /// Expected behaviour: each ask counts, and the track retires at the
         /// limit although nothing beside it was answered.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_lone_failure_with_a_working_link_retires() {
             let _serial = serial_global_state();
             crate::net::connectivity::reset();
@@ -4071,6 +4101,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_batch_where_nothing_is_answered_counts_nothing() {
             let _serial = serial_global_state();
             crate::net::connectivity::reset();
@@ -4114,6 +4145,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_never_pushed_state_walks_the_whole_queue() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -4135,6 +4167,7 @@ mod tests {
         /// Expected behaviour: the earlier library is gone with its test, so
         /// its switch cannot stop this walk.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_library_an_earlier_test_switched_off_does_not_stop_the_next_walk() {
             {
                 let _serial = serial_global_state();
@@ -4160,6 +4193,7 @@ mod tests {
         /// is touching the screen gets the gap at each. The first batch has
         /// nothing before it to wait behind.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_interacting_athlete_widens_the_gap_between_batches() {
             use crate::net::pacing;
             let _serial = serial_global_state();
@@ -4192,6 +4226,7 @@ mod tests {
         /// unasked, none of them counts toward the failures in a row or the
         /// pass's failures, and the stop carries when it lifts.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_refused_batch_stops_the_walk_and_counts_nothing() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -4223,6 +4258,7 @@ mod tests {
         /// are kept, and only the refused ones and those behind them stay
         /// owed.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_batch_refused_part_way_keeps_what_was_answered() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -4251,6 +4287,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_pass_that_starts_offline_asks_nothing() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -4279,6 +4316,7 @@ mod tests {
         /// Expected behaviour: the walk stops unauthorized, the batch's tracks
         /// are still owed, and no track is counted against its attempt limit.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_401_on_the_whole_track_ask_stops_the_walk_without_counting_it() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -4324,6 +4362,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn losing_the_network_stops_the_walk_where_it_stands() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -4347,6 +4386,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_flip_back_to_online_leaves_the_walk_running() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -4388,6 +4428,7 @@ mod tests {
         /// fetched, which holds `elevation_backfill_remaining` above zero for
         /// the life of the install and vetoes the detector cutover with it.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_refusing_head_does_not_hide_the_rest_of_the_queue() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -4444,6 +4485,7 @@ mod tests {
         /// Expected behaviour: the walk stops with nothing to work with and
         /// nothing left unasked, rather than slicing past the queue.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_give_up_in_a_short_final_batch_leaves_nothing_unasked() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -4475,6 +4517,7 @@ mod tests {
         /// Only a give-up moves the start. An outage and a pause say nothing
         /// about these tracks, so the next pass asks newest first again.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn only_a_give_up_moves_where_the_next_pass_starts() {
             assert_eq!(next_pass_start(0, false, 3 * BATCH), 0);
             assert_eq!(next_pass_start(2 * BATCH, false, 3 * BATCH), 0);
@@ -4485,6 +4528,7 @@ mod tests {
         /// A start that walks off the end wraps rather than asking nothing,
         /// and an empty queue has nowhere to start.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_start_wraps_and_an_empty_queue_stays_at_zero() {
             assert_eq!(next_pass_start(2 * BATCH, true, 3 * BATCH), 0);
             assert_eq!(next_pass_start(0, true, 0), 0);
@@ -4497,6 +4541,7 @@ mod tests {
         /// A rotation changes the order and nothing else: every track is
         /// still walked exactly once.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_rotation_keeps_every_track_exactly_once() {
             let full = queue(3 * BATCH);
             for start in [0, 1, BATCH, 3 * BATCH - 1, 3 * BATCH, 7 * BATCH] {
@@ -4516,6 +4561,7 @@ mod tests {
         /// refusing work on a live connection is worse than never knowing, so
         /// the state expires and the walk goes back to trying.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_stale_offline_reads_as_try_rather_than_do_not() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -4539,6 +4585,7 @@ mod tests {
         /// still refuse: an expiry that lands first spends every resting pass
         /// asking a network the device already said was gone.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_offline_still_refuses_at_the_ladders_resting_rung() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -4562,6 +4609,7 @@ mod tests {
         /// to find out. Credentials are set here because the start declines
         /// without one anyway, which would hide what is being measured.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_start_declines_while_offline_and_goes_ahead_once_it_is_back() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -4606,6 +4654,7 @@ mod tests {
         /// window spawns a second pass, and a test that waits on the slot
         /// sees it free and returns while the pass is still to come.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_start_that_went_ahead_holds_the_slot_before_it_returns() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -4633,6 +4682,7 @@ mod tests {
         /// Expected behaviour: an owed queue with a credential starts a pass, an
         /// empty one starts none, and the Route Matching switch off refuses.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_engine_starts_an_owed_backfill_itself() {
             use crate::objects::FfiStartOutcome;
 
@@ -4650,6 +4700,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_engine_starts_nothing_for_an_empty_queue() {
             use crate::objects::FfiStartOutcome;
 
@@ -4663,6 +4714,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_engine_starts_nothing_with_route_matching_off() {
             use crate::objects::FfiStartOutcome;
 
@@ -4713,6 +4765,7 @@ mod tests {
         /// Expected behaviour: no ordinary detect starts, since the cutover
         /// owns the first cut.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn landed_elevation_waits_for_an_owed_cutover() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -4739,6 +4792,7 @@ mod tests {
         /// does not rewrite the catalogue behind the switch, and it stays owed
         /// for the day the switch comes back on.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_engine_starts_no_cutover_with_route_matching_off() {
             use crate::objects::FfiStartOutcome;
 
@@ -4775,6 +4829,7 @@ mod tests {
         /// Expected behaviour: neither the cutover nor the plain re-cut starts,
         /// so the slot stays empty and the catalogue is untouched.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_drained_pass_starts_no_recut_with_route_matching_off() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -4801,6 +4856,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_engine_starts_nothing_without_a_credential() {
             use crate::objects::FfiStartOutcome;
 
@@ -4816,6 +4872,7 @@ mod tests {
         /// library is open, which is the order of every launch.
         /// Expected behaviour: the credential itself starts the owed pass.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn handing_over_a_credential_starts_an_owed_backfill() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -4835,6 +4892,7 @@ mod tests {
         /// as a restore does.
         /// Expected behaviour: the open starts the owed pass.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn opening_a_library_starts_an_owed_backfill() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -4863,6 +4921,7 @@ mod tests {
         /// Expected behaviour: the start names the reason, so a caller can
         /// tell a connection that comes back from a sign-in that never will.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_refusal_names_its_reason() {
             use crate::objects::FfiStartOutcome;
 
@@ -4903,6 +4962,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_switched_off_library_starts_no_elevation_pass() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -4919,6 +4979,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn switching_off_ends_the_resume_ladder() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -4945,6 +5006,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn switching_off_between_batches_leaves_the_rest_unasked() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -4973,6 +5035,7 @@ mod tests {
         /// the same `false` as being offline, and it is what stamps the app
         /// version and stops the trigger asking on every later launch.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_empty_queue_is_a_success() {
             use crate::objects::FfiStartOutcome;
 
@@ -4997,6 +5060,7 @@ mod tests {
         /// A stale *online* is harmless: the value is only ever a reason to
         /// refuse, so expiry can only ever open the gate, never close it.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_stale_online_still_reads_as_try() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -5051,6 +5115,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_re_asking_is_bounded_and_waits_longer_each_round() {
             let mut waited: Vec<Duration> = Vec::new();
             let mut asked = 0usize;
@@ -5090,6 +5155,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_wait_that_ends_the_re_asking_stops_at_that_round() {
             let mut waited = 0usize;
             let mut asked = 0usize;
@@ -5119,6 +5185,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn nothing_refused_waits_for_nothing() {
             let mut waited = 0usize;
             let mut asked = 0usize;
@@ -5142,6 +5209,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_walk_that_already_stopped_is_not_re_asked() {
             let mut waited = 0usize;
             let walk = Walk {
@@ -5171,6 +5239,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_round_that_stops_ends_the_ladder_where_it_stands() {
             let mut waited = 0usize;
             let mut asked = 0usize;
@@ -5264,6 +5333,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_online_edge_ends_the_rung_without_waiting_it_out() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -5276,6 +5346,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_flapping_connection_climbs_the_ladder_rather_than_resetting_it() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -5292,6 +5363,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_edge_with_nothing_outstanding_attempts_nothing() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -5323,6 +5395,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_answer_about_the_activity_settles_it_on_the_first_ask() {
             let _serial = serial_global_state();
 
@@ -5344,6 +5417,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_whole_track_ask_that_comes_back_empty_settles_it_on_the_first_ask() {
             let _serial = serial_global_state();
 
@@ -5357,6 +5431,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn pushback_and_outages_keep_the_row_for_a_retry() {
             let _serial = serial_global_state();
 
@@ -5374,6 +5449,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_connection_that_is_gone_says_nothing_about_the_activity() {
             let _serial = serial_global_state();
 
@@ -5410,6 +5486,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_pause_between_batches_ends_the_walk_with_no_further_fetches() {
             let _serial = serial_global_state();
             let _previous = seeded_global_engine();
@@ -5444,6 +5521,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_pause_with_no_pass_in_flight_reads_as_paused_at_once() {
             let _serial = serial_global_state();
             reset_pause();
@@ -5462,6 +5540,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_start_that_meets_the_pause_leaves_the_phase_paused() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -5487,6 +5566,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_resume_lifts_the_pause_without_a_new_process() {
             let _serial = serial_global_state();
             reset_pause();
@@ -5514,6 +5594,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_resume_with_no_pause_to_lift_changes_nothing() {
             let _serial = serial_global_state();
             reset_pause();
@@ -5526,6 +5607,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_resumed_install_starts_a_pass_again() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -5542,6 +5624,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_paused_start_attempts_nothing_even_with_work_outstanding() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -5571,6 +5654,7 @@ mod tests {
         use super::*;
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_panicking_climb_releases_the_slot() {
             let _serial = serial_global_state();
             RESUME_ARMED.store(false, Ordering::SeqCst);
@@ -5585,6 +5669,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_climb_that_returns_releases_the_slot() {
             let _serial = serial_global_state();
             RESUME_ARMED.store(false, Ordering::SeqCst);
@@ -5600,6 +5685,7 @@ mod tests {
         /// One ladder at a time: the second arm joins the climb that is
         /// already running rather than laying a parallel one.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_second_arm_is_refused_while_one_climbs() {
             let _serial = serial_global_state();
             RESUME_ARMED.store(false, Ordering::SeqCst);
@@ -5629,6 +5715,7 @@ mod tests {
         /// The slot is released after a panic, so the next arm gets it. A flag
         /// cleared but a ladder nobody can lay again is the same outage.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_next_arm_after_a_panic_gets_the_slot() {
             let _serial = serial_global_state();
             RESUME_ARMED.store(false, Ordering::SeqCst);
@@ -5821,6 +5908,7 @@ mod series {
     /// Scenario: one track takes the splice from the device series, the other
     /// was re-processed upstream and comes back whole with the corrected one.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pass_records_the_series_of_each_track_it_elevates() {
         let _serial = serial_global_state();
         let _dir = library(&["spliced", "replaced"]);
@@ -5860,6 +5948,7 @@ mod series {
     /// owed elevation goes through the backfill, and one whose series is known
     /// has nothing to settle.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_series_queue_holds_only_fetched_tracks_of_unknown_series() {
         let _serial = serial_global_state();
         let _dir = fetched_library(&["owed", "known", "demo-ride"]);
@@ -5918,6 +6007,7 @@ mod series {
     /// Expected behaviour: each answer counts against the track, which leaves
     /// the series queue at the limit and stays unknown and fetched.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_track_upstream_never_answers_for_leaves_the_series_queue() {
         let _serial = serial_global_state();
         let _dir = fetched_library(&["quiet"]);
@@ -5936,6 +6026,7 @@ mod series {
     /// A refused connection and a rejected credential say nothing about the
     /// track, so neither counts against it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refused_ask_counts_nothing_and_a_rejected_credential_stops_the_walk() {
         let _serial = serial_global_state();
         let _dir = fetched_library(&["offline"]);

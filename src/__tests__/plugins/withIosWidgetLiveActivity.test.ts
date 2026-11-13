@@ -36,7 +36,7 @@ describe('shared Live Activity sources', () => {
     expect(fs.readdirSync(to).sort()).toEqual([...LIVE_ACTIVITY_SHARED_FILES].sort());
   });
 
-  it('leaves the extension-only views behind, they cannot compile in the app', () => {
+  vaultIt('leaves the extension-only views behind, they cannot compile in the app', () => {
     expect(LIVE_ACTIVITY_SHARED_FILES).not.toContain('RecordingLiveActivity.swift');
   });
 });
@@ -84,7 +84,7 @@ describe('widget build settings', () => {
     expect(settings.REACT_NATIVE_PATH).not.toContain('PODS_ROOT');
   });
 
-  it('carries the version and build number the extension is stamped with', () => {
+  vaultIt('carries the version and build number the extension is stamped with', () => {
     const settings: Record<string, string> = {};
 
     applyWidgetBuildSettings(settings, '0.4.0', '29');

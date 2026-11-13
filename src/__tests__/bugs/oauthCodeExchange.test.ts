@@ -20,7 +20,7 @@ import {
 const VERIFIER = 'a'.repeat(43);
 
 describe('the code challenge', () => {
-  it('is the base64url SHA-256 of the verifier, with no padding', async () => {
+  vaultIt('is the base64url SHA-256 of the verifier, with no padding', async () => {
     const challenge = await codeChallengeFor(VERIFIER);
     expect(challenge).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(challenge).not.toContain('=');
@@ -32,7 +32,7 @@ describe('the code challenge', () => {
     );
   });
 
-  it('is the same for the same verifier and different for another', async () => {
+  vaultIt('is the same for the same verifier and different for another', async () => {
     const [a, b, c] = await Promise.all([
       codeChallengeFor(VERIFIER),
       codeChallengeFor(VERIFIER),
@@ -54,14 +54,14 @@ describe('redeeming a code', () => {
     );
   });
 
-  it('refuses a verifier shorter or longer than RFC 7636 allows', () => {
+  vaultIt('refuses a verifier shorter or longer than RFC 7636 allows', () => {
     expect(isValidVerifier('a'.repeat(42))).toBe(false);
     expect(isValidVerifier('a'.repeat(43))).toBe(true);
     expect(isValidVerifier('a'.repeat(128))).toBe(true);
     expect(isValidVerifier('a'.repeat(129))).toBe(false);
   });
 
-  it('refuses a verifier carrying characters outside the unreserved set', () => {
+  vaultIt('refuses a verifier carrying characters outside the unreserved set', () => {
     expect(isValidVerifier(`${'a'.repeat(42)}+`)).toBe(false);
     expect(isValidVerifier(`${'a'.repeat(42)}/`)).toBe(false);
     expect(isValidVerifier(`${'a'.repeat(39)}-._~`)).toBe(true);
@@ -81,11 +81,11 @@ describe('redeeming a code', () => {
 });
 
 describe('the one-time code', () => {
-  it('is base64url and long enough that nothing guesses it', () => {
+  vaultIt('is base64url and long enough that nothing guesses it', () => {
     expect(newOpaqueToken()).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 
-  it('is a different value every time', () => {
+  vaultIt('is a different value every time', () => {
     const seen = new Set(Array.from({ length: 50 }, () => newOpaqueToken()));
     expect(seen.size).toBe(50);
   });

@@ -86,7 +86,7 @@ describe('BottomTabBar', () => {
     jest.clearAllMocks();
   });
 
-  it('renders nothing on a stack screen outside the tabs group', async () => {
+  vaultIt('renders nothing on a stack screen outside the tabs group', async () => {
     authState.isAuthenticated = true;
     mockSegments = ['backup-settings'];
 
@@ -110,7 +110,7 @@ describe('BottomTabBar', () => {
     expect(queryByTestId('bottom-tab-bar')).toBeNull();
   });
 
-  it('renders the destinations for a signed-in athlete', async () => {
+  vaultIt('renders the destinations for a signed-in athlete', async () => {
     authState.isAuthenticated = true;
 
     const { getByTestId, getByLabelText } = await render(<BottomTabBar />);
@@ -134,7 +134,7 @@ describe('BottomTabBar', () => {
     expect(router.navigate).toHaveBeenCalledWith('/settings');
   });
 
-  it('renders the destinations in demo mode', async () => {
+  vaultIt('renders the destinations in demo mode', async () => {
     authState.isAuthenticated = true;
     authState.isDemoMode = true;
 
@@ -143,20 +143,23 @@ describe('BottomTabBar', () => {
     expect(getByTestId('bottom-tab-bar')).toBeTruthy();
   });
 
-  it('switching tab fires one selection haptic and no impact, and the current tab fires none', async () => {
-    authState.isAuthenticated = true;
-    const { getByLabelText } = await render(<BottomTabBar />);
+  vaultIt(
+    'switching tab fires one selection haptic and no impact, and the current tab fires none',
+    async () => {
+      authState.isAuthenticated = true;
+      const { getByLabelText } = await render(<BottomTabBar />);
 
-    await fireEvent.press(getByLabelText('navigation.feed'));
-    expect(Haptics.selectionAsync).not.toHaveBeenCalled();
+      await fireEvent.press(getByLabelText('navigation.feed'));
+      expect(Haptics.selectionAsync).not.toHaveBeenCalled();
 
-    await fireEvent.press(getByLabelText('navigation.fitness'));
+      await fireEvent.press(getByLabelText('navigation.fitness'));
 
-    expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
-    expect(Haptics.impactAsync).not.toHaveBeenCalled();
-  });
+      expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
+      expect(Haptics.impactAsync).not.toHaveBeenCalled();
+    }
+  );
 
-  it('fires the selection haptic on Android too, and none for the current tab', async () => {
+  vaultIt('fires the selection haptic on Android too, and none for the current tab', async () => {
     const originalOS = Platform.OS;
     Platform.OS = 'android';
     try {
@@ -207,7 +210,7 @@ describe('BottomTabBar', () => {
       return UNSAFE_getByProps({ testID: `bottom-tab-${key}-glyph` }).props;
     }
 
-    it.each(THEMES)(
+    vaultIt.each(THEMES)(
       'draws on an opaque surface with a hairline and no fade in $name',
       async (theme) => {
         mockIsDark = theme.isDark;
@@ -221,18 +224,21 @@ describe('BottomTabBar', () => {
       }
     );
 
-    it.each(TABS)('fills the $key glyph when selected and outlines it when not', async (tab) => {
-      mockPathname = tab.path;
-      const selected = (await glyph(tab.key)).name;
-      mockPathname = tab.path === '/' ? '/map' : '/';
-      const unselected = (await glyph(tab.key)).name;
+    vaultIt.each(TABS)(
+      'fills the $key glyph when selected and outlines it when not',
+      async (tab) => {
+        mockPathname = tab.path;
+        const selected = (await glyph(tab.key)).name;
+        mockPathname = tab.path === '/' ? '/map' : '/';
+        const unselected = (await glyph(tab.key)).name;
 
-      expect(selected).not.toBe(unselected);
-      expect(unselected).toMatch(/-outline$/);
-      expect(`${selected}-outline`).toBe(unselected);
-    });
+        expect(selected).not.toBe(unselected);
+        expect(unselected).toMatch(/-outline$/);
+        expect(`${selected}-outline`).toBe(unselected);
+      }
+    );
 
-    it.each(CASES)(
+    vaultIt.each(CASES)(
       'draws the selected glyph in controlOn and the others in iconSecondary on $os in $name',
       async ({ os, theme }) => {
         Platform.OS = os;
@@ -243,7 +249,7 @@ describe('BottomTabBar', () => {
       }
     );
 
-    it.each(THEMES)(
+    vaultIt.each(THEMES)(
       'draws the selected label in textPrimary and the others in textSecondary in $name',
       async (theme) => {
         mockIsDark = theme.isDark;
@@ -258,31 +264,37 @@ describe('BottomTabBar', () => {
       }
     );
 
-    it('sets the selected label in the heaviest face and the others in the lightest', async () => {
-      const { getByText } = await render(<BottomTabBar />);
+    vaultIt(
+      'sets the selected label in the heaviest face and the others in the lightest',
+      async () => {
+        const { getByText } = await render(<BottomTabBar />);
 
-      expect(StyleSheet.flatten(getByText('navigation.feed').props.style).fontWeight).toBe(
-        faceWeight('700')
-      );
-      expect(StyleSheet.flatten(getByText('navigation.fitness').props.style).fontWeight).toBe(
-        faceWeight('400')
-      );
-    });
+        expect(StyleSheet.flatten(getByText('navigation.feed').props.style).fontWeight).toBe(
+          faceWeight('700')
+        );
+        expect(StyleSheet.flatten(getByText('navigation.fitness').props.style).fontWeight).toBe(
+          faceWeight('400')
+        );
+      }
+    );
 
-    it('keeps the selected label heavier than the rest with bold text on', async () => {
+    vaultIt('keeps the selected label heavier than the rest with bold text on', async () => {
       expect(Number(faceWeight('700', true))).toBeGreaterThan(Number(faceWeight('400', true)));
     });
 
-    it('shrinks a long label to a 0.8 floor on one line rather than cutting it off', async () => {
-      const { getByText } = await render(<BottomTabBar />);
-      const label = getByText('navigation.fitness').props;
+    vaultIt(
+      'shrinks a long label to a 0.8 floor on one line rather than cutting it off',
+      async () => {
+        const { getByText } = await render(<BottomTabBar />);
+        const label = getByText('navigation.fitness').props;
 
-      expect(label.numberOfLines).toBe(1);
-      expect(label.adjustsFontSizeToFit).toBe(true);
-      expect(label.minimumFontScale).toBe(0.8);
-    });
+        expect(label.numberOfLines).toBe(1);
+        expect(label.adjustsFontSizeToFit).toBe(true);
+        expect(label.minimumFontScale).toBe(0.8);
+      }
+    );
 
-    it.each(CASES)('draws no tinted indicator on $os in $name', async ({ os, theme }) => {
+    vaultIt.each(CASES)('draws no tinted indicator on $os in $name', async ({ os, theme }) => {
       Platform.OS = os;
       mockIsDark = theme.isDark;
       const { queryAllByTestId } = await render(<BottomTabBar />);
@@ -290,21 +302,24 @@ describe('BottomTabBar', () => {
       expect(queryAllByTestId(/^bottom-tab-.*-indicator$/, HIDDEN)).toHaveLength(0);
     });
 
-    it.each(CASES)('draws no cap and no lift on the selected tab on $os in $name', async (c) => {
-      Platform.OS = c.os;
-      mockIsDark = c.theme.isDark;
-      mockPathname = '/insights';
-      const { queryAllByTestId, getByLabelText } = await render(<BottomTabBar />);
+    vaultIt.each(CASES)(
+      'draws no cap and no lift on the selected tab on $os in $name',
+      async (c) => {
+        Platform.OS = c.os;
+        mockIsDark = c.theme.isDark;
+        mockPathname = '/insights';
+        const { queryAllByTestId, getByLabelText } = await render(<BottomTabBar />);
 
-      expect(queryAllByTestId(/^bottom-tab-.*-cap$/, HIDDEN)).toHaveLength(0);
-      const tab = getByLabelText('navigation.insights');
-      const glyph = within(tab).UNSAFE_getByProps({ testID: 'bottom-tab-insights-glyph' });
-      for (let at: ReactTestInstance | null = glyph; at && at !== tab; at = at.parent) {
-        expect(StyleSheet.flatten(at.props.style ?? {}).transform).toBeUndefined();
+        expect(queryAllByTestId(/^bottom-tab-.*-cap$/, HIDDEN)).toHaveLength(0);
+        const tab = getByLabelText('navigation.insights');
+        const glyph = within(tab).UNSAFE_getByProps({ testID: 'bottom-tab-insights-glyph' });
+        for (let at: ReactTestInstance | null = glyph; at && at !== tab; at = at.parent) {
+          expect(StyleSheet.flatten(at.props.style ?? {}).transform).toBeUndefined();
+        }
       }
-    });
+    );
 
-    it.each(CASES)('draws no ripple and no fade on a tab on $os in $name', async (c) => {
+    vaultIt.each(CASES)('draws no ripple and no fade on a tab on $os in $name', async (c) => {
       Platform.OS = c.os;
       mockIsDark = c.theme.isDark;
       const { getByLabelText, UNSAFE_root } = await render(<BottomTabBar />);
@@ -322,7 +337,7 @@ describe('BottomTabBar', () => {
       );
     });
 
-    it.each(CASES)(
+    vaultIt.each(CASES)(
       'brightens the pressed tab to the selected colours and lets go when the touch ends on $os in $name',
       async (c) => {
         Platform.OS = c.os;
@@ -355,18 +370,21 @@ describe('BottomTabBar', () => {
       }
     );
 
-    it('keeps the outline glyph and the light label while pressed, until the tab is selected', async () => {
-      const { getByLabelText, getByText } = await render(<BottomTabBar />);
+    vaultIt(
+      'keeps the outline glyph and the light label while pressed, until the tab is selected',
+      async () => {
+        const { getByLabelText, getByText } = await render(<BottomTabBar />);
 
-      await grant(getByLabelText('navigation.fitness'));
+        await grant(getByLabelText('navigation.fitness'));
 
-      const glyph = getByLabelText('navigation.fitness').findByProps({
-        testID: 'bottom-tab-fitness-glyph',
-      }).props;
-      expect(glyph.name).toMatch(/-outline$/);
-      expect(StyleSheet.flatten(getByText('navigation.fitness').props.style).fontWeight).toBe(
-        faceWeight('400')
-      );
-    });
+        const glyph = getByLabelText('navigation.fitness').findByProps({
+          testID: 'bottom-tab-fitness-glyph',
+        }).props;
+        expect(glyph.name).toMatch(/-outline$/);
+        expect(StyleSheet.flatten(getByText('navigation.fitness').props.style).fontWeight).toBe(
+          faceWeight('400')
+        );
+      }
+    );
   });
 });

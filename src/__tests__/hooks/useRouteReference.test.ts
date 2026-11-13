@@ -113,7 +113,7 @@ describe('useRouteReference', () => {
       expect(informedTitles(alert)).toHaveLength(1);
     });
 
-    it('stays quiet when the engine takes a reset', async () => {
+    vaultIt('stays quiet when the engine takes a reset', async () => {
       const resetRouteRepresentative = jest.fn().mockResolvedValue(true);
       jest.mocked(getEngine).mockReturnValue({ resetRouteRepresentative } as never);
       const alert = confirmWith('common.reset');

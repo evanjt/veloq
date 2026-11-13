@@ -44,7 +44,7 @@ describe('a GPS download run that stores nothing', () => {
     expect(['fetching', 'processing', 'computing']).not.toContain(written[0].status);
   });
 
-  it.each(ENDINGS)('says why, so the ending is readable on %s', (ending) => {
+  vaultIt.each(ENDINGS)('says why, so the ending is readable on %s', (ending) => {
     const { written, result } = end(ending);
 
     expect(written[0].message).not.toBe('');

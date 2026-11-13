@@ -53,14 +53,14 @@ describe('the foreign converter cursor guard', () => {
     expect(output).toContain('FfiConverterOptional');
   });
 
-  it('refuses an optional the generator wrapped across lines', () => {
+  vaultIt('refuses an optional the generator wrapped across lines', () => {
     const { code } = generated(
       'const C = new FfiConverterOptional(\n  FfiConverterTypeEngineObserver,\n);'
     );
     expect(code).toBe(1);
   });
 
-  it('refuses a sequence and a map, which take the same path', () => {
+  vaultIt('refuses a sequence and a map, which take the same path', () => {
     expect(generated('const C = new FfiConverterArray(FfiConverterTypeEngineObserver);').code).toBe(
       1
     );

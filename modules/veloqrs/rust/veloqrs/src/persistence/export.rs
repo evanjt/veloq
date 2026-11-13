@@ -480,6 +480,7 @@ mod gpx_writer_tests {
     };
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_whole_track_carries_the_export_time_and_no_trim_note() {
         let gpx = generate_gpx("Ride", None, None, &[fix(1.0, 2.0, None)], &WHOLE);
         assert!(
@@ -490,6 +491,7 @@ mod gpx_writer_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_shortened_track_names_the_radius_that_shortened_it() {
         let stamp = GpxStamp {
             trimmed_by_m: Some(250.0),
@@ -500,6 +502,7 @@ mod gpx_writer_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn coordinates_are_written_to_six_places() {
         let gpx = generate_gpx(
             "Ride",
@@ -512,12 +515,14 @@ mod gpx_writer_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_missing_sport_is_written_as_unknown() {
         let gpx = generate_gpx("Ride", None, None, &[fix(1.0, 2.0, None)], &WHOLE);
         assert!(gpx.contains("<type>Unknown</type>"));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn elevation_is_written_when_a_point_carries_it() {
         let gpx = generate_gpx(
             "Ride",
@@ -531,6 +536,7 @@ mod gpx_writer_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_non_finite_elevation_is_left_out() {
         let gpx = generate_gpx(
             "Ride",
@@ -546,6 +552,7 @@ mod gpx_writer_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn non_finite_coordinates_are_dropped() {
         let gpx = generate_gpx(
             "Ride",
@@ -562,6 +569,7 @@ mod gpx_writer_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn markup_in_name_sport_and_time_is_escaped() {
         let gpx = generate_gpx(
             "A & <B> \"C\" 'D'",
@@ -577,17 +585,20 @@ mod gpx_writer_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_file_stem_keeps_letters_of_any_script() {
         assert_eq!(gpx_file_stem("朝のライド"), "朝のライド");
         assert_eq!(gpx_file_stem("a b/c.d"), "a_b_c_d");
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_file_stem_is_at_most_sixty_characters() {
         assert_eq!(gpx_file_stem(&"x".repeat(100)).chars().count(), 60);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_single_file_is_named_for_the_ride_and_carries_its_track() {
         let file = gpx_file_from_points(
             "朝のライド",
@@ -737,6 +748,7 @@ mod snapshot_copy_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_database_copies() {
         let dir = tempfile::TempDir::new().unwrap();
         let source = rusqlite::Connection::open(dir.path().join("live.db")).unwrap();
@@ -1118,6 +1130,7 @@ mod privacy_trim_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_track_that_never_approaches_home_is_untouched() {
         let track: Vec<GpsPoint> = [800.0, 1200.0, 1500.0].iter().map(|m| north(*m)).collect();
 
@@ -1125,6 +1138,7 @@ mod privacy_trim_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_radius_of_zero_is_exactly_the_old_behaviour() {
         let track: Vec<GpsPoint> = [5.0, 10.0, 400.0].iter().map(|m| north(*m)).collect();
 
@@ -1139,6 +1153,7 @@ mod privacy_trim_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_trim_that_leaves_one_point_is_not_a_track() {
         let track: Vec<GpsPoint> = [10.0, 500.0, 20.0].iter().map(|m| north(*m)).collect();
 
@@ -1148,6 +1163,7 @@ mod privacy_trim_tests {
     /// A loop that passes the door mid-ride keeps those points. Removing them
     /// would cut the track in two, and what is protected is where it starts.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pass_through_home_mid_ride_is_kept() {
         let track: Vec<GpsPoint> = [900.0, 20.0, 800.0].iter().map(|m| north(*m)).collect();
 
@@ -1157,6 +1173,7 @@ mod privacy_trim_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_track_stays_empty_rather_than_failing() {
         assert_eq!(trim(100.0).apply(&[]).unwrap().len(), 0);
     }
@@ -1203,12 +1220,14 @@ mod privacy_trim_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_missing_trim_is_no_trim_and_not_an_error() {
         let trim = PrivacyTrim::from_reader(settings(&[], None));
         assert!(matches!(trim, Ok(None)));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_radius_of_zero_is_no_trim_whatever_the_home_reads_as() {
         let stored = [(RADIUS_KEY, "0")];
         let trim = PrivacyTrim::from_reader(settings(&stored, Some(HOME_LAT_KEY)));
@@ -1216,6 +1235,7 @@ mod privacy_trim_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_radius_with_no_home_is_no_trim() {
         let stored = [(RADIUS_KEY, "200")];
         let trim = PrivacyTrim::from_reader(settings(&stored, None));
@@ -1234,6 +1254,7 @@ mod privacy_trim_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_complete_trim_is_read_as_stored() {
         let trim = PrivacyTrim::from_reader(settings(&HOME_AND_RADIUS, None))
             .expect("read")
@@ -1398,6 +1419,7 @@ mod suggested_home_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_door_every_ride_starts_at_is_the_suggestion() {
         let dir = TempDir::new().unwrap();
         let mut engine = engine(&dir);
@@ -1427,6 +1449,7 @@ mod suggested_home_tests {
     /// The suggestion and the trim it is offered for now read the same rows,
     /// so an activity the trim cannot see cannot pull the suggested door.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_with_no_signature_does_not_move_the_suggestion() {
         let dir = TempDir::new().unwrap();
         let mut engine = engine(&dir);
@@ -1458,6 +1481,7 @@ mod suggested_home_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_library_with_nothing_to_cluster_suggests_nothing() {
         let dir = TempDir::new().unwrap();
         let mut engine = engine(&dir);
@@ -1469,6 +1493,7 @@ mod suggested_home_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_library_suggests_nothing_rather_than_a_point_at_zero() {
         let dir = TempDir::new().unwrap();
         assert!(engine(&dir).suggest_export_home().is_none());
@@ -1477,6 +1502,7 @@ mod suggested_home_tests {
     /// The same library answers the same way twice, so a confirmation screen
     /// does not offer a different home on a second visit.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_suggestion_is_stable() {
         let dir = TempDir::new().unwrap();
         let mut engine = engine(&dir);
@@ -2334,11 +2360,13 @@ mod bulk_export_tests {
     /// Lowercasing alone keeps a word-final sigma apart from a medial one,
     /// while a case-insensitive filesystem folds both to one capital.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn names_that_differ_only_in_greek_sigma_are_two_files_once_extracted() {
         assert_both_exported(["ΟΔΟΣ", "Οδος"]);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn names_that_differ_past_sixty_characters_are_both_in_the_archive() {
         let stem = "A".repeat(60);
         assert_both_exported([&format!("{stem} out"), &format!("{stem} back")]);
@@ -2427,6 +2455,7 @@ mod bulk_export_tests {
     /// GPX writer used to write an empty segment and count it exported, while
     /// the GeoJSON writer counted it failed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn both_writers_fail_a_track_with_no_finite_point() {
         let dir = TempDir::new().unwrap();
         let mut engine = engine(&dir);
@@ -2473,6 +2502,7 @@ mod bulk_export_tests {
     /// The total counts every stored track, so the count has to move for a
     /// track the writer skips as well, or a run with skips ends short of it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn progress_reaches_its_total_when_tracks_are_skipped() {
         let dir = TempDir::new().unwrap();
         let engine = mixed_library(&dir);
@@ -2512,6 +2542,7 @@ mod bulk_export_tests {
     /// One ride exported both ways, with a non-finite first fix ahead of the
     /// door points, so the two writers must make the same trim.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ride_exports_the_same_track_singly_and_in_bulk() {
         let dir = TempDir::new().unwrap();
         let mut engine = engine(&dir);
@@ -2633,6 +2664,7 @@ mod bulk_export_tests {
     /// One ride the privacy radius shortens at both ends and one it never
     /// reaches. Only the shortened one may say it was trimmed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ride_the_privacy_radius_shortened_is_marked_in_every_format() {
         let dir = TempDir::new().unwrap();
         let mut engine = engine(&dir);
@@ -2688,6 +2720,7 @@ mod bulk_export_tests {
     /// A non-finite fix is dropped before the trim, so dropping it alone
     /// does not count as the radius shortening the ride.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_dropped_non_finite_fix_is_not_a_trim() {
         let dir = TempDir::new().unwrap();
         let mut engine = engine(&dir);
@@ -2738,6 +2771,7 @@ mod bulk_export_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn both_formats_say_what_wrote_them_when_and_in_which_units() {
         let dir = TempDir::new().unwrap();
         let mut engine = engine(&dir);
@@ -2776,6 +2810,7 @@ mod bulk_export_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_export_with_no_privacy_radius_says_so() {
         let dir = TempDir::new().unwrap();
         let mut engine = engine(&dir);
@@ -2799,6 +2834,7 @@ mod bulk_export_tests {
     /// Expected behaviour: both writers answer cancelled, visit nothing more
     /// and leave no file at the destination.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cancelled_export_answers_cancelled_and_leaves_no_file() {
         type Writer = fn(
             &rusqlite::Connection,
@@ -2846,6 +2882,7 @@ mod bulk_export_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_gpx_result_names_each_skip_reason_apart() {
         let dir = TempDir::new().unwrap();
         let engine = mixed_library(&dir);
@@ -2859,6 +2896,7 @@ mod bulk_export_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_geojson_result_counts_the_same_skips_as_the_gpx_one() {
         let dir = TempDir::new().unwrap();
         let engine = mixed_library(&dir);

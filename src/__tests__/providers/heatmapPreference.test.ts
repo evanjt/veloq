@@ -33,7 +33,7 @@ beforeEach(async () => {
 });
 
 describe('the heatmap preference', () => {
-  it('is on by default, which is what the routes store defaulted to', async () => {
+  vaultIt('is on by default, which is what the routes store defaulted to', async () => {
     await initialiseHeatmapPreference();
 
     expect(isHeatmapEnabled()).toBe(true);
@@ -94,7 +94,7 @@ describe('the heatmap preference', () => {
 });
 
 describe('the routes visibility', () => {
-  it('is off by default and survives a relaunch once turned on', async () => {
+  vaultIt('is off by default and survives a relaunch once turned on', async () => {
     await initialiseHeatmapPreference();
     expect(useHeatmapPreference.getState().routesVisible).toBe(false);
 
@@ -108,7 +108,7 @@ describe('the routes visibility', () => {
 });
 
 describe('the heatmap and activities layer checks', () => {
-  it('are on by default', async () => {
+  vaultIt('are on by default', async () => {
     await initialiseHeatmapPreference();
 
     expect(useHeatmapPreference.getState().heatmapVisible).toBe(true);
@@ -132,7 +132,7 @@ describe('the heatmap and activities layer checks', () => {
     expect(useHeatmapPreference.getState().activitiesVisible).toBe(false);
   });
 
-  it('come back on after being turned off and on again', async () => {
+  vaultIt('come back on after being turned off and on again', async () => {
     await initialiseHeatmapPreference();
 
     useHeatmapPreference.getState().setHeatmapVisible(false);

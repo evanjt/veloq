@@ -125,7 +125,7 @@ describe('the messages a legacy token gets', () => {
     expect(buildPushMessages(TOKEN, DATA, null, 'android', true)).toHaveLength(1);
   });
 
-  it('sends iOS the same either way', () => {
+  vaultIt('sends iOS the same either way', () => {
     expect(buildPushMessages(TOKEN, DATA, VISIBLE, 'ios', true)).toEqual(
       buildPushMessages(TOKEN, DATA, VISIBLE, 'ios', false)
     );

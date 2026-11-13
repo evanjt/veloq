@@ -60,6 +60,7 @@ fn bands_the_headline_form_metric_on_todays_fitness() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn stores_no_zone_for_the_headline_when_today_has_no_fitness_under_the_percentage_setting() {
     let mut gap = data();
     set_fitness(&mut gap, vec![30, 60, 150, 0]);
@@ -75,6 +76,7 @@ fn stores_no_zone_for_the_headline_when_today_has_no_fitness_under_the_percentag
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn stores_no_zone_for_form_when_activities_exist_before_any_wellness_has_synced() {
     let before_wellness = FfiWidgetSnapshotData {
         latest: Some(FfiActivityMetrics {
@@ -133,6 +135,7 @@ fn the_form_change_is_in_percentage_points_of_fitness_when_the_flag_is_on() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_form_change_is_zero_when_the_percentage_holds_while_the_absolute_value_moves() {
     let m = form_of([-4, -8], [40, 80], true, "↓");
     assert_eq!(m.text.as_deref(), Some("-10%"));
@@ -155,6 +158,7 @@ fn the_form_change_is_omitted_when_either_day_has_no_fitness_to_divide_by() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_form_change_stays_absolute_when_the_flag_is_off() {
     let m = form_of([-4, -8], [40, 40], false, "↓");
     assert_eq!(m.text.as_deref(), Some("-8"));

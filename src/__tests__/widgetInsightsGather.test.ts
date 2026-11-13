@@ -54,19 +54,19 @@ beforeEach(() => {
 });
 
 describe('the widget snapshot context', () => {
-  it('lists the ranked insights of every kind in the tab order', () => {
+  vaultIt('lists the ranked insights of every kind in the tab order', () => {
     gatherWidgetSnapshot(opts);
 
     expect(composedInsightIds()).toEqual(['a', 'b', 'c']);
   });
 
-  it('words the insights with the translator that interpolates', () => {
+  vaultIt('words the insights with the translator that interpolates', () => {
     gatherWidgetSnapshot(opts);
 
     expect(mockCompute).toHaveBeenCalledWith({}, t, true);
   });
 
-  it('lists none without that translator, rather than printing keys', () => {
+  vaultIt('lists none without that translator, rather than printing keys', () => {
     gatherWidgetSnapshot({ locale: 'en-AU', isMetric: true, translate: t });
 
     expect(composedInsightIds()).toEqual([]);

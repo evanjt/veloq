@@ -74,14 +74,14 @@ describe('the recording map picks its own basemap', () => {
     expect(lastDrawn()).toBe('light');
   });
 
-  it('follows the theme rather than hard-coding light', async () => {
+  vaultIt('follows the theme rather than hard-coding light', async () => {
     theme.isDark = true;
     await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
 
     expect(lastDrawn()).toBe('dark');
   });
 
-  it('cycles to another style in place', async () => {
+  vaultIt('cycles to another style in place', async () => {
     await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
     const before = lastDrawn();
 
@@ -120,7 +120,7 @@ describe('the recording map picks its own basemap', () => {
     expect(lastDrawn()).not.toBe('satellite');
   });
 
-  it('shows no style control in review mode, where the ride is over', async () => {
+  vaultIt('shows no style control in review mode, where the ride is over', async () => {
     await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} fitBounds />);
 
     expect(screen.queryByTestId('recording-map-style')).toBeNull();

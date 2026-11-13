@@ -194,6 +194,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unbundled_range_is_fetched_online_and_kept() {
         let dir = TempDir::new().unwrap();
         let store = TileStore::new(dir.path());
@@ -217,6 +218,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unbundled_range_never_seen_is_404_offline() {
         let dir = TempDir::new().unwrap();
         let store = TileStore::new(dir.path());
@@ -227,6 +229,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_host_refusal_reaches_the_page_and_nothing_is_kept() {
         let dir = TempDir::new().unwrap();
         let store = TileStore::new(dir.path());
@@ -248,6 +251,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn stacks_are_kept_apart() {
         let dir = TempDir::new().unwrap();
         let store = TileStore::new(dir.path());
@@ -257,6 +261,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stack_or_range_the_host_does_not_serve_is_refused_before_any_fetch() {
         let dir = TempDir::new().unwrap();
         let store = TileStore::new(dir.path());
@@ -281,6 +286,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_label_stack_is_answered_from_its_fallback_face_and_kept_with_it() {
         let dir = TempDir::new().unwrap();
         let store = TileStore::new(dir.path());
@@ -302,6 +308,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unbundled_range_of_a_face_with_no_host_is_an_empty_glyph_file() {
         let dir = TempDir::new().unwrap();
         let store = TileStore::new(dir.path());
@@ -321,6 +328,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_label_stack_naming_a_face_the_app_does_not_know_is_refused() {
         let dir = TempDir::new().unwrap();
         let store = TileStore::new(dir.path());
@@ -342,6 +350,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_last_range_of_the_plane_is_served() {
         assert!(key_for("Noto Sans Regular", "65280-65535").is_some());
     }

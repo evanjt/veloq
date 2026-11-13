@@ -70,7 +70,7 @@ describe('a route insight row', () => {
     jest.restoreAllMocks();
   });
 
-  it.each([
+  vaultIt.each([
     ['light', false],
     ['dark', true],
   ])('strokes a faster route in the series colour in %s mode', (_mode, dark) => {
@@ -82,13 +82,13 @@ describe('a route insight row', () => {
     expect(lines[0].props.color).not.toBe(rowTrendColor(1, dark));
   });
 
-  it('strokes a slower route in the same series colour', () => {
+  vaultIt('strokes a slower route in the same series colour', () => {
     render(<RouteInsightContent insight={routeInsight(-1, [1490, 1520, 1580])} />);
     const lines = screen.UNSAFE_getAllByType(Path).filter((p) => p.props.style === 'stroke');
     expect(lines[0].props.color).toBe(colors.chartSeries);
   });
 
-  it('draws no area under the line', () => {
+  vaultIt('draws no area under the line', () => {
     render(<RouteInsightContent insight={routeInsight(1, [1620, 1580, 1545, 1490])} />);
     expect(screen.UNSAFE_queryAllByType(LinearGradient)).toHaveLength(0);
     expect(screen.UNSAFE_getAllByType(Path).every((p) => p.props.style === 'stroke')).toBe(true);
@@ -105,7 +105,7 @@ describe('a route insight row', () => {
     expect(latestEffortY()).toBeLessThan(28 / 2);
   });
 
-  it('draws a slower route falling, its latest and slowest effort at the foot', () => {
+  vaultIt('draws a slower route falling, its latest and slowest effort at the foot', () => {
     render(<RouteInsightContent insight={routeInsight(-1, [1490, 1520, 1580])} />);
     expect(latestEffortY()).toBeGreaterThan(28 / 2);
   });
@@ -122,12 +122,12 @@ describe('a route insight row', () => {
     ).toEqual(['24:50', '27:00']);
   });
 
-  it('speaks the range the line spans', () => {
+  vaultIt('speaks the range the line spans', () => {
     render(<RouteInsightContent insight={routeInsight(1, [1620, 1580, 1545, 1490])} />);
     expect(screen.getByRole('button').props.accessibilityLabel).toContain('24:50-27:00');
   });
 
-  it('draws no line and prints no range under three efforts', () => {
+  vaultIt('draws no line and prints no range under three efforts', () => {
     render(<RouteInsightContent insight={routeInsight(1, [1580, 1490])} />);
     expect(screen.UNSAFE_queryAllByType(Path)).toHaveLength(0);
     expect(screen.UNSAFE_queryAllByType(Circle)).toHaveLength(0);

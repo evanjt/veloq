@@ -143,7 +143,7 @@ describe('awaiting an activity body', () => {
     expect(engine.windowReads()).toBe(0);
   });
 
-  it('still reads one activity when the body lands after the request', async () => {
+  vaultIt('still reads one activity when the body lands after the request', async () => {
     const engine = fakeEngine();
     const pending = awaitActivityBody(engine, 'i-2');
     engine.land('i-2', { name: 'Later' });
@@ -172,7 +172,7 @@ describe('awaiting an activity body', () => {
     expect(await pending).toMatchObject({ name: 'Landed anyway' });
   });
 
-  it('reads null for an activity the engine has not got, without scanning', () => {
+  vaultIt('reads null for an activity the engine has not got, without scanning', () => {
     const engine = fakeEngine({ 'i-9': { id: 'i-9' } });
 
     expect(readStoredActivity(engine, 'i-1')).toBeNull();

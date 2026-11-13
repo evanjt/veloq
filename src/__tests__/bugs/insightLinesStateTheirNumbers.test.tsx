@@ -80,7 +80,7 @@ describe('the section record subtitle', () => {
     traversalCount: 9,
   };
 
-  it('joins the time and the day with a middle dot and names the day', () => {
+  vaultIt('joins the time and the day with a middle dot and names the day', () => {
     const [insight] = generateSectionPRInsights([record], Date.now(), t);
 
     expect(insight.subtitle).not.toContain(' - ');
@@ -88,13 +88,13 @@ describe('the section record subtitle', () => {
     expect(insight.subtitle).toBe('5:12 · Yesterday');
   });
 
-  it('names a record set today', () => {
+  vaultIt('names a record set today', () => {
     const [insight] = generateSectionPRInsights([{ ...record, daysAgo: 0 }], Date.now(), t);
 
     expect(insight.subtitle).toBe('5:12 · Today');
   });
 
-  it('dates the day from the moment the bundle was read', () => {
+  vaultIt('dates the day from the moment the bundle was read', () => {
     const now = Date.now() + 3 * TIME.DAY;
     const [insight] = generateSectionPRInsights([{ ...record, daysAgo: 3 }], now, t);
 
@@ -137,7 +137,7 @@ describe('the efficiency subtitle', () => {
     expect(`${insight.title}${insight.subtitle}${insight.body}`).not.toContain('++');
   });
 
-  it('carries the same signed value on its data row', () => {
+  vaultIt('carries the same signed value on its data row', () => {
     const [improving] = generateEfficiencyTrendInsights([trend({})], Date.now(), t);
     const row = improving.supportingData?.dataPoints?.find((point) => point.key === 'hrChange');
 

@@ -26,11 +26,11 @@ describe('the messages one device gets', () => {
     expect(visible.mutableContent).toBe(true);
   });
 
-  it('sends Android no visible push at all, so there is none to mark', () => {
+  vaultIt('sends Android no visible push at all, so there is none to mark', () => {
     expect(messages('android')).toHaveLength(1);
   });
 
-  it('leaves the silent push alone: a mutable content-available push is not a thing', () => {
+  vaultIt('leaves the silent push alone: a mutable content-available push is not a thing', () => {
     const sent = messages('ios');
     const silent = sent[sent.length - 1];
     expect(silent._contentAvailable).toBe(true);
@@ -61,7 +61,7 @@ describe('the messages one device gets', () => {
     expect(visible.data).toMatchObject({ activityId: 'a-1', route: '/activity/a-1' });
   });
 
-  it('omits the deep link when the event names no activity', () => {
+  vaultIt('omits the deep link when the event names no activity', () => {
     const [visible] = buildPushMessages(TOKEN, {}, VISIBLE, 'ios');
     expect(visible.data).toEqual({});
   });

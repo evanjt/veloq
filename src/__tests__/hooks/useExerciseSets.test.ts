@@ -133,7 +133,7 @@ it('ignores a parse announced for another activity', async () => {
   expect(engine.getExerciseSets).toHaveBeenCalledTimes(reads);
 });
 
-it('makes no engine call between the request and the announcement', async () => {
+vaultIt('makes no engine call between the request and the announcement', async () => {
   jest.useFakeTimers();
   try {
     const { result } = await renderHook(() => useExerciseSets('act1', 'WeightTraining'), {
@@ -155,7 +155,7 @@ it('makes no engine call between the request and the announcement', async () => 
   }
 });
 
-it('stops listening once the card unmounts', async () => {
+vaultIt('stops listening once the card unmounts', async () => {
   const { unmount } = await renderHook(() => useExerciseSets('act1', 'WeightTraining'), {
     wrapper,
   });

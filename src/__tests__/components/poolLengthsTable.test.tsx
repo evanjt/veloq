@@ -111,7 +111,7 @@ describe('the lengths of a pool swim', () => {
     expect(screen.queryByTestId('pool-length-row-5')).toBeNull();
   });
 
-  it('names the pool length in the header', async () => {
+  vaultIt('names the pool length in the header', async () => {
     await render(<PoolLengthsTable poolSwim={read} />);
 
     expect(screen.getByText('25 m pool')).toBeTruthy();

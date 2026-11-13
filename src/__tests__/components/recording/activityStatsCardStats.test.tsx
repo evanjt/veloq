@@ -52,7 +52,7 @@ describe('ActivityStatsCard', () => {
     expect(getByText('recording.fields.avgSpeed')).toBeTruthy();
   });
 
-  it('labels the climb as elevation gain', async () => {
+  vaultIt('labels the climb as elevation gain', async () => {
     const { getByText, queryByText } = await renderCard(PAUSED_RIDE);
     expect(getByText('recording.fields.elevationGain')).toBeTruthy();
     expect(queryByText('recording.elevation')).toBeNull();
@@ -66,7 +66,7 @@ describe('ActivityStatsCard', () => {
     expect(queryByText('recording.fields.avgSpeed')).toBeNull();
   });
 
-  it('leaves out elapsed time and averages that were never recorded', async () => {
+  vaultIt('leaves out elapsed time and averages that were never recorded', async () => {
     const bare: ActivitySummary = {
       ...PAUSED_RIDE,
       elapsed: 3600,

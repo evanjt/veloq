@@ -73,7 +73,7 @@ describe('useSectionAutoToggle', () => {
     expect(setShowSections).not.toHaveBeenCalled();
   });
 
-  it('never shows sections on a zoom in while they are switched off', async () => {
+  vaultIt('never shows sections on a zoom in while they are switched off', async () => {
     const { result, setShowSections } = await setup(false, false, false);
 
     await act(() => {
@@ -136,7 +136,7 @@ describe('useSectionAutoToggle', () => {
     }
   );
 
-  it('clears a pending auto-toggle on unmount', async () => {
+  vaultIt('clears a pending auto-toggle on unmount', async () => {
     const setShowSections = jest.fn();
     const view = await renderHook(() =>
       useSectionAutoToggle({

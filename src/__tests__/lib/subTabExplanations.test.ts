@@ -59,7 +59,7 @@ describe('the Insights explanation', () => {
     }
   });
 
-  it('labels each kind and says what it means', () => {
+  vaultIt('labels each kind and says what it means', () => {
     for (const row of explanation.rows.filter((r) => r.key.startsWith('kind:'))) {
       const kind = row.key.slice('kind:'.length);
       expect(row.label).toBe(`insights.explanation.kinds.${kind}.label`);
@@ -67,7 +67,7 @@ describe('the Insights explanation', () => {
     }
   });
 
-  it('says how insights are found first, and carries no disclaimer row', () => {
+  vaultIt('says how insights are found first, and carries no disclaimer row', () => {
     expect(explanation.rows[0]).toEqual({
       key: 'found',
       label: 'insights.explanation.foundLabel',
@@ -76,7 +76,7 @@ describe('the Insights explanation', () => {
     expect(rowKeys(explanation.rows)).not.toContain('disclaimer');
   });
 
-  it('says where the numbers come from, and leaves the ordering to the header', () => {
+  vaultIt('says where the numbers come from, and leaves the ordering to the header', () => {
     const byKey = new Map(explanation.rows.map((row) => [row.key, row]));
     expect(byKey.has('order')).toBe(false);
     expect(explanation.rows.map((row) => row.text)).not.toContain('insights.aboutRanking');
@@ -89,7 +89,7 @@ describe('the Insights explanation', () => {
 });
 
 describe('the Strength, Routes and Sections explanations', () => {
-  it('Strength says how sets are weighted and where the data comes from', () => {
+  vaultIt('Strength says how sets are weighted and where the data comes from', () => {
     const explanation = strengthExplanation(t);
     expect(explanation.title).toBe('insights.explanation.strengthTitle');
     expect(explanation.rows).toEqual([
@@ -98,7 +98,7 @@ describe('the Strength, Routes and Sections explanations', () => {
     ]);
   });
 
-  it('Routes says what a route is and where its numbers come from', () => {
+  vaultIt('Routes says what a route is and where its numbers come from', () => {
     const explanation = routesExplanation(t);
     expect(explanation.title).toBe('routes.explanation.routesTitle');
     expect(explanation.rows).toEqual([
@@ -115,7 +115,7 @@ describe('the Strength, Routes and Sections explanations', () => {
     ]);
   });
 
-  it('Sections says what a section is and where its numbers come from', () => {
+  vaultIt('Sections says what a section is and where its numbers come from', () => {
     const explanation = sectionsExplanation(t);
     expect(explanation.title).toBe('routes.explanation.sectionsTitle');
     expect(explanation.rows).toEqual([
@@ -134,7 +134,7 @@ describe('the Strength, Routes and Sections explanations', () => {
 });
 
 describe('the explanations in every locale', () => {
-  it.each(locales)('%s reads every line as text, never as a key', async (locale) => {
+  vaultIt.each(locales)('%s reads every line as text, never as a key', async (locale) => {
     await initialiseI18n(locale);
     const real = i18n.t.bind(i18n) as unknown as typeof t;
     const explanations = [

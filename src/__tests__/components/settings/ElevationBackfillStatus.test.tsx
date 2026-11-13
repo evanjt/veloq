@@ -99,28 +99,28 @@ describe('ElevationBackfillStatus retry line', () => {
     await changeLanguage('en-AU');
   });
 
-  it('reads as a singular when one track failed', async () => {
+  vaultIt('reads as a singular when one track failed', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(1));
     expect(await statusText()).toBe(
       "1 activity track couldn't be updated. It'll get another go later."
     );
   });
 
-  it('reads as a plural when more than one track failed', async () => {
+  vaultIt('reads as a plural when more than one track failed', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(4));
     expect(await statusText()).toBe(
       "4 activity tracks couldn't be updated. They'll get another go later."
     );
   });
 
-  it('drops the count entirely when nothing failed', async () => {
+  vaultIt('drops the count entirely when nothing failed', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(0));
     expect(await statusText()).toBe(
       "Some activity tracks still need elevation. They'll get another go later."
     );
   });
 
-  it('pluralises in every locale, never leaving a raw placeholder', async () => {
+  vaultIt('pluralises in every locale, never leaving a raw placeholder', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(1));
     for (const locale of ['fr', 'de-DE', 'ja', 'pl', 'zh-Hans'] as const) {
       await changeLanguage(locale);
@@ -147,7 +147,7 @@ describe('ElevationBackfillStatus explanation', () => {
     mockOpenExplainer.mockClear();
   });
 
-  it('says what waits on the download while it runs', async () => {
+  vaultIt('says what waits on the download while it runs', async () => {
     mockUseElevationBackfill.mockReturnValue({
       phase: 'fetching',
       completed: 3,
@@ -162,14 +162,14 @@ describe('ElevationBackfillStatus explanation', () => {
     );
   });
 
-  it('still says it when the run stopped part way, since the wait is not over', async () => {
+  vaultIt('still says it when the run stopped part way, since the wait is not over', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(2));
     const tree = await render(<ElevationBackfillStatus />);
 
     expect(tree.queryByTestId('elevation-backfill-explainer')).not.toBeNull();
   });
 
-  it('drops the line once every track has elevation', async () => {
+  vaultIt('drops the line once every track has elevation', async () => {
     mockUseElevationBackfill.mockReturnValue({
       phase: 'complete',
       completed: 10,
@@ -183,7 +183,7 @@ describe('ElevationBackfillStatus explanation', () => {
     expect(tree.queryByTestId('elevation-backfill-why')).not.toBeNull();
   });
 
-  it('shows nothing at all while the phase is idle', async () => {
+  vaultIt('shows nothing at all while the phase is idle', async () => {
     mockUseElevationBackfill.mockReturnValue({
       phase: 'idle',
       completed: 0,
@@ -197,7 +197,7 @@ describe('ElevationBackfillStatus explanation', () => {
     expect(tree.queryByTestId('elevation-backfill-explainer')).toBeNull();
   });
 
-  it('opens the Why explanation in the explainer sheet from the control', async () => {
+  vaultIt('opens the Why explanation in the explainer sheet from the control', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(0));
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const tree = await render(<ElevationBackfillStatus />);
@@ -215,7 +215,7 @@ describe('ElevationBackfillStatus explanation', () => {
     alertSpy.mockRestore();
   });
 
-  it('translates the explanation rather than falling back to English', async () => {
+  vaultIt('translates the explanation rather than falling back to English', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(0));
     for (const locale of ['fr', 'de-DE', 'ja', 'pl', 'zh-Hans'] as const) {
       await changeLanguage(locale);
@@ -245,17 +245,17 @@ describe('ElevationBackfillStatus at rest', () => {
     await changeLanguage('en-AU');
   });
 
-  it('names what is still outstanding', async () => {
+  vaultIt('names what is still outstanding', async () => {
     mockUseElevationBackfill.mockReturnValue(atRest(12));
     expect(await statusText()).toBe('12 activity tracks still need elevation.');
   });
 
-  it('reads as a singular for one track', async () => {
+  vaultIt('reads as a singular for one track', async () => {
     mockUseElevationBackfill.mockReturnValue(atRest(1));
     expect(await statusText()).toBe('1 activity track still needs elevation.');
   });
 
-  it('says nothing when nothing is outstanding', async () => {
+  vaultIt('says nothing when nothing is outstanding', async () => {
     mockUseElevationBackfill.mockReturnValue(atRest(0));
     const tree = await render(<ElevationBackfillStatus />);
     expect(tree.queryByTestId('elevation-backfill-status')).toBeNull();
@@ -267,7 +267,7 @@ describe('ElevationBackfillStatus at rest', () => {
     expect(tree.queryByTestId('elevation-backfill-status')).toBeNull();
   });
 
-  it('leaves a live pass reporting its own progress', async () => {
+  vaultIt('leaves a live pass reporting its own progress', async () => {
     mockUseElevationBackfill.mockReturnValue({
       phase: 'fetching',
       completed: 3,
@@ -330,14 +330,17 @@ describe('ElevationBackfillStatus pause', () => {
     expect(mockPauseElevationBackfill).toHaveBeenCalledTimes(1);
   });
 
-  it('offers a pause at rest with work outstanding, since the next pass is armed', async () => {
-    mockUseElevationBackfill.mockReturnValue(atRest(12));
-    const tree = await render(<ElevationBackfillStatus />);
+  vaultIt(
+    'offers a pause at rest with work outstanding, since the next pass is armed',
+    async () => {
+      mockUseElevationBackfill.mockReturnValue(atRest(12));
+      const tree = await render(<ElevationBackfillStatus />);
 
-    expect(tree.queryByTestId('elevation-backfill-pause')).not.toBeNull();
-  });
+      expect(tree.queryByTestId('elevation-backfill-pause')).not.toBeNull();
+    }
+  );
 
-  it('says the download is paused and names the switch needed to continue', async () => {
+  vaultIt('says the download is paused and names the switch needed to continue', async () => {
     mockUseElevationBackfill.mockReturnValue(paused());
     const tree = await render(<ElevationBackfillStatus />);
 
@@ -363,7 +366,7 @@ describe('ElevationBackfillStatus pause', () => {
     expect(mockPauseElevationBackfill).not.toHaveBeenCalled();
   });
 
-  it('offers a resume even where the phase has moved off paused', async () => {
+  vaultIt('offers a resume even where the phase has moved off paused', async () => {
     mockUseElevationBackfill.mockReturnValue({ ...atRest(12), isPaused: true });
     const tree = await render(<ElevationBackfillStatus />);
 
@@ -371,14 +374,14 @@ describe('ElevationBackfillStatus pause', () => {
     expect(tree.queryByTestId('elevation-backfill-pause')).toBeNull();
   });
 
-  it('offers no resume while nothing is paused', async () => {
+  vaultIt('offers no resume while nothing is paused', async () => {
     mockUseElevationBackfill.mockReturnValue(running());
     const tree = await render(<ElevationBackfillStatus />);
 
     expect(tree.queryByTestId('elevation-backfill-resume')).toBeNull();
   });
 
-  it('offers no pause once every track has elevation', async () => {
+  vaultIt('offers no pause once every track has elevation', async () => {
     mockUseElevationBackfill.mockReturnValue({
       phase: 'complete',
       completed: 10,
@@ -393,7 +396,7 @@ describe('ElevationBackfillStatus pause', () => {
     expect(tree.queryByTestId('elevation-backfill-pause')).toBeNull();
   });
 
-  it('reads the paused line in every locale without a raw placeholder', async () => {
+  vaultIt('reads the paused line in every locale without a raw placeholder', async () => {
     mockUseElevationBackfill.mockReturnValue(paused());
     for (const locale of ['fr', 'de-DE', 'ja', 'pl', 'zh-Hans'] as const) {
       await changeLanguage(locale);
@@ -410,7 +413,7 @@ describe('ElevationBackfillStatus pause', () => {
  * says that. No caller ever read the answer.
  */
 describe('the pause call', () => {
-  it('answers nothing, because the phase is what says it is paused', () => {
+  vaultIt('answers nothing, because the phase is what says it is paused', () => {
     const { pauseElevationBackfill } =
       require('../../../../modules/veloqrs/src/delegates/elevation') as typeof import('../../../../modules/veloqrs/src/delegates/elevation');
     const host = {

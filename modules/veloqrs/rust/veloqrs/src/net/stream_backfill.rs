@@ -1158,6 +1158,7 @@ mod tests {
     /// Expected behaviour: a request the budget held back says nothing about
     /// the activity, so it is never counted as an ask for it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_deferral_is_never_held_against_the_activity() {
         let deferred = NetError::Deferred {
             until: chrono::Utc::now(),
@@ -1173,6 +1174,7 @@ mod tests {
     /// lifts, asks no further batch, and counts nothing toward the failures
     /// in a row or the pass's failures.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refused_batch_stops_the_walk_and_counts_nothing() {
         let until = chrono::Utc::now() + chrono::TimeDelta::minutes(10);
         let mut asked = 0usize;
@@ -1209,6 +1211,7 @@ mod tests {
     /// between batches, so the walk takes at least two gaps, and still asks
     /// every activity.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_interacting_athlete_widens_the_gap_between_batches() {
         use crate::net::pacing;
         let _serial = crate::test_globals::serial_global_state();
@@ -1277,6 +1280,7 @@ mod tests {
     /// the elevation backfill or a cutover still has work, or the athlete
     /// stopped the pass and the window has not changed since.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_automatic_start_waits_for_what_the_cutover_waits_on() {
         let idle = AutostartInputs {
             owed: 245,
@@ -1330,6 +1334,7 @@ mod tests {
     /// never drains. A cutover already running is still waited out, and with
     /// the switch back on the order is elevation, cutover, then series.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn with_route_matching_off_the_automatic_start_waits_for_nothing_that_will_not_run() {
         let off = AutostartInputs {
             owed: 10,
@@ -1389,6 +1394,7 @@ mod tests {
     /// still has tracks to ask for their series, and a yes still waits for
     /// that work before the pass itself starts.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_queue_past_the_large_download_threshold_asks_before_it_starts() {
         let at = AutostartInputs {
             owed: STREAM_CONSENT_THRESHOLD as u64,
@@ -1443,6 +1449,7 @@ mod tests {
     /// rather than behind it. Past the threshold with a yes the deferral
     /// stays, and a pending or running cutover is still waited out.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn at_or_under_the_threshold_the_series_pass_does_not_wait_for_elevation() {
         let upgraded = AutostartInputs {
             owed: STREAM_CONSENT_THRESHOLD as u64,
@@ -1469,6 +1476,7 @@ mod tests {
     /// Expected behaviour: the series pass leaves those activities out of its
     /// walk and keeps the rest in order.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_series_walk_leaves_out_what_the_elevation_pass_asks() {
         let queue = gaps(4);
         let covered = [queue[1].activity_id.clone(), queue[3].activity_id.clone()];
@@ -1488,6 +1496,7 @@ mod tests {
     /// past the threshold it waits for a yes, and at or under it, or with a
     /// yes, it is granted.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_series_permission_is_the_athletes_answers_alone() {
         let threshold = STREAM_CONSENT_THRESHOLD as u64;
         assert_eq!(series_permission(1, true, true), SeriesPermission::Held);
@@ -1510,6 +1519,7 @@ mod tests {
     /// Expected behaviour: listed series' samples are priced at the per-series
     /// rate and unlisted moving seconds at the flat rate, and the two add.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_estimate_prices_samples_and_unlisted_seconds_at_their_rates() {
         assert_eq!(estimate_bytes(0, 0), 0);
         assert_eq!(estimate_bytes(0, 1000), 1000 * WIRE_BYTES_PER_MOVING_SECOND);
@@ -1536,6 +1546,7 @@ mod tests {
     /// Expected behaviour: a stop while the pass is held holds the automatic
     /// start until the window changes and reads as stopped, not as still asking.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn stopping_a_held_pass_is_the_no_and_holds_the_automatic_start() {
         let _serial = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1556,6 +1567,7 @@ mod tests {
     /// the elevation pass and never reads deferred; off, it asks for the pass
     /// all the same.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_automatic_start_says_it_defers_and_stops_deferring_with_route_matching_off() {
         let _serial = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1599,6 +1611,7 @@ mod tests {
     /// Expected behaviour: the no outlives the process, so the automatic start
     /// stays quiet and does not ask again; a changed window asks again.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn not_now_survives_a_relaunch_until_the_window_changes() {
         let _serial = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1644,6 +1657,7 @@ mod tests {
     /// Expected behaviour: the yes is recorded for later automatic starts, the
     /// ask is cleared, and no second pass starts beside the elevation one.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_yes_given_while_elevation_is_owed_is_recorded_and_starts_nothing() {
         let _serial = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1673,6 +1687,7 @@ mod tests {
     /// Expected behaviour: the stop holds the automatic start until the window
     /// changes, and a stop with no pass running holds nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stop_holds_the_automatic_start_until_the_window_changes() {
         let _serial = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1696,6 +1711,7 @@ mod tests {
     /// Expected behaviour: the walk ends at the next batch boundary and the
     /// activities behind it are never fetched.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_restore_mid_walk_ends_it_before_the_next_batch() {
         let queue = gaps(BATCH * 3);
         let asked = std::cell::Cell::new(0usize);
@@ -1730,6 +1746,7 @@ mod tests {
     /// activities behind it are never asked and the ones already stored stay
     /// stored.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stop_leaves_the_rest_of_the_queue_unasked() {
         let queue = gaps(BATCH * 3);
 
@@ -1753,6 +1770,7 @@ mod tests {
     /// flag when it starts, and would otherwise clear this stop before it is
     /// read.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_walk_nobody_stopped_ignores_another_pass_cancel() {
         let _serial = crate::test_globals::serial_global_state();
         let queue = gaps(BATCH * 2);
@@ -1774,6 +1792,7 @@ mod tests {
     /// A rejected credential rejects every remaining request too, so spending
     /// the rest of the library on 401s helps nobody.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rejected_credential_ends_the_pass_at_that_batch() {
         let queue = gaps(BATCH * 3);
 
@@ -1786,6 +1805,7 @@ mod tests {
     /// A whole batch that came back with nothing to work with is the connection
     /// being gone, which no partial outage produces.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_batch_of_connection_failures_ends_the_pass() {
         let queue = gaps(BATCH * 3);
 
@@ -1807,6 +1827,7 @@ mod tests {
     ///
     /// Expected behaviour: an answer about one activity never ends the pass.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_404_answers_for_one_activity_and_does_not_wedge_the_queue() {
         let queue = gaps(BATCH * 2);
 
@@ -1848,6 +1869,7 @@ mod tests {
     /// `STREAM_ATTEMPT_LIMIT` passes it leaves the queue and the backfill can
     /// report finished.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_answer_about_one_activity_retires_it_after_the_attempt_limit() {
         for status in [404, 410, 422] {
             let (_dir, mut engine) = engine_holding("a1");
@@ -1891,6 +1913,7 @@ mod tests {
     /// leaves the queue on the first answer, however many passes follow, and
     /// does not count as retired.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_403_withholds_the_series_without_counting_an_attempt() {
         let (_dir, mut engine) = engine_holding("a1");
         engine.apply_stream_batch(&refused(403));
@@ -1913,6 +1936,7 @@ mod tests {
     /// never recorded, it stays out. The athlete asking again frees the
     /// withheld ones alone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_new_upstream_version_asks_a_withheld_or_retired_series_again() {
         for status in [403, 404] {
             let (_dir, mut engine) = engine_holding("a1");
@@ -1930,6 +1954,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn asking_again_frees_the_withheld_series_and_not_the_retired() {
         let (_dir, mut engine) = engine_holding("a1");
         engine.apply_stream_batch(&refused(403));
@@ -1949,6 +1974,7 @@ mod tests {
     /// Expected behaviour: nothing is said about the activity, so it stays
     /// owed however many passes fail this way.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failure_that_says_nothing_about_the_activity_never_retires_it() {
         let failures = || {
             vec![
@@ -1990,6 +2016,7 @@ mod tests {
     /// path with the detail screen's full set of types, and the answer comes
     /// back reduced to the stored track ready to store.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn one_activity_is_asked_for_with_the_detail_types() {
         use crate::governor::{AuthMethod, Governor, NoopPolicy};
         use httpmock::prelude::*;
@@ -2038,6 +2065,7 @@ mod tests {
     /// response without them has no mask, so nothing in it can be addressed
     /// against the stored track.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_response_without_coordinates_has_no_index_space_to_store_in() {
         let body = body(&[("watts", "[100,110,120]")]);
 
@@ -2065,6 +2093,7 @@ mod tests {
     /// upstream answering with nothing to store, so the ask is counted. So is
     /// one that now carries coordinates: that track is the track fetch's.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_trackless_answer_with_nothing_beyond_its_clock_stores_nothing() {
         for series in [
             vec![("time", "[0,1,2]")],
@@ -2090,6 +2119,7 @@ mod tests {
     /// must read as upstream answering, so the ask is counted and the activity
     /// eventually retires, rather than as a failure that is retried for ever.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ride_with_no_sensors_reads_as_an_answer_not_a_failure() {
         let body = body(&[("latlng", &latlng(3))]);
 
@@ -2098,6 +2128,7 @@ mod tests {
 
     /// An empty queue is finished, not stalled at zero per cent.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_queue_reads_as_finished() {
         let snapshot = StreamBackfillSnapshot {
             phase: STREAM_PHASE_COMPLETE,
@@ -2115,6 +2146,7 @@ mod tests {
     /// Progress never reads past the end, even when a pass counts more
     /// activities finished than it queued.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn progress_is_whole_percent_and_capped_at_the_queue() {
         let snapshot = |completed, total| StreamBackfillSnapshot {
             phase: STREAM_PHASE_FETCHING,
@@ -2372,6 +2404,7 @@ mod tests {
         /// same after the engine is reopened. A pass that is refused the slot
         /// records nothing.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_pass_records_its_last_run() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -2414,6 +2447,7 @@ mod tests {
         ///
         /// Expected behaviour: nothing can be recorded and nothing panics.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_pass_with_no_engine_records_nothing_and_does_not_panic() {
             let _serial = serial_global_state();
             crate::persistence::clear_persistent_engine();
@@ -2428,6 +2462,7 @@ mod tests {
         /// `STREAM_ATTEMPT_LIMIT` passes, after which a pass has nothing to
         /// ask and a start reports the job as not owed rather than starting.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_ride_with_no_sensors_retires_after_the_attempt_limit() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -2465,6 +2500,7 @@ mod tests {
         /// rejection is checked against the profile before anyone is signed
         /// out, and nothing is counted against the activity.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_rejected_credential_fails_the_pass_and_is_confirmed_against_the_profile() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -2491,6 +2527,7 @@ mod tests {
         /// A pass that starts while TypeScript says the network is gone asks
         /// nothing and ends partial, so the whole queue is still owed.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_pass_that_starts_offline_asks_nothing_and_ends_partial() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -2524,6 +2561,7 @@ mod tests {
         /// Expected behaviour: the pass reports waiting, with the time it
         /// resumes equal to the deferral's own.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_pass_the_allowance_defers_reports_when_it_resumes() {
             use crate::governor::{Allowance, Budget, Intent, SYNC_ALLOWANCE};
             fn noon() -> chrono::DateTime<chrono::Utc> {
@@ -2578,6 +2616,7 @@ mod tests {
         /// Expected behaviour: both are refused without asking upstream, and
         /// the slot is free again the moment its holder is dropped.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_second_pass_is_refused_while_one_holds_the_slot() {
             let _serial = serial_global_state();
             connectivity::reset();
@@ -2606,6 +2645,7 @@ mod tests {
         /// With no engine there is no queue to read, so a pass fails and a
         /// start says not ready rather than reporting the job finished.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn without_an_engine_a_pass_fails_and_a_start_is_not_ready() {
             let _serial = serial_global_state();
             // The pool goes too: a start counts through it, and one an earlier
@@ -2627,6 +2667,7 @@ mod tests {
         /// Expected behaviour: each start names its refusal, and neither
         /// leaves the slot held, so the next start is not refused as busy.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_start_names_offline_and_a_missing_credential_and_frees_the_slot() {
             let _serial = serial_global_state();
             connectivity::reset();

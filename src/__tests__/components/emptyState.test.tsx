@@ -22,14 +22,14 @@ let mockIsDark = false;
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
 
 describe('EmptyState inline', () => {
-  it('draws no icon disc', () => {
+  vaultIt('draws no icon disc', () => {
     const screen = render(<EmptyState variant="inline" title="No laps" />);
 
     expect(screen.getByTestId('empty-state')).toBeTruthy();
     expect(screen.queryByTestId('empty-state-icon')).toBeNull();
   });
 
-  it('sets the title on bodySmall at 600 and the hint on caption', () => {
+  vaultIt('sets the title on bodySmall at 600 and the hint on caption', () => {
     const screen = render(
       <EmptyState variant="inline" title="No laps" description="Laps appear after a ride" />
     );
@@ -42,13 +42,13 @@ describe('EmptyState inline', () => {
     expect(hint.fontSize).toBe(typography.caption.fontSize);
   });
 
-  it('draws no hint when there is none', () => {
+  vaultIt('draws no hint when there is none', () => {
     const screen = render(<EmptyState variant="inline" title="No laps" />);
 
     expect(screen.queryByTestId('empty-state-description')).toBeNull();
   });
 
-  it('offers its action and calls back on a press', () => {
+  vaultIt('offers its action and calls back on a press', () => {
     const onAction = jest.fn();
     const screen = render(
       <EmptyState variant="inline" title="No laps" actionLabel="Scan" onAction={onAction} />
@@ -58,13 +58,13 @@ describe('EmptyState inline', () => {
     expect(onAction).toHaveBeenCalledTimes(1);
   });
 
-  it('draws no action for a label with no callback', () => {
+  vaultIt('draws no action for a label with no callback', () => {
     const screen = render(<EmptyState variant="inline" title="No laps" actionLabel="Scan" />);
 
     expect(screen.queryByText('Scan')).toBeNull();
   });
 
-  it('prefixes its parts with a caller testID', () => {
+  vaultIt('prefixes its parts with a caller testID', () => {
     const screen = render(<EmptyState variant="inline" title="No laps" testID="laps-empty" />);
 
     expect(screen.getByTestId('laps-empty')).toBeTruthy();
@@ -74,7 +74,7 @@ describe('EmptyState inline', () => {
 });
 
 describe('EmptyState with a disc', () => {
-  it.each(['screen', 'compact'] as const)('the %s form draws its icon disc', (variant) => {
+  vaultIt.each(['screen', 'compact'] as const)('the %s form draws its icon disc', (variant) => {
     const screen = render(<EmptyState variant={variant} icon="map-outline" title="No maps" />);
 
     expect(screen.getByTestId('empty-state-icon')).toBeTruthy();
@@ -99,7 +99,7 @@ describe('EmptyState with a disc', () => {
     expect(onAction).not.toHaveBeenCalled();
   });
 
-  it('is the screen form when no variant is named', () => {
+  vaultIt('is the screen form when no variant is named', () => {
     const screen = render(<EmptyState icon="map-outline" title="No maps" />);
 
     const disc = StyleSheet.flatten(screen.getByTestId('empty-state-icon').props.style);
@@ -112,7 +112,7 @@ describe('EmptyState disc colours', () => {
     mockIsDark = false;
   });
 
-  it.each([
+  vaultIt.each([
     ['light', false],
     ['dark', true],
   ] as const)('the %s disc is the neutral fill and its icon the muted icon role', (_, isDark) => {
@@ -125,7 +125,7 @@ describe('EmptyState disc colours', () => {
     expect(screen.UNSAFE_getByType(Icon).props.color).toBe(palette.iconMuted);
   });
 
-  it('draws the screen title on statsValue and the compact hint on bodyCompact', () => {
+  vaultIt('draws the screen title on statsValue and the compact hint on bodyCompact', () => {
     const screen = render(
       <EmptyState variant="screen" icon="map-outline" title="No maps" description="Ride first" />
     );

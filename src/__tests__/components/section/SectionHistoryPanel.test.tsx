@@ -78,7 +78,7 @@ async function renderPanel(
 }
 
 describe('SectionHistoryPanel', () => {
-  it('titles the panel as a heading', async () => {
+  vaultIt('titles the panel as a heading', async () => {
     const { getByRole } = await renderPanel();
     expect(getByRole('header', { name: 'sectionHistory.title' })).toBeTruthy();
   });
@@ -126,7 +126,7 @@ describe('SectionHistoryPanel', () => {
     expect(getAllByText('sectionHistory.prMoved:10:00,9:40')).toHaveLength(1);
   });
 
-  it('opens the activity a chip names', async () => {
+  vaultIt('opens the activity a chip names', async () => {
     const { getByTestId } = await renderPanel();
     await fireEvent.press(getByTestId('section-history-around-2-act_b'));
     expect(router.push).toHaveBeenCalledWith('/activity/act_b');
@@ -151,29 +151,32 @@ describe('SectionHistoryPanel', () => {
     expect(pinned.getByTestId('section-version-2-revert')).toBeTruthy();
   });
 
-  it('says so when nothing is recorded', async () => {
+  vaultIt('says so when nothing is recorded', async () => {
     const { getByTestId } = await renderPanel({ history: [], versions: [] });
     expect(getByTestId('empty-state-title').props.children).toBe('sectionHistory.empty');
   });
 
-  it('shows a translated line for a reference_anchored event, by whether the line moved', async () => {
-    const event = (id: number, moved: boolean) => ({
-      id,
-      at: '2026-08-23 00:00:00',
-      kind: 'reference_anchored',
-      details: details({ moved }),
-      geometryVersion: 2,
-    });
-    const { getByText, queryByText } = await renderPanel({
-      history: [event(6, true), event(7, false)],
-    });
+  vaultIt(
+    'shows a translated line for a reference_anchored event, by whether the line moved',
+    async () => {
+      const event = (id: number, moved: boolean) => ({
+        id,
+        at: '2026-08-23 00:00:00',
+        kind: 'reference_anchored',
+        details: details({ moved }),
+        geometryVersion: 2,
+      });
+      const { getByText, queryByText } = await renderPanel({
+        history: [event(6, true), event(7, false)],
+      });
 
-    expect(getByText('sectionHistory.kind_reference_anchored')).toBeTruthy();
-    expect(getByText('sectionHistory.kind_reference_anchored_in_place')).toBeTruthy();
-    expect(queryByText('reference_anchored')).toBeNull();
-  });
+      expect(getByText('sectionHistory.kind_reference_anchored')).toBeTruthy();
+      expect(getByText('sectionHistory.kind_reference_anchored_in_place')).toBeTruthy();
+      expect(queryByText('reference_anchored')).toBeNull();
+    }
+  );
 
-  it('links a split child to its named parent', async () => {
+  vaultIt('links a split child to its named parent', async () => {
     const { getByTestId, getByText } = await renderPanel({
       history: [
         {
@@ -195,36 +198,39 @@ describe('SectionHistoryPanel', () => {
     expect(router.push).toHaveBeenCalledWith('/section/parent');
   });
 
-  it('links every split child using the engine display name, including nested names', async () => {
-    const { getByTestId, getByText } = await renderPanel({
-      history: [
-        {
-          id: 5,
-          at: '2026-08-22 00:00:00',
-          kind: 'split',
-          details: details({
-            siblings: ['child-1', 'child-2'],
-            splitInto: [
-              { id: 'child-1', name: 'Col de la Croix / 1', available: true },
-              { id: 'child-2', name: 'Col de la Croix / 1 / 2', available: true },
-            ],
-          }),
-          geometryVersion: null,
-        },
-      ],
-    });
+  vaultIt(
+    'links every split child using the engine display name, including nested names',
+    async () => {
+      const { getByTestId, getByText } = await renderPanel({
+        history: [
+          {
+            id: 5,
+            at: '2026-08-22 00:00:00',
+            kind: 'split',
+            details: details({
+              siblings: ['child-1', 'child-2'],
+              splitInto: [
+                { id: 'child-1', name: 'Col de la Croix / 1', available: true },
+                { id: 'child-2', name: 'Col de la Croix / 1 / 2', available: true },
+              ],
+            }),
+            geometryVersion: null,
+          },
+        ],
+      });
 
-    expect(getByText('sectionHistory.splitInto')).toBeTruthy();
-    expect(getByTestId('section-history-split-into-child-1')).toHaveTextContent(
-      'Col de la Croix / 1'
-    );
-    const nested = getByTestId('section-history-split-into-child-2');
-    expect(nested).toHaveTextContent('Col de la Croix / 1 / 2');
-    await fireEvent.press(nested);
-    expect(router.push).toHaveBeenCalledWith('/section/child-2');
-  });
+      expect(getByText('sectionHistory.splitInto')).toBeTruthy();
+      expect(getByTestId('section-history-split-into-child-1')).toHaveTextContent(
+        'Col de la Croix / 1'
+      );
+      const nested = getByTestId('section-history-split-into-child-2');
+      expect(nested).toHaveTextContent('Col de la Croix / 1 / 2');
+      await fireEvent.press(nested);
+      expect(router.push).toHaveBeenCalledWith('/section/child-2');
+    }
+  );
 
-  it('shows an unavailable split target without navigation', async () => {
+  vaultIt('shows an unavailable split target without navigation', async () => {
     const { getByTestId } = await renderPanel({
       history: [
         {
@@ -252,7 +258,7 @@ describe('SectionHistoryPanel', () => {
  * not the label.
  */
 describe('the activity chips', () => {
-  it('draws the name when the engine knows one', async () => {
+  vaultIt('draws the name when the engine knows one', async () => {
     const { getByTestId } = await renderPanel({
       activityNames: { act_a: 'Sunday hills', act_b: 'Commute home' },
     });
@@ -261,25 +267,25 @@ describe('the activity chips', () => {
     expect(getByTestId('section-history-around-2-act_b')).toHaveTextContent('Commute home');
   });
 
-  it('falls back to the id for an activity it has no name for', async () => {
+  vaultIt('falls back to the id for an activity it has no name for', async () => {
     const { getByTestId } = await renderPanel({ activityNames: { act_a: 'Sunday hills' } });
 
     expect(getByTestId('section-history-around-2-act_b')).toHaveTextContent('act_b');
   });
 
-  it('falls back to the id when no names were passed at all', async () => {
+  vaultIt('falls back to the id when no names were passed at all', async () => {
     const { getByTestId } = await renderPanel();
 
     expect(getByTestId('section-history-around-2-act_a')).toHaveTextContent('act_a');
   });
 
-  it('treats a blank name as no name', async () => {
+  vaultIt('treats a blank name as no name', async () => {
     const { getByTestId } = await renderPanel({ activityNames: { act_a: '   ' } });
 
     expect(getByTestId('section-history-around-2-act_a')).toHaveTextContent('act_a');
   });
 
-  it('still navigates by id, whatever the chip says', async () => {
+  vaultIt('still navigates by id, whatever the chip says', async () => {
     const { getByTestId } = await renderPanel({ activityNames: { act_a: 'Sunday hills' } });
 
     await fireEvent.press(getByTestId('section-history-around-2-act_a'));
@@ -295,7 +301,7 @@ describe('the activity chips', () => {
  * a screen reader reaches it as a button by its name.
  */
 describe('SectionHistoryPanel actions', () => {
-  it('draws unpin, show and revert as Buttons named by their labels', async () => {
+  vaultIt('draws unpin, show and revert as Buttons named by their labels', async () => {
     const { getByTestId, getByRole } = await renderPanel({ pinnedVersion: 2 });
     expect(getByTestId('section-history-unpin-label')).toHaveTextContent('sectionHistory.unpin');
     expect(getByRole('button', { name: 'sectionHistory.unpin' })).toBe(
@@ -312,7 +318,7 @@ describe('SectionHistoryPanel actions', () => {
     );
   });
 
-  it('draws each activity chip as a Button named by the activity', async () => {
+  vaultIt('draws each activity chip as a Button named by the activity', async () => {
     const { getByTestId, getByRole } = await renderPanel({
       activityNames: { act_a: 'Sunday hills' },
     });
@@ -378,7 +384,7 @@ describe('one headline and one reason per change', () => {
     expect(getByText('sectionHistory.headline_longer_both:1.0 km,1.3 km')).toBeTruthy();
   });
 
-  it('names the neighbour a fork leads onto and the metres a seam clip took', async () => {
+  vaultIt('names the neighbour a fork leads onto and the metres a seam clip took', async () => {
     const link = { id: 's2', name: 'Col X', available: true };
     const { getByText } = await renderPanel({
       history: [
@@ -420,7 +426,7 @@ describe('one headline and one reason per change', () => {
     expect(getByText('sectionHistory.headline_split_at:900 m')).toBeTruthy();
   });
 
-  it('draws a rename with no reason, and a baseline as one muted line', async () => {
+  vaultIt('draws a rename with no reason, and a baseline as one muted line', async () => {
     const { getByTestId, queryByTestId, getByText } = await renderPanel({
       history: [
         summaryEvent(16, 'renamed', {}),
@@ -437,7 +443,7 @@ describe('one headline and one reason per change', () => {
     expect(queryByTestId('section-history-reason-18')).toBeNull();
   });
 
-  it('draws no reason for a kind this build cannot word, never its tag', async () => {
+  vaultIt('draws no reason for a kind this build cannot word, never its tag', async () => {
     const { queryByTestId, queryByText } = await renderPanel({
       history: [
         summaryEvent(19, 'recut', {
@@ -478,7 +484,7 @@ describe('one headline and one reason per change', () => {
     }
   });
 
-  it('says how many rides followed the change and draws three chips and a count', async () => {
+  vaultIt('says how many rides followed the change and draws three chips and a count', async () => {
     const { getByText, getByTestId, queryByTestId } = await renderPanel({
       history: [summaryEvent(22, 'recut', {}, { around: ['r1', 'r2', 'r3', 'r4'] })],
     });
@@ -488,7 +494,7 @@ describe('one headline and one reason per change', () => {
     expect(getByText('+1')).toBeTruthy();
   });
 
-  it('counts the rides of a new section', async () => {
+  vaultIt('counts the rides of a new section', async () => {
     const { getByText } = await renderPanel({
       history: [summaryEvent(23, 'formed', {}, { around: ['r1', 'r2'] })],
     });
@@ -538,7 +544,7 @@ describe('SectionHistoryPanel inside a map sheet card', () => {
 
   beforeEach(() => jest.mocked(router.push).mockClear());
 
-  it('opens a linked section as a card in the same sheet and pushes no screen', async () => {
+  vaultIt('opens a linked section as a card in the same sheet and pushes no screen', async () => {
     const { getByTestId, hostKey } = await renderInCard();
 
     await fireEvent.press(getByTestId('section-history-split-from-parent'));
@@ -549,7 +555,7 @@ describe('SectionHistoryPanel inside a map sheet card', () => {
     ).toEqual(['section:child', 'section:parent']);
   });
 
-  it('opens an activity, which has no card here, as its own screen', async () => {
+  vaultIt('opens an activity, which has no card here, as its own screen', async () => {
     const { getByTestId, hostKey } = await renderInCard();
 
     await fireEvent.press(getByTestId('section-history-around-4-act_b'));

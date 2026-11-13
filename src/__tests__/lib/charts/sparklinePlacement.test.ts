@@ -31,7 +31,7 @@ describe('sparklinePlacement', () => {
     expect(third.x - second.x).toBeGreaterThan(20 * (second.x - first.x));
   });
 
-  it('spaces points evenly when there are no dates', () => {
+  vaultIt('spaces points evenly when there are no dates', () => {
     const { points } = sparklinePlacement([10, 11, 12], undefined, BOX);
 
     expect(points.map((p) => p.x)).toEqual([3, 53, 103]);
@@ -43,7 +43,7 @@ describe('sparklinePlacement', () => {
     expect(points.map((p) => p.x)).toEqual([3, 53, 103]);
   });
 
-  it('spaces points evenly when the dates do not line up with the values', () => {
+  vaultIt('spaces points evenly when the dates do not line up with the values', () => {
     const { points } = sparklinePlacement([10, 11, 12], [0, DAY], BOX);
 
     expect(points.map((p) => p.x)).toEqual([3, 53, 103]);
@@ -66,19 +66,19 @@ describe('sparklinePlacement', () => {
     expect(points[1]!.y).toBe(BOX.height - BOX.pad);
   });
 
-  it('runs a flat series down the middle', () => {
+  vaultIt('runs a flat series down the middle', () => {
     const { points } = sparklinePlacement([7, 7, 7], undefined, BOX);
 
     expect(points.map((p) => p.y)).toEqual([16, 16, 16]);
   });
 
-  it('centres a single point', () => {
+  vaultIt('centres a single point', () => {
     const { points } = sparklinePlacement([7], [DAY], BOX);
 
     expect(points).toEqual([{ x: 53, y: 16 }]);
   });
 
-  it('places nothing for an empty series', () => {
+  vaultIt('places nothing for an empty series', () => {
     expect(sparklinePlacement([], [], BOX)).toEqual({ points: [], min: 0, max: 0 });
   });
 });

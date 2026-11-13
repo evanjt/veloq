@@ -84,7 +84,7 @@ describe('section row scrub re-renders', () => {
   });
 
   /** A re-render with the same props does no work in the row at all. */
-  it('does no work in the row when nothing about it changed', async () => {
+  vaultIt('does no work in the row when nothing about it changed', async () => {
     const renderRightActions = jest.fn<React.ReactNode, [SectionEncounterGroup]>(() => null);
     const p = props('s1', renderRightActions);
 
@@ -95,7 +95,7 @@ describe('section row scrub re-renders', () => {
     expect(renderRightActions.mock.calls.length).toBe(rendersAfterMount);
   });
 
-  it('does render the row again when its highlight changes', async () => {
+  vaultIt('does render the row again when its highlight changes', async () => {
     const renderRightActions = jest.fn<React.ReactNode, [SectionEncounterGroup]>(() => null);
     const p = props('s1', renderRightActions);
 

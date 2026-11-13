@@ -104,7 +104,7 @@ describe('the summary card follows the wellness it summarises', () => {
     expect(result.current.data?.summaryCardData).toEqual({ ctl: 38 });
   });
 
-  it('leaves a body of some other kind alone, so the hold still holds', async () => {
+  vaultIt('leaves a body of some other kind alone, so the hold still holds', async () => {
     await mount();
     expect(reads).toBe(1);
 

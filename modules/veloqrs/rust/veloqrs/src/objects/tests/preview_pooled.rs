@@ -7,6 +7,7 @@ use crate::test_globals::{
 };
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_centres_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("preview_centres_under_writer.db");
@@ -15,6 +16,7 @@ fn test_centres_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_centres_match_the_engine() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();
@@ -68,6 +70,7 @@ fn make_auto(id: &str) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_current_writer_held() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();
@@ -83,6 +86,7 @@ fn test_current_writer_held() {
 /// the name, visits and pin it stores, and a point no activity covers reads
 /// nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_current_reads_the_area_catalogue_from_committed_rows() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();

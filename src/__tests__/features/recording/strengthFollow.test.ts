@@ -29,19 +29,19 @@ const rest = (text: string, durationSeconds: number): PlanLine => ({
 });
 
 describe('planText', () => {
-  it('joins the lines with their durations, one per line', () => {
+  vaultIt('joins the lines with their durations, one per line', () => {
     expect(planText([work('Squats', 90), work('Press')])).toBe('Squats 1m30s\nPress');
   });
 });
 
 describe('formatLineDuration', () => {
-  it('writes the on-screen duration in the locale units, minutes as min', () => {
+  vaultIt('writes the on-screen duration in the locale units, minutes as min', () => {
     expect(formatLineDuration(90)).toBe('1 min 30 s');
     expect(formatLineDuration(45)).toBe('45 s');
     expect(formatLineDuration(300)).toBe('5 min');
   });
 
-  it('leaves the uploaded description in the workout syntax', () => {
+  vaultIt('leaves the uploaded description in the workout syntax', () => {
     expect(planText([work('Rows', 300)])).toBe('Rows 5m');
   });
 });

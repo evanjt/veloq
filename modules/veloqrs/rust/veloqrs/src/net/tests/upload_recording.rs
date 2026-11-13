@@ -304,6 +304,7 @@ fn now() -> i64 {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_file_upload_name_uses_recording_id() {
     let dir = TempDir::new().unwrap();
     let mut first = ride(&dir, "recording-one", 1_000);
@@ -465,6 +466,7 @@ fn each_answer_moves_the_ride_by_its_own_transition() {
 /// with no retries counted, is not marked as maybe landed, and no look for it
 /// is made.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_deferred_send_costs_the_ride_no_attempt() {
     let _serial = serial_global_state();
     let dir = init_global_engine("upload_deferred.db");
@@ -700,6 +702,7 @@ fn the_effort_goes_up_after_the_upload_and_is_owed_when_refused() {
 /// Scenario: the schedule's own loop, with nothing due.
 /// Expected behaviour: nothing is drained and it rests.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn nothing_due_drains_nothing() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("upload_nothing_due.db");
@@ -1019,6 +1022,7 @@ fn a_landed_activity_is_matched_by_its_external_id_or_a_bare_start_and_type() {
 /// Expected behaviour: the day either side of the entry's own local start, or
 /// of the ride's start when it has no body.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_look_lists_the_day_either_side_of_the_start() {
     let dir = TempDir::new().unwrap();
     let mut entry = ride(&dir, "r1", 1_000);
@@ -1038,6 +1042,7 @@ fn a_look_lists_the_day_either_side_of_the_start() {
 /// Expected behaviour: the ride is sent once, and the review save waits for
 /// that run and answers its outcome rather than saying nothing started.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_manual_call_on_a_ride_in_flight_answers_that_runs_outcome() {
     let _serial = serial_global_state();
     let dir = init_global_engine("upload_join_flight.db");
@@ -1319,6 +1324,7 @@ fn a_ride_whose_read_back_is_unknown_is_kept() {
 /// Expected behaviour: the sweep deletes it and reports nothing owed, so the
 /// schedule rests instead of sweeping again.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_settled_sweep_reports_nothing_owed() {
     let _serial = serial_global_state();
     let dir = init_global_engine("sweep_settled.db");
@@ -1404,6 +1410,7 @@ fn a_landed_ride_is_reconciled_before_it_is_confirmed() {
 /// Expected behaviour: it is settled anyway, since the row has gone, and the
 /// confirmation then reads it back.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_reconcile_whose_provisional_row_has_gone_is_settled() {
     let _serial = serial_global_state();
     let dir = init_global_engine("sweep_reconcile_gone.db");
@@ -1613,6 +1620,9 @@ fn a_recorded_strength_session_keeps_its_own_sets_when_the_upload_lands() {
             }],
             groups: Vec::new(),
             rests: Vec::new(),
+            current_exercise: None,
+            current_set: None,
+            rest_started_at: None,
         })
         .unwrap()
     })
@@ -1839,6 +1849,7 @@ fn an_unmatched_original_with_the_switch_on_uploads_once_under_its_garmin_id() {
 /// sync has completed.
 /// Expected behaviour: nothing is queued or sent, and the original stays.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_original_is_not_offered_with_the_switch_off_or_before_a_sync() {
     let _serial = serial_global_state();
     let dir = init_global_engine("upload_garmin_off.db");

@@ -101,7 +101,7 @@ jobs:
         env:
           RUSTC_WORKSPACE_WRAPPER: ${{ github.workspace }}/modules/veloqrs/scripts/coverage-rustc.sh
         run: >
-          cargo llvm-cov nextest -p veloqrs --features synthetic
+          cargo llvm-cov nextest -p veloqrs --features synthetic,vault
           --json --output-path coverage.json
           -E 'not test(name_follows_ground_through_recut)'
 

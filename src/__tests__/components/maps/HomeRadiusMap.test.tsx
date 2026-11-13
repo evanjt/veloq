@@ -57,7 +57,7 @@ beforeEach(() => {
 });
 
 describe('HomeRadiusMap', () => {
-  it('draws the home as a point at the coordinate it was given', async () => {
+  vaultIt('draws the home as a point at the coordinate it was given', async () => {
     await render(<HomeRadiusMap home={HOME} radiusM={100} onMove={jest.fn()} />);
 
     const point = geojson(last(), 'home-point').features[0];
@@ -105,7 +105,7 @@ describe('HomeRadiusMap', () => {
     expect(onMove).toHaveBeenCalledWith(moved);
   });
 
-  it('keeps both sources declared with no circle when the radius is zero', async () => {
+  vaultIt('keeps both sources declared with no circle when the radius is zero', async () => {
     await render(<HomeRadiusMap home={HOME} radiusM={0} onMove={jest.fn()} />);
 
     expect(geojson(last(), 'home-radius').features).toHaveLength(0);
@@ -115,14 +115,14 @@ describe('HomeRadiusMap', () => {
     );
   });
 
-  it('leaves panning off so the settings list underneath still scrolls', async () => {
+  vaultIt('leaves panning off so the settings list underneath still scrolls', async () => {
     await render(<HomeRadiusMap home={HOME} radiusM={100} onMove={jest.fn()} />);
 
     expect(last().scrollEnabled).toBe(false);
     expect(last().zoomEnabled).not.toBe(false);
   });
 
-  it('credits the basemap it draws', async () => {
+  vaultIt('credits the basemap it draws', async () => {
     const tree = await render(<HomeRadiusMap home={HOME} radiusM={100} onMove={jest.fn()} />);
 
     expect(tree.getByTestId('map-attribution-text').props.children).toBe(MAP_ATTRIBUTIONS.light);

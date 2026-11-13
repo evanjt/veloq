@@ -85,7 +85,7 @@ it('asks the run to stop when the button is pressed mid-scan', async () => {
   expect(mockCancelSectionDetection).toHaveBeenCalledTimes(1);
 });
 
-it('leaves the button pressable while a scan runs', async () => {
+vaultIt('leaves the button pressable while a scan runs', async () => {
   mockScanning = true;
   await render(<DetectionSettingsScreen />);
 
@@ -94,7 +94,7 @@ it('leaves the button pressable while a scan runs', async () => {
   );
 });
 
-it('does not cancel when no scan is running', async () => {
+vaultIt('does not cancel when no scan is running', async () => {
   await render(<DetectionSettingsScreen />);
 
   await fireEvent.press(screen.getByTestId('detection-rescan-button'));

@@ -103,7 +103,7 @@ describe('FollowedRouteChip guidance', () => {
     expect(screen.queryByTestId('followed-route-arrow')).toBeNull();
   });
 
-  it('warns off route with an arrow turned to the route, relative to the heading', () => {
+  vaultIt('warns off route with an arrow turned to the route, relative to the heading', () => {
     render(<FollowedRouteChip route={lakeLoop} onStop={jest.fn()} />);
     give({ status: FfiFollowStatus.OffRoute, crossTrackM: 140, bearingToRouteDeg: 90 }, 0);
 
@@ -120,7 +120,7 @@ describe('FollowedRouteChip guidance', () => {
     });
   });
 
-  it('turns the arrow against north when the heading is unknown', () => {
+  vaultIt('turns the arrow against north when the heading is unknown', () => {
     render(<FollowedRouteChip route={lakeLoop} onStop={jest.fn()} />);
     give({ status: FfiFollowStatus.OffRoute, crossTrackM: 140, bearingToRouteDeg: 270 }, null);
 
@@ -129,7 +129,7 @@ describe('FollowedRouteChip guidance', () => {
     });
   });
 
-  it('fires one medium haptic on entering off route and none on leaving', () => {
+  vaultIt('fires one medium haptic on entering off route and none on leaving', () => {
     render(<FollowedRouteChip route={lakeLoop} onStop={jest.fn()} />);
     const off = { status: FfiFollowStatus.OffRoute, crossTrackM: 140, bearingToRouteDeg: 90 };
     give(off);
@@ -159,7 +159,7 @@ describe('FollowedRouteChip guidance', () => {
     expect(detail()).toContain('recording.guidance.turnRight');
   });
 
-  it('cues a turn back on a hairpin', () => {
+  vaultIt('cues a turn back on a hairpin', () => {
     render(<FollowedRouteChip route={lakeLoop} onStop={jest.fn()} />);
     give({ nextTurn: { alongM: 900, distanceM: 50, angleDeg: 170 } });
 
@@ -190,7 +190,7 @@ describe('FollowedRouteChip guidance', () => {
     expect(screen.getByTestId('followed-route-arrow')).toBeTruthy();
   });
 
-  it('shows the chip as before when there is no guidance', () => {
+  vaultIt('shows the chip as before when there is no guidance', () => {
     render(<FollowedRouteChip route={lakeLoop} onStop={jest.fn()} />);
 
     expect(detail()).toBe('12.4 km · recording.routeOverlay.pr:{"time":"41:22"}');

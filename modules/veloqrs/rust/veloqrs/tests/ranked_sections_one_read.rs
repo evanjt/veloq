@@ -108,6 +108,7 @@ fn sports() -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_batch_answers_what_asking_sport_by_sport_answered() {
     let (engine, _tmp) = seeded();
 
@@ -149,6 +150,7 @@ fn a_sport_holds_only_its_own_sections() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_answer_is_in_the_order_the_sports_were_asked_for() {
     let (engine, _tmp) = seeded();
 
@@ -163,6 +165,7 @@ fn the_answer_is_in_the_order_the_sports_were_asked_for() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sport_with_no_traversals_is_answered_empty_rather_than_dropped() {
     let (engine, _tmp) = seeded();
 
@@ -176,6 +179,7 @@ fn a_sport_with_no_traversals_is_answered_empty_rather_than_dropped() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_limit_applies_per_sport() {
     let (engine, _tmp) = seeded();
 
@@ -185,6 +189,7 @@ fn the_limit_applies_per_sport() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_library_answers_every_sport_empty() {
     let tmp = TempDir::new().expect("temp dir");
     let path: PathBuf = tmp.path().join("test.db");

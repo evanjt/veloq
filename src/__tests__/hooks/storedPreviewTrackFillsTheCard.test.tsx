@@ -91,7 +91,7 @@ it('re-reads the card whose track has just been stored', async () => {
   await waitFor(() => expect(result.current.coordinates).toHaveLength(1));
 });
 
-it('leaves every other card alone', async () => {
+vaultIt('leaves every other card alone', async () => {
   const { result } = await renderHook(() => useCard('a1'), { wrapper });
 
   await waitFor(() => expect(result.current.coordinates).toHaveLength(1));
@@ -106,7 +106,7 @@ it('leaves every other card alone', async () => {
   expect(result.current.coordinates).toBe(held);
 });
 
-it('does not read for a card the startup bundle already filled', async () => {
+vaultIt('does not read for a card the startup bundle already filled', async () => {
   await renderHook(() => useCard('a1', { points: [] }), { wrapper });
 
   await act(async () => {
@@ -116,7 +116,7 @@ it('does not read for a card the startup bundle already filled', async () => {
   expect(engine.getPreviewTrack).not.toHaveBeenCalled();
 });
 
-it('costs nothing when the announcement names no activity', async () => {
+vaultIt('costs nothing when the announcement names no activity', async () => {
   await renderHook(() => useCard('a1'), { wrapper });
   await waitFor(() => expect(engine.getPreviewTrack).toHaveBeenCalledTimes(1));
 

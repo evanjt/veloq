@@ -20,7 +20,7 @@ function tracked() {
 }
 
 describe('demo time streams', () => {
-  it('covers a useful number of demo activities', () => {
+  vaultIt('covers a useful number of demo activities', () => {
     expect(tracked().length).toBeGreaterThan(50);
   });
 
@@ -36,7 +36,7 @@ describe('demo time streams', () => {
     expect(mismatched).toEqual([]);
   });
 
-  it('keeps the time stream monotonic and spanning the activity', () => {
+  vaultIt('keeps the time stream monotonic and spanning the activity', () => {
     const [{ id }] = tracked();
     const times = getActivityStreams(id)!.time;
 

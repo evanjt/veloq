@@ -104,7 +104,7 @@ describe('usePowerCurve', () => {
     expect(engine.syncPowerCurve).not.toHaveBeenCalled();
   });
 
-  it('hands back the time the stored body was fetched', async () => {
+  vaultIt('hands back the time the stored body was fetched', async () => {
     engine.getPowerCurve.mockReturnValue(powerCurve());
 
     const { result } = await renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), {
@@ -114,7 +114,7 @@ describe('usePowerCurve', () => {
     await waitFor(() => expect(result.current.fetchedAt).toBe(FETCHED_AT));
   });
 
-  it('has no fetch time for a curve it has never stored', async () => {
+  vaultIt('has no fetch time for a curve it has never stored', async () => {
     const { result } = await renderHook(() => usePowerCurve({ sport: 'Ride' }), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -133,7 +133,7 @@ describe('usePowerCurve', () => {
     expect(result.current.data?.watts).toEqual([]);
   });
 
-  it('renders an empty curve while the fetch is in flight', async () => {
+  vaultIt('renders an empty curve while the fetch is in flight', async () => {
     const { result } = await renderHook(() => usePowerCurve({ sport: 'Ride' }), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -142,7 +142,7 @@ describe('usePowerCurve', () => {
 });
 
 describe('usePaceCurve', () => {
-  it('leaves the 42-day snapshot with the Rust curve writer', async () => {
+  vaultIt('leaves the 42-day snapshot with the Rust curve writer', async () => {
     engine.getPaceCurve.mockReturnValue(paceCurve({ criticalSpeed: 3.4 }));
 
     const { result } = await renderHook(() => usePaceCurve({ sport: 'Run', days: 42 }), {
@@ -158,7 +158,7 @@ describe('usePaceCurve', () => {
     await waitFor(() => expect(engine.syncPaceCurve).toHaveBeenCalledWith('Run', 42, true));
   });
 
-  it('asks Rust for nothing while it is disabled', async () => {
+  vaultIt('asks Rust for nothing while it is disabled', async () => {
     // The fitness screen holds a Run and a Swim curve for its threshold
     // readouts, and only the sport in view renders one. A disabled curve that
     // still fetched cost a download and a `curve_bodies` row per time range.

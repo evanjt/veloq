@@ -60,14 +60,14 @@ describe('real-account flows in a local run', () => {
     expect(r.calls[0]).toContain('--exclude-tags=tier4,tier5,real-account');
   });
 
-  it('are excluded when no exclude list was given', () => {
+  vaultIt('are excluded when no exclude list was given', () => {
     const s = setup();
     const r = run(['--include-tags=tier0'], { MAESTRO_BIN: s.fake }, s);
     expect(r.calls[0]).toContain('--include-tags=tier0');
     expect(r.calls[0]).toContain('--exclude-tags=real-account');
   });
 
-  it('are left to the caller when API_KEY is set', () => {
+  vaultIt('are left to the caller when API_KEY is set', () => {
     const s = setup();
     const r = run(['--exclude-tags=tier4'], { MAESTRO_BIN: s.fake, API_KEY: 'k' }, s);
     expect(r.calls[0]).toContain('--exclude-tags=tier4');
@@ -85,7 +85,7 @@ describe('real-account flows in a local run', () => {
     expect(r.calls).toEqual([]);
   });
 
-  it('are picked up by a shard when API_KEY is set', () => {
+  vaultIt('are picked up by a shard when API_KEY is set', () => {
     const s = setup();
     const r = run(
       ['--include-tags=real-account'],
@@ -97,7 +97,7 @@ describe('real-account flows in a local run', () => {
 });
 
 describe('the Maestro binary', () => {
-  it('falls back to the one on PATH when the home install is absent, and says so', () => {
+  vaultIt('falls back to the one on PATH when the home install is absent, and says so', () => {
     const s = setup();
     const r = run(
       ['--include-tags=tier0'],
@@ -109,7 +109,7 @@ describe('the Maestro binary', () => {
     expect(r.output).toContain(`Using Maestro at ${s.fake}`);
   });
 
-  it('prefers the home install when it exists', () => {
+  vaultIt('prefers the home install when it exists', () => {
     const s = setup();
     const homeBin = path.join(s.dir, 'home', '.maestro', 'bin');
     fs.mkdirSync(homeBin, { recursive: true });
@@ -123,7 +123,7 @@ describe('the Maestro binary', () => {
     expect(r.output).toContain(`Using Maestro at ${path.join(homeBin, 'maestro')}`);
   });
 
-  it('stops with a message when there is none', () => {
+  vaultIt('stops with a message when there is none', () => {
     const s = setup();
     const empty = path.join(s.dir, 'empty');
     fs.mkdirSync(empty);

@@ -123,7 +123,7 @@ describe('authorising a device registration', () => {
     await expect(intervalsAthleteResolver(fetchImpl)('Bearer forged')).resolves.toBeNull();
   });
 
-  it('resolves the token once, not once per field it checks', async () => {
+  vaultIt('resolves the token once, not once per field it checks', async () => {
     const spy = jest.fn(owner);
     await authoriseDevice('Bearer token-of-own', OWN, spy);
     expect(spy).toHaveBeenCalledTimes(1);

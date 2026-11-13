@@ -70,6 +70,7 @@ fn store_at(dir: &TempDir) -> MutexGuard<'static, ()> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_dated_template_comes_out_of_the_tilejson() {
     let dir = TempDir::new().expect("tempdir");
     let _serial = store_at(&dir);
@@ -89,6 +90,7 @@ fn the_dated_template_comes_out_of_the_tilejson() {
 /// The whole point of keeping it: a second tile does not ask again, and a cold
 /// start with the radio off still has a template.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_resolved_template_is_kept_and_not_asked_for_twice() {
     let dir = TempDir::new().expect("tempdir");
     let _serial = store_at(&dir);
@@ -142,6 +144,7 @@ fn a_failed_refresh_falls_back_to_the_stored_template() {
 /// A refresh that fails is not tried again on the very next tile, which offline
 /// is every tile the map asks for.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_failed_refresh_is_not_retried_on_every_tile() {
     let dir = TempDir::new().expect("tempdir");
     let _serial = store_at(&dir);
@@ -162,6 +165,7 @@ fn a_failed_refresh_is_not_retried_on_every_tile() {
 /// The weekly run moves the dated segment. A resolve past the interval takes
 /// the newer template and keeps it for the next cold start.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refresh_after_the_interval_replaces_the_template_and_the_sidecar() {
     let dir = TempDir::new().expect("tempdir");
     let _serial = store_at(&dir);
@@ -199,6 +203,7 @@ fn a_refresh_after_the_interval_replaces_the_template_and_the_sidecar() {
 /// Tiles from the old run are not served beside the new run's under one key.
 /// A refresh that finds the same segment keeps them.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refresh_to_a_new_segment_stops_old_tiles_being_served() {
     let dir = TempDir::new().expect("tempdir");
     let _serial = store_at(&dir);
@@ -247,6 +252,7 @@ fn a_refresh_to_a_new_segment_stops_old_tiles_being_served() {
 /// A sidecar written before fetch times were recorded holds a bare template.
 /// It still serves offline, and it is refreshed at the first chance.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_template_kept_without_a_fetch_time_serves_and_is_refreshed() {
     let dir = TempDir::new().expect("tempdir");
     let _serial = store_at(&dir);
@@ -274,6 +280,7 @@ fn a_template_kept_without_a_fetch_time_serves_and_is_refreshed() {
 /// A source whose template already names a tile path is not a TileJSON, and
 /// asking its host for one would be a request per tile that answers nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tile_template_is_not_treated_as_a_tilejson() {
     let dir = TempDir::new().expect("tempdir");
     let _serial = store_at(&dir);
@@ -294,6 +301,7 @@ fn a_tile_template_is_not_treated_as_a_tilejson() {
 /// than on the source's name: a second vector host is the case that was
 /// left uncached when one literal url was matched.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_shape_of_the_template_says_which_it_is() {
     assert_eq!(
         TemplateSource::of("https://tiles.openfreemap.org/planet"),
@@ -313,6 +321,7 @@ fn the_shape_of_the_template_says_which_it_is() {
 /// What a tile fill reads. Unresolved and with no way to ask, it answers
 /// nothing rather than the TileJSON url, which would fetch a document per tile.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unresolved_tilejson_source_has_no_tile_template() {
     let dir = TempDir::new().expect("tempdir");
     let _serial = store_at(&dir);
@@ -333,6 +342,7 @@ fn an_unresolved_tilejson_source_has_no_tile_template() {
 /// A tile fetched under the old segment, finishing after a refresh moved the
 /// source to a new one and dropped the old run's tiles, is not kept.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tile_fetched_under_the_old_segment_is_not_kept_after_the_refresh() {
     let dir = TempDir::new().expect("tempdir");
     let _serial = store_at(&dir);

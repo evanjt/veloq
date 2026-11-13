@@ -50,11 +50,11 @@ describe('available charts filtering', () => {
     }
   });
 
-  it('returns empty for empty streams', () => {
+  vaultIt('returns empty for empty streams', () => {
     expect(getAvailableCharts({}, 'Ride')).toHaveLength(0);
   });
 
-  it('excludes power and elevation when only heartrate is present', () => {
+  vaultIt('excludes power and elevation when only heartrate is present', () => {
     const ids = getAvailableCharts(streamsOf({ heartrate: [120, 130] }), 'Ride').map((c) => c.id);
     expect(ids).toContain('heartrate');
     expect(ids).not.toContain('power');
@@ -129,7 +129,7 @@ describe('speed or pace by sport', () => {
     expect(offered('Ride')).not.toContain('pace');
   });
 
-  it('never offers both, whatever the sport', () => {
+  vaultIt('never offers both, whatever the sport', () => {
     for (const type of ['Run', 'Ride', 'Swim', 'Walk', 'Rowing', 'AlpineSki', 'Workout'] as const) {
       const ids = offered(type);
       expect(ids.includes('speed') && ids.includes('pace')).toBe(false);

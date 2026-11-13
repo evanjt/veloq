@@ -109,6 +109,7 @@ fn recorded_runs_survive_a_reopen_and_a_second_run_replaces_the_first() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fresh_library_has_no_runs_and_nothing_owed() {
     let engine = PersistentEngine::in_memory().unwrap();
     let data = read(&engine);
@@ -118,6 +119,7 @@ fn a_fresh_library_has_no_runs_and_nothing_owed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_read_carries_the_activities_detection_has_not_seen() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     engine
@@ -149,6 +151,7 @@ fn the_read_carries_the_activities_detection_has_not_seen() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_job_and_outcome_round_trips_through_its_token() {
     let engine = PersistentEngine::in_memory().unwrap();
     let jobs = [
@@ -208,6 +211,7 @@ fn every_job_and_outcome_round_trips_through_its_token() {
 /// Expected behaviour: the read leaves that row out and still answers with
 /// every run it can name, rather than failing the whole screen.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_this_build_cannot_name_is_left_out_of_the_read() {
     let engine = PersistentEngine::in_memory().unwrap();
     record_job_run(&engine.db, &elevation_run());
@@ -229,6 +233,7 @@ fn a_run_this_build_cannot_name_is_left_out_of_the_read() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_token_names_its_own_job_and_outcome() {
     for job in BackgroundJob::ALL {
         assert_eq!(BackgroundJob::from_token(job.token()), Some(job));
@@ -241,6 +246,7 @@ fn every_token_names_its_own_job_and_outcome() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_write_that_cannot_land_leaves_the_job_running() {
     // A connection with no schema at all: the insert fails on the missing
     // table, and the caller is a job that must carry on regardless.
@@ -303,6 +309,7 @@ fn owe_streams(engine: &PersistentEngine, count: u32) {
 /// Expected behaviour: the read carries the whole days the allowance takes, which
 /// is two for one request past a day's cap, and nothing once the queue is empty.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_owing_more_than_a_day_reports_the_days_it_takes() {
     use crate::governor::{BACKFILL_ALLOWANCE, days_to_draw};
 
@@ -330,6 +337,7 @@ fn a_library_owing_more_than_a_day_reports_the_days_it_takes() {
 ///
 /// Expected behaviour: the share is the backfill allowance's daily cap, on an empty library too.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_screen_read_carries_the_backfill_day_share() {
     let engine = PersistentEngine::in_memory().unwrap();
     assert_eq!(
@@ -340,6 +348,7 @@ fn the_screen_read_carries_the_backfill_day_share() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_screen_read_says_a_pass_recount_is_running_only_while_its_guard_is_held() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("recount.db");
@@ -395,6 +404,7 @@ fn store_diff(engine: &PersistentEngine, payload: &str) {
 /// tracks the download can ask about, and nothing once the counts are written
 /// or the queue is empty.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_staged_cut_reports_the_history_still_joining() {
     use crate::persistence::{ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNKNOWN};
     let dir = tempfile::tempdir().unwrap();
@@ -449,6 +459,7 @@ fn a_staged_cut_reports_the_history_still_joining() {
 /// Expected behaviour: the staged history names the whole days the queue takes
 /// on the daily share, and none when the queue fits in a day.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_staged_cut_names_the_days_its_history_needs() {
     use crate::persistence::{ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNKNOWN};
     let dir = tempfile::tempdir().unwrap();

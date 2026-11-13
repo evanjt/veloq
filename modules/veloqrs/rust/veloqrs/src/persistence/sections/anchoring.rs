@@ -350,6 +350,7 @@ mod tests {
     /// Scenario: the line ends nowhere near the track.
     /// Expected behaviour: no placement.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_line_off_the_track_is_not_placed() {
         let far: Vec<GpsPoint> = track(10)
             .into_iter()

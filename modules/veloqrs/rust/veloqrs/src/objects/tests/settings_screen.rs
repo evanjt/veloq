@@ -2,6 +2,7 @@ use super::SettingsManager;
 use crate::test_globals::{init_global_engine, serial_global_state};
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_backup_screen_data_reads_stored_home_and_radius() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("settings.db");
@@ -31,6 +32,7 @@ fn test_backup_screen_data_reads_stored_home_and_radius() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_cache_screen_data_tracks_retention_write() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("settings.db");
@@ -48,6 +50,7 @@ fn test_cache_screen_data_tracks_retention_write() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_background_jobs_data_reads_a_recorded_run() {
     use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job_run};
 
@@ -93,6 +96,7 @@ fn test_background_jobs_data_reads_a_recorded_run() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_record_screen_data_orders_library_sports_by_activity_count() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("settings.db");
@@ -137,6 +141,7 @@ fn test_record_screen_data_orders_library_sports_by_activity_count() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_background_jobs_data_carries_the_garmin_pull_only_while_a_key_is_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("settings.db");
@@ -167,6 +172,7 @@ fn test_background_jobs_data_carries_the_garmin_pull_only_while_a_key_is_held() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_threshold_set_by_hand_reaches_the_screen_and_a_non_positive_one_is_refused() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("settings.db");

@@ -63,7 +63,7 @@ describe('pull to refresh on the Fitness screen', () => {
     expect(reread).toHaveBeenCalledTimes(1);
   });
 
-  it('clears the spinner on a refresh that resolves', async () => {
+  vaultIt('clears the spinner on a refresh that resolves', async () => {
     const refetch = jest.fn().mockResolvedValue(undefined);
     const { result } = await renderHook(() => useFitnessRefresh(refetch, jest.fn()), { wrapper });
 
@@ -74,7 +74,7 @@ describe('pull to refresh on the Fitness screen', () => {
     expect(result.current.isRefreshing).toBe(false);
   });
 
-  it('fires a medium impact before the refetch, once per pull', async () => {
+  vaultIt('fires a medium impact before the refetch, once per pull', async () => {
     const order: string[] = [];
     impact.mockImplementation(() => {
       order.push('haptic');

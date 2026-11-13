@@ -183,16 +183,19 @@ describe('OAuth write scope boundary', () => {
     expect(clearPermissionBlocked).toHaveBeenCalledWith('123');
   });
 
-  it("names an unreachable proxy in the athlete's language, not the platform error", async () => {
-    useAuthStore.setState({ athleteId: '123' });
-    global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
-    const { result } = await renderHook(() => usePermissionUpgrade());
-    await act(async () => {
-      expect((await result.current.upgradePermissions()).granted).toBe(false);
-    });
-    expect(result.current.error).toBe('login.oauthUnreachable');
-    expect(result.current.isUpgrading).toBe(false);
-  });
+  vaultIt(
+    "names an unreachable proxy in the athlete's language, not the platform error",
+    async () => {
+      useAuthStore.setState({ athleteId: '123' });
+      global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
+      const { result } = await renderHook(() => usePermissionUpgrade());
+      await act(async () => {
+        expect((await result.current.upgradePermissions()).granted).toBe(false);
+      });
+      expect(result.current.error).toBe('login.oauthUnreachable');
+      expect(result.current.isUpgrading).toBe(false);
+    }
+  );
 
   it('refuses the upgrade offline without opening the flow', async () => {
     mockIsOnline = false;
@@ -214,7 +217,7 @@ describe('OAuth write scope boundary', () => {
     expect(result.current.error).toBeNull();
   });
 
-  it('stays silent when the athlete closes the upgrade tab', async () => {
+  vaultIt('stays silent when the athlete closes the upgrade tab', async () => {
     mockBrowser.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.DISMISS });
     const { result } = await renderHook(() => usePermissionUpgrade());
     await act(async () => {
@@ -254,7 +257,7 @@ describe('OAuth write scope boundary', () => {
     expect(setError).toHaveBeenLastCalledWith('login.oauthFailed');
   });
 
-  it('reserves write access for the explicit upgrade', () => {
+  vaultIt('reserves write access for the explicit upgrade', () => {
     expect(OAUTH.SCOPES.filter((scope) => scope.endsWith(':WRITE'))).toEqual([]);
     expect(OAUTH.UPGRADE_SCOPES).toContain('ACTIVITY:WRITE');
   });

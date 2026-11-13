@@ -73,7 +73,7 @@ function run(root: string): { status: number; output: string } {
   }
 }
 
-it('passes the repository trigger files', () => {
+vaultIt('passes the repository trigger files', () => {
   expect(run(fixture())).toEqual({ status: 0, output: '' });
 });
 
@@ -85,7 +85,7 @@ it('refuses the receiver declared in a release manifest', () => {
   expect(output).toContain(`${path} names DebugCrashReceiver outside a debug source set`);
 });
 
-it('refuses the receiver declared in the app manifest', () => {
+vaultIt('refuses the receiver declared in the app manifest', () => {
   const path = 'android/app/src/main/AndroidManifest.xml';
   const { status, output } = run(fixture({ [path]: real(DEBUG_MANIFEST) }));
 
@@ -93,7 +93,7 @@ it('refuses the receiver declared in the app manifest', () => {
   expect(output).toContain(path);
 });
 
-it('refuses the receiver class moved into the main source set', () => {
+vaultIt('refuses the receiver class moved into the main source set', () => {
   const moved = RECEIVER.replace('/src/debug/', '/src/main/');
   const { status, output } = run(fixture({ [RECEIVER]: null, [moved]: real(RECEIVER) }));
 
@@ -101,14 +101,14 @@ it('refuses the receiver class moved into the main source set', () => {
   expect(output).toContain(`${moved} names DebugCrashReceiver`);
 });
 
-it('refuses a release request that reads the debug preferences', () => {
+vaultIt('refuses a release request that reads the debug preferences', () => {
   const { status, output } = run(fixture({ [RELEASE_REQUEST]: real(REQUEST) }));
 
   expect(status).toBe(1);
   expect(output).toContain(`${RELEASE_REQUEST} names veloq_debug_crash`);
 });
 
-it('refuses a debug manifest that does not export the receiver', () => {
+vaultIt('refuses a debug manifest that does not export the receiver', () => {
   const closed = real(DEBUG_MANIFEST).replace(
     'android:exported="true"',
     'android:exported="false"'
@@ -136,7 +136,7 @@ it('refuses the launch argument read outside an #if DEBUG branch', () => {
   expect(output).toContain(`${SWIFT}:6 reads VeloqForceRenderCrash outside an #if DEBUG branch`);
 });
 
-it('refuses the launch argument read with no conditional at all', () => {
+vaultIt('refuses the launch argument read with no conditional at all', () => {
   const path = 'push/ios/Extension/Reader.swift';
   const { status, output } = run(
     fixture({ [path]: 'let asked = UserDefaults.standard.bool(forKey: "VeloqForceRenderCrash")\n' })

@@ -47,6 +47,7 @@ fn backdate(path: &std::path::Path, key: &str) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn writing_the_same_value_again_does_not_commit() {
     let (engine, _dir, path) = engine();
     engine.set_setting(KEY, "abc123").expect("first write");
@@ -91,6 +92,7 @@ fn a_first_write_of_a_key_commits() {
 /// An empty string is a value, not an absent key, so writing it over a stored
 /// one is a change and writing it twice is not.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_value_is_a_value() {
     let (engine, _dir, path) = engine();
     engine.set_setting(KEY, "abc123").expect("first write");

@@ -67,7 +67,7 @@ const layout = (l: MapLayerSpec) => l.layout as Record<string, unknown>;
 const paint = (l: MapLayerSpec) => l.paint as Record<string, unknown>;
 
 describe('section map direction chevrons', () => {
-  it.each(['light', 'dark', 'satellite'] as const)(
+  vaultIt.each(['light', 'dark', 'satellite'] as const)(
     'draws one chevron layer on the section source every 80 px in the %s casing',
     (base) => {
       const layer = chevrons(buildSectionLayers(input('forward', {}, base)));
@@ -83,7 +83,7 @@ describe('section map direction chevrons', () => {
     }
   );
 
-  it.each(['light', 'dark', 'satellite'] as const)(
+  vaultIt.each(['light', 'dark', 'satellite'] as const)(
     'outlines the chevron in the %s route colour',
     (base) => {
       const layer = chevrons(buildSectionLayers(input('forward', {}, base)));
@@ -92,7 +92,7 @@ describe('section map direction chevrons', () => {
     }
   );
 
-  it.each(['light', 'dark'] as const)(
+  vaultIt.each(['light', 'dark'] as const)(
     'holds the outline at 3:1 against every %s ground the arms reach onto',
     (base) => {
       const palette = mapPalette(base);
@@ -103,7 +103,7 @@ describe('section map direction chevrons', () => {
     }
   );
 
-  it.each(['light', 'dark', 'satellite'] as const)(
+  vaultIt.each(['light', 'dark', 'satellite'] as const)(
     'holds the glyph at 3:1 against the %s line and every delta step',
     (base) => {
       const palette = mapPalette(base);
@@ -121,7 +121,7 @@ describe('section map direction chevrons', () => {
     expect(reverse).toBe(180);
   });
 
-  it('draws the chevrons above the section line', () => {
+  vaultIt('draws the chevrons above the section line', () => {
     const layers = buildSectionLayers(input('forward'));
     const line = layers.findIndex((l) => l.id === 'section-line');
     expect(line).toBeGreaterThanOrEqual(0);
@@ -132,14 +132,14 @@ describe('section map direction chevrons', () => {
     expect(paint(chevrons(buildSectionLayers(input(null))))['icon-opacity']).toBe(0);
   });
 
-  it('shows nothing while the bounds are trimmed', () => {
+  vaultIt('shows nothing while the bounds are trimmed', () => {
     const layer = chevrons(
       buildSectionLayers(input('forward', { trimRange: { start: 0, end: 4 } }))
     );
     expect(paint(layer)['icon-opacity']).toBe(0);
   });
 
-  it('draws them in fullscreen, where the base map draws the section line', () => {
+  vaultIt('draws them in fullscreen, where the base map draws the section line', () => {
     const layer = chevrons(
       buildSectionLayers(input('reverse', { showExtensionAndSection: false }))
     );
@@ -147,13 +147,13 @@ describe('section map direction chevrons', () => {
     expect(layout(layer)['icon-rotate']).toBe(180);
   });
 
-  it('adds no second source for a direction', () => {
+  vaultIt('adds no second source for a direction', () => {
     expect(Object.keys(buildSectionSources(input('reverse')))).toEqual(
       Object.keys(buildSectionSources(input(null)))
     );
   });
 
-  it('registers the chevron image beside the endpoint glyphs', () => {
+  vaultIt('registers the chevron image beside the endpoint glyphs', () => {
     expect(ENDPOINT_AND_DIRECTION_IMAGES.map((image) => image.id)).toContain(DIRECTION_ICON_ID);
     expect(ENDPOINT_AND_DIRECTION_IMAGES.find((image) => image.id === DIRECTION_ICON_ID)?.sdf).toBe(
       true

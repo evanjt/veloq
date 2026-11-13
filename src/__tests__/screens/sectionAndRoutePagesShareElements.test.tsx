@@ -500,7 +500,7 @@ describe('the section page and the route page over one demo route', () => {
     expect(sectionDates[0]).not.toEqual(sectionDates[1]);
   });
 
-  it.each(SHARED)('finds the $element on both pages', async ({ section, route }) => {
+  vaultIt.each(SHARED)('finds the $element on both pages', async ({ section, route }) => {
     const sectionPage = await openPage('section');
     expect(sectionPage.queryByTestId(section)).not.toBeNull();
     await sectionPage.unmount();
@@ -509,22 +509,25 @@ describe('the section page and the route page over one demo route', () => {
     expect(routePage.queryByTestId(route)).not.toBeNull();
   });
 
-  it('draws the GPX export as a share on both pages, since it opens the share sheet', async () => {
-    const glyphs = (page: Awaited<ReturnType<typeof openPage>>, id: string) =>
-      page
-        .getByTestId(id)
-        .findAll((n) => n.type === ChromeIcon)
-        .map((n) => n.props.name);
+  vaultIt(
+    'draws the GPX export as a share on both pages, since it opens the share sheet',
+    async () => {
+      const glyphs = (page: Awaited<ReturnType<typeof openPage>>, id: string) =>
+        page
+          .getByTestId(id)
+          .findAll((n) => n.type === ChromeIcon)
+          .map((n) => n.props.name);
 
-    const sectionPage = await openPage('section');
-    expect(glyphs(sectionPage, 'section-export-gpx')).toEqual(['share']);
-    await sectionPage.unmount();
+      const sectionPage = await openPage('section');
+      expect(glyphs(sectionPage, 'section-export-gpx')).toEqual(['share']);
+      await sectionPage.unmount();
 
-    const routePage = await openPage('route');
-    expect(glyphs(routePage, 'route-export-gpx')).toEqual(['share']);
-  });
+      const routePage = await openPage('route');
+      expect(glyphs(routePage, 'route-export-gpx')).toEqual(['share']);
+    }
+  );
 
-  it('draws the GPX export as a secondary action with no shadow on both pages', async () => {
+  vaultIt('draws the GPX export as a secondary action with no shadow on both pages', async () => {
     const expectSecondary = (page: Awaited<ReturnType<typeof openPage>>, id: string) => {
       const exportButton = page.UNSAFE_getAllByType(Button).find((n) => n.props.testID === id)!;
       expect(exportButton.props.variant).toBe('secondary');
@@ -542,14 +545,17 @@ describe('the section page and the route page over one demo route', () => {
     expectSecondary(routePage, 'route-export-gpx');
   });
 
-  it.each(SECTION_ONLY)('finds the $element on the section page alone', async ({ section }) => {
-    const sectionPage = await openPage('section');
-    expect(sectionPage.queryByTestId(section)).not.toBeNull();
-    await sectionPage.unmount();
+  vaultIt.each(SECTION_ONLY)(
+    'finds the $element on the section page alone',
+    async ({ section }) => {
+      const sectionPage = await openPage('section');
+      expect(sectionPage.queryByTestId(section)).not.toBeNull();
+      await sectionPage.unmount();
 
-    const routePage = await openPage('route');
-    expect(routePage.queryByTestId(section)).toBeNull();
-  });
+      const routePage = await openPage('route');
+      expect(routePage.queryByTestId(section)).toBeNull();
+    }
+  );
 });
 
 let headerOptions: { headerRight?: () => React.ReactElement | null } = {};
@@ -597,24 +603,27 @@ describe("a section sheet's rows above the chart", () => {
   });
   afterEach(() => jest.useRealTimers());
 
-  it('draws no action row and no separate climbing row', async () => {
+  vaultIt('draws no action row and no separate climbing row', async () => {
     const page = await openPage('section');
 
     expect(page.queryByTestId('section-action-row')).toBeNull();
     expect(page.queryByTestId('section-detail-climb')).toBeNull();
   });
 
-  it('lists Edit bounds second in the overflow menu, and choosing it enters the tool', async () => {
-    jest.useFakeTimers();
-    await openSectionWithHeader();
+  vaultIt(
+    'lists Edit bounds second in the overflow menu, and choosing it enters the tool',
+    async () => {
+      jest.useFakeTimers();
+      await openSectionWithHeader();
 
-    const rows = await menuRows();
-    expect(rows.slice(0, 2)).toEqual(['sections.showOnMap', 'sections.editBounds']);
+      const rows = await menuRows();
+      expect(rows.slice(0, 2)).toEqual(['sections.showOnMap', 'sections.editBounds']);
 
-    await fireEvent.press(screen.getByRole('menuitem', { name: 'sections.editBounds' }));
-    const sheets = Object.values(useMapSheetStops.getState().sheets);
-    expect(sheets.some((sheet) => sheet.toolReturn !== null)).toBe(true);
-  });
+      await fireEvent.press(screen.getByRole('menuitem', { name: 'sections.editBounds' }));
+      const sheets = Object.values(useMapSheetStops.getState().sheets);
+      expect(sheets.some((sheet) => sheet.toolReturn !== null)).toBe(true);
+    }
+  );
 
   it('opens the map on the section from Show on map, first in the menu', async () => {
     jest.useFakeTimers();
@@ -633,7 +642,7 @@ describe("a section sheet's rows above the chart", () => {
     });
   });
 
-  it('lists no Edit bounds for a section with no line', async () => {
+  vaultIt('lists no Edit bounds for a section with no line', async () => {
     mockLineless = true;
     jest.useFakeTimers();
     await openSectionWithHeader();
@@ -641,7 +650,7 @@ describe("a section sheet's rows above the chart", () => {
     expect(await menuRows()).not.toContain('sections.editBounds');
   });
 
-  it('offers Accept inside the Peek while the section is offered', async () => {
+  vaultIt('offers Accept inside the Peek while the section is offered', async () => {
     const page = await openPage('section');
 
     const accept = within(page.getByTestId('section-card-peek')).getByRole('button', {
@@ -659,16 +668,19 @@ describe("a section sheet's rows above the chart", () => {
     expect(page.getByTestId('section-detail-stats')).toHaveTextContent(/2,100 ft/);
   });
 
-  it('puts the sport menu and the range in one row above the chart, with no heading', async () => {
-    const page = await openPage('section');
-    const controls = page.getByTestId('performance-controls');
+  vaultIt(
+    'puts the sport menu and the range in one row above the chart, with no heading',
+    async () => {
+      const page = await openPage('section');
+      const controls = page.getByTestId('performance-controls');
 
-    expect(within(controls).queryByTestId('section-sport')).not.toBeNull();
-    expect(within(controls).queryByTestId('section-time-range')).not.toBeNull();
-    expect(page.queryByText('sections.performanceOverTime')).toBeNull();
-  });
+      expect(within(controls).queryByTestId('section-sport')).not.toBeNull();
+      expect(within(controls).queryByTestId('section-time-range')).not.toBeNull();
+      expect(page.queryByText('sections.performanceOverTime')).toBeNull();
+    }
+  );
 
-  it("draws the direction's figures under the plot", async () => {
+  vaultIt("draws the direction's figures under the plot", async () => {
     const page = await openPage('section');
     const order = page.UNSAFE_root.findAll(
       (node) =>
@@ -682,7 +694,7 @@ describe("a section sheet's rows above the chart", () => {
 });
 
 describe("a route sheet's rows above the chart", () => {
-  it('puts the sport menu and the range in one row above the chart', async () => {
+  vaultIt('puts the sport menu and the range in one row above the chart', async () => {
     const page = await openPage('route');
     const controls = page.getByTestId('performance-controls');
 

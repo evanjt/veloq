@@ -126,7 +126,7 @@ describe('the selected identity', () => {
     }
   );
 
-  it('keeps the two identities apart', () => {
+  vaultIt('keeps the two identities apart', () => {
     expect(IDENTITIES.dev.appId).not.toBe(IDENTITIES.production.appId);
     expect(IDENTITIES.dev.name).not.toBe(IDENTITIES.production.name);
   });
@@ -172,7 +172,7 @@ describe('the app configuration', () => {
 });
 
 describe('the identity a generated Android project builds', () => {
-  it('reads the applicationId, not the namespace', () => {
+  vaultIt('reads the applicationId, not the namespace', () => {
     write(
       'android/app/build.gradle',
       "android {\n    namespace 'com.orchard.kotlin'\n    defaultConfig {\n        applicationId 'com.orchard.app'\n        versionCode 3\n    }\n}\n"
@@ -180,12 +180,12 @@ describe('the identity a generated Android project builds', () => {
     expect(androidAppId(tree)).toBe('com.orchard.app');
   });
 
-  it('reads a double-quoted applicationId', () => {
+  vaultIt('reads a double-quoted applicationId', () => {
     write('android/app/build.gradle', 'defaultConfig {\n  applicationId "com.orchard.app"\n}\n');
     expect(androidAppId(tree)).toBe('com.orchard.app');
   });
 
-  it('is null with no project or no applicationId', () => {
+  vaultIt('is null with no project or no applicationId', () => {
     expect(androidAppId(tree)).toBeNull();
     write('android/app/build.gradle', 'android {\n}\n');
     expect(androidAppId(tree)).toBeNull();
@@ -202,19 +202,19 @@ describe('the identity a generated iOS project builds', () => {
     );
   });
 
-  it('reads a quoted identifier on the app target', () => {
+  vaultIt('reads a quoted identifier on the app target', () => {
     expect(
       pbxAppBundleId(project('com.orchard.app', ['"com.orchard.app"', '"com.orchard.app"']))
     ).toBe('com.orchard.app');
   });
 
-  it('is null when the app target configurations disagree', () => {
+  vaultIt('is null when the app target configurations disagree', () => {
     expect(
       pbxAppBundleId(project('com.orchard.app', ['com.orchard.app.dev', 'com.orchard.app']))
     ).toBeNull();
   });
 
-  it('is null with no application target', () => {
+  vaultIt('is null with no application target', () => {
     expect(
       pbxAppBundleId(
         pbxproj([
@@ -224,20 +224,20 @@ describe('the identity a generated iOS project builds', () => {
     ).toBeNull();
   });
 
-  it('finds the one project under ios/ beside the Pods project', () => {
+  vaultIt('finds the one project under ios/ beside the Pods project', () => {
     write('ios/OrchardDev.xcodeproj/project.pbxproj', project('com.orchard.app.dev'));
     write('ios/Pods/Pods.xcodeproj/project.pbxproj', project('org.cocoapods.pods'));
     write('ios/Pods.xcodeproj/project.pbxproj', project('org.cocoapods.pods'));
     expect(iosBundleId(tree)).toBe('com.orchard.app.dev');
   });
 
-  it('is null when a generation left two app projects side by side', () => {
+  vaultIt('is null when a generation left two app projects side by side', () => {
     write('ios/OrchardDev.xcodeproj/project.pbxproj', project('com.orchard.app.dev'));
     write('ios/Orchard.xcodeproj/project.pbxproj', project('com.orchard.app'));
     expect(iosBundleId(tree)).toBeNull();
   });
 
-  it('is null with no project', () => {
+  vaultIt('is null with no project', () => {
     expect(iosBundleId(tree)).toBeNull();
     fs.mkdirSync(path.join(tree, 'ios'));
     expect(iosBundleId(tree)).toBeNull();

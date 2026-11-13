@@ -103,7 +103,7 @@ afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-it('passes when the submodule sits at the commit the tree records', () => {
+vaultIt('passes when the submodule sits at the commit the tree records', () => {
   const sub = submoduleRepo();
   expect(runGuard(superproject(sub, sub.head)).status).toBe(0);
 });
@@ -121,7 +121,7 @@ it('fails when the submodule is behind the pointer, and names both commits', () 
   expect(output).toContain(sub.parent.slice(0, 7));
 });
 
-it('fails when the submodule is ahead of the pointer too', () => {
+vaultIt('fails when the submodule is ahead of the pointer too', () => {
   const sub = submoduleRepo();
   const root = superproject(sub, sub.parent);
   // Record the older commit, leave the tree on the newer one.
@@ -152,7 +152,7 @@ it('reads the pointer the merge will record, not the one HEAD still holds', () =
   expect(runGuard(root).status).toBe(0);
 });
 
-it('still fails when the staged pointer and the tree disagree', () => {
+vaultIt('still fails when the staged pointer and the tree disagree', () => {
   const sub = submoduleRepo();
   const root = superproject(sub, sub.parent);
   runGit(['update-index', '--cacheinfo', `160000,${sub.parent},${SUB}`], root);
@@ -174,7 +174,7 @@ it('says nothing when the submodule directory is absent, which is a fresh worktr
   expect(runGuard(root).status).toBe(0);
 });
 
-it('says nothing when the submodule is present but not a repository', () => {
+vaultIt('says nothing when the submodule is present but not a repository', () => {
   const sub = submoduleRepo();
   const root = superproject(sub, sub.head);
   rmSync(join(root, SUB), { recursive: true, force: true });
@@ -182,7 +182,7 @@ it('says nothing when the submodule is present but not a repository', () => {
   expect(runGuard(root).status).toBe(0);
 });
 
-it('says nothing when the tree records no pointer at all', () => {
+vaultIt('says nothing when the tree records no pointer at all', () => {
   const root = mkdtempSync(join(tmpdir(), 'sub-pointer-none-'));
   roots.push(root);
   runGit(['init', '-q', '-b', 'main'], root);

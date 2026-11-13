@@ -93,7 +93,7 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
     jest.mocked(navigateTo).mockClear();
   });
 
-  it.each([
+  vaultIt.each([
     ['a stale record', staleRecord],
     ['a week on week comparison', weekOnWeek],
   ])('opens collapsed on %s, with none of its numbers or method showing', async (_, build) => {
@@ -115,7 +115,7 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
     expect(screen.queryByTestId('insight-data-link')).toBeNull();
   });
 
-  it('holds the method, the formula, every number and the data link once opened', async () => {
+  vaultIt('holds the method, the formula, every number and the data link once opened', async () => {
     const insight = staleRecord();
     await openSheet(insight);
 
@@ -143,7 +143,7 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
     expect(navigateTo).toHaveBeenCalledWith('/section/quarry?activityId=quarry-2&origin=insights');
   });
 
-  it('names where the data link goes', async () => {
+  vaultIt('names where the data link goes', async () => {
     await openSheet(staleRecord());
 
     await fireEvent.press(screen.getByRole('header', { name: HOW }));
@@ -151,7 +151,7 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
     expect(screen.getByRole('button', { name: 'Open Quarry Climb' })).toBeTruthy();
   });
 
-  it('opens a week comparison on the fitness window it compared', async () => {
+  vaultIt('opens a week comparison on the fitness window it compared', async () => {
     await openSheet(weekOnWeek());
 
     await fireEvent.press(screen.getByRole('header', { name: HOW }));

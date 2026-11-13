@@ -165,6 +165,7 @@ fn wait_for_terminal(preview: &SectionPreview) -> FfiRunState {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_completed_preview_announces_once_and_the_outcome_is_readable() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -192,6 +193,7 @@ fn a_completed_preview_announces_once_and_the_outcome_is_readable() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cancelled_preview_still_announces() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -216,6 +218,7 @@ fn a_cancelled_preview_still_announces() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_run_announces_again() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -249,6 +252,7 @@ fn a_second_run_announces_again() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_with_no_observer_registered_still_finishes() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -263,6 +267,7 @@ fn a_run_with_no_observer_registered_still_finishes() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_completed_preview_announces_every_phase_it_enters() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -287,6 +292,7 @@ fn a_completed_preview_announces_every_phase_it_enters() {
 /// The phase the screen reads on has to be the phase the engine is in, or the
 /// event is worse than the timer it replaced.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_announced_phase_is_readable_when_it_is_announced() {
     let _serial_state = super::serial_state();
     let _serial = serial();

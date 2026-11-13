@@ -57,7 +57,7 @@ describe('useSectionTrim departed rides', () => {
     expect((Alert.alert as jest.Mock).mock.calls[0][1]).toContain('Morning ride');
   });
 
-  it('shows nothing when the trim took no ride out', async () => {
+  vaultIt('shows nothing when the trim took no ride out', async () => {
     const { hook, onRefresh } = await trimWith(Promise.resolve([]));
 
     await act(() => hook.result.current.confirmTrim());
@@ -91,7 +91,7 @@ describe('useSectionTrim departed rides', () => {
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  it('names the ride a reset took out once the reset is confirmed', async () => {
+  vaultIt('names the ride a reset took out once the reset is confirmed', async () => {
     const { hook, engine, onRefresh } = await trimWith(Promise.resolve([ride]));
     await act(() => hook.result.current.resetBounds());
     const buttons = (Alert.alert as jest.Mock).mock.calls[0][2] as { onPress?: () => unknown }[];

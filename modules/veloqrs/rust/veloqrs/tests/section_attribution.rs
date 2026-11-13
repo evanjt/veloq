@@ -118,6 +118,7 @@ fn ride(engine: &mut PersistentEngine, a: &LifecycleActivity) -> Fired {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fired_change_lists_the_activities_around_it() {
     let corpus = corpus();
     let dir = TempDir::new().unwrap();
@@ -168,6 +169,7 @@ fn a_fired_change_lists_the_activities_around_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn attribution_survives_a_restart() {
     let corpus = corpus();
     let [_, before_restart, after_restart @ ..] = corpus.bucket_d_delta.as_slice() else {
@@ -217,6 +219,7 @@ fn far_ride(from: &LifecycleActivity, tag: &str) -> LifecycleActivity {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_far_from_a_change_is_never_listed_on_it() {
     let corpus = corpus();
     let dir = TempDir::new().unwrap();

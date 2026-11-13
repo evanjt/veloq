@@ -15,6 +15,7 @@ use veloqrs::persistence::sections::conditioning;
 use veloqrs::persistence::with_persistent_engine;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn backfill_cadence_conditions_without_any_ts_poll() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();

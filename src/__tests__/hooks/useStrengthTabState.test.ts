@@ -38,7 +38,7 @@ function engineWith(hasSets: boolean, unfetched: string[]) {
 }
 
 describe('useStrengthTabState', () => {
-  it('is ready when sets are cached', async () => {
+  vaultIt('is ready when sets are cached', async () => {
     engineWith(true, []);
     expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('ready');
   });
@@ -48,7 +48,7 @@ describe('useStrengthTabState', () => {
     expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('awaiting');
   });
 
-  it('is hidden when the athlete has no strength activities at all', async () => {
+  vaultIt('is hidden when the athlete has no strength activities at all', async () => {
     engineWith(false, []);
     expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('hidden');
   });
@@ -61,7 +61,7 @@ describe('useStrengthTabState', () => {
     expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('hidden');
   });
 
-  it('falls back to the cached answer on a binary with no unprocessed queue', async () => {
+  vaultIt('falls back to the cached answer on a binary with no unprocessed queue', async () => {
     engineWith(true, []);
     delete mockEngine.getUnprocessedStrengthIds;
     expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('ready');

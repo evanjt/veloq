@@ -32,7 +32,7 @@ describe('the missing-tracks notice', () => {
     useTrackFetchNotice.setState({ failedIds: [], failedCount: 0, dismissed: false });
   });
 
-  it('says nothing while every track landed', async () => {
+  vaultIt('says nothing while every track landed', async () => {
     const { queryByTestId } = await render(<TrackFetchNotice />);
 
     expect(queryByTestId('track-fetch-notice')).toBeNull();
@@ -47,7 +47,7 @@ describe('the missing-tracks notice', () => {
     expect(getByText("3 routes didn't come down")).toBeTruthy();
   });
 
-  it('counts one route in the singular', async () => {
+  vaultIt('counts one route in the singular', async () => {
     useTrackFetchNotice.setState({ failedCount: 1, dismissed: false });
 
     const { getByText } = await render(<TrackFetchNotice />);
@@ -55,7 +55,7 @@ describe('the missing-tracks notice', () => {
     expect(getByText("1 route didn't come down")).toBeTruthy();
   });
 
-  it('comes down when the athlete closes it', async () => {
+  vaultIt('comes down when the athlete closes it', async () => {
     useTrackFetchNotice.setState({ failedCount: 2, dismissed: false });
 
     const { getByTestId, queryByTestId } = await render(<TrackFetchNotice />);
@@ -73,7 +73,7 @@ describe('the missing-tracks notice', () => {
     expect(router.push).toHaveBeenCalledWith('/activity/i42');
   });
 
-  it('offers no activity to open when several routes failed', async () => {
+  vaultIt('offers no activity to open when several routes failed', async () => {
     useTrackFetchNotice.setState({ failedIds: ['a', 'b'], failedCount: 2, dismissed: false });
 
     const { queryByTestId } = await render(<TrackFetchNotice />);

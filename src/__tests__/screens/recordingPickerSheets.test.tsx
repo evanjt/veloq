@@ -112,7 +112,7 @@ beforeEach(() => {
 });
 
 describe('data field picker sheet', () => {
-  it('puts the chosen field in the pressed slot and leaves the others', async () => {
+  vaultIt('puts the chosen field in the pressed slot and leaves the others', async () => {
     await renderUnlocked();
     void fireEvent(view.getByTestId('slot-2'), 'longPress');
     expect(mockPush.mock.calls.at(-1)[0].pathname).toBe('sheets/field-picker');
@@ -127,7 +127,7 @@ describe('data field picker sheet', () => {
     await waitFor(() => expect(fieldTexts()).toEqual(['heartrate', 'distance', 'speed', 'power']));
   });
 
-  it('changes nothing when the sheet is dismissed', async () => {
+  vaultIt('changes nothing when the sheet is dismissed', async () => {
     await renderUnlocked();
     void fireEvent(view.getByTestId('slot-2'), 'longPress');
     await answerSheet(mockPush, mockParams, null);
@@ -139,18 +139,21 @@ describe('data field picker sheet', () => {
 describe('route overlay picker sheet', () => {
   const lastRead = () => useRecordingLiveStore.getState().routeChoice?.routeId ?? null;
 
-  it('opens with the sport and the current overlay, and applies the chosen route', async () => {
-    await renderUnlocked();
-    expect(lastRead()).toBeNull();
-    await act(() => {
-      mockOpenRoutePicker();
-    });
-    expect(mockPush.mock.calls.at(-1)[0].pathname).toBe('sheets/route-overlay');
-    await answerSheet(mockPush, mockParams, 'group-7');
-    await waitFor(() => expect(lastRead()).toBe('group-7'));
-  });
+  vaultIt(
+    'opens with the sport and the current overlay, and applies the chosen route',
+    async () => {
+      await renderUnlocked();
+      expect(lastRead()).toBeNull();
+      await act(() => {
+        mockOpenRoutePicker();
+      });
+      expect(mockPush.mock.calls.at(-1)[0].pathname).toBe('sheets/route-overlay');
+      await answerSheet(mockPush, mockParams, 'group-7');
+      await waitFor(() => expect(lastRead()).toBe('group-7'));
+    }
+  );
 
-  it('clears the overlay when "No route" is chosen', async () => {
+  vaultIt('clears the overlay when "No route" is chosen', async () => {
     await renderUnlocked();
     await act(() => {
       mockOpenRoutePicker();
@@ -165,7 +168,7 @@ describe('route overlay picker sheet', () => {
     await waitFor(() => expect(lastRead()).toBeNull());
   });
 
-  it('keeps the overlay when the sheet is dismissed', async () => {
+  vaultIt('keeps the overlay when the sheet is dismissed', async () => {
     await renderUnlocked();
     await act(() => {
       mockOpenRoutePicker();

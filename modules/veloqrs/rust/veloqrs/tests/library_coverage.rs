@@ -85,6 +85,7 @@ fn partly_downloaded(dir: &TempDir) -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_reports_both_pairs_against_the_whole_account() {
     let dir = TempDir::new().expect("tempdir");
     let engine = partly_downloaded(&dir);
@@ -103,6 +104,7 @@ fn a_library_reports_both_pairs_against_the_whole_account() {
 /// The point of the item: an athlete whose census was never pulled must not be
 /// reported as fully downloaded, and must not be reported at all.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_athlete_with_no_census_answers_zeros() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);
@@ -113,6 +115,7 @@ fn an_athlete_with_no_census_answers_zeros() {
 
 /// One row the device never stored lowers `fetched` and nothing else.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_row_never_stored_is_short_of_fetched() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
@@ -136,6 +139,7 @@ fn a_row_never_stored_is_short_of_fetched() {
 /// A row edited upstream since the download owes it again, on the same
 /// predicate the sync and the charts use.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_row_that_moved_upstream_since_the_fetch_is_short_of_fetched() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = partly_downloaded(&dir);
@@ -162,6 +166,7 @@ fn a_row_that_moved_upstream_since_the_fetch_is_short_of_fetched() {
 /// An indoor session counts in the library and never in the track pair, so the
 /// two fractions can agree while only one of them was ever downloadable.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_with_no_track_upstream_is_outside_the_track_pair() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
@@ -216,6 +221,7 @@ fn pair(coverage: LibraryCoverage) -> (i64, i64) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn rows_older_than_the_default_window_are_outside_the_count() {
     let dir = TempDir::new().expect("tempdir");
     let engine = recent_and_old(&dir);
@@ -224,6 +230,7 @@ fn rows_older_than_the_default_window_are_outside_the_count() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_ask_reaching_back_brings_its_rows_into_the_count() {
     let dir = TempDir::new().expect("tempdir");
     let engine = recent_and_old(&dir);
@@ -236,6 +243,7 @@ fn an_ask_reaching_back_brings_its_rows_into_the_count() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_shorter_later_ask_never_narrows_the_window() {
     let dir = TempDir::new().expect("tempdir");
     let engine = recent_and_old(&dir);
@@ -262,6 +270,7 @@ fn another_athletes_window_does_not_move_this_ones_count() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_athlete_records_nothing_and_reads_zeros() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);

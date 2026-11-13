@@ -83,6 +83,7 @@ fn section_name(db: &Connection, section_id: &str) -> Option<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn merge_inherits_a_user_name_over_a_generated_primary_name() {
     let mut s = setup();
     insert_section(&s.raw, "primary", Some("Section 3"));
@@ -100,6 +101,7 @@ fn merge_inherits_a_user_name_over_a_generated_primary_name() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn merge_does_not_inherit_a_generated_donor_name() {
     let mut s = setup();
     insert_section(&s.raw, "primary", Some("Section 3"));
@@ -134,6 +136,7 @@ fn name_auto_donor(s: &mut Setup) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn merge_keeps_the_name_from_an_auto_donor_intent() {
     let mut s = setup();
     insert_section(&s.raw, "primary", Some("Section 3"));
@@ -152,6 +155,7 @@ fn merge_keeps_the_name_from_an_auto_donor_intent() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn refused_merge_keeps_the_auto_donor_intent() {
     let mut s = setup();
     insert_section(&s.raw, "donor", Some("Section 4"));
@@ -205,6 +209,7 @@ fn merge_moves_activities_to_primary_and_deletes_secondary() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn merge_rejects_self_merge() {
     let mut s = setup();
     insert_section(&s.raw, "solo", Some("Solo"));
@@ -214,6 +219,7 @@ fn merge_rejects_self_merge() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn merge_rejects_missing_section() {
     let mut s = setup();
     insert_section(&s.raw, "exists", Some("Exists"));
@@ -360,6 +366,7 @@ fn merge_drops_a_donor_ride_that_never_touches_the_primary_line() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn merge_preview_lists_the_donor_rides_the_merge_would_drop() {
     let s = overlapping_pair();
 

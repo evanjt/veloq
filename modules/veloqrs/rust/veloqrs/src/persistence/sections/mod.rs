@@ -2306,6 +2306,7 @@ mod tests {
     /// never cut at its trailing zeros, so a read carrying it lowers the same
     /// bytes from one run to the next.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stamp_is_one_width_whatever_the_instant() {
         use chrono::TimeZone;
         let second = chrono::Utc.with_ymd_and_hms(2025, 9, 4, 6, 30, 0).unwrap();
@@ -2358,6 +2359,7 @@ mod tests {
     /// 20 m and 300 m to its side.
     /// Expected behaviour: each keeps one row covering the section.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_forced_ride_beside_the_section_keeps_one_row() {
         let line = northbound(200, 11.0, 0.0, 0.0);
         for east_m in [20.0, 300.0] {
@@ -2377,6 +2379,7 @@ mod tests {
     /// how far off a ride may be and not how much of the section it covers;
     /// the half ride is no traversal.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_forced_ride_counts_only_when_it_runs_the_whole_section() {
         let line = northbound(200, 11.0, 0.0, 0.0);
         let whole = northbound(240, 11.0, 150.0, -20.0);
@@ -2391,6 +2394,7 @@ mod tests {
     /// and after, so a cut at the relaxed distance runs past both ends.
     /// Expected behaviour: two rows, each ending where the section ends.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_forced_out_and_back_writes_two_rows_that_stop_at_the_section_ends() {
         let line = northbound(200, 11.0, 0.0, 0.0);
         let lead = 100;
@@ -2425,6 +2429,7 @@ mod tests {
     /// Expected behaviour: one row whose ends sit within one point of the
     /// section's and whose distance is within 10 per cent of the section's.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_forced_ride_row_ends_where_the_section_ends() {
         let spacing = 11.1;
         let lead = 100;
@@ -2610,6 +2615,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn retry_is_a_no_op_when_no_clear_is_owed() {
         let mut engine = crate::persistence::PersistentEngine::in_memory().unwrap();
         engine

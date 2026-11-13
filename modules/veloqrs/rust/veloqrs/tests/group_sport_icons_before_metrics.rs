@@ -43,6 +43,7 @@ fn engine_without_metrics() -> (PersistentEngine, TempDir) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_group_reports_its_sports_before_metrics_have_loaded() {
     let (mut engine, _dir) = engine_without_metrics();
 

@@ -86,7 +86,7 @@ describe('a refusal fixed in system settings', () => {
     expect(location.watchPositionAsync).toHaveBeenCalledTimes(1);
   });
 
-  it('raises no second dialog on the return', async () => {
+  vaultIt('raises no second dialog on the return', async () => {
     await renderHook(() => useEntryLocation(true));
     await flush();
     expect(location.requestForegroundPermissionsAsync).toHaveBeenCalledTimes(1);
@@ -131,7 +131,7 @@ describe('a grant taken away while the app was away', () => {
 });
 
 describe('an inactive screen', () => {
-  it('reads nothing on the return', async () => {
+  vaultIt('reads nothing on the return', async () => {
     location.getForegroundPermissionsAsync.mockResolvedValue(permission('denied'));
     await renderHook(() => useEntryLocation(false));
     await flush();

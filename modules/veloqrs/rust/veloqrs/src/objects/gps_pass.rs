@@ -458,6 +458,7 @@ mod garmin_only_tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pass_with_no_session_owes_nothing_to_a_garmin_library() {
         assert_eq!(refusal_without_session(3), FfiStartOutcome::NotOwed);
         assert_eq!(refusal_without_session(0), FfiStartOutcome::NotConfigured);

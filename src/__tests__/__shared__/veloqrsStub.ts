@@ -20,7 +20,7 @@ import { isRouteNameTakenError } from '../../../modules/veloqrs/src/delegates/ro
 
 /**
  * `FfiCallKind` as the generated binding declares it. The generated module
- * cannot be imported here, so this is a copy, and `ffiEnumStub.test.ts` reads
+ * cannot be imported here, so this is a copy, and `ffiEnumStub.vault.test.ts` reads
  * the generated source to hold it to the real one.
  */
 export enum CallKind {

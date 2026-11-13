@@ -102,7 +102,7 @@ describe('the record entry screen holding the paired sensors', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('does not reconnect a link that drops after the screen is left', async () => {
+  vaultIt('does not reconnect a link that drops after the screen is left', async () => {
     await openEntry();
     releaseSensors('entry');
     jest.advanceTimersByTime(SENSOR_RELEASE_GRACE_MS);
@@ -130,16 +130,19 @@ describe('the record entry screen holding the paired sensors', () => {
     expect(Object.keys(useSensorStore.getState().connections).sort()).toEqual([METER.id, STRAP.id]);
   });
 
-  it('hands the connections over when the recording screen holds them before the entry lets go', async () => {
-    await openEntry();
+  vaultIt(
+    'hands the connections over when the recording screen holds them before the entry lets go',
+    async () => {
+      await openEntry();
 
-    holdSensors('session');
-    releaseSensors('entry');
-    jest.advanceTimersByTime(SENSOR_RELEASE_GRACE_MS * 2);
-    await settle();
+      holdSensors('session');
+      releaseSensors('entry');
+      jest.advanceTimersByTime(SENSOR_RELEASE_GRACE_MS * 2);
+      await settle();
 
-    expect(mockCancelDeviceConnection).not.toHaveBeenCalled();
-  });
+      expect(mockCancelDeviceConnection).not.toHaveBeenCalled();
+    }
+  );
 
   it('keeps them while a ride is live, even with no screen holding them', async () => {
     await openEntry();
@@ -163,7 +166,7 @@ describe('the record entry screen holding the paired sensors', () => {
     expect(mockConnectToDevice).toHaveBeenCalledWith(STRAP.id, expect.anything());
   });
 
-  it('is a no-op to let go of a hold that was never taken', async () => {
+  vaultIt('is a no-op to let go of a hold that was never taken', async () => {
     releaseSensors('entry');
     jest.advanceTimersByTime(SENSOR_RELEASE_GRACE_MS);
     await settle();
@@ -214,7 +217,7 @@ describe('disconnecting one sensor for the session', () => {
     expect(connectedIds().sort()).toEqual([METER.id, STRAP.id]);
   });
 
-  it('is forgotten when the entry screen is left without starting', async () => {
+  vaultIt('is forgotten when the entry screen is left without starting', async () => {
     await openEntry();
     await dropSensorForSession(STRAP.id);
     releaseSensors('entry');
@@ -229,7 +232,7 @@ describe('disconnecting one sensor for the session', () => {
 });
 
 describe('the signal of a connected sensor', () => {
-  it('is read while the link is open and written beside its connection', async () => {
+  vaultIt('is read while the link is open and written beside its connection', async () => {
     await openEntry();
 
     jest.advanceTimersByTime(2_000);

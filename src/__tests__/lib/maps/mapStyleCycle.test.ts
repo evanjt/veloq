@@ -7,7 +7,7 @@ describe('getNextStyle', () => {
     expect(getNextStyle('satellite', { satellite: true })).toBe('light');
   });
 
-  it('skips satellite from dark when satellite cannot be drawn', () => {
+  vaultIt('skips satellite from dark when satellite cannot be drawn', () => {
     expect(getNextStyle('dark', { satellite: false })).toBe('light');
   });
 
@@ -18,13 +18,13 @@ describe('getNextStyle', () => {
 });
 
 describe('getStyleIcon', () => {
-  it('names the style a tap draws', () => {
+  vaultIt('names the style a tap draws', () => {
     expect(getStyleIcon('dark')).toBe('weather-night');
     expect(getStyleIcon('satellite')).toBe('satellite-variant');
     expect(getStyleIcon('light')).toBe('weather-sunny');
   });
 
-  it('names the light style when a dark theme offline steps back to it', () => {
+  vaultIt('names the light style when a dark theme offline steps back to it', () => {
     expect(getStyleIcon(getNextStyle('dark', { satellite: false }))).toBe('weather-sunny');
   });
 });

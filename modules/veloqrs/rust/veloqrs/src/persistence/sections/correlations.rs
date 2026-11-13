@@ -266,6 +266,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_constant_weight_is_undefined() {
         let (perf, wellness) = series(12);
         let out = section_correlations(&perf, i64::MIN, &wellness);
@@ -276,6 +277,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_variable_recorded_on_no_attempt_is_absent() {
         let (perf, wellness) = series(12);
         let out = section_correlations(&perf, i64::MIN, &wellness);
@@ -284,6 +286,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn several_laps_of_one_activity_make_one_pair() {
         let (mut perf, wellness) = series(10);
         // Two slower extra laps on the first activity change nothing.
@@ -297,6 +300,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_fastest_lap_of_an_activity_is_its_point() {
         let (mut perf, wellness) = series(10);
         perf.records[0]
@@ -330,6 +334,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn partial_and_under_covered_laps_are_skipped() {
         let (mut perf, wellness) = series(12);
         perf.records[0].laps = vec![lap("p", 3.0, "partial", Some(1.0))];
@@ -346,6 +351,7 @@ mod tests {
     /// Expected behaviour: each row carries its own direction's family, the
     /// variables that carried an estimate there.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn each_direction_carries_the_size_of_its_own_family() {
         let (mut perf, mut wellness) = noise_library(7, 0.0);
         for (r, d) in perf.records.iter_mut().zip(wellness.iter_mut()) {
@@ -369,6 +375,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_family_with_too_few_pairs_has_size_zero() {
         let (perf, wellness) = series(9);
         let out = section_correlations(&perf, i64::MIN, &wellness);

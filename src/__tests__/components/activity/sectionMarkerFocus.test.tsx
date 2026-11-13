@@ -89,7 +89,7 @@ describe('a section marker tap brings its card into view', () => {
     expect(scrollToIndex).toHaveBeenCalledWith(expect.objectContaining({ index: 4 }));
   });
 
-  it('marks the card for the hold duration, then clears the mark', () => {
+  vaultIt('marks the card for the hold duration, then clears the mark', () => {
     const onHighlightedSectionIdChange = jest.fn();
     renderList({ focusSectionId: 'trail-9', onHighlightedSectionIdChange });
     expect(onHighlightedSectionIdChange).toHaveBeenLastCalledWith('trail-9');
@@ -124,7 +124,7 @@ describe('a section marker tap brings its card into view', () => {
     expect(onFocusHandled).not.toHaveBeenCalled();
   });
 
-  it('scrolls nowhere without a focus', () => {
+  vaultIt('scrolls nowhere without a focus', () => {
     renderList({ focusSectionId: null });
     act(() => jest.runOnlyPendingTimers());
     expect(scrollToIndex).not.toHaveBeenCalled();

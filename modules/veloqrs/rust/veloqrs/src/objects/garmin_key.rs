@@ -292,6 +292,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn connecting_reads_at_most_one_activity_and_asks_nothing_else() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -311,6 +312,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_key_garmin_accepts_but_refuses_the_activities_has_no_activity_access_and_is_not_held() {
         for refusal in [401, 403] {
             let server = MockServer::start();
@@ -369,6 +371,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_400_and_an_empty_paste_are_malformed_and_the_empty_one_sends_nothing() {
         let server = MockServer::start();
         let exchange = server.mock(|when, then| {
@@ -387,6 +390,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unreachable_garmin_says_nothing_about_the_key() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -399,6 +403,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn clearing_forgets_the_key() {
         let holder = GarminKeyHolder::default();
         holder.hold(GarminClient::new("k"));
@@ -431,6 +436,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_key_checked_after_a_sign_out_is_held() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -445,6 +451,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_key_checked_on_its_own_reports_the_account_and_holds_nothing() {
         let server = MockServer::start();
         let b64 = |v: serde_json::Value| {
@@ -467,6 +474,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refused_or_blank_key_checked_on_its_own_names_no_account() {
         let server = MockServer::start();
         let exchange = server.mock(|when, then| {

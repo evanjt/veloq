@@ -138,23 +138,26 @@ beforeEach(() => {
   (replaceTo as jest.Mock).mockClear();
 });
 
-it('advances the timer without rendering the recording screen on each clock tick', async () => {
-  mockEvents = [];
-  mockParams = { type: 'Ride' };
-  await render(<RecordingScreen />);
+vaultIt(
+  'advances the timer without rendering the recording screen on each clock tick',
+  async () => {
+    mockEvents = [];
+    mockParams = { type: 'Ride' };
+    await render(<RecordingScreen />);
 
-  expect(useRecordingStore.getState().status).toBe('recording');
-  expect(screen.getByTestId('recording-timer')).toHaveTextContent('00:00');
-  // The mount's own async reads land once; the count starts after them, so
-  // what it measures is the clock.
-  await act(async () => {});
-  const rootRenders = mockScreenColorsRender.mock.calls.length;
+    expect(useRecordingStore.getState().status).toBe('recording');
+    expect(screen.getByTestId('recording-timer')).toHaveTextContent('00:00');
+    // The mount's own async reads land once; the count starts after them, so
+    // what it measures is the clock.
+    await act(async () => {});
+    const rootRenders = mockScreenColorsRender.mock.calls.length;
 
-  await act(() => jest.advanceTimersByTime(5000));
+    await act(() => jest.advanceTimersByTime(5000));
 
-  expect(screen.getByTestId('recording-timer')).toHaveTextContent('00:05');
-  expect(mockScreenColorsRender.mock.calls.length).toBe(rootRenders);
-});
+    expect(screen.getByTestId('recording-timer')).toHaveTextContent('00:05');
+    expect(mockScreenColorsRender.mock.calls.length).toBe(rootRenders);
+  }
+);
 
 afterEach(() => {
   useRecordingStore.getState().reset();

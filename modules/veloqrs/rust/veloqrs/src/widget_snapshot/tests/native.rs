@@ -95,6 +95,7 @@ fn a_pushed_ride_is_on_the_snapshot_composed_from_the_stored_context() {
 /// Expected behaviour: its strength block is the one the app's own write
 /// composes from the same rows, shaded and worded the same.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_native_path_composes_the_same_strength_block() {
     let _guard = serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("widget_native_strength.db");
@@ -167,6 +168,7 @@ fn the_native_path_composes_the_same_strength_block() {
 ///
 /// Expected behaviour: nothing is composed and the widget keeps the file it has.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn with_no_stored_context_there_is_no_snapshot_to_write() {
     let _guard = serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("widget_no_context.db");
@@ -207,6 +209,7 @@ fn a_stored_context_that_does_not_parse_reads_as_none() {
 /// The app hands its context over on every refresh, so the ordinary refresh
 /// that changes nothing writes nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn storing_the_same_context_twice_writes_once() {
     let _guard = serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("widget_context_write.db");
@@ -222,6 +225,7 @@ fn storing_the_same_context_twice_writes_once() {
 /// The natives read this version to decide what a snapshot carries, so a change
 /// here is a change to what they decode.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_schema_is_the_one_carrying_the_spoken_words() {
     assert_eq!(SCHEMA_VERSION, 16);
 }

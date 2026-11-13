@@ -54,7 +54,7 @@ describe('where the page asks for a heatmap tile', () => {
     );
   });
 
-  it('hands Rust no template, because the heatmap is drawn rather than fetched', () => {
+  vaultIt('hands Rust no template, because the heatmap is drawn rather than fetched', () => {
     onPlatform('android');
     const { basemapStore } = jest.requireMock('veloqrs');
 

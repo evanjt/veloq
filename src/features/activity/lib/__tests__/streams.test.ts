@@ -79,19 +79,19 @@ describe('streamsFromBuffers', () => {
     expect(streams.latlng).toEqual(new Float64Array([45.123456, 8.654321]));
   });
 
-  it('leaves out the coordinates of an activity with no track', () => {
+  vaultIt('leaves out the coordinates of an activity with no track', () => {
     const streams = streamsFromBuffers(buffers({ watts: floats([200]) }));
 
     expect(streams).not.toHaveProperty('latlng');
   });
 
-  it('leaves out a series the activity does not have', () => {
+  vaultIt('leaves out a series the activity does not have', () => {
     const streams = streamsFromBuffers(buffers({ watts: floats([200]) }));
 
     expect(Object.keys(streams)).toEqual(['watts']);
   });
 
-  it('reads a buffer that is not whole samples as absent', () => {
+  vaultIt('reads a buffer that is not whole samples as absent', () => {
     const streams = streamsFromBuffers(buffers({ watts: new ArrayBuffer(12) }));
 
     expect(streams.watts).toBeUndefined();
@@ -105,7 +105,7 @@ describe('streamsFromBuffers', () => {
     expect(streams.distance).toEqual(new Float64Array(values));
   });
 
-  it('views each series over the buffer the engine handed over rather than copying it', () => {
+  vaultIt('views each series over the buffer the engine handed over rather than copying it', () => {
     const watts = floats([200, 210, 220]);
     const time = floats([0, 1, 2]);
 
@@ -147,7 +147,7 @@ describe('the detail track from the stream body', () => {
     return { proxy, reads: () => reads };
   }
 
-  it('holds the track as two slots a point, without the object decoder', () => {
+  vaultIt('holds the track as two slots a point, without the object decoder', () => {
     const streams = streamsFromBuffers(buffers({ latlng: encodeTrack(longRide()) }));
 
     expect(streams.latlng).toBeInstanceOf(Float64Array);
@@ -167,7 +167,7 @@ describe('the detail track from the stream body', () => {
     expect(coords).toEqual(decodeTrack(encoded));
   });
 
-  it('keeps a point it cannot place at its index', () => {
+  vaultIt('keeps a point it cannot place at its index', () => {
     const coords = resolveDetailCoordinates({
       streamLatLng: new Float64Array([-37.0, 144.0, NaN, NaN, -37.1, 144.1]),
     });

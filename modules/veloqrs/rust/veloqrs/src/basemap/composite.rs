@@ -151,17 +151,20 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_inside_a_region_is_offered_to_that_region_first() {
         assert_eq!(choose(12, 11.0, 41.5)[0], "north-land");
         assert_eq!(choose(12, 13.0, 35.0)[0], "south-land");
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_outside_every_region_is_offered_to_the_fallback_alone() {
         assert_eq!(choose(12, -40.0, 10.0), ["world"]);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_first_member_listed_wins_where_two_regions_overlap() {
         let overlap = choose(12, 11.0, 40.5);
 
@@ -169,22 +172,26 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_deeper_than_a_region_serves_is_offered_to_the_next_that_holds_it() {
         assert_eq!(choose(18, 11.0, 40.5), ["north-land"]);
         assert_eq!(choose(15, 11.0, 40.5), ["north-land", "south-land"]);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_deeper_than_every_member_serves_has_no_candidate() {
         assert!(choose(21, 11.0, 41.5).is_empty());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_shallower_than_a_region_starts_is_offered_to_the_fallback() {
         assert_eq!(choose(8, 11.0, 41.5), ["world"]);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_straddling_a_border_is_offered_to_every_region_it_touches() {
         let at_border = choose(8, 12.0, 41.0);
 
@@ -197,6 +204,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_that_only_touches_a_box_edge_is_not_in_it() {
         // Tile x = 2^z / 2 begins at longitude 0.
         let members = vec![member("edge", 0, 20, &[[-10.0, -10.0, 0.0, 10.0]])];
@@ -206,6 +214,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_source_that_is_not_a_composite_has_no_candidates_to_ask() {
         set("composite-known".into(), members());
 

@@ -30,11 +30,17 @@ const NO_NAME: i64 = -1;
 /// FIT's exercise categories `unknown` and the invalid `uint16`.
 const UNNAMED_CATEGORIES: &str = "(65534, 65535)";
 
+/// The day a session counts for, in a query over `exercise_sets es` joined to
+/// `activity_metrics am`: its activity's date, else its first set's start.
+const SESSION_DAY: &str = "COALESCE(am.date,
+                         (SELECT MIN(s.start_time) FROM exercise_sets s
+                          WHERE s.activity_id = es.activity_id))";
+
 /// One exercise as the tables key it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct ExerciseKey {
-    category: i64,
-    name: i64,
+    pub(super) category: i64,
+    pub(super) name: i64,
 }
 
 impl ExerciseKey {
@@ -62,6 +68,22 @@ pub struct RankedExercise {
     pub sessions: u32,
 }
 
+/// One working set of an exercise as an earlier session did it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LastTimeSet {
+    pub reps: Option<u32>,
+    pub weight_kg: Option<f64>,
+    pub duration_secs: Option<f64>,
+}
+
+/// An exercise as the most recent session that did it left it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LastTime {
+    /// Whole days from that session to now, 0 for today or a later date.
+    pub days_ago: u32,
+    pub sets: Vec<LastTimeSet>,
+}
+
 /// An exercise that followed another, and how many times it did.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FollowingExercise {
@@ -72,7 +94,10 @@ pub struct FollowingExercise {
 
 /// The exercises of a session in the order they were done: active sets of a
 /// named exercise, with a run of sets of one exercise counted once.
-fn session_sequence(conn: &Connection, activity_id: &str) -> SqlResult<Vec<ExerciseKey>> {
+pub(super) fn session_sequence(
+    conn: &Connection,
+    activity_id: &str,
+) -> SqlResult<Vec<ExerciseKey>> {
     let mut stmt = conn.prepare_cached(&format!(
         "SELECT exercise_category, exercise_name FROM exercise_sets
          WHERE activity_id = ?1 AND set_type = 0
@@ -134,21 +159,19 @@ pub(crate) fn attach(
     for key in touched {
         recompute_usage(conn, key)?;
     }
-    Ok(())
+    super::strength_signature::refresh(conn, activity_id, &sequence)
 }
 
 /// One exercise's usage row, from the sets that name it. The session's day is
 /// its activity's date, else its first set's start.
 fn recompute_usage(conn: &Connection, key: ExerciseKey) -> SqlResult<()> {
-    let mut stmt = conn.prepare_cached(
-        "SELECT COALESCE(am.date,
-                         (SELECT MIN(s.start_time) FROM exercise_sets s
-                          WHERE s.activity_id = es.activity_id))
+    let mut stmt = conn.prepare_cached(&format!(
+        "SELECT {SESSION_DAY}
          FROM exercise_sets es
          LEFT JOIN activity_metrics am ON am.activity_id = es.activity_id
          WHERE es.exercise_category = ?1 AND es.exercise_name IS ?2 AND es.set_type = 0
          GROUP BY es.activity_id",
-    )?;
+    ))?;
     let days: Vec<i64> = stmt
         .query_map(params![key.category, key.name()], |row| {
             row.get::<_, Option<i64>>(0)
@@ -240,6 +263,56 @@ pub(crate) fn ranked(conn: &Connection, now: i64) -> SqlResult<Vec<RankedExercis
             .then((a.category, a.name).cmp(&(b.category, b.name)))
     });
     Ok(rows.into_iter().map(|(_, ranked)| ranked).collect())
+}
+
+/// The working sets of an exercise in the latest session that did it, in any
+/// session, with the days since. A session with no day is not counted, as in
+/// the ranking. `None` for an exercise never done.
+pub(crate) fn last_time(
+    conn: &Connection,
+    category: u16,
+    name: Option<u16>,
+    now: i64,
+) -> SqlResult<Option<LastTime>> {
+    let key = ExerciseKey::new(i64::from(category), name.map(i64::from));
+    let latest = conn
+        .prepare_cached(&format!(
+            "SELECT es.activity_id, {SESSION_DAY} AS day
+             FROM exercise_sets es
+             LEFT JOIN activity_metrics am ON am.activity_id = es.activity_id
+             WHERE es.exercise_category = ?1 AND es.exercise_name IS ?2 AND es.set_type = 0
+             GROUP BY es.activity_id
+             HAVING day IS NOT NULL
+             ORDER BY day DESC, es.activity_id
+             LIMIT 1"
+        ))?
+        .query_row(params![key.category, key.name()], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        });
+    let (activity_id, day) = match latest {
+        Ok(found) => found,
+        Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let sets = conn
+        .prepare_cached(
+            "SELECT repetitions, weight_kg, duration_secs FROM exercise_sets
+             WHERE activity_id = ?1 AND exercise_category = ?2 AND exercise_name IS ?3
+               AND set_type = 0
+             ORDER BY set_order",
+        )?
+        .query_map(params![activity_id, key.category, key.name()], |row| {
+            Ok(LastTimeSet {
+                reps: row.get::<_, Option<u32>>(0)?,
+                weight_kg: row.get(1)?,
+                duration_secs: row.get(2)?,
+            })
+        })?
+        .collect::<SqlResult<_>>()?;
+    Ok(Some(LastTime {
+        days_ago: ((now - day).max(0) / SECONDS_PER_DAY) as u32,
+        sets,
+    }))
 }
 
 /// The exercises that followed this one in a session, most often first.

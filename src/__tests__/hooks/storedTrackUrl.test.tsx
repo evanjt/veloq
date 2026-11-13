@@ -112,7 +112,7 @@ describe('the stored track URL', () => {
     expect(result.current).toMatch(/veloq-geo\/track\/i1\?v=0$/);
   });
 
-  it('is null with no activity', async () => {
+  vaultIt('is null with no activity', async () => {
     const { result } = await renderHook(() => useStoredTrackUrl(undefined, true));
     expect(result.current).toBeNull();
   });

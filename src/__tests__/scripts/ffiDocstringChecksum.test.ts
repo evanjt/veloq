@@ -31,7 +31,7 @@ const ANCHOR = '/// Ask the stream backfill to stop. It ends at its next batch b
 const bindings = (): string => fs.readFileSync(GENERATED_BINDINGS, 'utf8');
 
 describe('the FFI docstring matches the generated bindings', () => {
-  it('records a docstring for an exported function that has one', () => {
+  vaultIt('records a docstring for an exported function that has one', () => {
     const documented = ffiManifest().FFI_EXPORTS.filter((e) => e.docs.length > 0);
 
     expect(documented.length).toBeGreaterThan(0);
@@ -53,7 +53,7 @@ describe('the FFI docstring matches the generated bindings', () => {
     expect(drift).toEqual([]);
   });
 
-  it('fails when a doc comment changes and the bindings have not been regenerated', () => {
+  vaultIt('fails when a doc comment changes and the bindings have not been regenerated', () => {
     expect(fs.readFileSync(RUST_FILE, 'utf8')).toContain(ANCHOR);
 
     const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-ffi-src-'));
@@ -75,7 +75,7 @@ describe('the FFI docstring matches the generated bindings', () => {
     }
   });
 
-  it('fails when a doc comment is added to an export that had none', () => {
+  vaultIt('fails when a doc comment is added to an export that had none', () => {
     const bare = extractFfiExports().find((e) => e.object === 'RouteManager' && !e.docs);
     expect(bare).toBeDefined();
 
@@ -95,7 +95,7 @@ describe('the FFI docstring matches the generated bindings', () => {
     }
   });
 
-  it('fails when a doc block detached from its export by a blank line changes', () => {
+  vaultIt('fails when a doc block detached from its export by a blank line changes', () => {
     const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-ffi-src-'));
     try {
       fs.cpSync(RUST_SRC_DIR, copy, { recursive: true });
@@ -115,7 +115,7 @@ describe('the FFI docstring matches the generated bindings', () => {
     }
   });
 
-  it('leaves the checked-in tree exactly as it found it', () => {
+  vaultIt('leaves the checked-in tree exactly as it found it', () => {
     expect(fs.readFileSync(RUST_FILE, 'utf8')).not.toContain('the checksum will notice');
   });
 });

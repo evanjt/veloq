@@ -179,6 +179,7 @@ fn a_second_athletes_census_leaves_the_firsts_standing() {
 /// the rest of the census, so the GPS fetch list and the download count are a
 /// query rather than a pass over every stored body.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_census_records_which_activities_have_a_track_upstream() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
@@ -216,6 +217,7 @@ fn a_census_records_which_activities_have_a_track_upstream() {
 /// Expected behaviour: the pull that moves the version puts the track back in
 /// the queue, and a pull that leaves the version alone does not.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_census_pull_that_moves_a_version_asks_a_settled_track_again() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);

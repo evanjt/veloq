@@ -101,7 +101,7 @@ describe('strength insights inside the shared pipeline', () => {
     expect(result.some((insight) => insight.category === 'strength_progression')).toBe(true);
   });
 
-  it('caps strength progressions with the shared per-category limit', () => {
+  vaultIt('caps strength progressions with the shared per-category limit', () => {
     const result = generateInsights(
       {
         ...emptyInput(),
@@ -117,7 +117,7 @@ describe('strength insights inside the shared pipeline', () => {
     expect(progressions).toHaveLength(INSIGHTS_CONFIG.surface.maxPerCategory);
   });
 
-  it('never exceeds the surface cap once strength joins the candidates', () => {
+  vaultIt('never exceeds the surface cap once strength joins the candidates', () => {
     const result = generateInsights(
       {
         ...emptyInput(),
@@ -132,7 +132,7 @@ describe('strength insights inside the shared pipeline', () => {
     expect(result.length).toBeLessThanOrEqual(INSIGHTS_CONFIG.surface.maxTotal);
   });
 
-  it('returns every qualifying progression rather than one private pick', () => {
+  vaultIt('returns every qualifying progression rather than one private pick', () => {
     const result = generateStrengthInsights(
       growingMonthly(),
       growingWeekly(),

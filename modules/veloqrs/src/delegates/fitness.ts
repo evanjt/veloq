@@ -11,7 +11,6 @@ import type {
   FfiActivityIntervals,
   FfiBestEffortsData,
   FfiDayLoad,
-  FfiExerciseSet,
   FfiFitnessScreenData,
   FfiFitnessScreenWindows,
   FfiFtpTrend,
@@ -470,8 +469,6 @@ export interface SampleWidgetLibrary {
   sportSettingsJson: string;
   wellness: WellnessRowInput[];
   activities: FfiActivityBody[];
-  /** The sets of the library's strength sessions, each naming its activity. */
-  exerciseSets: FfiExerciseSet[];
 }
 
 /**
@@ -503,7 +500,6 @@ export function composeWidgetSnapshot(
           sportSettingsJson: sample.sportSettingsJson,
           wellness: sample.wellness.map(wellnessRowToFfi),
           activities: sample.activities,
-          exerciseSets: sample.exerciseSets,
         })
     )
   );

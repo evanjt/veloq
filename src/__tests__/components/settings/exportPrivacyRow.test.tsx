@@ -133,7 +133,7 @@ afterEach(() => {
 const lastMap = () => mapProps[mapProps.length - 1];
 
 describe('the export privacy row', () => {
-  it('reads the fixed settings in one screen call', async () => {
+  vaultIt('reads the fixed settings in one screen call', async () => {
     const { engine } = engineWith({
       getSetting: jest.fn(() => {
         throw new Error('separate read');
@@ -144,7 +144,7 @@ describe('the export privacy row', () => {
     expect(engine.getSetting).not.toHaveBeenCalled();
   });
 
-  it('offers the home the engine guessed', async () => {
+  vaultIt('offers the home the engine guessed', async () => {
     engineWith();
     const tree = await render(<ExportPrivacyRow />);
 
@@ -161,7 +161,7 @@ describe('the export privacy row', () => {
     expect(settings.get('__export_privacy_radius_m')).toBeUndefined();
   });
 
-  it('looks off limits before a home is set, and says the home is what it needs', async () => {
+  vaultIt('looks off limits before a home is set, and says the home is what it needs', async () => {
     engineWith();
     const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
@@ -174,7 +174,7 @@ describe('the export privacy row', () => {
     );
   });
 
-  it('says a home is needed even when there is no place to suggest', async () => {
+  vaultIt('says a home is needed even when there is no place to suggest', async () => {
     engineWith({ suggestExportHome: jest.fn(() => null) });
     const tree = await render(<ExportPrivacyRow />);
 
@@ -185,7 +185,7 @@ describe('the export privacy row', () => {
     expect(tree.getByTestId('export-privacy-switch')).toBeDisabled();
   });
 
-  it('looks switchable and drops the reason once the home is confirmed', async () => {
+  vaultIt('looks switchable and drops the reason once the home is confirmed', async () => {
     const { settings } = engineWith();
     const tree = await render(<ExportPrivacyRow />);
     await waitFor(() => expect(tree.getByTestId('export-privacy-confirm')).toBeTruthy());
@@ -199,7 +199,7 @@ describe('the export privacy row', () => {
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('100'));
   });
 
-  it('looks switchable on an install that already has a home', async () => {
+  vaultIt('looks switchable on an install that already has a home', async () => {
     const { settings } = engineWith();
     settings.set('__export_home_lat', String(HOME.latitude));
     settings.set('__export_home_lng', String(HOME.longitude));
@@ -240,7 +240,7 @@ describe('the export privacy row', () => {
     expect(settings.get('__export_home_lat')).toBe(String(HOME.latitude));
   });
 
-  it('says there is nothing to suggest rather than offering a point at zero', async () => {
+  vaultIt('says there is nothing to suggest rather than offering a point at zero', async () => {
     engineWith({ suggestExportHome: jest.fn(() => null) });
     const tree = await render(<ExportPrivacyRow />);
 
@@ -248,7 +248,7 @@ describe('the export privacy row', () => {
     expect(tree.queryByTestId('export-privacy-confirm')).toBeNull();
   });
 
-  it('reads an install that already has a home as on', async () => {
+  vaultIt('reads an install that already has a home as on', async () => {
     const { settings } = engineWith();
     settings.set('__export_home_lat', String(HOME.latitude));
     settings.set('__export_home_lng', String(HOME.longitude));
@@ -286,7 +286,7 @@ describe('the export privacy row', () => {
     expect(tree.getByTestId('export-privacy-count').props.children).toContain('50');
   });
 
-  it('describes the trim at the radius the row is set to', async () => {
+  vaultIt('describes the trim at the radius the row is set to', async () => {
     const { settings } = engineWith();
     settings.set('__export_home_lat', String(HOME.latitude));
     settings.set('__export_home_lng', String(HOME.longitude));
@@ -321,17 +321,20 @@ describe('the export privacy row', () => {
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('250'));
   });
 
-  it('describes the default radius in the off position, the one turning it on applies', async () => {
-    const { settings } = engineWith();
-    settings.set('__export_home_lat', String(HOME.latitude));
-    settings.set('__export_home_lng', String(HOME.longitude));
-    settings.set('__export_privacy_radius_m', '0');
+  vaultIt(
+    'describes the default radius in the off position, the one turning it on applies',
+    async () => {
+      const { settings } = engineWith();
+      settings.set('__export_home_lat', String(HOME.latitude));
+      settings.set('__export_home_lng', String(HOME.longitude));
+      settings.set('__export_privacy_radius_m', '0');
 
-    const tree = await render(<ExportPrivacyRow />);
+      const tree = await render(<ExportPrivacyRow />);
 
-    await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
-    expect(await describedRadius(tree)).toContain('"radius":"100 m"');
-  });
+      await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
+      expect(await describedRadius(tree)).toContain('"radius":"100 m"');
+    }
+  );
 
   it('describes the radius a switch back on applies after a pick and a switch off', async () => {
     const { settings } = engineWith();
@@ -350,7 +353,7 @@ describe('the export privacy row', () => {
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('500'));
   });
 
-  it('reports that nothing is trimmed in the off position', async () => {
+  vaultIt('reports that nothing is trimmed in the off position', async () => {
     const { settings } = engineWith();
     settings.set('__export_home_lat', String(HOME.latitude));
     settings.set('__export_home_lng', String(HOME.longitude));
@@ -365,7 +368,7 @@ describe('the export privacy row', () => {
     expect(tree.queryByTestId('export-privacy-radius-500')).toBeNull();
   });
 
-  it('says nothing about counts when the engine cannot preview', async () => {
+  vaultIt('says nothing about counts when the engine cannot preview', async () => {
     const { settings } = engineWith({ exportPrivacyPreview: undefined });
     settings.set('__export_home_lat', String(HOME.latitude));
     settings.set('__export_home_lng', String(HOME.longitude));
@@ -377,7 +380,7 @@ describe('the export privacy row', () => {
     expect(tree.queryByTestId('export-privacy-count')).toBeNull();
   });
 
-  it('shows the share of ride ends beside the count as a whole percentage', async () => {
+  vaultIt('shows the share of ride ends beside the count as a whole percentage', async () => {
     engineWith();
     const tree = await render(<ExportPrivacyRow />);
 
@@ -392,7 +395,7 @@ describe('the export privacy row', () => {
     expect(endpointSharePercent(0.245)).toBe(25);
   });
 
-  it('draws the suggested home on a map before it is confirmed', async () => {
+  vaultIt('draws the suggested home on a map before it is confirmed', async () => {
     engineWith();
     const tree = await render(<ExportPrivacyRow />);
 
@@ -402,7 +405,7 @@ describe('the export privacy row', () => {
     expect(lastMap().radiusM).toBe(100);
   });
 
-  it('draws the circle at the radius the row is set to', async () => {
+  vaultIt('draws the circle at the radius the row is set to', async () => {
     const { settings } = engineWith();
     settings.set('__export_home_lat', String(HOME.latitude));
     settings.set('__export_home_lng', String(HOME.longitude));
@@ -447,7 +450,7 @@ describe('the export privacy row', () => {
     expect(tree.queryByTestId('export-privacy-confirm')).toBeNull();
   });
 
-  it('draws no map when there is nothing to suggest, rather than one at zero', async () => {
+  vaultIt('draws no map when there is nothing to suggest, rather than one at zero', async () => {
     engineWith({ suggestExportHome: jest.fn(() => null) });
     const tree = await render(<ExportPrivacyRow />);
 

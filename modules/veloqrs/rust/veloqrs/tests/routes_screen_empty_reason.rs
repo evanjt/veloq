@@ -93,6 +93,7 @@ fn query() -> FfiRoutesScreenQuery {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_of_indoor_sessions_reads_as_having_no_gps_activities() {
     let _serial = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
@@ -118,6 +119,7 @@ fn a_library_of_indoor_sessions_reads_as_having_no_gps_activities() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn rides_that_never_repeat_read_as_detection_done_with_none_found() {
     let _serial = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
@@ -141,6 +143,7 @@ fn rides_that_never_repeat_read_as_detection_done_with_none_found() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn rides_no_detect_has_seen_read_as_not_yet_run_with_the_count_waiting() {
     let _serial = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
@@ -161,6 +164,7 @@ fn rides_no_detect_has_seen_read_as_not_yet_run_with_the_count_waiting() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn rides_waiting_on_elevation_read_as_held_with_the_tracks_owed_while_the_cut_is_owed() {
     let _serial = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
@@ -185,6 +189,7 @@ fn rides_waiting_on_elevation_read_as_held_with_the_tracks_owed_while_the_cut_is
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn owed_elevation_after_the_cut_is_progress_and_not_a_hold() {
     let _serial = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
@@ -206,6 +211,7 @@ fn owed_elevation_after_the_cut_is_progress_and_not_a_hold() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn elevation_owed_after_every_ride_was_detected_does_not_hold_an_empty_list() {
     let _serial = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
@@ -224,6 +230,7 @@ fn elevation_owed_after_every_ride_was_detected_does_not_hold_an_empty_list() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_repeated_route_leaves_the_routes_list_with_no_reason() {
     let _serial = super::serial_state();
     let dir = TempDir::new().expect("tempdir");
@@ -242,6 +249,7 @@ fn a_repeated_route_leaves_the_routes_list_with_no_reason() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_search_that_matches_nothing_is_not_an_empty_catalogue() {
     let _serial = super::serial_state();
     let dir = TempDir::new().expect("tempdir");

@@ -53,6 +53,7 @@ fn stored_track_round_trips_elevation() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn lift_detection_needs_point_elevation() {
     assert!(
         !tracematch::lift_spans(&climbing_line(true), None).is_empty(),
@@ -65,6 +66,7 @@ fn lift_detection_needs_point_elevation() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_without_elevation_still_stores() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("engine.db");
@@ -84,6 +86,7 @@ fn a_track_without_elevation_still_stores() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_with_elevation_gaps_stores_the_gaps_as_absent() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("engine.db");
@@ -166,6 +169,7 @@ fn a_splice_is_not_a_mutation_and_a_re_ingest_is() {
 /// write as the points, and a splice that leaves no point elevated claims no
 /// series.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_splice_records_the_series_it_wrote() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("engine.db");
@@ -245,6 +249,7 @@ fn a_series_of_the_wrong_length_writes_nothing() {
 /// A sample upstream could not fill leaves that point without an elevation,
 /// rather than writing a placeholder the detector would read as ground.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unfillable_sample_is_left_without_an_elevation() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("engine.db");

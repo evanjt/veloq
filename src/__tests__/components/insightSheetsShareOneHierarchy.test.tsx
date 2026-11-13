@@ -227,7 +227,7 @@ beforeAll(() => initialiseI18n('en-GB'));
 beforeEach(() => jest.mocked(navigateTo).mockClear());
 
 describe('an insight sheet', () => {
-  it.each([
+  vaultIt.each([
     ['section_trend', sectionTrend],
     ['stale_pr', stalePr],
     ['fitness_milestone', fitnessMilestone],
@@ -268,7 +268,7 @@ describe('an insight sheet', () => {
     }
   );
 
-  it('draws no other figure above the card title size beside the hero', () => {
+  vaultIt('draws no other figure above the card title size beside the hero', () => {
     for (const insight of [sectionPr, hrvTrend, efficiencyTrend, fitnessMilestone]) {
       const view = render(<InsightDetailContent insight={insight} />);
       const hero = screen.queryByTestId('insight-hero-value') as unknown as Node | null;
@@ -284,7 +284,7 @@ describe('an insight sheet', () => {
     }
   });
 
-  it('reaches the efficiency section through one control', async () => {
+  vaultIt('reaches the efficiency section through one control', async () => {
     render(<InsightDetailSheet insight={efficiencyTrend} onClose={() => undefined} />);
     await fireEvent.press(screen.getByTestId('methodology-toggle'));
 

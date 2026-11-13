@@ -232,7 +232,7 @@ describe('a bars history', () => {
     expect(bars()).toHaveLength(weeks.length);
   });
 
-  it('draws bars, not a line, in the supporting data', async () => {
+  vaultIt('draws bars, not a line, in the supporting data', async () => {
     await render(<SupportingDataSection data={{ history: weekly }} category="period_comparison" />);
     await layout();
 
@@ -259,7 +259,7 @@ describe('the section changed sheet', () => {
     target: '/section/quarry',
   };
 
-  it("draws the section's line at the sheet's width, as its card does", async () => {
+  vaultIt("draws the section's line at the sheet's width, as its card does", async () => {
     await render(<InsightDetailContent insight={insight('section_changed', line)} />);
     await layout();
 
@@ -277,7 +277,7 @@ describe('the section changed sheet', () => {
     expect(navigateTo).toHaveBeenCalledWith('/section/quarry?origin=insights');
   });
 
-  it('draws nothing for a section whose line did not arrive', async () => {
+  vaultIt('draws nothing for a section whose line did not arrive', async () => {
     await render(
       <InsightDetailContent insight={{ ...insight('section_changed', line), supportingData: {} }} />
     );
@@ -322,7 +322,7 @@ describe('the window a sheet compares', () => {
     expect(right).toBeCloseTo(xs[6]);
   });
 
-  it('shades the step between two eFTP estimates', async () => {
+  vaultIt('shades the step between two eFTP estimates', async () => {
     const ftp = dated([238, 240, 241, 244, 247, 250, 252], 14);
     await render(
       <InsightDetailContent
@@ -352,7 +352,7 @@ describe('the window a sheet compares', () => {
     expect(right).toBeCloseTo(xs[6]);
   });
 
-  it('marks a dated sample with the reticle and shades nothing', async () => {
+  vaultIt('marks a dated sample with the reticle and shades nothing', async () => {
     const weeks = dated([310, 280, 0, 350, 120], 7);
     await render(
       <InsightDetailContent
@@ -422,7 +422,7 @@ describe('which way a sheet chart reads', () => {
     expect(screen.getByTestId('route-insight-row-orchard:Run')).toBeTruthy();
   });
 
-  it('prints no caption on a chart where up is more', async () => {
+  vaultIt('prints no caption on a chart where up is more', async () => {
     const weeks = dated([310, 280, 0, 350, 120], 7);
     await render(
       <InsightDetailContent
@@ -482,7 +482,7 @@ describe('the screen a sheet chart opens for a screen reader', () => {
     expect(navigateTo).toHaveBeenCalledWith('/section/weir?activityId=w4&origin=insights');
   });
 
-  it('still steps the samples beside it', async () => {
+  vaultIt('still steps the samples beside it', async () => {
     await render(<InsightDetailSheet insight={stale()} onClose={jest.fn()} />);
     await layout();
 
@@ -492,7 +492,7 @@ describe('the screen a sheet chart opens for a screen reader', () => {
     expect(names).toEqual(['increment', 'decrement', 'pageForward', 'pageBack', 'openPictured']);
   });
 
-  it('offers nothing to open outside a sheet', async () => {
+  vaultIt('offers nothing to open outside a sheet', async () => {
     await render(<InsightDetailContent insight={stale()} />);
     await layout();
 

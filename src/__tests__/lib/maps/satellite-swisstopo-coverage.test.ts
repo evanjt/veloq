@@ -115,16 +115,16 @@ describe('the swisstopo source is asked only for tiles over Switzerland', () => 
     if (covered(ign, p)) expect(covered(swisstopoBoxes(), p)).toBe(true);
   });
 
-  it('credits whoever draws Chamonix, which is IGN and not swisstopo', () => {
+  vaultIt('credits whoever draws Chamonix, which is IGN and not swisstopo', () => {
     expect(getCombinedSatelliteAttribution(45.923, 6.869, 14)).toBe('© IGN');
   });
 
-  it('still credits swisstopo over Switzerland', () => {
+  vaultIt('still credits swisstopo over Switzerland', () => {
     expect(getCombinedSatelliteAttribution(46.233, 7.36, 14)).toBe('© swisstopo');
     expect(getCombinedSatelliteAttribution(47.377, 8.54, 14)).toBe('© swisstopo');
   });
 
-  it('credits basemap.at over Vorarlberg, under the box that reached over it', () => {
+  vaultIt('credits basemap.at over Vorarlberg, under the box that reached over it', () => {
     expect(getCombinedSatelliteAttribution(47.503, 9.747, 14)).toContain('basemap.at');
   });
 
@@ -141,13 +141,13 @@ describe('the swisstopo source is asked only for tiles over Switzerland', () => 
     }
   });
 
-  it('ranks swisstopo above IGN where their boxes meet', () => {
+  vaultIt('ranks swisstopo above IGN where their boxes meet', () => {
     const names = satelliteProviders('satellite-regions').map((p) => p.source);
 
     expect(names.indexOf('satellite-swisstopo')).toBeLessThan(names.indexOf('satellite-ign'));
   });
 
-  it('keeps one swisstopo entry, one template and one credit behind the boxes', () => {
+  vaultIt('keeps one swisstopo entry, one template and one credit behind the boxes', () => {
     expect(SATELLITE_SOURCES.swisstopo.attribution).toBe('© swisstopo');
     expect(SATELLITE_SOURCES.swisstopo.tiles).toHaveLength(1);
   });

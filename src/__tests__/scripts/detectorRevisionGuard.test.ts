@@ -101,28 +101,28 @@ it('fails when the golden moved with the pointer and the revision did not', () =
   expect(output).toContain(sub.newer.slice(0, 7));
 });
 
-it('passes when the revision was bumped with the golden', () => {
+vaultIt('passes when the revision was bumped with the golden', () => {
   const sub = submoduleRepo('a\n', 'b\n');
   expect(runGuard(superproject(sub, { stagedPointer: sub.newer, stagedRevision: 1 })).status).toBe(
     0
   );
 });
 
-it('passes when the pointer moved and the golden did not', () => {
+vaultIt('passes when the pointer moved and the golden did not', () => {
   const sub = submoduleRepo('a\n', 'a\n');
   expect(runGuard(superproject(sub, { stagedPointer: sub.newer, stagedRevision: 0 })).status).toBe(
     0
   );
 });
 
-it('passes when the pointer did not move', () => {
+vaultIt('passes when the pointer did not move', () => {
   const sub = submoduleRepo('a\n', 'b\n');
   expect(runGuard(superproject(sub, { stagedPointer: sub.older, stagedRevision: 0 })).status).toBe(
     0
   );
 });
 
-it('passes, naming what it could not compare, when the new commit is not in the clone', () => {
+vaultIt('passes, naming what it could not compare, when the new commit is not in the clone', () => {
   const sub = submoduleRepo('a\n', 'b\n');
   // The clone comes from a repository that holds neither staged commit.
   const stranger = submoduleRepo('x\n', 'y\n');

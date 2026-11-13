@@ -54,6 +54,7 @@ fn seeded(dir: &TempDir) -> PersistentEngine {
 /// in the channel the drain below would have nothing to skip and the test
 /// would pass vacuously.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fold_always_checkpoints_before_the_final_update() {
     let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();
@@ -77,6 +78,7 @@ fn a_fold_always_checkpoints_before_the_final_update() {
 /// The blocking collector must skip past every checkpoint to the authoritative
 /// update. A single `try_recv` could only ever see the first one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn recv_with_cache_returns_the_final_update_not_a_checkpoint() {
     let _serial_state = super::serial_state();
     let tmp = TempDir::new().unwrap();

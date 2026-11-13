@@ -234,6 +234,7 @@ fn size_kb(path: &str) -> u64 {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_open_leaves_a_copy_as_large_as_the_library_it_upgraded() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();

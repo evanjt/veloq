@@ -79,7 +79,7 @@ describe('awaitEngineAnnouncement', () => {
     expect(unsubscribe).toHaveBeenCalledTimes(1);
   });
 
-  it('never subscribes for a caller that has already gone', async () => {
+  vaultIt('never subscribes for a caller that has already gone', async () => {
     const controller = new AbortController();
     controller.abort();
 
@@ -87,7 +87,7 @@ describe('awaitEngineAnnouncement', () => {
     expect(listener).toBeNull();
   });
 
-  it('keeps waiting when the reader returns undefined', async () => {
+  vaultIt('keeps waiting when the reader returns undefined', async () => {
     const seen: unknown[] = [];
     const promise = wait((p) => {
       seen.push(p);

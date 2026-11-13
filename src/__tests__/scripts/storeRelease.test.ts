@@ -89,7 +89,7 @@ const RELEASE_NOTES = [
 ];
 
 describe('storeTree', () => {
-  it('installs each locale fastlane screenshot set into that locale store listing', () => {
+  vaultIt('installs each locale fastlane screenshot set into that locale store listing', () => {
     const tree = storeTree(listing());
     expect(tree.files.get('metadata/android/en-US/images/phoneScreenshots/01-kites.png')).toEqual({
       source: 'config/fastlane/metadata/android/en-US/images/phoneScreenshots/01-kites.png',
@@ -103,7 +103,7 @@ describe('storeTree', () => {
     );
   });
 
-  it('leaves out what no store reads, the website screenshots included', () => {
+  vaultIt('leaves out what no store reads, the website screenshots included', () => {
     const tree = storeTree(listing());
     const paths = [...tree.files.keys()];
     expect(paths.filter((p) => !/^(metadata\/(android|ios)\/|screenshots\/)/.test(p))).toEqual([]);
@@ -111,17 +111,22 @@ describe('storeTree', () => {
     expect([...tree.files.values()].some((f) => f.source.startsWith('docs/'))).toBe(false);
   });
 
-  it('reads no file nested below a screenshot set, such as a raw capture kept beside it', () => {
-    const files = [
-      ...listing(),
-      { path: 'config/fastlane/screenshots/en-US/raw/01-kites.png', id: 'b' },
-    ];
-    expect([...storeTree(files).files.keys()]).not.toContain('screenshots/en-US/raw/01-kites.png');
-  });
+  vaultIt(
+    'reads no file nested below a screenshot set, such as a raw capture kept beside it',
+    () => {
+      const files = [
+        ...listing(),
+        { path: 'config/fastlane/screenshots/en-US/raw/01-kites.png', id: 'b' },
+      ];
+      expect([...storeTree(files).files.keys()]).not.toContain(
+        'screenshots/en-US/raw/01-kites.png'
+      );
+    }
+  );
 });
 
 describe('planStoreRelease', () => {
-  it('sends only the release notes when nothing else changed', () => {
+  vaultIt('sends only the release notes when nothing else changed', () => {
     const plan = planStoreRelease(storeTree(released()), storeTree(listing()), VERSION_CODE);
     expect(plan.refusals).toEqual([]);
     expect(plan.stage).toEqual(RELEASE_NOTES);
@@ -129,7 +134,7 @@ describe('planStoreRelease', () => {
     expect(plan.ios).toEqual({ screenshots: false });
   });
 
-  it('sends one changed description for its locale only', () => {
+  vaultIt('sends one changed description for its locale only', () => {
     const current = edit(listing(), 'config/fastlane/metadata/android/fr-FR/full_description.txt', {
       id: 'b',
     });
@@ -140,14 +145,14 @@ describe('planStoreRelease', () => {
     expect(plan.android).toEqual({ metadata: true, images: false, screenshots: false });
   });
 
-  it('sends a changed App Store keyword set and nothing else of that locale', () => {
+  vaultIt('sends a changed App Store keyword set and nothing else of that locale', () => {
     const current = edit(listing(), 'config/fastlane/metadata/ios/en-US/keywords.txt', { id: 'b' });
     const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.stage).toEqual([...RELEASE_NOTES, 'metadata/ios/en-US/keywords.txt'].sort());
     expect(plan.android.metadata).toBe(false);
   });
 
-  it('sends the whole set of the one locale that gained a screenshot', () => {
+  vaultIt('sends the whole set of the one locale that gained a screenshot', () => {
     const current = [
       ...listing(),
       {
@@ -178,7 +183,7 @@ describe('planStoreRelease', () => {
     expect(plan.android.screenshots).toBe(true);
   });
 
-  it('replaces the App Store set of a locale only when that set changed', () => {
+  vaultIt('replaces the App Store set of a locale only when that set changed', () => {
     const current = edit(listing(), 'config/fastlane/screenshots/en-US/01-kites.png', { id: 'b' });
     const plan = planStoreRelease(storeTree(released()), storeTree(current), VERSION_CODE);
     expect(plan.stage).toEqual(
@@ -199,7 +204,7 @@ describe('planStoreRelease', () => {
     expect(plan.notices).toEqual([expect.stringContaining('screenshots/en-US/')]);
   });
 
-  it('sends a changed icon without the other images', () => {
+  vaultIt('sends a changed icon without the other images', () => {
     const current = edit(listing(), 'config/fastlane/metadata/android/en-US/images/icon.png', {
       id: 'b',
     });
@@ -208,7 +213,7 @@ describe('planStoreRelease', () => {
     expect(plan.android).toEqual({ metadata: false, images: true, screenshots: false });
   });
 
-  it('ignores an older changelog edited after it shipped', () => {
+  vaultIt('ignores an older changelog edited after it shipped', () => {
     const current = edit(
       listing(),
       `config/fastlane/metadata/android/en-US/changelogs/${VERSION_CODE - 1}.txt`,
@@ -218,7 +223,7 @@ describe('planStoreRelease', () => {
     expect(plan.stage).toEqual(RELEASE_NOTES);
   });
 
-  it('sends everything on the first tag', () => {
+  vaultIt('sends everything on the first tag', () => {
     const plan = planStoreRelease(null, storeTree(listing()), VERSION_CODE);
     expect(plan.refusals).toEqual([]);
     expect(plan.stage).toEqual(
@@ -284,32 +289,35 @@ describe('planStoreRelease', () => {
     expect(plan.refusals).toEqual([]);
   });
 
-  it('passes App Store notes for a locale the previous release did not have', () => {
+  vaultIt('passes App Store notes for a locale the previous release did not have', () => {
     const previous = released().filter((f) => !f.path.includes('/ios/fr-FR/'));
     const plan = planStoreRelease(storeTree(previous), storeTree(listing()), VERSION_CODE);
     expect(plan.refusals).toEqual([]);
   });
 
-  it('sends every regenerated set against a release whose screenshots sat in docs/screenshots', () => {
-    const shipped = released()
-      .filter((f) => !f.path.includes('/phoneScreenshots/') && !f.path.includes('/screenshots/'))
-      .concat([
-        { path: 'docs/screenshots/01-kites.png', id: 'w' },
-        { path: 'docs/screenshots/ios/01-kites.png', id: 'w' },
-      ]);
-    const plan = planStoreRelease(storeTree(shipped), storeTree(listing()), VERSION_CODE);
-    expect(plan.refusals).toEqual([]);
-    expect(plan.notices).toEqual([]);
-    expect(plan.android.screenshots).toBe(true);
-    expect(plan.ios.screenshots).toBe(true);
-    expect(plan.stage).toEqual(
-      expect.arrayContaining([
-        'metadata/android/en-US/images/phoneScreenshots/01-kites.png',
-        'metadata/android/fr-FR/images/phoneScreenshots/01-kites.png',
-        'screenshots/en-US/01-kites.png',
-      ])
-    );
-  });
+  vaultIt(
+    'sends every regenerated set against a release whose screenshots sat in docs/screenshots',
+    () => {
+      const shipped = released()
+        .filter((f) => !f.path.includes('/phoneScreenshots/') && !f.path.includes('/screenshots/'))
+        .concat([
+          { path: 'docs/screenshots/01-kites.png', id: 'w' },
+          { path: 'docs/screenshots/ios/01-kites.png', id: 'w' },
+        ]);
+      const plan = planStoreRelease(storeTree(shipped), storeTree(listing()), VERSION_CODE);
+      expect(plan.refusals).toEqual([]);
+      expect(plan.notices).toEqual([]);
+      expect(plan.android.screenshots).toBe(true);
+      expect(plan.ios.screenshots).toBe(true);
+      expect(plan.stage).toEqual(
+        expect.arrayContaining([
+          'metadata/android/en-US/images/phoneScreenshots/01-kites.png',
+          'metadata/android/fr-FR/images/phoneScreenshots/01-kites.png',
+          'screenshots/en-US/01-kites.png',
+        ])
+      );
+    }
+  );
 });
 
 describe('previousReleaseTag', () => {
@@ -323,13 +331,13 @@ describe('previousReleaseTag', () => {
     '0.10.0',
   ];
 
-  it('takes the highest release below this one by version, not by name', () => {
+  vaultIt('takes the highest release below this one by version, not by name', () => {
     expect(previousReleaseTag(tags, '0.4.1')).toBe('0.4.0');
     expect(previousReleaseTag(tags, '0.4.0')).toBe('0.3.10');
     expect(previousReleaseTag(tags, '0.11.0')).toBe('0.10.0');
   });
 
-  it('finds none before the first release', () => {
+  vaultIt('finds none before the first release', () => {
     expect(previousReleaseTag(tags, '0.3.8')).toBeNull();
     expect(previousReleaseTag([], '1.0.0')).toBeNull();
   });
@@ -342,7 +350,7 @@ describe('listingDrift', () => {
     ['fr-FR/title.txt', 'Journal de cerf-volant\n'],
   ]);
 
-  it('reports a locale whose live text matches as matching', () => {
+  vaultIt('reports a locale whose live text matches as matching', () => {
     const live = new Map([
       ['en-US/title.txt', 'Kite Log'],
       ['en-US/full_description.txt', 'Logs kites.\r\n'],
@@ -355,7 +363,7 @@ describe('listingDrift', () => {
     ]);
   });
 
-  it('names the field a console edit changed and a locale only one side has', () => {
+  vaultIt('names the field a console edit changed and a locale only one side has', () => {
     const live = new Map([
       ['en-US/title.txt', 'Kite Log'],
       ['en-US/full_description.txt', 'Logs kites, now with reels.'],
@@ -368,7 +376,7 @@ describe('listingDrift', () => {
     ]);
   });
 
-  it('leaves release notes out, since each version carries its own', () => {
+  vaultIt('leaves release notes out, since each version carries its own', () => {
     const notes = new Map([['en-US/release_notes.txt', 'Old notes.\n']]);
     expect(listingDrift('ios', new Map([['en-US/name.txt', 'Kite Log']]), notes)).toEqual([
       'ios en-US differs: name.txt',

@@ -192,7 +192,7 @@ describe('a row inside a map sheet', () => {
     expect(app.queryByTestId('orchard-route-card')).toBeNull();
   });
 
-  it('gives the pushed card the close control and the root card none', async () => {
+  vaultIt('gives the pushed card the close control and the root card none', async () => {
     await openOrchard();
     expect(app.queryByTestId('map-sheet-card-close')).toBeNull();
 

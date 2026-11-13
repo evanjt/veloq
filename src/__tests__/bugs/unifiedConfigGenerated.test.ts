@@ -57,13 +57,13 @@ impl Default for SectionConfig {
     expect(readRustSectionDefaults(source).divergenceThreshold).toBe(0.42);
   });
 
-  it('refuses a source whose default block it cannot read', () => {
+  vaultIt('refuses a source whose default block it cannot read', () => {
     expect(() => readRustSectionDefaults('impl Default for SectionConfig {}')).toThrow(
       /SectionConfig/
     );
   });
 
-  it('refuses a field the block does not name', () => {
+  vaultIt('refuses a field the block does not name', () => {
     const source = `
 impl Default for SectionConfig {
     fn default() -> Self {

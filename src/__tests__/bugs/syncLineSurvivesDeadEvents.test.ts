@@ -85,7 +85,7 @@ describe('the sync line when nothing can be announced', () => {
     expect(result.current?.state).toBe(SyncState.Idle);
   });
 
-  it('costs nothing while the engine can announce', async () => {
+  vaultIt('costs nothing while the engine can announce', async () => {
     const engine = fakeEngine(true, status(SyncState.Syncing, 0));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
@@ -97,7 +97,7 @@ describe('the sync line when nothing can be announced', () => {
     expect(engine.getSyncStatus).toHaveBeenCalledTimes(1);
   });
 
-  it('stops the moment events come back', async () => {
+  vaultIt('stops the moment events come back', async () => {
     const engine = fakeEngine(false, status(SyncState.Syncing, 0));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
     const ticked = jest.fn();
@@ -113,7 +113,7 @@ describe('the sync line when nothing can be announced', () => {
     unsubscribe();
   });
 
-  it('takes a handle that cannot say as able to announce', async () => {
+  vaultIt('takes a handle that cannot say as able to announce', async () => {
     mockGetEngine.mockReturnValue({
       getSyncStatus: jest.fn(() => status(SyncState.Syncing, 0)),
       subscribe: jest.fn(() => () => {}),
@@ -144,7 +144,7 @@ describe('the sync line when nothing can be announced', () => {
     unsubscribe();
   });
 
-  it('drops the timer when the last subscriber goes', async () => {
+  vaultIt('drops the timer when the last subscriber goes', async () => {
     const engine = fakeEngine(false, status(SyncState.Syncing, 0));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
     const ticked = jest.fn();

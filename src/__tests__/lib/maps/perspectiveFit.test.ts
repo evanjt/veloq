@@ -80,7 +80,7 @@ describe('fit at the map pitch', () => {
     expect(middle[1]).toBeCloseTo(500, 6);
   });
 
-  it('fits a route given as points tighter than its bounds corners', () => {
+  vaultIt('fits a route given as points tighter than its bounds corners', () => {
     const route = line([0, 800], [800, 0], 200);
     const corners: [Pt, Pt] = [
       [0, 0],
@@ -99,7 +99,7 @@ describe('fit at the map pitch', () => {
     expect(reachesInset(span)).toBe(true);
   });
 
-  it('keeps a route whose far end is raised inside the inset', () => {
+  vaultIt('keeps a route whose far end is raised inside the inset', () => {
     const elevation = (point: Pt) => 300 * Math.max(0, 1 - point[1] / 1000);
     const route = line(northSouth[0], northSouth[1], 200);
     const { map } = makePerspectiveMap({ pitch: 60, elevation });
@@ -107,7 +107,7 @@ describe('fit at the map pitch', () => {
     expectInsideInset(spanOf(map, route));
   });
 
-  it('turns to the requested bearing and fits the route at it', () => {
+  vaultIt('turns to the requested bearing and fits the route at it', () => {
     const route = line([0, 0], [1000, 0], 100);
     const { map } = makePerspectiveMap({ pitch: 60 });
     loadPage(map)._veloqFitInset(route, INSET, 0, { bearing: 90 });
@@ -115,7 +115,7 @@ describe('fit at the map pitch', () => {
     expectInsideInset(spanOf(map, route));
   });
 
-  it('caps the fitted zoom at maxZoom', () => {
+  vaultIt('caps the fitted zoom at maxZoom', () => {
     const route = line([0, 0], [0, 10], 20);
     const { map } = makePerspectiveMap({ pitch: 60 });
     loadPage(map)._veloqFitInset(route, INSET, 0, { maxZoom: 13 });

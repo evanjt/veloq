@@ -19,7 +19,7 @@ import { SectionTitle } from '@/shared/ui/SectionTitle';
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
 describe('a section title', () => {
-  it('is a heading carrying its text', async () => {
+  vaultIt('is a heading carrying its text', async () => {
     await render(<SectionTitle>Climbs near home</SectionTitle>);
 
     expect(screen.getByRole('header', { name: 'Climbs near home' })).toBeTruthy();
@@ -27,7 +27,7 @@ describe('a section title', () => {
 });
 
 describe('a tour slide', () => {
-  it('titles itself as a heading', async () => {
+  vaultIt('titles itself as a heading', async () => {
     await render(
       <WhatsNewSlide icon="map" title="Sections" body="Repeated parts of your rides." />
     );
@@ -52,7 +52,7 @@ describe('a collapsible section', () => {
     expect(onToggle).toHaveBeenCalledWith(true);
   });
 
-  it('reports itself expanded once open', async () => {
+  vaultIt('reports itself expanded once open', async () => {
     await render(
       <CollapsibleSection title="Records" expanded onToggle={jest.fn()}>
         <Text>content</Text>

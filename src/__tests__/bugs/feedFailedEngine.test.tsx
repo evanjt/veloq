@@ -119,7 +119,7 @@ it('says why the library could not be opened, not that there are no activities',
   expect(useEngineStatus.getState().retryNonce).toBe(1);
 });
 
-it('keeps the skeletons while the engine is still opening', () => {
+vaultIt('keeps the skeletons while the engine is still opening', () => {
   renderFeed();
   expect(screen.queryByText('feed.emptyLibrary.emptyTitle')).toBeNull();
   expect(screen.getByTestId('home-loading-skeletons')).toBeTruthy();

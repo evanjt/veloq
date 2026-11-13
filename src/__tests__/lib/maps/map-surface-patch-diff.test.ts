@@ -122,7 +122,7 @@ describe('createSurfacePatcher', () => {
     expect(serialised).toBe(1);
   });
 
-  it('serialises nothing for a fresh wrapper around the same data', () => {
+  vaultIt('serialises nothing for a fresh wrapper around the same data', () => {
     const p = createSurfacePatcher();
     const layers = layer('#fff');
     const data = (collection(3) as { data: unknown }).data;
@@ -136,7 +136,7 @@ describe('createSurfacePatcher', () => {
     expect(same.patch).toBeNull();
   });
 
-  it('still serialises a wrapper whose field or data changed', () => {
+  vaultIt('still serialises a wrapper whose field or data changed', () => {
     const p = createSurfacePatcher();
     const layers = layer('#fff');
     const data = (collection(3) as { data: unknown }).data;
@@ -250,7 +250,7 @@ describe('createSurfacePatcher', () => {
     expect(patch?.appends).toBeUndefined();
   });
 
-  it('says nothing when a rebuilt line holds the same points', () => {
+  vaultIt('says nothing when a rebuilt line holds the same points', () => {
     const p = createSurfacePatcher();
     const layers = layer('#fff');
     p.next({ sources: { route: line(points(50)) }, layers });
@@ -279,7 +279,7 @@ describe('createSurfacePatcher', () => {
     expect(next.patch?.appends).toEqual({ route: points(1, 52) });
   });
 
-  it('sends a growing line whole again after the page forgets', () => {
+  vaultIt('sends a growing line whole again after the page forgets', () => {
     const p = createSurfacePatcher();
     const layers = layer('#fff');
     p.next({ sources: { route: line(points(50)) }, layers });
@@ -294,7 +294,7 @@ describe('createSurfacePatcher', () => {
 });
 
 describe('diffSpec', () => {
-  it('serialises nothing when the list is the same object', () => {
+  vaultIt('serialises nothing when the list is the same object', () => {
     const layers = layer('#fff');
     const first = diffSpec(undefined, layers);
 
@@ -475,7 +475,7 @@ describe('the first send of a large source', () => {
     }
   });
 
-  it('stringifies each source once between the patcher and the script', () => {
+  vaultIt('stringifies each source once between the patcher and the script', () => {
     const route = { kind: 'geojson', data: track() } as MapSourceSpec;
     const trackChars = JSON.stringify(route).length;
     const p = createSurfacePatcher();
@@ -493,7 +493,7 @@ describe('the first send of a large source', () => {
     expect(applied.layers).toEqual(layer('#fff'));
   });
 
-  it('stringifies a changed source once on a later send too', () => {
+  vaultIt('stringifies a changed source once on a later send too', () => {
     const p = createSurfacePatcher();
     p.next({
       sources: { route: { kind: 'geojson', data: track() } as MapSourceSpec },

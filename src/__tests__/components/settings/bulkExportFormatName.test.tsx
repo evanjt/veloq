@@ -54,7 +54,7 @@ beforeEach(() => {
 });
 
 describe('the progress row names the format being written', () => {
-  it('says GeoJSON for a GeoJSON export', async () => {
+  vaultIt('says GeoJSON for a GeoJSON export', async () => {
     await render(
       <BulkExportProgress
         phase="generating"
@@ -70,7 +70,7 @@ describe('the progress row names the format being written', () => {
     expect(screen.getByText(/export\.bulkExporting.*GeoJSON/)).toBeTruthy();
   });
 
-  it('says GPX for a GPX export', async () => {
+  vaultIt('says GPX for a GPX export', async () => {
     await render(
       <BulkExportProgress
         phase="generating"

@@ -91,7 +91,7 @@ describe('the yearly history card', () => {
     expect(monthTrophy[0].props.color).toBe(yearTrophy[0].props.color);
   });
 
-  it('draws the record trophy in the dark gold on a dark screen', async () => {
+  vaultIt('draws the record trophy in the dark gold on a dark screen', async () => {
     const tree = await renderCard(true);
     fireEvent.press(tree.getByLabelText('Year 2025'));
 
@@ -99,7 +99,7 @@ describe('the yearly history card', () => {
     expect(colours).toEqual([darkColors.achievement, darkColors.achievement]);
   });
 
-  it('carries a header title', async () => {
+  vaultIt('carries a header title', async () => {
     const tree = await renderCard();
 
     const title = tree.getByTestId('section-calendar-header-title');
@@ -107,7 +107,7 @@ describe('the yearly history card', () => {
     expect(title.props.children).toBe('By year');
   });
 
-  it("names what each month's count counts", async () => {
+  vaultIt("names what each month's count counts", async () => {
     const tree = await renderCard();
 
     expect(tree.getByText('1 traversal')).toBeTruthy();

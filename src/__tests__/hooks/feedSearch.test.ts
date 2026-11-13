@@ -90,7 +90,7 @@ describe('useFeedSearch', () => {
     expect(result.current.matchedCount).toBe(1);
   });
 
-  it.each([
+  vaultIt.each([
     ['Ride', EngineSportFamily.Ride],
     ['Winter', EngineSportFamily.Winter],
     ['Run', EngineSportFamily.Run],
@@ -200,7 +200,7 @@ describe('useFeedSearch', () => {
     );
   });
 
-  it('sends no window when no range is set', async () => {
+  vaultIt('sends no window when no range is set', async () => {
     const { result } = await render('ferry', null);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

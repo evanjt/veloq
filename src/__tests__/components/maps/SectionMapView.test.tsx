@@ -126,7 +126,7 @@ describe('SectionMapView', () => {
       mockTheme.isDark = false;
     });
 
-    it('draws its controls on the dark chrome ground', async () => {
+    vaultIt('draws its controls on the dark chrome ground', async () => {
       await renderSection();
 
       const style = screen.getByTestId('section-map-style-toggle').props.style;
@@ -144,7 +144,7 @@ describe('SectionMapView', () => {
     });
   });
 
-  it('mounts the interactive container with a map', async () => {
+  vaultIt('mounts the interactive container with a map', async () => {
     await renderSection();
 
     expect(screen.getByTestId('section-map-container')).toBeTruthy();
@@ -153,7 +153,7 @@ describe('SectionMapView', () => {
     expect(screen.getByTestId('section-map-3d-toggle')).toBeTruthy();
   });
 
-  it('drops the control stack in preview mode', async () => {
+  vaultIt('drops the control stack in preview mode', async () => {
     await renderSection({ interactive: false });
 
     expect(screen.queryByTestId('section-map-container')).toBeNull();
@@ -176,7 +176,7 @@ describe('SectionMapView', () => {
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
   });
 
-  it('hides the fullscreen control while trimming', async () => {
+  vaultIt('hides the fullscreen control while trimming', async () => {
     await renderSection({ enableFullscreen: true, trimRange: { start: 1, end: 3 } });
 
     expect(screen.queryByTestId('section-map-fullscreen')).toBeNull();
@@ -226,7 +226,7 @@ describe('SectionMapView', () => {
     jest.useRealTimers();
   });
 
-  it('changes style on release', async () => {
+  vaultIt('changes style on release', async () => {
     await renderSection();
 
     const toggle = screen.getByTestId('section-map-style-toggle');
@@ -266,7 +266,7 @@ describe('SectionMapView', () => {
     timing.mockRestore();
   });
 
-  it('renders pre-loaded traces for every activity', async () => {
+  vaultIt('renders pre-loaded traces for every activity', async () => {
     await renderSection({
       allActivityTraces: { a1: POLYLINE, a2: POLYLINE.slice(0, 3) },
       highlightedActivityId: 'a1',
@@ -276,7 +276,7 @@ describe('SectionMapView', () => {
   });
 
   describe('degenerate input', () => {
-    it('falls back to a placeholder for an empty polyline', async () => {
+    vaultIt('falls back to a placeholder for an empty polyline', async () => {
       await renderSection({ section: section({ polyline: [] }) });
 
       expect(screen.queryByTestId('section-map-container')).toBeNull();
@@ -470,7 +470,7 @@ describe('SectionMapView', () => {
       expect(sourcesSent()['user-location'].data.features).toEqual([]);
     });
 
-    it('eases onto the fix at the shared locate zoom and reuses a fresh fix', async () => {
+    vaultIt('eases onto the fix at the shared locate zoom and reuses a fresh fix', async () => {
       getPosition.mockResolvedValue({ coords: { latitude: 46.948, longitude: 7.447 } });
       await renderSection();
       const locate = screen.getByRole('button', { name: 'maps.goToLocation' });
@@ -488,7 +488,7 @@ describe('SectionMapView', () => {
     });
   });
 
-  it.each([
+  vaultIt.each([
     ['the interactive hero', true],
     ['the static preview', false],
   ])(
@@ -502,7 +502,7 @@ describe('SectionMapView', () => {
     }
   );
 
-  it('stands the credit clear of the rounded corners of the sheet under it', async () => {
+  vaultIt('stands the credit clear of the rounded corners of the sheet under it', async () => {
     await renderSection({ coveredBottom: 240, coveredBottomRadius: 28 });
 
     const credit = StyleSheet.flatten(screen.getByTestId('map-attribution').props.style);

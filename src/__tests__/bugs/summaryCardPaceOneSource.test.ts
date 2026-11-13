@@ -68,13 +68,13 @@ describe('the pace arrows', () => {
     expect(css.trend).toBe('↓');
   });
 
-  it('draw flat for a move the engine called flat', async () => {
+  vaultIt('draw flat for a move the engine called flat', async () => {
     const { pace } = await metrics(card({ latestPace: 3.83, previousPace: 3.8, glyph: '→' }, {}));
 
     expect(pace.trend).toBe('→');
   });
 
-  it('draw nothing when the engine judged nothing', async () => {
+  vaultIt('draw nothing when the engine judged nothing', async () => {
     const { pace, css } = await metrics(card({}, {}));
 
     expect(pace.trend).toBeUndefined();
@@ -96,7 +96,7 @@ describe('the pace values', () => {
   // The widget's entries are composed by the engine, whose tests pin the same
   // four strings for the same bundle, so the card and the widget agree through
   // them rather than through a shared call.
-  it.each([
+  vaultIt.each([
     [true, '4:46', '1:14'],
     [false, '7:40', '1:08'],
   ])(
@@ -110,7 +110,7 @@ describe('the pace values', () => {
     }
   );
 
-  it('print a placeholder with no measured pace', async () => {
+  vaultIt('print a placeholder with no measured pace', async () => {
     const { pace, css } = await metrics(card({}, {}));
 
     expect(pace.value).toBe(ABSENT);

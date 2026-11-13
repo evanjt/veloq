@@ -187,6 +187,7 @@ fn an_activity_naming_the_garmin_id_and_the_original_become_one_row_in_either_or
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stub_links_the_same_way_and_leaves_the_original_as_it_was() {
     for order in BOTH {
         let at = format!("{order:?}");
@@ -223,6 +224,7 @@ fn a_stub_links_the_same_way_and_leaves_the_original_as_it_was() {
 /// the Garmin file on this phone, and an activity intervals.icu holds alone
 /// reads as intervals.icu's own.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_linked_original_reads_as_filled_from_the_phone_and_an_upstream_ride_as_intervals() {
     for order in BOTH {
         let at = format!("{order:?}");
@@ -252,6 +254,7 @@ fn a_linked_original_reads_as_filled_from_the_phone_and_an_upstream_ride_as_inte
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_form_an_upload_writes_names_the_garmin_id_too() {
     for order in BOTH {
         let page = [(
@@ -269,6 +272,7 @@ fn the_form_an_upload_writes_names_the_garmin_id_too() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_without_the_garmin_id_is_not_linked_whatever_its_start_and_length() {
     let cases = [
         (
@@ -348,6 +352,7 @@ fn two_candidates_naming_the_garmin_id_link_nothing_and_leave_the_original_marke
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_original_nothing_holds_is_offered_and_a_linked_one_is_not() {
     let (dir, mut engine) = engine();
     let linked = store_original(&dir, &mut engine, GARMIN_ID);
@@ -377,6 +382,7 @@ fn a_linked_original_is_never_reconciled_away_when_its_activity_leaves_intervals
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_candidate_naming_the_id_is_the_match_and_a_second_naming_it_is_ambiguous() {
     let candidate = |id: &str, names: Option<i64>| Candidate {
         upstream_id: id.to_string(),

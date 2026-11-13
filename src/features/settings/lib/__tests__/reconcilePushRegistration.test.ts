@@ -31,7 +31,7 @@ jest.mock('@/shared/app/AuthStore', () => ({
 describe('reconcilePushRegistrationOnLaunch', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('is exported by the settings barrel', () => {
+  vaultIt('is exported by the settings barrel', () => {
     const barrel = require('@/features/settings');
     expect(typeof barrel.reconcilePushRegistrationOnLaunch).toBe('function');
   });
@@ -55,7 +55,7 @@ describe('reconcilePushRegistrationOnLaunch', () => {
     expect(mockEnsure).not.toHaveBeenCalled();
   });
 
-  it('does nothing when notifications are off and nothing is pending', () => {
+  vaultIt('does nothing when notifications are off and nothing is pending', () => {
     mockPrefs.mockReturnValue({ enabled: false });
     mockAuth.mockReturnValue({ athleteId: 'i1', isDemoMode: false });
     mockPendingFor.mockReturnValue(null);

@@ -49,6 +49,7 @@ fn reopened_activity(
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_reopen_backfills_missing_activity_date_and_name_from_metrics() {
     assert_eq!(
         reopened_activity(None, None, true),
@@ -57,6 +58,7 @@ fn test_reopen_backfills_missing_activity_date_and_name_from_metrics() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_reopen_backfills_name_when_date_and_measurements_exist() {
     assert_eq!(
         reopened_activity(Some(1_700_001_000), None, true),
@@ -107,6 +109,7 @@ fn activity_stored_after_metrics(
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_activity_stored_after_its_metrics_takes_date_and_name_in_the_same_session() {
     assert_eq!(
         activity_stored_after_metrics(|_| {}),

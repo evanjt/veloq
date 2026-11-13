@@ -10,6 +10,7 @@ use rayon::prelude::*;
 use std::collections::HashSet;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_cpu_pool_names_its_workers() {
     veloqrs::threads::name_cpu_pool();
 
@@ -33,6 +34,7 @@ fn the_cpu_pool_names_its_workers() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_spawned_worker_carries_the_name_it_was_given() {
     let worker = veloqrs::threads::spawn_named("veloq-detect", || {
         std::thread::current().name().map(str::to_string)
@@ -44,6 +46,7 @@ fn a_spawned_worker_carries_the_name_it_was_given() {
 /// Naming the pool twice is what a second engine init does, and the second call
 /// has to be a no-op rather than a panic or a pool nobody named.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn naming_the_pool_twice_is_harmless() {
     veloqrs::threads::name_cpu_pool();
     veloqrs::threads::name_cpu_pool();
@@ -61,6 +64,7 @@ fn naming_the_pool_twice_is_harmless() {
 /// never sees one that matches nothing in the source.
 #[cfg(debug_assertions)]
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 #[should_panic(expected = "truncates thread names")]
 fn a_name_longer_than_the_kernel_keeps_is_refused() {
     let _ = veloqrs::threads::spawn_named("veloq-sixteen-char", || ());

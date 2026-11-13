@@ -84,7 +84,7 @@ function callFor(calls: string[], target: string) {
   return calls.find((c) => c.split(' | ')[0].split(' ').includes(target) && / --test /.test(c));
 }
 
-it.each([
+vaultIt.each([
   ['drip_budget', '-p tracematch', 'real-corpus'],
   ['attach_cost_band', '-p veloqrs', 'real-corpus'],
   ['lifecycle_cost_band', '-p veloqrs', 'synthetic,real-corpus'],
@@ -99,7 +99,7 @@ it.each([
   expect(status).toBe(0);
 });
 
-it('reports each band verdict beside the digest gate', () => {
+vaultIt('reports each band verdict beside the digest gate', () => {
   const { stdout } = run();
   for (const target of ['drip_budget', 'attach_cost_band', 'lifecycle_cost_band']) {
     expect(stdout).toMatch(new RegExp(`=== band: ${target}[\\s\\S]*?band passed`));
@@ -115,12 +115,12 @@ it.each(['drip_budget', 'attach_cost_band', 'lifecycle_cost_band'])(
   }
 );
 
-it('fails the run on a failed band even when asked to rebase', () => {
+vaultIt('fails the run on a failed band even when asked to rebase', () => {
   const { status } = run('attach_cost_band', ['--rebase']);
   expect(status).not.toBe(0);
 });
 
-it('runs no band when the gates are switched off', () => {
+vaultIt('runs no band when the gates are switched off', () => {
   const { calls } = run('', ['--no-gates']);
   expect(calls.filter((c) => / --test /.test(c))).toEqual([]);
 });

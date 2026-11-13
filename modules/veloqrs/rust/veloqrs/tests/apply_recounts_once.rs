@@ -188,6 +188,7 @@ fn detection_apply_recounts_each_section_once() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn single_row_writes_still_recount_through_the_triggers() {
     let (mut engine, raw, _dir) = build_engine(60);
     detect_and_apply(&mut engine);

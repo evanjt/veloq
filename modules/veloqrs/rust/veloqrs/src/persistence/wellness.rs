@@ -981,27 +981,32 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_series_under_two_values_has_no_delta() {
         assert_eq!(series_delta(&[52]), None);
         assert_eq!(series_delta(&[]), None);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_flat_load_series_marks_no_rise_days() {
         assert!(rise_days(&[50.0, 50.0, 50.0, 50.0]).is_empty());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn one_jump_over_the_threshold_marks_exactly_that_day() {
         assert_eq!(rise_days(&[50.0, 50.4, 51.9, 51.9, 51.0]), vec![2]);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rise_of_exactly_the_threshold_is_not_marked() {
         assert!(rise_days(&[50.0, 51.0]).is_empty());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn sparklines_carry_the_delta_and_rise_days() {
         let sp = crate::FfiWellnessSparklines::default();
         assert_eq!(sp.fitness_delta, None);
@@ -1012,12 +1017,14 @@ mod tests {
     const LAST_TWO_DOWN: [f64; 10] = [50.0, 51.0, 50.0, 51.0, 50.0, 51.0, 50.0, 51.0, 46.0, 44.0];
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_window_under_five_days_has_no_hrv_verdict() {
         assert_eq!(hrv_verdict(&[50.0, 52.0], true), None);
         assert_eq!(hrv_verdict(&[], true), None);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_window_averaging_zero_has_no_hrv_verdict() {
         assert_eq!(hrv_verdict(&[0.0, 0.0, 0.0, 0.0, 0.0], true), None);
     }
@@ -1046,6 +1053,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_move_inside_the_floor_is_stable() {
         // Second half is 1 % above the first, under the 2 % floor, and the
         // last two days rise so the decline override cannot fire.
@@ -1056,6 +1064,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_drop_across_a_gap_does_not_override_stable() {
         // The same values as the override below, with the last two rows days
         // apart rather than one. Two days running is the rule, so a pair that
@@ -1067,6 +1076,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn two_days_down_and_below_average_overrides_stable() {
         // The halves sit inside the window's scatter, but the window ends on
         // a drop that sits under its average and well outside the spread of
@@ -1082,6 +1092,7 @@ mod tests {
     /// are not the same claim: one is the window moving, the other is two
     /// readings falling under a window that did not move.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_window_whose_halves_moved_says_the_halves_did_it() {
         assert_eq!(
             hrv_verdict(&[60.0, 59.0, 45.0, 44.0, 45.0], true).map(|(_, _, r)| r),
@@ -1090,6 +1101,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_decline_the_override_found_says_it_was_the_last_two_days() {
         let verdict = hrv_verdict(&LAST_TWO_DOWN, true);
         assert_eq!(verdict.map(|(l, _, _)| l), Some("trendingDown"));
@@ -1097,6 +1109,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rise_and_a_flat_window_are_both_the_halves() {
         assert_eq!(
             hrv_verdict(&[40.0, 41.0, 55.0, 56.0, 55.0], true).map(|(_, _, r)| r),
@@ -1115,12 +1128,14 @@ mod tests {
     /// Expected behaviour: neither rule calls a decline, because neither move
     /// clears the spread of the athlete's own readings.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_week_of_ordinary_scatter_is_stable() {
         let verdict = hrv_verdict(&[62.0, 58.0, 64.0, 57.0, 61.0, 59.0, 58.0], true);
         assert_eq!(verdict.map(|(l, _, _)| l), Some("stable"));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_step_down_well_outside_the_scatter_trends_down_through_the_halves() {
         let verdict = hrv_verdict(&[70.0, 71.0, 69.0, 60.0, 59.0, 61.0, 60.0], true);
         assert_eq!(verdict.map(|(l, _, _)| l), Some("trendingDown"));
@@ -1128,6 +1143,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_step_inside_the_scatter_is_stable_in_either_direction() {
         // Halves 61.3 then 64.8, under the spread a week this noisy carries.
         assert_eq!(

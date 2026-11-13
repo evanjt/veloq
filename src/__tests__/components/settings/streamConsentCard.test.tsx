@@ -89,15 +89,18 @@ describe('StreamConsentCard', () => {
     expect(tree.queryByTestId('stream-consent-card')).toBeNull();
   });
 
-  it.each(['idle', 'fetching', 'stopped', 'complete'])('shows no card while %s', async (phase) => {
-    readRoutesStatus.mockReturnValue(status(phase));
+  vaultIt.each(['idle', 'fetching', 'stopped', 'complete'])(
+    'shows no card while %s',
+    async (phase) => {
+      readRoutesStatus.mockReturnValue(status(phase));
 
-    expect(
-      await (await render(<StreamConsentCard />)).queryByTestId('stream-consent-card')
-    ).toBeNull();
-  });
+      expect(
+        await (await render(<StreamConsentCard />)).queryByTestId('stream-consent-card')
+      ).toBeNull();
+    }
+  );
 
-  it('shows no card when the engine cannot answer', async () => {
+  vaultIt('shows no card when the engine cannot answer', async () => {
     readRoutesStatus.mockReturnValue(null);
 
     expect(
@@ -119,7 +122,7 @@ describe('useStreamBackfill consent', () => {
     expect(result.current.estimateMegabytes).toBe(52);
   });
 
-  it('a Download that starts the pass arms the poll', async () => {
+  vaultIt('a Download that starts the pass arms the poll', async () => {
     readRoutesStatus.mockReturnValue(status('awaiting_consent', { estimateRequests: 501 }));
     const { result } = await renderHook(() => useStreamBackfill());
 

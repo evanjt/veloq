@@ -32,7 +32,7 @@ beforeAll(async () => {
 });
 
 describe('the stats grid card label', () => {
-  it('speaks the title, the value and the context', () => {
+  vaultIt('speaks the title, the value and the context', () => {
     const tree = render(
       <StatCard
         stat={{
@@ -50,7 +50,7 @@ describe('the stats grid card label', () => {
     );
   });
 
-  it('speaks the unit the value is printed with', () => {
+  vaultIt('speaks the unit the value is printed with', () => {
     const tree = render(
       <StatCard
         stat={{
@@ -69,7 +69,7 @@ describe('the stats grid card label', () => {
     );
   });
 
-  it('speaks no empty context', () => {
+  vaultIt('speaks no empty context', () => {
     const tree = render(
       <StatCard
         stat={{ title: 'Power', value: '245', icon: 'lightning-bolt' }}
@@ -84,7 +84,7 @@ describe('the stats grid card label', () => {
 describe('the chart chip label', () => {
   const power = CHART_CONFIGS.power;
 
-  it('speaks the stream name alone, since the chip carries no value', () => {
+  vaultIt('speaks the stream name alone, since the chip carries no value', () => {
     const tree = render(
       <ChartTypeSelector available={[power]} selected={['power']} onToggle={() => {}} />
     );
@@ -111,7 +111,7 @@ describe('the lane readout at rest', () => {
     expect(laneReadout(CHART_CONFIGS.power, streams.watts!, 1, true, 30).mark).toBeNull();
   });
 
-  it('draws and speaks the average mark beside the value', async () => {
+  vaultIt('draws and speaks the average mark beside the value', async () => {
     const tree = await render(
       <ActivityStreams
         streams={streams}

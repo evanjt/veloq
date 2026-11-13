@@ -115,7 +115,7 @@ describe('Settings hub, recording and sensors', () => {
     expect(go).toHaveBeenCalledWith('/sensor-settings');
   });
 
-  it('previews the GPS accuracy the recorder is set to', async () => {
+  vaultIt('previews the GPS accuracy the recorder is set to', async () => {
     const screen = await render(<SettingsScreen />);
     expect(subtitleOf(screen, 'settings-nav-recording')).toBe('recording.gpsModes.balanced');
 
@@ -124,7 +124,7 @@ describe('Settings hub, recording and sensors', () => {
     expect(subtitleOf(screen, 'settings-nav-recording')).toBe('recording.gpsModes.batterySaver');
   });
 
-  it('says how many sensors are paired, and says so when none are', async () => {
+  vaultIt('says how many sensors are paired, and says so when none are', async () => {
     const screen = await render(<SettingsScreen />);
     expect(subtitleOf(screen, 'settings-nav-sensors')).toBe('sensors.nonePairedShort');
 

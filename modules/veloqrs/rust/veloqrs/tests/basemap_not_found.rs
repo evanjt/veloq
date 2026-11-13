@@ -14,6 +14,7 @@ use veloqrs::basemap::{get_or_fetch, set_path, set_template};
 /// One test: the store path and the template table are process-wide, so two
 /// would race each other's `set_path`.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refused_tile_is_asked_for_once_and_its_children_never() {
     let _serial = super::serial_state();
     let host = MockServer::start();

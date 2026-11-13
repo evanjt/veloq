@@ -132,6 +132,7 @@ fn populated() -> Setup {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn insights_trend_rows_outlive_the_ranked_display_limit() {
     let _serial_state = crate::serial_state();
     let mut s = setup();
@@ -191,6 +192,7 @@ fn insights_trend_rows_outlive_the_ranked_display_limit() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn activity_detail_matches_the_calls_it_replaces() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -265,6 +267,7 @@ fn activity_detail_matches_the_calls_it_replaces() {
 /// track to answer it. An activity known by its metrics alone, which is one
 /// whose streams carry no usable line, keeps its line inline.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn activity_detail_says_whether_the_engine_holds_the_track() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -284,6 +287,7 @@ fn activity_detail_says_whether_the_engine_holds_the_track() {
 /// the member list. The screen never reads the ids, and an activity crossing
 /// thirty sections lifted several hundred id strings across JSI on the mount.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn activity_detail_sends_the_member_count_and_not_the_member_list() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -309,6 +313,7 @@ fn activity_detail_sends_the_member_count_and_not_the_member_list() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn activity_detail_traces_match_per_section_extraction() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -392,6 +397,7 @@ fn test_section_record_out_and_back_keeps_each_direction() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn activity_detail_route_groups_honour_the_minimum() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -411,6 +417,7 @@ fn activity_detail_route_groups_honour_the_minimum() {
 /// bundle that hands over the whole of it grows with the library on the mount
 /// path of every activity opened.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn activity_detail_carries_only_the_group_this_activity_is_in() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -456,6 +463,7 @@ fn activity_detail_carries_only_the_group_this_activity_is_in() {
 /// An activity in no group at all, which is the case the narrowing could turn
 /// into a group picked by position rather than by membership.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn activity_detail_carries_no_group_for_an_activity_in_none() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -472,6 +480,7 @@ fn activity_detail_carries_no_group_for_an_activity_in_none() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_screen_matches_the_calls_it_replaces() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -503,6 +512,7 @@ fn map_screen_matches_the_calls_it_replaces() {
 /// marker on its bounds centre and then move all of them once the signatures
 /// finished loading. Carrying the start here is what removes the second upload.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_screen_carries_the_start_point_for_each_marker() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -541,6 +551,7 @@ fn map_screen_carries_the_start_point_for_each_marker() {
 
 /// A GPS activity with no metrics has no date or library row yet.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_screen_excludes_an_activity_with_no_metrics_from_library_total() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -569,6 +580,7 @@ fn map_screen_excludes_an_activity_with_no_metrics_from_library_total() {
 /// The window comes back newest first and in one order every time, so the map
 /// draws the same stack on every read rather than whichever order a hash gave.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_screen_returns_the_window_newest_first() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -596,6 +608,7 @@ fn map_screen_returns_the_window_newest_first() {
 /// An activity with no signature yet has no start to give, and says so rather
 /// than answering with a coordinate nothing measured.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_screen_leaves_the_start_absent_when_there_is_no_signature() {
     let _serial_state = crate::serial_state();
     let mut s = setup();
@@ -628,6 +641,7 @@ fn map_screen_leaves_the_start_absent_when_there_is_no_signature() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_screen_honours_the_sport_filter() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -662,6 +676,7 @@ fn map_screen_honours_the_sport_filter() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_screen_name_needle_narrows_the_activities_but_not_the_chip_counts() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -707,6 +722,7 @@ fn map_screen_name_needle_narrows_the_activities_but_not_the_chip_counts() {
 /// activity ids, one portion record per traversal and the point density for
 /// every section, and threw all of it away.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_sections_carry_the_line_and_the_six_fields_the_map_draws_with() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -734,6 +750,7 @@ fn map_sections_carry_the_line_and_the_six_fields_the_map_draws_with() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_sections_honour_the_sport_and_visit_filters() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -749,6 +766,7 @@ fn map_sections_honour_the_sport_and_visit_filters() {
 /// Expected behaviour: no read lists it under Run, and every read lists it
 /// under Ride. The sports that took the ground decide, never the label.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_is_listed_under_the_sports_that_took_it_and_not_its_label() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -805,6 +823,7 @@ fn a_section_is_listed_under_the_sports_that_took_it_and_not_its_label() {
 /// sports, and the ridden neighbour finds it as nearby and as a merge
 /// candidate whatever its label says.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_section_record_carries_each_sport_that_took_it() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -852,6 +871,7 @@ fn every_section_record_carries_each_sport_that_took_it() {
 /// call the map used to make, answers from the in-memory catalogue, which these
 /// fixtures never populate: they are written through a parallel connection.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_sections_agree_with_the_summaries_of_the_same_rows() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -877,6 +897,7 @@ fn map_sections_agree_with_the_summaries_of_the_same_rows() {
 /// `get_sections_filtered` applies. Counting traversals instead would admit a
 /// road ridden ten times in one outing to a list with a floor of two.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_sections_count_outings_for_the_floor_not_passes() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -892,6 +913,7 @@ fn map_sections_count_outings_for_the_floor_not_passes() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_sections_are_nothing_at_all_for_an_empty_catalogue() {
     let _serial_state = crate::serial_state();
     let s = setup();
@@ -903,6 +925,7 @@ fn map_sections_are_nothing_at_all_for_an_empty_catalogue() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn widget_snapshot_matches_the_calls_it_replaces() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -946,6 +969,7 @@ fn widget_snapshot_matches_the_calls_it_replaces() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn widget_snapshot_latest_includes_an_activity_with_metrics_and_no_track() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -968,6 +992,7 @@ fn widget_snapshot_latest_includes_an_activity_with_metrics_and_no_track() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn widget_snapshot_is_empty_without_activities() {
     let _serial_state = crate::serial_state();
     let s = setup();
@@ -993,6 +1018,7 @@ fn widget_snapshot_is_empty_without_activities() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_detail_matches_the_calls_it_replaces() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -1029,6 +1055,7 @@ fn route_detail_matches_the_calls_it_replaces() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_detail_is_empty_for_a_route_that_is_not_there() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -1156,6 +1183,7 @@ fn chart_ids(points: &[veloqrs::FfiSectionChartPoint]) -> Vec<&str> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_performance_answers_one_sport_in_the_section_shape() {
     let _serial_state = crate::serial_state();
     let s = route_with_attempts();
@@ -1290,6 +1318,7 @@ fn route_performance_ranges_the_chart_and_bests_and_keeps_the_calendar() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_performance_answers_the_sport_asked_for() {
     let _serial_state = crate::serial_state();
     let s = route_with_attempts();
@@ -1319,6 +1348,7 @@ fn route_performance_answers_the_sport_asked_for() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_performance_of_an_unknown_route_is_empty() {
     let _serial_state = crate::serial_state();
     let s = route_with_attempts();
@@ -1407,6 +1437,7 @@ const fn ride(
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_performance_carries_the_efficiency_trend_of_its_counted_attempts() {
     let _serial_state = crate::serial_state();
     let s = route_of(&[
@@ -1549,6 +1580,7 @@ fn route_efficiency_trend_is_taken_in_the_latest_direction() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_performance_with_two_heart_rate_attempts_has_no_efficiency_trend() {
     let _serial_state = crate::serial_state();
     let s = route_of(&[
@@ -1582,6 +1614,7 @@ fn insert_heart_traversal(
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_performance_carries_the_efficiency_trend_of_the_sport_asked_for() {
     let _serial_state = crate::serial_state();
     let mut s = setup();
@@ -1684,6 +1717,7 @@ fn insights_params() -> veloqrs::FfiInsightsParams {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn insights_matches_the_calls_it_replaces() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -1735,6 +1769,7 @@ fn insights_matches_the_calls_it_replaces() {
 /// Expected behaviour: the series a card draws travels with the thing it
 /// describes, oldest first and capped.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn insights_carries_a_history_series_for_each_card_that_draws_one() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -1791,6 +1826,7 @@ fn insights_carries_a_history_series_for_each_card_that_draws_one() {
 /// The cap is the caller's, and it is honoured rather than advisory: the
 /// graphic is a strip a few dozen pixels wide and the bridge is not free.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn insights_caps_the_history_a_card_carries() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -1805,6 +1841,7 @@ fn insights_caps_the_history_a_card_carries() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn insights_skips_sections_when_the_caller_opts_out() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -1819,6 +1856,7 @@ fn insights_skips_sections_when_the_caller_opts_out() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn insights_caps_the_efficiency_trends() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -1834,6 +1872,7 @@ fn insights_caps_the_efficiency_trends() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn insights_falls_back_to_the_engine_sport_types() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -1869,6 +1908,7 @@ fn insights_params_ending(end: i64) -> veloqrs::FfiInsightsParams {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn insights_computes_no_performances_when_nothing_is_recent() {
     let _serial_state = crate::serial_state();
     let s = populated_with_pr_candidate(1_700_100_000);
@@ -1967,6 +2007,7 @@ fn insights_computes_performances_for_a_section_visited_on_the_window_edge() {
 /// Expected behaviour: the PR carries the section's traversals, so the ranker
 /// can weigh what the record stands on.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_recent_pr_carries_the_traversals_it_stands_on() {
     let _serial_state = crate::serial_state();
     let s = populated_with_pr_candidate(1_700_150_000);
@@ -1994,6 +2035,7 @@ fn a_recent_pr_carries_the_traversals_it_stands_on() {
 /// Expected behaviour: the row carries the section's line, thinned to what a
 /// thumbnail can draw, from the summary the loop already holds.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_recent_pr_carries_the_section_line_the_card_draws() {
     let _serial_state = crate::serial_state();
     let s = populated_with_pr_candidate(1_700_150_000);
@@ -2015,6 +2057,7 @@ fn a_recent_pr_carries_the_section_line_the_card_draws() {
 /// coordinates crossing the FFI on the slowest screen read to draw the same
 /// forty pixels.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_long_section_line_is_thinned_to_what_a_thumbnail_draws() {
     let _serial_state = crate::serial_state();
     let mut s = setup();
@@ -2068,6 +2111,7 @@ fn a_long_section_line_is_thinned_to_what_a_thumbnail_draws() {
 /// Expected behaviour: the row carries the sport the record was set in, and
 /// counts that sport's traversals rather than the section's.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_recent_pr_counts_its_own_sport_and_says_which() {
     let _serial_state = crate::serial_state();
     let mut s = setup();
@@ -2126,6 +2170,7 @@ fn a_recent_pr_counts_its_own_sport_and_says_which() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn insights_computes_no_performances_on_an_empty_library() {
     let _serial_state = crate::serial_state();
     let s = setup();
@@ -2141,6 +2186,7 @@ fn insights_computes_no_performances_on_an_empty_library() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn insights_sport_types_match_across_repeated_reads() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -2158,6 +2204,7 @@ fn insights_sport_types_match_across_repeated_reads() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn startup_matches_the_calls_it_replaces() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -2258,6 +2305,7 @@ fn startup_judges_the_week_against_the_week_before() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn startup_skips_ids_with_no_signature() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -2281,6 +2329,7 @@ fn startup_skips_ids_with_no_signature() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn startup_still_answers_with_no_preview_ids() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -2308,6 +2357,7 @@ fn startup_still_answers_with_no_preview_ids() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn launch_writes_the_athlete_id_and_answers_with_the_stats() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -2349,6 +2399,7 @@ fn launch_leaves_the_stored_athlete_id_alone_when_given_none() {
 /// The athlete turned the heatmap off, so launch has to clear the path rather
 /// than leave whatever the last run set.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn launch_clears_the_tiles_path_when_the_heatmap_is_off() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -2375,6 +2426,7 @@ fn launch_clears_the_tiles_path_when_the_heatmap_is_off() {
 /// A candidate row draws where the candidate runs, so the athlete can tell two
 /// numbered sections apart before a merge rewrites one of them.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_detail_merge_candidates_carry_the_candidate_line() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -2401,6 +2453,7 @@ fn section_detail_merge_candidates_carry_the_candidate_line() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_detail_matches_the_calls_it_replaces() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -2442,6 +2495,7 @@ fn section_detail_matches_the_calls_it_replaces() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_detail_activity_rows_carry_engine_speed_and_start_time() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -2458,6 +2512,7 @@ fn section_detail_activity_rows_carry_engine_speed_and_start_time() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_detail_uses_the_stored_section_type() {
     let s = populated();
 
@@ -2507,6 +2562,7 @@ fn test_section_detail_preserves_disabled_auto_identity() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_detail_leaves_out_a_route_held_by_one_activity() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -2631,6 +2687,7 @@ fn test_section_detail_skips_corrupt_point_density_json() {
 /// visit paid more lock acquisitions for reads the first bundle was already
 /// positioned to make.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_detail_carries_the_ledger_and_the_laps() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -2665,6 +2722,7 @@ fn ledger(s: &Setup, rows: &[(&str, &str, &str)]) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_merged_away_section_names_the_survivor_that_took_its_ground() {
     let s = populated();
     ledger(&s, &[("gone1", "merged", "{\"into\":\"auto1\"}")]);
@@ -2679,6 +2737,7 @@ fn a_merged_away_section_names_the_survivor_that_took_its_ground() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_dissolved_section_carries_its_departure_with_no_survivor() {
     let s = populated();
     ledger(&s, &[("gone1", "dissolved", "{}")]);
@@ -2695,6 +2754,7 @@ fn a_dissolved_section_carries_its_departure_with_no_survivor() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_retirement_follows_the_chain_to_its_live_end() {
     let s = populated();
     ledger(
@@ -2715,6 +2775,7 @@ fn a_retirement_follows_the_chain_to_its_live_end() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_chain_that_ends_in_no_live_section_links_nothing() {
     let s = populated();
     ledger(
@@ -2756,6 +2817,7 @@ fn a_retirement_loop_ends_without_a_link() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_id_the_ledger_never_saw_carries_no_retirement() {
     let s = populated();
     ledger(&s, &[("gone1", "dissolved", "{}")]);
@@ -2780,6 +2842,7 @@ fn a_restored_section_reads_as_the_normal_page() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_detail_links_split_events_to_available_sections() {
     let s = populated();
     let line = line(46.2, 7.35, 30);
@@ -2824,6 +2887,7 @@ fn section_detail_links_split_events_to_available_sections() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_detail_marks_retired_or_missing_split_targets_unavailable() {
     let s = populated();
     s.raw
@@ -2857,6 +2921,7 @@ fn section_detail_marks_retired_or_missing_split_targets_unavailable() {
 /// A pinned version has to read as pinned in the bundle, which is the one
 /// field the bundle computes rather than reads.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pinned_version_reads_as_pinned_in_the_bundle() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -2885,6 +2950,7 @@ fn a_pinned_version_reads_as_pinned_in_the_bundle() {
 /// An unknown id returns the empty bundle rather than failing, the way the
 /// separate reads did.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_detail_for_an_unknown_id_carries_no_ledger() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -2897,6 +2963,7 @@ fn section_detail_for_an_unknown_id_carries_no_ledger() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_detail_reports_the_streams_the_caller_must_fetch() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -2922,6 +2989,7 @@ fn section_detail_reports_the_streams_the_caller_must_fetch() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_performance_matches_the_calls_it_replaces() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -2955,6 +3023,7 @@ fn section_performance_matches_the_calls_it_replaces() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_performance_honours_the_sport_filter() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -2973,6 +3042,7 @@ fn section_performance_honours_the_sport_filter() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_detail_is_empty_for_an_unknown_section() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -2986,6 +3056,7 @@ fn section_detail_is_empty_for_an_unknown_section() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn activity_detail_is_empty_for_an_unknown_activity() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -3007,6 +3078,7 @@ fn activity_detail_is_empty_for_an_unknown_activity() {
 /// Expected behaviour: one card gets exactly what the startup bundle would
 /// have given it, from the same cached signature.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn one_preview_track_matches_the_one_the_startup_bundle_carries() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -3031,6 +3103,7 @@ fn one_preview_track_matches_the_one_the_startup_bundle_carries() {
 /// A preview track is the signature, not the stored track, so it is the
 /// simplified line and never the four thousand points behind it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_preview_track_is_the_signature_rather_than_the_whole_ride() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -3055,6 +3128,7 @@ fn a_preview_track_is_the_signature_rather_than_the_whole_ride() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_with_no_signature_has_no_preview_track() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -3116,6 +3190,7 @@ fn populated_with_many_recent_sections(latest: i64) -> Setup {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn one_insights_bundle_computes_each_section_at_most_once() {
     let _serial_state = crate::serial_state();
     let s = populated_with_many_recent_sections(1_700_150_000);
@@ -3195,6 +3270,7 @@ fn the_bundle_carries_the_newest_form_reading_in_its_window() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_with_no_wellness_row_carries_no_form() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
@@ -3268,6 +3344,7 @@ fn three_runs_over_one_line() -> Setup {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn insights_names_the_route_whose_newest_run_holds_a_recent_record() {
     let s = three_runs_over_one_line();
 
@@ -3305,6 +3382,7 @@ fn insights_leaves_an_excluded_run_out_of_the_route_record() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn insights_names_no_route_when_every_run_is_older_than_the_windows() {
     let s = three_runs_over_one_line();
     let mut p = insights_params();
@@ -3390,6 +3468,7 @@ fn history_params() -> veloqrs::FfiInsightsParams {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_recent_pr_and_its_efforts_name_the_activities_they_were_set_in() {
     let _serial_state = crate::serial_state();
     let s = insights_with_history_to_mark();
@@ -3418,6 +3497,7 @@ fn a_recent_pr_and_its_efforts_name_the_activities_they_were_set_in() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ranked_section_names_the_activity_of_its_best_effort() {
     let _serial_state = crate::serial_state();
     let s = insights_with_history_to_mark();
@@ -3435,6 +3515,7 @@ fn a_ranked_section_names_the_activity_of_its_best_effort() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_hrv_window_is_dated_and_marks_where_its_later_half_starts() {
     let _serial_state = crate::serial_state();
     let s = insights_with_history_to_mark();
@@ -3458,6 +3539,7 @@ fn the_hrv_window_is_dated_and_marks_where_its_later_half_starts() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_recut_section_change_carries_the_line_it_now_follows() {
     let _serial_state = crate::serial_state();
     let s = insights_with_history_to_mark();

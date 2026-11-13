@@ -92,13 +92,13 @@ describe('the calendar card while time streams are outstanding', () => {
     expect(yearTrophies).toHaveLength(0);
   });
 
-  it('draws no trophy on the month row, where the year-best keeps its bold time', async () => {
+  vaultIt('draws no trophy on the month row, where the year-best keeps its bold time', async () => {
     const tree = await renderCalendar(false);
 
     expect(trophies(tree)).toHaveLength(0);
   });
 
-  it('draws the overall-record trophies once the streams are in', async () => {
+  vaultIt('draws the overall-record trophies once the streams are in', async () => {
     const tree = await renderCalendar(true);
 
     expect(trophies(tree).filter((icon) => icon.props.size === iconSize.sm)).toHaveLength(2);

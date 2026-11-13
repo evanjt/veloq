@@ -144,6 +144,7 @@ fn a_refused_detect_is_not_a_detect_that_cut_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_untimed_pool_cuts_nothing_over_ground_the_lift_veto_marks() {
     let _serial_state = super::serial_state();
     let dir = tempfile::TempDir::new().unwrap();
@@ -196,6 +197,7 @@ fn a_stored_stream_reaches_the_detector_and_frees_the_ground_it_clears() {
 /// through the same seconds. One that ran untimed against a timed detect
 /// would offer sections the detect then refuses, or drop the ones it cut.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_preview_sees_the_same_ground_as_the_detect() {
     let _serial_state = super::serial_state();
     let dir = tempfile::TempDir::new().unwrap();

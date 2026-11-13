@@ -94,6 +94,7 @@ fn a_library_is_ready_once_the_newest_ninety_days_are_decided() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn one_track_of_the_slice_still_unknown_holds_the_cut() {
     let (_dir, engine) = library(&sixty(ELEVATION_STATE_FETCHED));
     decide(&engine, "r24", ELEVATION_STATE_UNKNOWN);
@@ -105,6 +106,7 @@ fn one_track_of_the_slice_still_unknown_holds_the_cut() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_window_ends_ninety_days_before_the_newest_track() {
     let (_dir, engine) = library(&[
         track("newest", 0, ELEVATION_STATE_FETCHED),
@@ -118,6 +120,7 @@ fn the_window_ends_ninety_days_before_the_newest_track() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_window_is_measured_from_the_newest_track_and_not_from_the_clock() {
     // An athlete who stopped riding years ago still has a newest slice.
     let (_dir, engine) = library(&[
@@ -158,6 +161,7 @@ fn a_slice_never_holds_more_than_the_upgrade_day_can_fetch() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_with_nothing_owed_and_an_empty_one_are_ready() {
     let (_dir, empty) = library(&[]);
     assert!(ready(&empty));
@@ -170,6 +174,7 @@ fn a_library_with_nothing_owed_and_an_empty_one_are_ready() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_recording_upstream_cannot_name_is_not_part_of_the_slice() {
     let (_dir, engine) = library(&[
         track("local-1", 0, ELEVATION_STATE_UNKNOWN),
@@ -183,6 +188,7 @@ fn a_recording_upstream_cannot_name_is_not_part_of_the_slice() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_queue_splits_into_the_slice_and_the_rest_in_the_order_it_came() {
     let queue: Vec<(String, String)> = ["a", "b", "c", "d", "e"]
         .iter()
@@ -204,6 +210,7 @@ fn the_queue_splits_into_the_slice_and_the_rest_in_the_order_it_came() {
 /// the old flat ride out of its pool without a download to wait on. Signed in,
 /// it is.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_decided_slice_is_ready_to_cut_only_while_the_download_can_run() {
     let _serial = crate::test_globals::serial_global_state();
     let (_dir, engine) = library(&sixty(ELEVATION_STATE_FETCHED));
@@ -220,6 +227,7 @@ fn a_decided_slice_is_ready_to_cut_only_while_the_download_can_run() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_with_nothing_owed_is_ready_to_cut_signed_out() {
     let _serial = crate::test_globals::serial_global_state();
     let (_dir, engine) = library(&[track("a", 0, ELEVATION_STATE_FETCHED)]);

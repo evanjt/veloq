@@ -25065,17 +25065,15 @@ const FfiConverterTypeFfiWellnessRow = (() => {
 
 /**
  * The rows of a sample library, in the shapes the stores take them, for the
- * widgets to draw while no account is signed in.
+ * widgets to draw while no account is signed in. The strength sets are not
+ * carried: the engine holds the demo corpus that a sample's strength
+ * activities settle from.
  */
 export type FfiSampleLibrary = {
   athleteJson: string;
   sportSettingsJson: string;
   wellness: Array<FfiWellnessRow>;
   activities: Array<FfiActivityBody>;
-  /**
-   * The sets of the library's strength sessions, each naming its activity.
-   */
-  exerciseSets: Array<FfiExerciseSet>;
 };
 
 /**
@@ -25104,7 +25102,6 @@ const FfiConverterTypeFfiSampleLibrary = (() => {
         sportSettingsJson: FfiConverterString.readFromCursor(c),
         wellness: FfiConverterSequenceTypeFfiWellnessRow.readFromCursor(c),
         activities: FfiConverterSequenceTypeFfiActivityBody.readFromCursor(c),
-        exerciseSets: FfiConverterSequenceTypeFfiExerciseSet.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -25115,22 +25112,13 @@ const FfiConverterTypeFfiSampleLibrary = (() => {
         value.activities,
         c,
       );
-      FfiConverterSequenceTypeFfiExerciseSet.writeIntoCursor(
-        value.exerciseSets,
-        c,
-      );
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.athleteJson) +
         FfiConverterString.allocationSize(value.sportSettingsJson) +
         FfiConverterSequenceTypeFfiWellnessRow.allocationSize(value.wellness) +
-        FfiConverterSequenceTypeFfiActivityBody.allocationSize(
-          value.activities,
-        ) +
-        FfiConverterSequenceTypeFfiExerciseSet.allocationSize(
-          value.exerciseSets,
-        )
+        FfiConverterSequenceTypeFfiActivityBody.allocationSize(value.activities)
       );
     }
   }

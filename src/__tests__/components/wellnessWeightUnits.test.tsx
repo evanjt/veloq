@@ -22,7 +22,7 @@ const DAYS: WellnessData[] = Array.from({ length: 30 }, (_, i) => ({
 }));
 
 describe('wellness weight row units', () => {
-  it('shows kilograms for a metric athlete', async () => {
+  vaultIt('shows kilograms for a metric athlete', async () => {
     mockIsMetric = true;
     const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
     expect(tree.getByText('72.5')).toBeTruthy();

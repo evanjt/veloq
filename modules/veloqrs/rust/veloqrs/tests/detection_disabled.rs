@@ -103,6 +103,7 @@ fn detect_and_apply() -> usize {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_detect_is_refused_while_detection_is_disabled() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -122,6 +123,7 @@ fn a_detect_is_refused_while_detection_is_disabled() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn conditioning_will_not_start_while_detection_is_disabled() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -141,6 +143,7 @@ fn conditioning_will_not_start_while_detection_is_disabled() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn re_enabling_detects_again() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -159,6 +162,7 @@ fn re_enabling_detects_again() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn detection_is_enabled_on_a_fresh_install() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -169,6 +173,7 @@ fn detection_is_enabled_on_a_fresh_install() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_setting_survives_a_reopen() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -187,6 +192,7 @@ fn the_setting_survives_a_reopen() {
 /// The disabled refusal is its own phase, so the sections page can tell an
 /// install that turned detection off from one that is waiting on the migration.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_disabled_refusal_is_distinct_from_the_others() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -222,6 +228,7 @@ fn add_ride(id: &str) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sync_while_disabled_leaves_route_groups_unbuilt() {
     let _serial_state = super::serial_state();
     let _serial = serial();

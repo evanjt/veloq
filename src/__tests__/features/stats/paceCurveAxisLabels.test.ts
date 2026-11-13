@@ -35,7 +35,7 @@ describe('the pace curve distance axis', () => {
     ]);
   });
 
-  it('hands the chart the same array on every call, so label placement is not redone', () => {
+  vaultIt('hands the chart the same array on every call, so label placement is not redone', () => {
     expect(paceCurveAxisLabels(false)).toBe(paceCurveAxisLabels(false));
     expect(paceCurveAxisLabels(true)).toBe(paceCurveAxisLabels(true));
   });

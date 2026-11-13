@@ -6,5 +6,4 @@
  * `./components` or `./index`.
  */
 export { MUSCLE_NAME_KEYS } from './lib/muscleNames';
-export { demoStrengthSets } from './demo';
 export { requestFitFile } from './hooks/useExerciseSets';

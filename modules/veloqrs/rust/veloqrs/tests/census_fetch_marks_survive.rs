@@ -63,6 +63,7 @@ fn fetched_march(dir: &TempDir) -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_census_naming_the_same_versions_leaves_the_window_covered() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = fetched_march(&dir);
@@ -189,6 +190,7 @@ fn a_second_athletes_census_does_not_inherit_the_first_ones_marks() {
 /// An id that leaves the account and comes back is a new download: its row went
 /// with the id, so nothing says the device still holds what the census names.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_id_dropped_and_readded_owes_its_download() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = fetched_march(&dir);

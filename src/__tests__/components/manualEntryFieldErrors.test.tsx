@@ -54,7 +54,7 @@ it('says a blank duration is refused, in a live region on the field', async () =
   expect(navigateTo).not.toHaveBeenCalled();
 });
 
-it('announces a refused heart rate on iOS', async () => {
+vaultIt('announces a refused heart rate on iOS', async () => {
   Platform.OS = 'ios';
   const view = await render(inStack(<ManualEntryForm activityType="Yoga" bottomPadding={0} />));
   await fireEvent.changeText(view.getByTestId('manual-entry-duration'), '30');

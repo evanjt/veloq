@@ -60,7 +60,7 @@ function drawnOpacity(element: ReturnType<typeof screen.getByTestId>): number {
 }
 
 describe('SwitchRow', () => {
-  it('is one switch element named by its title and described by its description', async () => {
+  vaultIt('is one switch element named by its title and described by its description', async () => {
     await renderRow();
 
     const row = screen.getByRole('switch', { name: 'Night lights' });
@@ -70,7 +70,7 @@ describe('SwitchRow', () => {
     expect(screen.getAllByRole('switch')).toHaveLength(1);
   });
 
-  it('reads as on when its value is on', async () => {
+  vaultIt('reads as on when its value is on', async () => {
     await renderRow({ value: true });
 
     expect(screen.getByRole('switch', { name: 'Night lights' })).toBeChecked();
@@ -97,7 +97,7 @@ describe('SwitchRow', () => {
     expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
   });
 
-  it('holds its own switch out of keyboard focus, so the row is the one stop', async () => {
+  vaultIt('holds its own switch out of keyboard focus, so the row is the one stop', async () => {
     await renderRow();
     const thumb = screen.UNSAFE_getByType(PaperSwitch);
 
@@ -119,7 +119,7 @@ describe('SwitchRow', () => {
     expect(Haptics.selectionAsync).not.toHaveBeenCalled();
   });
 
-  it('draws a disabled row at the disabled step over its own label colours', async () => {
+  vaultIt('draws a disabled row at the disabled step over its own label colours', async () => {
     await renderRow({ disabled: true, titleTestID: 'night-lights-title' });
 
     const title = screen.getByTestId('night-lights-title');
@@ -127,13 +127,13 @@ describe('SwitchRow', () => {
     expect(drawnOpacity(title)).toBe(opacity.disabled);
   });
 
-  it('draws an enabled row at full strength', async () => {
+  vaultIt('draws an enabled row at full strength', async () => {
     await renderRow({ titleTestID: 'night-lights-title' });
 
     expect(drawnOpacity(screen.getByTestId('night-lights-title'))).toBe(1);
   });
 
-  it('flips again on the second tap from the value it is given', async () => {
+  vaultIt('flips again on the second tap from the value it is given', async () => {
     const onValueChange = jest.fn();
     const { rerender } = await render(
       <SwitchRow title="Night lights" value={false} onValueChange={onValueChange} />
@@ -145,7 +145,7 @@ describe('SwitchRow', () => {
     expect(onValueChange.mock.calls).toEqual([[true], [false]]);
   });
 
-  it('keeps an accessory reachable as its own element', async () => {
+  vaultIt('keeps an accessory reachable as its own element', async () => {
     await renderRow({
       accessory: (
         <Text accessibilityRole="button" accessibilityLabel="About night lights">
@@ -160,7 +160,7 @@ describe('SwitchRow', () => {
 });
 
 describe('Switch', () => {
-  it('carries its name and fires one selection haptic per change', async () => {
+  vaultIt('carries its name and fires one selection haptic per change', async () => {
     const onValueChange = jest.fn();
     await render(
       <Switch value={false} onValueChange={onValueChange} accessibilityLabel="Hide clouds" />
@@ -184,7 +184,7 @@ describe('KeyboardFocusBlock', () => {
     jest.restoreAllMocks();
   });
 
-  it('is the native focus-blocking view on Android', async () => {
+  vaultIt('is the native focus-blocking view on Android', async () => {
     Platform.OS = 'android';
     const NativeBlock = () => null;
     const requireView = jest
@@ -198,7 +198,7 @@ describe('KeyboardFocusBlock', () => {
     expect(screen.UNSAFE_queryAllByType(View)).toHaveLength(0);
   });
 
-  it('is a plain view on iOS, which has no such native view', async () => {
+  vaultIt('is a plain view on iOS, which has no such native view', async () => {
     Platform.OS = 'ios';
     const requireView = jest.spyOn(expoModulesCore, 'requireNativeViewManager');
 
@@ -210,18 +210,21 @@ describe('KeyboardFocusBlock', () => {
 });
 
 describe('switch colours', () => {
-  it('tints the iOS on track with the on role and the off track with the control edge, and leaves the thumb to the system', () => {
-    expect(switchColors(false, true, 'ios')).toEqual({
-      trackColor: { true: colors.controlOn, false: colors.controlBoundary },
-      ios_backgroundColor: colors.controlBoundary,
-    });
-    expect(switchColors(true, false, 'ios')).toEqual({
-      trackColor: { true: darkColors.controlOn, false: darkColors.controlBoundary },
-      ios_backgroundColor: darkColors.controlBoundary,
-    });
-  });
+  vaultIt(
+    'tints the iOS on track with the on role and the off track with the control edge, and leaves the thumb to the system',
+    () => {
+      expect(switchColors(false, true, 'ios')).toEqual({
+        trackColor: { true: colors.controlOn, false: colors.controlBoundary },
+        ios_backgroundColor: colors.controlBoundary,
+      });
+      expect(switchColors(true, false, 'ios')).toEqual({
+        trackColor: { true: darkColors.controlOn, false: darkColors.controlBoundary },
+        ios_backgroundColor: darkColors.controlBoundary,
+      });
+    }
+  );
 
-  it('draws the Android off track with the control edge and a surface thumb on it', () => {
+  vaultIt('draws the Android off track with the control edge and a surface thumb on it', () => {
     expect(switchColors(false, false, 'android')).toEqual({
       thumbColor: colors.surface,
       trackColor: { true: colors.controlOn, false: colors.controlBoundary },
@@ -232,7 +235,7 @@ describe('switch colours', () => {
     });
   });
 
-  it('draws the Android on track solid in the on role under a white thumb', () => {
+  vaultIt('draws the Android on track solid in the on role under a white thumb', () => {
     expect(switchColors(false, true, 'android')).toEqual({
       thumbColor: colors.textOnFill,
       trackColor: { true: colors.controlOn, false: colors.controlBoundary },

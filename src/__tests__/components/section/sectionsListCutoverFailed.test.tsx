@@ -106,7 +106,7 @@ describe('SectionsList after a failed rebuild', () => {
     mockCutover = summary({});
   });
 
-  it('says the rebuild did not finish when the list is empty', async () => {
+  vaultIt('says the rebuild did not finish when the list is empty', async () => {
     mockCutover = summary({ phase: 'failed' });
 
     await renderList(HELD_BY_MIGRATION);
@@ -115,7 +115,7 @@ describe('SectionsList after a failed rebuild', () => {
     expect(screen.getByText(DID_NOT_FINISH)).toBeTruthy();
   });
 
-  it('says it when the old sections are still listed', async () => {
+  vaultIt('says it when the old sections are still listed', async () => {
     mockCutover = summary({ phase: 'failed' });
 
     await renderList(null);
@@ -132,11 +132,14 @@ describe('SectionsList after a failed rebuild', () => {
     expect(screen.queryByText(DID_NOT_FINISH)).toBeNull();
   });
 
-  it.each(['idle', 'detecting', 'complete'] as const)('says nothing in phase %s', async (phase) => {
-    mockCutover = summary({ phase, isRunning: phase === 'detecting' });
+  vaultIt.each(['idle', 'detecting', 'complete'] as const)(
+    'says nothing in phase %s',
+    async (phase) => {
+      mockCutover = summary({ phase, isRunning: phase === 'detecting' });
 
-    await renderList(null);
+      await renderList(null);
 
-    expect(screen.queryByTestId('cutover-failed')).toBeNull();
-  });
+      expect(screen.queryByTestId('cutover-failed')).toBeNull();
+    }
+  );
 });

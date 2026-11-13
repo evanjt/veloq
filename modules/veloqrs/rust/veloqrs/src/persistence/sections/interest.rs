@@ -572,6 +572,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn fragments_do_not_change_catalogue_rank_features() {
         let dir = tempfile::tempdir().unwrap();
         let mut engine = engine_with_two_ranked_sections(dir.path());
@@ -679,6 +680,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ranking_written_after_a_section_was_removed_skips_only_that_section() {
         let dir = tempfile::tempdir().unwrap();
         let mut engine = engine_with_two_ranked_sections(dir.path());
@@ -694,6 +696,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ranking_written_after_a_section_was_redrawn_leaves_it_unscored() {
         let dir = tempfile::tempdir().unwrap();
         let mut engine = engine_with_two_ranked_sections(dir.path());
@@ -771,6 +774,7 @@ mod tests {
     /// Expected behaviour: the next ranking fills in the two that are missing
     /// and leaves the stored ones as they were.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn ranking_fills_the_gain_and_grade_a_ranked_custom_row_is_missing() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("upgrade.db");
@@ -830,6 +834,7 @@ mod tests {
     /// Expected behaviour: ranking stores no gain or grade rather than a zero,
     /// and still stores the shape of the line.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_custom_section_from_a_flat_file_ride_stores_no_gain() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("flat.db");
@@ -858,6 +863,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn epoch_dates_are_civil() {
         assert_eq!(iso_date(0), "1970-01-01");
         assert_eq!(iso_date(1_740_000_000), "2025-02-19");
@@ -865,6 +871,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn percentile_ranks_inside_the_sample() {
         let s = [100.0, 120.0, 140.0, 160.0];
         assert_eq!(percentile(&s, 90.0), 0.0);

@@ -168,6 +168,7 @@ fn coordinate_digest(polyline: &[GpsPoint]) -> u64 {
 /// wholesale translation, so the geometry digest is the only thing separating
 /// them, and every self-comparison contract rests on that.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn signature_separates_translated_ground() {
     let at = |lat: f64| SectionSnapshot {
         sections: [(
@@ -576,6 +577,7 @@ pub fn assert_catalogue_populated(label: &str, snap: &SectionSnapshot) {
 /// A wiped or never-formed catalogue must score zero on every survival metric.
 /// Scoring it 1.0 let the identity gates pass while asserting on nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn survival_metrics_never_pass_on_an_empty_catalogue() {
     let empty = SectionSnapshot {
         sections: BTreeMap::new(),

@@ -38,7 +38,7 @@ describe('useCanRecord separates a missing account from a missing scope', () => 
     expect(result.current.canRecord).toBe(true);
   });
 
-  it('lets an OAuth account with write record', async () => {
+  vaultIt('lets an OAuth account with write record', async () => {
     useAuthStore.setState({ authMethod: 'oauth' });
     useUploadPermissionStore.setState({ hasWritePermission: true });
     const { result } = await renderHook(() => useCanRecord());

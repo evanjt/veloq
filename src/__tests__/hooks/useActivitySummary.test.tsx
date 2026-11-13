@@ -155,7 +155,7 @@ describe('useActivitySummary over a trimmed window', () => {
     return kept.length > 0 ? kept.reduce((sum, v) => sum + v, 0) / kept.length : null;
   };
 
-  it.each([
+  vaultIt.each([
     [0, 5],
     [1, 4],
     [2, 5],

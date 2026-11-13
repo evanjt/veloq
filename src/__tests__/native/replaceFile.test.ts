@@ -58,15 +58,18 @@ describe('replaceFile', () => {
     });
   });
 
-  it('moves with the file system API on Android, which renames over the destination', async () => {
-    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+  vaultIt(
+    'moves with the file system API on Android, which renames over the destination',
+    async () => {
+      Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
 
-    await replaceFile('/docs/a.json.tmp', '/docs/a.json');
+      await replaceFile('/docs/a.json.tmp', '/docs/a.json');
 
-    expect(FileSystem.moveAsync).toHaveBeenCalledWith({
-      from: '/docs/a.json.tmp',
-      to: '/docs/a.json',
-    });
-    expect(mockRequireNativeModule).not.toHaveBeenCalled();
-  });
+      expect(FileSystem.moveAsync).toHaveBeenCalledWith({
+        from: '/docs/a.json.tmp',
+        to: '/docs/a.json',
+      });
+      expect(mockRequireNativeModule).not.toHaveBeenCalled();
+    }
+  );
 });

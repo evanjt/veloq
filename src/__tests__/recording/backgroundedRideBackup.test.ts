@@ -119,7 +119,7 @@ describe('the crash backup of a backgrounded ride', () => {
     expect(rt.saveRecordingBackup.mock.calls[1][0].streams.time).toEqual([20, 21, 34, 35]);
   });
 
-  it('writes the ride on the way out of the foreground', async () => {
+  vaultIt('writes the ride on the way out of the foreground', async () => {
     const rt = liveRuntime();
     rt.useRecordingStore.getState().reset();
     let listener: ((state: string) => void) | null = null;

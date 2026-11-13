@@ -81,7 +81,7 @@ beforeEach(() => mockMapProps.mockClear());
 afterEach(() => closeHost(KEY));
 
 describe('a chart scrub on the route card', () => {
-  it('renders the map per index and never the root above it', async () => {
+  vaultIt('renders the map per index and never the root above it', async () => {
     const { card, rootRenders } = await setup();
     expect(rootRenders).toHaveBeenCalledTimes(1);
     mockMapProps.mockClear();
@@ -98,7 +98,7 @@ describe('a chart scrub on the route card', () => {
     expect(rootRenders).toHaveBeenCalledTimes(1);
   });
 
-  it('renders nothing for a scrub that lands on the attempt already drawn', async () => {
+  vaultIt('renders nothing for a scrub that lands on the attempt already drawn', async () => {
     const { card } = await setup();
     await act(() => card.selectAttempt('a', LAP, new Date(2026, 0, 2)));
     mockMapProps.mockClear();
@@ -126,7 +126,7 @@ describe('a chart scrub on the route card', () => {
 });
 
 describe('the route map under its sheet', () => {
-  it('fits the route above the settled stop and keeps the Half fit at Full', async () => {
+  vaultIt('fits the route above the settled stop and keeps the Half fit at Full', async () => {
     await setup();
     const { useMapSheetStops } = jest.requireActual('@/shared/app/mapSheetStop');
     const settle = (index: number) =>
@@ -155,14 +155,17 @@ describe('the route map beside its side panel', () => {
     mockWindow.height = 844;
   });
 
-  it('fits the route beside the panel at the leading edge, with nothing covered below', async () => {
-    mockWindow.width = 1024;
-    mockWindow.height = 1366;
-    await setup();
+  vaultIt(
+    'fits the route beside the panel at the leading edge, with nothing covered below',
+    async () => {
+      mockWindow.width = 1024;
+      mockWindow.height = 1366;
+      await setup();
 
-    const { fitPadding } = lastMapProps();
-    expect(fitPadding.left).toBeGreaterThanOrEqual(400);
-    expect(fitPadding.right).toBeLessThan(100);
-    expect(fitPadding.bottom).toBeLessThan(100);
-  });
+      const { fitPadding } = lastMapProps();
+      expect(fitPadding.left).toBeGreaterThanOrEqual(400);
+      expect(fitPadding.right).toBeLessThan(100);
+      expect(fitPadding.bottom).toBeLessThan(100);
+    }
+  );
 });

@@ -74,13 +74,13 @@ afterEach(() => {
 });
 
 describe('selectLabel', () => {
-  it('names the control and its current value', () => {
+  vaultIt('names the control and its current value', () => {
     expect(selectLabel('Time range', '1 year')).toBe('Time range: 1 year');
   });
 });
 
 describe('SelectButton', () => {
-  it('reads the current value and is spoken as the name and the value', async () => {
+  vaultIt('reads the current value and is spoken as the name and the value', async () => {
     await render(<Harness onChange={jest.fn()} />);
 
     const button = screen.getByTestId('tide-select');
@@ -90,25 +90,28 @@ describe('SelectButton', () => {
     expect(screen.queryAllByRole('menuitem')).toHaveLength(0);
   });
 
-  it('opens a list with the current option checked and every row at the tap target', async () => {
-    await render(<Harness onChange={jest.fn()} />);
+  vaultIt(
+    'opens a list with the current option checked and every row at the tap target',
+    async () => {
+      await render(<Harness onChange={jest.fn()} />);
 
-    await openList();
+      await openList();
 
-    {
-      const rows = screen.getAllByRole('menuitem');
-      expect(rows).toHaveLength(TIDES.length);
-      const checked = rows.filter((row) => row.props.accessibilityState?.checked);
-      expect(checked).toHaveLength(1);
-      expect(checked[0].props.accessibilityLabel).toBe('Spring');
-      for (const row of rows) {
-        expect(flat(row).minHeight).toBeGreaterThanOrEqual(MIN_TAP_TARGET.android);
+      {
+        const rows = screen.getAllByRole('menuitem');
+        expect(rows).toHaveLength(TIDES.length);
+        const checked = rows.filter((row) => row.props.accessibilityState?.checked);
+        expect(checked).toHaveLength(1);
+        expect(checked[0].props.accessibilityLabel).toBe('Spring');
+        for (const row of rows) {
+          expect(flat(row).minHeight).toBeGreaterThanOrEqual(MIN_TAP_TARGET.android);
+        }
       }
+      expect(screen.getByTestId('tide-select').props.accessibilityState).toMatchObject({
+        expanded: true,
+      });
     }
-    expect(screen.getByTestId('tide-select').props.accessibilityState).toMatchObject({
-      expanded: true,
-    });
-  });
+  );
 
   it('calls onChange once with the choice, fires the selection haptic and closes', async () => {
     const onChange = jest.fn();
@@ -129,7 +132,7 @@ describe('SelectButton', () => {
     expect(screen.getByTestId('tide-select')).toHaveTextContent('King');
   });
 
-  it('closes on the current option and changes nothing', async () => {
+  vaultIt('closes on the current option and changes nothing', async () => {
     const onChange = jest.fn();
     await render(<Harness onChange={onChange} />);
 
@@ -143,7 +146,7 @@ describe('SelectButton', () => {
     await waitFor(() => expect(screen.queryAllByRole('menuitem')).toHaveLength(0));
   });
 
-  it('opens on a press straight after it appears', async () => {
+  vaultIt('opens on a press straight after it appears', async () => {
     await render(<Harness onChange={jest.fn()} />);
 
     await act(async () => {
@@ -156,7 +159,7 @@ describe('SelectButton', () => {
     expect(screen.getAllByRole('menuitem')).toHaveLength(TIDES.length);
   });
 
-  it('reads the unmatched label when the value is none of the options', async () => {
+  vaultIt('reads the unmatched label when the value is none of the options', async () => {
     await render(
       <PaperProvider>
         <SelectButton

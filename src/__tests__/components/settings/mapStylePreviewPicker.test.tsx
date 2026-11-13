@@ -54,7 +54,7 @@ it('announces the selected map style and lets another style be chosen', async ()
   expect(onValueChange).toHaveBeenCalledWith('satellite');
 });
 
-it('draws each map style as a circle over its whole label at the narrowest row', async () => {
+vaultIt('draws each map style as a circle over its whole label at the narrowest row', async () => {
   await render(<MapStylePreviewPicker value="light" onValueChange={jest.fn()} />);
   await layOut('map-style-picker', NARROW_ROW);
 
@@ -63,7 +63,7 @@ it('draws each map style as a circle over its whole label at the narrowest row',
   }
 });
 
-it('keeps the full circle on a wide row', async () => {
+vaultIt('keeps the full circle on a wide row', async () => {
   await render(<MapStylePreviewPicker value="light" onValueChange={jest.fn()} />);
   await layOut('map-style-picker', 600);
 

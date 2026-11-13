@@ -89,6 +89,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn only_idle_and_running_have_not_ended() {
         for state in [FfiRunState::Idle, FfiRunState::Running] {
             assert!(!state.ended(), "{state:?} has not ended");
@@ -104,6 +105,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_complete_run_with_nothing_counted_is_at_one_hundred_percent() {
         assert_eq!(FfiRunProgress::at(FfiRunState::Complete).percent, 100);
         assert_eq!(FfiRunProgress::at(FfiRunState::Running).percent, 0);

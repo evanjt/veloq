@@ -33,7 +33,7 @@ describe('the partly downloaded range note', () => {
     expect(navigateTo).not.toHaveBeenCalled();
   });
 
-  it('is announced as a link with the note as its text', async () => {
+  vaultIt('is announced as a link with the note as its text', async () => {
     const view = await render(<RangePartlyDownloadedNote testID="note" />);
 
     expect(view.getByRole('link')).toBeTruthy();

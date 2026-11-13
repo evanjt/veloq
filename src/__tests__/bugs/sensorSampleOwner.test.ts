@@ -33,7 +33,7 @@ it('lands each kind in the recording store under its stream name', () => {
   expect(latestSensor.cadence?.value).toBe(88);
 });
 
-it('does not notify the sensors store on a notification from the sitting source', () => {
+vaultIt('does not notify the sensors store on a notification from the sitting source', () => {
   useSensorStore.getState().setLatest('heartRate', 151, STRAP);
   const listener = jest.fn();
   const unsubscribe = useSensorStore.subscribe(listener);

@@ -800,6 +800,7 @@ mod tests {
     /// Every lap was its own autocommit and its own fsync under the engine
     /// write lock. The whole pass is one transaction.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn backfilling_many_laps_is_one_commit() {
         let engine = engine_with_null_laps(12);
         let commits = commit_counter::watch(&engine);
@@ -882,6 +883,7 @@ mod tests {
     /// The row the schema defaults leave behind is not a traversal, and it
     /// stays out on its own terms rather than on the start index's.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_default_zero_row_is_still_refused() {
         let engine = engine_with_null_laps(1);
         engine
@@ -898,6 +900,7 @@ mod tests {
 
     /// A second pass finds nothing and writes nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn backfilling_nothing_commits_nothing() {
         let engine = engine_with_null_laps(3);
         engine.backfill_null_lap_times().unwrap();
@@ -911,6 +914,7 @@ mod tests {
     /// A portion whose activity has no stream stays NULL, and the pass still
     /// commits once for the ones it could resolve.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_streamless_portion_stays_null_inside_the_one_commit() {
         let mut engine = engine_with_null_laps(4);
         engine

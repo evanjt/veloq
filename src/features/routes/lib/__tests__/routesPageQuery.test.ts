@@ -3,11 +3,11 @@ import { mergeHasMore, routesPageQuery } from '../routesPageQuery';
 const PAGING = { groupOffset: 100, sectionOffset: 50, groupLimit: 50, sectionLimit: 50 };
 
 describe('routesPageQuery', () => {
-  it('reads both lists at their offsets when both are paged', () => {
+  vaultIt('reads both lists at their offsets when both are paged', () => {
     expect(routesPageQuery('both', PAGING)).toEqual(PAGING);
   });
 
-  it('reads no sections when paging groups', () => {
+  vaultIt('reads no sections when paging groups', () => {
     expect(routesPageQuery('groups', PAGING)).toEqual({
       groupOffset: 100,
       groupLimit: 50,
@@ -16,7 +16,7 @@ describe('routesPageQuery', () => {
     });
   });
 
-  it('reads no groups when paging sections', () => {
+  vaultIt('reads no groups when paging sections', () => {
     expect(routesPageQuery('sections', PAGING)).toEqual({
       groupOffset: 0,
       groupLimit: 0,

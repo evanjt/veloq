@@ -35,6 +35,7 @@ fn count(conn: &Connection, sql: &str, id: &str) -> i64 {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_mint_names_the_ground() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine();

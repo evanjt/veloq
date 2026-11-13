@@ -145,7 +145,7 @@ describe('useCutoverSummary', () => {
     jest.useRealTimers();
   });
 
-  it('reports no engine as idle with no counts', async () => {
+  vaultIt('reports no engine as idle with no counts', async () => {
     mockGetEngine.mockReturnValue(null);
     const { result } = await renderHook(() => useCutoverSummary());
     expect(result.current).toEqual({
@@ -239,7 +239,7 @@ describe('useCutoverSummary', () => {
     expect(result.current.settingsReset).toBeNull();
   });
 
-  it('reads a settled run without a reset as none', async () => {
+  vaultIt('reads a settled run without a reset as none', async () => {
     const { result } = await mount(
       engine(
         () => ({ phase: 'complete', running: false }),
@@ -317,7 +317,7 @@ describe('useCutoverSummary', () => {
     });
   });
 
-  it('makes no engine call on a timer while nothing is running', async () => {
+  vaultIt('makes no engine call on a timer while nothing is running', async () => {
     const fake = engine(
       () => ({ phase: 'idle', running: false }),
       () => ({ counts: counts({ current: 4, proposed: 6 }) })
@@ -332,7 +332,7 @@ describe('useCutoverSummary', () => {
     expect(fake.getCutoverDiff.mock.calls.length).toBe(diffAtMount);
   });
 
-  it('follows the phase of a run in flight without reading the diff', async () => {
+  vaultIt('follows the phase of a run in flight without reading the diff', async () => {
     let phase = 'draining';
     const fake = engine(
       () => ({ phase, running: true }),
@@ -349,7 +349,7 @@ describe('useCutoverSummary', () => {
     expect(fake.getCutoverDiff.mock.calls.length).toBe(diffAtMount);
   });
 
-  it('stops reading once a run gives up the slot', async () => {
+  vaultIt('stops reading once a run gives up the slot', async () => {
     let running = true;
     const fake = engine(
       () => ({ phase: running ? 'detecting' : 'idle', running }),
@@ -383,7 +383,7 @@ describe('useCutoverSummary', () => {
     expect(result.current.phase).toBe('failed');
   });
 
-  it('drops its subscription on unmount and reads nothing after it', async () => {
+  vaultIt('drops its subscription on unmount and reads nothing after it', async () => {
     const fake = engine(
       () => ({ phase: 'detecting', running: true }),
       () => null
@@ -453,7 +453,7 @@ describe('when the engine stops answering', () => {
     expect(result.current.phase).toBe('idle');
   });
 
-  it('stops asking once it has settled', async () => {
+  vaultIt('stops asking once it has settled', async () => {
     const fake = throwingAfterStart();
     await mount(fake);
 

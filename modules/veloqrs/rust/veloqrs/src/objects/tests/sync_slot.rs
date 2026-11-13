@@ -38,6 +38,7 @@ fn listing(server: &MockServer, status: u16) -> httpmock::Mock<'_> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_refused_while_the_slot_is_held_is_fetched_when_it_frees() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("owed-window.db");
@@ -108,6 +109,7 @@ fn pair(oldest: &str, newest: &str) -> (String, String) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_asked_twice_while_the_slot_is_held_starts_once_when_it_frees() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, started) = recording_service();
@@ -136,6 +138,7 @@ fn a_window_asked_twice_while_the_slot_is_held_starts_once_when_it_frees() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn owed_windows_start_one_per_free_slot_in_the_order_they_were_asked() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, started) = claiming_service();
@@ -165,6 +168,7 @@ fn owed_windows_start_one_per_free_slot_in_the_order_they_were_asked() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_owed_window_that_does_not_take_the_slot_passes_to_the_next() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, started) = recording_service();
@@ -185,6 +189,7 @@ fn an_owed_window_that_does_not_take_the_slot_passes_to_the_next() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_parked_credential_starts_no_owed_window() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, started) = recording_service();
@@ -214,6 +219,7 @@ fn a_window_owed_to_an_athlete_who_signed_out_is_dropped() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_default_sync_refused_busy_is_not_kept_owed() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, started) = recording_service();
@@ -299,6 +305,7 @@ fn a_run_that_failed_on_the_network_starts_again_on_the_online_edge() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_that_settled_cleanly_or_was_cancelled_owes_the_edge_nothing() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -317,6 +324,7 @@ fn a_run_that_settled_cleanly_or_was_cancelled_owes_the_edge_nothing() {
 /// A full disk, a missing credential or an unreadable file is not cured by
 /// the connection coming back, so the edge does not spend a run on it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_failure_no_connection_cures_is_not_started_on_the_edge() {
     let _serial = crate::test_globals::serial_global_state();
     for reason in [
@@ -333,6 +341,7 @@ fn a_failure_no_connection_cures_is_not_started_on_the_edge() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_parked_credential_starts_nothing_on_the_edge() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -362,6 +371,7 @@ fn a_failed_run_owed_to_an_athlete_who_signed_out_is_dropped_on_the_edge() {
 /// An edge that arrives while another run holds the slot leaves the failed
 /// run to that run's finish, as a refused window waits.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_failed_run_whose_edge_finds_the_slot_held_starts_when_it_frees() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -385,6 +395,7 @@ fn a_failed_run_whose_edge_finds_the_slot_held_starts_when_it_frees() {
 /// Expected behaviour: the refused default sync is kept owed and starts when
 /// the slot frees, with no second ask from the caller.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_default_sync_refused_behind_a_window_starts_when_the_slot_frees() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -420,6 +431,7 @@ fn a_default_sync_refused_behind_another_athletes_run_starts_for_the_new_athlete
 /// Expected behaviour: the offline-to-online push starts the window again and
 /// it is fetched.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_pushed_online_edge_fetches_a_window_that_failed() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("reconnect-window.db");
@@ -463,6 +475,7 @@ fn the_pushed_online_edge_fetches_a_window_that_failed() {
 /// to its age gate, and a second return while nothing settled starts it again
 /// rather than being latched away.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_return_from_the_background_starts_the_default_sync() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -481,6 +494,7 @@ fn a_return_from_the_background_starts_the_default_sync() {
 /// for, so nothing is owed behind it and its finish starts no second default
 /// sync.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_return_during_a_default_sync_owes_nothing_behind_it() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -498,6 +512,7 @@ fn a_return_during_a_default_sync_owes_nothing_behind_it() {
 /// Expected behaviour: the return owes the default sync, which starts when the
 /// window's finish frees the slot.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_return_during_a_window_owes_the_default_sync_behind_it() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -522,6 +537,7 @@ fn a_return_during_a_window_owes_the_default_sync_behind_it() {
 /// left owed, so the return does not owe it a second time and the finish
 /// starts nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_return_during_a_default_sync_drops_the_run_a_failure_left_owed() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -542,6 +558,7 @@ fn a_return_during_a_default_sync_drops_the_run_a_failure_left_owed() {
 /// slot, because the run in flight already fetches it, so the finish starts
 /// nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_online_edge_during_a_default_sync_drops_the_run_a_failure_left_owed() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -575,6 +592,7 @@ fn a_return_after_a_failed_sync_starts_it_again() {
 /// Expected behaviour: the return starts the failed window as well as the
 /// default sync, and a later online edge does not start either a second time.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_return_starts_the_window_that_failed_while_online() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -592,6 +610,7 @@ fn a_return_starts_the_window_that_failed_while_online() {
 /// A default sync that failed is owed to the connection too, and the return
 /// that starts it must not leave a second copy for the next edge.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_return_after_a_failed_default_sync_leaves_nothing_for_the_edge() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -612,6 +631,7 @@ fn a_return_after_a_failed_default_sync_leaves_nothing_for_the_edge() {
 /// Expected behaviour: the return is a fresh attempt, so the failure it meets
 /// is chased by one retry before the banner draws, as a first failure is.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_return_rearms_the_one_retry() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -644,6 +664,7 @@ fn a_return_rearms_the_one_retry() {
 /// Expected behaviour: a failure the return asks again is not current, so the
 /// return drops it. The fresh attempt's own finish decides the banner.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_return_drops_the_transient_failure_it_asks_again() {
     let _serial = crate::test_globals::serial_global_state();
     for reason in [FfiSyncErrorReason::Network, FfiSyncErrorReason::Server] {
@@ -689,6 +710,7 @@ fn a_return_leaves_a_storage_failure_standing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_return_while_the_credential_is_parked_starts_nothing() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -702,6 +724,7 @@ fn a_return_while_the_credential_is_parked_starts_nothing() {
 /// Demo mode and a signed-out install hold no credential, so there is no
 /// athlete to sync for.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_return_with_no_credential_starts_nothing() {
     let _serial = crate::test_globals::serial_global_state();
     let (svc, runs) = recording_runs();
@@ -719,6 +742,7 @@ fn a_return_with_no_credential_starts_nothing() {
 /// reaches the server, and the same push without the return, the provider's
 /// quarter-hour re-read, starts nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_pushed_foreground_return_starts_a_sync() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("foreground-sync.db");
@@ -753,6 +777,7 @@ fn the_pushed_foreground_return_starts_a_sync() {
 /// retry starts the run again without an edge. A second failure in a row is
 /// not chased: it leaves no retry pending and the banner shows.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_first_transient_failure_is_retried_once_without_an_edge() {
     let _serial = crate::test_globals::serial_global_state();
     for reason in [FfiSyncErrorReason::Network, FfiSyncErrorReason::Server] {
@@ -789,6 +814,7 @@ fn a_first_transient_failure_is_retried_once_without_an_edge() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_failure_no_short_wait_cures_leaves_no_retry_pending() {
     let _serial = crate::test_globals::serial_global_state();
     for reason in [
@@ -847,6 +873,7 @@ fn a_rejection_on_the_held_token_still_parks() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rejection_on_a_cleared_token_does_not_park() {
     let server = MockServer::start();
     server.mock(|when, then| {

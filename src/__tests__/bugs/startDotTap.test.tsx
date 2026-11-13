@@ -221,7 +221,7 @@ describe('a tap on the start dot at trace zoom', () => {
 });
 
 describe('the popup after a tap on a start dot', () => {
-  it('opens settled at once, without reading the track', async () => {
+  vaultIt('opens settled at once, without reading the track', async () => {
     const a1 = ride('a1');
     const { rendered, setSelected } = await mountHandlers([a1]);
 

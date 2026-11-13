@@ -176,6 +176,7 @@ fn a_stale_stamp_recounts_stored_passes_once() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_current_stamp_does_no_recount() {
     let lib = build();
     drop(open_settled(&lib.path));
@@ -260,6 +261,7 @@ fn the_opening_engine_reads_the_recounted_visits_once_the_recount_settles() {
 /// Expected behaviour: the recount times every pass over the section's own
 /// length, so a stored pace is that length over the stored time.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_recount_paces_every_pass_over_the_sections_length() {
     let lib = build();
     drop(open_settled(&lib.path));

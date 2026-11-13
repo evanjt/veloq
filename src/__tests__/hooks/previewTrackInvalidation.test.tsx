@@ -76,7 +76,7 @@ afterEach(() => {
   client.clear();
 });
 
-it('reads the preview line once and holds it', async () => {
+vaultIt('reads the preview line once and holds it', async () => {
   const { result, rerender } = await renderHook(() => useCard('a1'), { wrapper });
 
   await waitFor(() => expect(result.current.coordinates).toHaveLength(2));

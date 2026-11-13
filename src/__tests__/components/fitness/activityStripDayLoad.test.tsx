@@ -54,7 +54,7 @@ const MIXED = [
 ];
 
 describe('the activity strip', () => {
-  it('prints no title, day row, load text, gloss or Show data link', async () => {
+  vaultIt('prints no title, day row, load text, gloss or Show data link', async () => {
     const tree = await render(strip('2026-03-10', MIXED));
 
     expect(tree.queryByText(/fitness\.daysTrained/)).toBeNull();
@@ -65,15 +65,18 @@ describe('the activity strip', () => {
     expect(tree.queryByText(/metrics\.trainingLoad/)).toBeNull();
   });
 
-  it('counts the range in the chip and keys each loaded sport family as a named icon', async () => {
-    const tree = await render(strip(null, MIXED));
+  vaultIt(
+    'counts the range in the chip and keys each loaded sport family as a named icon',
+    async () => {
+      const tree = await render(strip(null, MIXED));
 
-    expect(tree.getByTestId('fitness-strip-chip')).toHaveTextContent('fitness.activitiesCount');
-    expect(tree.getByLabelText('sportFamilies.ride')).toBeTruthy();
-    expect(tree.getByLabelText('sportFamilies.run')).toBeTruthy();
-    expect(tree.queryByText(/sportFamilies\./)).toBeNull();
-    expect(tree.queryByLabelText('sportFamilies.foot')).toBeNull();
-  });
+      expect(tree.getByTestId('fitness-strip-chip')).toHaveTextContent('fitness.activitiesCount');
+      expect(tree.getByLabelText('sportFamilies.ride')).toBeTruthy();
+      expect(tree.getByLabelText('sportFamilies.run')).toBeTruthy();
+      expect(tree.queryByText(/sportFamilies\./)).toBeNull();
+      expect(tree.queryByLabelText('sportFamilies.foot')).toBeNull();
+    }
+  );
 
   it('narrows the chip and icons to a pinned day, and keeps that day once the scrub lets go', async () => {
     const tree = await render(strip('2026-03-10', MIXED));
@@ -94,13 +97,13 @@ describe('the activity strip', () => {
     expect(tree.getByTestId('fitness-strip-chip')).toHaveTextContent('fitness.activitiesCount');
   });
 
-  it('says rest day for a pinned day with no activity, and keys no sport', async () => {
+  vaultIt('says rest day for a pinned day with no activity, and keys no sport', async () => {
     const tree = await render(strip('2026-03-11', [MIXED[0]]));
     expect(tree.getByTestId('fitness-strip-chip')).toHaveTextContent('fitness.restDay');
     expect(tree.queryByTestId('fitness-strip-key-Ride')).toBeNull();
   });
 
-  it('keys sports of one group as that group, once', async () => {
+  vaultIt('keys sports of one group as that group, once', async () => {
     const tree = await render(
       strip(null, [
         withLoad(activity('r1', '2026-03-10'), 'Ride', 50),
@@ -114,7 +117,7 @@ describe('the activity strip', () => {
     expect(tree.queryByTestId('fitness-strip-key-GravelRide')).toBeNull();
   });
 
-  it('omits sports and the no-load entry that the window does not show', async () => {
+  vaultIt('omits sports and the no-load entry that the window does not show', async () => {
     const tree = await render(strip(null, [withLoad(activity('r1', '2026-03-10'), 'Ride', 50)]));
 
     expect(tree.getByTestId('fitness-strip-key-Ride')).toBeTruthy();
@@ -122,25 +125,28 @@ describe('the activity strip', () => {
     expect(tree.queryByTestId('fitness-strip-key-noLoad')).toBeNull();
   });
 
-  it('has no legend on a window of rest days', async () => {
+  vaultIt('has no legend on a window of rest days', async () => {
     const tree = await render(strip(null, []));
 
     expect(tree.queryByTestId('fitness-strip-key-Ride')).toBeNull();
     expect(tree.queryByTestId('fitness-strip-key-noLoad')).toBeNull();
   });
 
-  it('holds the chip row at the button height for the range total, a day with activities and a rest day', async () => {
-    const heights = [];
-    for (const day of [null, '2026-03-10', '2026-03-09']) {
-      const tree = await render(strip(day, MIXED));
-      const row = StyleSheet.flatten(tree.getByTestId('fitness-strip-chip-row').props.style);
-      heights.push(row.minHeight);
-      tree.unmount();
+  vaultIt(
+    'holds the chip row at the button height for the range total, a day with activities and a rest day',
+    async () => {
+      const heights = [];
+      for (const day of [null, '2026-03-10', '2026-03-09']) {
+        const tree = await render(strip(day, MIXED));
+        const row = StyleSheet.flatten(tree.getByTestId('fitness-strip-chip-row').props.style);
+        heights.push(row.minHeight);
+        tree.unmount();
+      }
+      expect(heights).toEqual([
+        controlHeight.buttonSm,
+        controlHeight.buttonSm,
+        controlHeight.buttonSm,
+      ]);
     }
-    expect(heights).toEqual([
-      controlHeight.buttonSm,
-      controlHeight.buttonSm,
-      controlHeight.buttonSm,
-    ]);
-  });
+  );
 });

@@ -26,7 +26,7 @@ describe('stalePROpportunityToInsight', () => {
     unit: 'W',
   };
 
-  it('produces a valid Insight object', () => {
+  vaultIt('produces a valid Insight object', () => {
     const insight = stalePROpportunityToInsight(opportunity, mockT, 1700000000000);
 
     expect(insight.id).toBe('stale_pr-s1');
@@ -39,7 +39,7 @@ describe('stalePROpportunityToInsight', () => {
     expect(insight.timestamp).toBe(1700000000000);
   });
 
-  it('includes section name in title', () => {
+  vaultIt('includes section name in title', () => {
     const insight = stalePROpportunityToInsight(opportunity, mockT);
     expect(insight.title).toContain('Hill Climb');
   });
@@ -58,7 +58,7 @@ describe('stalePROpportunityToInsight', () => {
     expect(insight.supportingData!.formula).toContain('+10%');
   });
 
-  it('includes methodology, and only the description the sheet draws', () => {
+  vaultIt('includes methodology, and only the description the sheet draws', () => {
     const insight = stalePROpportunityToInsight(opportunity, mockT);
     expect(Object.keys(insight.methodology!)).toEqual(['description']);
     expect(insight.methodology!.description).toContain('insights.stalePr.methodology');
@@ -71,7 +71,7 @@ describe('stalePROpportunityToInsight', () => {
     expect(insight.body).toContain('Hill Climb');
   });
 
-  it('uses Date.now() when no timestamp provided', () => {
+  vaultIt('uses Date.now() when no timestamp provided', () => {
     const before = Date.now();
     const insight = stalePROpportunityToInsight(opportunity, mockT);
     const after = Date.now();
@@ -90,7 +90,7 @@ describe('stalePROpportunityToInsight', () => {
     expect(insight.meta!.repetitionCount).toBe(opportunity.traversalCount);
   });
 
-  it('formats pace-based opportunity correctly', () => {
+  vaultIt('formats pace-based opportunity correctly', () => {
     const paceOpportunity: StalePROpportunity = {
       sectionId: 'r1',
       sectionName: 'Park Loop',

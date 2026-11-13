@@ -46,7 +46,7 @@ afterEach(() => {
 describe('countUseDay', () => {
   const none = { firstUseDate: null, lastUseDate: null, useDays: 0 };
 
-  it('counts the first use as one day', () => {
+  vaultIt('counts the first use as one day', () => {
     expect(countUseDay(none, '2026-05-11')).toEqual({
       firstUseDate: '2026-05-11',
       lastUseDate: '2026-05-11',
@@ -54,12 +54,12 @@ describe('countUseDay', () => {
     });
   });
 
-  it('counts a second use on the same day as nothing new', () => {
+  vaultIt('counts a second use on the same day as nothing new', () => {
     const once = countUseDay(none, '2026-05-11');
     expect(countUseDay(once, '2026-05-11')).toEqual(once);
   });
 
-  it('counts a use on a later day as one more, whatever the gap', () => {
+  vaultIt('counts a use on a later day as one more, whatever the gap', () => {
     const once = countUseDay(none, '2026-05-11');
     expect(countUseDay(once, '2026-06-30').useDays).toBe(2);
   });
@@ -83,7 +83,7 @@ describe('the usage row across launches', () => {
     });
   });
 
-  it('counts every launch, including those on one local day', async () => {
+  vaultIt('counts every launch, including those on one local day', async () => {
     await launchAt(new Date(2026, 4, 11, 9, 0));
     expect(useWhatsNewStore.getState().launches).toBe(1);
     await launchAt(new Date(2026, 4, 11, 10, 0));
@@ -91,7 +91,7 @@ describe('the usage row across launches', () => {
     expect(JSON.parse(mockRows.get('veloq-usage') ?? '{}')).toMatchObject({ launches: 2 });
   });
 
-  it('does not count a launch twice when the store is read again in one process', async () => {
+  vaultIt('does not count a launch twice when the store is read again in one process', async () => {
     await launchAt(new Date(2026, 4, 11, 9, 0));
     await useWhatsNewStore.getState().countUse();
     expect(useWhatsNewStore.getState().launches).toBe(1);
@@ -134,7 +134,7 @@ describe('the usage row across launches', () => {
     expect(useWhatsNewStore.getState()).toMatchObject({ firstUseDate: '2026-05-11', useDays: 1 });
   });
 
-  it('keeps the clean sync it noted across a relaunch', async () => {
+  vaultIt('keeps the clean sync it noted across a relaunch', async () => {
     await launchAt(new Date(2026, 4, 11, 9, 0));
     useWhatsNewStore.getState().noteSyncSettledClean();
     await Promise.resolve();
@@ -142,7 +142,7 @@ describe('the usage row across launches', () => {
     expect(useWhatsNewStore.getState().firstSyncSettled).toBe(true);
   });
 
-  it('notes a clean sync only from a stamp the engine wrote', async () => {
+  vaultIt('notes a clean sync only from a stamp the engine wrote', async () => {
     await launchAt(new Date(2026, 4, 11, 9, 0));
     noteLastSyncSuccess(null);
     noteLastSyncSuccess(undefined);

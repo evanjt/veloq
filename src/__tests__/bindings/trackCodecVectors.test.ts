@@ -78,7 +78,7 @@ describe('the track stream the engine writes', () => {
     }
   );
 
-  it.each(VECTORS.map((v) => [v.name, v] as const))(
+  vaultIt.each(VECTORS.map((v) => [v.name, v] as const))(
     'builds %s in the test helper byte for byte',
     (_name, vector) => {
       const points = vector.points.map(([latitude, longitude, elevation]) =>

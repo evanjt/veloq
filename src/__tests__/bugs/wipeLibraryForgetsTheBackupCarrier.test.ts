@@ -1549,7 +1549,7 @@ function survivors(entry: DeviceWrite): string[] {
 }
 
 describe('every place the app writes on the device', () => {
-  it('names every file the write guard counts, and no other', () => {
+  vaultIt('names every file the write guard counts, and no other', () => {
     const named = new Set(DEVICE_WRITES.flatMap((entry) => entry.writers));
     const counted = Object.keys(deviceWriteSites);
 
@@ -1557,14 +1557,14 @@ describe('every place the app writes on the device', () => {
     expect([...named].filter((file) => !counted.includes(file))).toEqual([]);
   });
 
-  it('says of each place whether the wipe takes it, keeps it, or owes it', () => {
+  vaultIt('says of each place whether the wipe takes it, keeps it, or owes it', () => {
     const undecided = DEVICE_WRITES.filter(
       (entry) => [entry.wiped, entry.kept, entry.owed].filter(Boolean).length !== 1
     );
     expect(undecided.map((entry) => entry.where)).toEqual([]);
   });
 
-  it('puts every line of the confirm on a place the wipe takes or keeps as it says', () => {
+  vaultIt('puts every line of the confirm on a place the wipe takes or keeps as it says', () => {
     const takenBy = (line: WipeLine) =>
       DEVICE_WRITES.filter((entry) => entry.wiped && entry.confirm.includes(line));
     const keptBy = (line: WipeLine) =>
@@ -1578,7 +1578,7 @@ describe('every place the app writes on the device', () => {
     }
   });
 
-  it('says of each place it takes or keeps which line of the confirm names it', () => {
+  vaultIt('says of each place it takes or keeps which line of the confirm names it', () => {
     const misplaced = DEVICE_WRITES.flatMap((entry) =>
       entry.confirm
         .filter((line) =>

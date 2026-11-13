@@ -163,6 +163,7 @@ fn test_fitness_screen_ftp_direction_matches_summary_with_older_gain() {
 /// Expected behaviour: the read carries the window the step was measured over,
 /// the same one the summary card compares across.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_fitness_screen_ftp_trend_names_the_window_its_step_spans() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     engine
@@ -187,6 +188,7 @@ fn test_fitness_screen_ftp_trend_names_the_window_its_step_spans() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_library_answers_no_trend_and_no_speed() {
     let engine = PersistentEngine::in_memory().unwrap();
 
@@ -242,6 +244,7 @@ const RECENT: i64 = 1_785_542_400;
 const LONG_AGO: i64 = 1_704_067_200;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_of_runs_reports_running_as_its_dominant_sport() {
     let engine = PersistentEngine::in_memory().unwrap();
     insert_activities(&engine, "run", "Run", 150, RECENT);
@@ -265,6 +268,7 @@ fn a_library_of_runs_reports_running_as_its_dominant_sport() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_dominant_sport_names_each_family_and_counts_its_members() {
     let engine = PersistentEngine::in_memory().unwrap();
     insert_activities(&engine, "pool", "Swim", 3, RECENT);
@@ -285,6 +289,7 @@ fn the_dominant_sport_names_each_family_and_counts_its_members() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_mix_counts_the_latest_activities_and_none_older() {
     let engine = PersistentEngine::in_memory().unwrap();
     insert_activities(&engine, "old-ride", "Ride", 400, LONG_AGO);
@@ -303,6 +308,7 @@ fn the_mix_counts_the_latest_activities_and_none_older() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tie_or_an_empty_library_names_no_dominant_sport() {
     let engine = PersistentEngine::in_memory().unwrap();
     let empty = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows())
@@ -378,6 +384,7 @@ fn with_no_ride_ftp_set_the_newest_cycling_activity_supplies_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn with_no_settings_and_no_activity_ftp_the_read_has_no_thresholds() {
     let engine = PersistentEngine::in_memory().unwrap();
     ride_with_ftp(&engine, "a1", RECENT, "Ride", None);
@@ -454,6 +461,7 @@ const AUG_20_0700: i64 = 1_787_209_200;
 /// hour or more with power, heart rate and a finite stored decoupling inside
 /// it, and a span that holds none answers none.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn each_span_names_the_newest_ride_with_a_finite_stored_decoupling() {
     let engine = PersistentEngine::in_memory().unwrap();
     store_session(&engine, &ride("short", SEP_04_0700, 20, 3.0.into()));
@@ -505,6 +513,7 @@ fn each_span_names_the_newest_ride_with_a_finite_stored_decoupling() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_of_exactly_half_an_hour_qualifies_and_an_empty_library_names_none() {
     let engine = PersistentEngine::in_memory().unwrap();
     let empty = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
@@ -540,6 +549,7 @@ const SEP_04_2025_2300: i64 = 1_757_026_800;
 /// first, from today's last minutes back to the span's first day and none
 /// before it, an activity with no recorded load carrying zero.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_read_carries_one_load_dot_per_activity_in_the_longest_span() {
     let engine = PersistentEngine::in_memory().unwrap();
     store_session(&engine, &ride("late-today", SEP_05_2330, 45, 1.0.into()));

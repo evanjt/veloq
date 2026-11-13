@@ -29,7 +29,7 @@ it('names the engine failure and retries on press', async () => {
   expect(onRetry).toHaveBeenCalledTimes(1);
 });
 
-it('falls back to the load failure line for a non-engine error', async () => {
+vaultIt('falls back to the load failure line for a non-engine error', async () => {
   const { getByText } = await render(
     <ActivityDetailReadFailed error={new Error('x')} onRetry={jest.fn()} />
   );

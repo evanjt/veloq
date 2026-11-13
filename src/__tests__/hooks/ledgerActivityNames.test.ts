@@ -28,7 +28,7 @@ describe('ledgerChipIds', () => {
     expect(ledgerChipIds(history, 6)).toEqual(['a', 'b', 'c']);
   });
 
-  it('asks for each id once, however many changes name it', () => {
+  vaultIt('asks for each id once, however many changes name it', () => {
     const history = [event(1, { around: ['a', 'b'] }), event(2, { around: ['b', 'a'] })];
 
     expect(ledgerChipIds(history, 6)).toEqual(['a', 'b']);
@@ -46,7 +46,7 @@ describe('ledgerChipIds', () => {
     expect(ledgerChipIds(history, 2)).toEqual(['a', 'b', 'd', 'e']);
   });
 
-  it('reads nothing out of a change with no details', () => {
+  vaultIt('reads nothing out of a change with no details', () => {
     const history: SectionHistoryEvent[] = [
       { id: 1, at: '2026-08-20 00:00:00', kind: 'formed', details: undefined, geometryVersion: 1 },
     ];

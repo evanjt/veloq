@@ -2,6 +2,7 @@ use super::{FfiStartOutcome, RangeCoverage, SyncManager, test_credentials};
 use crate::test_globals::read_while_writer_holds;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_sync_activities_window_covered_writer_held() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("covered_window_under_writer.db");
@@ -40,6 +41,7 @@ fn test_sync_activities_window_covered_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_coverage_reads_writer_held() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("coverage_under_a_writer.db");

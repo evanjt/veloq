@@ -50,6 +50,7 @@ fn seed_section(engine: &PersistentEngine) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_activities_needing_time_streams_lists_legacy_mismatch() {
     let engine = PersistentEngine::in_memory().unwrap();
     seed_section(&engine);
@@ -101,6 +102,7 @@ fn test_store_time_streams_flat_rejects_mismatched_track_length() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_store_time_streams_flat_rejects_mismatch_after_matching_stream() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     seed_activity(&engine, "activity", Some(40));
@@ -119,6 +121,7 @@ fn test_store_time_streams_flat_rejects_mismatch_after_matching_stream() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_store_time_streams_flat_accepts_matching_track_length() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     seed_activity(&engine, "activity", Some(40));
@@ -130,6 +133,7 @@ fn test_store_time_streams_flat_accepts_matching_track_length() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_store_time_streams_flat_accepts_empty_stream() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     seed_activity(&engine, "activity", Some(40));
@@ -140,6 +144,7 @@ fn test_store_time_streams_flat_accepts_empty_stream() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_store_time_streams_flat_accepts_activity_without_track() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     seed_activity(&engine, "activity", None);
@@ -150,6 +155,7 @@ fn test_store_time_streams_flat_accepts_activity_without_track() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_store_time_streams_flat_reports_only_persisted_ids() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     seed_activity(&engine, "good", Some(3));
@@ -171,6 +177,7 @@ fn test_store_time_streams_flat_reports_only_persisted_ids() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_set_time_streams_flat_reports_nothing_for_a_refused_insert() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     seed_activity(&engine, "a", Some(3));

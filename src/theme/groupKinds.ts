@@ -21,7 +21,7 @@
  *   every one of these it is a label or a legend, so the bar here is that the
  *   members are distinct rather than that any of them clears a ratio.
  *
- * `groupContrast.test.ts` reads this, measures the pairs and the marks, checks
+ * `groupContrast.vault.test.ts` reads this, measures the pairs and the marks, checks
  * the series for duplicates, and fails on a group `colors.ts` exports that has
  * no line here. So a group added tomorrow has to be classified before it lands.
  */
@@ -136,7 +136,7 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
   verdict: {
     kind: 'pair',
     reason:
-      'the judgement ladder, each rung text on the theme surface. verdictLadder.test.ts holds the steps between rungs as well',
+      'the judgement ladder, each rung text on the theme surface. verdictLadder.vault.test.ts holds the steps between rungs as well',
     pairs: [
       {
         ground: 'surface',

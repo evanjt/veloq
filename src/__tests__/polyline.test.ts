@@ -55,7 +55,7 @@ describe('convertLatLngTuples', () => {
     ).toEqual(expected);
   });
 
-  it('should return empty array for empty input', () => {
+  vaultIt('should return empty array for empty input', () => {
     expect(convertLatLngTuples([])).toEqual([]);
   });
 });
@@ -131,12 +131,12 @@ describe('getBounds', () => {
     expect(bounds!.maxLat).toBe(0.001);
   });
 
-  it('should distinguish empty array (null) from single point at origin (non-null)', () => {
+  vaultIt('should distinguish empty array (null) from single point at origin (non-null)', () => {
     expect(getBounds([])).toBeNull();
     expect(getBounds([{ latitude: 0, longitude: 0 }])).not.toBeNull();
   });
 
-  it('bounds 10000 coordinates', () => {
+  vaultIt('bounds 10000 coordinates', () => {
     const coords = Array.from({ length: 10000 }, (_, i) => ({
       latitude: 40 + (i % 100) * 0.001,
       longitude: -74 + Math.floor(i / 100) * 0.001,

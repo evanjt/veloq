@@ -133,7 +133,7 @@ describe('ios crash reports', () => {
     expect(run(['--ios-reports', reports(['OtherApp-2026-10-31-090000.ips'])]).code).toBe(0);
   });
 
-  it('accepts a missing directory as no reports', () => {
+  vaultIt('accepts a missing directory as no reports', () => {
     expect(run(['--ios-reports', join(dir, 'none')]).code).toBe(0);
   });
 });

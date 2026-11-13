@@ -53,7 +53,7 @@ function bodyFor(trend: HrvTrend): string {
 }
 
 describe('the HRV card says what it measured', () => {
-  it('names two consecutive readings, not a falling average, when the override fired', () => {
+  vaultIt('names two consecutive readings, not a falling average, when the override fired', () => {
     // The engine labels `trendingDown` off `lastTwoDays` when the halves sit
     // inside the window's scatter and the window ends on two consecutive
     // readings well under the ones before them.
@@ -65,7 +65,7 @@ describe('the HRV card says what it measured', () => {
     expect(body).not.toMatch(/average.{0,20}is declining/);
   });
 
-  it('names the halves when the window itself moved', () => {
+  vaultIt('names the halves when the window itself moved', () => {
     const body = bodyFor(hrv({ label: 'trendingDown', reason: 'halves', avg: 50, latest: 40 }));
 
     expect(body).toContain('newer half');
@@ -81,7 +81,7 @@ describe('the HRV card says what it measured', () => {
     expect(body).toContain('66 ms');
   });
 
-  it('describes the computation the engine actually runs, with no rolling average', () => {
+  vaultIt('describes the computation the engine actually runs, with no rolling average', () => {
     const [insight] = generateHrvTrendInsight(hrv(), NOW, t);
     const method = insight.methodology?.description ?? '';
 

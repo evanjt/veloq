@@ -205,7 +205,7 @@ describe('RegionalMapView', () => {
     }
   });
 
-  it('opens no section popup without a section in the link', async () => {
+  vaultIt('opens no section popup without a section in the link', async () => {
     await renderRegional();
 
     expect(screen.queryByTestId('section-popup')).toBeNull();
@@ -216,7 +216,7 @@ describe('RegionalMapView', () => {
     mockPathname = '/map';
   });
 
-  it('mounts a map with activity overlays', async () => {
+  vaultIt('mounts a map with activity overlays', async () => {
     await renderRegional();
 
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
@@ -224,7 +224,7 @@ describe('RegionalMapView', () => {
     expect(screen.getByTestId('map-toggle-activities')).toBeTruthy();
   });
 
-  it('offers fit-all once there is at least one activity', async () => {
+  vaultIt('offers fit-all once there is at least one activity', async () => {
     await renderRegional();
     await fireEvent.press(screen.getByTestId('map-layers'));
 
@@ -234,7 +234,7 @@ describe('RegionalMapView', () => {
     ).resolves.not.toThrow();
   });
 
-  it('withholds fit-all when there is nothing to fit', async () => {
+  vaultIt('withholds fit-all when there is nothing to fit', async () => {
     await renderRegional({ activities: [] });
     await fireEvent.press(screen.getByTestId('map-layers'));
 
@@ -242,7 +242,7 @@ describe('RegionalMapView', () => {
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
-  it('keeps the overlay toggles pressable', async () => {
+  vaultIt('keeps the overlay toggles pressable', async () => {
     await renderRegional();
     await fireEvent.press(screen.getByTestId('map-layers'));
 
@@ -469,31 +469,34 @@ describe('RegionalMapView', () => {
    * Expected behaviour: the notice takes the top slot of the bottom pill stack, above the cover
    * the tab reports, and gives the slot up when it clears.
    */
-  it('places the terrain notice in the bottom pill stack above the reported cover', async () => {
-    jest.useFakeTimers();
-    useBottomPills.setState({ heights: {}, covers: { mapSheet: 380 } });
-    await renderRegional();
+  vaultIt(
+    'places the terrain notice in the bottom pill stack above the reported cover',
+    async () => {
+      jest.useFakeTimers();
+      useBottomPills.setState({ heights: {}, covers: { mapSheet: 380 } });
+      await renderRegional();
 
-    await postFromPage({ type: 'mapReady' });
-    await fireEvent.press(screen.getByTestId('map-toggle-3d'));
-    await postFromPage({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
+      await postFromPage({ type: 'mapReady' });
+      await fireEvent.press(screen.getByTestId('map-toggle-3d'));
+      await postFromPage({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
 
-    const slot = screen.getByTestId('bottom-pill-terrain');
-    expect(slot).toContainElement(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID));
-    expect(StyleSheet.flatten(slot.props.style).bottom).toBe(
-      TAB_BAR_SAFE_PADDING + 34 + 380 + spacing.md
-    );
+      const slot = screen.getByTestId('bottom-pill-terrain');
+      expect(slot).toContainElement(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID));
+      expect(StyleSheet.flatten(slot.props.style).bottom).toBe(
+        TAB_BAR_SAFE_PADDING + 34 + 380 + spacing.md
+      );
 
-    await fireEvent(slot, 'layout', {
-      nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 40 } },
-    });
-    expect(useBottomPills.getState().heights.terrain).toBe(40);
+      await fireEvent(slot, 'layout', {
+        nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 40 } },
+      });
+      expect(useBottomPills.getState().heights.terrain).toBe(40);
 
-    await act(async () => jest.advanceTimersByTime(6000));
-    jest.useRealTimers();
-    expect(screen.queryByTestId('bottom-pill-terrain')).toBeNull();
-    expect(useBottomPills.getState().heights.terrain).toBeUndefined();
-  });
+      await act(async () => jest.advanceTimersByTime(6000));
+      jest.useRealTimers();
+      expect(screen.queryByTestId('bottom-pill-terrain')).toBeNull();
+      expect(useBottomPills.getState().heights.terrain).toBeUndefined();
+    }
+  );
 
   it('tears the surface down when the tab loses focus and rebuilds it on return', async () => {
     const view = await renderRegional();
@@ -614,7 +617,7 @@ describe('RegionalMapView', () => {
     expect(mockClearHeatmapView).toHaveBeenCalledTimes(1);
   });
 
-  it('takes the tilted map down with the tab too', async () => {
+  vaultIt('takes the tilted map down with the tab too', async () => {
     const view = await renderRegional();
     await fireEvent.press(screen.getByTestId('map-toggle-3d'));
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
@@ -629,7 +632,7 @@ describe('RegionalMapView', () => {
     expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
   });
 
-  it('reports attribution changes to the caller', async () => {
+  vaultIt('reports attribution changes to the caller', async () => {
     const onAttributionChange = jest.fn();
     await renderRegional({ onAttributionChange });
 
@@ -637,20 +640,23 @@ describe('RegionalMapView', () => {
     expect(screen.queryByText(onAttributionChange.mock.calls[0][0])).toBeNull();
   });
 
-  it('reports its credit alone, with nothing about the base for the caller to theme by', async () => {
-    const onAttributionChange = jest.fn();
-    await renderRegional({ onAttributionChange });
-    expect(onAttributionChange.mock.lastCall).toEqual([expect.any(String)]);
+  vaultIt(
+    'reports its credit alone, with nothing about the base for the caller to theme by',
+    async () => {
+      const onAttributionChange = jest.fn();
+      await renderRegional({ onAttributionChange });
+      expect(onAttributionChange.mock.lastCall).toEqual([expect.any(String)]);
 
-    mockGlobalStyle = 'satellite';
-    try {
-      const onSatellite = jest.fn();
-      await renderRegional({ onAttributionChange: onSatellite });
-      expect(onSatellite.mock.lastCall).toEqual([expect.any(String)]);
-    } finally {
-      mockGlobalStyle = 'light';
+      mockGlobalStyle = 'satellite';
+      try {
+        const onSatellite = jest.fn();
+        await renderRegional({ onAttributionChange: onSatellite });
+        expect(onSatellite.mock.lastCall).toEqual([expect.any(String)]);
+      } finally {
+        mockGlobalStyle = 'light';
+      }
     }
-  });
+  );
 
   describe('degenerate input', () => {
     const cases: [string, Partial<React.ComponentProps<typeof RegionalMapView>>][] = [

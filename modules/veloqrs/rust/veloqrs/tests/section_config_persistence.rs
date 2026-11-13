@@ -54,6 +54,7 @@ fn section_config_persists_across_engine_restart() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_config_falls_back_to_default_when_unset() {
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("section_cfg_default.db");

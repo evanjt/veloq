@@ -81,20 +81,20 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-test('an idle sync draws nothing', async () => {
+vaultTest('an idle sync draws nothing', async () => {
   const { queryByTestId } = await render(<SyncPill />);
 
   expect(queryByTestId('sync-progress-pill')).toBeNull();
 });
 
-test('the pill passes touches through', async () => {
+vaultTest('the pill passes touches through', async () => {
   status = { state: SyncState.Syncing, completed: 2, total: 8, step: SyncStep.Wellness };
   const { getByTestId } = await renderPastGrace();
 
   expect(getByTestId('sync-progress-pill').props.pointerEvents).toBe('none');
 });
 
-test.each([
+vaultTest.each([
   ['light', false],
   ['dark', true],
 ])('the pill draws the status pill on the raised surface in %s mode', async (_, isDark) => {
@@ -118,7 +118,7 @@ test.each([
   }
 });
 
-test.each([
+vaultTest.each([
   ['light', false],
   ['dark', true],
 ])(
@@ -143,12 +143,12 @@ test.each([
   }
 );
 
-test("neither palette keeps a fill of the sync pill's own", () => {
+vaultTest("neither palette keeps a fill of the sync pill's own", () => {
   expect(colors).not.toHaveProperty('appColourPillBackground');
   expect(darkColors).not.toHaveProperty('appColourPillBackground');
 });
 
-test('a long label wraps and the counts stay whole', async () => {
+vaultTest('a long label wraps and the counts stay whole', async () => {
   status = {
     state: SyncState.Syncing,
     completed: 2,
@@ -173,7 +173,7 @@ test('a long label wraps and the counts stay whole', async () => {
   expect(pill.maxWidth).toBe('100%');
 });
 
-test('a new step cross-fades in at the message duration', async () => {
+vaultTest('a new step cross-fades in at the message duration', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
   const { getByTestId } = await renderPastGrace();
 
@@ -207,7 +207,7 @@ test('a step holds the line for the minimum time when the next arrives sooner', 
   expect(getByTestId('sync-progress-pill-detail').props.children).toBe('3/8');
 });
 
-test('a step that outlasts the hold changes the line at once', async () => {
+vaultTest('a step that outlasts the hold changes the line at once', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
   const { getByTestId, getAllByTestId } = await renderPastGrace();
 
@@ -218,7 +218,7 @@ test('a step that outlasts the hold changes the line at once', async () => {
   expect(getByTestId('sync-progress-pill-title').props.children).toBe('settings.syncStep.census');
 });
 
-test('the item count inside one step follows at once', async () => {
+vaultTest('the item count inside one step follows at once', async () => {
   status = {
     state: SyncState.Syncing,
     completed: 4,
@@ -235,7 +235,7 @@ test('the item count inside one step follows at once', async () => {
   expect(getByTestId('sync-progress-pill-detail').props.children).toBe('4/8 · 13/40');
 });
 
-test('a sync that ends inside the hold stays on its last message, then goes', async () => {
+vaultTest('a sync that ends inside the hold stays on its last message, then goes', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.SportSettings };
   const { getByTestId, queryByTestId } = await renderPastGrace();
 
@@ -250,7 +250,7 @@ test('a sync that ends inside the hold stays on its last message, then goes', as
   expect(queryByTestId('sync-progress-pill')).toBeNull();
 });
 
-test('a sync that settles after the hold goes at once', async () => {
+vaultTest('a sync that settles after the hold goes at once', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.SportSettings };
   const { queryByTestId } = await render(<SyncPill />);
 
@@ -271,7 +271,7 @@ test('a quick sync draws nothing and a long one draws its pill at the grace peri
   expect(queryByTestId('sync-progress-pill')).not.toBeNull();
 });
 
-test('a sync that settles inside the grace period never draws', async () => {
+vaultTest('a sync that settles inside the grace period never draws', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
   const { queryByTestId } = await render(<SyncPill />);
 
@@ -282,7 +282,7 @@ test('a sync that settles inside the grace period never draws', async () => {
   expect(queryByTestId('sync-progress-pill')).toBeNull();
 });
 
-test('a step that counts items draws at once', async () => {
+vaultTest('a step that counts items draws at once', async () => {
   status = {
     state: SyncState.Syncing,
     completed: 5,

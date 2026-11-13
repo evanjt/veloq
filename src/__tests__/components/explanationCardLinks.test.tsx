@@ -50,28 +50,31 @@ describe('the explanation card', () => {
     await initialiseI18n('en-GB');
   });
 
-  it('draws each reading link as a text link with an external glyph, and no button', async () => {
-    const view = await render(
-      <ExplanationCard
-        title="How tides work"
-        rows={[{ key: 'a', text: 'A line.' }]}
-        links={LINKS}
-      />
-    );
-
-    expect(view.UNSAFE_queryAllByType(Button)).toHaveLength(0);
-    const links = view.getAllByRole('link');
-    expect(links.map((link) => link.props.accessibilityLabel)).toEqual([
-      'Tide tables',
-      'Harbour charts',
-    ]);
-    for (const link of links) {
-      const glyphs = link.findAll(
-        (node) => node.type === RNText && node.props.testID === 'glyph-open-in-new'
+  vaultIt(
+    'draws each reading link as a text link with an external glyph, and no button',
+    async () => {
+      const view = await render(
+        <ExplanationCard
+          title="How tides work"
+          rows={[{ key: 'a', text: 'A line.' }]}
+          links={LINKS}
+        />
       );
-      expect(glyphs).toHaveLength(1);
+
+      expect(view.UNSAFE_queryAllByType(Button)).toHaveLength(0);
+      const links = view.getAllByRole('link');
+      expect(links.map((link) => link.props.accessibilityLabel)).toEqual([
+        'Tide tables',
+        'Harbour charts',
+      ]);
+      for (const link of links) {
+        const glyphs = link.findAll(
+          (node) => node.type === RNText && node.props.testID === 'glyph-open-in-new'
+        );
+        expect(glyphs).toHaveLength(1);
+      }
     }
-  });
+  );
 
   it('opens a reading link through the one way out of the app', async () => {
     const view = await render(
@@ -87,7 +90,7 @@ describe('the explanation card', () => {
     expect(openExternal).toHaveBeenCalledWith('https://charts.example/harbour');
   });
 
-  it('keys form on the Fitness card with the form line colour', async () => {
+  vaultIt('keys form on the Fitness card with the form line colour', async () => {
     let formLine = '';
     await render(<FormLineColour onColour={(colour) => (formLine = colour)} />);
     const view = await render(<FitnessDefinitionsCard fitnessDays={42} fatigueDays={7} />);

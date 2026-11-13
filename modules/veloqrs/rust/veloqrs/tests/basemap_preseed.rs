@@ -93,6 +93,7 @@ fn fetcher() -> TileFetcher {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn terrain_areas_keep_rank_order_and_stop_at_the_live_pool_share() {
     let server = MockServer::start();
     server.mock(|when, then| {
@@ -221,6 +222,7 @@ fn a_failed_ranked_refresh_keeps_the_previous_offline_pins() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_plan_covers_every_zoom_of_the_band_for_every_source() {
     let planned = plan_preseed(&[home()], &sources("https://tiles.test"));
 
@@ -239,6 +241,7 @@ fn the_plan_covers_every_zoom_of_the_band_for_every_source() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_plan_takes_the_lowest_zoom_first_so_a_budget_cut_costs_detail() {
     let planned = plan_preseed(&[home(), away()], &sources("https://tiles.test"));
 
@@ -252,6 +255,7 @@ fn the_plan_takes_the_lowest_zoom_first_so_a_budget_cut_costs_detail() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn two_regions_that_share_a_low_zoom_tile_are_planned_once() {
     let one = plan_preseed(&[home()], &sources("https://tiles.test"));
     let both = plan_preseed(&[home(), near()], &sources("https://tiles.test"));
@@ -268,6 +272,7 @@ fn two_regions_that_share_a_low_zoom_tile_are_planned_once() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_same_library_plans_the_same_tiles_in_the_same_order() {
     let forwards = plan_preseed(&[home(), near(), away()], &sources("https://tiles.test"));
     let backwards = plan_preseed(&[away(), near(), home()], &sources("https://tiles.test"));
@@ -279,6 +284,7 @@ fn the_same_library_plans_the_same_tiles_in_the_same_order() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_with_no_gps_seeds_no_ground() {
     let planned = plan_preseed(&[sentinel()], &sources("https://tiles.test"));
 
@@ -289,6 +295,7 @@ fn an_activity_with_no_gps_seeds_no_ground() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_planned_tile_names_the_url_its_own_template_gives_it() {
     let planned = plan_preseed(&[home()], &sources("https://tiles.test"));
     let tile = planned
@@ -341,6 +348,7 @@ fn a_seeded_tile_reads_back_from_disk_with_the_radio_off() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tile_the_store_already_holds_is_pinned_rather_than_fetched_again() {
     let server = MockServer::start();
     let host = server.mock(|when, then| {
@@ -384,6 +392,7 @@ fn a_tile_the_store_already_holds_is_pinned_rather_than_fetched_again() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_index_entry_that_outlived_its_file_is_fetched_rather_than_pinned() {
     let server = MockServer::start();
     server.mock(|when, then| {
@@ -430,6 +439,7 @@ fn an_index_entry_that_outlived_its_file_is_fetched_rather_than_pinned() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_seed_stops_at_its_budget_and_never_stores_past_it() {
     let server = MockServer::start();
     server.mock(|when, then| {
@@ -455,6 +465,7 @@ fn the_seed_stops_at_its_budget_and_never_stores_past_it() {
 /// compresses its tiles fits more of the athlete's ground into the same
 /// budget, and the seed and the store agree on what was spent.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_gzipped_seed_is_priced_at_the_bytes_kept() {
     use std::io::Write;
     let tile = bytes(1000, 9);
@@ -489,6 +500,7 @@ fn a_gzipped_seed_is_priced_at_the_bytes_kept() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tile_the_host_refuses_costs_the_rest_of_the_plan_nothing() {
     let server = MockServer::start();
     server.mock(|when, then| {
@@ -522,6 +534,7 @@ fn a_tile_the_host_refuses_costs_the_rest_of_the_plan_nothing() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_superseded_pinned_tile_is_served_but_the_next_seed_fetches_a_fresh_one() {
     let server = MockServer::start();
     let host = server.mock(|when, then| {
@@ -612,6 +625,7 @@ fn a_superseded_tile_keeps_serving_when_the_fresh_fetch_fails() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn supersede_drops_unpinned_tiles_and_leaves_other_sources_pinned() {
     let (store, _tmp) = store();
     store
@@ -640,6 +654,7 @@ fn supersede_drops_unpinned_tiles_and_leaves_other_sources_pinned() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_superseded_tile_is_evicted_before_a_pinned_tile_of_another_source() {
     let (store, _tmp) = store();
     store
@@ -659,6 +674,7 @@ fn a_superseded_tile_is_evicted_before_a_pinned_tile_of_another_source() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_supersede_drops_the_tile_the_first_demoted() {
     let (store, _tmp) = store();
     store
@@ -670,6 +686,7 @@ fn a_second_supersede_drops_the_tile_the_first_demoted() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_write_of_a_superseded_key_makes_it_current_again() {
     let (store, _tmp) = store();
     store
@@ -713,6 +730,7 @@ fn a_sidecar_written_before_supersession_loads_with_its_pins_intact() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn browsing_elsewhere_scrubs_the_pan_before_the_seed() {
     let server = MockServer::start();
     server.mock(|when, then| {
@@ -751,6 +769,7 @@ fn browsing_elsewhere_scrubs_the_pan_before_the_seed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_seed_that_re_pins_a_browsed_tile_keeps_it_through_the_same_pan() {
     let server = MockServer::start();
     server.mock(|when, then| {
@@ -836,6 +855,7 @@ fn ride_at_home() -> TempDir {
 /// Expected behaviour: the ground the old run had pinned is fetched again
 /// under the new run and pinned, without waiting for a sync.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_segment_change_re_pins_the_ground_without_a_sync() {
     let _serial = super::serial_state();
     let _engine = ride_at_home();

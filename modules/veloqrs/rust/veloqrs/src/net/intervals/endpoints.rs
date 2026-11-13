@@ -841,6 +841,7 @@ mod tests {
     /// caller gave them, and the answer comes back as bytes the caller decodes,
     /// so a body that is not UTF-8 is not refused here.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_streams_bytes_carry_the_types_and_are_not_decoded() {
         let server = MockServer::start();
         let body: Vec<u8> = vec![b'[', 0xff, 0xfe, b']'];
@@ -896,6 +897,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_bulk_request_names_every_id_and_asks_for_intervals() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -942,6 +944,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_item_with_no_intervals_or_a_null_carries_no_interval_body() {
         let answer =
             r#"[{"id":"i1","type":"Run"},{"id":"i2","icu_intervals":null,"icu_groups":null}]"#;
@@ -955,6 +958,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_answer_that_is_not_a_list_of_activities_is_a_decode_failure() {
         for answer in [r#"{"id":"i1"}"#, r#"[{"type":"Run"}]"#, "[1]", "[{"] {
             assert!(
@@ -968,6 +972,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activities_sends_field_selection() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -998,6 +1003,7 @@ mod tests {
     /// range either way and answers newest first, so a limit narrows a window
     /// rather than replacing one.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activities_carry_the_limit_when_one_is_asked_for() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1023,6 +1029,7 @@ mod tests {
     /// And carries none when none is asked for, or every window pull would
     /// come back capped.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activities_carry_no_limit_by_default() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1046,6 +1053,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activities_with_stats_appends_extra_fields() {
         let server = MockServer::start();
         // The fields value must contain a stats-only field when include_stats=true.
@@ -1143,6 +1151,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn oldest_date_reduces_over_list() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1168,6 +1177,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn census_carries_created_and_sync_dates() {
         // The diff that decides what a launch downloads is these two fields
         // against the local rows, since the API has no updated-since filter.
@@ -1214,6 +1224,7 @@ mod tests {
     /// Expected behaviour: the census asks for the field and reduces it to one
     /// flag, so no caller parses a body to find out.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn census_says_which_activities_have_a_track_upstream() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1259,6 +1270,7 @@ mod tests {
     /// stream pass would store and not the second, whatever its track, so the
     /// pass can take a trackless activity without asking about every one.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn census_says_which_activities_carry_a_series_beyond_their_track() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1297,6 +1309,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn pace_curve_endpoint_sends_sport_and_curve_window() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1320,6 +1333,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn pace_curve_sends_gap_only_for_running() {
         let server = MockServer::start();
         let with_gap = server.mock(|when, then| {
@@ -1365,6 +1379,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn wellness_endpoint_sends_date_window() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1436,6 +1451,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_page_splits_into_nothing() {
         let split: Vec<(ActivityRecord, String)> = split_page(b"[]").unwrap();
         assert!(split.is_empty());
@@ -1443,6 +1459,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_page_that_is_not_an_array_or_holds_a_bad_item_is_a_decode_error() {
         assert!(matches!(
             split_page::<ActivityRecord>(br#"{"id":"i1"}"#),
@@ -1521,6 +1538,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_replacement_without_edited_intervals_does_not_ask_to_keep_them() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1546,6 +1564,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_replacement_answered_with_a_null_activity_is_unchanged() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1567,6 +1586,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_replacement_answered_with_an_unreadable_body_is_not_unchanged() {
         for (label, body) in [("empty", ""), ("html", "<html>bad gateway</html>")] {
             let server = MockServer::start();
@@ -1589,6 +1609,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_replacement_answer_without_an_activity_field_is_not_unchanged() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1609,6 +1630,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refused_replacement_is_an_http_error() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1632,6 +1654,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn upload_names_the_file_part_and_tags_the_device() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1672,6 +1695,7 @@ mod tests {
     /// activity's description, which the upload takes under its documented
     /// name, so they arrive with the file rather than in a second request.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn upload_carries_the_notes_as_the_description() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1704,6 +1728,7 @@ mod tests {
     /// The effort goes up as the activity's `icu_rpe`, and only that field,
     /// so the update cannot overwrite anything the athlete changed on the web.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_effort_update_sends_only_icu_rpe() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1719,6 +1744,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refused_effort_update_is_an_error() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1744,6 +1770,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn upload_omits_the_optional_parts_when_unset() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1773,6 +1800,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn upload_treats_an_empty_name_and_a_zero_event_as_unset() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1802,6 +1830,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unreadable_upload_response_is_still_a_success() {
         // The activity is already on the server by the time the body arrives.
         // Failing here would have the queue upload the same ride again.
@@ -1831,6 +1860,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_list_response_yields_the_first_activity_id() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1875,6 +1905,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn manual_activity_posts_json_with_the_flags_present() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {

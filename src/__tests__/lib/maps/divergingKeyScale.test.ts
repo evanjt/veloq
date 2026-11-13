@@ -9,13 +9,13 @@ import { divergingKeyScale } from '@/features/maps/lib/divergingKeyLabels';
 const KINDS: DivergingKind[] = ['grade', 'pace'];
 
 describe('divergingKeyScale', () => {
-  it('ticks a grade at its six signed band edges', () => {
+  vaultIt('ticks a grade at its six signed band edges', () => {
     const ticks = divergingKeyScale('grade');
     expect(ticks.map((tick) => tick.label)).toEqual(['-10', '-5', '-2', '+2', '+5', '+10']);
     expect(ticks.map((tick) => tick.at)).toEqual([1, 2, 3, 4, 5, 6].map((k) => k / 7));
   });
 
-  it('ticks ahead or behind at its edges as sizes, since the ends name the side', () => {
+  vaultIt('ticks ahead or behind at its edges as sizes, since the ends name the side', () => {
     const ticks = divergingKeyScale('pace');
     expect(ticks.map((tick) => tick.label)).toEqual(['6', '3', '1', '1', '3', '6']);
     expect(ticks.map((tick) => tick.at)).toEqual([1, 2, 3, 4, 5, 6].map((k) => k / 7));

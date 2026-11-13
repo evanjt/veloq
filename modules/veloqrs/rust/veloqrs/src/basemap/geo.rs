@@ -361,6 +361,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_position_is_lng_then_lat_at_six_places() {
         let text = line_feature(&[
             GpsPoint::new(-33.8712346, 151.2045671),
@@ -375,6 +376,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_value_that_rounds_to_zero_is_written_unsigned() {
         let text = line_feature(&[GpsPoint::new(-0.000_000_4, 0.0), GpsPoint::new(1.0, 2.0)]);
 
@@ -382,6 +384,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn non_finite_points_are_dropped_and_the_rest_kept_in_order() {
         let text = line_feature(&[
             GpsPoint::new(1.0, 2.0),
@@ -394,6 +397,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn fewer_than_two_drawable_points_is_an_empty_collection() {
         assert_eq!(line_feature(&[]), EMPTY_COLLECTION);
         assert_eq!(line_feature(&[GpsPoint::new(1.0, 2.0)]), EMPTY_COLLECTION);
@@ -419,6 +423,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn route_lines_drop_non_finite_points_and_routes_left_without_a_line() {
         let text = route_lines_features([
             route("r_1", Some(3), &[(46.5, 6.6), (f64::NAN, 6.7), (46.7, 6.8)]),
@@ -454,6 +459,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_route_colour_key_is_the_one_the_route_list_has_always_drawn() {
         // Each value is what the page computed from the id before the key
         // moved here: the colour of a route must not change with the move.
@@ -469,6 +475,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn no_route_with_a_line_is_an_empty_collection() {
         assert_eq!(route_lines_features([]), EMPTY_COLLECTION);
         assert_eq!(
@@ -478,11 +485,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn route_lines_are_asked_for_under_one_key() {
         assert_eq!(geo_answer("route-lines/r_1"), Err(NOT_FOUND));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_malformed_path_is_refused_before_anything_is_read() {
         // A path that got as far as a read would answer 404 or 503, never 400.
         for path in [

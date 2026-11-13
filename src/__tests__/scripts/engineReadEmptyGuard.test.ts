@@ -89,7 +89,7 @@ it('fails the same catch in the client itself', () => {
   expect(output).toContain('EngineClient.ts:6');
 });
 
-it("fails a promise's .catch that answers an empty value", () => {
+vaultIt("fails a promise's .catch that answers an empty value", () => {
   const source = [
     'export function plotNames(host: Host): Promise<string[]> {',
     '  return host.engine.plotNames().catch(() => []);',
@@ -99,7 +99,7 @@ it("fails a promise's .catch that answers an empty value", () => {
   expect(runGuard({ [DELEGATE]: source }).status).toBe(1);
 });
 
-it('passes a read that lets the error through', () => {
+vaultIt('passes a read that lets the error through', () => {
   const source = [
     'export function countPears(host: Host): number {',
     '  if (!host.ready) return 0;',
@@ -110,11 +110,11 @@ it('passes a read that lets the error through', () => {
   expect(runGuard({ [DELEGATE]: source }).status).toBe(0);
 });
 
-it('passes a write that answers false', () => {
+vaultIt('passes a write that answers false', () => {
   expect(runGuard({ [DELEGATE]: readWith('false') }).status).toBe(0);
 });
 
-it('passes a catch that rethrows after logging', () => {
+vaultIt('passes a catch that rethrows after logging', () => {
   const source = [
     'export function countPears(host: Host): number {',
     '  try {',
@@ -129,7 +129,7 @@ it('passes a catch that rethrows after logging', () => {
   expect(runGuard({ [DELEGATE]: source }).status).toBe(0);
 });
 
-it("leaves a nested function's own return alone", () => {
+vaultIt("leaves a nested function's own return alone", () => {
   const source = [
     'export function countPears(host: Host): () => number[] {',
     '  try {',
@@ -144,7 +144,7 @@ it("leaves a nested function's own return alone", () => {
   expect(runGuard({ [DELEGATE]: source }).status).toBe(0);
 });
 
-it('passes a site whose marker gives a reason', () => {
+vaultIt('passes a site whose marker gives a reason', () => {
   const source = readWith('null').replace(
     '  } catch (e) {',
     '  } catch (e) {\n    // empty-on-error: a write; null is its failure and a record its outcome.'
@@ -153,7 +153,7 @@ it('passes a site whose marker gives a reason', () => {
   expect(runGuard({ [DELEGATE]: source }).status).toBe(0);
 });
 
-it('fails a marker that gives no reason', () => {
+vaultIt('fails a marker that gives no reason', () => {
   const source = readWith('null').replace(
     '  } catch (e) {',
     '  } catch (e) {\n    // empty-on-error:'
@@ -164,7 +164,7 @@ it('fails a marker that gives no reason', () => {
   expect(output).toContain('gives no reason');
 });
 
-it('refuses a tree with no client, rather than reporting it clean', () => {
+vaultIt('refuses a tree with no client, rather than reporting it clean', () => {
   const root = mkdtempSync(join(tmpdir(), 'engine-read-empty-'));
   roots.push(root);
 
@@ -178,14 +178,14 @@ it('refuses a tree with no client, rather than reporting it clean', () => {
 });
 
 describe('feature hooks', () => {
-  it('fails a hook catch answering an empty value', () => {
+  vaultIt('fails a hook catch answering an empty value', () => {
     const { status, output } = runGuard({ [HOOK]: readWith('[]') });
 
     expect(status).toBe(1);
     expect(output).toContain('usePears.ts:6');
   });
 
-  it('fails a hook written as a component file', () => {
+  vaultIt('fails a hook written as a component file', () => {
     const { status } = runGuard({
       'src/features/orchards/hooks/usePears.tsx': readWith('null'),
     });
@@ -193,13 +193,13 @@ describe('feature hooks', () => {
     expect(status).toBe(1);
   });
 
-  it('leaves a file that is not a hook alone', () => {
+  vaultIt('leaves a file that is not a hook alone', () => {
     const { status } = runGuard({ 'src/features/orchards/components/pears.ts': readWith('[]') });
 
     expect(status).toBe(0);
   });
 
-  it('fails a lib file that reaches the engine and answers empty', () => {
+  vaultIt('fails a lib file that reaches the engine and answers empty', () => {
     const lib = `import { getEngine } from '@/shared/native/engine';\n${readWith('[]')}`;
     const { status, output } = runGuard({ 'src/features/orchards/lib/pears.ts': lib });
 
@@ -207,30 +207,33 @@ describe('feature hooks', () => {
     expect(output).toContain('pears.ts:7');
   });
 
-  it('fails a lib file that reaches the engine through a bound namespace and answers empty', () => {
-    for (const spec of ['engine', 'heatmap', 'heatmap as tiles']) {
-      const lib = `import { ${spec} } from 'veloqrs';\n${readWith('[]')}`;
-      const { status, output } = runGuard({ 'src/features/orchards/lib/pears.ts': lib });
+  vaultIt(
+    'fails a lib file that reaches the engine through a bound namespace and answers empty',
+    () => {
+      for (const spec of ['engine', 'heatmap', 'heatmap as tiles']) {
+        const lib = `import { ${spec} } from 'veloqrs';\n${readWith('[]')}`;
+        const { status, output } = runGuard({ 'src/features/orchards/lib/pears.ts': lib });
 
-      expect(status).toBe(1);
-      expect(output).toContain('pears.ts:7');
+        expect(status).toBe(1);
+        expect(output).toContain('pears.ts:7');
+      }
     }
-  });
+  );
 
-  it('leaves a lib file importing only types and helpers from the module alone', () => {
+  vaultIt('leaves a lib file importing only types and helpers from the module alone', () => {
     const lib = `import { decodeCoords, type GpsPoint } from 'veloqrs';\n${readWith('[]')}`;
     const { status } = runGuard({ 'src/features/orchards/lib/pears.ts': lib });
 
     expect(status).toBe(0);
   });
 
-  it('leaves a lib file that never reaches the engine alone', () => {
+  vaultIt('leaves a lib file that never reaches the engine alone', () => {
     const { status } = runGuard({ 'src/features/orchards/lib/pears.ts': readWith('[]') });
 
     expect(status).toBe(0);
   });
 
-  it('passes a hook whose marker gives a reason', () => {
+  vaultIt('passes a hook whose marker gives a reason', () => {
     const source = readWith('null').replace(
       '  } catch (e) {',
       '  } catch (e) {\n    // empty-on-error: an optional overlay the screen draws without.'
@@ -239,14 +242,14 @@ describe('feature hooks', () => {
     expect(runGuard({ [HOOK]: source }).status).toBe(0);
   });
 
-  it('passes a hook the baseline still carries, and fails one more than it allows', () => {
+  vaultIt('passes a hook the baseline still carries, and fails one more than it allows', () => {
     expect(runGuard({ [HOOK]: readWith('[]') }, { [HOOK]: 1 }).status).toBe(0);
 
     const two = `${readWith('[]')}\n${readWith('null').replace('countPears', 'countPlums')}`;
     expect(runGuard({ [HOOK]: two }, { [HOOK]: 1 }).status).toBe(1);
   });
 
-  it('fails a baseline entry the hook has since beaten, so the ground stays taken', () => {
+  vaultIt('fails a baseline entry the hook has since beaten, so the ground stays taken', () => {
     const { status, output } = runGuard({ [HOOK]: 'export {};\n' }, { [HOOK]: 1 });
 
     expect(status).toBe(1);
@@ -272,7 +275,7 @@ describe('a query hook that drops its error', () => {
     expect(output).toContain('usePears.ts');
   });
 
-  it('fails the same shape when data is destructured', () => {
+  vaultIt('fails the same shape when data is destructured', () => {
     const { status } = runGuard({
       [HOOK]: [
         "import { useQuery } from '@tanstack/react-query';",
@@ -285,7 +288,7 @@ describe('a query hook that drops its error', () => {
     expect(status).toBe(1);
   });
 
-  it('passes a hook that hands the error back', () => {
+  vaultIt('passes a hook that hands the error back', () => {
     const { status } = runGuard({
       [HOOK]: [
         "import { useQuery } from '@tanstack/react-query';",
@@ -298,7 +301,7 @@ describe('a query hook that drops its error', () => {
     expect(status).toBe(0);
   });
 
-  it('passes a reasoned marker', () => {
+  vaultIt('passes a reasoned marker', () => {
     const { status } = runGuard({
       [HOOK]: hookWith(
         '  // empty-on-error: a best-effort label with nothing to show\n  return query.data ?? [];'
@@ -311,14 +314,14 @@ describe('a query hook that drops its error', () => {
 describe('screens under the app directory', () => {
   const SCREEN = 'src/app/orchard-preview.tsx';
 
-  it('fails a screen catch around an engine read that answers empty', () => {
+  vaultIt('fails a screen catch around an engine read that answers empty', () => {
     const { status, output } = runGuard({ [SCREEN]: readWith('[]') });
 
     expect(status).toBe(1);
     expect(output).toContain('orchard-preview.tsx:6');
   });
 
-  it('fails a screen reading a query as data ?? [] without its error', () => {
+  vaultIt('fails a screen reading a query as data ?? [] without its error', () => {
     const { status, output } = runGuard({
       'src/app/(tabs)/orchards.tsx': [
         "import { useQuery } from '@tanstack/react-query';",
@@ -334,7 +337,7 @@ describe('screens under the app directory', () => {
     expect(output).toContain('orchards.tsx');
   });
 
-  it('passes a screen that lets the error through', () => {
+  vaultIt('passes a screen that lets the error through', () => {
     const screen = [
       'export function countPears(host: Host): number {',
       '  return host.engine.orchards().countPears();',

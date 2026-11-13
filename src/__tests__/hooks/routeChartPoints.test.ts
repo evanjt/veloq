@@ -72,7 +72,7 @@ describe('route attempts on the chart', () => {
     ]);
   });
 
-  it('leaves the match absent for a section lap, which has none', async () => {
+  vaultIt('leaves the match absent for a section lap, which has none', async () => {
     const lap = attempt('ridge-climb');
     delete lap.matchPercentage;
     const { result } = await renderHook(() =>

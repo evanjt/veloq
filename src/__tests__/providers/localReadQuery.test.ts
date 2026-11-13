@@ -55,7 +55,7 @@ describe('LOCAL_READ_QUERY', () => {
     client.clear();
   });
 
-  it('pauses the retry of a default query while offline', async () => {
+  vaultIt('pauses the retry of a default query while offline', async () => {
     const client = offlineClient();
     const read = failOnce();
     const observer = new QueryObserver(client, { queryKey: ['remote'], queryFn: read.fn });

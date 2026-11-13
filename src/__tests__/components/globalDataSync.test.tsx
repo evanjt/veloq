@@ -135,7 +135,7 @@ describe('GlobalDataSync', () => {
     expect(onBackupReconnect).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
+  vaultIt.each([
     [['TrailRun'], 'Run'],
     [['OpenWaterSwim'], 'Swim'],
   ])('leaves the %s variant library curve for %s to Rust', async () => {
@@ -150,7 +150,7 @@ describe('GlobalDataSync', () => {
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
   });
 
-  it('leaves both canonical curves to Rust for plain and variant sports', async () => {
+  vaultIt('leaves both canonical curves to Rust for plain and variant sports', async () => {
     mockUseRouteDataSync.mockReturnValue({ progress: { status: 'complete' } } as ReturnType<
       typeof useRouteDataSync
     >);
@@ -161,7 +161,7 @@ describe('GlobalDataSync', () => {
     expect(mockUseRouteDataSync).toHaveBeenCalled();
   });
 
-  it('leaves a missing curve request to Rust', async () => {
+  vaultIt('leaves a missing curve request to Rust', async () => {
     mockUseRouteDataSync.mockReturnValue({ progress: { status: 'complete' } } as ReturnType<
       typeof useRouteDataSync
     >);
@@ -172,15 +172,18 @@ describe('GlobalDataSync', () => {
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
   });
 
-  it('requests no curves in JavaScript when the library and curve store are empty', async () => {
-    mockUseRouteDataSync.mockReturnValue({ progress: { status: 'complete' } } as ReturnType<
-      typeof useRouteDataSync
-    >);
+  vaultIt(
+    'requests no curves in JavaScript when the library and curve store are empty',
+    async () => {
+      mockUseRouteDataSync.mockReturnValue({ progress: { status: 'complete' } } as ReturnType<
+        typeof useRouteDataSync
+      >);
 
-    await renderSyncTree();
+      await renderSyncTree();
 
-    expect(engine.syncPaceCurve).not.toHaveBeenCalled();
-  });
+      expect(engine.syncPaceCurve).not.toHaveBeenCalled();
+    }
+  );
 
   it('expires an accepted window when the mounted sync tree sees no pickup', async () => {
     jest.useFakeTimers();
@@ -197,7 +200,7 @@ describe('GlobalDataSync', () => {
     }
   });
 
-  it('invalidates nothing on mount, leaving the engine event as the rule', async () => {
+  vaultIt('invalidates nothing on mount, leaving the engine event as the rule', async () => {
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     const reset = jest.spyOn(client, 'resetQueries');
 
@@ -207,7 +210,7 @@ describe('GlobalDataSync', () => {
     expect(reset).not.toHaveBeenCalled();
   });
 
-  it('does not write a pace snapshot when the GPS pass completes', async () => {
+  vaultIt('does not write a pace snapshot when the GPS pass completes', async () => {
     mockUseRouteDataSync.mockReturnValue({
       progress: { status: 'complete' },
     } as unknown as ReturnType<typeof useRouteDataSync>);
@@ -231,7 +234,7 @@ describe('GlobalDataSync', () => {
     expect(isExtendedFetchRunning(useSyncDateRange.getState().extendedFetch)).toBe(false);
   });
 
-  it('does not re-render when route settings change', async () => {
+  vaultIt('does not re-render when route settings change', async () => {
     await renderSyncTree();
     const rendersAtMount = mockUseWindowRequest.mock.calls.length;
 

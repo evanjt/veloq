@@ -106,7 +106,7 @@ describe('the foreground sync reading a download result', () => {
     expect(outcome.syncedIds).toEqual([]);
   });
 
-  it('writes no metrics row from TypeScript and still refreshes the lists', async () => {
+  vaultIt('writes no metrics row from TypeScript and still refreshes the lists', async () => {
     startGpsPass.mockImplementation(started(1));
     takeFetchAndStoreResult.mockImplementation((run?: number) =>
       run === 1 ? resultFor(['a1']) : null
@@ -139,7 +139,7 @@ describe('the foreground sync reading a download result', () => {
     }
   );
 
-  it('hands the engine the range and the candidates in the order to fetch them', async () => {
+  vaultIt('hands the engine the range and the candidates in the order to fetch them', async () => {
     startGpsPass.mockImplementation(started(1));
     takeFetchAndStoreResult.mockImplementation(() => resultFor(['b1', 'a1']));
     const { result } = await renderHook(() => useGpsDataFetcher());

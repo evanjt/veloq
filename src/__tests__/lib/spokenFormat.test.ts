@@ -115,24 +115,24 @@ describe('spokenElevation', () => {
 });
 
 describe('spokenVerdict', () => {
-  it('says the judgement, not the direction', () => {
+  vaultIt('says the judgement, not the direction', () => {
     expect(spokenVerdict('improved', 'down')).toBe('improved');
     expect(spokenVerdict('declined', 'up')).toBe('declined');
     expect(spokenVerdict('flat', 'flat')).toBe('no change');
   });
 
-  it('says the bare direction for a move with no judgement', () => {
+  vaultIt('says the bare direction for a move with no judgement', () => {
     expect(spokenVerdict('moved', 'up')).toBe('rose');
     expect(spokenVerdict('moved', 'down')).toBe('fell');
   });
 });
 
 describe('formatCalories', () => {
-  it('prints kcal, the unit every other energy figure uses', () => {
+  vaultIt('prints kcal, the unit every other energy figure uses', () => {
     expect(formatCalories(820)).toBe('820 kcal');
   });
 
-  it('prints the whole number rather than a k abbreviation', () => {
+  vaultIt('prints the whole number rather than a k abbreviation', () => {
     const out = formatCalories(1234);
     expect(out).not.toMatch(/\dk\b/);
     expect(out.replace(/\D/g, '')).toBe('1234');

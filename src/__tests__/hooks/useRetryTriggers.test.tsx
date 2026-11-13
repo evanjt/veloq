@@ -28,7 +28,7 @@ describe('useReconnect', () => {
     mockIsOnline = true;
   });
 
-  it('stays quiet while the connection never drops', async () => {
+  vaultIt('stays quiet while the connection never drops', async () => {
     const onReconnect = jest.fn();
     const { rerender } = await renderHook(() => useReconnect(onReconnect), { wrapper });
 
@@ -118,7 +118,7 @@ describe('useForeground', () => {
     expect(onForeground).not.toHaveBeenCalled();
   });
 
-  it('unsubscribes on unmount', async () => {
+  vaultIt('unsubscribes on unmount', async () => {
     const { unmount } = await renderHook(() => useForeground(jest.fn()), { wrapper });
 
     await unmount();

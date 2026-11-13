@@ -69,6 +69,7 @@ fn a_ride_another_process_wrote_appears_only_after_a_reload() {
 /// has to clear would lose the second bump to the race between the read and
 /// the clear.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_token_counts_every_write_and_never_goes_backwards() {
     let dir = TempDir::new().unwrap();
     let (foreground, mut handler) = two_engines(&dir);
@@ -89,6 +90,7 @@ fn the_token_counts_every_write_and_never_goes_backwards() {
 /// The foreground reads the token off its own connection, so it has to see a
 /// bump the other process committed rather than a value cached at open.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_token_is_read_from_the_file_rather_than_from_memory() {
     let dir = TempDir::new().unwrap();
     let (foreground, mut handler) = two_engines(&dir);
@@ -123,6 +125,7 @@ fn a_reload_leaves_the_config_the_athlete_set() {
 /// A reload on a file nobody has written to is a no-op that still answers,
 /// which is what a foreground with no push to take does every time it runs.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_reload_with_nothing_to_take_is_not_an_error() {
     let dir = TempDir::new().unwrap();
     let (mut foreground, _handler) = two_engines(&dir);

@@ -1803,6 +1803,7 @@ mod tests {
     /// Expected behaviour: the archive reuses the stored version and writes no
     /// second one, so the ledger offers no revert to an identical line.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn archiving_a_line_that_differs_only_in_elevation_adds_no_version() {
         let dir = TempDir::new().expect("dir");
         let path = dir.path().join("elevation.db");
@@ -2043,6 +2044,7 @@ mod tests {
 
     /// A switch from the defaults keeps nothing, so the diff reports no reset.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_switch_from_the_defaults_reports_no_reset() {
         let dir = TempDir::new().expect("tempdir");
         let mut engine = engine_with_archivable_section(&dir);
@@ -2077,6 +2079,7 @@ mod tests {
     /// no counts, since a diff over a partial library would count every
     /// section the owed tracks have not yet cut as gone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_promotion_over_owed_elevation_stores_no_counts() {
         let dir = TempDir::new().expect("tempdir");
         let mut engine = engine_with_archivable_section(&dir);

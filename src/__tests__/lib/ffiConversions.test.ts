@@ -43,7 +43,7 @@ describe('fromWallClockSeconds', () => {
     expect(date!.getMinutes()).toBe(30);
   });
 
-  it('returns null for null', () => {
+  vaultIt('returns null for null', () => {
     expect(fromWallClockSeconds(null)).toBeNull();
   });
 
@@ -66,17 +66,17 @@ describe('fromWallClockSeconds', () => {
 });
 
 describe('castDirection', () => {
-  it('returns "reverse" for "reverse"', () => {
+  vaultIt('returns "reverse" for "reverse"', () => {
     expect(castDirection('reverse')).toBe('reverse');
   });
 
-  it('returns "same" for null', () => {
+  vaultIt('returns "same" for null', () => {
     expect(castDirection(null)).toBe('same');
   });
 });
 
 describe('castLapDirection', () => {
-  it('keeps "partial", which a lap with no time carries', () => {
+  vaultIt('keeps "partial", which a lap with no time carries', () => {
     expect(castLapDirection('partial')).toBe('partial');
     expect(castLapDirection('reverse')).toBe('reverse');
     expect(castLapDirection('anything else')).toBe('same');
@@ -100,7 +100,7 @@ describe('toDirectionStats', () => {
     expect(result!.outsideBandCount).toBe(2);
   });
 
-  it('returns null for null input', () => {
+  vaultIt('returns null for null input', () => {
     expect(toDirectionStats(null)).toBeNull();
   });
 
@@ -112,7 +112,7 @@ describe('toDirectionStats', () => {
 });
 
 describe('convertActivityPortions', () => {
-  it('casts directions correctly', () => {
+  vaultIt('casts directions correctly', () => {
     const portions = [
       { id: '1', direction: 'same', distance: 100 },
       { id: '2', direction: 'reverse', distance: 200 },
@@ -123,7 +123,7 @@ describe('convertActivityPortions', () => {
     expect(result![1].direction).toBe('reverse');
   });
 
-  it('returns undefined for null', () => {
+  vaultIt('returns undefined for null', () => {
     expect(convertActivityPortions(null)).toBeUndefined();
   });
 

@@ -40,14 +40,14 @@ describe('the recording name', () => {
     expect(seen).not.toContain('');
   });
 
-  it('generates a time-of-day name when none was passed in', async () => {
+  vaultIt('generates a time-of-day name when none was passed in', async () => {
     const { result, seen } = await renderRecording({ type: 'Ride' });
 
     expect(result.current.name).toMatch(/^(Morning|Afternoon|Evening|Night) Ride$/);
     expect(seen[0]).toContain('Ride');
   });
 
-  it('splits a camel-case type into words for the default name', async () => {
+  vaultIt('splits a camel-case type into words for the default name', async () => {
     const { result } = await renderHook(() =>
       useActivityNameGeneration({ startTime: null, type: 'VirtualRide' as never })
     );
@@ -88,7 +88,7 @@ describe('recording start time names', () => {
 
   afterEach(() => jest.useRealTimers());
 
-  it.each([
+  vaultIt.each([
     [11, 59, 'morning'],
     [12, 0, 'afternoon'],
     [16, 59, 'afternoon'],
@@ -104,7 +104,7 @@ describe('recording start time names', () => {
     expect(result.current.name).toBe(`${expected[0].toUpperCase()}${expected.slice(1)} Ride`);
   });
 
-  it('names a restored evening ride reviewed the next morning', async () => {
+  vaultIt('names a restored evening ride reviewed the next morning', async () => {
     const startTime = new Date(2026, 8, 25, 18, 30).getTime();
     const { result } = await renderHook(() =>
       useActivityNameGeneration({ type: 'Ride', startTime })
@@ -112,7 +112,7 @@ describe('recording start time names', () => {
     expect(result.current.name).toBe('Evening Ride');
   });
 
-  it('uses the clock when a manual entry has no start time', async () => {
+  vaultIt('uses the clock when a manual entry has no start time', async () => {
     const { result } = await renderHook(() =>
       useActivityNameGeneration({ type: 'Ride', startTime: null })
     );
@@ -120,7 +120,7 @@ describe('recording start time names', () => {
     expect(result.current.name).toBe('Morning Ride');
   });
 
-  it.each([
+  vaultIt.each([
     ['fr', 'Matin Vélo'],
     ['de-DE', 'Morgen Radfahrt'],
     ['ja', '朝 ライド'],
@@ -140,7 +140,7 @@ describe('recording start time names', () => {
     }
   );
 
-  it('treats an epoch start as a timestamp rather than a missing start', () => {
+  vaultIt('treats an epoch start as a timestamp rather than a missing start', () => {
     const epochHour = new Date(0).getHours();
     const expected =
       epochHour < 12

@@ -192,28 +192,31 @@ describe('SectionDeltaChart', () => {
     expect(tree.getByTestId('section-delta-missing').props.children).toContain('"attempts":2');
   });
 
-  it('shows no missing count when every attempt is drawn', async () => {
+  vaultIt('shows no missing count when every attempt is drawn', async () => {
     const tree = await render(chart());
 
     expect(tree.queryByTestId('section-delta-missing')).toBeNull();
   });
 
-  it('fills an attempt behind the reference in another colour than one ahead of it', async () => {
-    const drawn = capturePaths();
-    const ahead = await render(chart({ highlightedActivityId: 'newest' }));
-    await layoutViews(ahead, 400, 300);
-    const aheadFills = fills(drawn).map((p) => p.color);
-    await ahead.unmount();
-    drawn.length = 0;
+  vaultIt(
+    'fills an attempt behind the reference in another colour than one ahead of it',
+    async () => {
+      const drawn = capturePaths();
+      const ahead = await render(chart({ highlightedActivityId: 'newest' }));
+      await layoutViews(ahead, 400, 300);
+      const aheadFills = fills(drawn).map((p) => p.color);
+      await ahead.unmount();
+      drawn.length = 0;
 
-    await layoutViews(await render(chart({ highlightedActivityId: 'older' })), 400, 300);
-    const behindFills = fills(drawn).map((p) => p.color);
+      await layoutViews(await render(chart({ highlightedActivityId: 'older' })), 400, 300);
+      const behindFills = fills(drawn).map((p) => p.color);
 
-    expect(aheadFills).toEqual([colourTokens.light['data-div-cool-3']]);
-    expect(behindFills).toEqual([colourTokens.light['data-div-warm-3']]);
-  });
+      expect(aheadFills).toEqual([colourTokens.light['data-div-cool-3']]);
+      expect(behindFills).toEqual([colourTokens.light['data-div-warm-3']]);
+    }
+  );
 
-  it('names the record on the flat line and in the legend, with its date', async () => {
+  vaultIt('names the record on the flat line and in the legend, with its date', async () => {
     const tree = await render(chart());
     await layoutViews(tree, 400, 300);
 
@@ -241,7 +244,7 @@ describe('SectionDeltaChart', () => {
     }
   );
 
-  it('names the previous record when this attempt is the record', async () => {
+  vaultIt('names the previous record when this attempt is the record', async () => {
     const previous = lap('prev', -3, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
     const deltas = direction(LAPS, {
       referenceActivityId: 'ref',
@@ -259,7 +262,7 @@ describe('SectionDeltaChart', () => {
     );
   });
 
-  it('names a set reference when the reference is not the record', async () => {
+  vaultIt('names a set reference when the reference is not the record', async () => {
     const tree = await render(
       chart({
         deltas: direction(LAPS, { referenceSource: 1 as FfiDirectionDeltas['referenceSource'] }),
@@ -353,7 +356,7 @@ function lastLine(onDeltaLineChange: jest.Mock): SectionDeltaLine | null {
 }
 
 describe('PerformanceChartPanel delta plot', () => {
-  it('offers delta with an attempt chosen and draws its curve when chosen', async () => {
+  vaultIt('offers delta with an attempt chosen and draws its curve when chosen', async () => {
     const tree = await render(
       panel(
         {
@@ -449,13 +452,13 @@ describe('PerformanceChartPanel delta plot', () => {
     );
   });
 
-  it('offers no delta option when curves is absent', async () => {
+  vaultIt('offers no delta option when curves is absent', async () => {
     const tree = await render(panel(undefined));
 
     expect(tree.queryByTestId('chart-plot-delta')).toBeNull();
   });
 
-  it('offers no delta option for a direction without curves', async () => {
+  vaultIt('offers no delta option for a direction without curves', async () => {
     const tree = await render(
       panel({
         gridStepM: GRID_STEP_M,
@@ -499,18 +502,21 @@ describe('SectionDeltaSummaryChart', () => {
     await scrub(scrubPan(pans), xAtMetres(metres));
   }
 
-  it('names the record and the split it is shown per, and the attempts behind it', async () => {
-    const tree = await render(summaryChart());
+  vaultIt(
+    'names the record and the split it is shown per, and the attempts behind it',
+    async () => {
+      const tree = await render(summaryChart());
 
-    expect(tree.getByTestId('section-delta-summary-caption').props.children).toBe(
-      'sections.deltaTypicalVsRecord:{"distance":"100 m"}'
-    );
-    expect(tree.getByTestId('section-delta-summary-attempts').props.children).toBe(
-      'sections.deltaTypicalAttempts:{"count":6}'
-    );
-  });
+      expect(tree.getByTestId('section-delta-summary-caption').props.children).toBe(
+        'sections.deltaTypicalVsRecord:{"distance":"100 m"}'
+      );
+      expect(tree.getByTestId('section-delta-summary-attempts').props.children).toBe(
+        'sections.deltaTypicalAttempts:{"count":6}'
+      );
+    }
+  );
 
-  it('names a set reference when the reference is not the record', async () => {
+  vaultIt('names a set reference when the reference is not the record', async () => {
     const tree = await render(
       summaryChart({ referenceSource: 1 as FfiDirectionDeltas['referenceSource'] })
     );

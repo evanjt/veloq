@@ -16,6 +16,7 @@ fn seed_groups() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_summaries_pooled_matches_locked() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();
@@ -104,6 +105,7 @@ fn test_get_summaries_without_a_representative_metric_carry_zero_distance() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_screen_data_pooled_matches_locked_distance_page() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();
@@ -137,6 +139,7 @@ fn test_get_screen_data_pooled_matches_locked_distance_page() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_screen_data_dirty_state_follows_engine_install() {
     let _guard = serial_global_state();
     let old = seeded_global_engine();
@@ -158,6 +161,7 @@ fn test_get_screen_data_dirty_state_follows_engine_install() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_summaries_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("route_summaries_under_writer.db");
@@ -167,6 +171,7 @@ fn test_get_summaries_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_screen_data_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("routes_screen_under_writer.db");

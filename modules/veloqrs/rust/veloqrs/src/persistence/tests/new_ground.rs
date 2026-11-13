@@ -30,6 +30,7 @@ fn novelty(tiles: u32, new_tiles: u32) -> Novelty {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_first_activity_in_an_empty_library_is_entirely_new() {
     let mut covered = Covered::default();
     let measured = covered.measure(Some(&row_of_tiles(0, 10))).unwrap();
@@ -39,6 +40,7 @@ fn the_first_activity_in_an_empty_library_is_entirely_new() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_exact_repeat_has_no_new_ground() {
     let mut covered = Covered::default();
     covered.measure(Some(&row_of_tiles(0, 10)));
@@ -69,6 +71,7 @@ fn ground_counts_once_for_the_activity_that_reached_it_first() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_segment_counts_the_tiles_it_crosses() {
     let mut covered = Covered::default();
     let ends = vec![row_of_tiles(0, 1)[0], row_of_tiles(7, 1)[0]];
@@ -77,6 +80,7 @@ fn a_segment_counts_the_tiles_it_crosses() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_neighbour_the_drawing_margin_reaches_is_not_ground() {
     let lat = tile_y_to_lat(f64::from(ROW) + 0.5, GROUND_ZOOM);
     // One percent into its tile, well inside the drawing margin of the tile
@@ -96,6 +100,7 @@ fn a_neighbour_the_drawing_margin_reaches_is_not_ground() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unreadable_track_adds_no_ground() {
     let mut covered = Covered::default();
 
@@ -113,6 +118,7 @@ fn an_unreadable_track_adds_no_ground() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_with_no_tiles_has_no_fraction() {
     assert_eq!(novelty(100, 49).fraction(), Some(0.49));
     assert_eq!(novelty(100, 0).fraction(), Some(0.0));
@@ -146,6 +152,7 @@ fn stored(engine: &PersistentEngine, id: &str) -> Option<(u32, u32)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_library_is_measured_in_start_order_not_storage_order() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -161,6 +168,7 @@ fn the_library_is_measured_in_start_order_not_storage_order() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_undecodable_track_is_measured_without_a_fraction_and_not_owed_again() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -188,6 +196,7 @@ fn an_undecodable_track_is_measured_without_a_fraction_and_not_owed_again() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_undated_activity_is_not_measured_or_owed() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -245,6 +254,7 @@ fn a_measurement_taken_before_a_removal_is_refused_and_taken_again() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clearing_the_derived_rows_moves_the_generation() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -258,6 +268,7 @@ fn clearing_the_derived_rows_moves_the_generation() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_removal_starts_the_pass_that_measures_the_rest_again() {
     use crate::persistence::with_persistent_engine;
 

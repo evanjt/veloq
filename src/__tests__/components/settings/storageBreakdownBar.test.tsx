@@ -57,14 +57,17 @@ function fill(node: ReactTestInstance): string {
 }
 
 describe('the storage breakdown bar', () => {
-  it.each([false, true])('ranks its segments on the sequential ramp, dark %s', async (isDark) => {
-    const { getAllByTestId } = await panel(isDark);
-    const ramp = sequentialRamp[isDark ? 'dark' : 'light'];
-    const segments = getAllByTestId('storage-bar-segment');
-    expect(segments.map(fill)).toEqual(
-      [ramp[4], ramp[3], ramp[2], ramp[1], ramp[0]].map((c) => c.toUpperCase())
-    );
-  });
+  vaultIt.each([false, true])(
+    'ranks its segments on the sequential ramp, dark %s',
+    async (isDark) => {
+      const { getAllByTestId } = await panel(isDark);
+      const ramp = sequentialRamp[isDark ? 'dark' : 'light'];
+      const segments = getAllByTestId('storage-bar-segment');
+      expect(segments.map(fill)).toEqual(
+        [ramp[4], ramp[3], ramp[2], ramp[1], ramp[0]].map((c) => c.toUpperCase())
+      );
+    }
+  );
 
   it('prints one key row per segment, largest first, each with its size', async () => {
     const { getAllByTestId } = await panel(false);
@@ -89,7 +92,7 @@ describe('the storage breakdown bar', () => {
     expect(bar.props.accessibilityValue).toEqual({ min: 0, max: 71_000_000, now: 21_000_000 });
   });
 
-  it('draws no device bar while the free space is unknown', async () => {
+  vaultIt('draws no device bar while the free space is unknown', async () => {
     const { queryByTestId } = await panel(false, null);
     expect(queryByTestId('storage-device-usage')).toBeNull();
   });

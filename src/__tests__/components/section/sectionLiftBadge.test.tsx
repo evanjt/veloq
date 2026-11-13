@@ -56,23 +56,23 @@ async function renderHeader(section: FrequentSection, onUnflagLift?: () => void)
 }
 
 describe('section lift badge', () => {
-  it('badges a section the detector flagged as lift ground', async () => {
+  vaultIt('badges a section the detector flagged as lift ground', async () => {
     const tree = await renderHeader({ ...BASE, isLift: true });
 
     expect(tree.getByTestId('section-lift-badge')).toBeTruthy();
   });
 
-  it('shows nothing on a section that is not lift ground', async () => {
+  vaultIt('shows nothing on a section that is not lift ground', async () => {
     expect(
       await (await renderHeader({ ...BASE, isLift: false })).queryByTestId('section-lift-badge')
     ).toBeNull();
   });
 
-  it('shows nothing when the flag never arrived', async () => {
+  vaultIt('shows nothing when the flag never arrived', async () => {
     expect(await (await renderHeader(BASE)).queryByTestId('section-lift-badge')).toBeNull();
   });
 
-  it('leaves the name and its rename affordance alone', async () => {
+  vaultIt('leaves the name and its rename affordance alone', async () => {
     const tree = await renderHeader({ ...BASE, name: 'Top Station', isLift: true });
 
     expect(tree.getByText('Top Station')).toBeTruthy();
@@ -89,14 +89,14 @@ describe('section lift badge', () => {
     expect(onUnflagLift).toHaveBeenCalledTimes(1);
   });
 
-  it('still draws the badge when nothing can take the flag off', async () => {
+  vaultIt('still draws the badge when nothing can take the flag off', async () => {
     const tree = await renderHeader({ ...BASE, isLift: true });
 
     expect(tree.getByTestId('section-lift-badge')).toBeTruthy();
     expect(tree.queryByTestId('section-lift-unflag', { includeHiddenElements: true })).toBeNull();
   });
 
-  it('offers the unflag affordance only alongside a handler', async () => {
+  vaultIt('offers the unflag affordance only alongside a handler', async () => {
     const tree = await renderHeader({ ...BASE, isLift: true }, jest.fn());
 
     expect(tree.getByTestId('section-lift-unflag', { includeHiddenElements: true })).toBeTruthy();
@@ -118,23 +118,26 @@ describe('section traversal count scope', () => {
     );
   }
 
-  it('names the sport and the range when the section spans sports and the range is not all time', async () => {
-    const tree = await renderScoped({ scopeSport: 'Run', sportsOffered: 2, scopeRange: '6m' });
+  vaultIt(
+    'names the sport and the range when the section spans sports and the range is not all time',
+    async () => {
+      const tree = await renderScoped({ scopeSport: 'Run', sportsOffered: 2, scopeRange: '6m' });
 
-    expect(tree.getByText('sections.traversalsCount')).toBeTruthy();
-    expect(tree.getByTestId('section-card-date-line')).toHaveTextContent(
-      'activityTypes.Run · period.long.6m'
-    );
-  });
+      expect(tree.getByText('sections.traversalsCount')).toBeTruthy();
+      expect(tree.getByTestId('section-card-date-line')).toHaveTextContent(
+        'activityTypes.Run · period.long.6m'
+      );
+    }
+  );
 
-  it('names only the range for a single-sport section', async () => {
+  vaultIt('names only the range for a single-sport section', async () => {
     const tree = await renderScoped({ scopeSport: 'Ride', sportsOffered: 1, scopeRange: '1y' });
 
     expect(tree.getByText('sections.traversalsCount')).toBeTruthy();
     expect(tree.getByTestId('section-card-date-line')).toHaveTextContent('period.long.1y');
   });
 
-  it('adds nothing for a single-sport section over all time', async () => {
+  vaultIt('adds nothing for a single-sport section over all time', async () => {
     const tree = await renderScoped({ scopeSport: 'Ride', sportsOffered: 1, scopeRange: 'all' });
 
     expect(tree.getByText('sections.traversalsCount')).toBeTruthy();

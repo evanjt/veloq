@@ -186,7 +186,7 @@ const rustProfiles = (calls: string[]) =>
 const at = (calls: string[], prefix: string) => calls.findIndex((call) => call.startsWith(prefix));
 
 describe('Android build and device locks', () => {
-  it.each([[DEV_METRO], [DEV_STANDALONE], [PRODUCTION]])(
+  vaultIt.each([[DEV_METRO], [DEV_STANDALONE], [PRODUCTION]])(
     'releases the build lock before the %j install and launch',
     (args) => {
       const { result, calls } = run(args);
@@ -197,13 +197,13 @@ describe('Android build and device locks', () => {
     }
   );
 
-  it('refuses an unpinned handset before building', () => {
+  vaultIt('refuses an unpinned handset before building', () => {
     const { result, calls } = run(DEV_METRO, { serial: '' });
     expect(result.status).not.toBe(0);
     expect(calls).toEqual([]);
   });
 
-  it('refuses a handset that is not a test handset before building', () => {
+  vaultIt('refuses a handset that is not a test handset before building', () => {
     const { result, calls } = run(DEV_METRO, { serial: '192.0.2.40:5555' });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('192.0.2.40:5555');
@@ -211,7 +211,7 @@ describe('Android build and device locks', () => {
     expect(calls).toEqual([]);
   });
 
-  it('does not install an APK when the build fails', () => {
+  vaultIt('does not install an APK when the build fails', () => {
     const { result, calls } = run(DEV_METRO, { failBuild: true });
     expect(result.status).not.toBe(0);
     expect(at(calls, 'gradlew assembleDebug')).toBeGreaterThanOrEqual(0);
@@ -220,7 +220,7 @@ describe('Android build and device locks', () => {
 });
 
 describe('Android identity and compile mode are separate arguments', () => {
-  it('builds Dev against Metro: a debug build, the dev client and the bundler', () => {
+  vaultIt('builds Dev against Metro: a debug build, the dev client and the bundler', () => {
     const { result, calls } = run(DEV_METRO);
     expect(result.status).toBe(0);
     expect(assembles(calls)).toEqual([
@@ -234,7 +234,7 @@ describe('Android identity and compile mode are separate arguments', () => {
     expect(calls.at(-1)).toBe('npx expo start --dev-client --localhost');
   });
 
-  it('builds Dev standalone: a release build with embedded JavaScript and no Metro', () => {
+  vaultIt('builds Dev standalone: a release build with embedded JavaScript and no Metro', () => {
     const { result, calls } = run(DEV_STANDALONE);
     expect(result.status).toBe(0);
     expect(assembles(calls)).toEqual([
@@ -253,7 +253,7 @@ describe('Android identity and compile mode are separate arguments', () => {
     expect(calls).not.toContain('npm run bundle:android');
   });
 
-  it('builds production standalone, the only mode it has', () => {
+  vaultIt('builds production standalone, the only mode it has', () => {
     for (const args of [PRODUCTION, ['production']]) {
       const { result, calls } = run(args, { tree: 'com.veloq.app' });
       expect(result.status).toBe(0);
@@ -266,7 +266,7 @@ describe('Android identity and compile mode are separate arguments', () => {
     }
   });
 
-  it.each([[['production', 'metro']], [['dev']], [['debug']], [['release']], [[]]])(
+  vaultIt.each([[['production', 'metro']], [['dev']], [['debug']], [['release']], [[]]])(
     'refuses %j before building or touching the handset',
     (args) => {
       const { result, calls } = run(args);
@@ -304,7 +304,7 @@ describe('Android identity and compile mode are separate arguments', () => {
 });
 
 describe('Android device builds compile for the handset ABI only', () => {
-  it.each([[DEV_METRO], [DEV_STANDALONE], [PRODUCTION]])(
+  vaultIt.each([[DEV_METRO], [DEV_STANDALONE], [PRODUCTION]])(
     'builds %j for the ABI the pinned handset reports',
     (args) => {
       const { result, calls } = run(args, { abi: 'x86_64' });
@@ -316,7 +316,7 @@ describe('Android device builds compile for the handset ABI only', () => {
     }
   );
 
-  it.each([[''], ['mips'], ['arm64-v8a,x86']])(
+  vaultIt.each([[''], ['mips'], ['arm64-v8a,x86']])(
     'builds arm64-v8a when the handset answers %j',
     (abi) => {
       const { result, calls } = run(DEV_METRO, { abi });
@@ -327,19 +327,19 @@ describe('Android device builds compile for the handset ABI only', () => {
 });
 
 describe('The Rust profile each Android build compiles the engine with', () => {
-  it('builds the engine for a Metro build with the local profile', () => {
+  vaultIt('builds the engine for a Metro build with the local profile', () => {
     const { result, calls } = run(DEV_METRO);
     expect(result.status).toBe(0);
     expect(rustProfiles(calls)).toEqual(['gradlew rust profile release-dev']);
   });
 
-  it('keeps the profile a caller exported for a Metro build', () => {
+  vaultIt('keeps the profile a caller exported for a Metro build', () => {
     const { result, calls } = run(DEV_METRO, { rustProfile: 'release' });
     expect(result.status).toBe(0);
     expect(rustProfiles(calls)).toEqual(['gradlew rust profile release']);
   });
 
-  it.each([[DEV_STANDALONE], [PRODUCTION]])('selects no local profile for %j', (args) => {
+  vaultIt.each([[DEV_STANDALONE], [PRODUCTION]])('selects no local profile for %j', (args) => {
     const { result, calls } = run(args, {
       tree: args[0] === 'production' ? 'com.veloq.app' : 'com.veloq.app.dev',
     });
@@ -351,7 +351,7 @@ describe('The Rust profile each Android build compiles the engine with', () => {
 describe('Android builds carry the identity they were asked for', () => {
   const prebuild = 'npx expo prebuild --platform android --clean --no-install';
 
-  it.each([
+  vaultIt.each([
     [PRODUCTION, 'com.veloq.app.dev', 'gradlew assembleRelease', "applicationId 'com.veloq.app'"],
     [DEV_METRO, 'com.veloq.app', 'gradlew assembleDebug', "applicationId 'com.veloq.app.dev'"],
     [
@@ -378,7 +378,7 @@ describe('Android builds carry the identity they were asked for', () => {
     expect(kept).toEqual(SIGNING);
   });
 
-  it.each([
+  vaultIt.each([
     [DEV_METRO, 'com.veloq.app.dev'],
     [DEV_STANDALONE, 'com.veloq.app.dev'],
     [PRODUCTION, 'com.veloq.app'],
@@ -391,7 +391,7 @@ describe('Android builds carry the identity they were asked for', () => {
     expect(result.stderr).not.toContain('prepare-native');
   });
 
-  it('generates a missing project before building', () => {
+  vaultIt('generates a missing project before building', () => {
     const { result, calls, built } = run(DEV_METRO, { tree: null });
     expect(result.status).toBe(0);
     expect(calls.indexOf(prebuild)).toBeGreaterThanOrEqual(0);
@@ -444,7 +444,7 @@ describe('The debug recipe compiles for the handset ABI only', () => {
     }
   }
 
-  it('builds for the ABI the attached emulator reports', () => {
+  vaultIt('builds for the ABI the attached emulator reports', () => {
     const { result, gradle } = debugBuild({ serial: 'emulator-5554', abi: 'x86_64' });
     expect(result.status).toBe(0);
     expect(gradle).toEqual([
@@ -452,7 +452,7 @@ describe('The debug recipe compiles for the handset ABI only', () => {
     ]);
   });
 
-  it('builds arm64-v8a when no device answers', () => {
+  vaultIt('builds arm64-v8a when no device answers', () => {
     const { result, gradle } = debugBuild({ serial: '', abi: '' });
     expect(result.status).toBe(0);
     expect(gradle).toEqual([
@@ -460,7 +460,7 @@ describe('The debug recipe compiles for the handset ABI only', () => {
     ]);
   });
 
-  it('asks nothing of a handset that is not a test handset and builds arm64-v8a', () => {
+  vaultIt('asks nothing of a handset that is not a test handset and builds arm64-v8a', () => {
     const { result, gradle } = debugBuild({ serial: '192.0.2.40:5555', abi: 'x86' });
     expect(result.status).toBe(0);
     expect(gradle).toEqual([

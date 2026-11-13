@@ -25,7 +25,7 @@ import {
 import { parse, write } from '../../../web/connect/router';
 
 describe('the engine query', () => {
-  it('asks each sections order by its name and leaves routes at the default', () => {
+  vaultIt('asks each sections order by its name and leaves routes at the default', () => {
     const asked = SECTION_SORTS.map((sort) => queryFor({ ...opening('sections'), sort }));
     expect(asked.map((query) => query.sectionSort)).toEqual([
       'visits',
@@ -37,7 +37,7 @@ describe('the engine query', () => {
     expect(new Set(asked.map((query) => query.groupSort))).toEqual(new Set(['activities']));
   });
 
-  it('asks each routes order by its name and leaves sections at the default', () => {
+  vaultIt('asks each routes order by its name and leaves sections at the default', () => {
     const asked = ROUTE_SORTS.map((sort) => queryFor({ ...opening('routes'), sort }));
     expect(asked.map((query) => query.groupSort)).toEqual([
       'activities',
@@ -48,7 +48,7 @@ describe('the engine query', () => {
     expect(new Set(asked.map((query) => query.sectionSort))).toEqual(new Set(['visits']));
   });
 
-  it('puts the search on the list it is typed in', () => {
+  vaultIt('puts the search on the list it is typed in', () => {
     expect(queryFor({ ...opening('routes'), search: 'loop' })).toMatchObject({
       groupSearch: 'loop',
       sectionSearch: '',
@@ -59,7 +59,7 @@ describe('the engine query', () => {
     });
   });
 
-  it('hides the removed sections until the chip shows them, as the phone does', () => {
+  vaultIt('hides the removed sections until the chip shows them, as the phone does', () => {
     expect(queryFor(opening('sections')).sectionFilters).toEqual({
       hideCustom: false,
       hideAuto: false,
@@ -75,7 +75,7 @@ describe('the engine query', () => {
     });
   });
 
-  it('sends no place, so the engine reads its default', () => {
+  vaultIt('sends no place, so the engine reads its default', () => {
     expect(queryFor(opening('routes'))).not.toHaveProperty('userLat');
   });
 });
@@ -96,29 +96,29 @@ describe('the address', () => {
     opening('routes', 'g 7'),
   ];
 
-  it.each(states.map((state) => [JSON.stringify(state), state] as const))(
+  vaultIt.each(states.map((state) => [JSON.stringify(state), state] as const))(
     'round-trips %s through the hash',
     (_name, state) => {
       expect(fromRoute(parse(write(toRoute(state))))).toEqual(state);
     }
   );
 
-  it('leaves a value at its default out of the address', () => {
+  vaultIt('leaves a value at its default out of the address', () => {
     expect(write(toRoute(opening('sections')))).toBe('#/sections');
     expect(write(toRoute(opening('routes', 'g1')))).toBe('#/route/g1');
   });
 
-  it('falls back on an order or chip the list does not have', () => {
+  vaultIt('falls back on an order or chip the list does not have', () => {
     const route = parse('#/routes?sort=signature&chips=custom');
     expect(fromRoute(route)).toEqual(opening('routes'));
     expect(fromRoute(parse('#/sections?sort=activities'))?.sort).toBe('visits');
   });
 
-  it('names no list for another screen', () => {
+  vaultIt('names no list for another screen', () => {
     expect(fromRoute(parse('#/feed'))).toBeNull();
   });
 
-  it('turns a chip off by pressing it again', () => {
+  vaultIt('turns a chip off by pressing it again', () => {
     const on = toggled(opening('sections'), 'custom');
     expect(on.chips).toEqual(['custom']);
     expect(toggled(on, 'custom').chips).toEqual([]);
@@ -138,7 +138,7 @@ describe('the pass table', () => {
   const rows = [row('a', 300, 70), row('b', 100, 60), row('c', 200, 65)];
   const ids = (order: Parameters<typeof passes>[1]) => passes(rows, order).map((p) => p.activityId);
 
-  it('orders by date, time and gap, either way', () => {
+  vaultIt('orders by date, time and gap, either way', () => {
     expect(ids({ column: 'date', descending: true })).toEqual(['a', 'c', 'b']);
     expect(ids({ column: 'date', descending: false })).toEqual(['b', 'c', 'a']);
     expect(ids({ column: 'time', descending: false })).toEqual(['b', 'c', 'a']);
@@ -154,13 +154,13 @@ describe('the pass table', () => {
     ]);
   });
 
-  it('marks every pass tied for fastest and handles no passes', () => {
+  vaultIt('marks every pass tied for fastest and handles no passes', () => {
     const tied = passes([row('x', 1, 50), row('y', 2, 50)], { column: 'date', descending: false });
     expect(tied.every((p) => p.pr && p.delta === 0)).toBe(true);
     expect(passes([], { column: 'time', descending: false })).toEqual([]);
   });
 
-  it('opens date newest first and time fastest first, then reverses on a second press', () => {
+  vaultIt('opens date newest first and time fastest first, then reverses on a second press', () => {
     const date = pressed({ column: 'time', descending: false }, 'date');
     expect(date).toEqual({ column: 'date', descending: true });
     expect(pressed(date, 'date')).toEqual({ column: 'date', descending: false });

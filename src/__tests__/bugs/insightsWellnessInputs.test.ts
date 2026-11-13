@@ -40,7 +40,7 @@ function buildFfiData(): InsightsData {
 }
 
 describe('the form the insights read', () => {
-  it('reads it off the bundle rather than from rows a caller hands in', () => {
+  vaultIt('reads it off the bundle rather than from rows a caller hands in', () => {
     const data = {
       ...buildFfiData(),
       form: { date: '2026-09-12', ctl: 50, atl: 40, tsb: 10 },
@@ -49,14 +49,14 @@ describe('the form the insights read', () => {
     expect(() => computeInsightsFromData(data, t)).not.toThrow();
   });
 
-  it('asks the engine for a window ending today', () => {
+  vaultIt('asks the engine for a window ending today', () => {
     const params = buildInsightsParams();
 
     expect(params.wellnessNewest).toBe(wellnessWindow(new Date(), 30).newest);
     expect(params.wellnessOldest).toBe(wellnessWindow(new Date(), 30).oldest);
   });
 
-  it('carries no form for a window the engine found no day in', () => {
+  vaultIt('carries no form for a window the engine found no day in', () => {
     const data = { ...buildFfiData(), form: undefined } as unknown as InsightsData;
 
     expect(computeInsightsFromData(data, t).insights).toEqual([]);

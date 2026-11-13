@@ -23,7 +23,7 @@ function relativeLuminance(colour: string): number {
 const luminances = (style: MapStyleType) => heatmapKeyColours(style).map(relativeLuminance);
 
 describe('heatmapKeyColours', () => {
-  it.each<MapStyleType>(['light', 'dark', 'satellite'])(
+  vaultIt.each<MapStyleType>(['light', 'dark', 'satellite'])(
     'keys the %s map in the heat steps of that base',
     (style) => {
       expect(heatmapKeyColours(style)).toEqual(mapPalette(style).heat);

@@ -58,6 +58,7 @@ fn a_window_emptied_by_time_names_the_newest_stored_date() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fresh_library_withholds_nothing() {
     let dir = TempDir::new().unwrap();
     let mut engine = engine(&dir);
@@ -76,6 +77,7 @@ fn a_fresh_library_withholds_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_that_never_synced_wellness_withholds_nothing() {
     let dir = TempDir::new().unwrap();
     let engine = engine(&dir);
@@ -84,6 +86,7 @@ fn a_library_that_never_synced_wellness_withholds_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_oldest_day_of_the_window_still_counts_as_fresh() {
     let dir = TempDir::new().unwrap();
     let mut engine = engine(&dir);

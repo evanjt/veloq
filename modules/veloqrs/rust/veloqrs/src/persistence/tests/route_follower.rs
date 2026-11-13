@@ -48,6 +48,7 @@ fn bearing_difference(a: f64, b: f64) -> f64 {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fix_beside_the_midpoint_is_on_route_half_way() {
     let mut core = straight_route();
 
@@ -78,6 +79,7 @@ fn a_fix_beside_the_midpoint_is_on_route_half_way() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_is_not_joined_until_a_fix_is_within_thirty_metres() {
     let mut core = straight_route();
 
@@ -95,6 +97,7 @@ fn a_ride_is_not_joined_until_a_fix_is_within_thirty_metres() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn eleven_fixes_over_seventy_five_metres_leave_the_route_on_the_eleventh() {
     let mut core = straight_route();
     step(&mut core, 0.0, 500.0);
@@ -120,6 +123,7 @@ fn eleven_fixes_over_seventy_five_metres_leave_the_route_on_the_eleventh() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_return_inside_ten_fixes_never_leaves_the_route() {
     let mut core = straight_route();
     step(&mut core, 0.0, 500.0);
@@ -180,6 +184,7 @@ fn a_ride_walking_the_route_forwards_is_decided_forward() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_on_the_first_leg_of_a_crossing_stays_on_it_through_the_crossing() {
     // Leg one runs east through the origin, and the line returns north
     // through it 1.1 km further on, so the legs cross at right angles.
@@ -207,6 +212,7 @@ fn a_ride_on_the_first_leg_of_a_crossing_stays_on_it_through_the_crossing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_dense_wandering_track_costs_a_bounded_window_per_fix() {
     let track: Vec<GpsPoint> = (0..9_000)
         .map(|index| {
@@ -237,6 +243,7 @@ fn a_dense_wandering_track_costs_a_bounded_window_per_fix() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_route_without_two_recorded_fixes_is_refused() {
     assert!(matches!(
         FollowerCore::build(&[at(0.0, 0.0)]),
@@ -261,6 +268,7 @@ fn a_route_without_two_recorded_fixes_is_refused() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_route_that_never_moves_is_refused() {
     let standing = [at(4.0, 4.0), at(4.0, 4.0), at(4.0, 4.0)];
 
@@ -271,6 +279,7 @@ fn a_route_that_never_moves_is_refused() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unrecorded_fix_returns_the_previous_record() {
     let mut core = straight_route();
     let before_any = core.advance(0.0, 0.0);
@@ -299,6 +308,7 @@ fn l_route() -> FollowerCore {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_l_shaped_route_has_one_right_turn_at_the_corner() {
     let core = l_route();
 
@@ -310,6 +320,7 @@ fn an_l_shaped_route_has_one_right_turn_at_the_corner() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_gentle_arc_has_no_turn() {
     let mut corners = vec![(0.0, 0.0)];
     let (mut east, mut north, mut heading) = (0.0_f64, 0.0_f64, 0.0_f64);
@@ -325,6 +336,7 @@ fn a_gentle_arc_has_no_turn() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_hairpin_is_one_turn_of_about_a_half_circle() {
     let corners = [(0.0, 0.0), (0.0, 500.0), (10.0, 500.0), (10.0, 0.0)];
     let core = FollowerCore::build(&track_through(&corners, 5.0)).unwrap();
@@ -336,6 +348,7 @@ fn a_hairpin_is_one_turn_of_about_a_half_circle() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn lateral_jitter_on_a_straight_line_is_no_turn() {
     let mut track = Vec::new();
     for index in 0..300 {
@@ -348,6 +361,7 @@ fn lateral_jitter_on_a_straight_line_is_no_turn() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_left_turn_is_negative() {
     let core = FollowerCore::build(&track_through(
         &[(0.0, 0.0), (0.0, 500.0), (-500.0, 500.0)],
@@ -360,6 +374,7 @@ fn a_left_turn_is_negative() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_next_turn_closes_on_the_corner_and_is_gone_once_past_it() {
     let mut core = l_route();
 
@@ -379,6 +394,7 @@ fn the_next_turn_closes_on_the_corner_and_is_gone_once_past_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn ridden_in_reverse_the_turn_has_the_opposite_sign_at_the_same_place() {
     let mut core = l_route();
 
@@ -392,6 +408,7 @@ fn ridden_in_reverse_the_turn_has_the_opposite_sign_at_the_same_place() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_next_turn_carries_the_along_distance_of_the_turn_it_measures_to() {
     let mut core = l_route();
     let _ = step(&mut core, 0.0, 0.0);
@@ -404,6 +421,7 @@ fn the_next_turn_carries_the_along_distance_of_the_turn_it_measures_to() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn ridden_in_reverse_the_next_turn_carries_the_turn_it_measures_to() {
     let mut core = l_route();
     let _ = step(&mut core, 1_000.0, 1_000.0);

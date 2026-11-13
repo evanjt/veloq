@@ -51,7 +51,7 @@ describe('clock times follow the system 12 or 24-hour setting', () => {
     foreground();
   });
 
-  it('prints 24-hour time for an en-US language on a 24-hour phone', () => {
+  vaultIt('prints 24-hour time for an en-US language on a 24-hour phone', () => {
     setSystemClock(true);
     foreground();
     const clock = formatClockOrDate(evening.getTime(), evening);
@@ -60,7 +60,7 @@ describe('clock times follow the system 12 or 24-hour setting', () => {
     expect(formatDateTime(evening.toISOString())).not.toMatch(/PM/i);
   });
 
-  it('prints 12-hour time for an en-AU language on a 12-hour phone', () => {
+  vaultIt('prints 12-hour time for an en-AU language on a 12-hour phone', () => {
     mockLanguage = 'en-AU';
     setSystemClock(false);
     foreground();
@@ -68,7 +68,7 @@ describe('clock times follow the system 12 or 24-hour setting', () => {
     expect(formatDateTime(afternoon.toISOString())).toContain('4:30 pm');
   });
 
-  it('prints 12-hour time for a de-DE language on a 12-hour phone', () => {
+  vaultIt('prints 12-hour time for a de-DE language on a 12-hour phone', () => {
     mockLanguage = 'de-DE';
     setSystemClock(false);
     foreground();
@@ -83,7 +83,7 @@ describe('clock times follow the system 12 or 24-hour setting', () => {
     expect(formatClockOrDate(midnight.getTime(), midnight)).toBe('00:05');
   });
 
-  it('keeps the language default when the platform does not say', () => {
+  vaultIt('keeps the language default when the platform does not say', () => {
     mockLanguage = 'en-AU';
     setSystemClock(null);
     foreground();
@@ -102,7 +102,7 @@ describe('clock times follow the system 12 or 24-hour setting', () => {
     expect(formatClockOrDate(evening.getTime(), evening)).toBe('19:30');
   });
 
-  it('prints a clock time from a local date-time string in the system setting', () => {
+  vaultIt('prints a clock time from a local date-time string in the system setting', () => {
     setSystemClock(true);
     foreground();
     expect(formatClockTime('2026-03-10T19:05:00')).toBe('19:05');
@@ -111,7 +111,7 @@ describe('clock times follow the system 12 or 24-hour setting', () => {
     expect(formatClockTime('2026-03-10T16:30:00')).toBe('4:30 PM');
   });
 
-  it('prints the Garmin resume time in the system setting', () => {
+  vaultIt('prints the Garmin resume time in the system setting', () => {
     const pausedUntil = (resumeAt: number): FfiGarminPull =>
       ({ phase: FfiGarminPullPhase.Paused, resumeAt }) as FfiGarminPull;
 
@@ -123,7 +123,7 @@ describe('clock times follow the system 12 or 24-hour setting', () => {
     expect(garminPullLine(pausedUntil(evening.getTime()), 'en-US').time).toBe('7:30 PM');
   });
 
-  it('formats an epoch instant the same as its ISO string', () => {
+  vaultIt('formats an epoch instant the same as its ISO string', () => {
     setSystemClock(true);
     foreground();
     expect(formatDateTime(evening.getTime())).toBe(formatDateTime(evening.toISOString()));

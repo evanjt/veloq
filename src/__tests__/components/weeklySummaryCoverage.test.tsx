@@ -88,7 +88,7 @@ beforeEach(() => {
 });
 
 describe('WeeklySummary over a range never downloaded', () => {
-  it('reads no census of its own, the comparison carrying both periods', async () => {
+  vaultIt('reads no census of its own, the comparison carrying both periods', async () => {
     coverageBy({ '2026-05-01': RangeCoverage.NotFetched });
     const view = await render(
       <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
@@ -142,7 +142,7 @@ describe('WeeklySummary over a range never downloaded', () => {
     expect(view.getByTestId('weekly-summary-partial')).toBeTruthy();
   });
 
-  it('adds the quiet line when the period compared against is not downloaded', async () => {
+  vaultIt('adds the quiet line when the period compared against is not downloaded', async () => {
     coverageBy({ '2025-01-01': RangeCoverage.NotFetched });
 
     const view = await render(
@@ -155,7 +155,7 @@ describe('WeeklySummary over a range never downloaded', () => {
     expect(view.getByTestId('weekly-summary-partial')).toBeTruthy();
   });
 
-  it('carries no line when both periods are downloaded', async () => {
+  vaultIt('carries no line when both periods are downloaded', async () => {
     const view = await render(
       <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
       { wrapper }
@@ -166,7 +166,7 @@ describe('WeeklySummary over a range never downloaded', () => {
     expect(view.queryByTestId('weekly-summary-partial')).toBeNull();
   });
 
-  it('says a week never downloaded is not downloaded, not empty', async () => {
+  vaultIt('says a week never downloaded is not downloaded, not empty', async () => {
     held = 0;
     coverageBy({ '2026-06-15': RangeCoverage.NotFetched });
 

@@ -175,6 +175,7 @@ fn never() -> AtomicBool {
 /// Expected behaviour: the original is downloaded once, and a second pass over
 /// the same days lists them again and downloads nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_pass_with_nothing_new_downloads_nothing() {
     let garmin = Garmin::new();
     garmin.lists("2026-09-25", "2026-10-25", &[1, 2]);
@@ -217,6 +218,7 @@ fn a_ride_that_finished_after_the_last_pass_is_found_the_next_day() {
 /// Expected behaviour: neither original is downloaded; the one the device
 /// lacks is.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_already_complete_locally_is_not_downloaded_again() {
     let garmin = Garmin::new();
     garmin.lists("2026-09-25", "2026-10-25", &[3, 4, 5]);
@@ -290,6 +292,7 @@ fn a_backfill_killed_after_two_months_resumes_at_the_third() {
 /// Expected behaviour: twelve empty months in a row end it, the rides behind
 /// them are not looked for, and a pass after that asks only for the new days.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_backfill_ends_after_a_year_with_no_rides() {
     let garmin = Garmin::new();
     garmin.lists_nothing_else();
@@ -309,6 +312,7 @@ fn the_backfill_ends_after_a_year_with_no_rides() {
 /// ride stays owed and the watermark does not move; once the hold lifts the
 /// settled run stores the ride.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_429_pauses_for_retry_after_and_the_run_continues() {
     let _clock = crate::test_globals::real_clock();
     let garmin = Garmin::new();
@@ -346,6 +350,7 @@ fn a_429_pauses_for_retry_after_and_the_run_continues() {
 /// Expected behaviour: the pass pauses fifteen minutes, and a pass begun
 /// inside the hold sends nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_429_without_retry_after_pauses_fifteen_minutes_and_sends_nothing_more() {
     let garmin = Garmin::new();
     garmin.lists("2026-09-25", "2026-10-25", &[5, 6]);
@@ -380,6 +385,7 @@ fn a_429_without_retry_after_pauses_fifteen_minutes_and_sends_nothing_more() {
 /// Expected behaviour: no two Garmin requests are scheduled less than two
 /// seconds apart, the token exchange and the listing included.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_history_pull_of_thirty_originals_keeps_two_seconds_between_requests() {
     let _serial = crate::test_globals::serial_global_state();
     let garmin = Garmin::new();
@@ -496,6 +502,7 @@ fn a_ride_owed_by_an_unsettled_first_window_is_found_by_the_pass_after_it() {
 /// Expected behaviour: the pass stops as unreachable rather than spending the
 /// whole library on failures.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn downloads_that_keep_failing_stop_the_pass() {
     let garmin = Garmin::new();
     let ids: Vec<i64> = (1..=8).collect();
@@ -527,6 +534,7 @@ fn refuses_download(garmin: &Garmin, id: i64) -> httpmock::Mock<'_> {
 /// Expected behaviour: the checkpoint stays before that month, and once the
 /// download recovers the next pass stores the ride and moves on.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_month_with_a_failed_download_is_listed_again_by_the_next_pass() {
     let garmin = Garmin::new();
     garmin.lists("2026-09-25", "2026-10-25", &[]);
@@ -555,6 +563,7 @@ fn a_month_with_a_failed_download_is_listed_again_by_the_next_pass() {
 /// Expected behaviour: it is tried on a bounded number of passes, then given
 /// up so the backfill moves past the month and is not stalled for good.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_that_never_downloads_is_given_up_after_a_bounded_number_of_passes() {
     let garmin = Garmin::new();
     garmin.lists("2026-09-25", "2026-10-25", &[]);
@@ -580,6 +589,7 @@ fn a_ride_that_never_downloads_is_given_up_after_a_bounded_number_of_passes() {
 ///
 /// Expected behaviour: the watermark is not advanced past the window.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_forward_window_with_a_failed_download_keeps_its_watermark() {
     let garmin = Garmin::new();
     garmin.lists("2026-09-25", "2026-10-25", &[41]);
@@ -595,6 +605,7 @@ fn a_forward_window_with_a_failed_download_keeps_its_watermark() {
 ///
 /// Expected behaviour: it is skipped without a request.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_manual_entry_is_not_downloaded() {
     let garmin = Garmin::new();
     garmin.server.mock(|when, then| {
@@ -676,6 +687,7 @@ fn progress_of(pairs: &[(&str, &str)]) -> Progress {
 /// Expected behaviour: the report names the pause, the instant it ends, the
 /// stored count and the month the history pull has reached.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_paused_pass_reports_its_resume_time_and_the_month_reached() {
     let until = Utc::now() + Duration::minutes(15);
     let seen = progress_of(&[(STORED, "42"), (CURSOR, "2025-03-01")]);
@@ -696,6 +708,7 @@ fn a_paused_pass_reports_its_resume_time_and_the_month_reached() {
 /// Expected behaviour: every terminal state is told apart, with the reason a
 /// stopped pass ended on, and a pause carries no stale halt.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_report_tells_running_done_and_each_stop_apart() {
     let seen = progress_of(&[(BACKFILL_DONE, "1")]);
     let phase = |state: PullState| report(&state, &seen);
@@ -722,6 +735,7 @@ fn the_report_tells_running_done_and_each_stop_apart() {
 /// Expected behaviour: the sleep ends at once and the pass goes on; with no
 /// request it would sleep out the hold.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pull_now_request_ends_the_sleep_of_a_paused_pass() {
     let hour = Utc::now() + Duration::hours(1);
     request_resume();
@@ -736,6 +750,7 @@ fn a_pull_now_request_ends_the_sleep_of_a_paused_pass() {
 /// Expected behaviour: only the source intervals.icu names decides whether a
 /// webhook's activity came from Garmin.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_webhook_activity_is_garmin_by_the_source_its_body_names() {
     assert!(body_is_from_garmin(
         r#"{"id":"i1","source":"GARMIN_CONNECT","external_id":"77"}"#
@@ -749,6 +764,7 @@ fn a_webhook_activity_is_garmin_by_the_source_its_body_names() {
 /// Expected behaviour: a setting written reads back, a stored original counts
 /// as complete, and ingesting the same original twice stores it once.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_install_store_keeps_settings_and_stores_an_original_once() {
     let _serial = crate::test_globals::serial_global_state();
     let _dir = crate::test_globals::init_global_engine("pull_install_store.db");
@@ -792,6 +808,7 @@ fn the_install_store_keeps_settings_and_stores_an_original_once() {
 /// go on at once, a stop is remembered for the next ride, and a webhook for an
 /// activity the library does not hold as Garmin's starts nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pull_asks_for_nothing_without_a_key_and_wakes_a_paused_pass() {
     let _serial = crate::test_globals::serial_global_state();
     let _dir = crate::test_globals::init_global_engine("pull_requests.db");

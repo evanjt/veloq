@@ -82,7 +82,7 @@ it('is one button whose hold action opens the menu', () => {
   expect(screen.getByTestId('card-menu')).toBeTruthy();
 });
 
-it('opens the menu with no haptic of its own, leaving the open to the menu', () => {
+vaultIt('opens the menu with no haptic of its own, leaving the open to the menu', () => {
   render(
     <StrengthActivityCard
       activity={lift}

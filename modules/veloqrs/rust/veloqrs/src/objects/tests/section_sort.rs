@@ -2,6 +2,7 @@ use super::*;
 use crate::test_globals::{init_global_engine, serial_global_state};
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_name_sort_uses_displayed_section_name_case_insensitively() {
     let _guard = serial_global_state();
     let _temp = init_global_engine("section_sort.db");

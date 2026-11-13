@@ -103,7 +103,7 @@ describe('a sideways scrolling row on a pager page', () => {
     expect(mgr.fail).not.toHaveBeenCalled();
   });
 
-  it('is a plain row outside a pager', async () => {
+  vaultIt('is a plain row outside a pager', async () => {
     const { natives } = capture();
     await render(<ChartTypeSelector available={STREAMS} selected={[]} onToggle={jest.fn()} />);
     expect(natives).toHaveLength(1);

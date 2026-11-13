@@ -2480,6 +2480,7 @@ mod tests {
         /// Expected behaviour: a run that ends without applying replaces the
         /// success before it, so the last-run line does not claim it.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_run_that_ends_without_applying_replaces_the_last_success_with_a_failure() {
             let _serial = serial_global_state();
             let _dir = init_global_engine("detection_last_run_failed.db");
@@ -2500,6 +2501,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_run_with_no_store_during_it_leaves_the_grouping_clean() {
             let _serial = serial_global_state();
             let _dir = init_global_engine("detection_apply_clean.db");
@@ -2545,6 +2547,7 @@ mod tests {
         /// Expected behaviour: the run decided nothing about the grouping, so
         /// its apply keeps the flag the regroup left, clear or set.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_run_that_left_the_grouping_to_another_regroup_keeps_its_verdict() {
             let _serial = serial_global_state();
             let _dir = init_global_engine("detection_apply_left_to_holder.db");
@@ -2648,6 +2651,7 @@ mod tests {
     /// Expected behaviour: the worker keeps the newest checkpoint and nothing
     /// else, whether or not anyone is polling.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_undrained_run_holds_one_checkpoint_not_a_run_of_them() {
         let slot = CheckpointSlot::default();
 
@@ -2676,6 +2680,7 @@ mod tests {
     /// content only moves when a cluster finishes, so a clock that fires
     /// between two of them re-encodes bytes nobody needs.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_clock_alone_does_not_earn_a_checkpoint() {
         let elapsed = CHECKPOINT_EVERY;
         let none = std::time::Duration::ZERO;
@@ -2697,6 +2702,7 @@ mod tests {
     /// The last cluster always checkpoints, whatever the clock says: it is the
     /// one a killed run most wants to resume from.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_last_cluster_checkpoints_whatever_the_clock_says() {
         assert!(checkpoint_due(10, 10, 9, std::time::Duration::ZERO));
         assert!(
@@ -2709,6 +2715,7 @@ mod tests {
     /// both sent an empty-portion detector bug to whoever was looking at pool
     /// churn. The wording is the whole fix, so it is pinned.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn each_cause_of_a_dropped_section_names_itself() {
         assert_eq!(
             drop_reason(false, 0, false),
@@ -2778,6 +2785,7 @@ mod tests {
     /// `tx` to a local of its own was what made this pass while the workers it
     /// stands for were the other way round.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_notice_lands_after_the_sender_is_gone() {
         let _guard = serial_global_state();
         let recorder = Recorder::new();
@@ -2816,6 +2824,7 @@ mod tests {
     /// reads it, because the end state after the thread joins is the same
     /// either way and says nothing about the order.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_run_that_returns_early_closes_its_channel_before_it_announces() {
         for early in [true, false] {
             let _guard = serial_global_state();
@@ -3035,6 +3044,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_recompute_and_save_groups_retired_sport_scalar() {
         let _serial = crate::test_globals::serial_global_state();
         let engine = PersistentEngine::in_memory().unwrap();
@@ -3066,6 +3076,7 @@ mod tests {
     /// A route the regroup actually dissolves takes its name and match rows with
     /// it, so the id namespace the next run reads holds no dead keys.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn background_save_drops_names_of_dissolved_routes() {
         let _serial = crate::test_globals::serial_global_state();
         let mut engine = PersistentEngine::in_memory().unwrap();
@@ -3142,6 +3153,7 @@ mod tests {
     /// bump, so without the cache's own version check the catalogue would
     /// freeze at the previous detector's answer.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cache_from_another_layout_version_is_rejected() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let stale = codec::serialize_named(&ForeignVersionCache {
@@ -3157,6 +3169,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cache_at_the_current_layout_version_is_adopted() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let current = codec::serialize_named(&SectionEvidenceCache::new()).unwrap();
@@ -3196,6 +3209,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_catalogue_stamped_under_another_detector_revision_reports_a_generation_change() {
         let engine = PersistentEngine::in_memory().unwrap();
         for (key, value) in [

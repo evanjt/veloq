@@ -27,7 +27,7 @@ describe('resolveDetailCoordinates', () => {
     expect(coords[0]).toEqual({ latitude: -37.0, longitude: 144.0 });
   });
 
-  it('treats an empty track as absent rather than as an answer', () => {
+  vaultIt('treats an empty track as absent rather than as an answer', () => {
     expect(resolveDetailCoordinates({ gpsTrack: [] })).toEqual([]);
   });
 
@@ -39,7 +39,7 @@ describe('resolveDetailCoordinates', () => {
     expect(coords).toEqual(TRACK);
   });
 
-  it('returns nothing when every source is missing', () => {
+  vaultIt('returns nothing when every source is missing', () => {
     expect(resolveDetailCoordinates({})).toEqual([]);
   });
 });

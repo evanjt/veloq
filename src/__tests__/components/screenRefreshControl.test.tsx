@@ -53,7 +53,7 @@ async function renderControl(onRefresh = jest.fn()) {
 }
 
 describe('ScreenRefreshControl', () => {
-  it('draws the dark action link arc on the dark surface in the dark theme', async () => {
+  vaultIt('draws the dark action link arc on the dark surface in the dark theme', async () => {
     mockIsDark = true;
     const control = await renderControl();
 
@@ -62,7 +62,7 @@ describe('ScreenRefreshControl', () => {
     expect(control.props.progressBackgroundColor).toBe(darkColors.surface);
   });
 
-  it('draws the light action link arc on the light surface in the light theme', async () => {
+  vaultIt('draws the light action link arc on the light surface in the light theme', async () => {
     const control = await renderControl();
 
     expect(control.props.colors).toEqual([colors.actionLink]);
@@ -70,14 +70,14 @@ describe('ScreenRefreshControl', () => {
     expect(control.props.progressBackgroundColor).toBe(colors.surface);
   });
 
-  it('carries no title', async () => {
+  vaultIt('carries no title', async () => {
     const control = await renderControl();
 
     expect(control.props.title).toBeUndefined();
     expect(control.props.titleColor).toBeUndefined();
   });
 
-  it('fires the pull haptic once and hands the pull to the screen', async () => {
+  vaultIt('fires the pull haptic once and hands the pull to the screen', async () => {
     const onRefresh = jest.fn();
     const control = await renderControl(onRefresh);
 
@@ -130,7 +130,7 @@ describe('a pull that starts a sync', () => {
     expect(refreshing()).toBe(false);
   });
 
-  it('does not turn for a screen that was never pulled', async () => {
+  vaultIt('does not turn for a screen that was never pulled', async () => {
     mockSyncState = SyncState.Syncing;
     await render(<ScreenRefreshControl refreshing={false} onRefresh={jest.fn()} />);
 
@@ -139,7 +139,7 @@ describe('a pull that starts a sync', () => {
 });
 
 describe('the insights panel', () => {
-  it('offers pull to refresh when given a handler, and the pull calls it', async () => {
+  vaultIt('offers pull to refresh when given a handler, and the pull calls it', async () => {
     const onRefresh = jest.fn();
     await render(<InsightsPanel insights={[]} onRefresh={onRefresh} refreshing={false} />);
 
@@ -150,13 +150,13 @@ describe('the insights panel', () => {
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the refresh as running while the screen syncs', async () => {
+  vaultIt('shows the refresh as running while the screen syncs', async () => {
     await render(<InsightsPanel insights={[]} onRefresh={jest.fn()} refreshing />);
 
     expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(true);
   });
 
-  it('offers no refresh without a handler', async () => {
+  vaultIt('offers no refresh without a handler', async () => {
     await render(<InsightsPanel insights={[]} />);
 
     expect(screen.UNSAFE_queryAllByType(RefreshControl)).toHaveLength(0);

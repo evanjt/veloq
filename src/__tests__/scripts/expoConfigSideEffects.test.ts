@@ -43,7 +43,7 @@ afterAll(() => {
   rmSync(bin, { recursive: true, force: true });
 });
 
-it('treeState is unchanged by a watchman cookie appearing between two reads', () => {
+vaultIt('treeState is unchanged by a watchman cookie appearing between two reads', () => {
   const before = treeState();
   const cookie = join(ROOT, '.watchman-cookie-probe-1-2-3');
   writeFileSync(cookie, '');
@@ -54,7 +54,7 @@ it('treeState is unchanged by a watchman cookie appearing between two reads', ()
   }
 });
 
-it('treeState reports a real untracked file written between two reads', () => {
+vaultIt('treeState reports a real untracked file written between two reads', () => {
   const before = treeState();
   const file = join(ROOT, 'expo-config-side-effect-probe.tmp');
   writeFileSync(file, '');

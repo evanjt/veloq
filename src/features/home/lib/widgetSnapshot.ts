@@ -30,7 +30,7 @@ import type {
 import type { SampleWidgetLibrary } from 'veloqrs/src/delegates/fitness';
 
 import { useDashboardPreferences, type SummaryCardPreferences } from '@/features/settings/light';
-import { MUSCLE_NAME_KEYS, demoStrengthSets } from '@/features/strength/light';
+import { MUSCLE_NAME_KEYS } from '@/features/strength/light';
 import { widgetInsights, type Insight, type TFunc } from '@/features/insights/light';
 
 /** Where a record surface goes when no sport is known: the picker, as before. */
@@ -400,14 +400,13 @@ export function gatherWidgetSnapshot(opts: {
 }
 
 /**
- * The library the widgets draw while nobody is signed in, from the fixtures and
- * the strength sets demo mode seeds. The fixtures load inside `demoLibrary`, so
- * a session that never shows them never pays for them.
+ * The library the widgets draw while nobody is signed in, from the fixtures.
+ * The engine composes the strength sets of its strength sessions. The fixtures
+ * load inside `demoLibrary`, so a session that never shows them never pays for them.
  */
 function sampleLibrary(): SampleWidgetLibrary {
   const { athleteJson, sportSettingsJson, wellness, activities } = demoLibrary();
-  const exerciseSets = Object.values(demoStrengthSets).flat();
-  return { athleteJson, sportSettingsJson, wellness, activities, exerciseSets };
+  return { athleteJson, sportSettingsJson, wellness, activities };
 }
 
 /**

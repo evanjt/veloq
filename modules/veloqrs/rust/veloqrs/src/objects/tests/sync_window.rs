@@ -11,6 +11,7 @@ fn stored_metrics(ids: &[String]) -> Vec<crate::ActivityMetrics> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_owed_windows_collapsed_head_counts_days_within_runs() {
     let start = chrono::NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
     let mut dates = Vec::new();
@@ -30,6 +31,7 @@ fn test_owed_windows_collapsed_head_counts_days_within_runs() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_owed_windows_splits_a_run_at_the_head_boundary() {
     let start = chrono::NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
     let mut dates: Vec<String> = (0..30)
@@ -51,6 +53,7 @@ fn test_owed_windows_splits_a_run_at_the_head_boundary() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_failed_census_uses_fixed_window_despite_stored_rows() {
     let _guard = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("failed-census-stale.db");
@@ -132,6 +135,7 @@ fn test_failed_census_uses_fixed_window_despite_stored_rows() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_widened_window_requests_only_owed_day() {
     let _guard = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("widened-window-owed.db");
@@ -199,6 +203,7 @@ fn test_widened_window_requests_only_owed_day() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_widened_window_without_census_requests_whole_span() {
     let _guard = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("widened-window-no-census.db");
@@ -436,6 +441,7 @@ fn test_changed_summary_invalidates_stored_interval_body() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_launch_plans_old_changed_rows_without_old_never_fetched_rows() {
     let _guard = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("old-changed-row.db");
@@ -667,6 +673,7 @@ fn test_old_changed_head_prefetch_keeps_never_fetched_body_outside_library() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_scattered_old_changes_keep_unchanged_days_outside_windows() {
     let _guard = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("scattered-old-changes.db");
@@ -784,6 +791,7 @@ fn test_scattered_old_changes_keep_unchanged_days_outside_windows() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_many_scattered_old_changes_use_one_request_per_changed_day() {
     let _guard = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("many-old-changes.db");
@@ -878,6 +886,7 @@ fn test_a_fresh_database_is_at_the_current_field_set() {
 /// Expected behaviour: the list page carries the value into the stored body,
 /// and a later page keeps the value the detail open wrote.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_a_list_page_stores_the_decoupling_it_asked_for() {
     let _guard = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("fields-decoupling.db");
@@ -1025,6 +1034,7 @@ fn test_an_older_field_set_plans_one_refetch_of_every_stored_activity() {
 /// The refetch asks in bounded spans, so a library of years is not one request
 /// carrying all of it, and never one request per scattered day either.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_refetch_windows_span_at_most_the_bound() {
     let start = chrono::NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
     let fetched: Vec<(String, String, bool)> = (0..200)

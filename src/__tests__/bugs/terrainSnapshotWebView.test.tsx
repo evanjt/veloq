@@ -259,7 +259,7 @@ describe('the failed set holds one entry per request', () => {
   // set only ever holds flat renders. The keying this case was written to
   // protect is unchanged and is asserted directly below, where it cannot go
   // stale behind a scenario that no longer produces it.
-  it('keeps two styles as separate entries', () => {
+  vaultIt('keeps two styles as separate entries', () => {
     holdAWorkerBusy();
     fail('a1', true);
     fail('a1', true, 'satellite');
@@ -283,7 +283,7 @@ describe('the failed set holds one entry per request', () => {
     }
   );
 
-  it.each([true, false])(
+  vaultIt.each([true, false])(
     'keeps both modes queued when the stand-in is first: %s',
     (standInFirst) => {
       pool().requestSnapshot(request('busy-0'));
@@ -309,7 +309,7 @@ describe('the failed set holds one entry per request', () => {
     ).toBe(3);
   });
 
-  it('keys the drape and the flat basemap apart, so neither drops the other', () => {
+  vaultIt('keys the drape and the flat basemap apart, so neither drops the other', () => {
     const flat = request('a1', true);
     const drape = request('a1', false);
 
@@ -338,7 +338,7 @@ describe('the failed set holds one entry per request', () => {
     expect(queued()).toBe(before);
   });
 
-  it('queues nothing when nothing has failed', () => {
+  vaultIt('queues nothing when nothing has failed', () => {
     holdAWorkerBusy();
     const before = queued();
 
@@ -443,7 +443,7 @@ describe('the snapshot pool retries a failure when the queue goes idle', () => {
     expect(rendered()).toEqual(['a1', 'a1', 'a1', 'a1', 'a1', 'a1']);
   });
 
-  it('keeps the drape and the flat basemap apart while one is in flight', () => {
+  vaultIt('keeps the drape and the flat basemap apart while one is in flight', () => {
     pool().requestSnapshot(request('a1', true));
     pool().requestSnapshot(request('a1', false));
 
@@ -576,7 +576,7 @@ describe('the snapshot pool counts only what can still complete', () => {
     jest.useRealTimers();
   });
 
-  it('holds every request while the queue has room for them all', () => {
+  vaultIt('holds every request while the queue has room for them all', () => {
     queue(MAX_QUEUE_SIZE);
 
     jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
@@ -592,7 +592,7 @@ describe('the snapshot pool counts only what can still complete', () => {
     expect(watchdogFired()).toEqual([`${MAX_QUEUE_SIZE} failed`]);
   });
 
-  it('traces the card an overflow evicts, so an eviction is not read as a stall', () => {
+  vaultIt('traces the card an overflow evicts, so an eviction is not read as a stall', () => {
     queue(MAX_QUEUE_SIZE + 1);
 
     expect(eventsOf('evict').map((e) => e.activityId)).toEqual(['a0']);
@@ -609,7 +609,7 @@ describe('the snapshot pool counts only what can still complete', () => {
     expect(watchdogFired()).toEqual([]);
   });
 
-  it('keeps counting correctly across a second overflow', () => {
+  vaultIt('keeps counting correctly across a second overflow', () => {
     queue(MAX_QUEUE_SIZE + 5);
     for (let i = 5; i < MAX_QUEUE_SIZE + 5; i += 1) mockCached.add(`a${i}_light_false`);
 
@@ -698,7 +698,7 @@ describe('a resume where no worker ever becomes ready', () => {
     expect(rendered()).toEqual(['a1']);
   });
 
-  it('arms nothing on a resume with an empty queue', async () => {
+  vaultIt('arms nothing on a resume with an empty queue', async () => {
     await setSuspended(true);
     await setSuspended(false);
 
@@ -745,7 +745,7 @@ describe('the snapshot pool watchdog across a suspend', () => {
     jest.useRealTimers();
   });
 
-  it('watches the queue while it is being worked', () => {
+  vaultIt('watches the queue while it is being worked', () => {
     pool().requestSnapshot(request('a1'));
     // A tile error just inside the render timeout, so the retry is still
     // rendering when the watchdog comes due.
@@ -785,7 +785,7 @@ describe('the snapshot pool watchdog across a suspend', () => {
     expect(watchdogFired()).toEqual(['2 failed']);
   });
 
-  it('keeps the queue, so the work still runs after the feed returns', async () => {
+  vaultIt('keeps the queue, so the work still runs after the feed returns', async () => {
     pool().requestSnapshot(request('a1'));
     injected.length = 0;
 
@@ -796,7 +796,7 @@ describe('the snapshot pool watchdog across a suspend', () => {
     expect(rendered()).toEqual(['a1']);
   });
 
-  it('says nothing but the suspend when there is no queue at all', async () => {
+  vaultIt('says nothing but the suspend when there is no queue at all', async () => {
     await setSuspended(true);
     jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
 
@@ -841,11 +841,11 @@ describe('the snapshot pool follows the feed on and off screen', () => {
     jest.useRealTimers();
   });
 
-  it('holds two workers while the feed is on screen', () => {
+  vaultIt('holds two workers while the feed is on screen', () => {
     expect(mounted).toBe(2);
   });
 
-  it('keeps both workers while the feed is offscreen', async () => {
+  vaultIt('keeps both workers while the feed is offscreen', async () => {
     await setSuspended(true);
 
     expect(mounted).toBe(2);
@@ -981,7 +981,7 @@ describe('the snapshot pool waits out a scroll', () => {
     expect(rendered()).toEqual(['a1']);
   });
 
-  it('a release with no hold changes nothing', () => {
+  vaultIt('a release with no hold changes nothing', () => {
     pool().holdForScroll(false);
     pool().requestSnapshot(request('a1'));
 
@@ -1268,17 +1268,20 @@ describe('a drape that runs out falls back to the flat basemap', () => {
       expect(drapesOf('down')).toBe(1);
     });
 
-    it('does not queue an unlocked card a second time while its own upgrade renders', async () => {
-      await standIn('down');
-      pool().requestSnapshot(request('ok', false));
-      pool().requestSnapshot({ ...request('down', false), upgrade: true });
-      injected.length = 0;
+    vaultIt(
+      'does not queue an unlocked card a second time while its own upgrade renders',
+      async () => {
+        await standIn('down');
+        pool().requestSnapshot(request('ok', false));
+        pool().requestSnapshot({ ...request('down', false), upgrade: true });
+        injected.length = 0;
 
-      await landOnWorkerOne('ok');
-      await landOnWorkerOne('down');
+        await landOnWorkerOne('ok');
+        await landOnWorkerOne('down');
 
-      expect(drapesOf('down')).toBe(1);
-    });
+        expect(drapesOf('down')).toBe(1);
+      }
+    );
 
     it('saves the stand-in under the drape it was asked for', async () => {
       failOnWorkerOne('a3', false);
@@ -1352,7 +1355,7 @@ describe('an override jumps the snapshot queue', () => {
     expect(injected.join('\n')).not.toContain('chosen');
   });
 
-  it('drains a stand-in cached under the drape key while waiting', () => {
+  vaultIt('drains a stand-in cached under the drape key while waiting', () => {
     pool().requestSnapshot(request('chosen', { standIn: true }));
     mockCached.add('chosen_light_true');
     post({ type: 'mapReady', workerId: 0 });
@@ -1370,7 +1373,7 @@ describe('an override jumps the snapshot queue', () => {
     expect(injected.join('\n')).not.toContain('"activityId":"terrain"');
   });
 
-  it('serves an override before a first paint and a background upgrade', () => {
+  vaultIt('serves an override before a first paint and a background upgrade', () => {
     pool().requestSnapshot(request('terrain', { flat: false, backgroundUpgrade: true }));
     pool().requestSnapshot(request('visible'));
     pool().requestSnapshot(request('chosen', { priority: true }));
@@ -1402,7 +1405,7 @@ describe('an override jumps the snapshot queue', () => {
     expect(injected.join('\n')).toContain('chosen');
   });
 
-  it('leaves an ordinary request where it was', () => {
+  vaultIt('leaves an ordinary request where it was', () => {
     queue(5);
     pool().requestSnapshot(request('ordinary'));
 
@@ -1514,7 +1517,7 @@ describe('a wedged pool reports what it did', () => {
     expect(reported).toEqual([]);
   });
 
-  it('names the hold reason, the queue and what led there', async () => {
+  vaultIt('names the hold reason, the queue and what led there', async () => {
     await throttlePool();
 
     await act(() => {
@@ -1538,7 +1541,7 @@ describe('a wedged pool reports what it did', () => {
     expect(reported).toHaveLength(1);
   });
 
-  it('records the feed leaving and returning, and no return at mount', async () => {
+  vaultIt('records the feed leaving and returning, and no return at mount', async () => {
     await act(async () => {
       await view.rerender(<TerrainSnapshotWebView ref={ref} suspended />);
     });
@@ -1708,7 +1711,7 @@ describe('a throttled tile server stops the pool', () => {
     expect(injected.join('\n')).toContain('a1');
   });
 
-  it('does not let the staleness watchdog fail the queue for waiting', async () => {
+  vaultIt('does not let the staleness watchdog fail the queue for waiting', async () => {
     // The watchdog gives up after 15 s of no progress, and the backoff is
     // longer than that on purpose. Waiting as instructed is not being stuck.
     failFirst({ tileErrors: 2, tileThrottles: 2 });
@@ -1758,7 +1761,7 @@ describe('where a preview spends its seconds', () => {
 
   afterEach(() => jest.useRealTimers());
 
-  it.each(['snapshot', 'snapshotError'])(
+  vaultIt.each(['snapshot', 'snapshotError'])(
     'records per-source tile counts from a %s message',
     async (type) => {
       const before = calls('snapshot.tiles.satellite');
@@ -1795,7 +1798,7 @@ describe('where a preview spends its seconds', () => {
     }
   );
 
-  it('records no tile reading when the message carries none', async () => {
+  vaultIt('records no tile reading when the message carries none', async () => {
     const before = calls('snapshot.tiles.terrain');
     await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
@@ -1804,7 +1807,7 @@ describe('where a preview spends its seconds', () => {
     expect(calls('snapshot.tiles.terrain')).toBe(before);
   });
 
-  it('times a worker booting, from its mount to mapReady', async () => {
+  vaultIt('times a worker booting, from its mount to mapReady', async () => {
     const before = calls('snapshot.boot');
     await render(<TerrainSnapshotWebView ref={ref} />);
 
@@ -1813,7 +1816,7 @@ describe('where a preview spends its seconds', () => {
     expect(calls('snapshot.boot')).toBe(before + 1);
   });
 
-  it('times the wait and the render of a request that completes', async () => {
+  vaultIt('times the wait and the render of a request that completes', async () => {
     const beforeWait = calls('snapshot.wait');
     const beforeRender = calls('snapshot.render.flat');
     await render(<TerrainSnapshotWebView ref={ref} />);
@@ -1826,7 +1829,7 @@ describe('where a preview spends its seconds', () => {
     expect(calls('snapshot.render.flat')).toBe(beforeRender + 1);
   });
 
-  it('files a drape apart from a flat render', async () => {
+  vaultIt('files a drape apart from a flat render', async () => {
     const before = calls('snapshot.render.drape');
     await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
@@ -1837,7 +1840,7 @@ describe('where a preview spends its seconds', () => {
     expect(calls('snapshot.render.drape')).toBe(before + 1);
   });
 
-  it('times nothing for a render the timeout abandoned', async () => {
+  vaultIt('times nothing for a render the timeout abandoned', async () => {
     await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
     pool().requestSnapshot(request('a0'));
@@ -1851,7 +1854,7 @@ describe('where a preview spends its seconds', () => {
     expect(calls('snapshot.render.flat')).toBe(after);
   });
 
-  it('records the page elapsed under the path it took', async () => {
+  vaultIt('records the page elapsed under the path it took', async () => {
     const before = calls('snapshot.page.fast.drape');
     const beforeStandIn = calls('snapshot.page.fast.standIn');
     await render(<TerrainSnapshotWebView ref={ref} />);
@@ -1872,7 +1875,7 @@ describe('where a preview spends its seconds', () => {
     expect(calls('snapshot.page.fast.standIn')).toBe(beforeStandIn);
   });
 
-  it('files a first-paint stand-in apart from the drape it precedes', async () => {
+  vaultIt('files a first-paint stand-in apart from the drape it precedes', async () => {
     const before = calls('snapshot.page.setStyle.standIn');
     const beforeDrape = calls('snapshot.page.setStyle.drape');
     await render(<TerrainSnapshotWebView ref={ref} />);
@@ -1893,7 +1896,7 @@ describe('where a preview spends its seconds', () => {
     expect(calls('snapshot.page.setStyle.drape')).toBe(beforeDrape);
   });
 
-  it('records the stages the page stamped inside that elapsed', async () => {
+  vaultIt('records the stages the page stamped inside that elapsed', async () => {
     const before = ['style', 'settle', 'probe', 'encode'].map((p) => calls(`snapshot.phase.${p}`));
     await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
@@ -1914,7 +1917,7 @@ describe('where a preview spends its seconds', () => {
     );
   });
 
-  it('records no stage for a render the timeout abandoned', async () => {
+  vaultIt('records no stage for a render the timeout abandoned', async () => {
     await render(<TerrainSnapshotWebView ref={ref} />);
     post({ type: 'mapReady', workerId: 0 });
     pool().requestSnapshot(request('a0'));
@@ -1977,7 +1980,7 @@ describe('which worker a render goes to', () => {
 
   afterEach(() => jest.useRealTimers());
 
-  it('sends a flat render to the worker that last drew flat', async () => {
+  vaultIt('sends a flat render to the worker that last drew flat', async () => {
     await render(<TerrainSnapshotWebView ref={ref} />);
     settleWorkers();
     expect(tookIt('flat-seed')).toBe(0);
@@ -1988,7 +1991,7 @@ describe('which worker a render goes to', () => {
     expect(tookIt('a-flat')).toBe(0);
   });
 
-  it('sends a drape to the worker that last drew a drape', async () => {
+  vaultIt('sends a drape to the worker that last drew a drape', async () => {
     await render(<TerrainSnapshotWebView ref={ref} />);
     settleWorkers();
 
@@ -2063,7 +2066,7 @@ describe('the pool timers', () => {
       post({ type: 'snapshotError', workerId: 0, activityId: 'a0', gen: 1, error: 'tiles' });
     };
 
-    it('is not started by a card mounting during the delay', () => {
+    vaultIt('is not started by a card mounting during the delay', () => {
       failOnce();
       jest.advanceTimersByTime(RETRY_DELAY_MS / 2);
 
@@ -2072,7 +2075,7 @@ describe('the pool timers', () => {
       expect(rendered()).toEqual(['a0', 'a1']);
     });
 
-    it('is not started by another render finishing during the delay', () => {
+    vaultIt('is not started by another render finishing during the delay', () => {
       post({ type: 'mapReady', workerId: 0 });
       post({ type: 'mapReady', workerId: 1 });
       pool().requestSnapshot(request('a0'));
@@ -2097,7 +2100,7 @@ describe('the pool timers', () => {
       expect(rendersOf('a0')).toBe(2);
     });
 
-    it('holds the flat fallback of an exhausted drape the same way', () => {
+    vaultIt('holds the flat fallback of an exhausted drape the same way', () => {
       post({ type: 'mapReady', workerId: 0 });
       pool().requestSnapshot(request('d0', { flat: false, _retryAttempt: 1 }));
       post({ type: 'mapReady', workerId: 1 });
@@ -2111,7 +2114,7 @@ describe('the pool timers', () => {
       expect(injected[injected.length - 1]).toMatch(/"isFlat":true/);
     });
 
-    it('starts two retries in the order their delays run out', () => {
+    vaultIt('starts two retries in the order their delays run out', () => {
       post({ type: 'mapReady', workerId: 0 });
       post({ type: 'mapReady', workerId: 1 });
       pool().requestSnapshot(request('a0'));
@@ -2141,7 +2144,7 @@ describe('the pool timers', () => {
       expect(rendersOf('s0')).toBe(2);
     });
 
-    it('is retried by a pull to refresh although a plain flat is cached', () => {
+    vaultIt('is retried by a pull to refresh although a plain flat is cached', () => {
       mockCached.add('s0_light_false');
       post({ type: 'mapReady', workerId: 0 });
       post({ type: 'mapReady', workerId: 1 });
@@ -2195,7 +2198,7 @@ describe('the pool timers', () => {
       expect(failures).toEqual([]);
     });
 
-    it('lets no retry timer render or fail anything after unmount', async () => {
+    vaultIt('lets no retry timer render or fail anything after unmount', async () => {
       watchFailures('a0');
       post({ type: 'mapReady', workerId: 0 });
       pool().requestSnapshot(request('a0'));
@@ -2208,7 +2211,7 @@ describe('the pool timers', () => {
       expect(failures).toEqual([]);
     });
 
-    it('lets no queued request fail after unmount', async () => {
+    vaultIt('lets no queued request fail after unmount', async () => {
       watchFailures('a0');
       pool().requestSnapshot(request('a0'));
 
@@ -2263,7 +2266,7 @@ describe('a pool that goes quiet', () => {
     jest.useRealTimers();
   });
 
-  it('rebuilds the map of a worker that drew, once idle', async () => {
+  vaultIt('rebuilds the map of a worker that drew, once idle', async () => {
     pool().requestSnapshot(request('a0'));
     await land(0, 'a0');
 
@@ -2275,7 +2278,7 @@ describe('a pool that goes quiet', () => {
     expect(recycles(1)).toBe(0);
   });
 
-  it('does not rebuild a map that has drawn nothing since', async () => {
+  vaultIt('does not rebuild a map that has drawn nothing since', async () => {
     pool().requestSnapshot(request('a0'));
     await land(0, 'a0');
     jest.advanceTimersByTime(RECYCLE_IDLE_MS);
@@ -2286,7 +2289,7 @@ describe('a pool that goes quiet', () => {
     expect(recycles(0)).toBe(1);
   });
 
-  it('puts the rebuild off while work keeps arriving', async () => {
+  vaultIt('puts the rebuild off while work keeps arriving', async () => {
     pool().requestSnapshot(request('a0'));
     await land(0, 'a0');
     jest.advanceTimersByTime(RECYCLE_IDLE_MS / 2);
@@ -2396,7 +2399,7 @@ describe('a pool that goes quiet while the feed is away', () => {
     expect(failures).toEqual([]);
   });
 
-  it('starts the idle countdown again when the feed returns', async () => {
+  vaultIt('starts the idle countdown again when the feed returns', async () => {
     pool().requestSnapshot(request('a0'));
     await land(0, 'a0');
     jest.advanceTimersByTime(RECYCLE_IDLE_MS / 2);
@@ -2444,7 +2447,7 @@ describe('a pool that goes quiet while the feed is away', () => {
     expect(eventsOf('workerGone')).toEqual([]);
   });
 
-  it('restarts a map rebuilt just before the feed left once the feed returns', async () => {
+  vaultIt('restarts a map rebuilt just before the feed left once the feed returns', async () => {
     watchFailures('b1');
     drawOnBoth();
     await landBoth();
@@ -2604,7 +2607,7 @@ describe('a worker page is given each style once', () => {
     jest.useRealTimers();
   });
 
-  it('gives the style with the first request and only the request after it', async () => {
+  vaultIt('gives the style with the first request and only the request after it', async () => {
     pool().requestSnapshot(request('a0'));
     expect(registrations(last())).toBe(1);
     await land('a0', 1);

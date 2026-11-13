@@ -117,7 +117,7 @@ it('scores a declared absence differently from a computed confidence', () => {
   expect(confidenceScore(computed)).not.toBe(confidenceScore(declared));
 });
 
-it('does not substitute a default for a confidence nobody computed', () => {
+vaultIt('does not substitute a default for a confidence nobody computed', () => {
   const uncomputed = {} as Insight;
   expect(confidenceScore(uncomputed)).toBe(0);
 });
@@ -161,7 +161,7 @@ it('never lets a generator that counted nothing outrank one that counted somethi
   expect(scoreInsight(counted).score).toBeGreaterThan(scoreInsight(silent).score);
 });
 
-it('reports confidence as its own term, not folded into the priority base', () => {
+vaultIt('reports confidence as its own term, not folded into the priority base', () => {
   const scored = scoreInsight({ priority: 2, category: 'hrv_trend', confidence: 1 } as Insight);
 
   expect(scored.breakdown.confidence).toBe(INSIGHTS_CONFIG.scoring.confidenceWeight);

@@ -42,15 +42,15 @@ describe('seriesSummary', () => {
     );
   });
 
-  it('says there is no data for an empty series', () => {
+  vaultIt('says there is no data for an empty series', () => {
     expect(seriesSummary(tide([]), t)).toBe('Tide height: no data.');
   });
 
-  it('says there is no data when every point is missing', () => {
+  vaultIt('says there is no data when every point is missing', () => {
     expect(seriesSummary(tide([null, null]), t)).toBe('Tide height: no data.');
   });
 
-  it('reads a single point as its day and value', () => {
+  vaultIt('reads a single point as its day and value', () => {
     expect(seriesSummary(tide([25]), t)).toBe('Tide height, 1 Mar: 25 cm.');
   });
 
@@ -66,13 +66,13 @@ describe('seriesSummary', () => {
     );
   });
 
-  it('reads a non-finite value as missing', () => {
+  vaultIt('reads a non-finite value as missing', () => {
     expect(seriesSummary(tide([Number.NaN, 8]), t)).toBe('Tide height, 2 Mar: 8 cm.');
   });
 });
 
 describe('lanesSummary', () => {
-  it('reads each lane in turn under the chart title', () => {
+  vaultIt('reads each lane in turn under the chart title', () => {
     const ebb = { ...tide([5, 7]), name: 'Ebb' };
     const flow = { ...tide([]), name: 'Flow' };
     expect(lanesSummary('Harbour', [ebb, flow], t)).toBe(
@@ -101,13 +101,13 @@ describe('curveSummary', () => {
     );
   });
 
-  it('says there is no data for an empty curve', () => {
+  vaultIt('says there is no data for an empty curve', () => {
     expect(curveSummary(kiln([]), t)).toBe('Kiln output: no data.');
   });
 });
 
 describe('partsSummary', () => {
-  it('lists each part under the chart title', () => {
+  vaultIt('lists each part under the chart title', () => {
     expect(
       partsSummary(
         'Glaze time',
@@ -120,7 +120,7 @@ describe('partsSummary', () => {
     ).toBe('Glaze time: Low 10 min, High 5 min.');
   });
 
-  it('says there is no data when there are no parts', () => {
+  vaultIt('says there is no data when there are no parts', () => {
     expect(partsSummary('Glaze time', [], t)).toBe('Glaze time: no data.');
   });
 });
@@ -138,7 +138,7 @@ describe('seriesTable', () => {
     ]);
   });
 
-  it('has no rows for an empty series', () => {
+  vaultIt('has no rows for an empty series', () => {
     expect(seriesTable('Harbour', 'Day', [tide([])]).rows).toEqual([]);
   });
 });
@@ -153,11 +153,11 @@ const kilnDays = (counts: number[], hours: (number | null)[] = []): SummaryDay[]
 const hoursOf = (v: number) => `${v} h`;
 
 describe('stripSummary', () => {
-  it('says there is no data for an empty strip', () => {
+  vaultIt('says there is no data for an empty strip', () => {
     expect(stripSummary('Firings', [], t)).toBe('Firings: no data.');
   });
 
-  it('reads a single day as active or not', () => {
+  vaultIt('reads a single day as active or not', () => {
     expect(stripSummary('Firings', kilnDays([2]), t)).toBe('Firings, 1 May: active.');
     expect(stripSummary('Firings', kilnDays([0]), t)).toBe('Firings, 1 May: no activity.');
   });
@@ -174,13 +174,13 @@ describe('stripSummary', () => {
     );
   });
 
-  it('names no break when every day is active', () => {
+  vaultIt('names no break when every day is active', () => {
     expect(stripSummary('Firings', kilnDays([1, 1, 3]), t)).toBe(
       'Firings, 1 May to 3 May: active on 3 of 3 days.'
     );
   });
 
-  it('says so when no day in the span is active', () => {
+  vaultIt('says so when no day in the span is active', () => {
     expect(stripSummary('Firings', kilnDays([0, 0, 0]), t)).toBe(
       'Firings, 1 May to 3 May: no activity.'
     );
@@ -188,11 +188,11 @@ describe('stripSummary', () => {
 });
 
 describe('heatmapSummary', () => {
-  it('says there is no data for an empty calendar', () => {
+  vaultIt('says there is no data for an empty calendar', () => {
     expect(heatmapSummary('Kiln calendar', [], hoursOf, t)).toBe('Kiln calendar: no data.');
   });
 
-  it('reads a single day with its figure', () => {
+  vaultIt('reads a single day with its figure', () => {
     expect(heatmapSummary('Kiln calendar', kilnDays([1], [3]), hoursOf, t)).toBe(
       'Kiln calendar, 1 May: active. Peak 3 h on 1 May.'
     );
@@ -221,7 +221,7 @@ describe('daysTable', () => {
     ]);
   });
 
-  it('has no rows when no day is active', () => {
+  vaultIt('has no rows when no day is active', () => {
     expect(daysTable('Firings', ['Date'], kilnDays([0, 0])).rows).toEqual([]);
   });
 });

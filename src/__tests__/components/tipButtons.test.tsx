@@ -45,24 +45,27 @@ describe.each([
     mockIsDark = isDark;
   });
 
-  it('draws no option on the primary fill, and each price clears 4.5:1 on its ground', async () => {
-    const { getAllByRole, getByText } = await render(
-      <TipButtons products={PRODUCTS} isPurchasing={false} onTip={() => {}} />
-    );
-    const buttons = getAllByRole('button');
-    expect(buttons).toHaveLength(3);
-    for (const [button, price] of buttons.map((b, i) => [b, ['$1', '$5', '$10'][i]] as const)) {
-      const ground = flattened(button.props.style).backgroundColor as string;
-      expect(ground).not.toBe(colors.actionPrimary);
-      expect(ground).not.toBe(darkColors.actionPrimary);
-      expect(ground).toBe(palette.surface);
-      const ink = flattened(getByText(price).props.style).color as string;
-      expect(contrastRatio(ink, ground)).toBeGreaterThan(AA_TEXT);
+  vaultIt(
+    'draws no option on the primary fill, and each price clears 4.5:1 on its ground',
+    async () => {
+      const { getAllByRole, getByText } = await render(
+        <TipButtons products={PRODUCTS} isPurchasing={false} onTip={() => {}} />
+      );
+      const buttons = getAllByRole('button');
+      expect(buttons).toHaveLength(3);
+      for (const [button, price] of buttons.map((b, i) => [b, ['$1', '$5', '$10'][i]] as const)) {
+        const ground = flattened(button.props.style).backgroundColor as string;
+        expect(ground).not.toBe(colors.actionPrimary);
+        expect(ground).not.toBe(darkColors.actionPrimary);
+        expect(ground).toBe(palette.surface);
+        const ink = flattened(getByText(price).props.style).color as string;
+        expect(contrastRatio(ink, ground)).toBeGreaterThan(AA_TEXT);
+      }
     }
-  });
+  );
 });
 
-it('names each option by its size and then its price, smallest first', async () => {
+vaultIt('names each option by its size and then its price, smallest first', async () => {
   const { getAllByRole } = await render(
     <TipButtons products={PRODUCTS} isPurchasing={false} onTip={() => {}} />
   );
@@ -94,7 +97,7 @@ it('refuses a second purchase while one is running', async () => {
   expect(onTip).not.toHaveBeenCalled();
 });
 
-it.each([
+vaultIt.each([
   ['full', false],
   ['small', true],
 ])('states once, in the %s form, that a tip unlocks nothing', async (_form, small) => {
@@ -104,7 +107,7 @@ it.each([
   expect(getAllByText('support.tipNote')).toHaveLength(1);
 });
 
-it('carries the donation note in every locale bundle, so none falls back to English', () => {
+vaultIt('carries the donation note in every locale bundle, so none falls back to English', () => {
   const missing = loadableLocales().filter(
     (locale) => !(loadLocale(locale) as { support?: { tipNote?: string } }).support?.tipNote?.trim()
   );

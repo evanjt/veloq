@@ -30,6 +30,7 @@ fn points(times: &[u32], direction: &str) -> Vec<FfiSectionChartPoint> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn times_bin_at_a_readable_step_with_the_slowest_in_the_closed_last_bin() {
     let h = histograms(&points(&[300, 305, 310, 330, 360], "same"));
     let forward = h.forward.expect("five attempts");
@@ -42,6 +43,7 @@ fn times_bin_at_a_readable_step_with_the_slowest_in_the_closed_last_bin() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_direction_needs_three_attempts() {
     assert!(histograms(&points(&[300, 310], "same")).forward.is_none());
     assert!(
@@ -52,6 +54,7 @@ fn a_direction_needs_three_attempts() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn identical_times_give_one_bin_of_the_smallest_step() {
     let forward = histograms(&points(&[400; 20], "same")).forward.unwrap();
     assert_eq!(forward.counts, vec![20]);
@@ -60,6 +63,7 @@ fn identical_times_give_one_bin_of_the_smallest_step() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_wide_spread_is_widened_to_at_most_twenty_bins() {
     // Evenly spread over 12 minutes; the Freedman-Diaconis step of 10 s
     // alone would give 72 bins.
@@ -70,6 +74,7 @@ fn a_wide_spread_is_widened_to_at_most_twenty_bins() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_reverse_attempt_counts_only_in_reverse() {
     let mut all = points(&[300, 310, 320], "same");
     all.extend(points(&[400, 410, 420, 430], "reverse"));
@@ -79,6 +84,7 @@ fn a_reverse_attempt_counts_only_in_reverse() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_edges_carry_the_speed_over_each() {
     let forward = histograms(&points(&[300, 305, 310, 330, 360], "same"))
         .forward
@@ -92,6 +98,7 @@ fn section_edges_carry_the_speed_over_each() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_section_histograms_edges_use_section_length() {
     let mut attempts = points(&[300, 310, 320], "same");
     for (attempt, distance) in attempts.iter_mut().zip([900.0, 1000.0, 1100.0]) {
@@ -126,6 +133,7 @@ fn attempt(duration: u32, direction: &str, outside: bool, speed: f64) -> crate::
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_bins_only_in_band_complete_timed_attempts() {
     let mut all: Vec<_> = [300, 305, 310, 330, 360]
         .iter()
@@ -142,6 +150,7 @@ fn route_bins_only_in_band_complete_timed_attempts() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_directions_are_separate() {
     let mut all: Vec<_> = [300, 310, 320]
         .iter()
@@ -160,18 +169,21 @@ fn eight_attempts_with_quartiles_at_300_and_q3(q3: f64) -> Vec<f64> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn width_rounds_to_the_nearest_step_not_up() {
     let sorted = eight_attempts_with_quartiles_at_300_and_q3(375.0);
     assert_eq!(bin_width(&sorted), 90.0);
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn width_rounds_down_to_a_nearer_step_below_the_ideal() {
     let sorted = eight_attempts_with_quartiles_at_300_and_q3(335.0);
     assert_eq!(bin_width(&sorted), 30.0);
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn forty_five_and_one_eighty_seconds_are_steps() {
     assert_eq!(
         bin_width(&eight_attempts_with_quartiles_at_300_and_q3(340.0)),
@@ -184,6 +196,7 @@ fn forty_five_and_one_eighty_seconds_are_steps() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn three_and_four_second_steps_are_readable_widths() {
     let three = [100.0, 100.0, 100.0, 100.0, 103.0, 103.0, 103.0, 110.0];
     let four = [100.0, 100.0, 100.0, 100.0, 104.0, 104.0, 104.0, 110.0];

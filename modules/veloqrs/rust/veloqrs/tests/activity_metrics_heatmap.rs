@@ -89,6 +89,7 @@ fn test_body_upsert_derives_metrics_using_the_local_id_and_power_precedence() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_provisional_body_derives_metrics_before_commit() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("provisional.db");
@@ -122,6 +123,7 @@ fn test_provisional_body_derives_metrics_before_commit() {
 /// calendar counts them, and each clone's activity row carries its name,
 /// distance and duration as a synced one does.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_cloned_activities_reach_the_heatmap_and_their_activity_rows() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("metrics.db");

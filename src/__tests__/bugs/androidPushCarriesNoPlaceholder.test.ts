@@ -27,7 +27,7 @@ describe('the placeholder the server sends', () => {
     expect(sent[0]._contentAvailable).toBe(true);
   });
 
-  it('carries no title or body to Android, which is what the OS would draw', () => {
+  vaultIt('carries no title or body to Android, which is what the OS would draw', () => {
     for (const message of messages('android')) {
       expect(message.title).toBeUndefined();
       expect(message.body).toBeUndefined();
@@ -41,7 +41,7 @@ describe('the placeholder the server sends', () => {
     expect(sent[1]._contentAvailable).toBe(true);
   });
 
-  it('keeps the silent push identical on Android to what it was', () => {
+  vaultIt('keeps the silent push identical on Android to what it was', () => {
     const silent = messages('android')[0];
     expect(silent).toEqual({
       to: TOKEN,
@@ -51,7 +51,7 @@ describe('the placeholder the server sends', () => {
     });
   });
 
-  it('sends an unknown platform the silent push alone', () => {
+  vaultIt('sends an unknown platform the silent push alone', () => {
     const sent = messages(undefined);
     expect(sent).toHaveLength(1);
     expect(sent[0]).toEqual({

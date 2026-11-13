@@ -65,7 +65,7 @@ const DEFAULTS = useDashboardPreferences.getState().summaryCard;
 afterEach(() => useDashboardPreferences.setState({ summaryCard: DEFAULTS }));
 
 describe('the way into settings', () => {
-  it('is not on the card, since Settings is a tab of its own', async () => {
+  vaultIt('is not on the card, since Settings is a tab of its own', async () => {
     const tree = await renderCard({
       fitnessData: [40, 41],
       fatigueData: [42, 43],
@@ -76,7 +76,7 @@ describe('the way into settings', () => {
 });
 
 describe('the fitness sparkline', () => {
-  it('mounts no row on a single day, as the HRV one does not', async () => {
+  vaultIt('mounts no row on a single day, as the HRV one does not', async () => {
     const one = await renderCard({ fitnessData: [40], fatigueData: [42], formData: [-2] });
     expect(one.queryByTestId('summary-card-sparkline')).toBeNull();
 
@@ -84,7 +84,7 @@ describe('the fitness sparkline', () => {
     expect(hrv.queryByTestId('summary-card-hrv-sparkline')).toBeNull();
   });
 
-  it('draws nothing of its own on a single day, whoever mounts it', async () => {
+  vaultIt('draws nothing of its own on a single day, whoever mounts it', async () => {
     const tree = await render(
       <SummaryCardSparkline fitnessData={[40]} fatigueData={[42]} formData={[-2]} width={300} />
     );
@@ -92,7 +92,7 @@ describe('the fitness sparkline', () => {
     expect(tree.UNSAFE_queryAllByType(GestureDetector)).toHaveLength(0);
   });
 
-  it('mounts on two days', async () => {
+  vaultIt('mounts on two days', async () => {
     const two = await renderCard({
       fitnessData: [40, 41],
       fatigueData: [42, 41],
@@ -106,7 +106,7 @@ describe('the fitness sparkline', () => {
 });
 
 describe('the HRV hero', () => {
-  it('prints HRV and resting HR in primary ink, keyed by their series', async () => {
+  vaultIt('prints HRV and resting HR in primary ink, keyed by their series', async () => {
     const card = await renderCard({
       heroMetric: 'hrv',
       hrvData: [55, 58, 61],
@@ -127,7 +127,7 @@ describe('the HRV hero', () => {
 describe('the form bar under the fitness sparkline', () => {
   afterEach(() => useFormPreference.setState({ formAsPercent: null }));
 
-  it.each([true, false])(
+  vaultIt.each([true, false])(
     'zones each day on its own fitness with form as percent %s',
     async (asPercent) => {
       useFormPreference.setState({ formAsPercent: asPercent });
@@ -224,7 +224,7 @@ describe('form under the percentage preference', () => {
     expect(await supportingForm(0, -8)).toBe(ABSENT);
   });
 
-  it('prints the absolute number with the preference off', async () => {
+  vaultIt('prints the absolute number with the preference off', async () => {
     useFormPreference.setState({ formAsPercent: false });
     expect(await supportingForm(40, -8)).toBe('-8');
   });

@@ -111,7 +111,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-it('keeps the named upload control busy while the recording uploads', async () => {
+vaultIt('keeps the named upload control busy while the recording uploads', async () => {
   const view = await render(<RecordingDetailScreen />);
   const upload = await screen.findByRole('button', { name: 'Upload now' });
   expect(upload).toBe(screen.getByTestId('recording-upload-button'));
@@ -128,7 +128,7 @@ it('keeps the named upload control busy while the recording uploads', async () =
   expect(screen.getByTestId('recording-upload-button')).toBeTruthy();
 });
 
-it('labels saved recording stats without input units in imperial mode', async () => {
+vaultIt('labels saved recording stats without input units in imperial mode', async () => {
   (getVisibleRecording as jest.Mock).mockResolvedValue({
     ...ENTRY,
     durationSeconds: 1930,
@@ -186,7 +186,7 @@ it.each(['pending', 'uploaded'] as const)('shares a retained %s FIT', async (upl
   expect(FileSystem.deleteAsync).toHaveBeenCalledWith(uri, { idempotent: true });
 });
 
-it('says so when the FIT cannot be shared', async () => {
+vaultIt('says so when the FIT cannot be shared', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   jest.mocked(Sharing.shareAsync).mockRejectedValueOnce(new Error('unavailable'));
   await render(<RecordingDetailScreen />);
@@ -196,7 +196,7 @@ it('says so when the FIT cannot be shared', async () => {
   expect(screen.getByText('Share FIT file')).toBeTruthy();
 });
 
-it.each([
+vaultIt.each([
   { kind: 'manual', fitPath: '' },
   { kind: 'fit', fitPath: '' },
   { kind: 'fit', fitPath: ENTRY.fitPath },
@@ -209,7 +209,7 @@ it.each([
   expect(Sharing.shareAsync).not.toHaveBeenCalled();
 });
 
-it('does not hand a removed FIT to the share sheet', async () => {
+vaultIt('does not hand a removed FIT to the share sheet', async () => {
   await render(<RecordingDetailScreen />);
   const share = await screen.findByText('Share FIT file');
   (recordingFitExists as jest.Mock).mockResolvedValue(false);
@@ -218,7 +218,7 @@ it('does not hand a removed FIT to the share sheet', async () => {
   expect(Sharing.shareAsync).not.toHaveBeenCalled();
 });
 
-it('names the selected recording before offering deletion', async () => {
+vaultIt('names the selected recording before offering deletion', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   await render(<RecordingDetailScreen />);
   await fireEvent.press(await screen.findByText('Delete'));
@@ -249,7 +249,7 @@ describe('a share that does not open', () => {
     return alert;
   }
 
-  it('says the share failed when the sheet throws', async () => {
+  vaultIt('says the share failed when the sheet throws', async () => {
     (Sharing.shareAsync as jest.Mock).mockRejectedValueOnce(new Error('no activity'));
     const alert = await share();
     await waitFor(() => expect(alert).toHaveBeenCalledTimes(1));
@@ -258,7 +258,7 @@ describe('a share that does not open', () => {
     expect(screen.getByText('Share FIT file')).toBeTruthy();
   });
 
-  it('says the device cannot share, apart from a failure', async () => {
+  vaultIt('says the device cannot share, apart from a failure', async () => {
     (Sharing.isAvailableAsync as jest.Mock).mockResolvedValue(false);
     const alert = await share();
     await waitFor(() => expect(alert).toHaveBeenCalledTimes(1));
@@ -267,7 +267,7 @@ describe('a share that does not open', () => {
     expect(Sharing.shareAsync).not.toHaveBeenCalled();
   });
 
-  it('says nothing when the athlete closes the sheet', async () => {
+  vaultIt('says nothing when the athlete closes the sheet', async () => {
     (Sharing.shareAsync as jest.Mock).mockResolvedValueOnce(undefined);
     const alert = await share();
     await waitFor(() => expect(Sharing.shareAsync).toHaveBeenCalled());

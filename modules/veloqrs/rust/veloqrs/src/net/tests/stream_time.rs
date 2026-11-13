@@ -97,6 +97,7 @@ fn the_stream_pass_stores_the_clock_it_received() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_stream_pass_leaves_a_clock_of_another_length_owed() {
     let _serial = serial_global_state();
     let _tmp = library();

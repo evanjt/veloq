@@ -49,6 +49,7 @@ fn an_activity_from_the_server_records_the_id_it_arrived_as() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_id_no_row_claims_resolves_to_nothing() {
     let (_dir, engine) = engine_with(&["i1"]);
 
@@ -58,6 +59,7 @@ fn an_id_no_row_claims_resolves_to_nothing() {
 
 /// A batch of URLs reads the column once, not once per activity.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_batch_resolver_answers_for_every_row_that_has_one() {
     let (_dir, engine) = engine_with(&["i1", "i2", "i3"]);
 
@@ -153,6 +155,7 @@ fn a_minted_key_cannot_be_mistaken_for_a_server_id() {
 /// nothing: no URL names it, and a sync that lists the server's activities
 /// must not think the device already holds it under that id.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_row_under_a_minted_key_claims_no_server_id() {
     let key = veloqrs::mint_local_activity_id();
     let (_dir, engine) = engine_with(&[key.as_str()]);
@@ -189,6 +192,7 @@ fn a_successful_upload_records_the_id_the_server_gave_it() {
 /// A retried upload that lands twice, or an answer arriving after the sync
 /// has already matched the ride, must not repoint the row.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_answer_leaves_the_first_one_standing() {
     let key = veloqrs::mint_local_activity_id();
     let (_dir, mut engine) = engine_with(&[key.as_str()]);
@@ -205,6 +209,7 @@ fn a_second_answer_leaves_the_first_one_standing() {
 /// A key nothing stored is not an error, it is a no-op: the recording could
 /// have been deleted between the upload starting and the server answering.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_answer_for_a_row_that_is_gone_writes_nothing() {
     let (_dir, mut engine) = engine_with(&["i1"]);
 
@@ -519,6 +524,7 @@ mod trackless_provisional {
     /// A rejected upload frees the id, so a manual retry under a new one
     /// lands on the same row.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rejected_upload_frees_the_trackless_rows_id() {
         let (dir, mut engine) = engine_with_trackless();
         engine.record_upload(LOCAL, "i123").unwrap();

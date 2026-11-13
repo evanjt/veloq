@@ -97,7 +97,7 @@ describe('the name on a section the athlete was moved to', () => {
     expect(tree.getByTestId('name').props.children).toBe('River Loop');
   });
 
-  it('never commits a frame carrying the previous section name', async () => {
+  vaultIt('never commits a frame carrying the previous section name', async () => {
     const tree = await render(<Probe section={sectionOf('s_a', 'The Wall')} />);
 
     // The hook's other state settles on its own schedule, so only what is
@@ -109,7 +109,7 @@ describe('the name on a section the athlete was moved to', () => {
     expect(committed).not.toContain('The Wall');
   });
 
-  it('shows no name at all for a first section that was never named', async () => {
+  vaultIt('shows no name at all for a first section that was never named', async () => {
     const tree = await render(<Probe section={sectionOf('s_a')} />);
 
     expect(tree.getByTestId('name').props.children).toBe('none');

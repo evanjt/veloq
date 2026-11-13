@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 describe('the GPS accuracy header', () => {
-  it('reads metres for a metric athlete', async () => {
+  vaultIt('reads metres for a metric athlete', async () => {
     useUnitPreference.setState({ unitPreference: 'metric' });
     await render(<GpsSignalIndicator accuracy={12} />);
 
@@ -66,7 +66,7 @@ describe('the power curve per-kilogram FTP label', () => {
     return screen.getByTestId('power-curve-ftp-label');
   }
 
-  it('names the weight in kilograms for a metric athlete', async () => {
+  vaultIt('names the weight in kilograms for a metric athlete', async () => {
     useUnitPreference.setState({ unitPreference: 'metric' });
 
     expect(await showPerKg()).toHaveTextContent(/at 80 kg$/);

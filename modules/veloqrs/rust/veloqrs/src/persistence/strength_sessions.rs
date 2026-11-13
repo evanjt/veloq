@@ -119,6 +119,12 @@ pub struct StrengthSession {
     pub exercises: Vec<SessionExercise>,
     pub groups: Vec<SessionGroup>,
     pub rests: Vec<SessionRest>,
+    /// The exercise and set a live session is at, by index. Empty for a
+    /// session that is not live and for one with no set left to do.
+    pub current_exercise: Option<u32>,
+    pub current_set: Option<u32>,
+    /// When the rest in progress began, if one is.
+    pub rest_started_at: Option<i64>,
 }
 
 /// The sets a finished session puts in the library: the done working sets, in
@@ -165,8 +171,8 @@ fn write_session(conn: &Connection, session: &StrengthSession) -> SqlResult<()> 
     conn.execute(
         "INSERT OR REPLACE INTO strength_sessions
          (id, kind, name, activity_key, intervals_id, started_at, ended_at,
-          last_used_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          last_used_at, created_at, current_exercise, current_set, rest_started_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             id,
             session.kind.as_str(),
@@ -177,6 +183,9 @@ fn write_session(conn: &Connection, session: &StrengthSession) -> SqlResult<()> 
             session.ended_at,
             session.last_used_at,
             session.created_at,
+            session.current_exercise,
+            session.current_set,
+            session.rest_started_at,
         ],
     )?;
     let mut exercise_stmt = conn.prepare(
@@ -238,7 +247,8 @@ fn read_session(conn: &Connection, id: &str) -> SqlResult<Option<StrengthSession
     let head = conn
         .query_row(
             "SELECT kind, name, activity_key, intervals_id, started_at, ended_at,
-                    last_used_at, created_at
+                    last_used_at, created_at, current_exercise, current_set,
+                    rest_started_at
              FROM strength_sessions WHERE id = ?1",
             [id],
             |row| {
@@ -251,6 +261,9 @@ fn read_session(conn: &Connection, id: &str) -> SqlResult<Option<StrengthSession
                     row.get::<_, Option<i64>>(5)?,
                     row.get::<_, Option<i64>>(6)?,
                     row.get::<_, i64>(7)?,
+                    row.get::<_, Option<u32>>(8)?,
+                    row.get::<_, Option<u32>>(9)?,
+                    row.get::<_, Option<i64>>(10)?,
                 ))
             },
         )
@@ -264,6 +277,9 @@ fn read_session(conn: &Connection, id: &str) -> SqlResult<Option<StrengthSession
         ended_at,
         last_used_at,
         created_at,
+        current_exercise,
+        current_set,
+        rest_started_at,
     )) = head
     else {
         return Ok(None);
@@ -358,15 +374,16 @@ fn read_session(conn: &Connection, id: &str) -> SqlResult<Option<StrengthSession
         exercises,
         groups,
         rests,
+        current_exercise,
+        current_set,
+        rest_started_at,
     }))
 }
 
 /// Replace the library's sets under `key` with the session's done working
 /// sets, and settle the FIT verdict so no download is owed for the key.
 fn project(engine: &PersistentEngine, key: &str, session: &StrengthSession) -> SqlResult<()> {
-    engine
-        .db
-        .execute("DELETE FROM exercise_sets WHERE activity_id = ?1", [key])?;
+    super::strength::delete_exercise_sets(&engine.db, key)?;
     let sets = projected_sets(session);
     if sets.is_empty() {
         return Ok(());
@@ -391,8 +408,7 @@ impl PersistentEngine {
                 && (session.kind != SessionKind::Finished
                     || session.activity_key.as_deref() != Some(old))
             {
-                self.db
-                    .execute("DELETE FROM exercise_sets WHERE activity_id = ?1", [old])?;
+                super::strength::delete_exercise_sets(&self.db, old)?;
             }
             if session.kind == SessionKind::Finished
                 && let Some(key) = session.activity_key.as_deref()
@@ -438,8 +454,7 @@ impl PersistentEngine {
             if let Some(old) = session.activity_key.as_deref()
                 && old != target
             {
-                self.db
-                    .execute("DELETE FROM exercise_sets WHERE activity_id = ?1", [old])?;
+                super::strength::delete_exercise_sets(&self.db, old)?;
             }
             session.activity_key = Some(target.clone());
             session.intervals_id = Some(intervals_id.to_string());
@@ -589,6 +604,9 @@ mod tests {
                 started_at: Some(1_030),
                 duration_secs: Some(30.0),
             }],
+            current_exercise: None,
+            current_set: None,
+            rest_started_at: None,
         }
     }
 

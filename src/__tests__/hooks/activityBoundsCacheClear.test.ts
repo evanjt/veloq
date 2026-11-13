@@ -119,13 +119,13 @@ describe('the bounds sync progress that no longer exists', () => {
     mockEngine.subscribe.mockReturnValue(() => {});
   });
 
-  it('is not offered by the hook', async () => {
+  vaultIt('is not offered by the hook', async () => {
     const { result } = await renderHook(() => useActivityBoundsCache());
 
     expect(result.current).not.toHaveProperty('progress');
   });
 
-  it('is not offered as a cache statistic either', async () => {
+  vaultIt('is not offered as a cache statistic either', async () => {
     const { result } = await renderHook(() => useActivityBoundsCache());
 
     expect(result.current.cacheStats).not.toHaveProperty('isSyncing');

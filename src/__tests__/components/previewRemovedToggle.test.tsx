@@ -97,7 +97,7 @@ function count(sources: Record<string, { data: GeoJSON.FeatureCollection }>, id:
 }
 
 describe('the removed catalogue toggle', () => {
-  it('draws a removed line once, through its own layer', async () => {
+  vaultIt('draws a removed line once, through its own layer', async () => {
     const sources = await renderMap();
 
     expect(count(sources, 'gone-sections')).toBe(1);

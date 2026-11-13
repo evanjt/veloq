@@ -134,6 +134,7 @@ fn the_ingest_records_an_upstream_id_only_for_a_key_upstream_can_have_minted() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_census_compares_only_rows_upstream_has_named() {
     let (_dir, engine) = library();
 
@@ -152,6 +153,7 @@ fn the_census_compares_only_rows_upstream_has_named() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_interval_body_queue_asks_for_every_named_row_and_the_demo_ones() {
     let (_dir, engine) = library();
 
@@ -164,6 +166,7 @@ fn the_interval_body_queue_asks_for_every_named_row_and_the_demo_ones() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_stream_queue_reads_only_the_activity_row_for_an_upstream_id() {
     let (_dir, engine) = library();
 
@@ -176,6 +179,7 @@ fn the_stream_queue_reads_only_the_activity_row_for_an_upstream_id() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_elevation_queue_leaves_out_demo_keys_and_unnamed_ones() {
     let (_dir, engine) = library();
 
@@ -188,6 +192,7 @@ fn the_elevation_queue_leaves_out_demo_keys_and_unnamed_ones() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_time_stream_queue_leaves_out_unnamed_keys() {
     let (dir, engine) = library();
     let c = conn(&dir);

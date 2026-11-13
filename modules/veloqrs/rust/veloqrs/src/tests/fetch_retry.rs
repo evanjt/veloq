@@ -159,6 +159,7 @@ fn a_failed_track_is_asked_for_again_inside_the_run_and_leaves_no_row() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_that_keeps_failing_stops_at_the_bound_and_the_engine_remembers() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("fetch_retry_bounded.db");
@@ -173,6 +174,7 @@ fn a_track_that_keeps_failing_stops_at_the_bound_and_the_engine_remembers() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_map_tap_is_not_held_back_by_a_backoff() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("fetch_retry_interactive.db");
@@ -263,6 +265,7 @@ fn a_track_the_allowance_holds_back_is_owed_and_not_failed() {
 /// Expected behaviour: the refusal sets the cooldown, and the track it held
 /// back is owed rather than reported missing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_intervals_icu_refuses_sets_the_cooldown_and_is_owed() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("fetch_budget_refused.db");
@@ -282,6 +285,7 @@ fn a_track_intervals_icu_refuses_sets_the_cooldown_and_is_owed() {
 /// Expected behaviour: the run ends held by the budget, naming when it lifts,
 /// which is what lets the engine start the pass again by itself then.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_the_allowance_holds_back_ends_held_until_the_window_frees() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("fetch_budget_held_end.db");

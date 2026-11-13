@@ -467,7 +467,7 @@ describe('NaN/Infinity wall', () => {
   };
 
   // Functions that accept a single number and return a string.
-  it.each([
+  vaultIt.each([
     ['formatDistance', (v: number) => formatDistance(v)],
     ['formatDistance (imperial)', (v: number) => formatDistance(v, false)],
     ['formatDuration', (v: number) => formatDuration(v)],
@@ -495,7 +495,7 @@ describe('NaN/Infinity wall', () => {
   });
 
   // speedToSecsPerKm returns a number - coerce to string for the banned-token check.
-  it('speedToSecsPerKm never leaks a banned token for any invalid input', () => {
+  vaultIt('speedToSecsPerKm never leaks a banned token for any invalid input', () => {
     INVALID_INPUTS.forEach((input) =>
       expectClean(String(speedToSecsPerKm(input as unknown as number)))
     );
@@ -503,7 +503,7 @@ describe('NaN/Infinity wall', () => {
 
   // formatTimeDelta returns string | null - null is a valid "nothing to display"
   // sentinel, so only non-null results are checked.
-  it('formatTimeDelta returns null or a clean string for any invalid input', () => {
+  vaultIt('formatTimeDelta returns null or a clean string for any invalid input', () => {
     INVALID_INPUTS.forEach((input) => {
       const result = formatTimeDelta(input as unknown as number);
       if (result !== null) expectClean(result);
@@ -566,13 +566,13 @@ describe("durations in the locale's units", () => {
     expect(formatDurationHuman(5430)).toBe('1 h 30 min');
   });
 
-  it('writes French units under fr', async () => {
+  vaultIt('writes French units under fr', async () => {
     await initialiseI18n('fr');
     expect(formatDurationHuman(5430)).toBe('1 h 30 min');
     expect(formatDurationHuman(45)).toBe('45 s');
   });
 
-  it('writes Japanese units under ja', async () => {
+  vaultIt('writes Japanese units under ja', async () => {
     await initialiseI18n('ja');
     expect(formatDurationHuman(5430)).toBe('1時間30分');
     expect(formatDurationHuman(330)).toBe('5分30秒');
@@ -580,7 +580,7 @@ describe("durations in the locale's units", () => {
     expect(formatTimeDelta(-5)).toContain('5秒');
   });
 
-  it('writes the same seconds unit in every short form', () => {
+  vaultIt('writes the same seconds unit in every short form', () => {
     expect(formatDurationDelta(12)).toBe('12 s');
     expect(formatPrGap(12)).toBe('+12 s');
   });
@@ -604,7 +604,7 @@ describe('formatDurationOrNull', () => {
 });
 
 describe('formatShortDateWithYear', () => {
-  it('carries the day, the month and a two-digit year with no apostrophe', () => {
+  vaultIt('carries the day, the month and a two-digit year with no apostrophe', () => {
     const label = formatShortDateWithYear(new Date('2024-01-15T12:00:00'));
     expect(label).toMatch(/15/);
     expect(label).toMatch(/Jan/);
@@ -612,28 +612,28 @@ describe('formatShortDateWithYear', () => {
     expect(label).not.toContain("'");
   });
 
-  it('carries the year across a boundary', () => {
+  vaultIt('carries the year across a boundary', () => {
     expect(formatShortDateWithYear(new Date('2023-12-31T12:00:00'))).toMatch(/23$/);
     expect(formatShortDateWithYear(new Date('2024-01-01T12:00:00'))).toMatch(/24$/);
   });
 });
 
 describe('formatAxisDate', () => {
-  it('reads as month and year when the axis does not need the day', () => {
+  vaultIt('reads as month and year when the axis does not need the day', () => {
     const label = formatAxisDate(new Date('2024-01-15T12:00:00'), false);
     expect(label).toMatch(/Jan/);
     expect(label).toMatch(/2024/);
     expect(label).not.toMatch(/15/);
   });
 
-  it('adds the day when the axis needs it', () => {
+  vaultIt('adds the day when the axis needs it', () => {
     const label = formatAxisDate(new Date('2024-01-15T12:00:00'), true);
     expect(label).toMatch(/15/);
     expect(label).toMatch(/Jan/);
     expect(label).not.toContain("'");
   });
 
-  it('carries the year across a boundary', () => {
+  vaultIt('carries the year across a boundary', () => {
     expect(formatAxisDate(new Date('2023-12-31T12:00:00'), false)).toContain('2023');
     expect(formatAxisDate(new Date('2024-01-01T12:00:00'), false)).toContain('2024');
   });
@@ -713,12 +713,12 @@ describe('shared date formatter', () => {
     expect(constructor).toHaveBeenCalledTimes(2);
   });
 
-  it('reads an invalid date as the platform does instead of throwing', () => {
+  vaultIt('reads an invalid date as the platform does instead of throwing', () => {
     expect(formatShortDate(new Date(NaN))).toBe('Invalid Date');
     expect(formatShortDate('not a date')).toBe('Invalid Date');
   });
 
-  it('formats in the locale it is given, whatever the app language', () => {
+  vaultIt('formats in the locale it is given, whatever the app language', () => {
     expect(formatShortDateIn('2026-03-14', 'de-DE')).toBe('14. März');
     expect(formatShortDateIn('2026-03-14', 'en-AU')).toBe('14 Mar');
   });

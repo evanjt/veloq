@@ -97,17 +97,20 @@ beforeEach(() => {
 });
 
 describe('maps settings screen title', () => {
-  it('leaves the title to the header and prints no section label of the same name', async () => {
-    seed({});
-    const view = render(screen());
-    await waitFor(() => expect(view.getByTestId('map-style-pill-explore')).toBeTruthy());
+  vaultIt(
+    'leaves the title to the header and prints no section label of the same name',
+    async () => {
+      seed({});
+      const view = render(screen());
+      await waitFor(() => expect(view.getByTestId('map-style-pill-explore')).toBeTruthy());
 
-    expect(view.queryByText('settings.maps')).toBeNull();
-  });
+      expect(view.queryByText('settings.maps')).toBeNull();
+    }
+  );
 });
 
 describe('the Explore Map style override', () => {
-  it('shows Default when the map has no style of its own', async () => {
+  vaultIt('shows Default when the map has no style of its own', async () => {
     seed({});
     const view = render(screen());
     await waitFor(() => expect(view.getByTestId('map-style-pill-explore')).toBeTruthy());
@@ -148,7 +151,7 @@ describe('the Explore Map style override', () => {
     expect(view.getByTestId('explore-style')).toHaveTextContent('light');
   });
 
-  it('keeps the override the map writes after a reload', async () => {
+  vaultIt('keeps the override the map writes after a reload', async () => {
     seed({ globalMapStyle: 'light' });
     const view = render(screen());
     await waitFor(() => expect(view.getByTestId('map-style-pill-explore')).toBeTruthy());

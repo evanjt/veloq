@@ -158,6 +158,7 @@ fn removing_an_activity_redraws_the_ground_its_sweep_took() {
 /// Expected behaviour: the running pass sees the set was marked while it
 /// worked and runs once more, and the new ride's ground is drawn.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_stored_during_a_pass_is_drawn_by_the_pass_after_it() {
     let _serial = serial_global_state();
     // A pass another test left parked is not this test's to count.
@@ -199,6 +200,7 @@ fn a_ride_stored_during_a_pass_is_drawn_by_the_pass_after_it() {
 ///
 /// Expected behaviour: the stored batch is drawn in the same session.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_batch_stored_after_the_path_was_set_is_drawn() {
     let _serial = serial_global_state();
     // A pass another test left parked is not this test's to count.
@@ -220,6 +222,7 @@ fn a_batch_stored_after_the_path_was_set_is_drawn() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_tile_pass_retries_after_the_attempt_store_is_unlocked() {
     let _serial = serial_global_state();
     settle();
@@ -258,6 +261,7 @@ fn l_ride() -> Vec<GpsPoint> {
 /// Expected behaviour: the store takes the tiles its track reaches and leaves
 /// the rest of the box as it was.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_store_sweeps_the_tiles_its_track_reaches_and_not_its_box() {
     let _serial = serial_global_state();
     let tmp = tempfile::TempDir::new().expect("tempdir");
@@ -339,6 +343,7 @@ fn a_changed_track_sweeps_the_ground_it_no_longer_covers() {
 /// Expected behaviour: while the sync holds passes back no sweep starts one,
 /// and the pass held back is asked for when the sync lets go.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sync_holds_back_the_passes_its_stores_ask_for_until_it_ends() {
     let _serial = serial_global_state();
     // A pass another test left parked is not this test's to count.
@@ -394,6 +399,7 @@ fn engine_with_two_rides(name: &str) -> (tempfile::TempDir, PathBuf) {
 /// Expected behaviour: the pass request a wipe's end makes starts a pass that
 /// clears the marker.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_catalogue_clear_leaves_a_dirty_set_that_a_pass_request_draws() {
     let _serial = serial_global_state();
     settle();
@@ -420,6 +426,7 @@ fn a_catalogue_clear_leaves_a_dirty_set_that_a_pass_request_draws() {
 ///
 /// Expected behaviour: no pass starts.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_derived_clear_with_the_heatmap_off_starts_no_pass() {
     let _serial = serial_global_state();
     settle();
@@ -442,6 +449,7 @@ fn a_derived_clear_with_the_heatmap_off_starts_no_pass() {
 /// Expected behaviour: the request starts nothing, and a clean set starts
 /// nothing either.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_redraw_request_for_a_stale_install_or_clean_set_starts_nothing() {
     let _serial = serial_global_state();
     settle();
@@ -463,6 +471,7 @@ fn a_redraw_request_for_a_stale_install_or_clean_set_starts_nothing() {
 /// from the request to the last tile, so it is the same whenever the handle is
 /// taken.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_reports_its_own_duration_however_late_its_handle_is_taken() {
     let _serial = serial_global_state();
     settle();
@@ -526,6 +535,7 @@ fn read_set(base: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
 /// leaves every tile byte-identical to a cold pass over the same library, and
 /// a deleted record makes the next pass plan in full.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_swept_pass_draws_what_a_cold_pass_draws() {
     let _serial = serial_global_state();
     settle();
@@ -574,6 +584,7 @@ fn a_swept_pass_draws_what_a_cold_pass_draws() {
 /// is drawn into, which made a pass cost the library's points times its zooms
 /// and a low-zoom tile cost every point of every ride under it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_projects_each_point_once() {
     let _serial = serial_global_state();
     settle();
@@ -647,6 +658,7 @@ fn zooms_held(base: &Path) -> std::collections::BTreeSet<u8> {
 /// Expected behaviour: the pass draws every zoom up to the on-request floor
 /// and nothing at or below it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_draws_nothing_the_map_draws_on_request() {
     let _serial = serial_global_state();
     settle();
@@ -669,6 +681,7 @@ fn a_pass_draws_nothing_the_map_draws_on_request() {
 /// follows does not draw it, and the next ask draws it again with the new
 /// ride in it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stored_track_clears_a_deep_tile_drawn_on_request_and_the_next_ask_redraws_it() {
     let _serial = serial_global_state();
     settle();
@@ -752,6 +765,7 @@ fn hide(id: &str, hidden: bool) {
 /// ride alone, by the pass at a low zoom and on request at street level, and
 /// from both again once the flight is shown.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_hidden_activity_leaves_every_tile_both_paths_draw_and_returns_when_shown() {
     let _serial = serial_global_state();
     settle();
@@ -813,6 +827,7 @@ fn a_hidden_activity_leaves_every_tile_both_paths_draw_and_returns_when_shown() 
 /// Expected behaviour: it is still hidden, in the stored choice and in the
 /// tiles the pass draws after it returns.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_hidden_activity_stays_hidden_through_a_remove_and_a_store() {
     let _serial = serial_global_state();
     settle();

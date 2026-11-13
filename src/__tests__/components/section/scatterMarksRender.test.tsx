@@ -144,26 +144,29 @@ describe('the attempt scatter marks', () => {
     );
   });
 
-  it('draws no selection ring before a point is chosen', async () => {
+  vaultIt('draws no selection ring before a point is chosen', async () => {
     const tree = await scatter();
 
     expect(tree.UNSAFE_queryAllByType(SelectionRing)).toHaveLength(0);
   });
 
-  it('sets no plot text below 12 px: the axes, the standing and the off-scale count', async () => {
-    const tree = await scatter();
+  vaultIt(
+    'sets no plot text below 12 px: the axes, the standing and the off-scale count',
+    async () => {
+      const tree = await scatter();
 
-    const texts = [
-      ...tree.getByTestId('section-scatter-chart').findAllByType(Text),
-      ...tree.getByTestId('section-scatter-off-scale').findAllByType(Text),
-    ];
-    const sized = texts.filter(
-      (node) => typeof StyleSheet.flatten(node.props.style)?.fontSize === 'number'
-    );
-    expect(sized.length).toBeGreaterThan(0);
-    const small = sized
-      .filter((node) => (StyleSheet.flatten(node.props.style)?.fontSize ?? 12) < 12)
-      .map((node) => node.props.children);
-    expect(small).toEqual([]);
-  });
+      const texts = [
+        ...tree.getByTestId('section-scatter-chart').findAllByType(Text),
+        ...tree.getByTestId('section-scatter-off-scale').findAllByType(Text),
+      ];
+      const sized = texts.filter(
+        (node) => typeof StyleSheet.flatten(node.props.style)?.fontSize === 'number'
+      );
+      expect(sized.length).toBeGreaterThan(0);
+      const small = sized
+        .filter((node) => (StyleSheet.flatten(node.props.style)?.fontSize ?? 12) < 12)
+        .map((node) => node.props.children);
+      expect(small).toEqual([]);
+    }
+  );
 });

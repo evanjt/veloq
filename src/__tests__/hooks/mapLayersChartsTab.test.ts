@@ -49,7 +49,7 @@ it('draws every section on the sections tab', async () => {
   expect(sectionIds(result.current.consolidatedPortionsGeoJSON)).toEqual(['pr', 'plain']);
 });
 
-it('keeps every section source across a scrub on the charts tab', async () => {
+vaultIt('keeps every section source across a scrub on the charts tab', async () => {
   const { result, rerender } = await renderHook(
     ({ index }: { index: number | null }) => useLayers('charts', index),
     { initialProps: { index: 0 } }

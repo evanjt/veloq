@@ -205,7 +205,7 @@ describe('useOldestActivityDate', () => {
 });
 
 describe('useInfiniteActivities', () => {
-  it('lists the cards the engine typed for the window', async () => {
+  vaultIt('lists the cards the engine typed for the window', async () => {
     engine.getFeedCards.mockReturnValue([
       feedCard({ id: 'local-ride-3', name: 'Canal path', intervalsWebId: 'i903', hasGps: true }),
     ]);
@@ -269,7 +269,7 @@ describe('useInfiniteActivities', () => {
     });
     await waitFor(() => expect(result.current.hasNextPage).toBe(false));
   });
-  it('asks again for a feed page after the athlete changes', async () => {
+  vaultIt('asks again for a feed page after the athlete changes', async () => {
     const { rerender } = await renderHook(() => useInfiniteActivities(), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
@@ -327,7 +327,7 @@ describe('useRangeActivities', () => {
     expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
   });
 
-  it('reads nothing while no range is set', async () => {
+  vaultIt('reads nothing while no range is set', async () => {
     await renderHook(() => useRangeActivities(null), { wrapper });
     expect(engine.getFeedCards).not.toHaveBeenCalled();
   });

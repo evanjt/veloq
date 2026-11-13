@@ -39,15 +39,15 @@ describe('streamTypesKey', () => {
     );
   });
 
-  it('joins on a comma in sorted order', () => {
+  vaultIt('joins on a comma in sorted order', () => {
     expect(streamTypesKey(['watts', 'time', 'latlng'])).toBe('latlng,time,watts');
   });
 
-  it('leaves the empty selection empty', () => {
+  vaultIt('leaves the empty selection empty', () => {
     expect(streamTypesKey([])).toBe('');
   });
 
-  it('does not mutate the caller array', () => {
+  vaultIt('does not mutate the caller array', () => {
     const types = ['watts', 'time'];
     streamTypesKey(types);
     expect(types).toEqual(['watts', 'time']);

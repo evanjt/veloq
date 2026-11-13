@@ -121,27 +121,32 @@ describe('map tab attribution', () => {
     expect(view.getByTestId('map-attribution-text').props.children).toBe(MOCK_CREDIT);
   });
 
-  it('draws the credit under the handle inside the sheet, so a drag moves both in one layout', async () => {
-    const view = await renderStaged(<MapScreen />);
-    jest.useFakeTimers();
-    await layOut(view, 'map-filter-lowered', 140);
-    const body = within(view.getByTestId('map-filter-sheet')).getByTestId('map-filter-sheet-body');
-    expect(within(body).getByTestId('map-filter-handle')).toBeTruthy();
-    const credit = within(body).getByTestId('map-sheet-credit');
-    expect(within(credit).getByTestId('map-attribution-text').props.children).toBe(MOCK_CREDIT);
-    expect(
-      within(view.getByTestId('map-filter-scroll')).queryByTestId('map-sheet-credit')
-    ).toBeNull();
-    // Nothing of the credit's own animates: it moves only because the sheet does.
-    expect(getAnimatedStyle(credit)).toEqual({});
+  vaultIt(
+    'draws the credit under the handle inside the sheet, so a drag moves both in one layout',
+    async () => {
+      const view = await renderStaged(<MapScreen />);
+      jest.useFakeTimers();
+      await layOut(view, 'map-filter-lowered', 140);
+      const body = within(view.getByTestId('map-filter-sheet')).getByTestId(
+        'map-filter-sheet-body'
+      );
+      expect(within(body).getByTestId('map-filter-handle')).toBeTruthy();
+      const credit = within(body).getByTestId('map-sheet-credit');
+      expect(within(credit).getByTestId('map-attribution-text').props.children).toBe(MOCK_CREDIT);
+      expect(
+        within(view.getByTestId('map-filter-scroll')).queryByTestId('map-sheet-credit')
+      ).toBeNull();
+      // Nothing of the credit's own animates: it moves only because the sheet does.
+      expect(getAnimatedStyle(credit)).toEqual({});
 
-    const lowered = sheetHeight(view);
-    await layOut(view, 'map-filter-lowered', 360);
-    act(() => advanceAnimationByTime(400));
-    expect(sheetHeight(view)).toBe(lowered + 220);
-  });
+      const lowered = sheetHeight(view);
+      await layOut(view, 'map-filter-lowered', 360);
+      act(() => advanceAnimationByTime(400));
+      expect(sheetHeight(view)).toBe(lowered + 220);
+    }
+  );
 
-  it("keeps the sheet's top corners rounded, with no credit drawn over the map", async () => {
+  vaultIt("keeps the sheet's top corners rounded, with no credit drawn over the map", async () => {
     const view = await renderStaged(<MapScreen />);
     const body = StyleSheet.flatten(view.getByTestId('map-filter-sheet-body').props.style);
     const radius = body.borderTopLeftRadius as number;
@@ -152,27 +157,30 @@ describe('map tab attribution', () => {
     expect(view.getByTestId('map-attribution-text').props.numberOfLines).toBeUndefined();
   });
 
-  it('hands the map the sheet with its credit line included, as the line is measured', async () => {
-    const view = await renderStaged(<MapScreen />);
-    jest.useFakeTimers();
-    await layOut(view, 'map-sheet-credit', 40);
-    await layOut(view, 'map-filter-lowered', 140);
-    const lowered = sheetHeight(view);
-    expect(mockMapClearance).toBe(lowered);
+  vaultIt(
+    'hands the map the sheet with its credit line included, as the line is measured',
+    async () => {
+      const view = await renderStaged(<MapScreen />);
+      jest.useFakeTimers();
+      await layOut(view, 'map-sheet-credit', 40);
+      await layOut(view, 'map-filter-lowered', 140);
+      const lowered = sheetHeight(view);
+      expect(mockMapClearance).toBe(lowered);
 
-    await layOut(view, 'map-sheet-credit', 64);
-    act(() => advanceAnimationByTime(400));
-    expect(sheetHeight(view)).toBe(lowered + 24);
-    expect(mockMapClearance).toBe(lowered + 24);
+      await layOut(view, 'map-sheet-credit', 64);
+      act(() => advanceAnimationByTime(400));
+      expect(sheetHeight(view)).toBe(lowered + 24);
+      expect(mockMapClearance).toBe(lowered + 24);
 
-    await fireEvent.press(view.getByTestId('map-filter-handle'));
-    await layOut(view, 'map-filter-raised', 320);
-    await act(async () => advanceAnimationByTime(400));
-    expect(sheetHeight(view)).toBe(lowered + 24 + 320);
-    expect(mockMapClearance).toBe(lowered + 24 + 320);
-  });
+      await fireEvent.press(view.getByTestId('map-filter-handle'));
+      await layOut(view, 'map-filter-raised', 320);
+      await act(async () => advanceAnimationByTime(400));
+      expect(sheetHeight(view)).toBe(lowered + 24 + 320);
+      expect(mockMapClearance).toBe(lowered + 24 + 320);
+    }
+  );
 
-  it('bounds the raised sheet by the space under the top controls', async () => {
+  vaultIt('bounds the raised sheet by the space under the top controls', async () => {
     const view = await renderStaged(<MapScreen />);
     await fireEvent(view.getByTestId('map-screen'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 600 } },
@@ -185,7 +193,7 @@ describe('map tab attribution', () => {
     expect(view.getByTestId('map-filter-scroll')).toBeTruthy();
   });
 
-  it('themes the bar by the app, not by the basemap drawn under it', async () => {
+  vaultIt('themes the bar by the app, not by the basemap drawn under it', async () => {
     mockBasemapDark = false;
     mockAppDark = true;
     const darkAppOnLightMap = await renderStaged(<MapScreen />);

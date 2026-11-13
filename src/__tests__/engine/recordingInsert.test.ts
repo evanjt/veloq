@@ -11,7 +11,7 @@ it('throws instead of reporting an existing recording when closed', () => {
   );
 });
 
-it('passes through inserted and existing answers when ready', () => {
+vaultIt('passes through inserted and existing answers when ready', () => {
   const insert = jest.fn().mockReturnValueOnce(true).mockReturnValueOnce(false);
   const host = {
     ready: true,

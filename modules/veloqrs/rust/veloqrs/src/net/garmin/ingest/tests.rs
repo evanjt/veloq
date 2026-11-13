@@ -104,6 +104,7 @@ fn an_outdoor_original_becomes_a_complete_activity() {
 /// Expected behaviour: the row, its track and its streams are stored, and no
 /// original is written.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stored_original_is_not_kept_on_the_phone_by_default() {
     let (dir, mut engine) = engine();
     let fit = outdoor_ride().to_fit();
@@ -165,6 +166,7 @@ fn an_indoor_original_keeps_its_streams_and_has_no_track() {
 /// reconcile it away for being absent from intervals.icu, and no queue that
 /// asks intervals.icu for bodies, streams or elevation names it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_garmin_original_is_named_by_no_upstream_queue() {
     let (dir, mut engine) = engine();
     for (id, fit) in [
@@ -299,6 +301,7 @@ fn a_row_that_fails_to_store_takes_its_file_back_out() {
 /// file wins where it does, and a figure neither has is left out of the body
 /// rather than written as zero.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_list_entry_fills_only_what_the_file_does_not_say() {
     let mut ride = outdoor_ride();
     ride.totals.timer_secs = None;
@@ -360,6 +363,7 @@ fn holds(haystack: &[u8], needle: &str) -> bool {
 /// the database, its `-wal` and `-shm`, or any file beside them, and neither is
 /// in the text of a failure.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn neither_the_key_nor_the_token_reaches_a_file_or_a_failure_text() {
     use crate::governor::{Governor, NoopPolicy};
     use crate::net::garmin::GarminClient;
@@ -458,6 +462,7 @@ fn neither_the_key_nor_the_token_reaches_a_file_or_a_failure_text() {
 /// Expected behaviour: the body is dated on the wall clock the list entry
 /// implies, and a list entry missing either time gives no offset.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_list_entry_dates_a_file_that_states_no_offset() {
     let mut ride = outdoor_ride();
     ride.utc_offset_secs = 0;
@@ -489,6 +494,7 @@ fn the_list_entry_dates_a_file_that_states_no_offset() {
 
 /// Expected behaviour: every refusal reads as a sentence that names its cause.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn each_refusal_to_store_an_original_says_why() {
     let reasons = [
         IngestError::NoFilesRoot.to_string(),
@@ -508,6 +514,7 @@ fn each_refusal_to_store_an_original_says_why() {
 /// Expected behaviour: the library answers the file's figures for the ride's
 /// sport and date, a file with none changes nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_ingested_originals_thresholds_are_answered_for_its_sport_and_date() {
     let (_dir, mut engine) = engine();
     let mut ride = outdoor_ride();
@@ -538,6 +545,7 @@ fn an_ingested_originals_thresholds_are_answered_for_its_sport_and_date() {
 /// ride's power, marked as worked out on the phone, and names the ride at the
 /// durations it reached and none beyond its length.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_ingested_ride_with_power_draws_the_librarys_power_curve() {
     let (_dir, mut engine) = engine();
     let key = garmin_source_key(GARMIN_ID);

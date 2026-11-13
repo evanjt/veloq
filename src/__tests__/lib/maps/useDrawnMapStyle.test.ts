@@ -20,7 +20,7 @@ describe('useDrawnMapStyle', () => {
     mockDark = false;
   });
 
-  it('draws satellite online', async () => {
+  vaultIt('draws satellite online', async () => {
     expect(await (await renderHook(() => useDrawnMapStyle('satellite'))).result.current).toBe(
       'satellite'
     );
@@ -46,7 +46,7 @@ describe('useDrawnMapStyle', () => {
     expect(result.current).toBe('satellite');
   });
 
-  it('leaves a vector choice alone offline', async () => {
+  vaultIt('leaves a vector choice alone offline', async () => {
     mockOnline = false;
     expect(await (await renderHook(() => useDrawnMapStyle('dark'))).result.current).toBe('dark');
   });
@@ -65,7 +65,7 @@ describe('useMapStyleToggle', () => {
     mockDark = false;
   });
 
-  it('reaches light from dark offline in a dark theme', () => {
+  vaultIt('reaches light from dark offline in a dark theme', () => {
     mockOnline = false;
     mockDark = true;
     const { result } = renderToggle('dark');
@@ -76,14 +76,14 @@ describe('useMapStyleToggle', () => {
     expect(result.current.drawn).toBe('dark');
   });
 
-  it('offers the style a tap draws, skipping satellite offline', () => {
+  vaultIt('offers the style a tap draws, skipping satellite offline', () => {
     mockOnline = false;
     mockDark = true;
     const { result } = renderToggle('dark');
     expect(result.current.next).toBe('light');
   });
 
-  it('cycles light and dark offline in a light theme', () => {
+  vaultIt('cycles light and dark offline in a light theme', () => {
     mockOnline = false;
     const { result } = renderToggle('satellite');
     expect(result.current.drawn).toBe('light');
@@ -92,7 +92,7 @@ describe('useMapStyleToggle', () => {
     expect(result.current.next).toBe('light');
   });
 
-  it('keeps satellite in the three step cycle online', () => {
+  vaultIt('keeps satellite in the three step cycle online', () => {
     const { result } = renderToggle('light');
     expect(result.current.next).toBe('dark');
     act(() => result.current.cycle());

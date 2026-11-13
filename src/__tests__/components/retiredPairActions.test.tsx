@@ -127,7 +127,7 @@ describe('the retired pair card actions', () => {
     expect(tree.queryByTestId('retired-restore')).toBeNull();
   });
 
-  it('gives every action a button role and a label naming its sections', async () => {
+  vaultIt('gives every action a button role and a label naming its sections', async () => {
     const tree = await render(<RetiredPairCard selection={RETIRED} {...actions()} />);
 
     for (const id of [

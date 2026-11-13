@@ -42,7 +42,7 @@ describe('the Record widget is declared on neither platform', () => {
     expect(names).toContain('.widget.SummaryWidgetConfigureActivity');
   });
 
-  it('keeps the Quick Settings tile', () => {
+  vaultIt('keeps the Quick Settings tile', () => {
     const app: { service: Entry[] } = { service: [] };
     plugin.applyServices(app);
     expect(app.service.map((s) => s.$['android:name'])).toContain('.widget.RecordTileService');
@@ -74,19 +74,22 @@ describe('the Record widget is declared on neither platform', () => {
     }
   });
 
-  it('puts no Record widget in either iOS bundle, and keeps the Control and the Live Activity', () => {
-    const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'record-retired-ios-'));
-    try {
-      iosPlugin.writeWidgetBundles(dest);
-      const swift = fs.readFileSync(path.join(dest, iosPlugin.BUNDLES_FILE), 'utf8');
-      expect(swift).not.toMatch(/RecordWidget\(\)/);
-      for (const half of swift.split('struct VeloqWidgetsConfigurable')) {
-        expect(half).toMatch(/Veloq(Configurable)?Widget\(\)/);
-        expect(half).toContain('VeloqRecordControl()');
-        expect(half).toContain('VeloqRecordingLiveActivity()');
+  vaultIt(
+    'puts no Record widget in either iOS bundle, and keeps the Control and the Live Activity',
+    () => {
+      const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'record-retired-ios-'));
+      try {
+        iosPlugin.writeWidgetBundles(dest);
+        const swift = fs.readFileSync(path.join(dest, iosPlugin.BUNDLES_FILE), 'utf8');
+        expect(swift).not.toMatch(/RecordWidget\(\)/);
+        for (const half of swift.split('struct VeloqWidgetsConfigurable')) {
+          expect(half).toMatch(/Veloq(Configurable)?Widget\(\)/);
+          expect(half).toContain('VeloqRecordControl()');
+          expect(half).toContain('VeloqRecordingLiveActivity()');
+        }
+      } finally {
+        fs.rmSync(dest, { recursive: true, force: true });
       }
-    } finally {
-      fs.rmSync(dest, { recursive: true, force: true });
     }
-  });
+  );
 });

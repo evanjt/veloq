@@ -38,26 +38,26 @@ const BASE: FrequentSection = {
 };
 
 describe('the sections list row marks a section whose latest outing is its record', () => {
-  it('draws the mark when the engine flags it', async () => {
+  vaultIt('draws the mark when the engine flags it', async () => {
     await render(<SectionRow section={{ ...BASE, latestIsRecord: true }} />);
 
     expect(screen.getByTestId('section-row-record-s1')).toBeTruthy();
     expect(screen.UNSAFE_getByType(Card).props.variant).toBe('flat');
   });
 
-  it('draws nothing when it does not', async () => {
+  vaultIt('draws nothing when it does not', async () => {
     await render(<SectionRow section={{ ...BASE, latestIsRecord: false }} />);
 
     expect(screen.queryByTestId('section-row-record-s1')).toBeNull();
   });
 
-  it('draws nothing when the engine said nothing, which is every older read', async () => {
+  vaultIt('draws nothing when the engine said nothing, which is every older read', async () => {
     await render(<SectionRow section={BASE} />);
 
     expect(screen.queryByTestId('section-row-record-s1')).toBeNull();
   });
 
-  it('names the mark for a screen reader, since a trophy alone says nothing', async () => {
+  vaultIt('names the mark for a screen reader, since a trophy alone says nothing', async () => {
     await render(<SectionRow section={{ ...BASE, latestIsRecord: true }} />);
 
     expect(screen.getByTestId('section-row-record-s1').props.accessibilityLabel).toBe(
@@ -112,7 +112,7 @@ describe('the flag survives the path from the engine record to the row', () => {
 });
 
 describe('the sections list row shows the engine trend verdict', () => {
-  it.each([
+  vaultIt.each([
     [1, 'sections.trendingFaster'],
     [-1, 'sections.trendingSlower'],
   ])('marks direction %i with an accessible label', async (trend, label) => {
@@ -121,7 +121,7 @@ describe('the sections list row shows the engine trend verdict', () => {
     expect(screen.getByTestId('section-row-trend-s1').props.accessibilityLabel).toBe(label);
   });
 
-  it.each([0, null, undefined])('has no mark for verdict %s', async (trend) => {
+  vaultIt.each([0, null, undefined])('has no mark for verdict %s', async (trend) => {
     await render(<SectionRow section={{ ...BASE, trend }} />);
 
     expect(screen.queryByTestId('section-row-trend-s1')).toBeNull();

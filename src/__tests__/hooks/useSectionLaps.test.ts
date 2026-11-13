@@ -53,7 +53,7 @@ describe('useSectionLaps', () => {
     expect(engine.includeSectionLap).toHaveBeenCalledWith('sec1', 'a', 40);
   });
 
-  it('does nothing without an engine', async () => {
+  vaultIt('does nothing without an engine', async () => {
     (getEngine as jest.Mock).mockReturnValue(null);
     const { result } = await renderHook(() => useSectionLaps('sec1'));
     expect(() => result.current.excludeLap('a', 10)).not.toThrow();
@@ -68,11 +68,11 @@ describe('hasPartialExclusion', () => {
     expect(hasPartialExclusion([record('b', [5], [5])])).toBe(false);
   });
 
-  it('sees a two-lap activity with one lap out', () => {
+  vaultIt('sees a two-lap activity with one lap out', () => {
     expect(hasPartialExclusion([record('a', [10, 40], [40])])).toBe(true);
   });
 
-  it('is false with no records', () => {
+  vaultIt('is false with no records', () => {
     expect(hasPartialExclusion([])).toBe(false);
   });
 });

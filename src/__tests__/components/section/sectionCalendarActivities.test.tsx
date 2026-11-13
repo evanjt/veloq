@@ -62,7 +62,7 @@ describe('the calendar year line', () => {
     expect(getByText(/3 traversals · best .* · 1 activity$/)).toBeTruthy();
   });
 
-  it('names several activities in the plural', async () => {
+  vaultIt('names several activities in the plural', async () => {
     const { getByText } = await renderCards(summary(5, 2));
 
     expect(getByText(/5 traversals · best .* · 2 activities$/)).toBeTruthy();

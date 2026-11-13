@@ -48,6 +48,7 @@ fn engine_with_sections(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentEn
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn attach_batch_inserts_junctions_without_detection() {
     let dir = TempDir::new().unwrap();
     let corpus = LifecycleCorpus::generate(&LifecycleConfig {
@@ -116,6 +117,7 @@ fn attach_batch_inserts_junctions_without_detection() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn attach_ignores_unknown_and_tiny_activities() {
     let dir = TempDir::new().unwrap();
     let corpus = LifecycleCorpus::generate(&LifecycleConfig {
@@ -236,6 +238,7 @@ fn assert_rows_are_the_detectors(per_section: &[(usize, usize, bool)], laps: usi
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn attach_inserts_a_junction_row_for_every_lap() {
     let dir = TempDir::new().unwrap();
     let corpus = lapped_corpus();
@@ -367,6 +370,7 @@ fn straight_section(engine: &mut PersistentEngine) -> (String, Vec<tracematch::G
 /// three cells beside a line never attaches to it and one a fifth of a
 /// cell beside it always does, at whatever setting the user chose.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_attach_bar_is_the_detectors_cell() {
     for proximity in [200.0, 400.0] {
         let dir = TempDir::new().unwrap();
@@ -417,6 +421,7 @@ fn the_attach_bar_is_the_detectors_cell() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_attach_cell_follows_the_proximity_setting() {
     let relaxed = tracematch::SectionConfig {
         proximity_threshold: 400.0,

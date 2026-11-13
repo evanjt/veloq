@@ -1276,6 +1276,7 @@ pub(crate) mod tests {
     /// lacks, the copy never holds more than the original it came from, and
     /// identical bytes hold nothing more.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_file_holds_more_only_when_it_has_a_field_the_other_lacks() {
         use crate::fit_synthetic::{indoor_ride, outdoor_ride};
         let full = outdoor_ride().to_fit();
@@ -1290,6 +1291,7 @@ pub(crate) mod tests {
     /// Expected behaviour: start, device, record count and fields come back
     /// from the file itself.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn inspect_reads_start_device_record_count_and_fields() {
         let mut ride = crate::fit_synthetic::outdoor_ride();
         ride.device = Some((1, 3122));
@@ -1308,6 +1310,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_file_that_does_not_decode_is_an_error_not_a_difference() {
         let full = crate::fit_synthetic::outdoor_ride().to_fit();
         assert!(super::holds_more_than(&full, b"not a fit file").is_err());
@@ -1404,6 +1407,7 @@ pub(crate) mod tests {
     ///
     /// Expected behaviour: it stays a run, with the summed distance.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn two_sessions_of_one_sport_keep_that_sport() {
         let mut file = crate::fit_synthetic::outdoor_ride();
         file.sport = 1;
@@ -1545,6 +1549,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_file_with_no_lap_message_has_no_laps() {
         assert!(ride_with(None).laps.is_empty());
     }
@@ -1574,6 +1579,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_figure_the_file_leaves_unset_is_none_not_zero() {
         let activity = ride_with(Some(crate::fit_synthetic::Thresholds {
             ftp: Some(251),
@@ -1590,11 +1596,13 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_file_with_none_of_the_messages_has_no_thresholds() {
         assert_eq!(ride_with(None).thresholds, None);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_indoor_ride_has_no_position_or_altitude_series() {
         let ride = super::super::fit_synthetic::indoor_ride();
         let activity = parse_fit_activity(&ride.to_fit()).expect("a readable FIT");
@@ -1621,6 +1629,7 @@ pub(crate) mod tests {
     /// Expected behaviour: that second is a gap in those series and the series
     /// keep their length, so the others stay aligned with `time`.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_with_no_reading_is_a_gap_and_keeps_the_series_aligned() {
         let mut ride = super::super::fit_synthetic::outdoor_ride();
         ride.samples[7].position = None;
@@ -1645,6 +1654,7 @@ pub(crate) mod tests {
     /// The decoder lays a local timestamp on the host's own clock, so the
     /// offset has to come out the same whichever zone the host is in.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_utc_offset_does_not_depend_on_the_hosts_zone() {
         use chrono::TimeZone;
         let epoch = chrono::NaiveDate::from_ymd_opt(1989, 12, 31)
@@ -1704,6 +1714,7 @@ pub(crate) mod tests {
     ///
     /// Expected behaviour: each parser returns a decode error and does not panic.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_header_larger_than_the_file_is_a_decode_error_not_a_panic() {
         for data in oversized_headers() {
             assert!(matches!(
@@ -1724,6 +1735,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn top_candidate_is_the_first_slot() {
         assert_eq!(top_candidate(&candidates(&[0, 24, 0xFFFE])), Some(0));
         assert_eq!(top_candidate(&candidates(&[23, 0xFFFE, 7])), Some(23));
@@ -1731,6 +1743,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unrecognised_set_stays_unknown_rather_than_its_last_candidate() {
         assert_eq!(
             top_candidate(&candidates(&[0xFFFE, 0xFFFE, 7])),
@@ -1739,6 +1752,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_invalid_first_slot_is_no_category() {
         assert_eq!(top_candidate(&candidates(&[0xFFFF, 0xFFFF, 0xFFFF])), None);
         assert_eq!(top_candidate(&candidates(&[0xFFFF, 7, 0xFFFF])), None);
@@ -1749,6 +1763,7 @@ pub(crate) mod tests {
     /// A field holding one slot is not an array once decoded. Asked for numeric
     /// enum values, fitparser hands its value over as `SInt64`.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_single_slot_is_its_own_candidate() {
         assert_eq!(top_candidate(&fitparser::Value::SInt64(28)), Some(28));
         assert_eq!(top_candidate(&fitparser::Value::SInt64(0)), Some(0));
@@ -1759,6 +1774,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_single_slot_outside_the_category_range_is_no_category() {
         assert_eq!(top_candidate(&fitparser::Value::SInt64(0xFFFF)), None);
         assert_eq!(top_candidate(&fitparser::Value::SInt64(-1)), None);
@@ -1826,6 +1842,7 @@ pub(crate) mod tests {
     /// Expected behaviour: the one slot is the category, the three-slot form
     /// still reads its first slot, and a rest set still reads as rest.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_set_written_with_one_category_slot_keeps_its_category() {
         // The file carries FIT's own `set_type`, where 1 is active and 0 rest.
         let file = fit_file(&[
@@ -1847,6 +1864,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_exercise_display_name() {
         assert_eq!(exercise_display_name(0, None), "Bench Press");
         assert_eq!(exercise_display_name(28, None), "Squat");
@@ -1858,6 +1876,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_muscle_groups() {
         let groups = exercise_muscle_groups(0); // Bench Press
         assert!(groups.iter().any(|g| g.slug == "chest" && g.intensity == 2));
@@ -1874,6 +1893,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_aggregate_muscle_groups() {
         let sets = vec![
             FitExerciseSet {
@@ -1913,6 +1933,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_rest_sets_excluded_from_muscle_groups() {
         let sets = vec![FitExerciseSet {
             set_order: 0,
@@ -1932,6 +1953,7 @@ pub(crate) mod tests {
     /// One flipped byte in the trailing CRC fails the whole file, and that
     /// must read as a decode failure, never as a file with no sets.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_file_with_a_broken_crc_is_a_decode_error() {
         let mut file = fit_file(&[(0, 1, 5, &[28])]);
         let last = file.len() - 1;
@@ -1944,6 +1966,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_parse_fit_strength_sets_empty_is_error() {
         match parse_fit_strength_sets(&[]) {
             Err(FitParseError::Empty) => {}
@@ -1952,6 +1975,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_parse_fit_strength_sets_malformed_is_decode_error() {
         // Non-empty but invalid FIT header should fail decoding.
         match parse_fit_strength_sets(&[0u8; 16]) {
@@ -1967,6 +1991,7 @@ pub(crate) mod tests {
     /// the rest fell, with its stroke, stroke count and times as written, and
     /// the session's pool length in metres.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pool_swim_reads_back_its_lengths_and_pool_length() {
         let swim = parse_fit_pool_swim(&super::pool_swim_fit()).expect("a readable FIT");
         assert_eq!(swim.pool_length_m, Some(25.0));
@@ -2003,6 +2028,7 @@ pub(crate) mod tests {
     /// A ride has no lengths and no pool, and that is a valid reading rather
     /// than an error, which is also how an open-water swim reads.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ride_reads_as_no_lengths_and_no_pool() {
         let swim = parse_fit_pool_swim(&super::recorded_ride_fit()).expect("a readable FIT");
         assert!(swim.lengths.is_empty());
@@ -2010,6 +2036,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pool_swim_from_empty_bytes_is_empty() {
         assert!(matches!(
             parse_fit_pool_swim(&[]),
@@ -2018,6 +2045,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_truncated_pool_swim_is_a_decode_error_not_fewer_lengths() {
         let data = super::pool_swim_fit();
         for cut in [data.len() - 1, data.len() / 2, 20] {
@@ -2037,6 +2065,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn swim_strokes_are_named_by_the_profile_number() {
         let names: Vec<String> = (0..=6).map(swim_stroke_display_name).collect();
         assert_eq!(

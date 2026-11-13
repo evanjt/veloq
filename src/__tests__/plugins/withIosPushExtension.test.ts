@@ -158,7 +158,7 @@ describe('the settings that decide whether it builds', () => {
     expect(Object.keys(settings).filter((key) => key.includes('[sdk='))).toEqual([]);
   });
 
-  it('carries its own REACT_NATIVE_PATH, which the ccache wrapper resolves through', () => {
+  vaultIt('carries its own REACT_NATIVE_PATH, which the ccache wrapper resolves through', () => {
     const settings: Record<string, string> = {};
 
     applyPushExtensionBuildSettings(settings, options);
@@ -166,7 +166,7 @@ describe('the settings that decide whether it builds', () => {
     expect(settings.REACT_NATIVE_PATH).toBe('"$(SRCROOT)/../node_modules/react-native"');
   });
 
-  it('names its own Info.plist and entitlements rather than generating either', () => {
+  vaultIt('names its own Info.plist and entitlements rather than generating either', () => {
     const settings: Record<string, string> = {};
 
     applyPushExtensionBuildSettings(settings, options);
@@ -176,7 +176,7 @@ describe('the settings that decide whether it builds', () => {
     expect(settings.GENERATE_INFOPLIST_FILE).toBe('NO');
   });
 
-  it('is written onto the target the plugin creates', () => {
+  vaultIt('is written onto the target the plugin creates', () => {
     const proj = openFixture();
 
     configurePushExtensionProject(proj, options);
@@ -268,7 +268,7 @@ describe('the phase that builds the Rust library', () => {
 });
 
 describe('the tracked source tree', () => {
-  it('holds the principal class the Info.plist names, and the plugin finds it', () => {
+  vaultIt('holds the principal class the Info.plist names, and the plugin finds it', () => {
     expect(pushSwiftFiles(projectRoot)).toContain('NotificationService.swift');
   });
 
@@ -322,7 +322,7 @@ describe('the fallback the extension posts when the engine cannot answer', () =>
     strings: Record<string, { localizations: Record<string, { stringUnit: { value: string } }> }>;
   };
 
-  it('carries the recorded title in every language the app is translated into', () => {
+  vaultIt('carries the recorded title in every language the app is translated into', () => {
     const iosRoot = tempDir('veloq-push-ios-');
 
     writePushExtensionFiles(projectRoot, iosRoot);
@@ -345,7 +345,7 @@ describe('the fallback the extension posts when the engine cannot answer', () =>
     expect(wrong).toEqual([]);
   });
 
-  it('still copies the tracked sources beside the catalogue', () => {
+  vaultIt('still copies the tracked sources beside the catalogue', () => {
     const iosRoot = tempDir('veloq-push-ios-');
 
     writePushExtensionFiles(projectRoot, iosRoot);
@@ -376,7 +376,7 @@ describe('the fallback the extension posts when the engine cannot answer', () =>
     expect(resources(proj)).toEqual(['Localizable.xcstrings text.json.xcstrings']);
   });
 
-  it('lists every catalogue language as a region the project knows', () => {
+  vaultIt('lists every catalogue language as a region the project knows', () => {
     const proj = openFixture();
 
     configurePushExtensionProject(proj, options);

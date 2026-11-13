@@ -311,21 +311,21 @@ function makeApp(overrides: Partial<App>): App {
 const SETUP = join(HELPERS, 'setup-demo-mode.yaml');
 
 describe('the shared demo setup', () => {
-  it('reaches home with nothing to discard when no ride is stranded', () => {
+  vaultIt('reaches home with nothing to discard when no ride is stranded', () => {
     const app = makeApp({});
     run(app, SETUP);
     expect(app.screen).toBe('home');
     expect(app.discarded).toBe(0);
   });
 
-  it('enters demo mode from the login screen', () => {
+  vaultIt('enters demo mode from the login screen', () => {
     const app = makeApp({ demo: false, signedIn: false });
     run(app, SETUP);
     expect(app.screen).toBe('home');
     expect(app.demo).toBe(true);
   });
 
-  it.each(['Android', 'iOS'] as const)(
+  vaultIt.each(['Android', 'iOS'] as const)(
     'enters demo mode on %s when the largest text pushes the demo button below the fold',
     (platform) => {
       const app = makeApp({ platform, demo: false, signedIn: false, tall: false });
@@ -335,7 +335,7 @@ describe('the shared demo setup', () => {
     }
   );
 
-  it('discards a stranded demo ride and reaches home on a tall screen', () => {
+  vaultIt('discards a stranded demo ride and reaches home on a tall screen', () => {
     const app = makeApp({ strandedRide: true });
     run(app, SETUP);
     expect(app.screen).toBe('home');
@@ -343,14 +343,14 @@ describe('the shared demo setup', () => {
     expect(app.discarded).toBe(1);
   });
 
-  it('discards a stranded demo ride whose discard button is below the fold', () => {
+  vaultIt('discards a stranded demo ride whose discard button is below the fold', () => {
     const app = makeApp({ strandedRide: true, tall: false });
     run(app, SETUP);
     expect(app.screen).toBe('home');
     expect(app.strandedRide).toBe(false);
   });
 
-  it('runs again cleanly after it has cleared a ride', () => {
+  vaultIt('runs again cleanly after it has cleared a ride', () => {
     const app = makeApp({ strandedRide: true, tall: false });
     run(app, SETUP);
     run(app, SETUP);
@@ -367,7 +367,7 @@ describe('the shared demo setup', () => {
 });
 
 describe.each(['Android', 'iOS'] as const)('the review discard helper on %s', (platform) => {
-  it('scrolls to a discard button below the fold before tapping it', () => {
+  vaultIt('scrolls to a discard button below the fold before tapping it', () => {
     const app = makeApp({ platform, strandedRide: true, tall: false });
     launch(app);
     run(app, join(HELPERS, 'confirm-review-discard.yaml'));
@@ -375,7 +375,7 @@ describe.each(['Android', 'iOS'] as const)('the review discard helper on %s', (p
     expect(app.screen).toBe('home');
   });
 
-  it('reaches a discard button under a map hero, which a centre swipe only pans', () => {
+  vaultIt('reaches a discard button under a map hero, which a centre swipe only pans', () => {
     const app = makeApp({ platform, strandedRide: true, mapHero: true });
     launch(app);
     run(app, join(HELPERS, 'confirm-review-discard.yaml'));
@@ -383,7 +383,7 @@ describe.each(['Android', 'iOS'] as const)('the review discard helper on %s', (p
     expect(app.screen).toBe('home');
   });
 
-  it("takes the alert's accept and not the screen's own Discard behind it", () => {
+  vaultIt("takes the alert's accept and not the screen's own Discard behind it", () => {
     const app = makeApp({ platform, strandedRide: true });
     launch(app);
     run(app, join(HELPERS, 'confirm-review-discard.yaml'));
@@ -393,7 +393,7 @@ describe.each(['Android', 'iOS'] as const)('the review discard helper on %s', (p
 });
 
 describe('the shared demo setup on iOS', () => {
-  it('discards a stranded demo ride and reaches home', () => {
+  vaultIt('discards a stranded demo ride and reaches home', () => {
     const app = makeApp({ platform: 'iOS', strandedRide: true, tall: false });
     run(app, SETUP);
     expect(app.screen).toBe('home');
@@ -402,7 +402,7 @@ describe('the shared demo setup on iOS', () => {
 });
 
 describe('the review discard helper on iOS in another language', () => {
-  it('discards in a language the helper holds no text for', () => {
+  vaultIt('discards in a language the helper holds no text for', () => {
     const app = makeApp({ platform: 'iOS', strandedRide: true, language: 'de' });
     launch(app);
     run(app, join(HELPERS, 'confirm-review-discard.yaml'));

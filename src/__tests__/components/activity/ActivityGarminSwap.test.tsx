@@ -74,7 +74,7 @@ beforeEach(() => {
 });
 
 describe('ActivityGarminSwap', () => {
-  it.each([
+  vaultIt.each([
     ['the Garmin entry is off', { experimentalFeatures: { garminUpdate: false } }],
     ['the Garmin entry was never chosen', { experimentalFeatures: {} }],
   ])('renders nothing and asks the engine nothing when %s', async (_name, change) => {
@@ -86,14 +86,14 @@ describe('ActivityGarminSwap', () => {
     expect(state).not.toHaveBeenCalled();
   });
 
-  it('renders nothing while the engine offers nothing', async () => {
+  vaultIt('renders nothing while the engine offers nothing', async () => {
     state.mockResolvedValue(SwapState.Hidden);
     render(<ActivityGarminSwap activityId="i1" />);
     await waitFor(() => expect(state).toHaveBeenCalledWith('i1'));
     expect(screen.queryByTestId('activity-i1-garmin-swap')).toBeNull();
   });
 
-  it('renders nothing when the engine read fails', async () => {
+  vaultIt('renders nothing when the engine read fails', async () => {
     state.mockRejectedValue(new Error('closed'));
     render(<ActivityGarminSwap activityId="i1" />);
     await waitFor(() => expect(state).toHaveBeenCalled());
@@ -135,7 +135,7 @@ describe('ActivityGarminSwap', () => {
     expect(screen.queryByTestId('activity-i1-garmin-check-button')).toBeNull();
   });
 
-  it('says Garmin holds nothing more when the check finds the files alike', async () => {
+  vaultIt('says Garmin holds nothing more when the check finds the files alike', async () => {
     state.mockResolvedValue(SwapState.Checkable);
     check.mockResolvedValue(SwapState.Unchanged);
     render(<ActivityGarminSwap activityId="i1" />);
@@ -157,7 +157,7 @@ describe('ActivityGarminSwap', () => {
     expect(screen.getByTestId('activity-i1-garmin-check-button')).toBeTruthy();
   });
 
-  it('tells the athlete the confirmation marks the intervals as edited', async () => {
+  vaultIt('tells the athlete the confirmation marks the intervals as edited', async () => {
     state.mockResolvedValue(SwapState.Available);
     render(<ActivityGarminSwap activityId="i1" />);
     fireEvent.press(await screen.findByTestId('activity-i1-garmin-swap-button'));
@@ -268,36 +268,42 @@ describe('the match a check found', () => {
     missingFields: ['record.position_lat', 'record.altitude'],
   };
 
-  it('shows Match found, the Garmin id, both files and the fields Garmin holds alone', async () => {
-    state.mockResolvedValue(SwapState.Available);
-    match.mockResolvedValue(found);
-    render(<ActivityGarminSwap activityId="i1" />);
+  vaultIt(
+    'shows Match found, the Garmin id, both files and the fields Garmin holds alone',
+    async () => {
+      state.mockResolvedValue(SwapState.Available);
+      match.mockResolvedValue(found);
+      render(<ActivityGarminSwap activityId="i1" />);
 
-    expect(await screen.findByText('activity.garminSwap.matchFound')).toBeTruthy();
-    expect(match).toHaveBeenCalledWith('i1');
-    expect(screen.getByTestId('activity-i1-garmin-match-id')).toHaveTextContent(
-      'activity.garminSwap.matchId'
-    );
-    expect(screen.getByText('123.5 KB')).toBeTruthy();
-    expect(screen.getByText('98.0 KB')).toBeTruthy();
-    expect(screen.getByText('Garmin 3122')).toBeTruthy();
-    expect(screen.getAllByText('3,600').length).toBe(2);
-    expect(screen.getByText('activity.garminSwap.compare.intervals')).toBeTruthy();
-    expect(screen.getByTestId('activity-i1-garmin-match-fields')).toHaveTextContent(
-      'activity.garminSwap.compare.missing'
-    );
-  });
+      expect(await screen.findByText('activity.garminSwap.matchFound')).toBeTruthy();
+      expect(match).toHaveBeenCalledWith('i1');
+      expect(screen.getByTestId('activity-i1-garmin-match-id')).toHaveTextContent(
+        'activity.garminSwap.matchId'
+      );
+      expect(screen.getByText('123.5 KB')).toBeTruthy();
+      expect(screen.getByText('98.0 KB')).toBeTruthy();
+      expect(screen.getByText('Garmin 3122')).toBeTruthy();
+      expect(screen.getAllByText('3,600').length).toBe(2);
+      expect(screen.getByText('activity.garminSwap.compare.intervals')).toBeTruthy();
+      expect(screen.getByTestId('activity-i1-garmin-match-fields')).toHaveTextContent(
+        'activity.garminSwap.compare.missing'
+      );
+    }
+  );
 
-  it('keeps the match beside Undo and heads the second column as the earlier file', async () => {
-    state.mockResolvedValue(SwapState.Undoable);
-    match.mockResolvedValue(found);
-    render(<ActivityGarminSwap activityId="i1" />);
+  vaultIt(
+    'keeps the match beside Undo and heads the second column as the earlier file',
+    async () => {
+      state.mockResolvedValue(SwapState.Undoable);
+      match.mockResolvedValue(found);
+      render(<ActivityGarminSwap activityId="i1" />);
 
-    expect(await screen.findByText('activity.garminSwap.compare.earlier')).toBeTruthy();
-    expect(screen.getByTestId('activity-i1-garmin-swap-undo')).toBeTruthy();
-  });
+      expect(await screen.findByText('activity.garminSwap.compare.earlier')).toBeTruthy();
+      expect(screen.getByTestId('activity-i1-garmin-swap-undo')).toBeTruthy();
+    }
+  );
 
-  it('shows no match before a check has been made or when the engine has none', async () => {
+  vaultIt('shows no match before a check has been made or when the engine has none', async () => {
     state.mockResolvedValue(SwapState.Checkable);
     match.mockResolvedValue(found);
     render(<ActivityGarminSwap activityId="i1" />);
@@ -306,7 +312,7 @@ describe('the match a check found', () => {
     expect(match).not.toHaveBeenCalled();
   });
 
-  it('says no field is missing when the files hold the same fields', async () => {
+  vaultIt('says no field is missing when the files hold the same fields', async () => {
     state.mockResolvedValue(SwapState.Unchanged);
     match.mockResolvedValue({ ...found, missingFields: [] });
     render(<ActivityGarminSwap activityId="i1" />);

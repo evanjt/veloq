@@ -63,6 +63,12 @@ mod migration_drop_geocoding;
 #[path = "../migration_climb_bests_spike_remeasure.rs"]
 mod migration_climb_bests_spike_remeasure;
 
+#[path = "../migration_strength_signatures.rs"]
+mod migration_strength_signatures;
+
+#[path = "../migration_strength_live_position.rs"]
+mod migration_strength_live_position;
+
 #[path = "../migration_strength_sessions.rs"]
 mod migration_strength_sessions;
 

@@ -107,17 +107,20 @@ describe('useStreamBackfill', () => {
     expect(result.current.remaining).toBe(245);
   });
 
-  it('carries the owed queue size with the count, and withholds both while running', async () => {
-    const { result } = await renderHook(() => useStreamBackfill());
-    expect(result.current.remainingBytes).toBe(5_145_000);
+  vaultIt(
+    'carries the owed queue size with the count, and withholds both while running',
+    async () => {
+      const { result } = await renderHook(() => useStreamBackfill());
+      expect(result.current.remainingBytes).toBe(5_145_000);
 
-    await announce('streamBackfillPhase', 'fetching');
+      await announce('streamBackfillPhase', 'fetching');
 
-    expect(result.current.remaining).toBeNull();
-    expect(result.current.remainingBytes).toBeNull();
-  });
+      expect(result.current.remaining).toBeNull();
+      expect(result.current.remainingBytes).toBeNull();
+    }
+  );
 
-  it('returns to rest on a terminal phase', async () => {
+  vaultIt('returns to rest on a terminal phase', async () => {
     const { result } = await renderHook(() => useStreamBackfill());
     await announce('streamBackfillPhase', 'fetching');
 
@@ -128,7 +131,7 @@ describe('useStreamBackfill', () => {
     expect(result.current.remaining).toBe(245);
   });
 
-  it('shows a held download when the engine announces awaiting consent', async () => {
+  vaultIt('shows a held download when the engine announces awaiting consent', async () => {
     const { result } = await renderHook(() => useStreamBackfill());
 
     await announce('streamBackfillPhase', 'awaiting_consent');
@@ -136,7 +139,7 @@ describe('useStreamBackfill', () => {
     expect(result.current.awaitingConsent).toBe(true);
   });
 
-  it('does not react to the elevation pass phase', async () => {
+  vaultIt('does not react to the elevation pass phase', async () => {
     const { result } = await renderHook(() => useStreamBackfill());
     phase = 'fetching';
     await act(() => {
@@ -176,7 +179,7 @@ describe('useStreamBackfill', () => {
       expect(result.current.refusal).toBe(StartOutcome.Failed);
     });
 
-    it('clears the refusal when the next tap starts', async () => {
+    vaultIt('clears the refusal when the next tap starts', async () => {
       let next = StartOutcome.Offline;
       withConsent(() => next);
       const { result } = await renderHook(() => useStreamBackfill());
@@ -189,7 +192,7 @@ describe('useStreamBackfill', () => {
       expect(result.current.refusal).toBeNull();
     });
 
-    it('clears the refusal when a pass begins', async () => {
+    vaultIt('clears the refusal when a pass begins', async () => {
       withConsent(() => StartOutcome.Busy);
       const { result } = await renderHook(() => useStreamBackfill());
       await act(() => result.current.start());

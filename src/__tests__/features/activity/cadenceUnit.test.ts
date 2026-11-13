@@ -34,18 +34,18 @@ describe('the cadence unit', () => {
     await initialiseI18n('en-GB');
   });
 
-  it('labels the chip in the unit the engine gave the series in', () => {
+  vaultIt('labels the chip in the unit the engine gave the series in', () => {
     expect(chartConfigsFor('Run', CadenceUnit.StepsPerMinute).cadence.unit).toBe('spm');
     expect(chartConfigsFor('Walk', CadenceUnit.StepsPerMinute).cadence.unit).toBe('spm');
     expect(chartConfigsFor('Ride', CadenceUnit.Rpm).cadence.unit).toBe('rpm');
     expect(chartConfigsFor('Swim', CadenceUnit.StrokesPerMinute).cadence.unit).toBe('spm');
   });
 
-  it('gives the chip no unit before the engine has named one', () => {
+  vaultIt('gives the chip no unit before the engine has named one', () => {
     expect(chartConfigsFor('Run').cadence.unit).toBeUndefined();
   });
 
-  it('keeps the swim pace and stop speed when the cadence unit changes', () => {
+  vaultIt('keeps the swim pace and stop speed when the cadence unit changes', () => {
     const swim = chartConfigsFor('Swim', CadenceUnit.StrokesPerMinute);
     expect(swim.pace).toEqual(chartConfigsFor('Swim').pace);
     expect(chartConfigsFor('Run', CadenceUnit.StepsPerMinute)).toBe(

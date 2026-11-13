@@ -26,14 +26,14 @@ const loaded: DetailPeekInput = {
 };
 
 describe('a route card at Peek', () => {
-  it('shows the distance, the visits and the best time, in that order', () => {
+  vaultIt('shows the distance, the visits and the best time, in that order', () => {
     const stats = detailPeekStats(loaded, t);
 
     expect(stats.map((stat) => stat.text)).toEqual(['12.4 km', '9 activities', 'PR 30:45']);
     expect(stats[0]?.label).toBe('Distance: 12.4 km');
   });
 
-  it('shows only the distance until the attempts are read', () => {
+  vaultIt('shows only the distance until the attempts are read', () => {
     const stats = detailPeekStats(
       { ...loaded, scope: { ...loaded.scope, count: undefined }, bestTimeSecs: undefined },
       t
@@ -42,34 +42,37 @@ describe('a route card at Peek', () => {
     expect(stats.map((stat) => stat.text)).toEqual(['12.4 km']);
   });
 
-  it('gives the first and last attempt as one range', () => {
+  vaultIt('gives the first and last attempt as one range', () => {
     expect(detailDateLine(loaded, t)).toBe('3 Mar 2024 – 2 Oct 2026');
   });
 
-  it('keeps three figures with no elevation', () => {
+  vaultIt('keeps three figures with no elevation', () => {
     expect(detailPeekStats(loaded, t)).toHaveLength(3);
   });
 
-  it('leads the date line with the sport and the range when either narrows the attempts', () => {
-    const line = detailDateLine(
-      { ...loaded, scope: { count: 3, sport: 'Ride', sportsOffered: 2, range: '3m' } },
-      t
-    );
+  vaultIt(
+    'leads the date line with the sport and the range when either narrows the attempts',
+    () => {
+      const line = detailDateLine(
+        { ...loaded, scope: { count: 3, sport: 'Ride', sportsOffered: 2, range: '3m' } },
+        t
+      );
 
-    expect(line).toBe('Ride · 3 months · 3 Mar 2024 – 2 Oct 2026');
-  });
+      expect(line).toBe('Ride · 3 months · 3 Mar 2024 – 2 Oct 2026');
+    }
+  );
 
-  it('names the one date it has when the first is missing', () => {
+  vaultIt('names the one date it has when the first is missing', () => {
     expect(detailDateLine({ ...loaded, firstDate: null }, t)).toBe('2 Oct 2026');
   });
 
-  it('is empty with no attempt read and nothing narrowing them', () => {
+  vaultIt('is empty with no attempt read and nothing narrowing them', () => {
     expect(detailDateLine({ ...loaded, firstDate: null, lastDate: null }, t)).toBe('');
   });
 });
 
 describe('a section card at Peek', () => {
-  it('counts traversals in its own word between the distance and the best time', () => {
+  vaultIt('counts traversals in its own word between the distance and the best time', () => {
     const stats = detailPeekStats({ ...loaded, kind: 'section', distanceMeters: 1_200 }, t);
 
     expect(stats.map((stat) => stat.text)).toEqual(['1.2 km', '9 traversals', 'PR 30:45']);
@@ -97,7 +100,7 @@ describe('a section card at Peek', () => {
     expect(stats.map((stat) => stat.text)).toEqual(['1.4 km', '37 m', '26 traversals', 'PR 6:49']);
   });
 
-  it('reads the sport, the range and the span on one line', () => {
+  vaultIt('reads the sport, the range and the span on one line', () => {
     expect(detailDateLine(section, t)).toBe('Run · 6 months · 22 July – 3 Oct 2026');
   });
 });

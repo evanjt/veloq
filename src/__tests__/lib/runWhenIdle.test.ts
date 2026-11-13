@@ -8,7 +8,7 @@ describe('runWhenIdle', () => {
   });
   afterEach(() => idle.restore());
 
-  it('holds the task until the thread is idle', () => {
+  vaultIt('holds the task until the thread is idle', () => {
     const task = jest.fn();
     runWhenIdle(task);
     expect(task).not.toHaveBeenCalled();
@@ -25,7 +25,7 @@ describe('runWhenIdle', () => {
     expect(idle.pending()).toBe(0);
   });
 
-  it('is safe to cancel twice and after the run', () => {
+  vaultIt('is safe to cancel twice and after the run', () => {
     const task = jest.fn();
     const cancel = runWhenIdle(task);
     idle.flush();
@@ -34,7 +34,7 @@ describe('runWhenIdle', () => {
     expect(task).toHaveBeenCalledTimes(1);
   });
 
-  it('asks for a deadline so a busy thread cannot hold the work back for ever', () => {
+  vaultIt('asks for a deadline so a busy thread cannot hold the work back for ever', () => {
     const request = jest.spyOn(globalThis as never, 'requestIdleCallback' as never);
     runWhenIdle(() => {});
     expect((request.mock.calls[0] as unknown[])[1]).toEqual({ timeout: IDLE_DEADLINE_MS });

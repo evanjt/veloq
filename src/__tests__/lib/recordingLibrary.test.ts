@@ -351,7 +351,7 @@ describe('saveRecording', () => {
     expect(rows.get(entry.id)?.notes).toBeUndefined();
   });
 
-  it('stamps the athlete who recorded it', async () => {
+  vaultIt('stamps the athlete who recorded it', async () => {
     const entry = await saveOne();
     expect(entry.athleteId).toBe('i296629');
     expect(rows.get(entry.id)?.athleteId).toBe('i296629');
@@ -384,7 +384,7 @@ describe('saveRecording', () => {
     expect(entry.athleteId).toBe('i296629');
   });
 
-  it('respects localOnly status for auto-upload off', async () => {
+  vaultIt('respects localOnly status for auto-upload off', async () => {
     const entry = await saveOne({ uploadStatus: 'localOnly' });
     expect(entry.uploadStatus).toBe('localOnly');
     expect(rows.get(entry.id)?.uploadStatus).toBe('localOnly');
@@ -415,7 +415,7 @@ describe('holdsRecordingStartingIn', () => {
     expect(holdsRecordingStartingIn(START, START + 3_600_000)).toBe(false);
   });
 
-  it('finds nothing in an empty library', () => {
+  vaultIt('finds nothing in an empty library', () => {
     expect(holdsRecordingStartingIn(START, START + 3_600_000)).toBe(false);
   });
 });
@@ -573,7 +573,7 @@ describe('legacy migration', () => {
     expect(mockStorage.has('veloq-upload-queue')).toBe(false);
   });
 
-  it('is a no-op without a legacy queue', async () => {
+  vaultIt('is a no-op without a legacy queue', async () => {
     await migrateLegacyUploadQueue();
     expect(await listRecordings()).toHaveLength(0);
   });

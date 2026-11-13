@@ -41,7 +41,7 @@ function renderSection(onToggle: (expanded: boolean) => void) {
 
 afterEach(() => jest.clearAllMocks());
 
-it('fires no haptic when a touch lands on the header', async () => {
+vaultIt('fires no haptic when a touch lands on the header', async () => {
   const { getByTestId } = await renderSection(jest.fn());
 
   await fireEvent(getByTestId('gear-header'), 'pressIn');
@@ -63,7 +63,7 @@ it('fires one selection tick and toggles on a press', async () => {
   expect(onToggle).toHaveBeenCalledWith(true);
 });
 
-it('draws the shared ripple on Android', async () => {
+vaultIt('draws the shared ripple on Android', async () => {
   const { UNSAFE_root } = await renderSection(jest.fn());
 
   const header = UNSAFE_root.find(

@@ -130,7 +130,7 @@ describe('detection settings screen', () => {
     mockGetSectionConfig.mockClear();
   });
 
-  it('offers no sensitivity sliders', async () => {
+  vaultIt('offers no sensitivity sliders', async () => {
     const tree = await render(<DetectionSettingsScreen />);
     expect(
       tree.UNSAFE_queryAllByType(require('@react-native-community/slider').default)
@@ -139,7 +139,7 @@ describe('detection settings screen', () => {
     expect(tree.queryByTestId('detection-advanced-panel')).toBeNull();
   });
 
-  it('offers no sensitivity presets', async () => {
+  vaultIt('offers no sensitivity presets', async () => {
     const tree = await render(<DetectionSettingsScreen />);
     expect(tree.queryByText('settings.detectionSensitivity')).toBeNull();
     expect(tree.queryByText('settings.balanced')).toBeNull();
@@ -151,7 +151,7 @@ describe('detection settings screen', () => {
     expect(mockSetSectionConfig).not.toHaveBeenCalled();
   });
 
-  it('keeps the rescan button and the route into the preview', async () => {
+  vaultIt('keeps the rescan button and the route into the preview', async () => {
     const tree = await render(<DetectionSettingsScreen />);
     expect(tree.getByTestId('detection-rescan-button')).toBeTruthy();
     expect(tree.getByTestId('detection-preview-row')).toBeTruthy();
@@ -165,18 +165,21 @@ describe('detection settings screen', () => {
       (router.push as jest.Mock).mockClear();
     });
 
-    it('stays in place but disabled, saying none retired, while the library retired nothing', async () => {
-      mockedRead.mockReturnValue({ ledgerRetiredCount: 0 });
-      const tree = await render(<DetectionSettingsScreen />);
+    vaultIt(
+      'stays in place but disabled, saying none retired, while the library retired nothing',
+      async () => {
+        mockedRead.mockReturnValue({ ledgerRetiredCount: 0 });
+        const tree = await render(<DetectionSettingsScreen />);
 
-      const row = tree.getByTestId('retired-sections-row');
-      expect(row).toHaveTextContent(/sectionHistory\.retiredEmpty/);
-      expect(row).toBeDisabled();
-      await fireEvent.press(row);
-      expect(router.push).not.toHaveBeenCalledWith('/detection-preview?layer=retired');
-    });
+        const row = tree.getByTestId('retired-sections-row');
+        expect(row).toHaveTextContent(/sectionHistory\.retiredEmpty/);
+        expect(row).toBeDisabled();
+        await fireEvent.press(row);
+        expect(router.push).not.toHaveBeenCalledWith('/detection-preview?layer=retired');
+      }
+    );
 
-    it('shows the count and opens the retired sections once some retired', async () => {
+    vaultIt('shows the count and opens the retired sections once some retired', async () => {
       mockedRead.mockReturnValue({ ledgerRetiredCount: 2 });
       const tree = await render(<DetectionSettingsScreen />);
 
@@ -187,17 +190,17 @@ describe('detection settings screen', () => {
     });
   });
 
-  it('shows no jobs bar, since the jobs have their own screen', async () => {
+  vaultIt('shows no jobs bar, since the jobs have their own screen', async () => {
     const tree = await render(<DetectionSettingsScreen />);
     expect(tree.queryByTestId('background-jobs-activity')).toBeNull();
   });
 
-  it('reads no detector config, since nothing on the screen draws it', async () => {
+  vaultIt('reads no detector config, since nothing on the screen draws it', async () => {
     await render(<DetectionSettingsScreen />);
     expect(mockGetSectionConfig).not.toHaveBeenCalled();
   });
 
-  it('puts the preview above the re-analyse button', async () => {
+  vaultIt('puts the preview above the re-analyse button', async () => {
     const tree = await render(<DetectionSettingsScreen />);
     const order = tree.root
       .findAll((node) => typeof node.props.testID === 'string')
@@ -210,7 +213,7 @@ describe('detection settings screen', () => {
   });
 });
 
-it('keeps elevation controls enabled when route matching is off', async () => {
+vaultIt('keeps elevation controls enabled when route matching is off', async () => {
   useRouteSettings.setState((state) => ({ settings: { ...state.settings, enabled: false } }));
   try {
     const tree = await render(<DetectionSettingsScreen />);
@@ -238,7 +241,7 @@ describe('a rescan the screen stops watching', () => {
     mockRescan.failed = false;
   });
 
-  it('says nothing while the run is inside its budget', async () => {
+  vaultIt('says nothing while the run is inside its budget', async () => {
     mockRescan.isScanning = true;
 
     expect(
@@ -289,20 +292,20 @@ describe('with route matching off', () => {
     useRouteSettings.setState((state) => ({ settings: { ...state.settings, enabled: true } }));
   });
 
-  it.each(CONTROLS)('reports %s as disabled', async (testID) => {
+  vaultIt.each(CONTROLS)('reports %s as disabled', async (testID) => {
     const tree = await renderWithMatching(false);
     expect(tree.getByTestId(testID).props.accessibilityState).toMatchObject({ disabled: true });
     expect(tree.getByTestId(testID)).toBeDisabled();
   });
 
-  it('says route matching is off', async () => {
+  vaultIt('says route matching is off', async () => {
     const tree = await renderWithMatching(false);
     expect(tree.getByTestId('detection-matching-off')).toHaveTextContent(
       'settings.routeMatchingOff'
     );
   });
 
-  it.each(CONTROLS)('reports %s as enabled with matching on', async (testID) => {
+  vaultIt.each(CONTROLS)('reports %s as enabled with matching on', async (testID) => {
     const tree = await renderWithMatching(true);
     expect(tree.getByTestId(testID).props.accessibilityState?.disabled ?? false).toBe(false);
     expect(tree.queryByTestId('detection-matching-off')).toBeNull();
@@ -331,7 +334,7 @@ describe('a finished rescan', () => {
     mockRescan.result = null;
   });
 
-  it('keeps the before and after on screen past any timeout and announces both', async () => {
+  vaultIt('keeps the before and after on screen past any timeout and announces both', async () => {
     const tree = await render(<DetectionSettingsScreen />);
 
     await act(() => jest.advanceTimersByTime(6000));
@@ -344,20 +347,23 @@ describe('a finished rescan', () => {
     );
   });
 
-  it('marks the result as a polite live region and a failure as an assertive one', async () => {
-    const polite = await render(<DetectionSettingsScreen />);
-    expect(liveRegionOf(polite.getByTestId('detection-rescan-result'))).toBe('polite');
-    await polite.unmount();
+  vaultIt(
+    'marks the result as a polite live region and a failure as an assertive one',
+    async () => {
+      const polite = await render(<DetectionSettingsScreen />);
+      expect(liveRegionOf(polite.getByTestId('detection-rescan-result'))).toBe('polite');
+      await polite.unmount();
 
-    mockRescan.result = null;
-    mockRescan.failed = true;
-    try {
-      const assertive = await render(<DetectionSettingsScreen />);
-      expect(liveRegionOf(assertive.getByText('settings.rescanFailed'))).toBe('assertive');
-    } finally {
-      mockRescan.failed = false;
+      mockRescan.result = null;
+      mockRescan.failed = true;
+      try {
+        const assertive = await render(<DetectionSettingsScreen />);
+        expect(liveRegionOf(assertive.getByText('settings.rescanFailed'))).toBe('assertive');
+      } finally {
+        mockRescan.failed = false;
+      }
     }
-  });
+  );
 });
 
 /**
@@ -365,7 +371,7 @@ describe('a finished rescan', () => {
  * Expected behaviour: the confirm names the action rather than a generic
  * Confirm, and is styled destructive so iOS paints it red.
  */
-it('confirms Reanalyse with a destructive button that names the action', async () => {
+vaultIt('confirms Reanalyse with a destructive button that names the action', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   try {
     const tree = await render(<DetectionSettingsScreen />);

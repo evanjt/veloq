@@ -134,7 +134,9 @@ pub mod curves;
 pub mod exercise_usage;
 pub mod intervals;
 pub(crate) mod strength;
+pub mod strength_live;
 pub mod strength_sessions;
+pub mod strength_signature;
 pub use strength::{FitIntake, FitOutcome};
 pub mod tiles;
 pub(crate) mod track_index;
@@ -3071,6 +3073,7 @@ mod name_sort_key_tests {
     use super::name_sort_key;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn orders_mixed_case_and_accented_names_alphabetically() {
         let mut names = ["Zurich loop", "alpine climb", "Épalinges drag", "Östersund"];
         names.sort_by_key(|n| name_sort_key(n));
@@ -4146,6 +4149,7 @@ pub mod persistent_engine_ffi {
     #[cfg(test)]
     mod panic_log_tests {
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn panic_line_identifies_time_thread_and_location() {
             let time = chrono::DateTime::parse_from_rfc3339("2026-09-30T14:00:00Z")
                 .unwrap()
@@ -4591,6 +4595,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_add_activity() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4602,6 +4607,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_signature_caching() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4618,6 +4624,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_viewport_query() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4722,6 +4729,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_grouping() {
         let mut engine = PersistentEngine::in_memory().unwrap();
 
@@ -4739,6 +4747,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_remove_activity() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -5051,6 +5060,7 @@ mod tests {
     /// Bug 4: Activity traces should be cleared after section save to prevent memory leak.
     /// The bug was that activity_traces in FrequentSection accumulated GPS data and was never cleared.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_activity_traces_cleared_after_section_save() {
         let mut engine = PersistentEngine::in_memory().unwrap();
 
@@ -5465,6 +5475,7 @@ mod tests {
     /// Regression: a pass handles the zero-span and missing-stream edge cases by
     /// returning `(None, None)` - never panics on out-of-bounds indices.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_time_pass_edge_cases() {
         // No stream available.
         assert_eq!(indexed(None, 3, 0, 2, 100.0), (None, None));
@@ -5543,6 +5554,7 @@ mod haversine_parity_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn uses_the_iugg_mean_radius() {
         let half_great_circle = haversine_distance_meters(0.0, 0.0, 0.0, 180.0);
         assert!((half_great_circle - 20_015_114.44).abs() < 0.5);
@@ -5552,6 +5564,7 @@ mod haversine_parity_tests {
     /// here is the lat/lng signature over it. Two bodies agreeing today is
     /// what a parity test papers over; one body cannot drift at all.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_helper_is_tracematchs_formula_exactly() {
         for &(lat1, lng1, lat2, lng2, _) in FIXTURES {
             let point = |lat, lng| tracematch::GpsPoint {
@@ -5570,6 +5583,7 @@ mod haversine_parity_tests {
     /// `geo` reaches this crate through tracematch, which owns the formula.
     /// A direct dependency is how a second copy gets written next time.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn veloqrs_does_not_depend_on_geo_directly() {
         let manifest = include_str!("../../Cargo.toml");
         let declared = manifest
@@ -5612,6 +5626,7 @@ mod polyline_overlap_latitude_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_same_geometry_overlaps_at_the_equator() {
         // Unchanged by the fix: at the equator the two paddings coincide.
         let offset_deg = 45.0 / 111_320.0;
@@ -5624,6 +5639,7 @@ mod polyline_overlap_latitude_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn distant_lines_do_not_overlap() {
         let a: Vec<f64> = (0..20)
             .flat_map(|i| vec![55.7, 12.5 + i as f64 * 0.0005])
@@ -5653,6 +5669,7 @@ mod polyline_overlap_input_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_odd_first_line_is_refused() {
         let mut a = line(20);
         a.push(55.8);
@@ -5662,6 +5679,7 @@ mod polyline_overlap_input_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_odd_second_line_is_refused() {
         let mut b = line(20);
         b.push(55.8);
@@ -5670,6 +5688,7 @@ mod polyline_overlap_input_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_line_is_no_overlap_rather_than_an_error() {
         assert_eq!(
             compute_polyline_overlap(Vec::new(), line(20), 50.0).unwrap(),
@@ -5682,6 +5701,7 @@ mod polyline_overlap_input_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_single_stray_value_is_refused_rather_than_read_as_empty() {
         let err = compute_polyline_overlap(vec![55.7], line(20), 50.0).unwrap_err();
         assert!(err.to_string().contains("coords_a"), "got {err}");
@@ -5725,6 +5745,7 @@ mod detection_progress_percent {
     /// (`suspended`, `cutover_owed`), so a run phase that falls through there
     /// reads as half done wherever it actually is.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_run_phase_carries_a_weight_of_its_own() {
         let progress = SectionDetectionProgress::new();
         let run_phases = [
@@ -5756,6 +5777,7 @@ mod detection_progress_percent {
     /// The refusal phases keep the sentinel: they are not a position in a run
     /// and must not pretend to be one.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_phase_that_is_not_a_run_phase_still_reads_fifty() {
         let progress = SectionDetectionProgress::new();
         for phase in ["suspended", "cutover_owed", "aborted"] {
@@ -5771,6 +5793,7 @@ mod write_pragma_tests {
     /// The default is FULL, so a writer that never sets it pays two fsyncs a
     /// commit on whichever thread asked.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn write_pragmas_put_a_connection_on_normal_synchronous() {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
         assert_eq!(
@@ -5792,6 +5815,7 @@ mod write_pragma_tests {
     /// water mark unless the connection sets a size limit, so one large
     /// transaction would hold its bytes on disk for the rest of the install.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_reset_wal_is_truncated_after_one_large_transaction() {
         let dir = tempfile::TempDir::new().unwrap();
         let path = dir.path().join("probe.db");
@@ -6025,6 +6049,7 @@ mod sport_filter_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_mixed_group_belongs_to_each_of_its_sports() {
         let mixed = sports(&["Ride", "Run"]);
         assert!(in_sport(&mixed, "Run"));
@@ -6033,6 +6058,7 @@ mod sport_filter_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn nothing_recorded_matches_no_sport() {
         assert!(!in_sport(&[], "Run"));
     }
@@ -6047,6 +6073,7 @@ mod sport_filter_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn signature_reads_the_sport_rank_only_when_narrowed() {
         let order = |within_sport: bool| {
             let mut list = vec![ranked("a", 0.9, 0.1), ranked("b", 0.2, 0.8)];
@@ -6068,6 +6095,7 @@ mod sport_filter_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn signature_falls_back_to_the_pooled_rank_inside_a_sport() {
         let mut list = vec![
             SectionSummary {
@@ -6088,6 +6116,7 @@ mod sport_filter_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn signature_puts_an_unranked_section_last_and_breaks_ties_by_id() {
         let mut list = vec![
             ranked("c", 0.5, 0.5),
@@ -6109,6 +6138,7 @@ mod sport_filter_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn distance_orders_longest_first_and_breaks_ties_by_id() {
         let section = |id: &str, distance_meters: f64| SectionSummary {
             id: id.into(),

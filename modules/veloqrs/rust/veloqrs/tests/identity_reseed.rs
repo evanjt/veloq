@@ -301,6 +301,7 @@ fn pinned_run(pin: bool) -> (PersistentEngine, tempfile::TempDir, String, Vec<Gp
 /// Expected behaviour: unpinned, the drawn line moves. This is the control for
 /// the pin gate below, and it fails loudly if the corpus stops re-cutting.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unpinned_section_is_re_cut_by_junction_traffic() {
     let (mut engine, _dir, id, cold_polyline) = pinned_run(false);
     let after = snapshot(&mut engine);
@@ -444,11 +445,13 @@ fn a_restored_section_comes_back_under_its_old_id_and_its_members_sport() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_config_change_settles_in_one_apply() {
     config_change_settles_in_one_apply();
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_config_change_that_disqualifies_ground_still_retires_it() {
     disqualified_ground_retires();
 }

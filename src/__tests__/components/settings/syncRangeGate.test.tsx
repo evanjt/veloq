@@ -127,14 +127,14 @@ describe('the history sheet slider', () => {
     expect(view.getByTestId('history-range-cost')).toBeTruthy();
   });
 
-  it('shows no cost line or confirm before the slider moves', async () => {
+  vaultIt('shows no cost line or confirm before the slider moves', async () => {
     const view = await render(<SyncRangePanel />);
 
     expect(view.queryByTestId('history-range-cost')).toBeNull();
     expect(view.queryByTestId('history-range-confirm')).toBeNull();
   });
 
-  it('changes the cost line with the proposed range', async () => {
+  vaultIt('changes the cost line with the proposed range', async () => {
     mockEstimate = BIG;
     const view = await propose('2025-01-01');
     const small = view.getByTestId('history-range-cost').props.children;

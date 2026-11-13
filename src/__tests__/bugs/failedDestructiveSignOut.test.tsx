@@ -133,7 +133,7 @@ describe.each([
     return { alert, buttons: alert.mock.calls[0][2] };
   }
 
-  it('fires one medium impact when accepted', async () => {
+  vaultIt('fires one medium impact when accepted', async () => {
     const { alert, buttons } = await openConfirm();
     try {
       expect(haptics.medium).not.toHaveBeenCalled();
@@ -146,7 +146,7 @@ describe.each([
     }
   });
 
-  it('fires nothing when cancelled', async () => {
+  vaultIt('fires nothing when cancelled', async () => {
     const { alert, buttons } = await openConfirm();
     try {
       await act(async () => {
@@ -182,7 +182,7 @@ describe('Sign out and delete data confirm', () => {
     jest.mocked(exportRecordBackup).mockResolvedValue('complete');
   });
 
-  it('fires one medium impact when the wipe is accepted', async () => {
+  vaultIt('fires one medium impact when the wipe is accepted', async () => {
     const { alert } = await openConfirm();
     try {
       expect(haptics.medium).not.toHaveBeenCalled();
@@ -195,7 +195,7 @@ describe('Sign out and delete data confirm', () => {
     }
   });
 
-  it('lists what comes back and what is deleted for good', async () => {
+  vaultIt('lists what comes back and what is deleted for good', async () => {
     const { alert } = await openConfirm();
     try {
       const message = alert.mock.calls[0][1] ?? '';

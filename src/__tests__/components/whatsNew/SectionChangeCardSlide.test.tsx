@@ -20,7 +20,7 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 
 describe('SectionChangeCardSlide', () => {
-  it('draws no claim rows and no elevation line, whatever the engine supports', async () => {
+  vaultIt('draws no claim rows and no elevation line, whatever the engine supports', async () => {
     (getEngine as jest.Mock).mockReturnValue({
       subscribe: () => () => {},
     });
@@ -31,7 +31,7 @@ describe('SectionChangeCardSlide', () => {
     expect(queryByText(/whatsNew\.v040\.row/)).toBeNull();
   });
 
-  it('shows no engine-support rows even when the engine is not open', async () => {
+  vaultIt('shows no engine-support rows even when the engine is not open', async () => {
     (getEngine as jest.Mock).mockReturnValue(null);
     expect(
       await (await render(<SectionChangeCardSlide />)).queryByTestId('change-card-row-ledger')
@@ -58,7 +58,7 @@ describe('SectionChangeCardSlide', () => {
       });
     }
 
-    it('names the phase while the re-cut runs and shows no counts', async () => {
+    vaultIt('names the phase while the re-cut runs and shows no counts', async () => {
       engineWith({ phase: 'detecting', running: true }, { counts: COUNTS });
       const { getByTestId, queryByTestId } = await render(<SectionChangeCardSlide />);
       expect(getByTestId('change-card-progress')).toHaveTextContent(/phaseNames.detecting/);
@@ -77,7 +77,7 @@ describe('SectionChangeCardSlide', () => {
       expect(line).toHaveTextContent(/"gone\\?":2\b/);
     });
 
-    it('reads a catalogue that came through untouched as unchanged', async () => {
+    vaultIt('reads a catalogue that came through untouched as unchanged', async () => {
       engineWith(
         { phase: 'complete', running: false },
         {
@@ -115,7 +115,7 @@ describe('SectionChangeCardSlide', () => {
       expect(getByTestId('change-card-retired-link')).toBeTruthy();
     });
 
-    it('reports the totals when the re-cut kept some sections', async () => {
+    vaultIt('reports the totals when the re-cut kept some sections', async () => {
       engineWith(
         { phase: 'complete', running: false },
         {
@@ -142,14 +142,14 @@ describe('SectionChangeCardSlide', () => {
       expect(line).not.toHaveTextContent(/diffNoneKept/);
     });
 
-    it('shows neither progress nor counts when there is no stored diff', async () => {
+    vaultIt('shows neither progress nor counts when there is no stored diff', async () => {
       engineWith({ phase: 'idle', running: false }, null);
       const { queryByTestId } = await render(<SectionChangeCardSlide />);
       expect(queryByTestId('change-card-counts')).toBeNull();
       expect(queryByTestId('change-card-progress')).toBeNull();
     });
 
-    it('shows neither when the engine has no cutover calls at all', async () => {
+    vaultIt('shows neither when the engine has no cutover calls at all', async () => {
       (getEngine as jest.Mock).mockReturnValue({
         subscribe: () => () => {},
       });
@@ -166,11 +166,14 @@ describe('SectionChangeCardSlide', () => {
       expect(queryByTestId('change-card-progress')).toBeNull();
     });
 
-    it('offers no link to the retired sections while the library retired nothing', async () => {
-      engineWith({ phase: 'complete', running: false }, { counts: COUNTS }, 0);
-      const { queryByTestId } = await render(<SectionChangeCardSlide />);
-      expect(queryByTestId('change-card-retired-link')).toBeNull();
-    });
+    vaultIt(
+      'offers no link to the retired sections while the library retired nothing',
+      async () => {
+        engineWith({ phase: 'complete', running: false }, { counts: COUNTS }, 0);
+        const { queryByTestId } = await render(<SectionChangeCardSlide />);
+        expect(queryByTestId('change-card-retired-link')).toBeNull();
+      }
+    );
 
     it('opens the retired sections from a link once some retired', async () => {
       (router.push as jest.Mock).mockClear();
@@ -180,7 +183,7 @@ describe('SectionChangeCardSlide', () => {
       expect(router.push).toHaveBeenCalledWith('/detection-preview?layer=retired');
     });
 
-    it('says the sections were replaced when the run failed after the apply', async () => {
+    vaultIt('says the sections were replaced when the run failed after the apply', async () => {
       engineWith({ phase: 'failed_after_apply', running: false }, { counts: COUNTS });
       const { getByTestId, queryByTestId } = await render(<SectionChangeCardSlide />);
       expect(getByTestId('change-card-failed')).toHaveTextContent(/recutFailedAfterApply/);
@@ -205,7 +208,7 @@ describe('SectionChangeCardSlide', () => {
       },
     };
 
-    it('names each setting the flip moved, and only those', async () => {
+    vaultIt('names each setting the flip moved, and only those', async () => {
       engineWith({ phase: 'complete', running: false }, { counts: COUNTS, settingsReset: RESET });
       const row = await (
         await render(<SectionChangeCardSlide />)
@@ -222,7 +225,7 @@ describe('SectionChangeCardSlide', () => {
       expect(row).not.toHaveTextContent(/settingsResetMaxLength/);
     });
 
-    it('draws no reset row when the flip moved nothing', async () => {
+    vaultIt('draws no reset row when the flip moved nothing', async () => {
       engineWith({ phase: 'complete', running: false }, { counts: COUNTS, settingsReset: null });
       expect(
         await (await render(<SectionChangeCardSlide />)).queryByTestId('change-card-settings-reset')
@@ -233,7 +236,7 @@ describe('SectionChangeCardSlide', () => {
       ).toBeNull();
     });
 
-    it('withholds the reset row while a run is in flight and after a failure', async () => {
+    vaultIt('withholds the reset row while a run is in flight and after a failure', async () => {
       engineWith({ phase: 'detecting', running: true }, { counts: COUNTS, settingsReset: RESET });
       expect(
         await (await render(<SectionChangeCardSlide />)).queryByTestId('change-card-settings-reset')
@@ -244,7 +247,7 @@ describe('SectionChangeCardSlide', () => {
       ).toBeNull();
     });
 
-    it('names the draining and archiving steps', async () => {
+    vaultIt('names the draining and archiving steps', async () => {
       for (const phase of ['draining', 'archiving']) {
         engineWith({ phase, running: true }, null);
         const line = await (
@@ -261,7 +264,7 @@ describe('v040 sections body', () => {
   const path = require('path') as typeof import('path');
   const dir = path.join(__dirname, '../../../i18n/locales');
 
-  it.each(fs.readdirSync(dir))('states a rule and not a result of the run, in %s', (file) => {
+  vaultIt.each(fs.readdirSync(dir))('states a rule and not a result of the run, in %s', (file) => {
     const locale = resolvedLocale(file.replace('.json', ''));
     const body: string = locale.whatsNew.v040.rebuiltBody;
     // The first-person-plural "now cut by" form is a claim about the run that a

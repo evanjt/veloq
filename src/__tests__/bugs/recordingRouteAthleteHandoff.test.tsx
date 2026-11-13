@@ -412,19 +412,22 @@ it('sends the athlete to their own held ride when the handoff restores it', asyn
   expect(navigateTo).toHaveBeenCalledWith('/recording/review');
 });
 
-it('pads the review scroll content by nothing for a tab bar that does not draw on it', async () => {
-  mockSegments = ['recording', 'review'];
-  useRecordingStore.getState().startRecording('Ride', 'gps');
-  useRecordingStore.getState().stopRecording();
+vaultIt(
+  'pads the review scroll content by nothing for a tab bar that does not draw on it',
+  async () => {
+    mockSegments = ['recording', 'review'];
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    useRecordingStore.getState().stopRecording();
 
-  const { UNSAFE_getAllByType } = await render(inStack(<ReviewScreen />));
-  const scroll = UNSAFE_getAllByType(ScrollView).find(
-    (view) => view.props.contentContainerStyle !== undefined
-  )!;
-  const { paddingBottom } = StyleSheet.flatten(scroll.props.contentContainerStyle);
+    const { UNSAFE_getAllByType } = await render(inStack(<ReviewScreen />));
+    const scroll = UNSAFE_getAllByType(ScrollView).find(
+      (view) => view.props.contentContainerStyle !== undefined
+    )!;
+    const { paddingBottom } = StyleSheet.flatten(scroll.props.contentContainerStyle);
 
-  expect(paddingBottom ?? 0).toBe(0);
-});
+    expect(paddingBottom ?? 0).toBe(0);
+  }
+);
 
 it.each([0, 34])(
   'clears a %i dp inset under the unlock track once, with a margin and no tab bar to clear',

@@ -48,21 +48,24 @@ describe('the running threshold section', () => {
     await initialiseI18n('en-GB');
   });
 
-  it('stays on screen with neither a pace nor an LTHR', async () => {
+  vaultIt('stays on screen with neither a pace nor an LTHR', async () => {
     const tree = await renderRunning({});
 
     expect(tree.getByTestId('fitness-section-threshold')).toBeTruthy();
     expect(tree.getByTestId('fitness-threshold-empty')).toBeTruthy();
   });
 
-  it('names the missing LTHR and pace curve, not a run count, for an athlete with runs', async () => {
-    const tree = await renderRunning({});
+  vaultIt(
+    'names the missing LTHR and pace curve, not a run count, for an athlete with runs',
+    async () => {
+      const tree = await renderRunning({});
 
-    const empty = tree.getByTestId('fitness-threshold-empty');
-    expect(empty).not.toHaveTextContent(/not enough runs/i);
-    expect(empty).toHaveTextContent(/LTHR/);
-    expect(empty).toHaveTextContent(/pace curve/i);
-  });
+      const empty = tree.getByTestId('fitness-threshold-empty');
+      expect(empty).not.toHaveTextContent(/not enough runs/i);
+      expect(empty).toHaveTextContent(/LTHR/);
+      expect(empty).toHaveTextContent(/pace curve/i);
+    }
+  );
 
   it('renders the pace it was given per kilometre when metric', async () => {
     useUnitPreference.setState({ unitPreference: 'metric' });
@@ -80,7 +83,7 @@ describe('the running threshold section', () => {
     expect(tree.queryByText('3:58/km')).toBeNull();
   });
 
-  it('names critical speed and LTHR under Threshold, not lactate threshold pace', async () => {
+  vaultIt('names critical speed and LTHR under Threshold, not lactate threshold pace', async () => {
     useUnitPreference.setState({ unitPreference: 'metric' });
     const tree = await renderRunning({ thresholdPace: 4.2, runLthr: 172 });
 

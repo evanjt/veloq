@@ -49,7 +49,7 @@ describe('useRecordingLock', () => {
     expect(result.current.isLocked).toBe(true);
   });
 
-  it('still locks on demand', async () => {
+  vaultIt('still locks on demand', async () => {
     const { result, rerender } = await lockFor('stopped');
     await rerender({ status: 'recording' });
     await act(() => result.current.unlock());

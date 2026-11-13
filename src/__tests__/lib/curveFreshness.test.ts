@@ -18,7 +18,7 @@ describe('the freshness line under a curve header', () => {
     });
   });
 
-  it('dates a stored curve even while a refresh is in flight', () => {
+  vaultIt('dates a stored curve even while a refresh is in flight', () => {
     expect(curveFreshness({ fetchedAt: 1_754_600_000_000, isLoading: true })).toEqual({
       kind: 'dated',
       fetchedAt: 1_754_600_000_000,

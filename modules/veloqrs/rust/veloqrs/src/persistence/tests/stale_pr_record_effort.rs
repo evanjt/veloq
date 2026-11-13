@@ -66,6 +66,7 @@ fn the_record_traversal_carries_its_power_and_distance() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_with_no_power_stream_carries_none() {
     let engine = library();
     let effort = record_effort(&engine.db, "col", "a2", 310.0).expect("the lap");

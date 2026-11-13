@@ -143,7 +143,7 @@ describe.each(['light', 'dark'] as const)('SectionSparkline, %s', (scheme) => {
     );
   }
 
-  it('marks this activity with the reticle in the primary text colour', async () => {
+  vaultIt('marks this activity with the reticle in the primary text colour', async () => {
     const view = await drawn();
     const ink = scheme === 'dark' ? darkColors.textPrimary : colors.textPrimary;
 
@@ -158,7 +158,7 @@ describe.each(['light', 'dark'] as const)('SectionSparkline, %s', (scheme) => {
     expect(range).toHaveTextContent('18.0 km/h14.4 km/h');
   });
 
-  it('speaks the sentence it was given', async () => {
+  vaultIt('speaks the sentence it was given', async () => {
     const view = await drawn();
 
     expect(view.getByTestId('orchard-sparkline').props.accessibilityLabel).toBe(

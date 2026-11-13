@@ -30,7 +30,7 @@ describe('haversine parity with the Rust engine', () => {
     expect(haversineDistance(0, 0, 0, 180)).toBeCloseTo(20_015_114.44, 0);
   });
 
-  it('accepts both call forms identically', () => {
+  vaultIt('accepts both call forms identically', () => {
     const asPoints = haversineDistance(
       { lat: 46.2044, lng: 6.1432 },
       { lat: 46.5197, lng: 6.6323 }

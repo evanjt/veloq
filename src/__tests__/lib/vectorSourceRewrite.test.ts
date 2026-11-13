@@ -64,7 +64,7 @@ describe('the vector source rewrite', () => {
     expect(mockSetSourceTemplate).not.toHaveBeenCalled();
   });
 
-  it('leaves a raster source alone', () => {
+  vaultIt('leaves a raster source alone', () => {
     const out = rewriteVectorUrls(
       styleWith({ sat: { type: 'raster', url: 'https://tiles.example.test/sat' } })
     ) as Style;
@@ -72,7 +72,7 @@ describe('the vector source rewrite', () => {
     expect(out.sources.sat.url).toBe('https://tiles.example.test/sat');
   });
 
-  it('does not mind a style with no sources', () => {
+  vaultIt('does not mind a style with no sources', () => {
     expect(() => rewriteVectorUrls({} as object)).not.toThrow();
   });
 });

@@ -54,6 +54,7 @@ fn seed_stream(stale: bool) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_feed_cards_return_while_engine_writer_holds() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("feed_reads_under_writer.db");
@@ -65,6 +66,7 @@ fn test_feed_cards_return_while_engine_writer_holds() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_feed_highlights_return_while_engine_writer_holds() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("feed_highlights_under_writer.db");
@@ -97,6 +99,7 @@ fn test_feed_highlights_return_while_engine_writer_holds() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_feed_highlights_carry_the_strength_cards_of_the_batch() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("feed_highlights_strength_cards.db");
@@ -128,6 +131,7 @@ fn test_feed_highlights_carry_the_strength_cards_of_the_batch() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_detail_body_returns_while_engine_writer_holds() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("detail_body_under_writer.db");
@@ -146,6 +150,7 @@ fn test_detail_body_returns_while_engine_writer_holds() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_detail_stream_returns_while_engine_writer_holds() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("detail_stream_under_writer.db");
@@ -171,6 +176,7 @@ fn test_detail_stream_returns_while_engine_writer_holds() {
 /// a minute, twice the strides its stored stream body holds, the same unit its
 /// summary is given in.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_run_cadence_stream_crosses_as_steps() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("run_cadence_stream.db");
@@ -206,6 +212,7 @@ fn test_run_cadence_stream_crosses_as_steps() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_detail_track_returns_while_engine_writer_holds() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("detail_track_under_writer.db");
@@ -237,6 +244,7 @@ fn test_detail_track_returns_while_engine_writer_holds() {
 /// less its frame, rather than the track decoded and written again in a second
 /// codec at a precision the store never had.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_stored_track_crosses_in_the_stored_stream() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("track_crosses_as_stored.db");
@@ -268,6 +276,7 @@ fn test_stored_track_crosses_in_the_stored_stream() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_stale_stream_body_returns_while_engine_writer_holds() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("stale_stream_under_writer.db");
@@ -281,6 +290,7 @@ fn test_stale_stream_body_returns_while_engine_writer_holds() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_busy_stream_touch_returns_cached_body() {
     let _serial = serial_global_state();
     let dir = init_global_engine("busy_stream_touch.db");
@@ -474,6 +484,7 @@ fn test_feed_search_pages_newest_first_and_counts_the_whole_match() {
 /// card in it comes back newest first with no limit, and a search inside a
 /// window stays inside it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_feed_window_read_is_bounded_and_unpaged() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("feed_window_read.db");

@@ -26,13 +26,13 @@ describe('formatMinSec', () => {
     expect(formatMinSec(179.5)).toBe('3:00');
   });
 
-  it('pads the seconds to two digits', () => {
+  vaultIt('pads the seconds to two digits', () => {
     expect(formatMinSec(61)).toBe('1:01');
     expect(formatMinSec(120)).toBe('2:00');
     expect(formatMinSec(125)).toBe('2:05');
   });
 
-  it('formats under a minute and exactly zero', () => {
+  vaultIt('formats under a minute and exactly zero', () => {
     expect(formatMinSec(0)).toBe('0:00');
     expect(formatMinSec(9)).toBe('0:09');
   });
@@ -46,29 +46,29 @@ describe('formatMinSec', () => {
 });
 
 describe('every pace formatter shares that split', () => {
-  it('agrees with formatMinSec on the seconds-per-km scalar', () => {
+  vaultIt('agrees with formatMinSec on the seconds-per-km scalar', () => {
     expect(formatPaceFromSecsPerKm(119.7, true)).toBe(formatMinSec(119.7));
     expect(formatPaceFromSecsPerKm(330, true)).toBe(formatMinSec(330));
   });
 
-  it('agrees with formatMinSec on a speed, compact and with a unit', () => {
+  vaultIt('agrees with formatMinSec on a speed, compact and with a unit', () => {
     const metresPerSecond = 1000 / 330;
     expect(formatPaceCompact(metresPerSecond, true)).toBe(formatMinSec(330));
     expect(formatPace(metresPerSecond, true)).toBe(`${formatMinSec(330)} /km`);
   });
 
-  it('agrees with formatMinSec on swim pace per 100 m', () => {
+  vaultIt('agrees with formatMinSec on swim pace per 100 m', () => {
     const metresPerSecond = 100 / 95;
     expect(formatSwimPace(metresPerSecond, true)).toBe(formatMinSec(95));
   });
 
-  it('carries the swim-pace rounding the same way, at 119.5 s per 100 m', () => {
+  vaultIt('carries the swim-pace rounding the same way, at 119.5 s per 100 m', () => {
     // Was `paceToMinPer100m`'s own case before that formatter was collapsed
     // into `formatSwimPace`: the remainder rounds to 60 and must carry.
     expect(formatSwimPace(100 / 119.5, true)).toBe('2:00');
   });
 
-  it('keeps rejecting a non-physical or absent pace', () => {
+  vaultIt('keeps rejecting a non-physical or absent pace', () => {
     expect(formatSwimPace(0, true)).toBe('--:--');
     expect(formatPaceFromSecsPerKm(-1, true)).toBe('--:--');
     expect(formatPaceCompact(Number.NaN, true)).toBe('--:--');
@@ -76,7 +76,7 @@ describe('every pace formatter shares that split', () => {
 });
 
 describe('duration search behind the power curve readers', () => {
-  it('answers null for an empty curve rather than undefined', () => {
+  vaultIt('answers null for an empty curve rather than undefined', () => {
     expect(getIndexAtDuration({ secs: [], watts: [] } as unknown as PowerCurve, 60)).toBeNull();
   });
 
@@ -94,7 +94,7 @@ describe('duration search behind the power curve readers', () => {
     expect(getIndexAtDuration(curve, 9000)).toBe(2);
   });
 
-  it('answers null when the curve is absent', () => {
+  vaultIt('answers null when the curve is absent', () => {
     expect(getIndexAtDuration(undefined, 60)).toBeNull();
   });
 });
@@ -102,7 +102,7 @@ describe('duration search behind the power curve readers', () => {
 describe('the activity chart pace formatters share that split', () => {
   // Minutes per km, as the pace and GAP streams carry them. 4.995 is 4 min
   // 59.7 s, which the hand-rolled split printed as "4:60".
-  it.each([
+  vaultIt.each([
     [4.995, '5:00'],
     [1.995, '2:00'],
     [2.9917, '3:00'],

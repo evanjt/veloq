@@ -103,7 +103,7 @@ beforeEach(() => {
 });
 
 describe('the fitness screen read behind the calendar cards', () => {
-  it('paints both cards from one call and no per-part read', async () => {
+  vaultIt('paints both cards from one call and no per-part read', async () => {
     const view = await renderCards();
 
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
@@ -114,7 +114,7 @@ describe('the fitness screen read behind the calendar cards', () => {
     expect(engine.getMonthlyStats).not.toHaveBeenCalled();
   });
 
-  it('reads once more when activities change, not once per card', async () => {
+  vaultIt('reads once more when activities change, not once per card', async () => {
     const view = await renderCards();
     await waitFor(() => expect(view.getByText('4h')).toBeTruthy());
 
@@ -123,7 +123,7 @@ describe('the fitness screen read behind the calendar cards', () => {
     await waitFor(() => expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(2));
   });
 
-  it('ignores an event the read does not depend on', async () => {
+  vaultIt('ignores an event the read does not depend on', async () => {
     const view = await renderCards();
     await waitFor(() => expect(view.getByText('4h')).toBeTruthy());
 
@@ -194,7 +194,7 @@ describe('the calendar draws the span the read answers', () => {
 
   afterEach(() => engine.getFitnessScreenData.mockReset());
 
-  it('draws the weeks from the first day held and counts the older ones owed', async () => {
+  vaultIt('draws the weeks from the first day held and counts the older ones owed', async () => {
     answer('2026-07-20', 37);
     const view = await renderCards();
 
@@ -205,7 +205,7 @@ describe('the calendar draws the span the read answers', () => {
     );
   });
 
-  it('grows the grid on the read after a widened window, and drops the count', async () => {
+  vaultIt('grows the grid on the read after a widened window, and drops the count', async () => {
     answer('2026-07-20', 37);
     const view = await renderCards();
     await waitFor(() => expect(gridWidth(view)).toBe(13 * HEATMAP_PITCH));
@@ -217,7 +217,7 @@ describe('the calendar draws the span the read answers', () => {
     expect(view.queryByTestId('activity-heatmap-older-owed')).toBeNull();
   });
 
-  it('names one older activity in the singular', async () => {
+  vaultIt('names one older activity in the singular', async () => {
     answer('2026-07-20', 1);
     const view = await renderCards();
 

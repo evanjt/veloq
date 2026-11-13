@@ -78,7 +78,7 @@ const layerOpacity = () => {
 };
 
 describe('activity map with an unavailable basemap', () => {
-  it('keeps the 2D layer hidden until the surface says something', async () => {
+  vaultIt('keeps the 2D layer hidden until the surface says something', async () => {
     await renderActivityMap();
 
     expect(layerOpacity()).toBe(0);

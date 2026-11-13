@@ -70,7 +70,7 @@ function kinds(): string[] {
 }
 
 describe('createSensorLinkTrace', () => {
-  it('keeps only its capacity, dropping the oldest', () => {
+  vaultIt('keeps only its capacity, dropping the oldest', () => {
     const trace = createSensorLinkTrace(3);
     for (let i = 0; i < 5; i++) {
       trace.record({ sensorId: `s${i}`, sensorName: `S${i}`, kind: 'connectStart' }, 1_000 + i);
@@ -79,7 +79,7 @@ describe('createSensorLinkTrace', () => {
     expect(trace.events().map((event) => event.sensorId)).toEqual(['s2', 's3', 's4']);
   });
 
-  it('holds a few rides of reconnect loops by default', () => {
+  vaultIt('holds a few rides of reconnect loops by default', () => {
     const trace = createSensorLinkTrace();
     for (let i = 0; i < SENSOR_LINK_TRACE_CAPACITY + 10; i++) {
       trace.record({ sensorId: 'a', sensorName: 'A', kind: 'teardown' }, i);
@@ -89,23 +89,26 @@ describe('createSensorLinkTrace', () => {
     expect(trace.events()[0].at).toBe(10);
   });
 
-  it('times a line from the oldest event and names the sensor, characteristic and figures', () => {
-    const line = formatSensorLinkEvent(
-      {
-        at: 13_500,
-        sensorId: 'kite-7',
-        sensorName: 'Kite tether',
-        kind: 'firstSample',
-        characteristic: '2a37',
-        ms: 500,
-      },
-      1_000
-    );
+  vaultIt(
+    'times a line from the oldest event and names the sensor, characteristic and figures',
+    () => {
+      const line = formatSensorLinkEvent(
+        {
+          at: 13_500,
+          sensorId: 'kite-7',
+          sensorName: 'Kite tether',
+          kind: 'firstSample',
+          characteristic: '2a37',
+          ms: 500,
+        },
+        1_000
+      );
 
-    expect(line).toBe('+12500ms Kite tether firstSample 2a37 500ms');
-  });
+      expect(line).toBe('+12500ms Kite tether firstSample 2a37 500ms');
+    }
+  );
 
-  it('carries the count and the reason when there are ones', () => {
+  vaultIt('carries the count and the reason when there are ones', () => {
     expect(
       formatSensorLinkEvent(
         {
@@ -127,7 +130,7 @@ describe('createSensorLinkTrace', () => {
     ).toBe('+0ms A monitorError (gone)');
   });
 
-  it('reports nothing before any link has been opened', () => {
+  vaultIt('reports nothing before any link has been opened', () => {
     clearSensorLinkTrace();
     expect(readSensorLinkReport()).toBeNull();
   });
@@ -197,7 +200,7 @@ describe('the sensor link trace on a silent strap', () => {
     expect(report).toContain(`firstSample ${HEART_RATE_MEASUREMENT} ${3 * SENSOR_NO_DATA_MS}ms`);
   });
 
-  it('counts each sample on teardown', async () => {
+  vaultIt('counts each sample on teardown', async () => {
     void connectKnownSensors();
     await settle();
     deliver?.(null, HEART_RATE_72);
@@ -211,7 +214,7 @@ describe('the sensor link trace on a silent strap', () => {
     expect(kinds().at(-1)).toBe('teardown');
   });
 
-  it('carries the characteristic and the message of a monitor error', async () => {
+  vaultIt('carries the characteristic and the message of a monitor error', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     void connectKnownSensors();
     await settle();
@@ -228,7 +231,7 @@ describe('the sensor link trace on a silent strap', () => {
     warn.mockRestore();
   });
 
-  it('keeps the trace after the session ends, so it can be read after the ride', async () => {
+  vaultIt('keeps the trace after the session ends, so it can be read after the ride', async () => {
     void connectKnownSensors();
     await settle();
 

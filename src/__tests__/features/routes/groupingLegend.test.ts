@@ -19,7 +19,7 @@ describe('groupingLegendRows', () => {
     expect(merging?.count).toBe(4);
   });
 
-  it('gives each drawn layer its own row in the colour and opacity it paints', () => {
+  vaultIt('gives each drawn layer its own row in the colour and opacity it paints', () => {
     const rows = groupingLegendRows(0, palette);
     expect(rows.map((r) => r.kind)).toEqual(['largest', 'merging', 'other', 'dropped']);
     const other = rows.find((r) => r.kind === 'other');
@@ -30,7 +30,7 @@ describe('groupingLegendRows', () => {
     expect(dropped?.labelKey).toBe('settings.groupingLegendDropped');
   });
 
-  it('lists the selected area as a dashed box, after the route layers', () => {
+  vaultIt('lists the selected area as a dashed box, after the route layers', () => {
     const rows = groupingLegendRows(0, palette, true);
     expect(rows.map((r) => r.kind)).toEqual(['largest', 'merging', 'other', 'dropped', 'area']);
     const area = rows[rows.length - 1];
@@ -39,10 +39,13 @@ describe('groupingLegendRows', () => {
     expect(groupingLegendRows(0, palette).some((r) => r.kind === 'area')).toBe(false);
   });
 
-  it('draws the area outline beneath every route layer, dashed like the section preview', () => {
-    const layers = groupingPreviewLayers(palette);
-    expect(layers[0]?.id).toBe('preview-area-line');
-    expect(layers[0]?.source).toBe('preview-area');
-    expect(layers[0]?.paint?.['line-dasharray']).toBeDefined();
-  });
+  vaultIt(
+    'draws the area outline beneath every route layer, dashed like the section preview',
+    () => {
+      const layers = groupingPreviewLayers(palette);
+      expect(layers[0]?.id).toBe('preview-area-line');
+      expect(layers[0]?.source).toBe('preview-area');
+      expect(layers[0]?.paint?.['line-dasharray']).toBeDefined();
+    }
+  );
 });

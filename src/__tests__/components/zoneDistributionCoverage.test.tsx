@@ -40,7 +40,7 @@ describe('ZoneDistributionChart over a range never downloaded', () => {
     expect(view.queryByText('stats.rangeNotDownloaded')).toBeNull();
   });
 
-  it('adds a quiet line under zone time from a range partly downloaded', async () => {
+  vaultIt('adds a quiet line under zone time from a range partly downloaded', async () => {
     const view = await render(
       <ZoneDistributionChart data={ZONES} coverage={RangeCoverage.NotFetched} />
     );
@@ -48,7 +48,7 @@ describe('ZoneDistributionChart over a range never downloaded', () => {
     expect(view.getByTestId('zone-distribution-partial')).toBeTruthy();
   });
 
-  it('carries no line when the range is downloaded', async () => {
+  vaultIt('carries no line when the range is downloaded', async () => {
     const view = await render(
       <ZoneDistributionChart data={ZONES} coverage={RangeCoverage.Loaded} />
     );

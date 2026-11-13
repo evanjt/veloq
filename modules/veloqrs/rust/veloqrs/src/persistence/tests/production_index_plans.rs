@@ -65,6 +65,7 @@ fn plans_of(
 /// Every date-window aggregate on `activity_metrics` is a date-only predicate,
 /// and the only date index that serves one is `idx_activity_metrics_date`.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_date_window_aggregate_searches_the_date_index() {
     let mut engine = PersistentEngine::in_memory().unwrap();
 
@@ -81,6 +82,7 @@ fn a_date_window_aggregate_searches_the_date_index() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_launch_date_range_reads_the_date_index_rather_than_the_table() {
     let mut engine = PersistentEngine::in_memory().unwrap();
 
@@ -99,6 +101,7 @@ fn the_launch_date_range_reads_the_date_index_rather_than_the_table() {
 /// The batch read joins a section's rows to the matches of each activity, so
 /// the section filter and the per-activity match lookup both need their index.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_routes_of_a_section_are_read_through_the_section_and_match_indexes() {
     let mut engine = PersistentEngine::in_memory().unwrap();
 
@@ -123,6 +126,7 @@ fn the_routes_of_a_section_are_read_through_the_section_and_match_indexes() {
 /// laid out in that order. A page read that scans the table or sorts it pays
 /// for the whole catalogue to show fifty rows.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_default_routes_lists_page_through_their_order_indexes() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     engine
@@ -169,6 +173,7 @@ fn the_default_routes_lists_page_through_their_order_indexes() {
 /// The zone totals filter a sport's family, and the sport-and-date index
 /// leads with the sport.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_zone_totals_search_the_sport_and_date_index() {
     let mut engine = PersistentEngine::in_memory().unwrap();
 
@@ -194,6 +199,7 @@ fn the_zone_totals_search_the_sport_and_date_index() {
 /// The recent-changes read bounds the ledger by time across every section, the
 /// read the time index was added for.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_recent_section_changes_search_the_time_index() {
     let mut engine = PersistentEngine::in_memory().unwrap();
 

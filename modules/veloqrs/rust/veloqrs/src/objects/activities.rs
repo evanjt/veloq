@@ -689,6 +689,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn add_stores_only_the_points_a_downloaded_track_would_store() {
         let coords = [f64::NAN, 0.0, -37.8, 144.9, -37.81, 144.95, 91.0, 0.0];
         let track = track_of(&coords, 0, 4);
@@ -710,6 +711,7 @@ mod tests {
     // The flat-buffer guards reject malformed input before touching the engine,
     // so these cases short-circuit without an initialised PERSISTENT_ENGINE.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn add_rejects_offsets_length_mismatch() {
         let mgr = ActivityManager::new();
         let result = mgr.add(
@@ -722,6 +724,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn add_rejects_odd_coord_count() {
         let mgr = ActivityManager::new();
         let result = mgr.add(
@@ -750,6 +753,7 @@ mod tests {
         };
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_ladder_does_not_wait_for_a_writer() {
             let _serial = serial_global_state();
             let _dir = init_global_engine("notification_under_a_writer.db");
@@ -771,6 +775,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_native_notification_path_does_not_wait_either() {
             let _serial = serial_global_state();
             let _dir = init_global_engine("notification_json_under_a_writer.db");
@@ -821,6 +826,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_replaced_track_is_announced_and_a_verbatim_re_ingest_is_not() {
             let _serial = serial_global_state();
             let _suspended = conditioning::suspend_detection();
@@ -851,6 +857,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_activity_the_library_never_held_is_not_a_mutation() {
             let _serial = serial_global_state();
             let _suspended = conditioning::suspend_detection();
@@ -1033,6 +1040,7 @@ mod tests {
         /// Expected behaviour: the file is read and the row is written, so a
         /// ride that never uploads still reaches the feed.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_save_from_a_fit_named_by_its_file_uri_stores_the_track() {
             let _serial = serial_global_state();
             let _dir = init_global_engine("provisional_fit_uri.db");
@@ -1130,6 +1138,7 @@ mod tests {
 
         /// A manual entry has no file, and its row is the body and metrics.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_save_with_no_fit_writes_a_trackless_row() {
             let _serial = serial_global_state();
             let _dir = init_global_engine("provisional_no_fit.db");
@@ -1145,6 +1154,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_save_with_no_engine_open_is_not_initialised() {
             let _serial = serial_global_state();
             let _dir = init_global_engine("provisional_closed.db");
@@ -1160,6 +1170,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn odd_coordinates_are_refused_before_the_engine() {
             let _serial = serial_global_state();
             let _dir = init_global_engine("provisional_odd.db");

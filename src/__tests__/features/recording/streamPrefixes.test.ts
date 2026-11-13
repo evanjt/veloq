@@ -75,7 +75,7 @@ describe('windowGain', () => {
 });
 
 describe('windowAverage', () => {
-  it('matches a filtered walk over every window', () => {
+  vaultIt('matches a filtered walk over every window', () => {
     const heartrate = [0, 140, 0, 152, 160, 0, 148];
     const prefixes = buildStreamPrefixes(
       streams(

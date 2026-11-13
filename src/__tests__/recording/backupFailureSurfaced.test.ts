@@ -152,7 +152,7 @@ describe('the live screen status slot', () => {
     splitBanner: null,
   };
 
-  it('shows the backup warning', () => {
+  vaultIt('shows the backup warning', () => {
     expect(selectStatusMessage({ ...quiet, backupWarning: 'not backed up' })).toEqual({
       kind: 'backup',
       text: 'not backed up',
@@ -160,7 +160,7 @@ describe('the live screen status slot', () => {
     });
   });
 
-  it('puts a refused background service ahead of it, and it ahead of a weak signal', () => {
+  vaultIt('puts a refused background service ahead of it, and it ahead of a weak signal', () => {
     expect(
       selectStatusMessage({ ...quiet, backgroundTrackingWarning: 'service', backupWarning: 'b' })
         ?.kind

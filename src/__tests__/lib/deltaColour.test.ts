@@ -36,7 +36,7 @@ describe('deltaBand', () => {
 });
 
 describe('deltaColour', () => {
-  it.each([
+  vaultIt.each([
     ['light', false],
     ['dark', true],
   ] as const)('reads the diverging ramp in %s', (theme, isDark) => {
@@ -50,7 +50,7 @@ describe('deltaColour', () => {
     expect(deltaColour(EXTENT, EXTENT, isDark)).toBe(tokens['data-div-warm-3']);
   });
 
-  it('never draws the orange the guide bars from a diverging scale', () => {
+  vaultIt('never draws the orange the guide bars from a diverging scale', () => {
     for (const isDark of [false, true]) {
       for (let secs = -EXTENT; secs <= EXTENT; secs += 0.5) {
         expect(deltaColour(secs, EXTENT, isDark).toLowerCase()).not.toBe('#f97316');
@@ -58,7 +58,7 @@ describe('deltaColour', () => {
     }
   });
 
-  it('draws a missing value in the muted chart colour', () => {
+  vaultIt('draws a missing value in the muted chart colour', () => {
     expect(deltaColour(NaN, EXTENT, false)).toBe(colourTokens.light['chart-muted']);
     expect(deltaColour(NaN, EXTENT, true)).toBe(colourTokens.dark['chart-muted']);
   });

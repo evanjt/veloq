@@ -62,7 +62,7 @@ function touch(pageX: number, locationX: number, timeStamp: number, startPageX: 
 }
 
 describe('RpeSlider', () => {
-  it('is one adjustable element naming its value and band', async () => {
+  vaultIt('is one adjustable element naming its value and band', async () => {
     const { track } = await renderSlider(7);
     expect(track.props.accessibilityLabel).toBe('recording.rpe');
     expect(track.props.accessibilityValue).toEqual(
@@ -91,7 +91,7 @@ describe('RpeSlider', () => {
     expect(bottom.onValueChange).not.toHaveBeenCalled();
   });
 
-  it('draws the value text in an ink, never in its zone colour', async () => {
+  vaultIt('draws the value text in an ink, never in its zone colour', async () => {
     for (const value of [1, 3, 5, 7, 10]) {
       await renderSlider(value);
       const text = screen.getByText(new RegExp(`^${value} - recording\\.rpeLabels`));

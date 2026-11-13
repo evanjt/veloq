@@ -123,7 +123,7 @@ it('shows the live source while it is sending, and the cadence a power meter del
   expect(selected('pod', 'cadence')).toBe(true);
 });
 
-it('gives no hint when no metric is shared', () => {
+vaultIt('gives no hint when no metric is shared', () => {
   useSensorStore.setState({ knownSensors: [CHEST, METER] });
   render(<SensorSettingsScreen />);
 

@@ -21,20 +21,20 @@ describe('resolveStyleForWebView', () => {
     expect(resolved.inline).not.toBeNull();
   });
 
-  it('uses the hosted light style when explicitly requested', () => {
+  vaultIt('uses the hosted light style when explicitly requested', () => {
     const resolved = resolveStyleForWebView('light', { bundledLightStyle: false });
     expect(resolved.inline).toBeNull();
     expect(resolved.url).toBe(LIGHT_STYLE_URL);
   });
 
-  it('keeps dark and satellite inline either way', () => {
+  vaultIt('keeps dark and satellite inline either way', () => {
     for (const options of [{}, { bundledLightStyle: false }]) {
       expect(resolveStyleForWebView('dark', options).inline).not.toBeNull();
       expect(resolveStyleForWebView('satellite', options).inline).not.toBeNull();
     }
   });
 
-  it('routes vector tiles through the store by default', () => {
+  vaultIt('routes vector tiles through the store by default', () => {
     const cached = JSON.stringify(resolveStyleForWebView('dark').inline);
     const uncached = JSON.stringify(
       resolveStyleForWebView('dark', { cacheVectorTiles: false }).inline

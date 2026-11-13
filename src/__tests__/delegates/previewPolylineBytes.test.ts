@@ -28,19 +28,19 @@ function row(overrides: Partial<FfiPreviewSection> = {}): FfiPreviewSection {
 }
 
 describe('a previewed section crosses with its polyline as bytes', () => {
-  it('hands the map the engine’s own buffer', () => {
+  vaultIt('hands the map the engine’s own buffer', () => {
     const section = toPreviewSection(row());
 
     expect(Array.from(new Uint8Array(section.polyline))).toEqual(BYTES);
   });
 
-  it('carries an empty buffer for a section with no polyline', () => {
+  vaultIt('carries an empty buffer for a section with no polyline', () => {
     const section = toPreviewSection(row({ polyline: new ArrayBuffer(0) }));
 
     expect(section.polyline.byteLength).toBe(0);
   });
 
-  it('reads the absent fields as null, which is what the screen checks', () => {
+  vaultIt('reads the absent fields as null, which is what the screen checks', () => {
     const section = toPreviewSection(row());
 
     expect(section.liveId).toBeNull();

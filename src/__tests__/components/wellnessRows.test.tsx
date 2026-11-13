@@ -119,29 +119,32 @@ describe('wellness rows', () => {
     expect(screen.getByTestId('wellness-range-weight')).toHaveTextContent(/^\S+-\S+ (kg|lbs?)$/);
   });
 
-  it('draws every row in the one series colour and its average as a reference rule', async () => {
-    const recorded = recordPictures();
-    const tree = await renderRows();
+  vaultIt(
+    'draws every row in the one series colour and its average as a reference rule',
+    async () => {
+      const recorded = recordPictures();
+      const tree = await renderRows();
 
-    expect(recorded.paths).toEqual([
-      LIGHT['chart-series'],
-      LIGHT['chart-series'],
-      LIGHT['chart-series'],
-    ]);
+      expect(recorded.paths).toEqual([
+        LIGHT['chart-series'],
+        LIGHT['chart-series'],
+        LIGHT['chart-series'],
+      ]);
 
-    const rules = tree.UNSAFE_getAllByType(Line);
-    expect(rules).toHaveLength(3);
-    for (const rule of rules) expect(rule.props.color).toBe(LIGHT['chart-reference']);
-  });
+      const rules = tree.UNSAFE_getAllByType(Line);
+      expect(rules).toHaveLength(3);
+      for (const rule of rules) expect(rule.props.color).toBe(LIGHT['chart-reference']);
+    }
+  );
 
-  it('names the smoothing once under the rows', async () => {
+  vaultIt('names the smoothing once under the rows', async () => {
     await renderRows();
     expect(screen.getByTestId('wellness-period-label')).toHaveTextContent(
       'Last 10 days · 7-day average'
     );
   });
 
-  it('shows the scrub hint before a scrub and not once one has started', async () => {
+  vaultIt('shows the scrub hint before a scrub and not once one has started', async () => {
     const built = capturePans();
     await renderRows();
     expect(screen.getByTestId('wellness-explore-hint')).toBeTruthy();
@@ -164,7 +167,7 @@ describe('wellness rows', () => {
     expect(screen.getByTestId('wellness-smoothed-hrv')).not.toHaveTextContent('62');
   });
 
-  it('keeps the dot off a row on a day its metric was not logged', async () => {
+  vaultIt('keeps the dot off a row on a day its metric was not logged', async () => {
     const recorded = recordPictures();
     const built = capturePans();
     await renderRows();

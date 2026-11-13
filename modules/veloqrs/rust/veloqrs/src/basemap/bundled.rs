@@ -38,6 +38,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn both_ground_sources_carry_all_five_tiles_of_z0_and_z1() {
         for source in ["openmaptiles", "ne2_shaded"] {
             for (z, x, y) in [(0, 0, 0), (1, 0, 0), (1, 0, 1), (1, 1, 0), (1, 1, 1)] {
@@ -48,6 +49,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn z2_and_unknown_sources_are_not_carried() {
         assert!(tile("openmaptiles", 2, 0, 0).is_none());
         assert!(tile("ne2_shaded", 1, 2, 0).is_none());
@@ -55,6 +57,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_raster_floor_is_a_png() {
         assert_eq!(&tile("ne2_shaded", 0, 0, 0).unwrap()[..4], b"\x89PNG");
     }

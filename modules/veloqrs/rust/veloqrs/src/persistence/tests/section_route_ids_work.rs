@@ -108,6 +108,7 @@ fn route_ids(engine: &PersistentEngine) -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sections_route_ids_cost_the_same_however_many_routes_the_library_holds() {
     let small = seeded(10);
     let large = seeded(400);
@@ -132,6 +133,7 @@ fn a_sections_route_ids_cost_the_same_however_many_routes_the_library_holds() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_group_with_no_stored_count_is_judged_by_its_members() {
     let engine = seeded(0);
     engine
@@ -161,6 +163,7 @@ fn a_group_with_no_stored_count_is_judged_by_its_members() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_matched_route_with_no_group_row_is_not_named() {
     let engine = seeded(0);
     engine

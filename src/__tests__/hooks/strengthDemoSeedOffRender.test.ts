@@ -16,6 +16,7 @@ import { SyncState } from 'veloqrs';
 import { renderHook, act } from '@testing-library/react-native';
 
 import { useStrengthTabState } from '@/features/strength/hooks/useStrengthScreenData';
+import { demoStrengthActivityIds } from '@/features/strength/lib/demoStrength';
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides(
@@ -58,7 +59,7 @@ function engine(): void {
       };
     },
     getExerciseSets: (id: string) => ({ sets: seeded.has(id) ? [{}] : [] }),
-    bulkInsertExerciseSets: (id: string) => {
+    fetchAndParseExerciseSets: (id: string) => {
       trace.push('write');
       seeded.add(id);
     },
@@ -120,6 +121,6 @@ describe('the demo strength seed', () => {
     seeded.clear();
     const wiped = writes();
     await renderHook(() => useStrengthTabState());
-    expect(writes()).toBe(wiped + 1);
+    expect(writes()).toBe(wiped + demoStrengthActivityIds().length);
   });
 });

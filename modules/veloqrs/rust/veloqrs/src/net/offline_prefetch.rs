@@ -137,6 +137,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_all_time_window_is_requested_as_all_and_the_rest_as_days() {
         assert_eq!(curve_window(ALL_TIME_CURVE_DAYS), "all");
         assert_eq!(curve_window(90), "90d");

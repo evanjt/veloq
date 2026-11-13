@@ -110,7 +110,7 @@ describe('remote link banner', () => {
     expect(tree.getByText(wrote('Firefox on Linux', RENAME.summary))).toBeTruthy();
   });
 
-  it('keeps the count when a write has no row to name', async () => {
+  vaultIt('keeps the count when a write has no row to name', async () => {
     mockRemote.recentWrites.mockReturnValue([]);
     const tree = await render(<RemoteLinkBanner />);
 
@@ -119,7 +119,7 @@ describe('remote link banner', () => {
     expect(tree.getByText(count(1))).toBeTruthy();
   });
 
-  it('shows nothing for a write while no browser is connected', async () => {
+  vaultIt('shows nothing for a write while no browser is connected', async () => {
     useRemoteLinkStatus.setState({ connected: 0 });
     const tree = await render(<RemoteLinkBanner />);
 

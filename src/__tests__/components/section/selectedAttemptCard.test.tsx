@@ -106,7 +106,7 @@ describe('the selected-attempt card facts', () => {
     expect(screen.queryByText(/\/(mi|km)/)).toBeNull();
   });
 
-  it('shows no standing where the read carries no gap', async () => {
+  vaultIt('shows no standing where the read carries no gap', async () => {
     await card();
 
     expect(screen.queryByTestId('selected-attempt-standing')).toBeNull();
@@ -169,7 +169,7 @@ describe('the selected-attempt card actions', () => {
     expect(onIncludeActivity).toHaveBeenCalledWith('a1');
   });
 
-  it('marks the reference rather than offering it again', async () => {
+  vaultIt('marks the reference rather than offering it again', async () => {
     const onSetAsReference = jest.fn();
     await card({ onSetAsReference, referenceActivityId: 'a1' });
 
@@ -178,7 +178,7 @@ describe('the selected-attempt card actions', () => {
     expect(onSetAsReference).not.toHaveBeenCalled();
   });
 
-  it('offers only Open without handlers, and nothing on this activity', async () => {
+  vaultIt('offers only Open without handlers, and nothing on this activity', async () => {
     await card();
     expect(screen.getByText('sections.attemptOpen')).toBeTruthy();
     expect(screen.queryByText('sections.attemptExclude')).toBeNull();

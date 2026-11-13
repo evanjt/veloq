@@ -113,6 +113,7 @@ fn pairs_of(data: &FfiRetiredMapData) -> Vec<(String, String, FfiRetiredPairLink
 /// `ground` with the overlap measured, both carry their lines, the far
 /// section pairs with nothing, and the far section was never compared.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_retired_line_pairs_with_the_live_section_on_its_ground_and_skips_the_far_one() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(&dir, "ground-pair.db");
@@ -156,6 +157,7 @@ fn a_retired_line_pairs_with_the_live_section_on_its_ground_and_skips_the_far_on
 /// hidden and names the restored section, with a `supersedes` pair kept; once retired again the two pair as
 /// `supersedes`, not as `ground`.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_restored_section_hides_the_auto_row_it_covers_and_pairs_as_supersedes() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "restore-supersedes.db");
@@ -217,6 +219,7 @@ fn a_restored_section_hides_the_auto_row_it_covers_and_pairs_as_supersedes() {
 /// Expected behaviour: each retired section pairs with the survivor as
 /// `ledger`, though no line of theirs lies near it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_merged_retirement_pairs_with_its_survivor_through_the_ledger() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(&dir, "ledger-pair.db");
@@ -258,6 +261,7 @@ fn a_merged_retirement_pairs_with_its_survivor_through_the_ledger() {
 /// Expected behaviour: the retired section is listed with no line and
 /// pairs with nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_retired_section_without_a_decodable_line_carries_no_line_and_no_pair() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(&dir, "no-line.db");
@@ -276,6 +280,7 @@ fn a_retired_section_without_a_decodable_line_carries_no_line_and_no_pair() {
 /// Scenario: the newest stored version of a retired section is damaged.
 /// Expected behaviour: the line comes from the newest version that decodes.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_line_comes_from_the_newest_version_that_decodes() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(&dir, "damaged-newest.db");
@@ -348,6 +353,7 @@ fn both_sides_of_the_comparison_carry_a_distance_and_a_visit_count() {
 /// and the pair search scans each pair whose boxes meet once, not once to
 /// decide and again to measure the overlap.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pair_on_shared_ground_is_scanned_once() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(&dir, "volume.db");
@@ -419,6 +425,7 @@ fn a_pair_on_shared_ground_is_scanned_once() {
 /// Expected behaviour: the second open reads the same pairs and scans no
 /// ground, since no section line moved.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_open_after_an_activity_sync_scans_no_ground() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "sync-reopen.db");
@@ -451,6 +458,7 @@ fn a_second_open_after_an_activity_sync_scans_no_ground() {
 /// ledger link, lists no ground pair and scans nothing. Once levelled the
 /// ground pair is there and nothing is owed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_read_says_ground_pairs_are_owed_and_keeps_its_ledger_links() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(&dir, "owed.db");
@@ -550,6 +558,7 @@ fn stored_pairs(engine: &PersistentEngine) -> Vec<(String, String, String)> {
 /// removed line's pair goes without a scan, a second level does nothing, and
 /// the result is what a rebuild from an empty table finds.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_changed_line_rescans_only_its_own_pairs() {
     let dir = TempDir::new().expect("tempdir");
     let engine = corridors(&dir, "edit.db");
@@ -610,6 +619,7 @@ fn a_changed_line_rescans_only_its_own_pairs() {
 /// Expected behaviour: the new retired line is owed and scanned against the
 /// live lines its box meets, and the pairs already stored are not scanned again.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_retired_after_levelling_scans_only_its_own_line() {
     let dir = TempDir::new().expect("tempdir");
     let engine = corridors(&dir, "retire-after.db");

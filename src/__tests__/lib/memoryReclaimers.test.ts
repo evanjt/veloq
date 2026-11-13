@@ -58,19 +58,19 @@ describe('query cache reclaimer', () => {
     jest.restoreAllMocks();
   });
 
-  it('holds everything while the process is still in the foreground', () => {
+  vaultIt('holds everything while the process is still in the foreground', () => {
     dispatchMemoryPressure(TRIM_UI_HIDDEN - 1);
     expect(queryClient.removeQueries).not.toHaveBeenCalled();
     expect(queryClient.clear).not.toHaveBeenCalled();
   });
 
-  it('drops only the unobserved keys once the UI is hidden', () => {
+  vaultIt('drops only the unobserved keys once the UI is hidden', () => {
     dispatchMemoryPressure(TRIM_BACKGROUND);
     expect(queryClient.removeQueries).toHaveBeenCalledWith({ type: 'inactive' });
     expect(queryClient.clear).not.toHaveBeenCalled();
   });
 
-  it('drops the whole cache at the last warning', () => {
+  vaultIt('drops the whole cache at the last warning', () => {
     dispatchMemoryPressure(TRIM_COMPLETE);
     expect(queryClient.clear).toHaveBeenCalled();
     expect(queryClient.removeQueries).not.toHaveBeenCalled();
@@ -78,9 +78,12 @@ describe('query cache reclaimer', () => {
 });
 
 describe('map reclaimers', () => {
-  it('registers no tile cache reclaimer, since the pages hold no tile cache to release', () => {
-    expect(Object.keys(mapMemoryReclaimer)).toEqual(['registerMapSurfaceReclaimer']);
-  });
+  vaultIt(
+    'registers no tile cache reclaimer, since the pages hold no tile cache to release',
+    () => {
+      expect(Object.keys(mapMemoryReclaimer)).toEqual(['registerMapSurfaceReclaimer']);
+    }
+  );
 });
 
 describe('image cache reclaimer', () => {
@@ -93,12 +96,12 @@ describe('image cache reclaimer', () => {
 
   afterEach(() => off());
 
-  it('keeps the decoded images while the process is only backgrounded', () => {
+  vaultIt('keeps the decoded images while the process is only backgrounded', () => {
     dispatchMemoryPressure(TRIM_BACKGROUND);
     expect(clearNativeImageCache).not.toHaveBeenCalled();
   });
 
-  it('clears them from TRIM_MEMORY_MODERATE', () => {
+  vaultIt('clears them from TRIM_MEMORY_MODERATE', () => {
     dispatchMemoryPressure(TRIM_MODERATE);
     expect(clearNativeImageCache).toHaveBeenCalledTimes(1);
   });
@@ -114,18 +117,18 @@ describe('engine reclaimer', () => {
 
   afterEach(() => off());
 
-  it('holds the engine while the UI is only hidden', () => {
+  vaultIt('holds the engine while the UI is only hidden', () => {
     dispatchMemoryPressure(TRIM_UI_HIDDEN);
     expect(releaseEngineMemory).not.toHaveBeenCalled();
   });
 
-  it('gives back the connections and keeps the caches in the background', () => {
+  vaultIt('gives back the connections and keeps the caches in the background', () => {
     dispatchMemoryPressure(TRIM_BACKGROUND);
     dispatchMemoryPressure(TRIM_MODERATE);
     expect(releaseEngineMemory.mock.calls).toEqual([[false], [false]]);
   });
 
-  it('empties the caches once, at the last warning', () => {
+  vaultIt('empties the caches once, at the last warning', () => {
     dispatchMemoryPressure(TRIM_COMPLETE);
     expect(releaseEngineMemory.mock.calls).toEqual([[true]]);
   });
@@ -153,7 +156,7 @@ describe('map surface reclaimer', () => {
     Platform.OS = originalOs;
   });
 
-  it('keeps the GL contexts until the process is a kill candidate', () => {
+  vaultIt('keeps the GL contexts until the process is a kill candidate', () => {
     setAppState('background');
     dispatchMemoryPressure(TRIM_BACKGROUND);
     expect(releaseMountedSurfaces).not.toHaveBeenCalled();
@@ -166,7 +169,7 @@ describe('map surface reclaimer', () => {
     expect(releaseMountedSurfaces).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves Android background release to the native WebView manager', () => {
+  vaultIt('leaves Android background release to the native WebView manager', () => {
     Platform.OS = 'android';
     setAppState('background');
     dispatchMemoryPressure(TRIM_MODERATE);

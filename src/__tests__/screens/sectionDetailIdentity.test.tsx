@@ -229,13 +229,13 @@ describe('section detail screen', () => {
     mockSearchParams = { id: 'sec-1' };
   });
 
-  it("titles its navigation item with the section's name", async () => {
+  vaultIt("titles its navigation item with the section's name", async () => {
     await render(<SectionDetailScreen />);
     await act(async () => {});
     expect(mockScreenOptions.title).toBe('Ridge climb');
   });
 
-  it('keeps what it hands its hooks stable across a rename', async () => {
+  vaultIt('keeps what it hands its hooks stable across a rename', async () => {
     await render(<SectionDetailScreen />);
     await act(async () => {});
 
@@ -263,7 +263,7 @@ describe('section detail screen', () => {
     expect(mockUseSectionTimeStreamSync.mock.calls.at(-1)?.[1]).toBe(streamsBefore?.[1]);
   });
 
-  it('keeps the chart in place through a scrub and a dot tap', async () => {
+  vaultIt('keeps the chart in place through a scrub and a dot tap', async () => {
     const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
     try {
       await render(<SectionDetailScreen />);
@@ -285,31 +285,37 @@ describe('section detail screen', () => {
     }
   });
 
-  it('hands a drag in its sheet on Android to the card, before the sheet takes it', async () => {
-    const realOS = Platform.OS;
-    Platform.OS = 'android';
-    try {
-      const SectionSheet = sectionCardInHost(undefined, { inSheet: true });
-      const screen = await render(<SectionSheet />);
-      await act(async () => {});
-      const tree = screen.toJSON();
-      expect(Array.isArray(tree) ? null : tree?.props.testID).toBe('map-sheet');
-      expect(sheetScrollHandsOff(tree)).toBe(true);
-    } finally {
-      Platform.OS = realOS;
+  vaultIt(
+    'hands a drag in its sheet on Android to the card, before the sheet takes it',
+    async () => {
+      const realOS = Platform.OS;
+      Platform.OS = 'android';
+      try {
+        const SectionSheet = sectionCardInHost(undefined, { inSheet: true });
+        const screen = await render(<SectionSheet />);
+        await act(async () => {});
+        const tree = screen.toJSON();
+        expect(Array.isArray(tree) ? null : tree?.props.testID).toBe('map-sheet');
+        expect(sheetScrollHandsOff(tree)).toBe(true);
+      } finally {
+        Platform.OS = realOS;
+      }
     }
-  });
+  );
 
-  it('writes a pick in the chart to the card it shows in the host, where the map reads it', async () => {
-    await render(<SectionDetailScreen />);
-    await act(async () => {});
+  vaultIt(
+    'writes a pick in the chart to the card it shows in the host, where the map reads it',
+    async () => {
+      await render(<SectionDetailScreen />);
+      await act(async () => {});
 
-    await act(async () => capturedActivitySelect?.('attempt-e'));
+      await act(async () => capturedActivitySelect?.('attempt-e'));
 
-    const card = topCard(useMapSheetHosts.getState().hosts, 'section:sec-1');
-    expect(card?.kind).toBe('section');
-    expect(card?.state.attemptId).toBe('attempt-e');
-  });
+      const card = topCard(useMapSheetHosts.getState().hosts, 'section:sec-1');
+      expect(card?.kind).toBe('section');
+      expect(card?.state.attemptId).toBe('attempt-e');
+    }
+  );
 });
 
 /**
@@ -373,7 +379,7 @@ describe('section detail opening range', () => {
     expect(mockUseSectionDetailPerformance.mock.calls.at(-1)?.[1]).toBe(0);
   });
 
-  it('opens on the default window with no origin', async () => {
+  vaultIt('opens on the default window with no origin', async () => {
     await render(<SectionDetailScreen />);
     await act(async () => {});
 
@@ -483,7 +489,7 @@ describe('section detail open timing', () => {
     }));
   });
 
-  it('completes at the frame the visits are drawn, not at mount', async () => {
+  vaultIt('completes at the frame the visits are drawn, not at mount', async () => {
     mockUseSectionDetailPerformance.mockImplementation(() => ({
       data: undefined,
       error: undefined,
@@ -504,14 +510,14 @@ describe('section detail open timing', () => {
     expect(mockCompleteFlowAfterFrame).toHaveBeenCalledTimes(1);
   });
 
-  it('completes on the first frame when the read answers at mount', async () => {
+  vaultIt('completes on the first frame when the read answers at mount', async () => {
     mockUseSectionDetailPerformance.mockImplementation(() => performanceRead);
     await render(<SectionDetailScreen />);
     await act(async () => {});
     expect(mockCompleteFlowAfterFrame).toHaveBeenCalledTimes(1);
   });
 
-  it('does not complete while the read has failed', async () => {
+  vaultIt('does not complete while the read has failed', async () => {
     mockUseSectionDetailPerformance.mockImplementation(() => ({
       data: undefined,
       error: new Error('engine closed'),

@@ -42,11 +42,11 @@ const HASHES = [
 ];
 
 describe('router paths', () => {
-  it.each(HASHES)('%s parses and writes back byte for byte', (hash) => {
+  vaultIt.each(HASHES)('%s parses and writes back byte for byte', (hash) => {
     expect(write(parse(hash))).toBe(hash);
   });
 
-  it('reads the screen, id and query', () => {
+  vaultIt('reads the screen, id and query', () => {
     expect(parse('#/feed?range=thisYear&sport=ride')).toEqual({
       screen: 'feed',
       id: null,
@@ -61,7 +61,7 @@ describe('router paths', () => {
     expect(queryValue(route, 'sport')).toBeNull();
   });
 
-  it.each([
+  vaultIt.each([
     '',
     '#',
     '#/',
@@ -76,7 +76,7 @@ describe('router paths', () => {
     expect(write(parse(hash))).toBe('#/feed');
   });
 
-  it('files each screen under the phone tab that holds it', () => {
+  vaultIt('files each screen under the phone tab that holds it', () => {
     expect(TABS).toEqual(['feed', 'fitness', 'insights', 'map', 'settings']);
     expect(tabOf(parse('#/activity/a'))).toBe('feed');
     expect(tabOf(parse('#/section/s'))).toBe('map');
@@ -90,20 +90,20 @@ describe('router paths', () => {
 });
 
 describe('router and the link', () => {
-  it('holds the route and shows nothing while the link is waiting', () => {
+  vaultIt('holds the route and shows nothing while the link is waiting', () => {
     const held = parse('#/fitness');
     const result = resolve('waiting', '#/map', held);
     expect(result.shown).toBeNull();
     expect(result.held).toBe(held);
   });
 
-  it('applies the hash once connected', () => {
+  vaultIt('applies the hash once connected', () => {
     const result = resolve('connected', '#/section/s9', null);
     expect(write(result.shown!)).toBe('#/section/s9');
     expect(result.held).toBe(result.shown);
   });
 
-  it('keeps the hash through a drop and a reconnect', () => {
+  vaultIt('keeps the hash through a drop and a reconnect', () => {
     let held = resolve('connected', '#/insights', null).held;
     held = resolve('waiting', '#/insights', held).held;
     held = resolve('connecting', '#/insights', held).held;
@@ -111,7 +111,7 @@ describe('router and the link', () => {
     expect(resolve('connected', '#/insights', held).shown).toEqual(parse('#/insights'));
   });
 
-  it('restores from the address bar on a fresh load', () => {
+  vaultIt('restores from the address bar on a fresh load', () => {
     expect(restore(null, '#/map')).toBe('#/map');
     expect(restore(null, '')).toBe('#/feed');
   });
@@ -120,20 +120,20 @@ describe('router and the link', () => {
 describe('router keys', () => {
   const press = (key: string, tagName = 'BODY') => keyAction({ key, target: { tagName } });
 
-  it('switches tabs with 1 to 5 in the phone order', () => {
+  vaultIt('switches tabs with 1 to 5 in the phone order', () => {
     expect(press('1')).toEqual({ do: 'tab', tab: 'feed' });
     expect(press('4')).toEqual({ do: 'tab', tab: 'map' });
     expect(press('5')).toEqual({ do: 'tab', tab: 'settings' });
     expect(press('6')).toBeNull();
   });
 
-  it('maps search, close and help', () => {
+  vaultIt('maps search, close and help', () => {
     expect(press('/')).toEqual({ do: 'search' });
     expect(press('Escape')).toEqual({ do: 'closeDetail' });
     expect(press('?')).toEqual({ do: 'help' });
   });
 
-  it('maps j, k and the arrow keys to a step and Enter to open', () => {
+  vaultIt('maps j, k and the arrow keys to a step and Enter to open', () => {
     expect(press('j')).toEqual({ do: 'step', step: 'next' });
     expect(press('ArrowDown')).toEqual({ do: 'step', step: 'next' });
     expect(press('k')).toEqual({ do: 'step', step: 'previous' });
@@ -141,12 +141,12 @@ describe('router keys', () => {
     expect(press('Enter')).toEqual({ do: 'open' });
   });
 
-  it.each(['INPUT', 'TEXTAREA', 'SELECT'])('does nothing in a %s', (tag) => {
+  vaultIt.each(['INPUT', 'TEXTAREA', 'SELECT'])('does nothing in a %s', (tag) => {
     for (const key of ['1', '/', 'Escape', '?', 'j', 'ArrowDown', 'Enter'])
       expect(press(key, tag)).toBeNull();
   });
 
-  it('does nothing in an editable region or with a modifier held', () => {
+  vaultIt('does nothing in an editable region or with a modifier held', () => {
     expect(keyAction({ key: '1', target: { tagName: 'DIV', isContentEditable: true } })).toBeNull();
     expect(keyAction({ key: '1', ctrlKey: true, target: { tagName: 'BODY' } })).toBeNull();
   });

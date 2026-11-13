@@ -83,6 +83,7 @@ fn a_pass_that_failed_on_the_network_starts_again_when_the_connection_returns() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_that_ended_cleanly_is_not_started_on_the_online_edge() {
     let h = harness(FfiStartOutcome::Started);
     h.service.request(range("2024-01-01", "2024-03-31"));
@@ -94,6 +95,7 @@ fn a_pass_that_ended_cleanly_is_not_started_on_the_online_edge() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_asked_while_one_runs_starts_once_when_it_ends() {
     let h = harness(FfiStartOutcome::Started);
     h.service.request(range("2024-01-01", "2024-03-31"));
@@ -120,6 +122,7 @@ fn a_pass_asked_while_one_runs_starts_once_when_it_ends() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_reconnect_during_a_running_pass_waits_for_it_to_end() {
     let h = harness(FfiStartOutcome::Started);
     h.service.request(range("2024-01-01", "2024-03-31"));
@@ -153,6 +156,7 @@ fn a_pass_asked_offline_is_owed_to_the_connection() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_owed_pass_that_comes_due_offline_waits_for_the_connection() {
     let h = harness(FfiStartOutcome::Started);
     h.service.request(range("2024-01-01", "2024-03-31"));
@@ -184,6 +188,7 @@ fn a_pass_that_does_not_start_frees_the_slot() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_running_pass_names_its_run_until_it_ends() {
     let h = harness(FfiStartOutcome::Started);
     assert_eq!(h.service.running_run(), None);
@@ -196,6 +201,7 @@ fn the_running_pass_names_its_run_until_it_ends() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_the_engine_starts_itself_names_its_own_run() {
     let h = harness(FfiStartOutcome::Started);
     h.service.request(range("2024-01-01", "2024-03-31"));
@@ -211,6 +217,7 @@ fn a_pass_the_engine_starts_itself_names_its_own_run() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_that_did_not_start_names_no_run() {
     let h = harness(FfiStartOutcome::NotOwed);
     h.service.request(range("2024-01-01", "2024-03-31"));
@@ -223,6 +230,7 @@ fn a_pass_that_did_not_start_names_no_run() {
 /// Expected behaviour: the run reported is the owed pass's, which is the one
 /// downloading, and not the run of the pass that has already ended.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_that_ends_before_its_start_returns_does_not_name_its_run() {
     let service_slot: Arc<OnceLock<Weak<GpsPassService>>> = Arc::new(OnceLock::new());
     let reaches_service = Arc::clone(&service_slot);
@@ -261,6 +269,7 @@ fn a_pass_that_ends_before_its_start_returns_does_not_name_its_run() {
 /// Expected behaviour: the range asked for in that window is started once the
 /// refused start frees the slot, with no later ask to reach it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_asked_during_a_refused_start_starts_when_the_slot_frees() {
     let service_slot: Arc<OnceLock<Weak<GpsPassService>>> = Arc::new(OnceLock::new());
     let reaches_service = Arc::clone(&service_slot);
@@ -301,6 +310,7 @@ fn a_pass_asked_during_a_refused_start_starts_when_the_slot_frees() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_head_ids_come_first_in_their_own_order() {
     let ordered = head_first(
         vec!["a".into(), "b".into(), "c".into(), "d".into()],
@@ -335,6 +345,7 @@ fn instant(s: &str) -> chrono::DateTime<chrono::Utc> {
 /// woken when the hold lifts, and the same range starts again then, with no
 /// second ask from a screen.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_the_budget_held_back_starts_again_when_the_hold_lifts() {
     let (h, wakes) = waking_harness();
     let asked = range("2024-10-27", "2026-10-27");
@@ -357,6 +368,7 @@ fn a_pass_the_budget_held_back_starts_again_when_the_hold_lifts() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_budget_lift_with_nothing_held_starts_nothing() {
     let (h, _) = waking_harness();
     h.service.request(range("2024-01-01", "2024-03-31"));
@@ -373,6 +385,7 @@ fn a_budget_lift_with_nothing_held_starts_nothing() {
 /// Expected behaviour: the pass owed behind it waits for the lift rather than
 /// starting into the hold, and the lift starts one pass over both spans.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_owed_behind_one_the_budget_holds_waits_for_the_lift() {
     let (h, _) = waking_harness();
     h.service.request(range("2024-10-27", "2026-10-27"));
@@ -393,6 +406,7 @@ fn a_pass_owed_behind_one_the_budget_holds_waits_for_the_lift() {
 /// Expected behaviour: the hold reported is the later one, which is the wait in
 /// force, and each asks for its own wake.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_hold_moves_the_wait_to_its_own_lift() {
     let (h, wakes) = waking_harness();
     let first = instant("2026-10-27T05:15:00Z");
@@ -412,6 +426,7 @@ fn a_second_hold_moves_the_wait_to_its_own_lift() {
 /// Expected behaviour: the ask is held with the pass, starting nothing that
 /// would only be deferred, and the lift starts one pass over both spans.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_asked_while_one_is_held_is_held_with_it() {
     let (h, _) = waking_harness();
     h.service.request(range("2024-10-27", "2026-10-27"));
@@ -452,6 +467,7 @@ fn a_pass_lost_to_the_network_while_online_retries_on_a_wake() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_lost_to_the_network_while_offline_waits_for_the_edge_and_not_a_wake() {
     let (h, wakes) = waking_harness();
     h.service.request(range("2024-01-01", "2024-03-31"));
@@ -464,6 +480,7 @@ fn a_pass_lost_to_the_network_while_offline_waits_for_the_edge_and_not_a_wake() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn repeated_losses_while_online_wait_longer_each_time_until_a_pass_settles() {
     let (h, wakes) = waking_harness();
     h.service.request(range("2024-01-01", "2024-03-31"));
@@ -484,6 +501,7 @@ fn repeated_losses_while_online_wait_longer_each_time_until_a_pass_settles() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_asked_while_a_lost_one_is_owed_to_a_retry_covers_both_ranges() {
     let (h, _wakes) = waking_harness();
     h.service.request(range("2024-02-01", "2024-03-31"));

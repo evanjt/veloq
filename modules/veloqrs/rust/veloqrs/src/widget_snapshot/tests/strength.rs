@@ -188,6 +188,7 @@ fn slugs(window: &serde_json::Value) -> Vec<String> {
 /// screen does over the same bounds, from midnight 29 days back to the end of
 /// today.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_window_shades_the_body_as_the_strength_screen_does_over_the_same_days() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_windows.db");
@@ -234,6 +235,7 @@ fn the_window_shades_the_body_as_the_strength_screen_does_over_the_same_days() {
 /// window, labelled as the strength tab names it, with the body and the link
 /// that opens the strength tab on the same 30 days.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_block_carries_the_trailing_month_alone() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_labels.db");
@@ -259,6 +261,7 @@ fn the_block_carries_the_trailing_month_alone() {
 /// weighted-set order, at most four, each named and worded with its sets and
 /// its volume in the athlete's unit.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_top_muscles_are_ranked_and_worded_by_the_engine() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_top.db");
@@ -306,6 +309,7 @@ fn the_top_muscles_are_ranked_and_worded_by_the_engine() {
 /// Expected behaviour: half sets keep their decimal, one set is singular, and
 /// volume is in pounds.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn sets_and_volume_are_worded_in_the_athletes_language_and_unit() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_words.db");
@@ -344,6 +348,7 @@ fn sets_and_volume_are_worded_in_the_athletes_language_and_unit() {
 /// and how often that is a week, sessions over the window's 30 days times
 /// seven to one decimal: 0,7 a week for the chest, 0,2 for the quadriceps.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn each_top_muscle_carries_how_often_a_week_it_was_trained() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_frequency.db");
@@ -383,6 +388,7 @@ fn each_top_muscle_carries_how_often_a_week_it_was_trained() {
 /// Expected behaviour: the window has no muscles and says so in the strength
 /// tab's words for the 30 days.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_window_says_so_and_draws_no_muscles() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_empty.db");
@@ -411,6 +417,7 @@ fn an_empty_window_says_so_and_draws_no_muscles() {
 /// Expected behaviour: the window counts it as owed and says the workouts are
 /// not downloaded yet, rather than that there are none.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_whose_sessions_are_owed_says_they_are_not_downloaded() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_owed.db");
@@ -429,6 +436,7 @@ fn a_window_whose_sessions_are_owed_says_they_are_not_downloaded() {
 /// Expected behaviour: the block is still there, the window empty and worded,
 /// so a native never words it itself.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_with_no_strength_work_still_carries_the_window_worded() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_none.db");
@@ -451,6 +459,7 @@ fn a_library_with_no_strength_work_still_carries_the_window_worded() {
 /// Expected behaviour: the female body, then the male body the strength tab
 /// falls back to.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_body_follows_the_profile_as_the_strength_tab_does() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_strength_body.db");
@@ -469,6 +478,7 @@ fn the_body_follows_the_profile_as_the_strength_tab_does() {
 /// The plural category i18next gives each count in the app's languages, read
 /// from `Intl.PluralRules` for every supported locale.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_plural_category_is_the_one_the_app_picks() {
     let counts = [
         0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 10.0, 11.0, 12.0, 13.0, 14.0, 21.0, 22.0, 25.0, 100.0,

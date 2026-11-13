@@ -45,7 +45,7 @@ function expectNoHaptic() {
 }
 
 describe('useSectionCreation haptics', () => {
-  it('fires one medium impact per anchor and none for a tap after complete', async () => {
+  vaultIt('fires one medium impact per anchor and none for a tap after complete', async () => {
     const { result } = await renderCreation();
 
     await act(() => {
@@ -66,7 +66,7 @@ describe('useSectionCreation haptics', () => {
     expect(mockedHaptics.success).not.toHaveBeenCalled();
   });
 
-  it('fires the end anchor impact when the end lands before the start', async () => {
+  vaultIt('fires the end anchor impact when the end lands before the start', async () => {
     const { result } = await renderCreation();
 
     await act(() => {
@@ -80,7 +80,7 @@ describe('useSectionCreation haptics', () => {
     expect(mockedHaptics.medium).toHaveBeenCalledTimes(2);
   });
 
-  it('fires nothing for a tap outside creation mode', async () => {
+  vaultIt('fires nothing for a tap outside creation mode', async () => {
     const { result } = await renderCreation(false);
 
     await act(() => {
@@ -90,7 +90,7 @@ describe('useSectionCreation haptics', () => {
     expectNoHaptic();
   });
 
-  it('fires nothing for a tap with no route coordinates', async () => {
+  vaultIt('fires nothing for a tap with no route coordinates', async () => {
     const { result } = await renderHook(() =>
       useSectionCreation({
         creationMode: true,
@@ -106,7 +106,7 @@ describe('useSectionCreation haptics', () => {
     expectNoHaptic();
   });
 
-  it('fires nothing on cancel or reset', async () => {
+  vaultIt('fires nothing on cancel or reset', async () => {
     const onCreationCancelled = jest.fn();
     const { result } = await renderHook(() =>
       useSectionCreation({
@@ -196,7 +196,7 @@ describe('submitSectionCreation', () => {
     });
   });
 
-  it('creates nothing and fires nothing without an activity', async () => {
+  vaultIt('creates nothing and fires nothing without an activity', async () => {
     const { setters, createSection } = setup(jest.fn());
 
     await submitSectionCreation({

@@ -69,7 +69,7 @@ describe('SyncErrorBanner', () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
   });
 
-  it('stays hidden while the sync is healthy', async () => {
+  vaultIt('stays hidden while the sync is healthy', async () => {
     const { queryByTestId } = await render(<SyncErrorBanner />);
     expect(queryByTestId('sync-error-banner')).toBeNull();
   });
@@ -98,7 +98,7 @@ describe('SyncErrorBanner', () => {
     expect(getByText('HTTP 503 from intervals.icu')).toBeTruthy();
   });
 
-  it('says no sync has ever landed when there is no success time', async () => {
+  vaultIt('says no sync has ever landed when there is no success time', async () => {
     mockHealth = {
       lastError: 'timed out',
       lastErrorReason: null,
@@ -109,7 +109,7 @@ describe('SyncErrorBanner', () => {
     expect(getByText('emptyState.syncError.neverSynced')).toBeTruthy();
   });
 
-  it('dates the last successful sync when there is one', async () => {
+  vaultIt('dates the last successful sync when there is one', async () => {
     mockHealth = {
       lastError: 'timed out',
       lastErrorReason: null,
@@ -144,7 +144,7 @@ describe('SyncErrorBanner', () => {
     expect(queryByTestId('sync-error-banner')).toBeNull();
   });
 
-  it.each([
+  vaultIt.each([
     [SyncErrorReason.Unauthorized, 'unauthorized'],
     [SyncErrorReason.RateLimited, 'rateLimited'],
     [SyncErrorReason.Server, 'server'],
@@ -236,7 +236,7 @@ describe('SyncErrorBanner', () => {
   });
 
   describe('closing the banner', () => {
-    it.each([
+    vaultIt.each([
       SyncErrorReason.Network,
       SyncErrorReason.Storage,
       SyncErrorReason.EngineClosed,
@@ -287,7 +287,7 @@ describe('SyncErrorBanner', () => {
       expect(queryByTestId('sync-error-banner')).toBeTruthy();
     });
 
-    it('shows again when a sync succeeds and then fails with the same reason', async () => {
+    vaultIt('shows again when a sync succeeds and then fails with the same reason', async () => {
       mockHealth = {
         lastError: 'disk I/O error',
         lastErrorReason: SyncErrorReason.Storage,
@@ -312,22 +312,25 @@ describe('SyncErrorBanner', () => {
       expect(queryByTestId('sync-error-banner')).toBeTruthy();
     });
 
-    it('shows again when a later sync succeeds between two failures of one reason', async () => {
-      mockHealth = {
-        lastError: 'disk I/O error',
-        lastErrorReason: SyncErrorReason.Storage,
-        lastSuccessAt: '2026-08-01T10:00:00.000Z',
-      };
-      const { getByTestId, queryByTestId, rerender } = await render(<SyncErrorBanner />);
-      await fireEvent.press(getByTestId('sync-error-banner-dismiss'));
+    vaultIt(
+      'shows again when a later sync succeeds between two failures of one reason',
+      async () => {
+        mockHealth = {
+          lastError: 'disk I/O error',
+          lastErrorReason: SyncErrorReason.Storage,
+          lastSuccessAt: '2026-08-01T10:00:00.000Z',
+        };
+        const { getByTestId, queryByTestId, rerender } = await render(<SyncErrorBanner />);
+        await fireEvent.press(getByTestId('sync-error-banner-dismiss'));
 
-      // The success and the next failure land inside one render, so the
-      // healthy reading is never drawn; the new success time still marks it.
-      mockHealth = { ...mockHealth, lastSuccessAt: '2026-08-02T10:00:00.000Z' };
-      await rerender(<SyncErrorBanner />);
+        // The success and the next failure land inside one render, so the
+        // healthy reading is never drawn; the new success time still marks it.
+        mockHealth = { ...mockHealth, lastSuccessAt: '2026-08-02T10:00:00.000Z' };
+        await rerender(<SyncErrorBanner />);
 
-      expect(queryByTestId('sync-error-banner')).toBeTruthy();
-    });
+        expect(queryByTestId('sync-error-banner')).toBeTruthy();
+      }
+    );
   });
 
   /// A refusal from intervals.icu is not a fault on the device, and the
@@ -355,7 +358,7 @@ describe('SyncErrorBanner', () => {
     expect(getByTestId('paused-sync-pill').props.accessibilityLiveRegion).toBe('polite');
   });
 
-  it('falls back to the engine string for a reason it does not know', async () => {
+  vaultIt('falls back to the engine string for a reason it does not know', async () => {
     mockHealth = {
       lastError: 'something new the engine learnt to say',
       lastErrorReason: 99 as SyncErrorReason,
@@ -366,7 +369,7 @@ describe('SyncErrorBanner', () => {
     expect(getByText('something new the engine learnt to say')).toBeTruthy();
   });
 
-  it('still says something when the engine gives neither a reason nor a message', async () => {
+  vaultIt('still says something when the engine gives neither a reason nor a message', async () => {
     mockHealth = {
       lastError: '',
       lastErrorReason: SyncErrorReason.Internal,
@@ -377,7 +380,7 @@ describe('SyncErrorBanner', () => {
     expect(getByText('emptyState.syncError.reason.internal')).toBeTruthy();
   });
 
-  it('hides again once a later sync clears the error', async () => {
+  vaultIt('hides again once a later sync clears the error', async () => {
     mockHealth = {
       lastError: 'timed out',
       lastErrorReason: null,

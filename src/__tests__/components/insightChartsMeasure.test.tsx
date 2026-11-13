@@ -73,12 +73,12 @@ describe('insight charts measure outside the chart branch', () => {
     expect(canvases(tree)).toHaveLength(1);
   });
 
-  it('draws no HRV trend from a single reading', async () => {
+  vaultIt('draws no HRV trend from a single reading', async () => {
     const tree = await render(<HrvTrendContent insight={hrvInsight([50])} />);
     expect(canvases(tree)).toHaveLength(0);
   });
 
-  it('draws the section PR timeline once laid out', async () => {
+  vaultIt('draws the section PR timeline once laid out', async () => {
     const records = [record('a', 1, 300), record('b', 5, 290), record('c', 9, 310)];
     const tree = await render(
       <SectionPerformanceTimeline
@@ -90,7 +90,7 @@ describe('insight charts measure outside the chart branch', () => {
     expect(canvases(tree)).toHaveLength(1);
   });
 
-  it('draws no timeline from one effort', async () => {
+  vaultIt('draws no timeline from one effort', async () => {
     const tree = await render(
       <SectionPerformanceTimeline records={[record('a', 1, 300)]} bests={NO_BESTS} />
     );

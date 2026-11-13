@@ -50,7 +50,7 @@ afterEach(() => {
 });
 
 describe('the unlock track', () => {
-  it('is one focusable button named for unlocking, with the slide as its hint', async () => {
+  vaultIt('is one focusable button named for unlocking, with the slide as its hint', async () => {
     await render(<UnlockTrack onUnlock={jest.fn()} />);
     const track = screen.getByTestId('unlock-track');
 
@@ -86,7 +86,7 @@ describe('the unlock track', () => {
     expect(onUnlock).toHaveBeenCalledTimes(2);
   });
 
-  it('ignores an accessibility action that is not activate', async () => {
+  vaultIt('ignores an accessibility action that is not activate', async () => {
     const onUnlock = jest.fn();
     await render(<UnlockTrack onUnlock={onUnlock} />);
 
@@ -161,7 +161,7 @@ describe('the padlock in the recording header', () => {
     onLock: jest.fn(),
   };
 
-  it('is named for locking the controls, not for the slide', async () => {
+  vaultIt('is named for locking the controls, not for the slide', async () => {
     await render(<TimerHeader {...props} isLocked={false} />);
     const toggle = screen.getByTestId('recording-lock-toggle');
 
@@ -169,7 +169,7 @@ describe('the padlock in the recording header', () => {
     expect(screen.queryByLabelText('Slide to unlock')).toBeNull();
   });
 
-  it('announces itself disabled while the controls are already locked', async () => {
+  vaultIt('announces itself disabled while the controls are already locked', async () => {
     await render(<TimerHeader {...props} isLocked />);
     const toggle = screen.getByTestId('recording-lock-toggle');
 
@@ -179,7 +179,7 @@ describe('the padlock in the recording header', () => {
 });
 
 describe('the unlock track label at a large text size', () => {
-  it('is capped at the dense text scale', async () => {
+  vaultIt('is capped at the dense text scale', async () => {
     await render(<UnlockTrack onUnlock={jest.fn()} />);
 
     expect(screen.getByTestId('unlock-track-label').props.maxFontSizeMultiplier).toBe(
@@ -187,7 +187,7 @@ describe('the unlock track label at a large text size', () => {
     );
   });
 
-  it('starts past the handle rather than spanning the track under it', async () => {
+  vaultIt('starts past the handle rather than spanning the track under it', async () => {
     await render(<UnlockTrack onUnlock={jest.fn()} />);
     const label = StyleSheet.flatten(screen.getByTestId('unlock-track-label').props.style);
     const handle = StyleSheet.flatten(screen.getByTestId('unlock-track-handle').props.style);

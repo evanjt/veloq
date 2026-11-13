@@ -107,7 +107,7 @@ afterEach(() => {
 });
 
 describe('ScreenScrollView', () => {
-  it('sets automatic inset adjustment on iOS', async () => {
+  vaultIt('sets automatic inset adjustment on iOS', async () => {
     const ui = loadFor('ios');
     const props = await scrollProps(
       ui,
@@ -119,7 +119,7 @@ describe('ScreenScrollView', () => {
     expect(props.contentInsetAdjustmentBehavior).toBe('automatic');
   });
 
-  it('sets no inset adjustment on Android', async () => {
+  vaultIt('sets no inset adjustment on Android', async () => {
     const ui = loadFor('android');
     const props = await scrollProps(
       ui,
@@ -131,7 +131,7 @@ describe('ScreenScrollView', () => {
     expect(props).not.toHaveProperty('contentInsetAdjustmentBehavior');
   });
 
-  it("lets the caller's own value win on iOS", async () => {
+  vaultIt("lets the caller's own value win on iOS", async () => {
     const ui = loadFor('ios');
     const props = await scrollProps(
       ui,
@@ -143,7 +143,7 @@ describe('ScreenScrollView', () => {
     expect(props.contentInsetAdjustmentBehavior).toBe('never');
   });
 
-  it('forwards the other props and the ref to the scroll view', async () => {
+  vaultIt('forwards the other props and the ref to the scroll view', async () => {
     const ui = loadFor('ios');
     const ref = createRef<ScrollViewInstance>();
     const { getByTestId } = await ui.rtl.render(
@@ -158,7 +158,7 @@ describe('ScreenScrollView', () => {
 });
 
 describe('ScreenScrollView and the keyboard', () => {
-  it('insets itself for the keyboard on iOS, and lets a tap through', async () => {
+  vaultIt('insets itself for the keyboard on iOS, and lets a tap through', async () => {
     const ui = loadFor('ios');
     const props = await scrollProps(
       ui,
@@ -172,7 +172,7 @@ describe('ScreenScrollView and the keyboard', () => {
     expect(props.keyboardDismissMode).toBe('interactive');
   });
 
-  it('adds no wrapper on iOS, where the scroll view does the work', async () => {
+  vaultIt('adds no wrapper on iOS, where the scroll view does the work', async () => {
     const ui = loadFor('ios');
     const { toJSON } = await ui.rtl.render(
       <ui.ScreenScrollView testID="body">
@@ -183,7 +183,7 @@ describe('ScreenScrollView and the keyboard', () => {
     expect((toJSON() as { props: { testID?: string } }).props.testID).toBe('body');
   });
 
-  it('lets a tap through and puts the keyboard away on a drag on Android', async () => {
+  vaultIt('lets a tap through and puts the keyboard away on a drag on Android', async () => {
     const ui = loadFor('android');
     const props = await scrollProps(
       ui,
@@ -228,7 +228,7 @@ describe('ScreenScrollView and the keyboard', () => {
     expect(padding()).toBe(0);
   });
 
-  it('stops listening once the screen unmounts', async () => {
+  vaultIt('stops listening once the screen unmounts', async () => {
     const ui = loadFor('android');
     ui.measuredAt(100, 500);
     const tree = await ui.rtl.render(
@@ -243,7 +243,7 @@ describe('ScreenScrollView and the keyboard', () => {
     expect(ui.rn.View.prototype.measureInWindow).not.toHaveBeenCalled();
   });
 
-  it("lets the caller's own keyboard props win", async () => {
+  vaultIt("lets the caller's own keyboard props win", async () => {
     const ui = loadFor('ios');
     const props = await scrollProps(
       ui,
@@ -258,19 +258,22 @@ describe('ScreenScrollView and the keyboard', () => {
 });
 
 describe('screenListInsets', () => {
-  it('carries automatic inset adjustment and the keyboard defaults on iOS, onto a FlatList', async () => {
-    const ui = loadFor('ios');
-    const props = await scrollProps(
-      ui,
-      <ui.rn.FlatList data={['a']} renderItem={() => null} {...ui.screenListInsets} />
-    );
+  vaultIt(
+    'carries automatic inset adjustment and the keyboard defaults on iOS, onto a FlatList',
+    async () => {
+      const ui = loadFor('ios');
+      const props = await scrollProps(
+        ui,
+        <ui.rn.FlatList data={['a']} renderItem={() => null} {...ui.screenListInsets} />
+      );
 
-    expect(props.contentInsetAdjustmentBehavior).toBe('automatic');
-    expect(props.automaticallyAdjustKeyboardInsets).toBe(true);
-    expect(props.keyboardShouldPersistTaps).toBe('handled');
-  });
+      expect(props.contentInsetAdjustmentBehavior).toBe('automatic');
+      expect(props.automaticallyAdjustKeyboardInsets).toBe(true);
+      expect(props.keyboardShouldPersistTaps).toBe('handled');
+    }
+  );
 
-  it('carries only the keyboard defaults on Android', () => {
+  vaultIt('carries only the keyboard defaults on Android', () => {
     expect(loadFor('android').screenListInsets).toEqual({
       keyboardShouldPersistTaps: 'handled',
       keyboardDismissMode: 'on-drag',

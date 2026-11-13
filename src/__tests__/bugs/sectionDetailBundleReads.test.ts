@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 
 describe('the excluded laps come from the screen read', () => {
-  it('reads nothing of its own: the lap list carries each lap flagged', async () => {
+  vaultIt('reads nothing of its own: the lap list carries each lap flagged', async () => {
     await renderHook(() => useSectionLaps('sec1'));
 
     expect(visibility).not.toHaveProperty('getExcludedSectionLaps');
@@ -58,7 +58,7 @@ describe('the ledger comes from the bundle', () => {
     expect(result.current.versions.map((v) => v.version)).toEqual([2, 1]);
   });
 
-  it('reads nothing and is empty when the bundle carried none', async () => {
+  vaultIt('reads nothing and is empty when the bundle carried none', async () => {
     const { result } = await renderHook(() => useSectionLedger('sec1'));
 
     expect(result.current.history).toEqual([]);
@@ -93,7 +93,7 @@ describe('the ledger comes from the bundle', () => {
     expect(result.current.pinnedVersion).toBeNull();
   });
 
-  it('does not touch the engine for a revert it was not asked to make', async () => {
+  vaultIt('does not touch the engine for a revert it was not asked to make', async () => {
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     engine.runSectionBoundsEdit.mockResolvedValueOnce(null);
     const { result } = await renderHook(() => useSectionLedger('sec1', bundled));

@@ -50,7 +50,7 @@ describe('fitnessEntryFromParams', () => {
     }
   });
 
-  it('takes the first of a repeated param', () => {
+  vaultIt('takes the first of a repeated param', () => {
     expect(fitnessEntryFromParams({ range: ['3m', '7d'] }).range).toBe('3m');
   });
 
@@ -80,14 +80,14 @@ describe('fitnessPlaceOf', () => {
     ftp: 'trends',
   } as const;
 
-  it('opens each chart on the place that draws it', () => {
+  vaultIt('opens each chart on the place that draws it', () => {
     for (const chart of FITNESS_CHARTS) {
       expect(FITNESS_CHART_PLACEMENT[chart].place).toBe(PLACE_OF_CHART[chart]);
       expect(fitnessPlaceOf({ chart })).toBe(PLACE_OF_CHART[chart]);
     }
   });
 
-  it('reveals the pace and swim curves with no section to open', () => {
+  vaultIt('reveals the pace and swim curves with no section to open', () => {
     for (const chart of ['pace', 'css'] as const) {
       expect(FITNESS_CHART_PLACEMENT[chart].section).toBeNull();
       expect(fitnessChartAnchor(chart)).toBe('chart');
@@ -162,7 +162,7 @@ describe('fitnessTarget', () => {
     });
   });
 
-  it('is the bare tab when there is nothing to carry', () => {
+  vaultIt('is the bare tab when there is nothing to carry', () => {
     expect(fitnessTarget({})).toBe('/fitness');
   });
 });
@@ -223,7 +223,7 @@ describe('the cards that link to the fitness tab', () => {
 });
 
 describe('rangeCovering against the period table', () => {
-  it('reads its spans from the one period table, so a changed span moves it', () => {
+  vaultIt('reads its spans from the one period table, so a changed span moves it', () => {
     jest.isolateModules(() => {
       jest.doMock('@/shared/app/period', () => {
         const actual = jest.requireActual('@/shared/app/period');

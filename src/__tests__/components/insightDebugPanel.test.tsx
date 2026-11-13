@@ -80,7 +80,7 @@ describe('InsightDebugPanel', () => {
     expect(screen.getByText('On screen (3)')).toBeTruthy();
   });
 
-  it('names every card consolidation dropped, with its reason', async () => {
+  vaultIt('names every card consolidation dropped, with its reason', async () => {
     const pr = insight('section-pr', 'section_pr');
     const dupe = insight('efficiency-s1', 'efficiency_trend');
     mockOutcome.mockReturnValue(
@@ -104,16 +104,19 @@ describe('InsightDebugPanel', () => {
     expect(screen.getByText(/duplicate section \(already covered by PR insight\)/)).toBeTruthy();
   });
 
-  it('says so when consolidation has not run, rather than passing the pipeline list off as the screen', async () => {
-    mockOutcome.mockReturnValue(outcome({ kept: [insight('a', 'fitness_milestone')] }));
+  vaultIt(
+    'says so when consolidation has not run, rather than passing the pipeline list off as the screen',
+    async () => {
+      mockOutcome.mockReturnValue(outcome({ kept: [insight('a', 'fitness_milestone')] }));
 
-    await render(<InsightDebugPanel visible onClose={() => {}} />);
+      await render(<InsightDebugPanel visible onClose={() => {}} />);
 
-    expect(screen.getByText('Kept, before consolidation (1)')).toBeTruthy();
-    expect(screen.queryByText(/^On screen/)).toBeNull();
-  });
+      expect(screen.getByText('Kept, before consolidation (1)')).toBeTruthy();
+      expect(screen.queryByText(/^On screen/)).toBeNull();
+    }
+  );
 
-  it('renders nothing captured when no pipeline has run', async () => {
+  vaultIt('renders nothing captured when no pipeline has run', async () => {
     mockOutcome.mockReturnValue(null);
 
     await render(<InsightDebugPanel visible onClose={() => {}} />);
@@ -121,7 +124,7 @@ describe('InsightDebugPanel', () => {
     expect(screen.getByText('No pipeline outcome captured yet.')).toBeTruthy();
   });
 
-  it('still lists the gated and cap-dropped candidates', async () => {
+  vaultIt('still lists the gated and cap-dropped candidates', async () => {
     const gated = insight('gated', 'fitness_milestone');
     const capped = insight('capped', 'fitness_milestone');
     mockOutcome.mockReturnValue(
@@ -142,32 +145,35 @@ describe('InsightDebugPanel', () => {
     ).toBeTruthy();
   });
 
-  it('shows the priority base in the breakdown of on-screen and cap-dropped rows', async () => {
-    const shown = insight('shown', 'stale_pr');
-    const capped = insight('capped', 'section_trend');
-    const breakdown = (base: number) => ({
-      base,
-      confidence: 10,
-      ranking: 20,
-      category: 0,
-      specificity: 0,
-      temporalSelf: 0,
-      signal: 5,
-    });
-    mockOutcome.mockReturnValue(
-      outcome({
-        consolidated: [shown],
-        scored: [
-          { insight: shown, score: 200, breakdown: breakdown(200) },
-          { insight: capped, score: 150, breakdown: breakdown(150) },
-        ] as unknown as PipelineOutcome['scored'],
-        capDropped: [{ insight: capped, score: 150, reason: 'surface_cap' }],
-      })
-    );
+  vaultIt(
+    'shows the priority base in the breakdown of on-screen and cap-dropped rows',
+    async () => {
+      const shown = insight('shown', 'stale_pr');
+      const capped = insight('capped', 'section_trend');
+      const breakdown = (base: number) => ({
+        base,
+        confidence: 10,
+        ranking: 20,
+        category: 0,
+        specificity: 0,
+        temporalSelf: 0,
+        signal: 5,
+      });
+      mockOutcome.mockReturnValue(
+        outcome({
+          consolidated: [shown],
+          scored: [
+            { insight: shown, score: 200, breakdown: breakdown(200) },
+            { insight: capped, score: 150, breakdown: breakdown(150) },
+          ] as unknown as PipelineOutcome['scored'],
+          capDropped: [{ insight: capped, score: 150, reason: 'surface_cap' }],
+        })
+      );
 
-    await render(<InsightDebugPanel visible onClose={() => {}} />);
+      await render(<InsightDebugPanel visible onClose={() => {}} />);
 
-    expect(rowIds('insight-debug-onscreen')[0]).toContain('base=200');
-    expect(screen.getByText(/DROPPED section_trend\/capped.*base=150/)).toBeTruthy();
-  });
+      expect(rowIds('insight-debug-onscreen')[0]).toContain('base=200');
+      expect(screen.getByText(/DROPPED section_trend\/capped.*base=150/)).toBeTruthy();
+    }
+  );
 });

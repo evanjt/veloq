@@ -55,7 +55,7 @@ it('follows the live bpm across zones and drops the tint when it goes stale', as
   expect(zone()).toBeNull();
 });
 
-it('does not tell the screen again while the zone holds', async () => {
+vaultIt('does not tell the screen again while the zone holds', async () => {
   const { setHrZone, rerender } = await render(150);
   await rerender(152);
   await rerender(154);
@@ -63,7 +63,7 @@ it('does not tell the screen again while the zone holds', async () => {
   expect(setHrZone).toHaveBeenCalledTimes(1);
 });
 
-it('passes a zone past the ramp through, for the tile to clamp', async () => {
+vaultIt('passes a zone past the ramp through, for the tile to clamp', async () => {
   (engineHrZone as jest.Mock).mockReturnValue(9);
   const { zone } = await render(150);
 

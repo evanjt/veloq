@@ -444,7 +444,7 @@ describe('the map pages in a headless Chromium', () => {
       PAGE_TIMEOUT_MS
     );
 
-    it(
+    vaultIt(
       'never asks for a pick when the terrain names no subject',
       async () => {
         const { bearing, picks } = await terrainOn({});
@@ -479,7 +479,7 @@ describe('the map pages in a headless Chromium', () => {
     PAGE_TIMEOUT_MS
   );
 
-  it(
+  vaultIt(
     'fails a renderer whose setTerrain throws',
     async () => {
       const broken =

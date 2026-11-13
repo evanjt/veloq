@@ -201,6 +201,7 @@ mod tests {
     use crate::test_globals::serial_global_state;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_link_proof_holds_for_its_window_only() {
         let _serial = serial_global_state();
         reset();
@@ -219,6 +220,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn nothing_pushed_reads_as_try() {
         let _serial = serial_global_state();
         reset();
@@ -228,6 +230,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pushed_offline_refuses_and_a_pushed_online_releases() {
         let _serial = serial_global_state();
         reset();
@@ -244,6 +247,7 @@ mod tests {
     /// The last push wins. Two offline pushes in a row must not stack into a
     /// state that outlives the online that follows them.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_last_push_is_the_one_that_counts() {
         let _serial = serial_global_state();
         reset();
@@ -258,6 +262,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_offline_nobody_refreshed_expires_back_to_try() {
         let _serial = serial_global_state();
         reset();
@@ -278,6 +283,7 @@ mod tests {
     /// by the time the device wakes. A monotonic stamp stops while the device
     /// sleeps and would hold that push into the morning.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_offline_pushed_before_a_long_sleep_expires_on_waking() {
         let _serial = serial_global_state();
         reset();
@@ -294,6 +300,7 @@ mod tests {
     /// A stamp ahead of the clock means the clock went backwards. The age is
     /// unknowable, so the push reads as stale and the transport decides.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stamp_ahead_of_the_clock_reads_as_try_and_keeps_the_push() {
         let _serial = serial_global_state();
         reset();
@@ -314,6 +321,7 @@ mod tests {
     /// Expiry can only open the gate. An online that goes stale must not flip
     /// to a refusal, which is the one direction that would cost work.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stale_online_never_becomes_a_refusal() {
         let _serial = serial_global_state();
         reset();
@@ -325,6 +333,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_push_reports_its_own_age() {
         let _serial = serial_global_state();
         reset();
@@ -340,6 +349,7 @@ mod tests {
     /// The one thing a sleeper can be woken by is the connection coming
     /// back. A push that repeats the online it already had is not an edge.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_online_edge_wakes_a_sleeper_before_its_time() {
         let _serial = serial_global_state();
         reset();
@@ -368,6 +378,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sleep_nobody_wakes_runs_to_its_deadline() {
         let _serial = serial_global_state();
         reset();
@@ -382,6 +393,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_repeated_online_is_not_an_edge() {
         let _serial = serial_global_state();
         reset();
@@ -402,6 +414,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_offline_push_is_not_an_edge() {
         let _serial = serial_global_state();
         reset();
@@ -421,6 +434,7 @@ mod tests {
     /// An edge that landed before the sleep began was already acted on by
     /// whatever ran between them. Only an edge during the sleep counts.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_edge_before_the_sleep_does_not_count() {
         let _serial = serial_global_state();
         reset();
@@ -436,6 +450,7 @@ mod tests {
     /// A nudge cuts a nudgeable sleep short, and leaves an edge-only sleeper
     /// to its own clock.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_nudge_wakes_a_nudgeable_sleeper_only() {
         let _serial = serial_global_state();
         reset();

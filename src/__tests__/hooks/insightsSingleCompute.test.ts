@@ -74,7 +74,7 @@ describe('the insights read on a tab visit', () => {
     jest.restoreAllMocks();
   });
 
-  it('reads once on the visit itself', async () => {
+  vaultIt('reads once on the visit itself', async () => {
     await renderHook(() => useInsights());
     await act(() => runInteractions());
 
@@ -101,7 +101,7 @@ describe('the insights read on a tab visit', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
-  it('still reads again once the announcements settle', async () => {
+  vaultIt('still reads again once the announcements settle', async () => {
     await renderHook(() => useInsights());
     await act(() => runInteractions());
 

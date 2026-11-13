@@ -101,7 +101,7 @@ describe('restoring from Google Drive', () => {
     expect(screen.queryByTestId('restore-chooser-none')).toBeNull();
   });
 
-  it('offers no Google Drive choice on iOS', async () => {
+  vaultIt('offers no Google Drive choice on iOS', async () => {
     onPlatform('ios');
     await render(<RestoreChooser />);
     expect(screen.queryByTestId('restore-chooser-google-drive')).toBeNull();

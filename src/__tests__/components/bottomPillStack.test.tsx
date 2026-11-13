@@ -44,37 +44,40 @@ const CLEARANCE = TAB_BAR_SAFE_PADDING + 34;
 const FAB_COVER = spacing.md + layout.recordFabSize;
 
 describe('bottomPillStack', () => {
-  it('places one pill spacing.md above the clearance', () => {
+  vaultIt('places one pill spacing.md above the clearance', () => {
     expect(bottomPillStack({ clearance: 114, cover: 0, heights: [44] })).toEqual([
       114 + spacing.md,
     ]);
   });
 
-  it('places the next pill its neighbour height plus spacing.xs above', () => {
+  vaultIt('places the next pill its neighbour height plus spacing.xs above', () => {
     expect(bottomPillStack({ clearance: 114, cover: 0, heights: [44, 72] })).toEqual([
       114 + spacing.md,
       114 + spacing.md + 44 + spacing.xs,
     ]);
   });
 
-  it('lifts the whole stack over the record button', () => {
+  vaultIt('lifts the whole stack over the record button', () => {
     expect(bottomPillStack({ clearance: 114, cover: FAB_COVER, heights: [44, 72] })).toEqual([
       114 + FAB_COVER + spacing.md,
       114 + FAB_COVER + spacing.md + 44 + spacing.xs,
     ]);
   });
 
-  it('places nothing when no pill shows', () => {
+  vaultIt('places nothing when no pill shows', () => {
     expect(bottomPillStack({ clearance: 114, cover: 0, heights: [] })).toEqual([]);
   });
 
-  it('lifts the whole stack over the map tab sheet, its credit line included, as measured', () => {
-    // The sheet's own padding already holds the clearance, so the cover is what reaches past it.
-    const cover = filterSheetFootCover(380, 114);
-    expect(bottomPillStack({ clearance: 114, cover, heights: [44] })).toEqual([380 + spacing.md]);
-  });
+  vaultIt(
+    'lifts the whole stack over the map tab sheet, its credit line included, as measured',
+    () => {
+      // The sheet's own padding already holds the clearance, so the cover is what reaches past it.
+      const cover = filterSheetFootCover(380, 114);
+      expect(bottomPillStack({ clearance: 114, cover, heights: [44] })).toEqual([380 + spacing.md]);
+    }
+  );
 
-  it('reports no cover from a sheet not laid out yet', () => {
+  vaultIt('reports no cover from a sheet not laid out yet', () => {
     expect(filterSheetFootCover(0, 114)).toBe(0);
   });
 });
@@ -146,7 +149,7 @@ describe('the bottom pill stack', () => {
     expect(bottomOf(view, 'bottom-pill-recording')).toBe(CLEARANCE + spacing.md);
   });
 
-  it('ignores the record button on a screen that is not in front', async () => {
+  vaultIt('ignores the record button on a screen that is not in front', async () => {
     mockFocused = false;
     await render(<RecordFAB />);
     const view = await render(stack());
@@ -155,7 +158,7 @@ describe('the bottom pill stack', () => {
     expect(bottomOf(view, 'bottom-pill-recording')).toBe(CLEARANCE + spacing.md);
   });
 
-  it('ignores the record button while it hides for a running session', async () => {
+  vaultIt('ignores the record button while it hides for a running session', async () => {
     useRecordingStore.getState().reset();
     useRecordingStore.getState().startRecording('Ride', 'gps');
     await render(<RecordFAB />);

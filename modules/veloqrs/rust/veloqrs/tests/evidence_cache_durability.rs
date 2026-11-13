@@ -110,6 +110,7 @@ fn seeded(dir: &TempDir) -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_detect_leaves_its_evidence_behind() {
     let dir = TempDir::new().unwrap();
     let mut engine = seeded(&dir);
@@ -123,6 +124,7 @@ fn a_detect_leaves_its_evidence_behind() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_restart_resumes_warm_on_the_same_catalogue() {
     let dir = TempDir::new().unwrap();
     let mut first = seeded(&dir);
@@ -144,6 +146,7 @@ fn a_restart_resumes_warm_on_the_same_catalogue() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_restart_decodes_evidence_on_first_read_once() {
     let dir = TempDir::new().unwrap();
     let mut first = seeded(&dir);
@@ -220,6 +223,7 @@ fn an_unreadable_blob_starts_cold_without_failing_the_open() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_invalidation_takes_the_stored_row_with_it() {
     let dir = TempDir::new().unwrap();
     let mut engine = seeded(&dir);
@@ -366,6 +370,7 @@ fn a_time_stream_landing_late_drops_the_evidence_cut_without_it() {
 /// a stream the engine already holds must cost nothing. Dropping the cache on
 /// every write would cold-rebatch the whole pool on a routine sync.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn rewriting_a_stream_the_engine_already_holds_keeps_the_evidence() {
     let dir = TempDir::new().unwrap();
     let pool = corpus();
@@ -394,6 +399,7 @@ fn rewriting_a_stream_the_engine_already_holds_keeps_the_evidence() {
 /// An empty batch is the shape a sync takes when every activity already has
 /// its stream, and it must not be the shape that drops the cache.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stream_batch_with_nothing_in_it_keeps_the_evidence() {
     let dir = TempDir::new().unwrap();
     let mut engine = seeded(&dir);
@@ -406,6 +412,7 @@ fn a_stream_batch_with_nothing_in_it_keeps_the_evidence() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_failed_removal_keeps_warm_evidence_cache() {
     let dir = TempDir::new().unwrap();
     let mut engine = seeded(&dir);

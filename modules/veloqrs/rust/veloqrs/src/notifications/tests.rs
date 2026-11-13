@@ -81,6 +81,7 @@ const LONG_ROUTE: &str = "The long way round past the reservoir and back over th
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_named_route_pr_beats_everything() {
     let picked = pick_highlight(
         Some(&route("Lake Loop", true, 1, None, None)),
@@ -102,6 +103,7 @@ fn a_named_route_pr_beats_everything() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_single_section_pr_names_the_section() {
     let picked = pick_highlight(None, &prs(1, "Climb", true, Some(8)), true, None);
 
@@ -112,6 +114,7 @@ fn a_single_section_pr_names_the_section() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn several_section_prs_name_the_first_and_count_the_rest() {
     let picked = pick_highlight(None, &prs(3, "Climb", true, None), true, None);
 
@@ -119,6 +122,7 @@ fn several_section_prs_name_the_first_and_count_the_rest() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn two_section_prs_use_the_count_of_one_form() {
     let french = Templates {
         section_pr_many: "PR sur {{name}} et {{count}} autres".into(),
@@ -139,6 +143,7 @@ fn two_section_prs_use_the_count_of_one_form() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn several_unnamed_section_prs_keep_the_count_form() {
     let picked = pick_highlight(None, &prs(3, "", false, None), true, None);
 
@@ -146,6 +151,7 @@ fn several_unnamed_section_prs_keep_the_count_form() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn one_unnamed_section_pr_reads_as_a_section() {
     let picked = pick_highlight(None, &prs(1, "", false, None), true, None);
 
@@ -153,6 +159,7 @@ fn one_unnamed_section_pr_reads_as_a_section() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unnamed_route_pr_still_reads_as_a_pr() {
     let picked = pick_highlight(
         Some(&route("", true, 1, Some(75), None)),
@@ -165,6 +172,7 @@ fn an_unnamed_route_pr_still_reads_as_a_pr() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_pr_category_off_suppresses_prs_but_keeps_route_identity() {
     let picked = pick_highlight(
         Some(&route("Lake Loop", true, 1, Some(12), None)),
@@ -177,6 +185,7 @@ fn the_pr_category_off_suppresses_prs_but_keeps_route_identity() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_upward_trend_without_a_pr_reads_faster_than_usual() {
     let picked = pick_highlight(
         Some(&route("Lake Loop", false, 1, None, Some(45))),
@@ -194,6 +203,7 @@ fn an_upward_trend_without_a_pr_reads_faster_than_usual() {
 /// The gap is what is left to close on the best, so a zero or negative one is
 /// not a gap and the plain form is what is true.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_trend_rung_never_claims_a_time_it_does_not_have() {
     let picked = pick_highlight(
         Some(&route("Lake Loop", false, 1, None, Some(-30))),
@@ -206,6 +216,7 @@ fn the_trend_rung_never_claims_a_time_it_does_not_have() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_downward_trend_is_never_surfaced() {
     let picked = pick_highlight(
         Some(&route("Lake Loop", false, -1, None, None)),
@@ -218,6 +229,7 @@ fn a_downward_trend_is_never_surfaced() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_milestone_is_the_last_rung_there_is() {
     let picked = pick_highlight(
         None,
@@ -239,6 +251,7 @@ fn a_milestone_is_the_last_rung_there_is() {
 /// No floor rung. A distance-and-time line tells the athlete what they already
 /// know they did, and it fired on every commute.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_with_nothing_in_it_says_nothing() {
     let picked = pick_highlight(None, &SectionPrs::default(), true, None);
 
@@ -255,6 +268,7 @@ fn a_ride_with_nothing_in_it_says_nothing() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_whole_route_pr_clause_and_its_delta_stay_inside_the_cap() {
     let picked = pick_highlight(
         Some(&route(LONG_ROUTE, true, 1, Some(12), None)),
@@ -271,6 +285,7 @@ fn the_whole_route_pr_clause_and_its_delta_stay_inside_the_cap() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_route_name_is_truncated_and_the_delta_never_is() {
     let picked = pick_highlight(
         Some(&route(LONG_ROUTE, true, 1, Some(12), None)),
@@ -287,6 +302,7 @@ fn the_route_name_is_truncated_and_the_delta_never_is() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_activity_name_is_dropped_rather_than_cutting_into_the_finding() {
     let picked = pick_highlight(
         Some(&route(LONG_ROUTE, true, 1, Some(12), None)),
@@ -304,6 +320,7 @@ fn the_activity_name_is_dropped_rather_than_cutting_into_the_finding() {
 /// Expected behaviour: a named route is not a result on its own, so nothing
 /// is raised.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unremarkable_ride_on_a_named_route_raises_nothing() {
     let picked = pick_highlight(
         Some(&route("Work", false, 0, None, None)),
@@ -316,6 +333,7 @@ fn an_unremarkable_ride_on_a_named_route_raises_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_short_name_is_kept_when_there_is_room_for_it() {
     let picked = pick_highlight(
         Some(&route("Lake Loop", false, 1, None, None)),
@@ -331,6 +349,7 @@ fn a_short_name_is_kept_when_there_is_room_for_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_name_that_lands_exactly_on_the_cap_is_kept_whole() {
     let picked = pick_highlight(
         Some(&route("Lake Loop", false, 1, None, None)),
@@ -351,6 +370,7 @@ fn a_name_that_lands_exactly_on_the_cap_is_kept_whole() {
 /// The activity name is what is left of the line, and a fragment of one is
 /// worth less than the space it takes, so it goes whole or not at all.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_name_with_less_than_a_tail_of_room_is_dropped_rather_than_left_a_fragment() {
     let picked = pick_highlight(
         Some(&route(LONG_ROUTE, true, 1, Some(3665), None)),
@@ -371,6 +391,7 @@ fn a_name_with_less_than_a_tail_of_room_is_dropped_rather_than_left_a_fragment()
 ///
 /// Expected behaviour: the delta survives and the place name is what yields.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_longer_translation_gives_up_the_place_name_and_keeps_the_delta() {
     let mut portuguese = english();
     portuguese.faster_on_route_delta =
@@ -394,6 +415,7 @@ fn a_longer_translation_gives_up_the_place_name_and_keeps_the_delta() {
 /// Expected behaviour: it is cut here rather than by the lock screen, so the
 /// cut is marked.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_clause_with_no_name_left_to_give_is_cut_rather_than_collapsed() {
     let mut verbose = english();
     verbose.faster_on_route =
@@ -424,6 +446,7 @@ fn a_clause_with_no_name_left_to_give_is_cut_rather_than_collapsed() {
 /// athlete got "Activity Recorded" over "Activity Recorded", which is strictly
 /// worse than the generic notification it replaced.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_nameless_activity_is_the_finding_alone_with_no_dangling_separator() {
     let picked = pick_highlight(
         Some(&route("Lake Loop", false, 1, None, None)),
@@ -436,6 +459,7 @@ fn a_nameless_activity_is_the_finding_alone_with_no_dangling_separator() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_nameless_activity_with_no_finding_is_empty() {
     let picked = pick_highlight(None, &SectionPrs::default(), true, None);
 
@@ -447,6 +471,7 @@ fn a_nameless_activity_with_no_finding_is_empty() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_four_pr_rungs_are_titled_as_prs() {
     for picked in [
         pick_highlight(
@@ -473,6 +498,7 @@ fn the_four_pr_rungs_are_titled_as_prs() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_trend_rung_is_titled_faster_than_usual() {
     let picked = pick_highlight(
         Some(&route("Lake Loop", false, 1, None, None)),
@@ -487,6 +513,7 @@ fn the_trend_rung_is_titled_faster_than_usual() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_identity_milestones_and_nothing_are_all_titled_recorded() {
     for picked in [
         pick_highlight(
@@ -514,6 +541,7 @@ fn route_identity_milestones_and_nothing_are_all_titled_recorded() {
 /// Suppressing PRs drops the title with the body: the athlete who switched
 /// them off must not be told "New PR" over a route-identity line.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn suppressing_prs_drops_the_title_to_the_tier_the_body_came_from() {
     let picked = pick_highlight(
         Some(&route("Lake Loop", true, 1, Some(12), None)),
@@ -533,6 +561,7 @@ fn suppressing_prs_drops_the_title_to_the_tier_the_body_came_from() {
 
 /// A screen has room the lock screen does not, and it must say the same thing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_sentence_gives_up_no_part_of_the_place_name() {
     let picked = pick_highlight(
         Some(&route(LONG_ROUTE, true, 1, Some(12), None)),
@@ -557,6 +586,7 @@ fn the_sentence_gives_up_no_part_of_the_place_name() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_delta_under_a_minute_is_seconds_and_above_it_is_m_ss() {
     let t = english();
     assert_eq!(format_duration_delta(0, &t), "0 s");
@@ -572,6 +602,7 @@ fn a_delta_under_a_minute_is_seconds_and_above_it_is_m_ss() {
 ///
 /// Expected behaviour: the seconds take the unit the pushed bundle carries.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_delta_in_seconds_takes_the_unit_the_bundle_carries() {
     let japanese = Templates {
         route_pr_delta: "{{name}}のルートPR（{{delta}}短縮）".into(),
@@ -595,6 +626,7 @@ fn a_delta_in_seconds_takes_the_unit_the_bundle_carries() {
 ///
 /// Expected behaviour: the notification still renders, with the SI symbol.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_bundle_without_the_seconds_unit_still_renders() {
     let mut pairs = stored_pairs();
     pairs.retain(|(key, _)| key != SECONDS_VALUE_KEY);
@@ -611,6 +643,7 @@ fn a_bundle_without_the_seconds_unit_still_renders() {
 /// UTF-16 units, so a name with an emoji in it has to cut in the same place as
 /// the TypeScript renderer did or the screen and the lock screen disagree.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_cap_counts_what_javascript_counts() {
     assert_eq!(units("Lake Loop"), 9);
     assert_eq!(units("caf\u{e9}"), 4);
@@ -623,6 +656,7 @@ fn the_cap_counts_what_javascript_counts() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_template_keeps_a_placeholder_it_was_given_no_value_for() {
     assert_eq!(
         interpolate("On {{name}} in {{city}}", &[("name", "Lake Loop")]),
@@ -635,6 +669,7 @@ fn a_template_keeps_a_placeholder_it_was_given_no_value_for() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stored_bundle_comes_back_as_it_went_in() {
     let tmp = tempfile::TempDir::new().expect("tempdir");
     let engine =
@@ -661,6 +696,7 @@ fn a_stored_bundle_comes_back_as_it_went_in() {
 ///
 /// Expected behaviour: no notification rather than a body of raw keys.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_stored_bundle_means_no_notification_rather_than_raw_keys() {
     let tmp = tempfile::TempDir::new().expect("tempdir");
     let engine =
@@ -678,6 +714,7 @@ fn no_stored_bundle_means_no_notification_rather_than_raw_keys() {
 /// Expected behaviour: none, so the caller posts nothing. A partial bundle
 /// renders the missing rung as its own dotted path on a lock screen.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_bundle_missing_a_key_reads_as_none_rather_than_a_dotted_path() {
     let mut pairs = stored_pairs();
     pairs.retain(|(key, _)| key != "notifications.activityBody.fasterOnRoute");
@@ -750,6 +787,7 @@ fn stored_pairs() -> Vec<(String, String)> {
 /// Scenario: the ladder against a real engine with an empty library, which is
 /// what a handler sees when the activity it was woken for is not indexed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_ladder_answers_nothing_for_an_activity_the_engine_does_not_hold() {
     let tmp = tempfile::TempDir::new().expect("tempdir");
     let engine =
@@ -910,6 +948,7 @@ fn every_locale() -> Vec<(String, Templates)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_key_resolves_from_the_first_bundle_in_the_chain_that_holds_it() {
     let regional = serde_json::json!({ "n": { "title": "Regional" } });
     let base = serde_json::json!({ "n": { "title": "Base", "body": "Base body" } });
@@ -1054,6 +1093,7 @@ fn every_rung() -> Vec<(&'static str, Highlight, bool)> {
 /// to hold is that the clause fits before that cut, because past it the lock
 /// screen loses the end of the finding rather than the end of a name.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn giving_the_place_name_back_makes_every_rung_fit_in_every_locale() {
     for (locale, strings) in every_locale() {
         for (rung, highlight, _) in every_rung() {
@@ -1069,6 +1109,7 @@ fn giving_the_place_name_back_makes_every_rung_fit_in_every_locale() {
 
 /// And the body that carries it, with an activity name and without one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_rung_fits_the_cap_in_every_locale() {
     for (locale, strings) in every_locale() {
         for (rung, highlight, _) in every_rung() {
@@ -1088,6 +1129,7 @@ fn every_rung_fits_the_cap_in_every_locale() {
 /// only reason the enrichment pipeline exists, so where a rung carries one it
 /// survives whatever else does not.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_rung_with_a_delta_keeps_it_in_every_locale() {
     for (locale, strings) in every_locale() {
         for (rung, highlight, has_delta) in every_rung() {
@@ -1292,6 +1334,7 @@ mod pooled_highlight {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_section_notification_sub_second_pr_counts_without_a_delta() {
         let _serial = serial_global_state();
         let tmp = TempDir::new().unwrap();
@@ -1305,6 +1348,7 @@ mod pooled_highlight {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_section_notification_sub_second_pr_reads_as_plain_pr() {
         let _serial = serial_global_state();
         let tmp = TempDir::new().unwrap();
@@ -1321,6 +1365,7 @@ mod pooled_highlight {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_section_notification_gap_rounds_to_whole_seconds() {
         let _serial = serial_global_state();
         let tmp = TempDir::new().unwrap();
@@ -1333,6 +1378,7 @@ mod pooled_highlight {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_library_has_no_pooled_highlight() {
         let _serial = serial_global_state();
         let tmp = TempDir::new().unwrap();
@@ -1350,6 +1396,7 @@ mod pooled_highlight {
     /// than read off the row, so a pooled ladder that skipped the overlay
     /// would name the section differently in the tray.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_pooled_highlight_uses_the_name_the_athlete_gave() {
         let _serial = serial_global_state();
         let tmp = TempDir::new().unwrap();
@@ -1475,6 +1522,7 @@ mod fitness_milestone {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rise_under_the_step_is_not_a_milestone() {
         let engine = engine_with_rides(&[("ride", "Ride", RIDE_DATE + 3_600)]);
         write_eftp(&engine, 45, 0, |offset| if offset >= 0 { 254 } else { 250 });
@@ -1483,6 +1531,7 @@ mod fitness_milestone {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_fall_in_ftp_is_not_a_milestone() {
         let engine = engine_with_rides(&[("ride", "Ride", RIDE_DATE + 3_600)]);
         write_eftp(&engine, 45, 0, |offset| if offset >= 0 { 240 } else { 250 });
@@ -1491,6 +1540,7 @@ mod fitness_milestone {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_run_does_not_carry_the_cycling_step() {
         let engine = engine_with_rides(&[("run", "Run", RIDE_DATE + 3_600)]);
         write_eftp(&engine, 45, 0, |offset| if offset >= 0 { 256 } else { 250 });
@@ -1499,6 +1549,7 @@ mod fitness_milestone {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unknown_activity_has_no_milestone() {
         let engine = engine_with_rides(&[]);
         write_eftp(&engine, 45, 0, |offset| if offset >= 0 { 256 } else { 250 });
@@ -1510,6 +1561,7 @@ mod fitness_milestone {
     /// push handlers call, and a ride that crosses nothing keeps the ladder's
     /// other rungs.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_switch_gates_the_milestone_in_the_ladder() {
         let engine = engine_with_rides(&[("ride", "Ride", RIDE_DATE + 3_600)]);
         write_eftp(&engine, 45, 0, |offset| if offset >= 0 { 256 } else { 250 });
@@ -1531,6 +1583,7 @@ mod fitness_milestone {
     /// in seconds per kilometre. A run the next day, with no newer snapshot,
     /// does not, and neither does a run on a day the snapshot got slower.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_run_on_the_day_of_an_improving_snapshot_carries_the_pace_step() {
         let engine = engine_with_rides(&[
             ("run", "Run", RIDE_DATE + 3_600),
@@ -1549,6 +1602,7 @@ mod fitness_milestone {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_fitness_milestone_imperial_run_notification() {
         let engine = engine_with_rides(&[("run", "Run", RIDE_DATE + 3_600)]);
         engine
@@ -1566,6 +1620,7 @@ mod fitness_milestone {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_fitness_milestone_imperial_swim_notification() {
         let engine = engine_with_rides(&[("swim", "Swim", RIDE_DATE + 3_600)]);
         engine
@@ -1582,6 +1637,7 @@ mod fitness_milestone {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_slower_snapshot_is_not_a_pace_milestone() {
         let engine = engine_with_rides(&[("run", "Run", RIDE_DATE + 3_600)]);
         engine.save_pace_snapshot("Run", 4.10, None, None, RIDE_DATE - 7 * DAY, 42);
@@ -1591,6 +1647,7 @@ mod fitness_milestone {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_swim_reports_its_saving_per_hundred_metres() {
         let engine = engine_with_rides(&[("swim", "Swim", RIDE_DATE + 3_600)]);
         engine.save_pace_snapshot("Swim", 1.00, None, None, RIDE_DATE - 7 * DAY, 42);
@@ -1611,6 +1668,7 @@ mod fitness_milestone {
 /// PR and milestone categories the athlete has on, and a session with no
 /// stored sets says nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_strength_session_names_the_muscles_its_sets_worked() {
     let tmp = tempfile::TempDir::new().expect("tempdir");
     let engine =
@@ -1668,6 +1726,7 @@ fn a_strength_session_names_the_muscles_its_sets_worked() {
 /// Expected behaviour: it still reads, and a strength session has nothing to say
 /// rather than a dotted path on the lock screen.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_bundle_without_the_strength_clause_still_reads() {
     let mut pairs = stored_pairs();
     pairs.retain(|(key, _)| key != STRENGTH_MUSCLES_KEY);

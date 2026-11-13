@@ -110,7 +110,7 @@ describe('the tab strip when labels are measured', () => {
     expect(queryByTestId('tab-strip-scroll')).toBeNull();
   });
 
-  it('gives the indicator the active tab width in the scrolling strip', async () => {
+  vaultIt('gives the indicator the active tab width in the scrolling strip', async () => {
     const { measure, getByTestId } = await renderStrip('two');
     const wide = AVAILABLE / TABS.length + 40;
 
@@ -131,7 +131,7 @@ describe('the tab strip when labels are measured', () => {
     expect(StyleSheet.flatten(label.props.style).flexShrink).not.toBe(1);
   });
 
-  it('measures every tab at the selected weight, whichever tab is selected', async () => {
+  vaultIt('measures every tab at the selected weight, whichever tab is selected', async () => {
     const { getByTestId, rerender } = await renderStrip('one');
     const measuredWeights = () =>
       TABS.map(
@@ -160,7 +160,7 @@ describe('the tab strip when labels are measured', () => {
     expect(queryByTestId('tab-strip-scroll')).toBeNull();
   });
 
-  it('hides the measuring row from touch and from screen readers', async () => {
+  vaultIt('hides the measuring row from touch and from screen readers', async () => {
     const { getByTestId } = await renderStrip();
 
     const row = getByTestId('tab-measure-row', HIDDEN);
@@ -200,7 +200,7 @@ describe('the tab strip when labels are measured', () => {
     }
   );
 
-  it('fades the trailing edge of a scrolling strip into the page', async () => {
+  vaultIt('fades the trailing edge of a scrolling strip into the page', async () => {
     const { measure, queryByTestId } = await renderStrip();
 
     expect(queryByTestId('tab-strip-fade')).toBeNull();

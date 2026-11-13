@@ -40,7 +40,7 @@ describe('the routes list', () => {
 });
 
 describe('the route detail builder', () => {
-  it('leaves an unnamed group unnamed instead of exposing its group id', () => {
+  vaultIt('leaves an unnamed group unnamed instead of exposing its group id', () => {
     const group = {
       groupId: 'r_9',
       representativeId: 'a',
@@ -52,14 +52,14 @@ describe('the route detail builder', () => {
 });
 
 describe('route sport without a scalar', () => {
-  it('keeps an empty sport set empty in the batch builder', () => {
+  vaultIt('keeps an empty sport set empty in the batch builder', () => {
     const row = batchGroupToRouteGroup({ ...engineGroup('g1'), sportTypes: [] });
 
     expect(row.type).toBe('Other');
     expect(row.sportTypes).toEqual([]);
   });
 
-  it('keeps the full group sport neutral without a selected chip', () => {
+  vaultIt('keeps the full group sport neutral without a selected chip', () => {
     const group = {
       groupId: 'g1',
       representativeId: 'a',

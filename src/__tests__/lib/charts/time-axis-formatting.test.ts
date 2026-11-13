@@ -9,15 +9,15 @@ function dp(iso: string): { date: Date } {
 }
 
 describe('computeTimeAxisLabels', () => {
-  it('returns empty array for empty input', () => {
+  vaultIt('returns empty array for empty input', () => {
     expect(computeTimeAxisLabels([])).toEqual([]);
   });
 
-  it('returns empty array for a single point (no axis needed)', () => {
+  vaultIt('returns empty array for a single point (no axis needed)', () => {
     expect(computeTimeAxisLabels([dp('2024-01-01T12:00:00')])).toEqual([]);
   });
 
-  it('returns [first, mid, last] for two points with midpoint at average timestamp', () => {
+  vaultIt('returns [first, mid, last] for two points with midpoint at average timestamp', () => {
     const points = [dp('2024-01-01T12:00:00'), dp('2024-01-31T12:00:00')];
     const labels = computeTimeAxisLabels(points);
     expect(labels).toHaveLength(3);
@@ -29,7 +29,7 @@ describe('computeTimeAxisLabels', () => {
     expect(labels[1].getTime()).toBe(expectedMid);
   });
 
-  it('uses first and last points even with many points in between', () => {
+  vaultIt('uses first and last points even with many points in between', () => {
     const points = [
       dp('2024-01-01T12:00:00'),
       dp('2024-03-15T12:00:00'),
@@ -44,7 +44,7 @@ describe('computeTimeAxisLabels', () => {
 });
 
 describe('axisLabelsNeedDay', () => {
-  it('returns false when labels are empty or short', () => {
+  vaultIt('returns false when labels are empty or short', () => {
     expect(axisLabelsNeedDay([])).toBe(false);
     expect(axisLabelsNeedDay([new Date('2024-01-01T12:00:00')])).toBe(false);
   });

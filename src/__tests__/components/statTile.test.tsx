@@ -35,7 +35,7 @@ const flat = (node: { props: { style?: unknown } }): Record<string, unknown> =>
   (StyleSheet.flatten(node.props.style as never) as Record<string, unknown>) ?? {};
 
 describe('StatTile', () => {
-  it('draws the value, unit, label, delta and caption it is given', async () => {
+  vaultIt('draws the value, unit, label, delta and caption it is given', async () => {
     const view = await render(
       <StatTile
         testID="tile"
@@ -54,23 +54,26 @@ describe('StatTile', () => {
     expect(view.getByTestId('tile-delta')).toBeTruthy();
   });
 
-  it('states the delta with a glyph and words beside its tone, never the colour alone', async () => {
-    const view = await render(
-      <StatTile
-        testID="tile"
-        label="Load"
-        value="410"
-        delta={{ glyph: '↓', text: '8%', tone: 'negative', spoken: 'Down' }}
-      />
-    );
-    const delta = view.getByTestId('tile-delta');
+  vaultIt(
+    'states the delta with a glyph and words beside its tone, never the colour alone',
+    async () => {
+      const view = await render(
+        <StatTile
+          testID="tile"
+          label="Load"
+          value="410"
+          delta={{ glyph: '↓', text: '8%', tone: 'negative', spoken: 'Down' }}
+        />
+      );
+      const delta = view.getByTestId('tile-delta');
 
-    expect(delta).toHaveTextContent('↓ 8%');
-    expect(flat(delta).color).toBe(verdictColor('negative', false));
-    expect(delta.props.accessibilityLabel).toBe('Down, 8%');
-  });
+      expect(delta).toHaveTextContent('↓ 8%');
+      expect(flat(delta).color).toBe(verdictColor('negative', false));
+      expect(delta.props.accessibilityLabel).toBe('Down, 8%');
+    }
+  );
 
-  it('speaks a delta drawn as a glyph alone in words', async () => {
+  vaultIt('speaks a delta drawn as a glyph alone in words', async () => {
     const view = await render(
       <StatTile
         testID="tile"
@@ -85,16 +88,19 @@ describe('StatTile', () => {
     expect(delta.props.accessibilityLabel).toBe('No change');
   });
 
-  it('draws the value in proportional figures, since a tile value never updates in place', async () => {
-    const view = await render(<StatTile testID="tile" label="Distance" value="44.2" />);
-    const value = flat(view.getByTestId('tile-value'));
+  vaultIt(
+    'draws the value in proportional figures, since a tile value never updates in place',
+    async () => {
+      const view = await render(<StatTile testID="tile" label="Distance" value="44.2" />);
+      const value = flat(view.getByTestId('tile-value'));
 
-    expect(value.fontVariant ?? []).not.toContain('tabular-nums');
-    expect(value.fontSize).toBe(typography.statsValue.fontSize);
-    expect(value.fontWeight).toBe(typography.statsValue.fontWeight);
-  });
+      expect(value.fontVariant ?? []).not.toContain('tabular-nums');
+      expect(value.fontSize).toBe(typography.statsValue.fontSize);
+      expect(value.fontWeight).toBe(typography.statsValue.fontWeight);
+    }
+  );
 
-  it('draws the large value at the large stat size, still proportional', async () => {
+  vaultIt('draws the large value at the large stat size, still proportional', async () => {
     const view = await render(<StatTile testID="tile" size="lg" label="Count" value="7" />);
     const value = flat(view.getByTestId('tile-value'));
 
@@ -102,7 +108,7 @@ describe('StatTile', () => {
     expect(value.fontVariant ?? []).not.toContain('tabular-nums');
   });
 
-  it('caps every line at 1.3 and lets none clip at that size', async () => {
+  vaultIt('caps every line at 1.3 and lets none clip at that size', async () => {
     const view = await render(
       <StatTile
         testID="tile"
@@ -123,7 +129,7 @@ describe('StatTile', () => {
     }
   });
 
-  it('draws the label and value in the dark theme roles', async () => {
+  vaultIt('draws the label and value in the dark theme roles', async () => {
     mockIsDark = true;
     const view = await render(<StatTile testID="tile" label="Distance" value="44.2" />);
 
@@ -156,7 +162,7 @@ describe('StatTile', () => {
     expect(onPress).not.toHaveBeenCalled();
   });
 
-  it('reads as one element without a press, its parts in order', async () => {
+  vaultIt('reads as one element without a press, its parts in order', async () => {
     const view = await render(
       <StatTile
         testID="tile"
@@ -173,7 +179,7 @@ describe('StatTile', () => {
     expect(tile.props.accessibilityLabel).toBe('Distance, 44.2 km, Up, 12%, vs last week');
   });
 
-  it('speaks an absent value as no data rather than as minus', async () => {
+  vaultIt('speaks an absent value as no data rather than as minus', async () => {
     const view = await render(<StatTile testID="tile" label="HRV" value={ABSENT} />);
     const spoken = view.getByTestId('tile').props.accessibilityLabel;
 
@@ -181,25 +187,28 @@ describe('StatTile', () => {
     expect(spoken).not.toContain(ABSENT);
   });
 
-  it('speaks an absent delta as no data, and leaves a value with a sign spoken as printed', async () => {
-    const absent = await render(
-      <StatTile
-        testID="tile"
-        label="Load"
-        value="410"
-        delta={{ glyph: '→', text: ABSENT, tone: 'neutral', spoken: 'No change' }}
-      />
-    );
-    expect(absent.getByTestId('tile').props.accessibilityLabel).toBe(
-      'Load, 410, No change, No data'
-    );
-    expect(absent.getByTestId('tile-delta').props.accessibilityLabel).toBe('No change, No data');
+  vaultIt(
+    'speaks an absent delta as no data, and leaves a value with a sign spoken as printed',
+    async () => {
+      const absent = await render(
+        <StatTile
+          testID="tile"
+          label="Load"
+          value="410"
+          delta={{ glyph: '→', text: ABSENT, tone: 'neutral', spoken: 'No change' }}
+        />
+      );
+      expect(absent.getByTestId('tile').props.accessibilityLabel).toBe(
+        'Load, 410, No change, No data'
+      );
+      expect(absent.getByTestId('tile-delta').props.accessibilityLabel).toBe('No change, No data');
 
-    const signed = await render(<StatTile testID="tile" label="Power" value="-3" unit="W" />);
-    expect(signed.getByTestId('tile').props.accessibilityLabel).toBe('Power, -3 W');
-  });
+      const signed = await render(<StatTile testID="tile" label="Power" value="-3" unit="W" />);
+      expect(signed.getByTestId('tile').props.accessibilityLabel).toBe('Power, -3 W');
+    }
+  );
 
-  it('is no second stop inside a parent that already speaks it', async () => {
+  vaultIt('is no second stop inside a parent that already speaks it', async () => {
     const view = await render(
       <StatTile testID="tile" label="Distance" value="44.2" accessible={false} />
     );

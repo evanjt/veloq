@@ -100,7 +100,7 @@ it('renames the JSI target and leaves the imported Rust library alone', () => {
   expect(fixed).toContain('set_target_properties(veloqrs PROPERTIES');
 });
 
-it('changes nothing on a second run', () => {
+vaultIt('changes nothing on a second run', () => {
   const root = moduleTree(GENERATED);
   run(root);
   const once = cmakeOf(root);
@@ -109,7 +109,7 @@ it('changes nothing on a second run', () => {
   expect(cmakeOf(root)).toBe(once);
 });
 
-it('leaves the repo CMakeLists byte-identical, since it is already fixed', () => {
+vaultIt('leaves the repo CMakeLists byte-identical, since it is already fixed', () => {
   const root = moduleTree('');
   copyFileSync(REAL_CMAKE, join(root, 'android/CMakeLists.txt'));
   const before = cmakeOf(root);
@@ -118,7 +118,7 @@ it('leaves the repo CMakeLists byte-identical, since it is already fixed', () =>
   expect(cmakeOf(root)).toBe(before);
 });
 
-it('loads both libraries once, however many times it runs', () => {
+vaultIt('loads both libraries once, however many times it runs', () => {
   const root = moduleTree(GENERATED);
   run(root);
   run(root);
@@ -174,7 +174,7 @@ describe('error classes in the generated bindings', () => {
     expect(fixed).toContain('static hasInner(obj: any): obj is NotFound_');
   });
 
-  it('changes nothing on a second run', () => {
+  vaultIt('changes nothing on a second run', () => {
     const root = treeWithBindings(ERROR_CLASSES);
     run(root);
     const once = bindingsOf(root);
@@ -183,7 +183,7 @@ describe('error classes in the generated bindings', () => {
     expect(bindingsOf(root)).toBe(once);
   });
 
-  it('leaves the committed bindings byte-identical, since they are already fixed', () => {
+  vaultIt('leaves the committed bindings byte-identical, since they are already fixed', () => {
     const committed = readFileSync(join(MODULE, 'src/generated/veloqrs.ts'), 'utf8');
     const root = treeWithBindings(committed);
     run(root);
@@ -219,7 +219,7 @@ describe('a tree already in its fixed form', () => {
     return root;
   }
 
-  it('leaves every file untouched on disk', () => {
+  vaultIt('leaves every file untouched on disk', () => {
     const root = fixedTree();
     run(root);
 

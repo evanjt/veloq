@@ -69,7 +69,7 @@ describe('EngineClient.launchData', () => {
     mockNativeEngine.launchData.mockReturnValue(STATS);
   });
 
-  it('does the whole post-init block in one call across the binding', () => {
+  vaultIt('does the whole post-init block in one call across the binding', () => {
     const client = openClient();
 
     const stats = bindDelegates(client, launchDelegates).launchData({

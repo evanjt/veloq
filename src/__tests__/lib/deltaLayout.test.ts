@@ -70,7 +70,7 @@ function subpaths(d: string): number[][][] {
 }
 
 describe('layoutDelta', () => {
-  it('starts a partial lap at its covered distance and breaks the path at a NaN run', () => {
+  vaultIt('starts a partial lap at its covered distance and breaks the path at a NaN run', () => {
     const partial = lap('partial', 2, [NaN, NaN, 0, 4, NaN, NaN, 5, 6]);
     const plot = layoutDelta(deltas([partial]), GRID_STEP_M, SECTION_LENGTH_M, FRAME, undefined);
 
@@ -96,72 +96,81 @@ describe('layoutDelta', () => {
     expect(points[2]![1]).toBeGreaterThan(plot.zeroY);
   });
 
-  it('fills the emphasised lap to the zero line, ahead above it and behind below it, split at the crossing', () => {
-    // Ahead by 4 s at 50 m, behind by 4 s at 100 m: the curve crosses zero at 75 m.
-    const plot = layoutDelta(
-      deltas([lap('a', 1, [0, -4, 4])]),
-      GRID_STEP_M,
-      SECTION_LENGTH_M,
-      FRAME,
-      undefined
-    );
-    const ahead = subpaths(plot.fill.ahead);
-    const behind = subpaths(plot.fill.behind);
+  vaultIt(
+    'fills the emphasised lap to the zero line, ahead above it and behind below it, split at the crossing',
+    () => {
+      // Ahead by 4 s at 50 m, behind by 4 s at 100 m: the curve crosses zero at 75 m.
+      const plot = layoutDelta(
+        deltas([lap('a', 1, [0, -4, 4])]),
+        GRID_STEP_M,
+        SECTION_LENGTH_M,
+        FRAME,
+        undefined
+      );
+      const ahead = subpaths(plot.fill.ahead);
+      const behind = subpaths(plot.fill.behind);
 
-    expect(ahead).toHaveLength(1);
-    expect(behind).toHaveLength(1);
-    for (const [, y] of ahead.flat()) expect(y).toBeLessThanOrEqual(plot.zeroY);
-    for (const [, y] of behind.flat()) expect(y).toBeGreaterThanOrEqual(plot.zeroY);
-    expect(Math.min(...ahead.flat().map(([, y]) => y!))).toBeLessThan(plot.zeroY);
-    expect(Math.max(...behind.flat().map(([, y]) => y!))).toBeGreaterThan(plot.zeroY);
-    // Both areas meet at the crossing, on the zero line.
-    const crossing = plot.xForDistance(75);
-    expect(ahead[0]!.some(([x, y]) => Math.abs(x! - crossing) < 1e-6 && y === plot.zeroY)).toBe(
-      true
-    );
-    expect(behind[0]!.some(([x, y]) => Math.abs(x! - crossing) < 1e-6 && y === plot.zeroY)).toBe(
-      true
-    );
-    expect(plot.fill.ahead).toMatch(/Z/);
-    expect(plot.fill.behind).toMatch(/Z/);
-  });
+      expect(ahead).toHaveLength(1);
+      expect(behind).toHaveLength(1);
+      for (const [, y] of ahead.flat()) expect(y).toBeLessThanOrEqual(plot.zeroY);
+      for (const [, y] of behind.flat()) expect(y).toBeGreaterThanOrEqual(plot.zeroY);
+      expect(Math.min(...ahead.flat().map(([, y]) => y!))).toBeLessThan(plot.zeroY);
+      expect(Math.max(...behind.flat().map(([, y]) => y!))).toBeGreaterThan(plot.zeroY);
+      // Both areas meet at the crossing, on the zero line.
+      const crossing = plot.xForDistance(75);
+      expect(ahead[0]!.some(([x, y]) => Math.abs(x! - crossing) < 1e-6 && y === plot.zeroY)).toBe(
+        true
+      );
+      expect(behind[0]!.some(([x, y]) => Math.abs(x! - crossing) < 1e-6 && y === plot.zeroY)).toBe(
+        true
+      );
+      expect(plot.fill.ahead).toMatch(/Z/);
+      expect(plot.fill.behind).toMatch(/Z/);
+    }
+  );
 
-  it('fills nothing for a lap level with the reference, and only the side a lap reaches', () => {
-    const level = layoutDelta(
-      deltas([lap('a', 1, [0, 0, 0])]),
-      GRID_STEP_M,
-      SECTION_LENGTH_M,
-      FRAME,
-      undefined
-    );
-    expect(level.fill).toEqual({ ahead: '', behind: '' });
+  vaultIt(
+    'fills nothing for a lap level with the reference, and only the side a lap reaches',
+    () => {
+      const level = layoutDelta(
+        deltas([lap('a', 1, [0, 0, 0])]),
+        GRID_STEP_M,
+        SECTION_LENGTH_M,
+        FRAME,
+        undefined
+      );
+      expect(level.fill).toEqual({ ahead: '', behind: '' });
 
-    const behindOnly = layoutDelta(
-      deltas([lap('a', 1, [0, 2, NaN, 3, 5])]),
-      GRID_STEP_M,
-      SECTION_LENGTH_M,
-      FRAME,
-      undefined
-    );
-    expect(behindOnly.fill.ahead).toBe('');
-    // A gap in the curve closes the area before it and starts another after it.
-    expect(subpaths(behindOnly.fill.behind)).toHaveLength(2);
-    expect(behindOnly.fill.behind).not.toMatch(/NaN/);
-  });
+      const behindOnly = layoutDelta(
+        deltas([lap('a', 1, [0, 2, NaN, 3, 5])]),
+        GRID_STEP_M,
+        SECTION_LENGTH_M,
+        FRAME,
+        undefined
+      );
+      expect(behindOnly.fill.ahead).toBe('');
+      // A gap in the curve closes the area before it and starts another after it.
+      expect(subpaths(behindOnly.fill.behind)).toHaveLength(2);
+      expect(behindOnly.fill.behind).not.toMatch(/NaN/);
+    }
+  );
 
-  it('keeps the zero line inside the frame for a lap level with the reference throughout', () => {
-    const plot = layoutDelta(
-      deltas([lap('a', 1, [0, 0, 0])]),
-      GRID_STEP_M,
-      SECTION_LENGTH_M,
-      FRAME,
-      undefined
-    );
+  vaultIt(
+    'keeps the zero line inside the frame for a lap level with the reference throughout',
+    () => {
+      const plot = layoutDelta(
+        deltas([lap('a', 1, [0, 0, 0])]),
+        GRID_STEP_M,
+        SECTION_LENGTH_M,
+        FRAME,
+        undefined
+      );
 
-    expect(Number.isFinite(plot.zeroY)).toBe(true);
-    expect(plot.zeroY).toBeGreaterThanOrEqual(FRAME.padding.top);
-    expect(plot.zeroY).toBeLessThanOrEqual(FRAME.height - FRAME.padding.bottom);
-  });
+      expect(Number.isFinite(plot.zeroY)).toBe(true);
+      expect(plot.zeroY).toBeGreaterThanOrEqual(FRAME.padding.top);
+      expect(plot.zeroY).toBeLessThanOrEqual(FRAME.height - FRAME.padding.bottom);
+    }
+  );
 
   it('emphasises the selected lap, else the newest', () => {
     const laps = [lap('old', 1, [0, 1]), lap('new', 3, [0, 2]), lap('mid', 2, [0, 3])];
@@ -175,7 +184,7 @@ describe('layoutDelta', () => {
     expect(plot.laps.filter((l) => l.emphasised).map((l) => l.activityId)).toEqual(['mid']);
   });
 
-  it('scales the y axis to the peak the engine computed for the direction', () => {
+  vaultIt('scales the y axis to the peak the engine computed for the direction', () => {
     const direction = { ...deltas([lap('a', 1, [0, 2, 3])]), peakDeltaSecs: 9 };
     const plot = layoutDelta(direction, GRID_STEP_M, SECTION_LENGTH_M, FRAME, undefined);
 
@@ -194,7 +203,7 @@ describe('layoutDelta', () => {
     const plot = layoutDelta(deltas([long]), 10, (POINTS - 1) * 10, FRAME, undefined);
     const runs = subpaths(plot.laps[0]!.path);
 
-    it('draws at most two points a pixel column', () => {
+    vaultIt('draws at most two points a pixel column', () => {
       const segments = runs.reduce((sum, run) => sum + run.length - 1, 0);
       expect(segments).toBeLessThanOrEqual(2 * plotWidth);
       expect(runs).toHaveLength(1);
@@ -221,7 +230,7 @@ describe('layoutDelta', () => {
 });
 
 describe('scrubStops', () => {
-  it('stops every 100 m with the grid index of the curve point there', () => {
+  vaultIt('stops every 100 m with the grid index of the curve point there', () => {
     expect(scrubStops(400, 50)).toEqual([
       { distanceM: 0, index: 0 },
       { distanceM: 100, index: 2 },
@@ -231,14 +240,17 @@ describe('scrubStops', () => {
     ]);
   });
 
-  it('places no stop past the end of a section that is not a whole number of stops', () => {
+  vaultIt('places no stop past the end of a section that is not a whole number of stops', () => {
     expect(scrubStops(450, 50).map((stop) => stop.distanceM)).toEqual([0, 100, 200, 300, 400]);
   });
 
-  it('keeps the start for a section shorter than one stop, and gives none for a broken length', () => {
-    expect(scrubStops(60, 50)).toEqual([{ distanceM: 0, index: 0 }]);
-    expect(scrubStops(NaN, 50)).toEqual([]);
-  });
+  vaultIt(
+    'keeps the start for a section shorter than one stop, and gives none for a broken length',
+    () => {
+      expect(scrubStops(60, 50)).toEqual([{ distanceM: 0, index: 0 }]);
+      expect(scrubStops(NaN, 50)).toEqual([]);
+    }
+  );
 });
 
 function summary(
@@ -272,13 +284,13 @@ describe('layoutSplitSummary', () => {
     expect(won).toMatchObject({ index: 1, lost: false, top: 35, bottom: 60 });
   });
 
-  it('draws nothing for a split whose median is NaN', () => {
+  vaultIt('draws nothing for a split whose median is NaN', () => {
     const plot = layoutSplitSummary(summary([4, -2, NaN, 1]), STEP_M, LENGTH_M, FRAME);
 
     expect(plot.bars.map((bar) => bar.index)).toEqual([0, 1, 3]);
   });
 
-  it('keeps each bar inside its own split, narrower than the split', () => {
+  vaultIt('keeps each bar inside its own split, narrower than the split', () => {
     const plot = layoutSplitSummary(summary([4, -2, NaN, 1]), STEP_M, LENGTH_M, FRAME);
 
     const last = plot.bars[2]!;
@@ -289,31 +301,34 @@ describe('layoutSplitSummary', () => {
     expect(first.right - first.left).toBeLessThan(xAt(100) - xAt(0));
   });
 
-  it('draws the quartiles as a whisker where both are finite, and none where either is NaN', () => {
-    const plot = layoutSplitSummary(
-      summary([4, -2, NaN, 1], [2, -3, NaN, 0], [6, -1, NaN, NaN]),
-      STEP_M,
-      LENGTH_M,
-      FRAME
-    );
+  vaultIt(
+    'draws the quartiles as a whisker where both are finite, and none where either is NaN',
+    () => {
+      const plot = layoutSplitSummary(
+        summary([4, -2, NaN, 1], [2, -3, NaN, 0], [6, -1, NaN, NaN]),
+        STEP_M,
+        LENGTH_M,
+        FRAME
+      );
 
-    // The upper quartile of 6 s widens the axis past the largest median.
-    expect(plot.extentSecs).toBe(6);
-    const [lost, won] = plot.bars;
-    expect(lost!.whisker!.top).toBeCloseTo(60 + (2 / 6) * 50);
-    expect(lost!.whisker!.bottom).toBeCloseTo(110);
-    expect(won!.whisker!.top).toBeCloseTo(60 - (3 / 6) * 50);
-    expect(won!.whisker!.bottom).toBeCloseTo(60 - (1 / 6) * 50);
-    expect(plot.bars[2]!.whisker).toBeNull();
-  });
+      // The upper quartile of 6 s widens the axis past the largest median.
+      expect(plot.extentSecs).toBe(6);
+      const [lost, won] = plot.bars;
+      expect(lost!.whisker!.top).toBeCloseTo(60 + (2 / 6) * 50);
+      expect(lost!.whisker!.bottom).toBeCloseTo(110);
+      expect(won!.whisker!.top).toBeCloseTo(60 - (3 / 6) * 50);
+      expect(won!.whisker!.bottom).toBeCloseTo(60 - (1 / 6) * 50);
+      expect(plot.bars[2]!.whisker).toBeNull();
+    }
+  );
 
-  it('draws no whisker at all when every quartile is NaN', () => {
+  vaultIt('draws no whisker at all when every quartile is NaN', () => {
     const plot = layoutSplitSummary(summary([4, -2, 1]), STEP_M, 300, FRAME);
 
     expect(plot.bars.every((bar) => bar.whisker === null)).toBe(true);
   });
 
-  it('centres the scrub on every split, the short last one and a NaN one included', () => {
+  vaultIt('centres the scrub on every split, the short last one and a NaN one included', () => {
     const plot = layoutSplitSummary(summary([4, -2, NaN, 1]), STEP_M, LENGTH_M, FRAME);
 
     expect(plot.splitCentres).toHaveLength(4);
@@ -322,11 +337,11 @@ describe('layoutSplitSummary', () => {
     expect(plot.splitCentres[3]).toBeCloseTo(xAt(325));
   });
 
-  it('gives no scrub centres without a split step', () => {
+  vaultIt('gives no scrub centres without a split step', () => {
     expect(layoutSplitSummary(summary([4, -2]), 0, LENGTH_M, FRAME).splitCentres).toEqual([]);
   });
 
-  it('keeps a level summary from collapsing the axis', () => {
+  vaultIt('keeps a level summary from collapsing the axis', () => {
     const plot = layoutSplitSummary(summary([0, 0]), STEP_M, 200, FRAME);
 
     expect(plot.extentSecs).toBe(1);
@@ -342,7 +357,7 @@ describe('rebaseCurve', () => {
     expect(Array.from(rebased)).toEqual([0, -1, -4, -6]);
   });
 
-  it('puts the new reference level with itself everywhere', () => {
+  vaultIt('puts the new reference level with itself everywhere', () => {
     expect(Array.from(rebaseCurve(previousRecord, previousRecord))).toEqual([0, 0, 0, 0]);
   });
 
@@ -405,7 +420,7 @@ describe('the reference the chart measures against', () => {
     );
   });
 
-  it('leaves the curves as the engine gave them against the stored reference', () => {
+  vaultIt('leaves the curves as the engine gave them against the stored reference', () => {
     expect(deltasAgainst(full, FfiReferenceSource.Record)).toBe(full);
   });
 

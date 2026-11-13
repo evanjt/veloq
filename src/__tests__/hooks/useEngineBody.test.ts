@@ -72,7 +72,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('asks once and then makes no engine call on a timer', async () => {
+vaultIt('asks once and then makes no engine call on a timer', async () => {
   const request = jest.fn();
   await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
 
@@ -136,7 +136,7 @@ it('does nothing at all when disabled', async () => {
   expect(invalidate).not.toHaveBeenCalled();
 });
 
-it('drops every subscription on unmount', async () => {
+vaultIt('drops every subscription on unmount', async () => {
   const { unmount } = await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
   await unmount();
 
@@ -195,7 +195,7 @@ describe('a body that lands before the subscription', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: KEY });
   });
 
-  it('invalidates nothing when the count did not move', async () => {
+  vaultIt('invalidates nothing when the count did not move', async () => {
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     engine.getBodiesStored = jest.fn(() => 7);
 
@@ -204,7 +204,7 @@ describe('a body that lands before the subscription', () => {
     expect(invalidate).not.toHaveBeenCalled();
   });
 
-  it('reads the counter twice and never on a timer', async () => {
+  vaultIt('reads the counter twice and never on a timer', async () => {
     engine.getBodiesStored = jest.fn(() => 3);
 
     await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
@@ -218,7 +218,7 @@ describe('a body that lands before the subscription', () => {
     expect(engine.getBodiesStored).toHaveBeenCalledTimes(2);
   });
 
-  it('reads no counter at all when the body is already present', async () => {
+  vaultIt('reads no counter at all when the body is already present', async () => {
     engine.getBodiesStored = jest.fn(() => 0);
 
     await renderHook(() => useEngineBody(true, jest.fn(), KEY), { wrapper });
@@ -226,7 +226,7 @@ describe('a body that lands before the subscription', () => {
     expect(engine.getBodiesStored).not.toHaveBeenCalled();
   });
 
-  it('reads no counter when the hook is disabled', async () => {
+  vaultIt('reads no counter when the hook is disabled', async () => {
     engine.getBodiesStored = jest.fn(() => 0);
 
     await renderHook(() => useEngineBody(false, jest.fn(), KEY, false), { wrapper });
@@ -236,7 +236,7 @@ describe('a body that lands before the subscription', () => {
 });
 
 describe('the deadline', () => {
-  it('reports waiting while the request is outstanding', async () => {
+  vaultIt('reports waiting while the request is outstanding', async () => {
     const { result } = await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
 
     expect(result.current.status).toBe('waiting');
@@ -256,7 +256,7 @@ describe('the deadline', () => {
     expect(result.current.status).toBe('timedOut');
   });
 
-  it('reads nothing and asks for nothing when it expires', async () => {
+  vaultIt('reads nothing and asks for nothing when it expires', async () => {
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     const request = jest.fn();
     await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
@@ -363,7 +363,7 @@ describe('the deadline', () => {
     expect(result.current.status).toBe('timedOut');
   });
 
-  it('drops its timer on unmount', async () => {
+  vaultIt('drops its timer on unmount', async () => {
     const { unmount } = await renderHook(() => useEngineBody(false, jest.fn(), KEY), { wrapper });
     await unmount();
 
@@ -439,7 +439,7 @@ describe('the reconnect edge', () => {
     expect(result.current.status).toBe('idle');
   });
 
-  it('asks nothing while the connection never drops', async () => {
+  vaultIt('asks nothing while the connection never drops', async () => {
     const request = jest.fn();
     const { rerender } = await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
     await act(() => {
@@ -490,7 +490,7 @@ describe('a request the engine answers with a verdict', () => {
     }
   );
 
-  it('keeps waiting when there is no verdict to read', async () => {
+  vaultIt('keeps waiting when there is no verdict to read', async () => {
     const { result } = await renderHook(() => useEngineBody(false, () => undefined, KEY), {
       wrapper,
     });

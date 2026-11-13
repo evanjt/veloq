@@ -119,6 +119,7 @@ fn sorted_sizes(conn: &Connection) -> Option<Vec<(u32, u32)>> {
 /// keeps its stored-count read, and the size tally holds no count for a shape
 /// that no longer exists.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_background_group_save_stores_member_counts() {
     let _serial = crate::test_globals::serial_global_state();
     let engine = crate::PersistentEngine::in_memory().unwrap();

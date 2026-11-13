@@ -82,7 +82,7 @@ describe('section health check redetect', () => {
     await waitFor(() => expect(engine.forceRedetectSections).toHaveBeenCalledTimes(2));
   });
 
-  it('does not run again while the engine stamp stands', async () => {
+  vaultIt('does not run again while the engine stamp stands', async () => {
     settings.set(SECTION_HEALTH_CHECK_SETTING, '1');
     const engine = engineWith(StartOutcome.Started);
     mockedGetEngine.mockReturnValue(engine as never);

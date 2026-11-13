@@ -78,7 +78,7 @@ describe('the resume prompt', () => {
     expect(interruptedRecordingMessage(backup())).toContain('1:58:04');
   });
 
-  it('says Discard deletes the ride for good', () => {
+  vaultIt('says Discard deletes the ride for good', () => {
     expect(interruptedRecordingMessage(backup())).toMatch(/permanently/);
   });
 });

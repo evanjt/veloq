@@ -363,6 +363,7 @@ fn a_wellness_day_with_figures_of_its_own_loses_only_the_entry_veloq_wrote() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_wellness_day_intervals_serves_stops_being_marked_as_veloqs() {
     let (_dir, mut engine) = garmin_only_library();
     let day = engine
@@ -545,6 +546,7 @@ fn a_returned_library_keeps_a_cycling_eftp_intervals_wrote() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_still_named_for_garmin_under_intervals_rows_is_dropped_as_before() {
     let (_dir, mut engine) = garmin_only_library();
     name_library(&engine, "garmin:8841");
@@ -558,6 +560,7 @@ fn a_library_still_named_for_garmin_under_intervals_rows_is_dropped_as_before() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn leaving_a_garmin_identity_records_the_account_the_library_held() {
     let (_dir, engine) = engine();
     name_library(&engine, "garmin:8841");
@@ -575,6 +578,7 @@ fn leaving_a_garmin_identity_records_the_account_the_library_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_identity_that_was_never_garmin_or_that_leaves_for_demo_records_nothing() {
     let (_dir, engine) = engine();
     name_library(&engine, "i77");
@@ -589,6 +593,7 @@ fn an_identity_that_was_never_garmin_or_that_leaves_for_demo_records_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_ffi_settings_write_records_it_too() {
     let (_dir, engine) = engine();
     crate::persistence::settings::set_settings_on(

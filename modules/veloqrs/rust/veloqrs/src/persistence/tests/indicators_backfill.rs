@@ -50,6 +50,7 @@ fn stop_counting(engine: &super::PersistentEngine) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_backfill_strapless_second_pass_skips_time_stream() {
     let engine = engine_with_null_laps(3);
     assert_eq!(engine.backfill_null_lap_times().unwrap(), 3);
@@ -63,6 +64,7 @@ fn test_backfill_strapless_second_pass_skips_time_stream() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_backfill_late_heart_rate_skips_filled_time_stream() {
     let engine = engine_with_null_laps(2);
     assert_eq!(engine.backfill_null_lap_times().unwrap(), 2);
@@ -113,6 +115,7 @@ fn dropout_series(value: f64) -> Vec<Option<f64>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_backfill_dropout_lap_is_not_decoded_again() {
     let engine = engine_with_null_laps(1);
     store_series(&engine, "heartrate", dropout_series(150.0));
@@ -147,6 +150,7 @@ fn test_backfill_dropout_lap_is_filled_when_the_series_is_replaced() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_backfill_power_dropout_lap_is_not_decoded_again() {
     let engine = engine_with_null_laps(1);
     store_series(&engine, "watts", dropout_series(200.0));
@@ -160,6 +164,7 @@ fn test_backfill_power_dropout_lap_is_not_decoded_again() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_backfill_untimeable_lap_does_not_reread_time_stream() {
     let engine = engine_with_null_laps(2);
     engine
@@ -176,6 +181,7 @@ fn test_backfill_untimeable_lap_does_not_reread_time_stream() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_backfill_untimeable_lap_is_retried_when_a_new_stream_lands() {
     let engine = engine_with_null_laps(1);
     engine

@@ -85,7 +85,7 @@ beforeEach(() => {
 });
 
 describe('the tour map slide', () => {
-  it('leaves a new install on the light style', async () => {
+  vaultIt('leaves a new install on the light style', async () => {
     await render(
       <MapPreferencesProvider>
         <Probe onValue={see} />
@@ -114,7 +114,7 @@ describe('the tour map slide', () => {
 });
 
 describe('Show Me on the tour map slide', () => {
-  it('opens the map without changing the chosen style', async () => {
+  vaultIt('opens the map without changing the chosen style', async () => {
     storedPreferences('dark');
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
     useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });

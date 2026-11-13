@@ -64,7 +64,7 @@ jobs:
     # cancelled at its 120 minute cap. Sharded by pack as the iOS job is, each
     # shard's measured time, the emulator boot and a retry pass for half of it
     # fits the run step's timeout.
-    # src/__tests__/bugs/e2eSweepShardsFinish.test.ts holds the measurements and
+    # src/__tests__/bugs/e2eSweepShardsFinish.vault.test.ts holds the measurements and
     # refuses a shard that outgrows its timeout or a flow no shard runs.
     timeout-minutes: 60
     strategy:
@@ -412,7 +412,7 @@ jobs:
     # tier where one pack alone is too slow, and holds the flows whose measured
     # time, plus a retry pass for half of them, fits the run step's timeout,
     # which leaves setup and the report steps room inside the hour.
-    # src/__tests__/bugs/e2eSweepShardsFinish.test.ts holds the measurements and
+    # src/__tests__/bugs/e2eSweepShardsFinish.vault.test.ts holds the measurements and
     # refuses a shard that outgrows its timeout or a flow no shard runs.
     timeout-minutes: 60
     strategy:

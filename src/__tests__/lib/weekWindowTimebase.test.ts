@@ -14,7 +14,7 @@ jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
 const withTz = <T>(offset: number, run: () => T): T => atUtcOffset(offset, run);
 
 describe('insights params section switch', () => {
-  it('asks for sections only with route matching on', () => {
+  vaultIt('asks for sections only with route matching on', () => {
     mockRouteMatching.mockReturnValue(false);
     expect(buildInsightsParams().includeSections).toBe(false);
     mockRouteMatching.mockReturnValue(true);

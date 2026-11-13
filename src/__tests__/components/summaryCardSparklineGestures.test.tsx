@@ -131,7 +131,7 @@ describe.each(CHARTS)('the %s sparkline', (_name, chart) => {
     expect(configOf(tap).simultaneousWith ?? []).not.toContain(pan);
   });
 
-  it('counts a touch held for half a second as a tap', async () => {
+  vaultIt('counts a touch held for half a second as a tap', async () => {
     const { tap } = await mount();
 
     expect(configOf(tap).maxDurationMs).toBeGreaterThanOrEqual(500);

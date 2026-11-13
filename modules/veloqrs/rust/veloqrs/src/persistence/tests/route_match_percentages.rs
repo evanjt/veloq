@@ -69,6 +69,7 @@ fn test_set_route_representative_persists_self_match_and_zero_match() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_set_route_representative_records_self_match_without_track() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     let mut route = group();
@@ -122,6 +123,7 @@ fn stored_direction(engine: &PersistentEngine, activity_id: &str) -> String {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_measure_match_percentages_measures_direction_of_a_member_with_no_row() {
     let tracks: HashMap<&str, Vec<GpsPoint>> = HashMap::from([
         ("a", corridor(false)),
@@ -188,6 +190,7 @@ fn test_measure_match_percentages_replaces_a_stored_direction_with_the_measured_
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_set_route_representative_stores_the_measured_direction() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     engine
@@ -248,6 +251,7 @@ fn measure_with_offset_member(reversed: bool, metres_east: f64) -> (f64, Directi
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_measure_match_percentages_stores_a_member_under_the_partial_threshold_as_partial() {
     let (percentage, direction) = measure_with_offset_member(false, 49.0);
     assert!((55.0..70.0).contains(&percentage), "{percentage}");
@@ -259,6 +263,7 @@ fn test_measure_match_percentages_stores_a_member_under_the_partial_threshold_as
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_measure_match_percentages_keeps_the_endpoint_direction_above_the_partial_threshold() {
     let (percentage, direction) = measure_with_offset_member(true, 32.0);
     assert!(percentage >= 70.0, "{percentage}");
@@ -269,6 +274,7 @@ fn test_measure_match_percentages_keeps_the_endpoint_direction_above_the_partial
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_measure_match_percentages_descends_a_tree_per_point_on_a_well_ridden_route() {
     use crate::persistence::track_index::{distance_evaluation_bound, take_distance_evaluations};
 
@@ -319,6 +325,7 @@ fn test_measure_match_percentages_descends_a_tree_per_point_on_a_well_ridden_rou
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_recompute_groups_gives_a_partial_member_no_highlight_and_no_rank() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     for (id, track) in [
@@ -367,6 +374,7 @@ fn test_recompute_groups_gives_a_partial_member_no_highlight_and_no_rank() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_the_remeasure_and_grouping_label_a_partial_match_at_the_same_percentage() {
     let threshold = tracematch::PARTIAL_MATCH_PERCENTAGE;
     for (percentage, expected) in [

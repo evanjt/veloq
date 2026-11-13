@@ -39,18 +39,21 @@ async function setup(
 }
 
 describe('TimelineSlider accessibility', () => {
-  it('exposes the start handle as an adjustable element with the date as its value', async () => {
-    const { view } = await setup();
-    const handle = view.getByTestId('timeline-slider-start-handle');
-    expect(handle.props.accessible).toBe(true);
-    expect(handle.props.accessibilityRole).toBe('adjustable');
-    expect(handle.props.accessibilityLabel).toBeTruthy();
-    expect(handle.props.accessibilityValue.text).toMatch(/2024/);
-    expect(handle.props.accessibilityActions).toEqual([
-      { name: 'increment' },
-      { name: 'decrement' },
-    ]);
-  });
+  vaultIt(
+    'exposes the start handle as an adjustable element with the date as its value',
+    async () => {
+      const { view } = await setup();
+      const handle = view.getByTestId('timeline-slider-start-handle');
+      expect(handle.props.accessible).toBe(true);
+      expect(handle.props.accessibilityRole).toBe('adjustable');
+      expect(handle.props.accessibilityLabel).toBeTruthy();
+      expect(handle.props.accessibilityValue.text).toMatch(/2024/);
+      expect(handle.props.accessibilityActions).toEqual([
+        { name: 'increment' },
+        { name: 'decrement' },
+      ]);
+    }
+  );
 
   it('decrement moves the start one month earlier, clamping the day to the month length', async () => {
     const { onRangeChange, act } = await setup();
@@ -118,20 +121,23 @@ describe('TimelineSlider accessibility', () => {
     expect(onRangeChange).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves a fixed end handle out of the accessibility tree actions', async () => {
+  vaultIt('leaves a fixed end handle out of the accessibility tree actions', async () => {
     const { view } = await setup({ fixedEnd: true });
     expect(view.queryByTestId('timeline-slider-end-handle')).toBeNull();
   });
 
-  it('names the end handle as the end of the range, not now, when the range ends in the past', async () => {
-    await initialiseI18n('en-GB');
-    const { view } = await setup({
-      startDate: new Date(2024, 0, 1),
-      endDate: new Date(2025, 5, 1),
-    });
-    const handle = view.getByTestId('timeline-slider-end-handle');
-    expect(handle.props.accessibilityLabel).not.toBe(i18n.t('time.now'));
-    expect(handle.props.accessibilityLabel).toBe('End of local data range');
-    expect(handle.props.accessibilityValue.text).toMatch(/2025/);
-  });
+  vaultIt(
+    'names the end handle as the end of the range, not now, when the range ends in the past',
+    async () => {
+      await initialiseI18n('en-GB');
+      const { view } = await setup({
+        startDate: new Date(2024, 0, 1),
+        endDate: new Date(2025, 5, 1),
+      });
+      const handle = view.getByTestId('timeline-slider-end-handle');
+      expect(handle.props.accessibilityLabel).not.toBe(i18n.t('time.now'));
+      expect(handle.props.accessibilityLabel).toBe('End of local data range');
+      expect(handle.props.accessibilityValue.text).toMatch(/2025/);
+    }
+  );
 });

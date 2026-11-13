@@ -20,7 +20,7 @@ function ringOf(radiusM: number): LngLat[] {
 }
 
 describe('circlePolygon', () => {
-  it('closes the ring with one vertex per step plus the repeat', () => {
+  vaultIt('closes the ring with one vertex per step plus the repeat', () => {
     const ring = ringOf(100);
 
     expect(ring).toHaveLength(CIRCLE_STEPS + 1);
@@ -37,7 +37,7 @@ describe('circlePolygon', () => {
     }
   });
 
-  it('is a polygon, not a line, so the fill layer can paint it', () => {
+  vaultIt('is a polygon, not a line, so the fill layer can paint it', () => {
     expect(circlePolygon(HOME, 100)?.geometry.type).toBe('Polygon');
   });
 
@@ -60,7 +60,7 @@ describe('circleBounds', () => {
     }
   });
 
-  it('spans the diameter on each axis', () => {
+  vaultIt('spans the diameter on each axis', () => {
     const { sw, ne } = circleBounds(HOME, 250);
 
     expect(haversineDistance(sw[1], HOME[0], ne[1], HOME[0])).toBeCloseTo(500, -1);

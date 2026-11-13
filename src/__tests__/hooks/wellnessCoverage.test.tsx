@@ -79,7 +79,7 @@ describe('useWellnessCoverage', () => {
     expect(engine.getWellnessDays).toHaveBeenCalledTimes(1);
   });
 
-  it('answers not downloaded while the engine is not open', async () => {
+  vaultIt('answers not downloaded while the engine is not open', async () => {
     mockGetEngine.mockReturnValue(undefined as unknown as ReturnType<typeof getEngine>);
 
     const { result } = await renderHook(
@@ -105,7 +105,7 @@ describe('useWellnessCoverage', () => {
     expect(result.current.coverage).toBe(RangeCoverage.NotFetched);
   });
 
-  it('answers not downloaded signed out, without reading', async () => {
+  vaultIt('answers not downloaded signed out, without reading', async () => {
     useAuthStore.setState({ isAuthenticated: false });
 
     const { result } = await renderHook(() => useWellnessCoverage('1m'), { wrapper });

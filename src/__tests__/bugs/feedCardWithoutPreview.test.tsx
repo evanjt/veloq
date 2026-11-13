@@ -98,25 +98,28 @@ describe('a feed card with no preview draws no route line', () => {
     jest.useRealTimers();
   });
 
-  it('spins while the render is pending', async () => {
+  vaultIt('spins while the render is pending', async () => {
     const tree = await render(<ActivityMapPreview activity={activity} />);
 
     expect(tree.UNSAFE_queryAllByType(require('react-native').ActivityIndicator)).toHaveLength(1);
     expect(skiaNodeCount(tree)).toBe(0);
   });
 
-  it('keeps spinning when the render is merely slow, rather than calling it failed', async () => {
-    const tree = await render(<ActivityMapPreview activity={activity} />);
+  vaultIt(
+    'keeps spinning when the render is merely slow, rather than calling it failed',
+    async () => {
+      const tree = await render(<ActivityMapPreview activity={activity} />);
 
-    await act(() => {
-      jest.advanceTimersByTime(30_000);
-    });
+      await act(() => {
+        jest.advanceTimersByTime(30_000);
+      });
 
-    expect(tree.UNSAFE_queryAllByType(require('react-native').ActivityIndicator)).toHaveLength(1);
-    expect(skiaNodeCount(tree)).toBe(0);
-  });
+      expect(tree.UNSAFE_queryAllByType(require('react-native').ActivityIndicator)).toHaveLength(1);
+      expect(skiaNodeCount(tree)).toBe(0);
+    }
+  );
 
-  it('shows the no-map mark once the pipeline says it gave up, and never a line', async () => {
+  vaultIt('shows the no-map mark once the pipeline says it gave up, and never a line', async () => {
     const tree = await render(<ActivityMapPreview activity={activity} />);
 
     await act(() => {

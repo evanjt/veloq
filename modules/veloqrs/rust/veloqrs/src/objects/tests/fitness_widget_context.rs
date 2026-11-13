@@ -152,6 +152,7 @@ fn a_context_row_stored_as_json_composes_the_same_snapshot() {
 /// Expected behaviour: the first and the changed context are written, the
 /// repeat is not, and the stored row reads back as the record handed over.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_record_is_stored_once_per_change_and_reads_back() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("widget_context_store.db");

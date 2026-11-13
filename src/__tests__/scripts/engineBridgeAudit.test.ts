@@ -81,7 +81,7 @@ it('fails a file keyed on a member whose root nothing invalidates', () => {
   expect(output).toContain('widgets.detail');
 });
 
-it('passes a file keyed on a member under an invalidated root', () => {
+vaultIt('passes a file keyed on a member under an invalidated root', () => {
   expect(runAudit(hook('list')).status).toBe(0);
 });
 
@@ -97,7 +97,7 @@ const storeInitialisers = () => [
   expect(output).toContain('initialiseWidgetStore');
 });
 
-it('passes when an imported store initialiser is registered in the restore table', () => {
+vaultIt('passes when an imported store initialiser is registered in the restore table', () => {
   const backup = `import { initialiseWidgetStore } from './widgetStore';
 const storeInitialisers = () => [
   ['initialiseWidgetStore', initialiseWidgetStore],

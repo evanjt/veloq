@@ -77,7 +77,7 @@ describe('release signing', () => {
     expect(gradle).not.toContain('signingConfigs.release');
   });
 
-  it('reads the template it is applied to', () => {
+  vaultIt('reads the template it is applied to', () => {
     expect(releaseSigning(TEMPLATE)).toBe('signingConfigs.debug');
   });
 });

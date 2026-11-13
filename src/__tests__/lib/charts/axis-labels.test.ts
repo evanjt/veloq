@@ -1,22 +1,22 @@
 import { axisLabelTops, niceScale } from '@/shared/charts/axisLabels';
 
 describe('axisLabelTops', () => {
-  it('centres each label on its value', () => {
+  vaultIt('centres each label on its value', () => {
     expect(axisLabelTops([0, 500, 1000], [0, 1000], { top: 4, bottom: 180 }, 12)).toEqual([
       174, 86, -2,
     ]);
   });
 
-  it('puts zero a third of the way down a domain running from -60 to 30', () => {
+  vaultIt('puts zero a third of the way down a domain running from -60 to 30', () => {
     const [zeroTop] = axisLabelTops([0], [-60, 30], { top: 0, bottom: 90 }, 0);
     expect(zeroTop).toBe(30);
   });
 
-  it('places nothing for no ticks', () => {
+  vaultIt('places nothing for no ticks', () => {
     expect(axisLabelTops([], [0, 1], { top: 0, bottom: 100 }, 12)).toEqual([]);
   });
 
-  it('puts every label at the start of a zero-width domain', () => {
+  vaultIt('puts every label at the start of a zero-width domain', () => {
     expect(axisLabelTops([5, 5], [5, 5], { top: 10, bottom: 110 }, 10)).toEqual([105, 105]);
   });
 });
@@ -31,7 +31,7 @@ describe('niceScale', () => {
     });
   });
 
-  it('keeps an extent that already sits on its steps', () => {
+  vaultIt('keeps an extent that already sits on its steps', () => {
     expect(niceScale([0, 100], 2).domain).toEqual([0, 100]);
   });
 

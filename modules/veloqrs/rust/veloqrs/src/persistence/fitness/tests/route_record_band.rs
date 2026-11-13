@@ -230,6 +230,7 @@ fn route_average_speed_is_counted_distance_over_counted_time() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_route_highlight_trend_ignores_short_attempt() {
     let attempts = vec![
         attempt("first", "Run", 5000.0, 1000),
@@ -242,6 +243,7 @@ fn test_route_highlight_trend_ignores_short_attempt() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn two_attempts_far_from_their_median_give_no_record() {
     let attempts = vec![
         attempt("long", "Run", 4300.0, 1200),
@@ -258,6 +260,7 @@ fn two_attempts_far_from_their_median_give_no_record() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_lone_attempt_is_its_own_centre() {
     let attempts = vec![attempt("only", "Run", 4300.0, 1200)];
 
@@ -269,6 +272,7 @@ fn a_lone_attempt_is_its_own_centre() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_band_is_five_per_cent_and_the_edge_is_inside() {
     assert!(probe_counts("Ride", 20_000.0, 20_900.0));
     assert!(probe_counts("Ride", 20_000.0, 21_000.0));
@@ -277,6 +281,7 @@ fn a_ride_band_is_five_per_cent_and_the_edge_is_inside() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_band_is_five_per_cent() {
     assert!(probe_counts("Run", 5_000.0, 5_240.0));
     assert!(probe_counts("Run", 5_000.0, 5_250.0));
@@ -284,12 +289,14 @@ fn a_run_band_is_five_per_cent() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn other_sports_use_ten_per_cent() {
     assert!(probe_counts("Walk", 5_000.0, 5_400.0));
     assert!(!probe_counts("Walk", 5_000.0, 5_600.0));
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_atypical_representative_is_flagged_and_the_fastest_other_holds_the_record() {
     let attempts = vec![
         attempt("rep", "Run", 3250.0, 800),
@@ -310,6 +317,7 @@ fn an_atypical_representative_is_flagged_and_the_fastest_other_holds_the_record(
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_median_ignores_excluded_and_other_sport_attempts() {
     let attempts = vec![
         attempt("a", "Run", 5000.0, 1500),
@@ -331,6 +339,7 @@ fn the_median_ignores_excluded_and_other_sport_attempts() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn untimed_attempts_do_not_move_the_centre() {
     let attempts = vec![
         attempt("a", "Run", 5000.0, 1500),
@@ -370,6 +379,7 @@ fn the_fastest_in_band_attempt_is_stamped_a_record_and_no_other() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tied_best_is_stamped_on_neither_attempt() {
     let attempts = vec![
         attempt("a", "Run", 4300.0, 1190),
@@ -383,6 +393,7 @@ fn a_tied_best_is_stamped_on_neither_attempt() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_lone_attempt_is_not_a_record() {
     let attempts = vec![attempt("only", "Run", 4300.0, 1200)];
 

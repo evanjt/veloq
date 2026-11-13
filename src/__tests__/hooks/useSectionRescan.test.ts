@@ -136,7 +136,7 @@ describe('adopting a detect that is already running', () => {
     expect(result.current.result).toBeNull();
   });
 
-  it('adopts nothing when the engine is idle', async () => {
+  vaultIt('adopts nothing when the engine is idle', async () => {
     mockedGetEngine.mockReturnValue(engineWith() as never);
 
     const { result } = await renderHook(() => useSectionRescan());
@@ -232,7 +232,7 @@ describe('following a rescan without draining the worker', () => {
     jest.useRealTimers();
   });
 
-  it('reads only progress on the timer', async () => {
+  vaultIt('reads only progress on the timer', async () => {
     const engine = engineWith({
       pollSectionDetection: jest.fn(() => 'running'),
       getSectionDetectionProgress: jest.fn(() => ({
@@ -388,7 +388,7 @@ describe('a refusal the screen can show', () => {
     expect(result.current.refusal).toBeNull();
   });
 
-  it('drops the refusal the moment a rescan starts', async () => {
+  vaultIt('drops the refusal the moment a rescan starts', async () => {
     const startSectionDetection = jest
       .fn()
       .mockReturnValueOnce(StartOutcome.Busy)
@@ -411,7 +411,7 @@ describe('a refusal the screen can show', () => {
     expect(result.current.isScanning).toBe(true);
   });
 
-  it('records the force path refusal too', async () => {
+  vaultIt('records the force path refusal too', async () => {
     const engine = engineWith({
       forceRedetectSections: jest.fn(() => StartOutcome.Held),
     });
@@ -424,7 +424,7 @@ describe('a refusal the screen can show', () => {
     expect(result.current.refusal).toBe(StartOutcome.Held);
   });
 
-  it('records being early as a refusal the screen can name', async () => {
+  vaultIt('records being early as a refusal the screen can name', async () => {
     mockedGetEngine.mockReturnValue(null);
 
     const { result } = await renderHook(() => useSectionRescan());
@@ -509,7 +509,7 @@ describe('a rescan that is never told it ended', () => {
     expect(result.current.result).toBeNull();
   });
 
-  it('clears the still-running notice when the next run starts', async () => {
+  vaultIt('clears the still-running notice when the next run starts', async () => {
     const { result } = await scanning();
 
     await act(async () => {
@@ -524,7 +524,7 @@ describe('a rescan that is never told it ended', () => {
     expect(result.current.stillRunning).toBe(false);
   });
 
-  it('stops following once the hook goes away', async () => {
+  vaultIt('stops following once the hook goes away', async () => {
     const engine = engineWith({ pollSectionDetection: jest.fn(() => 'running') });
     mockedGetEngine.mockReturnValue(engine as never);
     const { result, unmount } = await renderHook(() => useSectionRescan());
@@ -560,7 +560,7 @@ describe('counting sections around a rescan', () => {
     jest.useRealTimers();
   });
 
-  it('reads the count without loading any summaries', async () => {
+  vaultIt('reads the count without loading any summaries', async () => {
     const getSectionCount = jest.fn(() => 7);
     const getFilteredSectionSummaries = jest.fn(() => ({ totalCount: 7 }));
     const engine = engineWith({ getSectionCount, getFilteredSectionSummaries });
@@ -576,7 +576,7 @@ describe('counting sections around a rescan', () => {
     expect(getFilteredSectionSummaries).not.toHaveBeenCalled();
   });
 
-  it('reports zero rather than throwing when the count fails', async () => {
+  vaultIt('reports zero rather than throwing when the count fails', async () => {
     const engine = engineWith({
       getSectionCount: jest.fn(() => {
         throw new Error('engine is gone');

@@ -87,6 +87,7 @@ fn named_parent_split_in_two() -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn children_of_a_named_parent_are_numbered_along_its_line() {
     let engine = named_parent_split_in_two();
     let names = shown(&engine);
@@ -139,6 +140,7 @@ fn a_pooled_read_on_another_database_is_not_served_the_bound_librarys_lineage() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_child_split_again_nests_its_part_under_its_own() {
     let engine = named_parent_split_in_two();
     insert_row(&engine, "ledge", "auto", None);
@@ -151,6 +153,7 @@ fn a_child_split_again_nests_its_part_under_its_own() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_child_whose_parent_is_gone_keeps_its_number() {
     let engine = PersistentEngine::in_memory().unwrap();
     insert_row(&engine, "orphan", "auto", None);
@@ -161,6 +164,7 @@ fn a_child_whose_parent_is_gone_keeps_its_number() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_child_of_an_unnamed_parent_keeps_its_number() {
     let engine = PersistentEngine::in_memory().unwrap();
     insert_row(&engine, "plain", "auto", None);
@@ -180,6 +184,7 @@ fn a_child_of_an_unnamed_parent_keeps_its_number() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_parent_shown_under_a_kept_handle_is_not_a_typed_name() {
     let engine = PersistentEngine::in_memory().unwrap();
     insert_row(&engine, "kept", "custom", Some("Section 40"));
@@ -192,6 +197,7 @@ fn a_parent_shown_under_a_kept_handle_is_not_a_typed_name() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_child_with_its_own_name_shows_it_and_passes_it_down() {
     let engine = named_parent_split_in_two();
     engine
@@ -210,6 +216,7 @@ fn a_child_with_its_own_name_shows_it_and_passes_it_down() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_renamed_parent_renames_its_children_and_nothing_is_stored() {
     let mut engine = named_parent_split_in_two();
     engine
@@ -226,6 +233,7 @@ fn a_renamed_parent_renames_its_children_and_nothing_is_stored() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rename_to_a_composed_name_another_section_shows_is_refused() {
     let mut engine = named_parent_split_in_two();
     insert_row(&engine, "elsewhere", "custom", Some("Pier Loop"));
@@ -237,6 +245,7 @@ fn a_rename_to_a_composed_name_another_section_shows_is_refused() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_lineage_that_loops_falls_back_to_numbers() {
     let engine = PersistentEngine::in_memory().unwrap();
     insert_row(&engine, "east", "auto", None);
@@ -300,6 +309,7 @@ fn named_line_split_in_three() -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_name_on_a_split_line_follows_the_piece_holding_the_parents_id() {
     let engine = named_line_split_in_three();
     let names = shown(&engine);
@@ -309,6 +319,7 @@ fn a_name_on_a_split_line_follows_the_piece_holding_the_parents_id() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_name_on_an_unsplit_line_stays_on_its_largest_piece() {
     let engine = PersistentEngine::in_memory().unwrap();
     insert_line(&engine, "head", 46.0, 46.015);
@@ -318,6 +329,7 @@ fn a_name_on_an_unsplit_line_stays_on_its_largest_piece() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn renaming_a_split_child_names_that_child_and_leaves_its_siblings_alone() {
     let mut engine = named_line_split_in_three();
     engine
@@ -331,6 +343,7 @@ fn renaming_a_split_child_names_that_child_and_leaves_its_siblings_alone() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_child_renamed_after_its_split_keeps_its_name_beside_a_named_parent() {
     let mut engine = named_line_split_in_three();
     engine

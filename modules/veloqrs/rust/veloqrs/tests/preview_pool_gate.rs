@@ -75,6 +75,7 @@ fn corrupt_tracks(path: &std::path::Path) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_preview_over_an_unusable_pool_refuses() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");

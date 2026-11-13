@@ -375,6 +375,7 @@ mod tests {
     /// A connection is handed back rather than opened per read, or every screen
     /// read pays an open and the pool is a pool in name only.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_connection_is_returned_for_the_next_reader() {
         let _serial = crate::test_globals::serial_global_state();
         let (_dir, _writer) = bound_pool("reuse.db");
@@ -395,6 +396,7 @@ mod tests {
     /// cache goes, the reader in flight finishes on its own connection, and
     /// the next read opens a fresh one that is served the last commit.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn releasing_idle_readers_drops_the_parked_ones_and_keeps_serving() {
         let _serial = crate::test_globals::serial_global_state();
         let (_dir, writer) = bound_pool("release.db");

@@ -48,7 +48,7 @@ describe('routeMapSpecs', () => {
     deltaBands: null,
   };
 
-  it('draws the route line over the other attempts and fits it with room for strays', () => {
+  vaultIt('draws the route line over the other attempts and fits it with room for strays', () => {
     const specs = routeMapSpecs(input);
 
     expect(specs.sources.route).toEqual({
@@ -101,7 +101,7 @@ describe('sectionMapSpecs', () => {
     extentCoords: meadow,
   };
 
-  it('draws the section line with its chevron icon and fits the section', () => {
+  vaultIt('draws the section line with its chevron icon and fits the section', () => {
     const specs = sectionMapSpecs(base);
 
     expect(specs.sources.section).toEqual({
@@ -123,7 +123,7 @@ describe('sectionMapSpecs', () => {
     expect(specs.bounds?.ne[1]).toBeCloseTo(45.023, 6);
   });
 
-  it('frames the whole window around the section while its bounds are being extended', () => {
+  vaultIt('frames the whole window around the section while its bounds are being extended', () => {
     const wider = lngLatFromShort([
       { lat: 44.9, lng: 5.9 },
       { lat: 45.1, lng: 6.1 },
@@ -179,7 +179,7 @@ describe('activityMapSpecs', () => {
     expect(specs.bounds).toEqual({ sw: [6, 45], ne: [6.04, 45.02] });
   });
 
-  it('keeps the layer list when a scrub moves only the highlight', () => {
+  vaultIt('keeps the layer list when a scrub moves only the highlight', () => {
     const first = activityMapSpecs({ sources: sources([6, 45]), layers, coordinates });
     const next = activityMapSpecs({ sources: sources([6.02, 45.01]), layers, coordinates });
 

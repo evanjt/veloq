@@ -63,7 +63,7 @@ describe('useSectionTimeStreamSync', () => {
     startsWith(StartOutcome.Started);
   });
 
-  it('is ready without asking for anything when every stream is stored', async () => {
+  vaultIt('is ready without asking for anything when every stream is stored', async () => {
     const { result } = await renderSync(['a1', 'a2']);
 
     await waitFor(() => expect(result.current.ready).toBe(true));
@@ -71,7 +71,7 @@ describe('useSectionTimeStreamSync', () => {
     expect(result.current.outstanding).toBe(0);
   });
 
-  it('makes no engine calls between the request and the announcement', async () => {
+  vaultIt('makes no engine calls between the request and the announcement', async () => {
     missing.mockReturnValue(['a1', 'a2']);
     jest.useFakeTimers();
 
@@ -127,7 +127,7 @@ describe('useSectionTimeStreamSync', () => {
     jest.useRealTimers();
   });
 
-  it('takes the gap the caller already read rather than re-reading it', async () => {
+  vaultIt('takes the gap the caller already read rather than re-reading it', async () => {
     const { result } = await renderSync(['a1'], ['a1']);
     await act(async () => {});
 
@@ -138,7 +138,7 @@ describe('useSectionTimeStreamSync', () => {
     await waitFor(() => expect(result.current.ready).toBe(true));
   });
 
-  it('leaves no listener behind once the wait is over', async () => {
+  vaultIt('leaves no listener behind once the wait is over', async () => {
     missing.mockReturnValue(['a1']);
 
     const { unmount } = await renderSync(['a1']);
@@ -171,7 +171,7 @@ describe('streams that do not arrive', () => {
     jest.useRealTimers();
   });
 
-  it('reports both outstanding when neither is announced before the deadline', async () => {
+  vaultIt('reports both outstanding when neither is announced before the deadline', async () => {
     missing.mockReturnValue(['a1', 'a2']);
     jest.useFakeTimers();
 
@@ -195,7 +195,7 @@ describe('streams that do not arrive', () => {
     expect(mockListeners.get('timeStreamsStored')?.size ?? 0).toBe(0);
   });
 
-  it('treats an engine that is not open yet as nothing fetched', async () => {
+  vaultIt('treats an engine that is not open yet as nothing fetched', async () => {
     missing.mockReturnValue(['a1']);
     startsWith(StartOutcome.NotReady);
 
@@ -240,7 +240,7 @@ describe('streams that do not arrive', () => {
     expect(result.current).toMatchObject({ ready: true, outstanding: 0 });
   });
 
-  it('asks for nothing on reconnect once every stream has landed', async () => {
+  vaultIt('asks for nothing on reconnect once every stream has landed', async () => {
     missing.mockReturnValue(['a1']);
     mockIsOnline = false;
 
@@ -256,7 +256,7 @@ describe('streams that do not arrive', () => {
     expect(syncTimeStreams).toHaveBeenCalledTimes(1);
   });
 
-  it('asks again on retry', async () => {
+  vaultIt('asks again on retry', async () => {
     missing.mockReturnValue(['a1']);
     startsWith(StartOutcome.Held);
 
@@ -314,7 +314,7 @@ describe('a retry after some streams landed', () => {
     expect(result.current).toMatchObject({ ready: true, outstanding: 0 });
   });
 
-  it('settles at once on retry when every stream has landed since', async () => {
+  vaultIt('settles at once on retry when every stream has landed since', async () => {
     startsWith(StartOutcome.Held);
     const { result } = await renderSync(ids, ids);
     await act(async () => {});

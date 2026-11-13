@@ -175,6 +175,7 @@ fn an_unknown_date_and_figures_are_null_and_a_zero_stays_zero() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_long_feature_is_written_without_a_value_per_coordinate() {
     let points = track(10_800);
     let f = feature(&points);

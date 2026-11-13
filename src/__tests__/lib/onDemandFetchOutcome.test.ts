@@ -50,7 +50,7 @@ test('a busy key is retryable and a missing credential is not', () => {
   expect(isRetryableStart(unconfigured)).toBe(false);
 });
 
-test('a backed-off key carries its retry time through the delegate', () => {
+vaultTest('a backed-off key carries its retry time through the delegate', () => {
   const held = { outcome: StartOutcome.Held, retryAtMs: 1_500_000 };
   expect(syncPowerCurve(host(true, held), 'Ride', 90)).toEqual(held);
 });
@@ -70,7 +70,7 @@ test('an empty list of time streams is no work, not a refusal to do it', () => {
   expect(hasStarted(outcome)).toBe(false);
 });
 
-test('a started fetch reads as started', () => {
+vaultTest('a started fetch reads as started', () => {
   expect(hasStarted(syncTimeStreams(host(true, { outcome: StartOutcome.Started }), ['a1']))).toBe(
     true
   );

@@ -19,7 +19,7 @@ const REPO = path.resolve(__dirname, '../../..');
 const RUST = path.join(REPO, 'modules/veloqrs/rust/veloqrs/src/trend_table.rs');
 
 describe('the trend table is read out of Rust', () => {
-  it('parses every metric, its deadband and which way is better', () => {
+  vaultIt('parses every metric, its deadband and which way is better', () => {
     const metrics = readRustTrendMetrics(
       `
 pub const TREND_METRICS: &[TrendMetric] = &[
@@ -43,7 +43,7 @@ pub const TREND_METRICS: &[TrendMetric] = &[
     ]);
   });
 
-  it('refuses a source it cannot find the table in, rather than writing an empty one', () => {
+  vaultIt('refuses a source it cannot find the table in, rather than writing an empty one', () => {
     // An empty table reads as "no metric has a threshold", which makes every
     // move a move. Failing loudly is the only safe answer.
     expect(() => readRustTrendMetrics('fn unrelated() {}')).toThrow();

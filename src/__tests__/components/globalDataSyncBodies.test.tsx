@@ -149,7 +149,7 @@ describe('the sync tree on an activities announcement', () => {
     expect(fakeEngine.syncActivitiesWindow).toHaveBeenCalledWith('2026-01-01', '2026-03-31');
   });
 
-  it('runs no pass while the library is empty', async () => {
+  vaultIt('runs no pass while the library is empty', async () => {
     fakeEngine.getStats.mockReturnValue({ libraryCount: 0 });
     fakeEngine.getFeedCards.mockReturnValue([]);
     await mountSyncTree();

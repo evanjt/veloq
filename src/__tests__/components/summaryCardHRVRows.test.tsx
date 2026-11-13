@@ -74,7 +74,7 @@ describe('the feed card HRV rows', () => {
     expect(lastDotY(view, summarySeriesColor('rhr', false))).toBeLessThan(HRV_ROW_HEIGHT / 2);
   });
 
-  it('draws a falling resting heart rate falling', async () => {
+  vaultIt('draws a falling resting heart rate falling', async () => {
     const view = await render(
       <SummaryCardHRVSparkline hrvData={HRV} rhrData={[...RISING_RHR].reverse()} width={320} />
     );
@@ -82,7 +82,7 @@ describe('the feed card HRV rows', () => {
     expect(lastDotY(view, summarySeriesColor('rhr', false))).toBeGreaterThan(HRV_ROW_HEIGHT / 2);
   });
 
-  it('speaks each row with its range', async () => {
+  vaultIt('speaks each row with its range', async () => {
     const view = await render(
       <SummaryCardHRVSparkline hrvData={HRV} rhrData={RISING_RHR} width={320} />
     );
@@ -95,7 +95,7 @@ describe('the feed card HRV rows', () => {
     );
   });
 
-  it('draws one row when there is no resting heart rate', async () => {
+  vaultIt('draws one row when there is no resting heart rate', async () => {
     const view = await render(<SummaryCardHRVSparkline hrvData={HRV} width={320} />);
 
     expect(view.getByTestId('summary-card-hrv-row-range', HIDDEN)).toBeTruthy();

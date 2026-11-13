@@ -106,7 +106,7 @@ describe('Hard Re-sync', () => {
  * at 1 and a screen reader adjusts one reading rather than two loose buttons.
  */
 describe('Remove activities count', () => {
-  it('steps between 1 and 50 through the shared Stepper', async () => {
+  vaultIt('steps between 1 and 50 through the shared Stepper', async () => {
     const { getByTestId } = await render(<SyncDebugSection />);
     const reading = getByTestId('sync-debug-remove-count-value');
     expect(reading.props.accessibilityRole).toBe('adjustable');

@@ -88,13 +88,13 @@ async function renderSheet(props: Partial<SheetHeaderProps> = {}) {
 }
 
 describe('SheetHeader', () => {
-  it.each(['ios', 'android'] as const)('gives the title the header role on %s', async (os) => {
+  vaultIt.each(['ios', 'android'] as const)('gives the title the header role on %s', async (os) => {
     Platform.OS = os;
     await renderSheet();
     expect(screen.getByRole('header').props.children).toBe('Edit distance');
   });
 
-  it('leads with Cancel and trails with a bold confirm in the title row on iOS', async () => {
+  vaultIt('leads with Cancel and trails with a bold confirm in the title row on iOS', async () => {
     Platform.OS = 'ios';
     await renderSheet();
 
@@ -109,21 +109,26 @@ describe('SheetHeader', () => {
     expect(styleOf(screen.getByTestId('sheet-cancel-label')).fontWeight).toBe('400');
   });
 
-  it('keeps the title row bare and puts Cancel then a primary confirm below on Android', async () => {
-    Platform.OS = 'android';
-    await renderSheet();
+  vaultIt(
+    'keeps the title row bare and puts Cancel then a primary confirm below on Android',
+    async () => {
+      Platform.OS = 'android';
+      await renderSheet();
 
-    const order = testIdsInOrder(screen.toJSON() as Node);
-    expect(order.indexOf('sheet-header-title')).toBeLessThan(order.indexOf('sheet-body'));
-    expect(order.indexOf('sheet-body')).toBeLessThan(order.indexOf('sheet-actions'));
-    expect(order.indexOf('sheet-actions')).toBeLessThan(order.indexOf('sheet-cancel'));
-    expect(order.indexOf('sheet-cancel')).toBeLessThan(order.indexOf('sheet-confirm'));
+      const order = testIdsInOrder(screen.toJSON() as Node);
+      expect(order.indexOf('sheet-header-title')).toBeLessThan(order.indexOf('sheet-body'));
+      expect(order.indexOf('sheet-body')).toBeLessThan(order.indexOf('sheet-actions'));
+      expect(order.indexOf('sheet-actions')).toBeLessThan(order.indexOf('sheet-cancel'));
+      expect(order.indexOf('sheet-cancel')).toBeLessThan(order.indexOf('sheet-confirm'));
 
-    expect(styleOf(screen.getByTestId('sheet-confirm')).backgroundColor).toBe(colors.actionPrimary);
-    expect(styleOf(screen.getByTestId('sheet-cancel')).backgroundColor).toBe('transparent');
-  });
+      expect(styleOf(screen.getByTestId('sheet-confirm')).backgroundColor).toBe(
+        colors.actionPrimary
+      );
+      expect(styleOf(screen.getByTestId('sheet-cancel')).backgroundColor).toBe('transparent');
+    }
+  );
 
-  it('draws no dismiss control on an Android sheet with nothing to confirm', async () => {
+  vaultIt('draws no dismiss control on an Android sheet with nothing to confirm', async () => {
     Platform.OS = 'android';
     await renderSheet({ confirm: undefined });
 
@@ -132,7 +137,7 @@ describe('SheetHeader', () => {
     expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
-  it('keeps Cancel in the title row on iOS when there is nothing to confirm', async () => {
+  vaultIt('keeps Cancel in the title row on iOS when there is nothing to confirm', async () => {
     Platform.OS = 'ios';
     const { onCancel } = await renderSheet({ confirm: undefined });
 
@@ -141,7 +146,7 @@ describe('SheetHeader', () => {
     expect(screen.getAllByRole('button')).toHaveLength(1);
   });
 
-  it('draws only the title when the sheet has no actions', async () => {
+  vaultIt('draws only the title when the sheet has no actions', async () => {
     Platform.OS = 'ios';
     await renderSheet({ onCancel: undefined, confirm: undefined });
 
@@ -149,65 +154,74 @@ describe('SheetHeader', () => {
     expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
-  it('trails the title row with the shared close on an iOS sheet that only shows something', async () => {
-    Platform.OS = 'ios';
-    const onClose = jest.fn();
-    await renderSheet({
-      onCancel: undefined,
-      confirm: undefined,
-      onClose,
-      closeTestID: 'sheet-close',
-    });
+  vaultIt(
+    'trails the title row with the shared close on an iOS sheet that only shows something',
+    async () => {
+      Platform.OS = 'ios';
+      const onClose = jest.fn();
+      await renderSheet({
+        onCancel: undefined,
+        confirm: undefined,
+        onClose,
+        closeTestID: 'sheet-close',
+      });
 
-    const order = testIdsInOrder(screen.toJSON() as Node);
-    expect(order.indexOf('sheet-header-title')).toBeLessThan(order.indexOf('sheet-close'));
-    expect(order.indexOf('sheet-close')).toBeLessThan(order.indexOf('sheet-body'));
-    expect(screen.getAllByRole('button')).toHaveLength(1);
-    expect(screen.getByLabelText('common.close')).toBe(screen.getByTestId('sheet-close'));
+      const order = testIdsInOrder(screen.toJSON() as Node);
+      expect(order.indexOf('sheet-header-title')).toBeLessThan(order.indexOf('sheet-close'));
+      expect(order.indexOf('sheet-close')).toBeLessThan(order.indexOf('sheet-body'));
+      expect(screen.getAllByRole('button')).toHaveLength(1);
+      expect(screen.getByLabelText('common.close')).toBe(screen.getByTestId('sheet-close'));
 
-    await fireEvent.press(screen.getByTestId('sheet-close'));
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
+      await fireEvent.press(screen.getByTestId('sheet-close'));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    }
+  );
 
-  it('draws the iOS close as a 40 square on the neutral fill with a 24 glyph in the secondary icon colour', async () => {
-    Platform.OS = 'ios';
-    await renderSheet({
-      onCancel: undefined,
-      confirm: undefined,
-      onClose: jest.fn(),
-      closeTestID: 'sheet-close',
-    });
+  vaultIt(
+    'draws the iOS close as a 40 square on the neutral fill with a 24 glyph in the secondary icon colour',
+    async () => {
+      Platform.OS = 'ios';
+      await renderSheet({
+        onCancel: undefined,
+        confirm: undefined,
+        onClose: jest.fn(),
+        closeTestID: 'sheet-close',
+      });
 
-    const close = screen.getByTestId('sheet-close');
-    const ground = styleOf(close);
-    expect(ground.backgroundColor).toBe(colors.fillNeutral);
-    expect(ground.minWidth).toBe(40);
-    expect(ground.minHeight).toBe(40);
-    const glyph = close.findByProps({ name: 'close' });
-    expect(glyph.props.size).toBe(24);
-    expect(glyph.props.color).toBe(colors.iconSecondary);
-  });
+      const close = screen.getByTestId('sheet-close');
+      const ground = styleOf(close);
+      expect(ground.backgroundColor).toBe(colors.fillNeutral);
+      expect(ground.minWidth).toBe(40);
+      expect(ground.minHeight).toBe(40);
+      const glyph = close.findByProps({ name: 'close' });
+      expect(glyph.props.size).toBe(24);
+      expect(glyph.props.color).toBe(colors.iconSecondary);
+    }
+  );
 
-  it('draws no close on Android, where drag, scrim and back dismiss the sheet', async () => {
+  vaultIt('draws no close on Android, where drag, scrim and back dismiss the sheet', async () => {
     Platform.OS = 'android';
     await renderSheet({ onCancel: undefined, confirm: undefined, onClose: jest.fn() });
 
     expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
-  it.each(['ios', 'android'] as const)('draws the subtitle under the title on %s', async (os) => {
-    Platform.OS = os;
-    await renderSheet({ subtitle: 'Kept as one', onClose: undefined });
+  vaultIt.each(['ios', 'android'] as const)(
+    'draws the subtitle under the title on %s',
+    async (os) => {
+      Platform.OS = os;
+      await renderSheet({ subtitle: 'Kept as one', onClose: undefined });
 
-    const order = testIdsInOrder(screen.toJSON() as Node);
-    expect(order.indexOf('sheet-header-title')).toBeLessThan(
-      order.indexOf('sheet-header-subtitle')
-    );
-    expect(screen.getByTestId('sheet-header-subtitle').props.children).toBe('Kept as one');
-    expect(screen.getAllByRole('header')).toHaveLength(1);
-  });
+      const order = testIdsInOrder(screen.toJSON() as Node);
+      expect(order.indexOf('sheet-header-title')).toBeLessThan(
+        order.indexOf('sheet-header-subtitle')
+      );
+      expect(screen.getByTestId('sheet-header-subtitle').props.children).toBe('Kept as one');
+      expect(screen.getAllByRole('header')).toHaveLength(1);
+    }
+  );
 
-  it.each([
+  vaultIt.each([
     ['onCancel', { closeTestID: undefined }, 'sheet-cancel'],
     ['onClose', { onCancel: undefined, confirm: undefined, onClose: jest.fn() }, 'sheet-close'],
   ] as const)(
@@ -234,7 +248,7 @@ describe('SheetHeader', () => {
     }
   );
 
-  it.each(['ios', 'android'] as const)('answers Cancel and the confirm on %s', async (os) => {
+  vaultIt.each(['ios', 'android'] as const)('answers Cancel and the confirm on %s', async (os) => {
     Platform.OS = os;
     const { onCancel, onConfirm } = await renderSheet();
 

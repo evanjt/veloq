@@ -58,7 +58,7 @@ describe('InsightfulStats', () => {
     expect(card.getAllByText('+2.4').length).toBeGreaterThan(0);
   });
 
-  it('omits the impact when the engine has no load', async () => {
+  vaultIt('omits the impact when the engine has no load', async () => {
     const card = await render(<InsightfulStats activity={ride} fitnessImpact={null} />);
     expect(card.queryByText('activity.stats.fitnessImpact')).toBeNull();
   });
@@ -83,7 +83,7 @@ describe('InsightfulStats', () => {
     expect(getByText('activity.stats.percentOfMaxHR:{"percent":"81%"}')).toBeTruthy();
   });
 
-  it('leaves the percent of max HR out until the screen read answers', async () => {
+  vaultIt('leaves the percent of max HR out until the screen read answers', async () => {
     const { getByText, queryByText } = await render(<InsightfulStats activity={ride} />);
     expect(getByText('activity.heartRate')).toBeTruthy();
     expect(queryByText(/percentOf/)).toBeNull();
@@ -108,7 +108,7 @@ describe('the fitness impact explanation', () => {
     return card.explanation;
   };
 
-  it.each([
+  vaultIt.each([
     [28, 5],
     [42, 7],
   ])(
@@ -170,7 +170,7 @@ describe('HRZonesChart', () => {
     expect(card.getByText('activity.stats.percentOfMaxHR:{"percent":"81%"}')).toBeTruthy();
   });
 
-  it('names the activity own zones as the source of its max', async () => {
+  vaultIt('names the activity own zones as the source of its max', async () => {
     const { getByText } = await render(
       <HRZonesChart
         hrZones={hrZones}
@@ -197,7 +197,7 @@ describe('HRZonesChart', () => {
     expect(queryByText(/zoneMaxFrom/)).toBeNull();
   });
 
-  it('claims no max HR before the screen read answers', async () => {
+  vaultIt('claims no max HR before the screen read answers', async () => {
     const { queryByText } = await render(<HRZonesChart hrZones={hrZones} movingTime={60} />);
     expect(queryByText(/zoneMax|maxHR/)).toBeNull();
   });

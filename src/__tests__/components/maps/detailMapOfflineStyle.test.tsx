@@ -99,7 +99,7 @@ describe.each(Object.keys(views))('%s detail map offline style', (name) => {
 
   const tree = () => <SafeAreaProvider initialMetrics={METRICS}>{views[name]()}</SafeAreaProvider>;
 
-  it('draws satellite online', async () => {
+  vaultIt('draws satellite online', async () => {
     await render(tree());
     expect(mockSurfaceStyles.at(-1)).toBe('satellite');
   });

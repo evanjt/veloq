@@ -56,7 +56,7 @@ describe('a successful drape is what unlocks the cards that fell back', () => {
     expect(upgradesUnlockedBy(waiting, request('a3', 'light', { flat: true }))).toEqual([]);
   });
 
-  it('is no evidence when the render that succeeded was itself a stand-in', () => {
+  vaultIt('is no evidence when the render that succeeded was itself a stand-in', () => {
     const waiting = downgraded(request('a1'));
 
     expect(
@@ -70,7 +70,7 @@ describe('a successful drape is what unlocks the cards that fell back', () => {
     expect(upgradesUnlockedBy(waiting, request('a3'))[0]._retryAttempt).toBe(0);
   });
 
-  it('unlocks nothing when nothing is waiting', () => {
+  vaultIt('unlocks nothing when nothing is waiting', () => {
     expect(upgradesUnlockedBy(new Map(), request('a3'))).toEqual([]);
   });
 });

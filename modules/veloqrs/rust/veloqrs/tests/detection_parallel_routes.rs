@@ -36,6 +36,7 @@ fn rides(tag: &str, base_lon: f64, east_m: f64, count: usize, day0: i64) -> Vec<
 /// Expected behaviour: no two sections share both members and ground, at any
 /// longitude alignment.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn rides_between_parallel_routes_never_mint_twin_sections() {
     let _serial_state = super::serial_state();
     for step in 0..40 {

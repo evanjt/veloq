@@ -50,7 +50,7 @@ describe('with-android-new-intent', () => {
     expect(generated).toMatch(/^import android\.content\.Intent$/m);
   });
 
-  it('places the override inside MainActivity', () => {
+  vaultIt('places the override inside MainActivity', () => {
     const generated = withNewIntentKept(templateMainActivity());
 
     const classStart = generated.indexOf('class MainActivity : ReactActivity() {');

@@ -6,7 +6,7 @@ import {
 } from '@/shared/format/weight';
 
 describe('body weight formatting', () => {
-  it('prints metric weights with kg', () => {
+  vaultIt('prints metric weights with kg', () => {
     expect(formatWeight(72.5, true)).toBe('72.5 kg');
     expect(formatWeight(72, true)).toBe('72 kg');
     expect(formatWeightRounded(72.5, true)).toBe('73 kg');

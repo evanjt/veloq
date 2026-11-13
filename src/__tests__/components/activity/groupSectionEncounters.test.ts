@@ -33,7 +33,7 @@ function encounter(overrides: Partial<SectionEncounter> & { sectionId: string })
 }
 
 describe('groupSectionEncounters', () => {
-  it('returns no groups for an empty list', () => {
+  vaultIt('returns no groups for an empty list', () => {
     expect(groupSectionEncounters([])).toEqual([]);
   });
 
@@ -48,7 +48,7 @@ describe('groupSectionEncounters', () => {
     expect(groups[0].encounters.map((e) => e.direction)).toEqual(['same', 'reverse']);
   });
 
-  it('keeps a single-direction section as its own group', () => {
+  vaultIt('keeps a single-direction section as its own group', () => {
     const groups = groupSectionEncounters([encounter({ sectionId: 'sec-70' })]);
 
     expect(groups).toHaveLength(1);
@@ -76,7 +76,7 @@ describe('groupSectionEncounters', () => {
     expect(groups[1].encounters).toHaveLength(1);
   });
 
-  it('names the group from its first encounter', () => {
+  vaultIt('names the group from its first encounter', () => {
     const groups = groupSectionEncounters([
       encounter({ sectionId: 'sec-63', sectionName: 'Mont d’Orge' }),
       encounter({ sectionId: 'sec-63', direction: 'reverse', sectionName: 'Mont d’Orge' }),

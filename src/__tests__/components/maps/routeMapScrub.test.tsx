@@ -152,7 +152,7 @@ describe('scrubbing the route chart', () => {
     }
   };
 
-  it('never re-sends the attempts traces or the route after the map is up', async () => {
+  vaultIt('never re-sends the attempts traces or the route after the map is up', async () => {
     const view = await start();
     await scrub(view);
 

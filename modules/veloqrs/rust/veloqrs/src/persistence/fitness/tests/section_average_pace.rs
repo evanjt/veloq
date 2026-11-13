@@ -46,6 +46,7 @@ fn record(date: i64, distance: f64, time: f64, direction: &str) -> SectionPerfor
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn average_pace_lies_between_the_fastest_and_slowest_lap() {
     let result = summarise(
         596.0,

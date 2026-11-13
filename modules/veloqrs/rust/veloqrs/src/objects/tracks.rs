@@ -205,6 +205,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn claims_are_sorted_and_the_earliest_backoff_is_kept() {
         let claims = sort_claims(vec![
             ("a".into(), Claim::Taken),
@@ -219,6 +220,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refused_id_is_not_asked_for_and_the_rest_keep_their_order() {
         let ids: Vec<String> = ["a", "b", "c"].iter().map(|s| s.to_string()).collect();
         assert_eq!(without_refused(&ids, &["b".to_string()]), vec!["a", "c"]);
@@ -261,6 +263,7 @@ mod tests {
     /// Expected behaviour: the run ends held until the latest of them, so the
     /// pass restarts once rather than once per freed slot.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_run_the_budget_held_back_ends_held_until_its_latest_lift() {
         let failed = vec![
             failure("a", held_until("2026-10-27T05:15:00Z")),
@@ -278,6 +281,7 @@ mod tests {
     /// Expected behaviour: a lost connection waits for the online edge, which
     /// comes sooner than any budget hold, and a run with nothing owed settles.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_lost_connection_outranks_a_hold_and_nothing_owed_settles() {
         use crate::objects::gps_pass::PassEnd;
         let lost = vec![
@@ -292,6 +296,7 @@ mod tests {
     /// Expected behaviour: a deferral whose instant does not read still holds
     /// the pass, rather than settling it and leaving its tracks for nobody.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_deferral_without_a_readable_lift_still_holds_the_run() {
         let failed = vec![failure(
             "a",
@@ -307,6 +312,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_missing_network_does_not_grow_the_backoff() {
         assert!(matches!(
             failure_release("transport error: connection refused"),

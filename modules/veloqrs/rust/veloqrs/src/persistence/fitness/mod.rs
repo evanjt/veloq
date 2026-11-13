@@ -394,6 +394,7 @@ mod tests {
     // Row-by-row autocommit paid an fsync per activity under the engine lock,
     // which on the test handset held every screen read for three seconds a page.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_page_of_metrics_is_one_commit() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let commits = Arc::new(AtomicUsize::new(0));
@@ -437,6 +438,7 @@ mod tests {
     // The sync page is the only writer that sees the stats fields, so a page
     // write that drops them leaves the column empty for the life of the row.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_page_write_stores_the_stats_it_was_given() {
         let mut engine = PersistentEngine::in_memory().unwrap();
 
@@ -462,6 +464,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn zones_past_the_stored_columns_are_dropped_at_the_write() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let mut m = extended(5);
@@ -489,6 +492,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_page_write_with_no_stats_leaves_the_columns_empty() {
         let mut engine = PersistentEngine::in_memory().unwrap();
 
@@ -503,6 +507,7 @@ mod tests {
     /// Expected behaviour: the writer says so, so the sync step above it can
     /// fail rather than stamp a success over the previous athlete's values.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failed_profile_write_is_reported() {
         let engine = PersistentEngine::in_memory().unwrap();
         engine.set_athlete_profile("{\"id\":\"i1\"}").unwrap();
@@ -602,6 +607,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failed_sport_settings_write_is_reported() {
         let engine = PersistentEngine::in_memory().unwrap();
         engine.set_sport_settings("{\"ftp\":200}").unwrap();
@@ -615,6 +621,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_write_over_the_bridge_stores_stats_and_leaves_the_zone_columns_empty() {
         let mut engine = PersistentEngine::in_memory().unwrap();
 
@@ -633,6 +640,7 @@ mod tests {
     /// Expected behaviour: the whole-number shares still total 100, the spare
     /// point going to the lowest zone among the equal remainders.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn equal_zones_share_out_to_one_hundred() {
         assert_eq!(whole_shares(&[1.0, 1.0, 1.0]), vec![34, 33, 33]);
     }
@@ -652,6 +660,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_spare_points_go_to_the_largest_remainders() {
         // Exact shares 12.5, 37.5, 12.5, 37.5 floor to 98, and the two .5
         // remainders taken first are the lowest zones holding them.
@@ -661,18 +670,21 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_zero_total_shares_nothing() {
         assert_eq!(whole_shares(&[0.0, 0.0, 0.0]), vec![0, 0, 0]);
         assert_eq!(whole_shares(&[]), Vec::<u32>::new());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_single_zone_holds_the_whole() {
         assert_eq!(whole_shares(&[42.0]), vec![100]);
         assert_eq!(whole_shares(&[0.0, 42.0, 0.0]), vec![0, 100, 0]);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_zone_with_no_time_takes_no_spare_point() {
         let shares = whole_shares(&[1.0, 1.0, 1.0, 0.0]);
         assert_eq!(shares, vec![34, 33, 33, 0]);

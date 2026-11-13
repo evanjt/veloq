@@ -222,7 +222,7 @@ describe('the native build tree check', () => {
     if (scrollPatched) screensScroll.applyPatch(root);
   }
 
-  it('lets an installation carrying the screens sheet width patch through', () => {
+  vaultIt('lets an installation carrying the screens sheet width patch through', () => {
     const { main } = pair();
     installScreens(main, true);
 
@@ -232,7 +232,7 @@ describe('the native build tree check', () => {
     expect(result.status).toBe(0);
   });
 
-  it('refuses an installation whose screens sheet width patch never ran', () => {
+  vaultIt('refuses an installation whose screens sheet width patch never ran', () => {
     const { main } = pair();
     installScreens(main, false);
 
@@ -243,7 +243,7 @@ describe('the native build tree check', () => {
     expect(result.stderr).toContain('node scripts/patch-screens-sheet-width.js');
   });
 
-  it('refuses an installation whose screens sheet hide patch never ran', () => {
+  vaultIt('refuses an installation whose screens sheet hide patch never ran', () => {
     const { main } = pair();
     installScreens(main, true, false);
 
@@ -275,7 +275,7 @@ describe('the native build tree check', () => {
     fs.writeFileSync(path.join(to, nitro.FILE), patched ? nitro.patchSource(shipped) : shipped);
   }
 
-  it('lets an installation carrying the nitro JSI install patch through', () => {
+  vaultIt('lets an installation carrying the nitro JSI install patch through', () => {
     const { main } = pair();
     installNitro(main, true);
 
@@ -311,7 +311,7 @@ describe('the native build tree check', () => {
     );
   }
 
-  it('lets an installation carrying the router route match patch through', () => {
+  vaultIt('lets an installation carrying the router route match patch through', () => {
     const { main } = pair();
     installRouter(main, true);
 
@@ -321,7 +321,7 @@ describe('the native build tree check', () => {
     expect(result.status).toBe(0);
   });
 
-  it('refuses an installation whose router route match patch never ran', () => {
+  vaultIt('refuses an installation whose router route match patch never ran', () => {
     const { main } = pair();
     installRouter(main, false);
 
@@ -332,20 +332,23 @@ describe('the native build tree check', () => {
     expect(result.stderr).toContain('node scripts/patch-expo-router-route-match.js');
   });
 
-  it('refuses an installation whose screens sheet width patch never ran before the build lock', () => {
-    const { main } = pair();
-    installScreens(main, false);
+  vaultIt(
+    'refuses an installation whose screens sheet width patch never ran before the build lock',
+    () => {
+      const { main } = pair();
+      installScreens(main, false);
 
-    const result = spawnSync(process.execPath, [script, '--root', main, '--installation'], {
-      encoding: 'utf8',
-      env: gitFreeEnv(),
-    });
+      const result = spawnSync(process.execPath, [script, '--root', main, '--installation'], {
+        encoding: 'utf8',
+        env: gitFreeEnv(),
+      });
 
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('react-native-screens');
-  });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('react-native-screens');
+    }
+  );
 
-  it('runs before every command that builds the app natively', () => {
+  vaultIt('runs before every command that builds the app natively', () => {
     const builds = /run-android\.sh|run-ios\.sh|with-android-build-lock|expo run:|clean:rust/;
     for (const name of [
       'android',

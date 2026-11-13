@@ -69,7 +69,7 @@ describe('leaving demo mode from the banner', () => {
     );
   });
 
-  it('says nothing when the wipe lands', async () => {
+  vaultIt('says nothing when the wipe lands', async () => {
     mockClearDemoData.mockResolvedValue(undefined);
 
     await tapAndSettle();

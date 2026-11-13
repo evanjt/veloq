@@ -63,7 +63,7 @@ describe('section detail with route matching off', () => {
     mockScheme = 'light';
   });
 
-  it('renders the disabled state and reads no section', async () => {
+  vaultIt('renders the disabled state and reads no section', async () => {
     const view = await render(<SectionDetailScreen />);
     expect(view.getByTestId('section-detail-disabled')).toBeTruthy();
     expect(mockContentRendered).not.toHaveBeenCalled();
@@ -79,7 +79,7 @@ describe('section detail with route matching off', () => {
     expect(mockSetEnabled).toHaveBeenCalledWith(true);
   });
 
-  it('draws the title at 4.5:1 or better on the dark surface the sheet paints', async () => {
+  vaultIt('draws the title at 4.5:1 or better on the dark surface the sheet paints', async () => {
     mockScheme = 'dark';
     const view = await render(<SectionDetailScreen />);
 

@@ -83,34 +83,37 @@ describe('moving time through a pause', () => {
     expect(result.current.movingTime).toBe(40);
   });
 
-  it('keeps the elapsed reading counting through a pause with no other clock reader', async () => {
-    start();
-    let renders = 0;
-    const { result } = await renderHook(() => {
-      renders += 1;
-      const { formattedElapsed, formattedMoving } = useTimer();
-      return { formattedElapsed, formattedMoving };
-    });
-    await advance(10_000);
-    expect(result.current.formattedElapsed).toBe('00:10');
+  vaultIt(
+    'keeps the elapsed reading counting through a pause with no other clock reader',
+    async () => {
+      start();
+      let renders = 0;
+      const { result } = await renderHook(() => {
+        renders += 1;
+        const { formattedElapsed, formattedMoving } = useTimer();
+        return { formattedElapsed, formattedMoving };
+      });
+      await advance(10_000);
+      expect(result.current.formattedElapsed).toBe('00:10');
 
-    await act(() => useRecordingStore.getState().pauseRecording());
-    renders = 0;
-    for (let i = 0; i < 60; i += 1) await advance(1000);
-    expect(renders).toBe(60);
-    expect(result.current.formattedElapsed).toBe('01:10');
-    expect(result.current.formattedMoving).toBe('00:10');
+      await act(() => useRecordingStore.getState().pauseRecording());
+      renders = 0;
+      for (let i = 0; i < 60; i += 1) await advance(1000);
+      expect(renders).toBe(60);
+      expect(result.current.formattedElapsed).toBe('01:10');
+      expect(result.current.formattedMoving).toBe('00:10');
 
-    await act(() => useRecordingStore.getState().resumeRecording());
-    expect(result.current.formattedElapsed).toBe('01:10');
-    expect(result.current.formattedMoving).toBe('00:10');
+      await act(() => useRecordingStore.getState().resumeRecording());
+      expect(result.current.formattedElapsed).toBe('01:10');
+      expect(result.current.formattedMoving).toBe('00:10');
 
-    await advance(1000);
-    expect(result.current.formattedElapsed).toBe('01:11');
-    expect(result.current.formattedMoving).toBe('00:11');
-  });
+      await advance(1000);
+      expect(result.current.formattedElapsed).toBe('01:11');
+      expect(result.current.formattedMoving).toBe('00:11');
+    }
+  );
 
-  it('stops the clock once the ride is stopped', async () => {
+  vaultIt('stops the clock once the ride is stopped', async () => {
     start();
     let renders = 0;
     const { result } = await renderHook(() => {
@@ -159,7 +162,7 @@ describe('moving time through a pause', () => {
     expect(movingMsAt(useRecordingStore.getState(), Date.now())).toBe(40_000);
   });
 
-  it('is zero before a start', () => {
+  vaultIt('is zero before a start', () => {
     expect(movingMsAt(useRecordingStore.getState(), Date.now())).toBe(0);
   });
 

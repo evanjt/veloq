@@ -348,6 +348,7 @@ mod tests {
     /// Cancel is checked per chunk and answered separately, so a caller that
     /// raises it mid-load gets nothing rather than a partial corpus.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cancelled_load_returns_nothing() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -495,6 +496,7 @@ mod tests {
 
     /// An empty id list is a load of nothing, not a failure.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_id_list_loads_an_empty_pool() {
         let engine = PersistentEngine::in_memory().unwrap();
         let progress = SectionDetectionProgress::default();
@@ -520,6 +522,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_track_with_no_stored_stream_holds_the_untimed_row() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         store(&mut engine, &[("a1", &[0, 5, 10])]);
@@ -560,6 +563,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_pool_asks_nothing_and_returns_nothing() {
         let engine = PersistentEngine::in_memory().unwrap();
         assert!(load_seconds_chunked(&engine.db, &[]).is_empty());
@@ -590,6 +594,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_view_borrows_every_row_including_the_untimed_ones() {
         let owned = vec![vec![0.0, 5.0], Vec::new(), vec![1.0]];
         let view = seconds_view(&owned);

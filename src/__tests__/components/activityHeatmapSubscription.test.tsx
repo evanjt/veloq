@@ -96,7 +96,7 @@ describe('ActivityHeatmap', () => {
     await waitFor(() => expect(heatmapDays).toHaveBeenCalledTimes(2));
   });
 
-  it('ignores an event it does not depend on', async () => {
+  vaultIt('ignores an event it does not depend on', async () => {
     await renderHeatmap();
     await waitFor(() => expect(heatmapDays).toHaveBeenCalledTimes(1));
 

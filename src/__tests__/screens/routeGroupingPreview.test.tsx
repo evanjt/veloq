@@ -208,20 +208,20 @@ beforeEach(() => {
 
 afterEach(() => idle.restore());
 
-it('asks for a grouping at the value it opens with, without being dragged', async () => {
+vaultIt('asks for a grouping at the value it opens with, without being dragged', async () => {
   await render(<RouteGroupingPreviewScreen />);
 
   expect(mockStart).toHaveBeenCalledWith({ minMatchPercentage: 55, endpointThreshold: 250 });
 });
 
-it('says it is working until the first answer lands', async () => {
+vaultIt('says it is working until the first answer lands', async () => {
   mockPreviewStatus = 'running';
   await render(<RouteGroupingPreviewScreen />);
 
   expect(screen.getByTestId('grouping-status').props.children).toBe('Grouping your rides…');
 });
 
-it('counts the routes the setting produces once the answer lands', async () => {
+vaultIt('counts the routes the setting produces once the answer lands', async () => {
   mockPreviewStatus = 'complete';
   mockPreviewGroups = [
     { key: 'p1', activityIds: ['a1', 'a2'] },
@@ -232,7 +232,7 @@ it('counts the routes the setting produces once the answer lands', async () => {
   expect(screen.getByTestId('grouping-status').props.children).toBe('2 routes at this setting');
 });
 
-it('says the grouping did not finish rather than that it is still running', async () => {
+vaultIt('says the grouping did not finish rather than that it is still running', async () => {
   mockPreviewStatus = 'error';
   await render(<RouteGroupingPreviewScreen />);
 
@@ -241,7 +241,7 @@ it('says the grouping did not finish rather than that it is still running', asyn
   );
 });
 
-it('says nothing was cancelled when a knob change supersedes a run', async () => {
+vaultIt('says nothing was cancelled when a knob change supersedes a run', async () => {
   mockPreviewStatus = 'cancelled';
   await render(<RouteGroupingPreviewScreen />);
 
@@ -250,7 +250,7 @@ it('says nothing was cancelled when a knob change supersedes a run', async () =>
   expect(screen.getByTestId('grouping-status').props.children).toBe('Grouping your rides…');
 });
 
-it('names the routes a setting would leave on their own', async () => {
+vaultIt('names the routes a setting would leave on their own', async () => {
   mockPreviewStatus = 'complete';
   mockPreviewGroups = [{ key: 'p1', activityIds: ['a1'] }];
   await render(<RouteGroupingPreviewScreen />);
@@ -260,7 +260,7 @@ it('names the routes a setting would leave on their own', async () => {
   expect(screen.getByTestId('grouping-dropped')).toBeTruthy();
 });
 
-it('draws no dropped line when every route keeps a group', async () => {
+vaultIt('draws no dropped line when every route keeps a group', async () => {
   mockPreviewStatus = 'complete';
   mockPreviewGroups = [
     { key: 'p1', activityIds: ['a1'] },
@@ -282,7 +282,7 @@ it('reads the routes once, and applies nothing on mount', async () => {
   expect(mockSetMatchStrictness).not.toHaveBeenCalled();
 });
 
-it('waits for the opening transition before reading routes', async () => {
+vaultIt('waits for the opening transition before reading routes', async () => {
   mockTransitionPending = true;
   await render(<RouteGroupingPreviewScreen />);
 
@@ -304,7 +304,7 @@ it('waits for the opening transition before reading routes', async () => {
 describe('the area the preview opens on', () => {
   const drawn = () => mockMapProps?.routes?.map((r) => r.groupId);
 
-  it('offers the ranked areas and selects the first', async () => {
+  vaultIt('offers the ranked areas and selects the first', async () => {
     await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
 
@@ -419,7 +419,7 @@ describe('applying the setting', () => {
     mockPreviewGroups = [{ key: 'p1', activityIds: ['a1', 'a2'] }];
   });
 
-  it('offers neither Keep nor Discard until a knob moves', async () => {
+  vaultIt('offers neither Keep nor Discard until a knob moves', async () => {
     await render(<RouteGroupingPreviewScreen />);
 
     expect(screen.queryByTestId('grouping-keep-button')).toBeNull();
@@ -435,7 +435,7 @@ describe('applying the setting', () => {
     expect(screen.getByTestId('grouping-keep-button')).toBeTruthy();
   });
 
-  it('hides Keep again when the knobs return to the applied value', async () => {
+  vaultIt('hides Keep again when the knobs return to the applied value', async () => {
     mockStrictness = { minMatchPct: 62, endpointThreshold: 190 };
     await render(<RouteGroupingPreviewScreen />);
     await act(async () => {});
@@ -534,7 +534,7 @@ describe('a read that threw', () => {
     mockPreviewGroups = [{ key: 'p1', activityIds: ['a1', 'a2'] }];
   });
 
-  it('names the routes read failure and hides Keep', async () => {
+  vaultIt('names the routes read failure and hides Keep', async () => {
     mockGetRoutesScreenData.mockImplementationOnce(() => {
       throw THROWN;
     });
@@ -560,7 +560,7 @@ describe('a read that threw', () => {
     expect(screen.getByTestId('grouping-keep-button')).toBeTruthy();
   });
 
-  it('names the riding areas read failure', async () => {
+  vaultIt('names the riding areas read failure', async () => {
     mockCentresThrow = THROWN;
     render(<RouteGroupingPreviewScreen />);
     await act(async () => {});

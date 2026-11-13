@@ -17,6 +17,7 @@ fn add(id: &str) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_ids_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("activity_ids_under_a_writer.db");
@@ -26,6 +27,7 @@ fn test_get_ids_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_has_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("activity_has_under_a_writer.db");
@@ -42,6 +44,7 @@ fn test_has_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_count_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("activity_count_under_a_writer.db");
@@ -56,6 +59,7 @@ fn test_get_count_writer_held() {
 /// Expected behaviour: the pooled answers equal the engine's own after each
 /// step, and an empty library reads empty rather than erroring.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_activity_set_pooled_matches_locked() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("activity_set_parity.db");

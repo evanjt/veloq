@@ -284,6 +284,7 @@ fn a_track_upstream_moved_is_replaced_from_the_same_answer() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_wide_answer_with_no_series_settles_the_stream_ask() {
     let _serial = serial_global_state();
     let _tmp = library(&["i1"]);
@@ -327,6 +328,7 @@ fn a_time_series_out_of_step_with_the_coordinates_is_left_owed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_outside_the_retention_window_is_asked_for_elevation_alone() {
     let _serial = serial_global_state();
     let _tmp = library(&["i1"]);
@@ -357,6 +359,7 @@ fn an_activity_outside_the_retention_window_is_asked_for_elevation_alone() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stopped_stream_pass_keeps_the_elevation_ask_narrow() {
     let _serial = serial_global_state();
     let _tmp = library(&["i1"]);
@@ -385,6 +388,7 @@ fn a_stopped_stream_pass_keeps_the_elevation_ask_narrow() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_past_the_threshold_is_asked_wide_only_once_the_athlete_agrees() {
     use crate::net::stream_backfill::STREAM_CONSENT_THRESHOLD;
     let _serial = serial_global_state();

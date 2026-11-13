@@ -112,7 +112,7 @@ describe('the iOS widget face', () => {
     }
   });
 
-  it("keeps the face files through a second prebuild's prune of removed resources", () => {
+  vaultIt("keeps the face files through a second prebuild's prune of removed resources", () => {
     const ios = tempDir('veloq-widget-face-again-');
     writeWidgetFiles(projectRoot, ios, 'App');
     writeWidgetFiles(projectRoot, ios, 'App');
@@ -132,16 +132,19 @@ describe('the iOS widget face', () => {
     for (const file of faceFiles) expect(app).not.toContain(file);
   });
 
-  it('references a face file as a file in the widget group, so Xcode copies it unchanged', () => {
-    const proj = openFixture();
-    configureWidgetProject(proj, options);
-    const references = Object.values(proj.pbxFileReferenceSection()).filter(
-      (ref): ref is { path: string; lastKnownFileType: string } =>
-        typeof ref === 'object' && faceFiles.includes(String(ref.path).replace(/"/g, ''))
-    );
-    expect(references.map((ref) => String(ref.path).replace(/"/g, '')).sort()).toEqual(
-      [...faceFiles].sort()
-    );
-    for (const ref of references) expect(ref.lastKnownFileType).toBe('file');
-  });
+  vaultIt(
+    'references a face file as a file in the widget group, so Xcode copies it unchanged',
+    () => {
+      const proj = openFixture();
+      configureWidgetProject(proj, options);
+      const references = Object.values(proj.pbxFileReferenceSection()).filter(
+        (ref): ref is { path: string; lastKnownFileType: string } =>
+          typeof ref === 'object' && faceFiles.includes(String(ref.path).replace(/"/g, ''))
+      );
+      expect(references.map((ref) => String(ref.path).replace(/"/g, '')).sort()).toEqual(
+        [...faceFiles].sort()
+      );
+      for (const ref of references) expect(ref.lastKnownFileType).toBe('file');
+    }
+  );
 });

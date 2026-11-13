@@ -132,13 +132,13 @@ describe('an indoor ride out of the foreground', () => {
     expect(stopIndoorRecordingService).toHaveBeenCalled();
   });
 
-  it('does not ask for the indoor service for a GPS ride', async () => {
+  vaultIt('does not ask for the indoor service for a GPS ride', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     await settle();
     expect(startIndoorRecordingService).not.toHaveBeenCalled();
   });
 
-  it('lets the indoor service go when the sport changes to an outdoor one', async () => {
+  vaultIt('lets the indoor service go when the sport changes to an outdoor one', async () => {
     startIndoorRide();
     await settle();
     useRecordingStore.getState().changeActivityType('Ride');

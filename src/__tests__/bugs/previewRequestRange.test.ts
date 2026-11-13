@@ -16,16 +16,16 @@ import {
 } from '@/features/activity/lib/previewRange';
 
 describe('which mounted cards may ask for a render', () => {
-  it('lets every card through before the list has reported anything', () => {
+  vaultIt('lets every card through before the list has reported anything', () => {
     expect(withinPreviewRange(0, null)).toBe(true);
     expect(withinPreviewRange(40, null)).toBe(true);
   });
 
-  it('lets a visible card through', () => {
+  vaultIt('lets a visible card through', () => {
     expect(withinPreviewRange(4, { first: 3, last: 5 })).toBe(true);
   });
 
-  it('lets one screen of cards ahead through', () => {
+  vaultIt('lets one screen of cards ahead through', () => {
     // Three visible, so a screen is three: 6, 7 and 8 are the lookahead.
     expect(withinPreviewRange(8, { first: 3, last: 5 })).toBe(true);
   });
@@ -35,11 +35,11 @@ describe('which mounted cards may ask for a render', () => {
     expect(withinPreviewRange(20, { first: 3, last: 5 })).toBe(false);
   });
 
-  it('does not look behind, because a card above has been seen already', () => {
+  vaultIt('does not look behind, because a card above has been seen already', () => {
     expect(withinPreviewRange(2, { first: 3, last: 5 })).toBe(false);
   });
 
-  it('treats a single visible card as a screen of one', () => {
+  vaultIt('treats a single visible card as a screen of one', () => {
     expect(withinPreviewRange(5, { first: 4, last: 4 })).toBe(true);
     expect(withinPreviewRange(6, { first: 4, last: 4 })).toBe(false);
   });
@@ -50,14 +50,14 @@ describe('the range the feed publishes', () => {
     setVisibleRange(null);
   });
 
-  it('answers for the live range', () => {
+  vaultIt('answers for the live range', () => {
     setVisibleRange({ first: 10, last: 12 });
 
     expect(isWithinPreviewRange(12)).toBe(true);
     expect(isWithinPreviewRange(30)).toBe(false);
   });
 
-  it('tells a listener when the range moves', () => {
+  vaultIt('tells a listener when the range moves', () => {
     const heard: number[] = [];
     onPreviewRangeChange(() => heard.push(1));
 
@@ -67,7 +67,7 @@ describe('the range the feed publishes', () => {
     expect(heard).toHaveLength(2);
   });
 
-  it('says nothing when the range has not moved', () => {
+  vaultIt('says nothing when the range has not moved', () => {
     setVisibleRange({ first: 0, last: 2 });
     const heard: number[] = [];
     onPreviewRangeChange(() => heard.push(1));

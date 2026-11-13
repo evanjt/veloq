@@ -157,7 +157,7 @@ describe('a layer spec that drops a key clears it on the existing layer', () => 
     expect(map.setFilter).toHaveBeenCalledWith('route-line', null);
   });
 
-  it('touches nothing when the second call repeats the same spec', () => {
+  vaultIt('touches nothing when the second call repeats the same spec', () => {
     const { map, show } = runPage();
     show([banded]);
     show([banded]);

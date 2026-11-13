@@ -75,6 +75,7 @@ fn grouped_library(stored: &[(&str, f64)]) -> (u64, Vec<RouteGroup>) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_attach_tail_leaves_regroup_for_worker() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -107,6 +108,7 @@ fn test_attach_tail_leaves_regroup_for_worker() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_index_tail_leaves_regroup_for_worker() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -180,6 +182,7 @@ fn test_regroup_held_in_its_compute_leaves_the_lock_to_readers() {
 /// A store made while the first pass is held runs one more pass, and a store
 /// made during that one is left for the next store to schedule.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_store_during_a_pass_runs_one_more_and_no_third() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -249,6 +252,7 @@ fn test_swap_against_a_replaced_install_changes_nothing() {
 /// A detection run that captured the flag takes the regroup, and a schedule
 /// made during it does nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_detection_with_owed_groups_and_a_schedule_write_once() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -282,6 +286,7 @@ fn test_detection_with_owed_groups_and_a_schedule_write_once() {
 /// The other order: a worker pass in flight, then a detection run that
 /// captured the flag. The run leaves the regroup to the pass.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_detection_started_during_a_pass_leaves_it_the_regroup() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -350,6 +355,7 @@ fn test_failed_save_keeps_the_prior_catalogue_and_the_flag() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_nothing_owed_schedules_nothing() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
@@ -364,6 +370,7 @@ fn test_nothing_owed_schedules_nothing() {
 /// The readers of the catalogue hear of a regroup that landed, once, and the
 /// catalogue they then read is the new one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_committed_swap_announces_the_new_groups_once() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
@@ -384,6 +391,7 @@ fn test_committed_swap_announces_the_new_groups_once() {
 /// A pass that saved nothing leaves the catalogue as it was, so a reader has
 /// nothing new to fetch.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_swap_of_a_failed_save_announces_nothing() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
@@ -412,6 +420,7 @@ fn test_swap_of_a_failed_save_announces_nothing() {
 /// A swap the lock refuses because the library was replaced adopts nothing, so
 /// it announces nothing about the library that replaced it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_swap_against_a_replaced_install_announces_nothing() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
@@ -440,6 +449,7 @@ fn test_swap_against_a_replaced_install_announces_nothing() {
 /// screen that read the owed flag on the first announcement is not left
 /// reading it after the regroup has settled.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_swap_clearing_the_flag_a_lock_take_announced_announces_again() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
@@ -473,6 +483,7 @@ fn test_swap_clearing_the_flag_a_lock_take_announced_announces_again() {
 /// Expected behaviour: the flag never cleared, so no swap announces a clear;
 /// readers hear only of the catalogues that were adopted.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_swap_leaving_the_flag_owed_announces_no_clear() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
@@ -504,6 +515,7 @@ fn test_swap_leaving_the_flag_owed_announces_no_clear() {
 /// Expected behaviour: readers hear of the adopted groups and again of the
 /// cleared flag, since a reader woken by the first can read between the holds.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_worker_detection_regroup_announces_the_groups_and_the_settled_flag() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
@@ -540,6 +552,7 @@ fn test_worker_detection_regroup_announces_the_groups_and_the_settled_flag() {
 /// Expected behaviour: the later hold announces again, and the first delivery
 /// has finished before it, so the two cannot collapse into one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_finalizing_hold_announces_the_cleared_flag_after_the_adopting_hold() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
@@ -572,6 +585,7 @@ fn test_finalizing_hold_announces_the_cleared_flag_after_the_adopting_hold() {
 /// then re-runs over it commits one of its own, and that is the only change
 /// readers are told of.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_superseded_pass_is_silent_and_its_rerun_announces_once() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -648,6 +662,7 @@ mod reads_the_engine_when_told {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_listener_reading_the_engine_when_told_sees_the_adopted_groups() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
@@ -669,6 +684,7 @@ fn test_listener_reading_the_engine_when_told_sees_the_adopted_groups() {
 /// its limit while that pass is held, and finds the stored activity in a route
 /// once it has swapped.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_settle_waits_on_the_pass_in_flight_up_to_its_limit() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
@@ -694,6 +710,7 @@ fn test_settle_waits_on_the_pass_in_flight_up_to_its_limit() {
 /// reader that only waited for the slot would find the activity in no route.
 /// Settling schedules the pass that is still owed and waits on it too.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_settle_schedules_what_a_held_slot_left_owed() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
@@ -715,6 +732,7 @@ fn test_settle_schedules_what_a_held_slot_left_owed() {
 /// A library with nothing owed is settled at once, and one whose detection is
 /// off never groups, so the reader is not held for the limit.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_settle_returns_at_once_when_nothing_will_regroup() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
@@ -758,6 +776,7 @@ fn open_scheduled_a_regroup() -> bool {
 /// Expected behaviour: the open schedules the regroup it finds owed, so the
 /// activity joins a route and the flag clears without a sync.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_open_schedules_the_regroup_its_load_finds_owed() {
     let _serial = serial_global_state();
     let dir = init_global_engine("reopen.db");
@@ -777,6 +796,7 @@ fn test_open_schedules_the_regroup_its_load_finds_owed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_open_with_route_matching_off_schedules_no_regroup() {
     let _serial = serial_global_state();
     let dir = init_global_engine("reopen.db");
@@ -796,6 +816,7 @@ fn test_open_with_route_matching_off_schedules_no_regroup() {
 /// own detect regroups, rather than starting one the cutover's would be
 /// refused over.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_open_with_the_cutover_owed_leaves_the_regroup_to_it() {
     let _serial = serial_global_state();
     let dir = init_global_engine("reopen.db");
@@ -830,6 +851,7 @@ fn test_open_with_the_cutover_owed_leaves_the_regroup_to_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_open_of_a_settled_library_schedules_no_regroup() {
     let _serial = serial_global_state();
     let dir = init_global_engine("reopen.db");

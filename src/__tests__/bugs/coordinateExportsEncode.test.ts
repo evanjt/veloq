@@ -52,7 +52,7 @@ beforeEach(() => {
 });
 
 describe('the representative route crosses the FFI encoded', () => {
-  it('decodes the blob the engine returned, untouched', async () => {
+  vaultIt('decodes the blob the engine returned, untouched', async () => {
     const { result } = await renderHook(() => useRepresentativeRoute('group1'));
 
     await waitFor(() => expect(result.current.points).toEqual(EXPECTED));

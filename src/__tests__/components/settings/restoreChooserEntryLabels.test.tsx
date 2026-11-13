@@ -90,7 +90,7 @@ it('labels two backups from one day apart, by time and size', async () => {
   expect(screen.getByText(new RegExp(formatDateTime(EVENING.timestamp)))).toBeTruthy();
 });
 
-it('marks only the entry being restored busy while the restore runs', async () => {
+vaultIt('marks only the entry being restored busy while the restore runs', async () => {
   await listDrive();
 
   await act(async () => {

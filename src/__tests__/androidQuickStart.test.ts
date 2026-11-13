@@ -58,7 +58,7 @@ describe('the snapshot carries the recent sports as one pre-localised list', () 
     ]);
   });
 
-  it('caps the launcher list at what a long press will show', () => {
+  vaultIt('caps the launcher list at what a long press will show', () => {
     const context = composeWidgetContext(
       raw({ recentRecordingTypes: ['Ride', 'Run', 'Swim', 'Hike', 'Row'] })
     );
@@ -91,26 +91,29 @@ describe('the snapshot carries the recent sports as one pre-localised list', () 
     expect(context.launcherShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run']);
   });
 
-  it('names the sport category each launcher shortcut draws, so no two sports share the app icon', () => {
-    const context = composeWidgetContext(
-      raw({ recentRecordingTypes: ['GravelRide', 'TrailRun', 'Kayaking'] })
-    );
-    expect(context.launcherShortcuts.map((s) => s.glyph)).toEqual(['ride', 'run', 'water']);
-  });
+  vaultIt(
+    'names the sport category each launcher shortcut draws, so no two sports share the app icon',
+    () => {
+      const context = composeWidgetContext(
+        raw({ recentRecordingTypes: ['GravelRide', 'TrailRun', 'Kayaking'] })
+      );
+      expect(context.launcherShortcuts.map((s) => s.glyph)).toEqual(['ride', 'run', 'water']);
+    }
+  );
 
-  it('draws a sport the categories do not name with the catch-all glyph', () => {
+  vaultIt('draws a sport the categories do not name with the catch-all glyph', () => {
     const context = composeWidgetContext(raw({ recentRecordingTypes: ['Underwater Basket'] }));
     expect(context.launcherShortcuts.map((s) => s.glyph)).toEqual(['other']);
   });
 
-  it('is empty before anything has been recorded, which is the fallback signal', () => {
+  vaultIt('is empty before anything has been recorded, which is the fallback signal', () => {
     expect(composeWidgetContext(raw()).recordShortcuts).toEqual([]);
     expect(composeWidgetContext(raw()).launcherShortcuts).toEqual([]);
   });
 });
 
 describe('the Quick Settings tile is the same intent behind the shade', () => {
-  it('is registered once, replacing the registration an earlier prebuild left', () => {
+  vaultIt('is registered once, replacing the registration an earlier prebuild left', () => {
     const on: { service?: { $: Record<string, string> }[] } = {
       service: [{ $: { 'android:name': '.widget.RecordTileService' } }],
     };
@@ -126,7 +129,7 @@ describe('the Quick Settings tile is the same intent behind the shade', () => {
     expect(tile!.$['android:exported']).toBe('true');
   });
 
-  it('is copied into the app package like every other widget source', () => {
+  vaultIt('is copied into the app package like every other widget source', () => {
     const platformProjectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'quick-start-'));
     plugin.writeWidgetSources(projectRoot, platformProjectRoot, 'com.veloq.app');
     const tile = path.join(
@@ -138,17 +141,20 @@ describe('the Quick Settings tile is the same intent behind the shade', () => {
 });
 
 describe('a quick-start link says where it came from, so Always can be asked once', () => {
-  it('marks the URL the snapshot composes', () => {
+  vaultIt('marks the URL the snapshot composes', () => {
     const context = composeWidgetContext(raw({ recentRecordingTypes: ['Ride'] }));
     expect(context.recordShortcuts[0].url).toBe('veloq://recording/Ride?from=quickstart');
   });
 
-  it('does not declare background location on Android, where the foreground service needs none', () => {
-    const app = JSON.parse(readFile('app.json'));
-    expect(app.expo.android.permissions).not.toContain('ACCESS_BACKGROUND_LOCATION');
-    const location = app.expo.plugins.find(
-      (p: unknown) => Array.isArray(p) && p[0] === 'expo-location'
-    );
-    expect(location[1].isAndroidBackgroundLocationEnabled).toBe(false);
-  });
+  vaultIt(
+    'does not declare background location on Android, where the foreground service needs none',
+    () => {
+      const app = JSON.parse(readFile('app.json'));
+      expect(app.expo.android.permissions).not.toContain('ACCESS_BACKGROUND_LOCATION');
+      const location = app.expo.plugins.find(
+        (p: unknown) => Array.isArray(p) && p[0] === 'expo-location'
+      );
+      expect(location[1].isAndroidBackgroundLocationEnabled).toBe(false);
+    }
+  );
 });

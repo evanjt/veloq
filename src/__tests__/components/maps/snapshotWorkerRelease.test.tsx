@@ -217,7 +217,7 @@ describe('the snapshot workers under the background release', () => {
     expect(recyclesOf(1)).toBe(1);
   });
 
-  it('is forgotten by the registry once unmounted', async () => {
+  vaultIt('is forgotten by the registry once unmounted', async () => {
     await view.unmount();
     view = await render(<View />);
 

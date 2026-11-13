@@ -128,6 +128,7 @@ fn with_engine(name: &str, body: impl FnOnce(&mut PersistentEngine)) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_with_no_activity_names_the_period() {
     with_engine("map_empty_period.db", |engine| {
         engine
@@ -141,6 +142,7 @@ fn a_window_with_no_activity_names_the_period() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn activities_whose_census_has_no_gps_name_the_missing_gps() {
     with_engine("map_empty_no_gps.db", |engine| {
         engine
@@ -158,6 +160,7 @@ fn activities_whose_census_has_no_gps_name_the_missing_gps() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_the_census_says_is_upstream_names_the_download() {
     with_engine("map_empty_pending.db", |engine| {
         engine
@@ -179,6 +182,7 @@ fn a_track_the_census_says_is_upstream_names_the_download() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_refused_for_good_is_not_pending() {
     with_engine("map_empty_refused.db", |engine| {
         engine
@@ -201,6 +205,7 @@ fn a_track_refused_for_good_is_not_pending() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn filters_that_hide_every_track_name_the_filters_and_none_while_one_draws() {
     with_engine("map_empty_filtered.db", |engine| {
         engine
@@ -216,6 +221,7 @@ fn filters_that_hide_every_track_name_the_filters_and_none_while_one_draws() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_reason_ranks_filters_over_the_download_and_the_download_over_no_gps() {
     assert_eq!(
         map_empty_reason(0, 0, 0, 0),
@@ -240,6 +246,7 @@ fn the_reason_ranks_filters_over_the_download_and_the_download_over_no_gps() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_window_counts_what_it_cannot_draw_beside_what_it_draws() {
     with_engine("map_unmapped_mixed.db", |engine| {
         mixed_window(engine);
@@ -251,6 +258,7 @@ fn the_window_counts_what_it_cannot_draw_beside_what_it_draws() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_sport_filter_narrows_the_unmapped_counts_as_it_narrows_the_drawn_set() {
     with_engine("map_unmapped_sport.db", |engine| {
         mixed_window(engine);
@@ -261,6 +269,7 @@ fn the_sport_filter_narrows_the_unmapped_counts_as_it_narrows_the_drawn_set() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_name_that_matches_nothing_counts_nothing_unmapped() {
     with_engine("map_unmapped_needle.db", |engine| {
         mixed_window(engine);
@@ -275,6 +284,7 @@ fn a_name_that_matches_nothing_counts_nothing_unmapped() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_window_counts_nothing_unmapped() {
     with_engine("map_unmapped_empty.db", |engine| {
         engine
@@ -288,6 +298,7 @@ fn an_empty_window_counts_nothing_unmapped() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_still_downloading_counts_every_activity_as_downloading() {
     with_engine("map_unmapped_downloading.db", |engine| {
         engine
@@ -313,6 +324,7 @@ fn a_window_still_downloading_counts_every_activity_as_downloading() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_given_up_on_counts_as_without_gps() {
     with_engine("map_unmapped_failed.db", |engine| {
         engine
@@ -340,6 +352,7 @@ fn a_track_given_up_on_counts_as_without_gps() {
 /// bodies, so a body listing a `latlng` stream with no track yet is still
 /// downloading, and one listing none has no GPS.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_seeded_body_listing_a_track_not_yet_stored_counts_as_downloading() {
     with_engine("map_unmapped_seeded_bodies.db", |engine| {
         let rows: Vec<(String, i64, String)> = [

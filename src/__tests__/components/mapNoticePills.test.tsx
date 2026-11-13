@@ -108,16 +108,19 @@ describe('the floating pill with an action and a close', () => {
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('stays the pill, speaks as it appears and lets the map under it take every other touch', async () => {
-    const view = await render(notice());
+  vaultIt(
+    'stays the pill, speaks as it appears and lets the map under it take every other touch',
+    async () => {
+      const view = await render(notice());
 
-    const pill = view.getByTestId('lamp');
-    expect(isPill(view, 'lamp')).toBe(true);
-    expect(pill.props.accessibilityLiveRegion).toBe('polite');
-    expect(pill.props.pointerEvents).toBe('box-none');
-  });
+      const pill = view.getByTestId('lamp');
+      expect(isPill(view, 'lamp')).toBe(true);
+      expect(pill.props.accessibilityLiveRegion).toBe('polite');
+      expect(pill.props.pointerEvents).toBe('box-none');
+    }
+  );
 
-  it('draws no close and no action when it is given neither', async () => {
+  vaultIt('draws no close and no action when it is given neither', async () => {
     const view = await render(<FloatingPill icon="lighthouse" title="Lamp out" testID="lamp" />);
 
     expect(view.queryByTestId('lamp-dismiss')).toBeNull();
@@ -126,7 +129,7 @@ describe('the floating pill with an action and a close', () => {
 });
 
 describe('the missing-tracks notice', () => {
-  it('draws as the pill in the bottom stack', async () => {
+  vaultIt('draws as the pill in the bottom stack', async () => {
     useTrackFetchNotice.setState({ failedIds: ['a', 'b'], failedCount: 2, dismissed: false });
     const view = await render(<BottomPillStack pills={{ trackFetch: <TrackFetchNotice /> }} />);
     await layOut(view, 'bottom-pill-trackFetch', 48);
@@ -217,7 +220,7 @@ describe('the empty map', () => {
     expect(expandRange).toHaveBeenCalledTimes(1);
   });
 
-  it('gives up its place in the stack when the map draws again', async () => {
+  vaultIt('gives up its place in the stack when the map draws again', async () => {
     const view = await render(empty({ tag: FfiMapEmptyReason_Tags.NoGps } as FfiMapEmptyReason));
     await layOut(view, 'bottom-pill-mapEmpty', 52);
 

@@ -65,7 +65,7 @@ describe('recording close control', () => {
     expect(mockReplace).toHaveBeenCalledWith('/');
   });
 
-  it('is shown in the header at idle', async () => {
+  vaultIt('is shown in the header at idle', async () => {
     await render(<TimerHeader {...headerProps} status="idle" />);
     expect(screen.getByTestId('recording-close')).toBeTruthy();
   });

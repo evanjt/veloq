@@ -56,7 +56,7 @@ beforeEach(() => {
 });
 
 describe('the planned-workout window', () => {
-  it('reads a forward fortnight', async () => {
+  vaultIt('reads a forward fortnight', async () => {
     await renderHook(() => useTodayWorkout());
 
     const [oldest, newest] = readWindows[0];
@@ -64,7 +64,7 @@ describe('the planned-workout window', () => {
     expect(spanDays).toBeCloseTo(15, 0);
   });
 
-  it('still picks today and tomorrow out of the wider window', async () => {
+  vaultIt('still picks today and tomorrow out of the wider window', async () => {
     const { result } = await renderHook(() => useTodayWorkout());
 
     expect(result.current.todayWorkout?.name).toBe('today');

@@ -162,6 +162,7 @@ fn a_section_page_read_through_its_index_equals_the_walk() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_group_page_read_through_its_index_equals_the_walk() {
     let engine = library();
     for group_sort in [FfiGroupSort::Activities, FfiGroupSort::Nearby] {
@@ -188,6 +189,7 @@ fn a_group_page_read_through_its_index_equals_the_walk() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_list_no_stored_column_orders_is_walked() {
     let engine = library();
     let located = FfiRoutesScreenQuery {
@@ -246,6 +248,7 @@ fn a_list_no_stored_column_orders_is_walked() {
 /// A group written before the count was stored has none, so the count index
 /// cannot place it. The list walks rather than leave it out or misplace it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_group_with_no_stored_count_sends_the_list_to_the_walk() {
     let engine = library();
     engine
@@ -384,6 +387,7 @@ fn the_list_total_is_the_routes_the_minimum_leaves() {
 /// with the filter and the shown count never exceeds it, on the paged read and
 /// on the walked one, searched or not.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_sections_total_includes_removed_sections_when_the_filter_shows_them() {
     let engine = library();
     let filters = |hide_disabled| FfiSectionFilters {

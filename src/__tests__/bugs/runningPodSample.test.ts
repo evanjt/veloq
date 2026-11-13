@@ -27,7 +27,7 @@ beforeEach(() => {
   });
 });
 
-it('lists a foot pod as running cadence', () => {
+vaultIt('lists a foot pod as running cadence', () => {
   expect(kindsFromServiceUUIDs([RSC_SERVICE])).toEqual(['runningCadence']);
   expect(kindsFromServiceUUIDs([CSC_SERVICE, RSC_SERVICE])).toEqual(['cadence', 'runningCadence']);
 });

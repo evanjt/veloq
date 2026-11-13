@@ -58,6 +58,7 @@ fn seed_engine() -> (PersistentEngine, TempDir) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_pass_is_refused_while_one_is_in_flight() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -81,6 +82,7 @@ fn a_second_pass_is_refused_while_one_is_in_flight() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_slot_comes_back_when_the_pass_ends() {
     let _serial_state = super::serial_state();
     let _serial = serial();

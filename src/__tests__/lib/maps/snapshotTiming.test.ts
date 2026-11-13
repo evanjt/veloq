@@ -37,7 +37,7 @@ beforeEach(() => {
 afterAll(() => setAppMetricsEnabled(false));
 
 describe('the names a reader looks for in the table', () => {
-  it('names the four stages', () => {
+  vaultIt('names the four stages', () => {
     expect([SNAPSHOT_BOOT, SNAPSHOT_WAIT, SNAPSHOT_SAVE]).toEqual([
       'snapshot.boot',
       'snapshot.wait',
@@ -45,7 +45,7 @@ describe('the names a reader looks for in the table', () => {
     ]);
   });
 
-  it('tells a drape, a flat render and a stand-in apart', () => {
+  vaultIt('tells a drape, a flat render and a stand-in apart', () => {
     expect(snapshotRenderMetric({ flat: false, standIn: false })).toBe('snapshot.render.drape');
     expect(snapshotRenderMetric({ flat: true, standIn: false })).toBe('snapshot.render.flat');
     // A stand-in is a flat image filed under the drape that was asked for, so
@@ -54,7 +54,7 @@ describe('the names a reader looks for in the table', () => {
     expect(snapshotRenderMetric({ flat: false, standIn: true })).toBe('snapshot.render.standIn');
   });
 
-  it('separates a deliberate first paint from a failed drape fallback', () => {
+  vaultIt('separates a deliberate first paint from a failed drape fallback', () => {
     expect(snapshotRenderMetric({ flat: true, standIn: true, firstPaint: true })).toBe(
       'snapshot.render.firstPaint'
     );
@@ -63,7 +63,7 @@ describe('the names a reader looks for in the table', () => {
     );
   });
 
-  it('tells the two page paths apart, by the shape that took them', () => {
+  vaultIt('tells the two page paths apart, by the shape that took them', () => {
     expect(snapshotPageMetric(true, { flat: false, standIn: false })).toBe(
       'snapshot.page.fast.drape'
     );
@@ -75,7 +75,7 @@ describe('the names a reader looks for in the table', () => {
     );
   });
 
-  it('files a stand-in, first paint or not, under standIn on either path', () => {
+  vaultIt('files a stand-in, first paint or not, under standIn on either path', () => {
     expect(snapshotPageMetric(false, { flat: true, standIn: true, firstPaint: true })).toBe(
       'snapshot.page.setStyle.standIn'
     );
@@ -86,7 +86,7 @@ describe('the names a reader looks for in the table', () => {
 });
 
 describe('what reaches the ring', () => {
-  it('records the duration between the two moments', () => {
+  vaultIt('records the duration between the two moments', () => {
     recordSnapshotTiming('snapshot.test.plain', 1_000, 1_250);
 
     expect(getFFIMetricsSummary()['snapshot.test.plain']).toMatchObject({
@@ -95,7 +95,7 @@ describe('what reaches the ring', () => {
     });
   });
 
-  it('records nothing for a stage that never started', () => {
+  vaultIt('records nothing for a stage that never started', () => {
     recordSnapshotTiming('snapshot.test.unstarted', null, 1_250);
 
     expect(getFFIMetricsSummary()['snapshot.test.unstarted']).toBeUndefined();
@@ -109,7 +109,7 @@ describe('what reaches the ring', () => {
     expect(getFFIMetricsSummary()['snapshot.test.backwards']).toBeUndefined();
   });
 
-  it('keeps a zero, which is a request assigned the moment it was queued', () => {
+  vaultIt('keeps a zero, which is a request assigned the moment it was queued', () => {
     recordSnapshotTiming('snapshot.test.immediate', 5_000, 5_000);
 
     expect(getFFIMetricsSummary()['snapshot.test.immediate']).toMatchObject({ calls: 1, maxMs: 0 });
@@ -117,7 +117,7 @@ describe('what reaches the ring', () => {
 });
 
 describe('the four stages inside one render', () => {
-  it('names them in the order they happen', () => {
+  vaultIt('names them in the order they happen', () => {
     expect(SNAPSHOT_PHASES.map(snapshotPhaseMetric)).toEqual([
       'snapshot.phase.style',
       'snapshot.phase.settle',
@@ -126,7 +126,7 @@ describe('the four stages inside one render', () => {
     ]);
   });
 
-  it('records each stamp the page sent', () => {
+  vaultIt('records each stamp the page sent', () => {
     recordSnapshotPhases({ style: 40, settle: 3_200, probe: 180, encode: 120 });
 
     expect(getFFIMetricsSummary()['snapshot.phase.settle']).toMatchObject({
@@ -136,7 +136,7 @@ describe('the four stages inside one render', () => {
     expect(getFFIMetricsSummary()['snapshot.phase.encode']).toMatchObject({ calls: 1, maxMs: 120 });
   });
 
-  it('records nothing for a stage the render never reached', () => {
+  vaultIt('records nothing for a stage the render never reached', () => {
     const before = getFFIMetricsSummary()['snapshot.phase.probe']?.calls ?? 0;
 
     recordSnapshotPhases({ style: 40 });
@@ -163,7 +163,7 @@ describe('the four stages inside one render', () => {
 });
 
 describe('source counts in the metrics ring', () => {
-  it('keeps zero counts and ignores malformed or unrecognised source readings', () => {
+  vaultIt('keeps zero counts and ignores malformed or unrecognised source readings', () => {
     const before = getFFIMetricsSummary()['snapshot.tiles.route']?.calls ?? 0;
     recordSnapshotTiles({
       route: { loaded: 0, total: 5 },
@@ -185,7 +185,7 @@ describe('source counts in the metrics ring', () => {
     expect(getFFIMetricsSummary()).toEqual(after);
   });
 
-  it('adds regions once per render, so averages and maxima count whole renders', () => {
+  vaultIt('adds regions once per render, so averages and maxima count whole renders', () => {
     recordSnapshotTiles({ 'satellite-eox': { loaded: 8 }, 'satellite-swisstopo-9': { loaded: 5 } });
     recordSnapshotTiles({ 'satellite-eox': { loaded: 3 } });
     expect(getFFIMetricsSummary()['snapshot.tiles.satellite']).toMatchObject({
@@ -205,7 +205,7 @@ describe('with Debug Mode off', () => {
     expect(getFFIMetrics()).toEqual([]);
   });
 
-  it('records again once Debug Mode is switched on', () => {
+  vaultIt('records again once Debug Mode is switched on', () => {
     setAppMetricsEnabled(false);
     recordSnapshotTiming(SNAPSHOT_WAIT, 1000, 1500);
     setAppMetricsEnabled(true);

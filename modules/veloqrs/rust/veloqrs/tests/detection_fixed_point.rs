@@ -235,6 +235,7 @@ fn repeated_detection_converges_and_holds_on_a_mixed_sport_pool() {
 /// it. A tail that edits the catalogue is a period-2 oscillation, because the
 /// next detect re-derives the pre-tail shape from unchanged ground.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_deferred_apply_tail_leaves_the_saved_catalogue_alone() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -266,6 +267,7 @@ fn the_deferred_apply_tail_leaves_the_saved_catalogue_alone() {
 /// sees the difference every round. Without this the contract above could pass
 /// on a pipeline where the two boundaries are the same call.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tail_that_fuses_behind_the_registry_is_caught_every_round() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -320,6 +322,7 @@ fn settled_section_numbers_do_not_move() {
 /// that reported convergence for an alternating sequence would make the
 /// contract above unfalsifiable.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn settle_round_rejects_cycles() {
     let _serial_state = super::serial_state();
     let seq = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();

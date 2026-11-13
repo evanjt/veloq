@@ -49,6 +49,7 @@ fn every_table_in_the_schema_declares_an_owner() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_declaration_names_no_table_the_schema_lost() {
     let (_dir, present) = schema_tables();
     let stale: Vec<&'static str> = declared_tables()
@@ -64,6 +65,7 @@ fn the_declaration_names_no_table_the_schema_lost() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_table_is_declared_twice() {
     let names: Vec<&'static str> = declared_tables().iter().map(|t| t.name).collect();
     let unique: BTreeSet<&'static str> = names.iter().copied().collect();
@@ -107,6 +109,7 @@ fn only_meta_and_device_tables_survive_the_logout_delete() {
 /// classes must be spelled out rather than left to a reader of the delete
 /// lists.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_class_is_used_and_the_record_set_is_named() {
     let record: Vec<&'static str> = declared_tables()
         .iter()
@@ -230,6 +233,7 @@ fn no_record_or_device_table_cascades_from_activities() {
 /// The check above passes vacuously on a schema that has no such table, so
 /// it is shown to catch one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_cascade_check_catches_a_record_table_that_cascades() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("cascade.db");

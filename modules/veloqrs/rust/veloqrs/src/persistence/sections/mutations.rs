@@ -1787,6 +1787,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn rebuilding_the_junctions_of_a_missing_section_is_an_error() {
         let mut engine = engine_over_sections(0);
 
@@ -1796,6 +1797,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rematch_leaves_every_rebuilt_row_to_the_backfill_to_time() {
         let mut engine = engine_over_sections(0);
         with_one_second_stream(&mut engine);
@@ -1814,6 +1816,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_portion_with_no_stream_is_stored_without_a_lap_time() {
         let mut engine = engine_over_sections(0);
         let custom = drawn_section(&mut engine).unwrap();
@@ -2034,6 +2037,7 @@ mod tests {
     /// Expected behaviour: nothing hides the re-detected ground, because the
     /// section that replaced it is gone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_held_supersession_whose_drawn_section_is_gone_is_dropped() {
         let mut engine = engine_over_sections(1);
         engine.attach_activity_junctions("a1").unwrap();
@@ -2203,6 +2207,7 @@ mod tests {
     /// An activity the matcher finds nothing for writes nothing, so it takes
     /// no transaction either.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_that_matches_nothing_commits_nothing() {
         let mut engine = engine_over_sections(0);
         let commits = commit_counter::watch(&engine);
@@ -2241,6 +2246,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_attach_reads_each_sensor_series_once_for_the_whole_activity() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let points: Vec<GpsPoint> = (0..6).flat_map(|i| leg(i % 2 == 0)).collect();

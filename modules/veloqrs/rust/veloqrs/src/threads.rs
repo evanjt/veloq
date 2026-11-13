@@ -199,6 +199,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn background_worker_runs_at_lowered_priority() {
         let spawner = nice_of_current_thread();
         let worker = spawn_background("veloq-test-bg", nice_of_current_thread)
@@ -208,6 +209,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn named_worker_keeps_the_spawners_priority() {
         let spawner = nice_of_current_thread();
         let worker = spawn_named("veloq-test-fg", nice_of_current_thread)
@@ -217,6 +219,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn lowering_twice_leaves_the_priority_where_the_first_put_it() {
         let (first, second) = on_fresh_thread(|| {
             lower_background_priority();
@@ -228,6 +231,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_thread_already_below_background_is_not_raised() {
         let nice = on_fresh_thread(|| {
             // SAFETY: lowers the calling thread only.
@@ -241,6 +245,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn cpu_pool_workers_start_at_background_priority() {
         let pool = cpu_pool_builder().num_threads(2).build().unwrap();
         let spawner = nice_of_current_thread();
@@ -258,6 +263,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn cpu_budget_leaves_two_cores_and_keeps_one_worker() {
         assert_eq!(cpu_budget(1), 1);
         assert_eq!(cpu_budget(2), 1);
@@ -266,6 +272,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn cpu_pool_takes_the_budget_of_the_configured_cores() {
         let pool = cpu_pool_builder().build().unwrap();
         assert_eq!(pool.current_num_threads(), cpu_budget(configured_cpus()));

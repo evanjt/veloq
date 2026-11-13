@@ -13,6 +13,7 @@ fn engine() -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_failure_belongs_to_its_activity_and_the_latest_attempt_replaces_it() {
     let engine = engine();
     assert_eq!(of(&engine.db, "a1").unwrap(), None);
@@ -38,6 +39,7 @@ fn a_failure_belongs_to_its_activity_and_the_latest_attempt_replaces_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_clear_takes_only_that_activitys_failure_and_clearing_nothing_is_fine() {
     let engine = engine();
     record(&engine.db, "a1", "x", 1);

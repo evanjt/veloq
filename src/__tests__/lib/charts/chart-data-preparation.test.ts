@@ -104,7 +104,7 @@ describe('why buildChartData has nothing to draw', () => {
 });
 
 describe('buildChartData', () => {
-  it('returns empty result when x-source is empty', () => {
+  vaultIt('returns empty result when x-source is empty', () => {
     const result = buildChartData(
       streams({ time: [], distance: [] }),
       ['power'],
@@ -117,7 +117,7 @@ describe('buildChartData', () => {
     expect(result.seriesInfo).toEqual([]);
   });
 
-  it('returns empty result when no selected chart has stream data', () => {
+  vaultIt('returns empty result when no selected chart has stream data', () => {
     const configs = { power: powerConfig() } as unknown as Record<ChartTypeId, ChartConfig>;
     const result = buildChartData(
       streams({ watts: [] }),
@@ -141,7 +141,7 @@ describe('buildChartData', () => {
     expect(result.seriesInfo[0].domain).toEqual([100, 220]);
   });
 
-  it('builds chart data for multiple selected series', () => {
+  vaultIt('builds chart data for multiple selected series', () => {
     const configs = {
       power: powerConfig(),
       heartrate: heartRateConfig(),
@@ -211,7 +211,7 @@ describe('laneReadout at rest', () => {
     expect(result.value).toBe('150');
   });
 
-  it('applies imperial conversion when isMetric is false', () => {
+  vaultIt('applies imperial conversion when isMetric is false', () => {
     const metric = idle(altitudeConfig(), streams(), true, 42);
     const imperial = idle(altitudeConfig(), streams(), false, 42);
     expect(metric.value).toBe('+42');
@@ -222,12 +222,12 @@ describe('laneReadout at rest', () => {
 });
 
 describe('computeIntervalBands', () => {
-  it('returns empty array when intervals is empty or chart data length is zero', () => {
+  vaultIt('returns empty array when intervals is empty or chart data length is zero', () => {
     expect(computeIntervalBands([], 0, streams(), 'distance', true, 'Ride')).toEqual([]);
     expect(computeIntervalBands(undefined, 5, streams(), 'distance', true, 'Ride')).toEqual([]);
   });
 
-  it('assigns a distinct colour token to WORK/RECOVERY/WARMUP/COOLDOWN', () => {
+  vaultIt('assigns a distinct colour token to WORK/RECOVERY/WARMUP/COOLDOWN', () => {
     const intervals: ActivityInterval[] = [
       { kind: IntervalKind.Warmup, startIndex: 0, endIndex: 2 } as ActivityInterval,
       { kind: IntervalKind.Work, startIndex: 2, endIndex: 5, zone: 3 } as ActivityInterval,
@@ -260,7 +260,7 @@ describe('computeIntervalBands', () => {
     expect(bands[1].averages).toEqual({ power: null, heartrate: null });
   });
 
-  it('falls back to the work role when a WORK interval has no zone', () => {
+  vaultIt('falls back to the work role when a WORK interval has no zone', () => {
     const intervals: ActivityInterval[] = [
       { kind: IntervalKind.Work, startIndex: 0, endIndex: 2 } as ActivityInterval,
     ];

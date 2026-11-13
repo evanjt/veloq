@@ -21,7 +21,7 @@ const t = (key: string, params?: Record<string, string | number>) =>
 describe('the data an insight was computed from', () => {
   const cards = oneOfEach(t);
 
-  it('builds a card in every category', () => {
+  vaultIt('builds a card in every category', () => {
     const built = new Set(cards.map((card) => card.category));
     expect([...built].sort()).toEqual([...insightCategories()].sort());
   });
@@ -52,7 +52,7 @@ describe('the data an insight was computed from', () => {
     expect(insightDataTarget(fitness)).toMatch(/^\/fitness\?/);
   });
 
-  it('names nothing for a card that carries no data', () => {
+  vaultIt('names nothing for a card that carries no data', () => {
     const bare = { ...cards[0], navigationTarget: undefined, supportingData: undefined };
     expect(insightDataTarget(bare)).toBeNull();
   });
@@ -94,7 +94,7 @@ describe('View in detail', () => {
     expect(viewInDetailTarget(insight)).toBe('/fitness');
   });
 
-  it('is absent for a card with nowhere to go', () => {
+  vaultIt('is absent for a card with nowhere to go', () => {
     expect(viewInDetailTarget(base)).toBeNull();
   });
 });

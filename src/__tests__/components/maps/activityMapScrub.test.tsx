@@ -166,7 +166,7 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
     return page;
   };
 
-  it('builds the map fitted to the track below the header', async () => {
+  vaultIt('builds the map fitted to the track below the header', async () => {
     await renderStaged(map(null));
 
     expect(surface().html).toHaveLength(1);
@@ -178,7 +178,7 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
     expect(padding.right).toBe(TRACK_FIT_PADDING);
   });
 
-  it('builds the map fitted beside a side panel that covers its leading edge', async () => {
+  vaultIt('builds the map fitted beside a side panel that covers its leading edge', async () => {
     await renderStaged(
       <SafeAreaProvider initialMetrics={METRICS}>
         <ActivityMapView

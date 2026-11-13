@@ -265,6 +265,7 @@ fn a_restored_hand_cut_takes_its_number_over_an_auto_section_on_the_same_ground(
 /// another "Harbour loop" on its `r_3`. The new device numbered its own routes
 /// 1 to 9 and its `r_3` is the old route 7's ground.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_restored_route_number_and_name_land_by_members_not_by_id() {
     let _serial = crate::test_globals::serial_global_state();
     let mut source = PersistentEngine::in_memory().unwrap();
@@ -340,6 +341,7 @@ fn a_restored_route_number_and_name_land_by_members_not_by_id() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_restored_route_number_whose_members_are_not_here_is_held_across_regroups() {
     let _serial = crate::test_globals::serial_global_state();
     let mut source = PersistentEngine::in_memory().unwrap();
@@ -491,6 +493,7 @@ fn a_later_pass_never_moves_a_number_an_earlier_pass_restored() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_later_pass_never_moves_a_route_number_an_earlier_pass_restored() {
     let _serial = crate::test_globals::serial_global_state();
     let mut restored = PersistentEngine::in_memory().unwrap();
@@ -562,6 +565,7 @@ fn a_later_pass_never_moves_a_route_number_an_earlier_pass_restored() {
 /// A number a mint gave the local row, not a restore, still gives way to a
 /// restored number whose ground lands on it later.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_minted_number_still_gives_way_to_a_restored_one_on_a_later_pass() {
     let _serial = crate::test_globals::serial_global_state();
     let mut restored = PersistentEngine::in_memory().unwrap();

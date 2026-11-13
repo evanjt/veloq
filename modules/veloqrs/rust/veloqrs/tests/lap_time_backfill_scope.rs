@@ -101,6 +101,7 @@ fn lap_time(db: &Connection, activity_id: &str) -> Option<f64> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_portion_with_no_stream_is_not_examined() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -131,6 +132,7 @@ fn a_portion_whose_stream_has_landed_is_filled() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn only_the_streamed_portion_is_examined_once_a_stream_lands() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -151,6 +153,7 @@ fn only_the_streamed_portion_is_examined_once_a_stream_lands() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_filled_portion_is_not_examined_again() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -225,6 +228,7 @@ fn a_replaced_stream_recomputes_the_lap_times_it_already_wrote() {
 /// A stream that did not move leaves the lap times alone, so a routine sync
 /// re-storing the same series costs nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unchanged_stream_leaves_the_lap_times_where_they_are() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);

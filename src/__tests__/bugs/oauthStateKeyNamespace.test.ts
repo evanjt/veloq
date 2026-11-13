@@ -35,7 +35,7 @@ describe('the app manifest', () => {
   /// expo-camera's plugin defaults `recordAudioAndroid` to true, and with no
   /// entry in app.json a prebuild wrote RECORD_AUDIO into the manifest. The
   /// only camera use is the QR scanner, which records nothing.
-  it('turns off the camera plugin audio permission', () => {
+  vaultIt('turns off the camera plugin audio permission', () => {
     const plugins = appJson.expo.plugins as (string | [string, Record<string, unknown>])[];
     const camera = plugins.find((p) => Array.isArray(p) && p[0] === 'expo-camera');
     expect(camera).toBeDefined();
@@ -47,7 +47,7 @@ describe('the app manifest', () => {
   /// `applinks:intervals.icu` claimed a domain Veloq does not control, and
   /// nothing in the app handles an https intervals.icu link: the one place
   /// that opens one hands it to the browser.
-  it('claims no associated domain', () => {
+  vaultIt('claims no associated domain', () => {
     expect((appJson.expo.ios as Record<string, unknown>).associatedDomains).toBeUndefined();
   });
 });

@@ -31,7 +31,7 @@ describe('the curve freshness line', () => {
     expect(getByText('From the last sync, 8 Aug')).toBeTruthy();
   });
 
-  it('names the year of a fetch from before New Year', async () => {
+  vaultIt('names the year of a fetch from before New Year', async () => {
     jest.setSystemTime(new Date(2027, 0, 1, 0, 30));
     const fetchedAt = new Date(2026, 11, 20, 9, 0, 0).getTime();
 
@@ -42,7 +42,7 @@ describe('the curve freshness line', () => {
     expect(getByText('From the last sync, 20 Dec 2026')).toBeTruthy();
   });
 
-  it('says yesterday for a fetch late on the last day of a month', async () => {
+  vaultIt('says yesterday for a fetch late on the last day of a month', async () => {
     jest.setSystemTime(new Date(2026, 4, 1, 0, 30));
     const fetchedAt = new Date(2026, 3, 30, 23, 30).getTime();
 
@@ -53,13 +53,13 @@ describe('the curve freshness line', () => {
     expect(getByText('From the last sync, Yesterday')).toBeTruthy();
   });
 
-  it('says a curve has never been downloaded', async () => {
+  vaultIt('says a curve has never been downloaded', async () => {
     const { getByText } = await render(<CurveFreshnessLine freshness={{ kind: 'never' }} />);
 
     expect(getByText('Not downloaded yet')).toBeTruthy();
   });
 
-  it('draws nothing while the first fetch is in flight', async () => {
+  vaultIt('draws nothing while the first fetch is in flight', async () => {
     const { queryByTestId } = await render(<CurveFreshnessLine freshness={null} />);
 
     expect(queryByTestId('curve-freshness')).toBeNull();

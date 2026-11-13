@@ -1498,6 +1498,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_record_backup_carries_the_automatic_backup_switch() {
         let payload = collect_record_payload(&fixture()).unwrap();
         assert!(payload.entries.iter().any(|r| {
@@ -1593,6 +1594,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_record_backup_omits_the_section_health_check_stamp() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("stamp.db");
@@ -1628,6 +1630,7 @@ mod tests {
     /// of this library, the server's counts and this install's prompt state
     /// stay behind, so an import never states a sync the library did not run.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_record_backup_leaves_this_library_sync_and_prompt_state_behind() {
         use crate::objects::sync::{ACTIVITY_YEAR_COUNTS_KEY, OLDEST_ACTIVITY_DATE_KEY};
         use crate::persistence::settings_keys::SYNC_LAST_SUCCESS_AT;
@@ -1723,6 +1726,7 @@ mod tests {
     /// Expected behaviour: the zip still says when it was written, from its
     /// own content, and a zip written before it carried that reads as unknown.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_record_zip_carries_the_time_it_was_written_past_a_lost_file_time() {
         let db = fixture();
         let dir = tempfile::tempdir().unwrap();
@@ -1849,6 +1853,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_record_zip_at_exactly_the_limit_is_read_past_the_size_check() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("record.zip");

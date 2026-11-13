@@ -14,7 +14,7 @@ function leaf(id: string): GeoJSON.Feature {
 }
 
 describe('buildSpiderGeoJSON', () => {
-  it('returns empty FeatureCollections when leaves is empty', () => {
+  vaultIt('returns empty FeatureCollections when leaves is empty', () => {
     const result = buildSpiderGeoJSON({ center: [10, 45], leaves: [] }, 14);
     expect(result.points.features).toEqual([]);
     expect(result.lines.features).toEqual([]);
@@ -39,7 +39,7 @@ describe('buildSpiderGeoJSON', () => {
     });
   });
 
-  it('each line goes from center to the corresponding spider point', () => {
+  vaultIt('each line goes from center to the corresponding spider point', () => {
     const leaves = [leaf('a'), leaf('b')];
     const center: [number, number] = [10, 45];
     const result = buildSpiderGeoJSON({ center, leaves }, 14);
@@ -54,7 +54,7 @@ describe('buildSpiderGeoJSON', () => {
     });
   });
 
-  it('places points approximately on a circle around the center', () => {
+  vaultIt('places points approximately on a circle around the center', () => {
     const leaves = Array.from({ length: 4 }, (_, i) => leaf(String(i)));
     const center: [number, number] = [0, 0]; // equator - no lngScale distortion
     const result = buildSpiderGeoJSON({ center, leaves }, 14);
@@ -67,7 +67,7 @@ describe('buildSpiderGeoJSON', () => {
     expect(Math.abs(maxDist - minDist)).toBeLessThan(1e-9);
   });
 
-  it('higher zoom level yields a smaller radius in degrees', () => {
+  vaultIt('higher zoom level yields a smaller radius in degrees', () => {
     const leaves = [leaf('a')];
     const center: [number, number] = [0, 0];
     const low = buildSpiderGeoJSON({ center, leaves }, 10);
@@ -81,7 +81,7 @@ describe('buildSpiderGeoJSON', () => {
     expect(highDist).toBeLessThan(lowDist);
   });
 
-  it('uses wider radius for larger cluster sizes', () => {
+  vaultIt('uses wider radius for larger cluster sizes', () => {
     // Radius is 40px for ≤6 leaves, 55px for 7-12, 70px for >12
     const center: [number, number] = [0, 0];
     const small = buildSpiderGeoJSON(
@@ -106,7 +106,7 @@ describe('buildSpiderGeoJSON', () => {
     expect(distOf(large)).toBeGreaterThan(distOf(medium));
   });
 
-  it('places the first point at the top, north of the centre', () => {
+  vaultIt('places the first point at the top, north of the centre', () => {
     const leaves = [leaf('a')];
     const center: [number, number] = [0, 0];
     const result = buildSpiderGeoJSON({ center, leaves }, 14);
@@ -126,7 +126,7 @@ describe('buildSpiderGeoJSON', () => {
       ];
     };
 
-    it.each([
+    vaultIt.each([
       [4, 40],
       [10, 55],
       [13, 70],
@@ -144,7 +144,7 @@ describe('buildSpiderGeoJSON', () => {
       }
     });
 
-    it('puts the first leaf straight above the centre on screen', () => {
+    vaultIt('puts the first leaf straight above the centre on screen', () => {
       const zoom = 15;
       const center: [number, number] = [6.6, 46.5];
       const result = buildSpiderGeoJSON({ center, leaves: [leaf('a'), leaf('b')] }, zoom);

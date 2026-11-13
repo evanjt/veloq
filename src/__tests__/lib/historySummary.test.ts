@@ -28,13 +28,13 @@ describe('activityHistorySummary', () => {
     expect(out).toContain('"span":"time.daysCount|{\\"count\\":10}"');
   });
 
-  it('names the span in years from 365 days', () => {
+  vaultIt('names the span in years from 365 days', () => {
     const out = activityHistorySummary('2024-11-02', now, 1500, t as never);
 
     expect(out).toContain('time.yearsCount');
   });
 
-  it('is empty when the oldest day is not known', () => {
+  vaultIt('is empty when the oldest day is not known', () => {
     expect(activityHistorySummary('', now, 5, t as never)).toBe('');
   });
 

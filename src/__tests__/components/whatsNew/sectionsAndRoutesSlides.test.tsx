@@ -50,7 +50,7 @@ function slideOf(titleKey: string) {
 }
 
 describe('the tour', () => {
-  it('carries a sections slide followed by a routes slide, each offering Show Me', () => {
+  vaultIt('carries a sections slide followed by a routes slide, each offering Show Me', () => {
     const titles = getTutorialSlides().map((s) => s.titleKey);
     const at = titles.indexOf('whatsNew.v040.sectionPageTitle');
     expect(titles.slice(at, at + 2)).toEqual([
@@ -61,7 +61,7 @@ describe('the tour', () => {
     expect(slideOf('whatsNew.v040.routesTitle').showMeRoute).toBe(ROUTES_LIST_ROUTE);
   });
 
-  it('no longer gives section trimming a slide of its own', () => {
+  vaultIt('no longer gives section trimming a slide of its own', () => {
     const titles = getAllSlides().map((s) => s.titleKey);
     expect(titles).not.toContain('whatsNew.v030.sectionTrimTitle');
   });
@@ -99,7 +99,7 @@ describe('the sections and routes Show Me', () => {
     expect(resolveShowMeRoute(routes, library({ sectionId: 's-busy' }))).toBeUndefined();
   });
 
-  it('leaves a slide with a fixed route on that route', () => {
+  vaultIt('leaves a slide with a fixed route on that route', () => {
     const settings = getTutorialSlides().find((s) => s.showMeRoute === '/record');
     expect(settings).toBeDefined();
     expect(resolveShowMeRoute(settings!, library({ sectionId: 's-busy', routeId: 'r-busy' }))).toBe(
@@ -109,14 +109,17 @@ describe('the sections and routes Show Me', () => {
 });
 
 describe('the demo attempts the sections slide draws', () => {
-  it('reads a perfect rise as 1, a perfect fall as -1, and a flat series as no coefficient', () => {
-    expect(pearsonR([1, 2, 3, 4], [10, 20, 30, 40])).toBeCloseTo(1, 10);
-    expect(pearsonR([1, 2, 3, 4], [40, 30, 20, 10])).toBeCloseTo(-1, 10);
-    expect(pearsonR([1, 2, 3, 4], [5, 5, 5, 5])).toBeNull();
-    expect(pearsonR([1], [5])).toBeNull();
-  });
+  vaultIt(
+    'reads a perfect rise as 1, a perfect fall as -1, and a flat series as no coefficient',
+    () => {
+      expect(pearsonR([1, 2, 3, 4], [10, 20, 30, 40])).toBeCloseTo(1, 10);
+      expect(pearsonR([1, 2, 3, 4], [40, 30, 20, 10])).toBeCloseTo(-1, 10);
+      expect(pearsonR([1, 2, 3, 4], [5, 5, 5, 5])).toBeNull();
+      expect(pearsonR([1], [5])).toBeNull();
+    }
+  );
 
-  it('gets faster over time, so the trend coefficient is negative', () => {
+  vaultIt('gets faster over time, so the trend coefficient is negative', () => {
     const r = pearsonR(
       TOUR_DEMO_ATTEMPTS.map((_, i) => i),
       TOUR_DEMO_ATTEMPTS.map((a) => a.timeSecs)
@@ -125,13 +128,13 @@ describe('the demo attempts the sections slide draws', () => {
     expect(r!).toBeLessThan(-0.5);
   });
 
-  it('puts every attempt in exactly one histogram bin', () => {
+  vaultIt('puts every attempt in exactly one histogram bin', () => {
     const bins = demoHistogram(6);
     expect(bins).toHaveLength(6);
     expect(bins.reduce((sum, n) => sum + n, 0)).toBe(TOUR_DEMO_ATTEMPTS.length);
   });
 
-  it('colours both a won and a lost stretch on the line', () => {
+  vaultIt('colours both a won and a lost stretch on the line', () => {
     const kinds = new Set(demoLineStretches().map((s) => s.kind));
     expect(kinds.has('won')).toBe(true);
     expect(kinds.has('lost')).toBe(true);
@@ -139,7 +142,7 @@ describe('the demo attempts the sections slide draws', () => {
 });
 
 describe('the sections and routes slides', () => {
-  it("captions the three chart pictures with the section panel's own view names", async () => {
+  vaultIt("captions the three chart pictures with the section panel's own view names", async () => {
     const tree = await render(<SectionPerformanceSlide />);
     await layoutViews(tree, 320, 300);
     const { getByText } = tree;
@@ -155,12 +158,12 @@ describe('the sections and routes slides', () => {
     }
   });
 
-  it('renders the routes picture', async () => {
+  vaultIt('renders the routes picture', async () => {
     const { getByTestId } = await render(<RoutesSlide />);
     expect(getByTestId('tour-routes-picture')).toBeTruthy();
   });
 
-  it('has a value for every key in every locale', () => {
+  vaultIt('has a value for every key in every locale', () => {
     for (const file of fs.readdirSync(LOCALES_DIR)) {
       const bundle = resolvedLocale(file.replace('.json', ''));
       for (const key of SLIDE_KEYS) {

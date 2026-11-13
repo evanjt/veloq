@@ -185,6 +185,7 @@ fn owing(limit: usize) -> Vec<crate::persistence::bodies::BodiesOwed> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn four_hundred_and_fifty_owed_bodies_cost_three_requests() {
     let _guard = serial_global_state();
     let _dir = init_engine();
@@ -225,6 +226,7 @@ fn four_hundred_and_fifty_owed_bodies_cost_three_requests() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stored_detail_body_carries_no_second_copy_of_the_laps() {
     let _guard = serial_global_state();
     let _dir = init_engine();
@@ -244,6 +246,7 @@ fn a_stored_detail_body_carries_no_second_copy_of_the_laps() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn exactly_two_hundred_owed_is_one_request_and_two_hundred_and_one_is_two() {
     for (count, requests) in [(200usize, 1usize), (201, 2)] {
         let _guard = serial_global_state();
@@ -390,6 +393,7 @@ fn an_answer_naming_an_id_not_asked_for_confirms_nothing_absent() {
 /// bulk answer is confirmed by that single request rather than stored as an
 /// empty body.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_item_with_null_intervals_is_confirmed_and_stored_as_the_single_answer() {
     let _guard = serial_global_state();
     let _dir = init_engine();
@@ -417,6 +421,7 @@ fn an_item_with_null_intervals_is_confirmed_and_stored_as_the_single_answer() {
 /// An activity the server lists but cannot share answers a stub with no
 /// detail fields and no intervals.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stub_item_stores_no_detail_and_is_confirmed_before_it_is_absent() {
     let _guard = serial_global_state();
     let _dir = init_engine();
@@ -441,6 +446,7 @@ fn a_stub_item_stores_no_detail_and_is_confirmed_before_it_is_absent() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_timed_out_chunk_of_two_hundred_is_retried_as_two_of_one_hundred() {
     let _guard = serial_global_state();
     let _dir = init_engine();
@@ -465,6 +471,7 @@ fn a_timed_out_chunk_of_two_hundred_is_retried_as_two_of_one_hundred() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_chunk_that_times_out_at_the_floor_fails_the_step_and_stays_owed() {
     let _guard = serial_global_state();
     let _dir = init_engine();
@@ -494,6 +501,7 @@ fn a_chunk_that_times_out_at_the_floor_fails_the_step_and_stays_owed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn progress_counts_activities_not_requests() {
     let _guard = serial_global_state();
     let _dir = init_engine();
@@ -541,6 +549,7 @@ fn a_failed_chunk_does_not_cost_the_others_their_bodies() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refused_credential_ends_the_sweep() {
     let _guard = serial_global_state();
     let _dir = init_engine();
@@ -562,6 +571,7 @@ fn a_refused_credential_ends_the_sweep() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cancelled_sweep_asks_for_nothing() {
     let _guard = serial_global_state();
     let _dir = init_engine();
@@ -584,6 +594,7 @@ fn a_cancelled_sweep_asks_for_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_newest_five_cost_one_bulk_request_and_their_stream_requests() {
     let _guard = serial_global_state();
     let _dir = init_engine();

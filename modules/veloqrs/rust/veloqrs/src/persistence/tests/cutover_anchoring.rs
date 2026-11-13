@@ -89,6 +89,7 @@ fn library(dir: &TempDir) -> PersistentEngine {
 /// Expected behaviour: the triple is written, the drawn line is untouched, and
 /// one event says it did not move.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_verbatim_slice_is_anchored_without_moving() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir);
@@ -114,6 +115,7 @@ fn a_verbatim_slice_is_anchored_without_moving() {
 /// Expected behaviour: the line becomes the track's slice between the nearest
 /// points, and the event says it moved.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_averaged_line_is_replaced_by_the_track_slice() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir);
@@ -135,6 +137,7 @@ fn an_averaged_line_is_replaced_by_the_track_slice() {
 /// Scenario: the representative's track is not stored, a member's covers the line.
 /// Expected behaviour: the row is anchored on the member.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_member_carries_a_row_whose_representative_is_absent() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir);
@@ -153,6 +156,7 @@ fn a_member_carries_a_row_whose_representative_is_absent() {
 /// Scenario: no stored track covers the row.
 /// Expected behaviour: the row is untouched, owed again, and no event is written.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_row_no_track_covers_is_left_alone() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir);
@@ -171,6 +175,7 @@ fn a_row_no_track_covers_is_left_alone() {
 /// Scenario: the pass runs twice.
 /// Expected behaviour: the second run finds nothing and writes no further event.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_run_writes_nothing() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir);

@@ -95,6 +95,7 @@ fn number_after(line: &str, label: &str) -> u64 {
 // ── the migration chain ────────────────────────────────────────────────────
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_upgrade_every_live_user_takes_logs_how_long_its_migrations_ran() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -118,6 +119,7 @@ fn the_upgrade_every_live_user_takes_logs_how_long_its_migrations_ran() {
 /// A launch with nothing to migrate must not report a duration for work it did
 /// not do, or every ordinary launch logs a timing that reads as an upgrade.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_launch_with_no_migration_owed_logs_no_migration_duration() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -216,6 +218,7 @@ fn seed_older_build_engine(path: &std::path::Path) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_cutover_logs_a_duration_for_every_phase_and_for_the_run() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -254,6 +257,7 @@ fn the_cutover_logs_a_duration_for_every_phase_and_for_the_run() {
 /// reach must still report. Detection is suspended under the engine, so the
 /// drain never clears and the run gives up inside the draining phase.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cutover_that_fails_still_logs_the_phases_it_reached() {
     let _serial_state = super::serial_state();
     let _serial = serial();

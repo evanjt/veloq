@@ -215,7 +215,7 @@ tags:
 `takeScreenshot` resolves its path against the working directory, so every
 capture names `screenshots/<name>` and lands in `veloq/screenshots/`, which
 `.gitignore` already ignores. A bare name drops the PNG beside `package.json`,
-and `maestroFlowTags.test.ts` fails the flow that writes one.
+and `maestroFlowTags.vault.test.ts` fails the flow that writes one.
 
 To capture for App Store:
 ```bash

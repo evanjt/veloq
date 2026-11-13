@@ -47,7 +47,7 @@ beforeEach(() => {
 });
 
 describe('an absent setting after the migration', () => {
-  it('does not reach AsyncStorage', async () => {
+  vaultIt('does not reach AsyncStorage', async () => {
     migrated(true);
     const { getSetting } = loadStorage();
 
@@ -55,7 +55,7 @@ describe('an absent setting after the migration', () => {
     expect(mockGetItem).not.toHaveBeenCalled();
   });
 
-  it('costs one sentinel read however many keys a launch asks for', async () => {
+  vaultIt('costs one sentinel read however many keys a launch asks for', async () => {
     migrated(true);
     const { getSetting } = loadStorage();
 
@@ -74,7 +74,7 @@ describe('an absent setting after the migration', () => {
     expect(mockGetItem).toHaveBeenCalledWith('veloq-theme-preference');
   });
 
-  it('stops reaching AsyncStorage as soon as the migration lands mid-session', async () => {
+  vaultIt('stops reaching AsyncStorage as soon as the migration lands mid-session', async () => {
     migrated(false);
     const { getSetting } = loadStorage();
     await getSetting('veloq-debug-mode');

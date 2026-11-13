@@ -53,6 +53,7 @@ fn one_hard_minute_shows_at_a_minute_and_dilutes_at_two() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_gap_in_the_clock_reads_as_nought_watts() {
     let time = [0.0, 1.0, 2.0, 5.0, 6.0];
     let watts = [Some(200.0), Some(200.0), Some(200.0), Some(200.0), None];
@@ -96,6 +97,7 @@ fn the_fit_recovers_the_critical_power_and_w_prime_of_a_ride_built_from_them() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fit_with_too_few_points_or_a_negative_w_prime_is_not_supported() {
     assert!(critical_fit(&[(180.0, 45_000.0), (300.0, 75_000.0)]).is_none());
     // Work growing faster than a line through the origin gives a negative W'.
@@ -122,6 +124,7 @@ fn the_eftp_is_the_critical_power_when_the_fit_holds_and_95_percent_of_twenty_mi
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_steady_run_takes_the_same_time_to_cover_each_distance_and_none_beyond_its_length() {
     let time: Vec<f64> = (0..=1000).map(f64::from).collect();
     let distance: Vec<f64> = time.iter().map(|t| t * 4.0).collect();
@@ -203,6 +206,7 @@ fn the_power_body_reads_back_through_the_server_parser_with_the_fit_as_its_model
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_no_ride_reaches_writes_no_body() {
     let short = ride("a", 10, vec![0.0; POWER_DURATIONS.len()]);
     assert!(power_body(&[&short], window(42), None).is_none());
@@ -304,6 +308,7 @@ fn a_garmin_only_library_gets_a_curve_from_its_rides_streams() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_that_holds_no_ride_has_no_curve() {
     let (_dir, engine) = engine();
     add_activity(
@@ -401,6 +406,7 @@ fn a_library_holding_an_intervals_activity_never_writes_a_curve() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_garmin_original_linked_to_an_intervals_activity_ends_the_garmin_only_library() {
     let (_dir, engine) = engine();
     add_activity(
@@ -451,6 +457,7 @@ fn the_daily_eftp_is_written_in_the_wellness_sport_info_shape() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_daily_eftp_reads_only_the_ninety_days_before_the_day() {
     let (_dir, engine) = engine();
     let old = RIDE_AT - 100 * DAY_S;
@@ -512,6 +519,7 @@ fn a_run_with_distance_and_clock_writes_a_pace_curve() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_refresh_with_nothing_new_changes_nothing() {
     let (_dir, engine) = engine();
     add_activity(

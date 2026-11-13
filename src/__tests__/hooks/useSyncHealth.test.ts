@@ -51,14 +51,14 @@ describe('useSyncHealth', () => {
     mockGetEngine.mockReturnValue({ setSetting } as unknown as ReturnType<typeof getEngine>);
   });
 
-  it('reports nothing for a null status', async () => {
+  vaultIt('reports nothing for a null status', async () => {
     const { result } = await renderHook(() => useSyncHealth());
 
     expect(result.current.lastError).toBeNull();
     expect(result.current.lastSuccessAt).toBeNull();
   });
 
-  it('reports nothing for a status with no success time', async () => {
+  vaultIt('reports nothing for a status with no success time', async () => {
     mockStatus = status(SyncState.Idle);
 
     const { result } = await renderHook(() => useSyncHealth());
@@ -74,7 +74,7 @@ describe('useSyncHealth', () => {
     expect(result.current.lastSuccessAt).toBe('2026-08-01T10:00:00.000Z');
   });
 
-  it('replaces the time when the next snapshot carries a newer one', async () => {
+  vaultIt('replaces the time when the next snapshot carries a newer one', async () => {
     mockStatus = status(SyncState.Idle, { lastSuccessAt: '2026-08-01T10:00:00.000Z' });
     const { result, rerender } = await renderHook(() => useSyncHealth());
 

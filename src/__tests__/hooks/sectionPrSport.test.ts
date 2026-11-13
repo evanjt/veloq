@@ -51,7 +51,7 @@ describe('the sport a card labels itself with', () => {
     expect(cardSportType('Run', ['Ride'])).toBe('Run');
   });
 
-  it("falls back to the section's only sport", () => {
+  vaultIt("falls back to the section's only sport", () => {
     expect(cardSportType(undefined, ['Ride'])).toBe('Ride');
   });
 
@@ -59,7 +59,7 @@ describe('the sport a card labels itself with', () => {
     expect(cardSportType(undefined, ['Ride', 'Run'])).toBeUndefined();
   });
 
-  it('is nothing when neither says', () => {
+  vaultIt('is nothing when neither says', () => {
     expect(cardSportType(undefined, undefined)).toBeUndefined();
     expect(cardSportType(undefined, [])).toBeUndefined();
   });

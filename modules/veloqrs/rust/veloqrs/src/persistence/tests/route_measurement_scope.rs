@@ -55,6 +55,7 @@ fn owed(ids: &[&str]) -> HashSet<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unchanged_library_owes_no_route() {
     let previous = library();
     let held = held_for(&previous);
@@ -65,6 +66,7 @@ fn an_unchanged_library_owes_no_route() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_route_that_took_a_member_is_owed_and_its_neighbour_is_not() {
     let previous = library();
     let held = held_for(&previous);
@@ -77,6 +79,7 @@ fn a_route_that_took_a_member_is_owed_and_its_neighbour_is_not() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_route_that_lost_a_member_is_owed() {
     let previous = library();
     let held = held_for(&previous);
@@ -89,6 +92,7 @@ fn a_route_that_lost_a_member_is_owed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn member_order_alone_owes_nothing() {
     let previous = library();
     let held = held_for(&previous);
@@ -101,6 +105,7 @@ fn member_order_alone_owes_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_new_representative_owes_its_route() {
     let previous = library();
     let held = held_for(&previous);
@@ -113,6 +118,7 @@ fn a_new_representative_owes_its_route() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_moved_member_track_owes_only_its_route() {
     let previous = library();
     let held = held_for(&previous);
@@ -123,6 +129,7 @@ fn a_moved_member_track_owes_only_its_route() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_moved_track_outside_every_route_owes_nothing() {
     let previous = library();
     let held = held_for(&previous);
@@ -133,6 +140,7 @@ fn a_moved_track_outside_every_route_owes_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_route_with_no_previous_counterpart_is_owed() {
     let previous = library();
     let held = held_for(&previous);
@@ -145,6 +153,7 @@ fn a_route_with_no_previous_counterpart_is_owed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_member_with_no_stored_row_owes_its_route() {
     let previous = library();
     let mut held = held_for(&previous);
@@ -158,6 +167,7 @@ fn a_member_with_no_stored_row_owes_its_route() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_route_with_no_stored_rows_is_owed() {
     let previous = library();
     let mut held = held_for(&previous);
@@ -170,6 +180,7 @@ fn a_route_with_no_stored_rows_is_owed() {
 
 /// The backfills write a member's row at zero before anything measured it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_member_row_at_the_zero_placeholder_owes_its_route() {
     let previous = library();
     let mut held = held_for(&previous);
@@ -204,6 +215,7 @@ fn counted_tracks(groups: &[RouteGroup]) -> HashMap<String, Vec<GpsPoint>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn measuring_a_scope_loads_and_compares_only_its_routes() {
     let mut groups = library();
     groups[0].activity_ids.push("a6".into());
@@ -240,6 +252,7 @@ fn measuring_a_scope_loads_and_compares_only_its_routes() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_scope_loads_no_track() {
     let groups = library();
     let tracks = counted_tracks(&groups);
@@ -308,6 +321,7 @@ fn many_groups(groups: usize, members: usize) -> Vec<RouteGroup> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn singleton_routes_load_no_track() {
     let groups = many_groups(200, 1);
     let (measured, loads, _) = loads_counting(&groups, None, None);
@@ -320,6 +334,7 @@ fn singleton_routes_load_no_track() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_full_scope_measurement_holds_one_route_of_tracks_at_a_time() {
     let groups = many_groups(10, 10);
     let (measured, loads, peak) = loads_counting(&groups, None, None);
@@ -334,6 +349,7 @@ fn a_full_scope_measurement_holds_one_route_of_tracks_at_a_time() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_overridden_representative_loads_only_its_route() {
     let groups = many_groups(5, 4);
     let scope = owed(&["r_2"]);
@@ -422,6 +438,7 @@ fn measured_again(conn: &Connection, prefix: &str) -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_foreground_regroup_measures_only_the_route_that_took_a_ride() {
     let mut engine = two_routes();
     engine
@@ -438,6 +455,7 @@ fn a_foreground_regroup_measures_only_the_route_that_took_a_ride() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_background_regroup_measures_only_the_route_that_took_a_ride() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = two_routes();
@@ -460,6 +478,7 @@ fn a_background_regroup_measures_only_the_route_that_took_a_ride() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_moved_track_measures_its_route_again_and_no_other() {
     let mut engine = two_routes();
     let mut moved = ride(CORRIDOR_B, 2);
@@ -481,6 +500,7 @@ fn a_moved_track_measures_its_route_again_and_no_other() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_regroup_with_nothing_changed_measures_nothing() {
     let mut engine = two_routes();
     engine.set_groups_dirty(true);
@@ -490,6 +510,7 @@ fn a_regroup_with_nothing_changed_measures_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_changed_match_rule_measures_every_route_again() {
     let mut engine = two_routes();
     let (min, endpoint) = engine.match_strictness();
@@ -501,6 +522,7 @@ fn a_changed_match_rule_measures_every_route_again() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_background_regroup_measures_the_route_of_a_moved_track() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = two_routes();

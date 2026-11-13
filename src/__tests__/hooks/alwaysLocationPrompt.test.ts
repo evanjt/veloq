@@ -45,13 +45,13 @@ describe('the Always prompt is asked once, at the moment it earns the dialog', (
     await waitFor(() => expect(marked()).toBe(true));
   });
 
-  it('does not ask from an in-app start, which needs nothing extra', async () => {
+  vaultIt('does not ask from an in-app start, which needs nothing extra', async () => {
     await render({ fromQuickStart: false, recording: true });
     await waitFor(() => expect(marked()).toBe(false));
     expect(mockRequestBackground).not.toHaveBeenCalled();
   });
 
-  it('waits for the ride to be running, so a refusal costs nothing', async () => {
+  vaultIt('waits for the ride to be running, so a refusal costs nothing', async () => {
     await render({ fromQuickStart: true, recording: false });
     await waitFor(() => expect(marked()).toBe(false));
     expect(mockRequestBackground).not.toHaveBeenCalled();
@@ -64,13 +64,16 @@ describe('the Always prompt is asked once, at the moment it earns the dialog', (
     expect(mockRequestBackground).not.toHaveBeenCalled();
   });
 
-  it('does not ask before When In Use is held: Always is an upgrade, not a first ask', async () => {
-    mockGetForeground.mockResolvedValue({ status: 'denied' });
-    await render({ fromQuickStart: true, recording: true });
-    await waitFor(() => expect(mockGetForeground).toHaveBeenCalled());
-    expect(mockRequestBackground).not.toHaveBeenCalled();
-    expect(marked()).toBe(false);
-  });
+  vaultIt(
+    'does not ask before When In Use is held: Always is an upgrade, not a first ask',
+    async () => {
+      mockGetForeground.mockResolvedValue({ status: 'denied' });
+      await render({ fromQuickStart: true, recording: true });
+      await waitFor(() => expect(mockGetForeground).toHaveBeenCalled());
+      expect(mockRequestBackground).not.toHaveBeenCalled();
+      expect(marked()).toBe(false);
+    }
+  );
 
   it('waits for the preferences to load, or it would ask a second time on a restart', async () => {
     useRecordingPreferences.setState({ isLoaded: false });
@@ -104,10 +107,13 @@ describe('Android never shows the Always dialog', () => {
     Platform.OS = original;
   });
 
-  it('requests nothing for a quick-start ride, which runs in a foreground service', async () => {
-    await render({ fromQuickStart: true, recording: true });
-    await new Promise((r) => setTimeout(r, 0));
-    expect(mockRequestBackground).not.toHaveBeenCalled();
-    expect(marked()).toBe(false);
-  });
+  vaultIt(
+    'requests nothing for a quick-start ride, which runs in a foreground service',
+    async () => {
+      await render({ fromQuickStart: true, recording: true });
+      await new Promise((r) => setTimeout(r, 0));
+      expect(mockRequestBackground).not.toHaveBeenCalled();
+      expect(marked()).toBe(false);
+    }
+  );
 });

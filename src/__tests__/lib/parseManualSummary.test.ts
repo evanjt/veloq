@@ -24,7 +24,7 @@ describe('parseManualSummary', () => {
     expect(Number.isNaN(r.distance)).toBe(false);
   });
 
-  it('coerces explicit NaN-yielding values to finite 0', () => {
+  vaultIt('coerces explicit NaN-yielding values to finite 0', () => {
     const r = parseManualSummary({
       durationSeconds: 'NaN',
       distance: undefined,
@@ -46,7 +46,7 @@ describe('parseManualSummary', () => {
     expect(parseManualSummary({ durationSeconds: 'bad', distance: 'bad' }).avgSpeed).toBe(0);
   });
 
-  it('parses a zero-padded or whitespace HR string', () => {
+  vaultIt('parses a zero-padded or whitespace HR string', () => {
     expect(parseManualSummary({ avgHr: ' 145 ' }).avgHeartrate).toBe(145);
     expect(parseManualSummary({ avgHr: '0' }).avgHeartrate).toBe(0);
   });

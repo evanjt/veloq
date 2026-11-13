@@ -35,7 +35,7 @@ describe('the budget', () => {
   });
 
   // One pool for every source, and the athlete can raise it.
-  it('starts at the 50 MB the athlete was promised, and climbs from there', () => {
+  vaultIt('starts at the 50 MB the athlete was promised, and climbs from there', () => {
     expect(DEFAULT_TILE_CACHE_BUDGET_MB).toBe(50);
     expect(TILE_CACHE_BUDGET_CHOICES_MB).toEqual([50, 100, 200, 400]);
     expect(clampTileCacheBudgetMb(undefined)).toBe(50);
@@ -53,7 +53,7 @@ describe('the budget', () => {
 });
 
 describe('the buckets earlier builds filled', () => {
-  it('are deleted by name when a page loads', () => {
+  vaultIt('are deleted by name when a page loads', () => {
     const deleted: string[] = [];
     const caches = { delete: jest.fn(async (name: string) => deleted.push(name)) };
     new Function('caches', dropRetiredTileCachesScript())(caches);
@@ -63,7 +63,7 @@ describe('the buckets earlier builds filled', () => {
     );
   });
 
-  it('are left alone by a page with no Cache API, without throwing', () => {
+  vaultIt('are left alone by a page with no Cache API, without throwing', () => {
     expect(() => new Function(dropRetiredTileCachesScript())()).not.toThrow();
   });
 });
@@ -78,7 +78,7 @@ describe('the stored setting', () => {
     useTileCacheSettings.setState({ budgetMb: DEFAULT_TILE_CACHE_BUDGET_MB, isLoaded: false });
   });
 
-  it('defaults when nothing is stored', async () => {
+  vaultIt('defaults when nothing is stored', async () => {
     await useTileCacheSettings.getState().initialise();
     expect(useTileCacheSettings.getState().budgetMb).toBe(DEFAULT_TILE_CACHE_BUDGET_MB);
   });

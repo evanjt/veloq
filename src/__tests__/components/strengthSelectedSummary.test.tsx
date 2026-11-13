@@ -94,7 +94,7 @@ describe('selected muscle summary', () => {
     );
   });
 
-  it('names the row as clearing the selected muscle, with its numbers', async () => {
+  vaultIt('names the row as clearing the selected muscle, with its numbers', async () => {
     await draw(volume);
     expect(
       screen.getByRole('button', {
@@ -103,7 +103,7 @@ describe('selected muscle summary', () => {
     ).toBeTruthy();
   });
 
-  it('shows nothing without a selection', async () => {
+  vaultIt('shows nothing without a selection', async () => {
     await draw(null);
     expect(screen.queryByTestId('strength-selected-summary')).toBeNull();
   });

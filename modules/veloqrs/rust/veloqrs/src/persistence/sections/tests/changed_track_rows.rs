@@ -85,6 +85,7 @@ fn move_ride_away(engine: &mut PersistentEngine) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_changed_track_drops_rows_on_custom_and_accepted_sections_it_no_longer_passes() {
     let mut engine = library();
     move_ride_away(&mut engine);
@@ -97,6 +98,7 @@ fn a_changed_track_drops_rows_on_custom_and_accepted_sections_it_no_longer_passe
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_changed_track_that_still_passes_a_section_keeps_its_row() {
     let mut engine = library();
     let changed = engine
@@ -110,6 +112,7 @@ fn a_changed_track_that_still_passes_a_section_keeps_its_row() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_changed_track_too_short_to_match_clears_every_row() {
     let mut engine = library();
     engine
@@ -122,6 +125,7 @@ fn a_changed_track_too_short_to_match_clears_every_row() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unchanged_track_leaves_rows_on_sections_the_attach_does_not_reach() {
     let mut engine = library();
     move_ride_away(&mut engine);
@@ -132,6 +136,7 @@ fn an_unchanged_track_leaves_rows_on_sections_the_attach_does_not_reach() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_changed_track_keeps_a_hand_attachment_the_relaxed_bar_still_reaches() {
     let mut engine = library();
     let beside: Vec<GpsPoint> = line(HOME_LAT)

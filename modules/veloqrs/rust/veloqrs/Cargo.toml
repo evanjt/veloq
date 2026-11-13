@@ -20,6 +20,9 @@ real-corpus = []
 # Times every engine lock take per caller and prints the table to the log.
 # Measurement only, never on by default.
 lock-trace = []
+# Runs the vault tests: edge cases and checks kept for a release run, ignored
+# otherwise so they cost every change nothing.
+vault = []
 
 [dependencies]
 # Core algorithm library

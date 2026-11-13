@@ -142,6 +142,7 @@ const PAST_STRICT: f64 = 300.0;
 const PAST_RELAXED: f64 = 800.0;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_forced_past_the_strict_bar_keeps_its_row_through_a_trim() {
     for custom in [true, false] {
         let (mut engine, sid) = engine_with_section(custom);
@@ -181,6 +182,7 @@ fn a_forced_ride_keeps_its_row_through_a_reset_of_the_bounds() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_twenty_metres_off_keeps_its_row_through_a_rebuild() {
     for custom in [true, false] {
         let (mut engine, sid) = engine_with_section(custom);
@@ -195,6 +197,7 @@ fn a_ride_twenty_metres_off_keeps_its_row_through_a_rebuild() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_forced_out_and_back_writes_a_row_for_each_pass() {
     let (mut engine, sid) = engine_with_section(true);
     add_ride(&mut engine, "twice", out_and_back(PAST_STRICT));
@@ -210,6 +213,7 @@ fn a_forced_out_and_back_writes_a_row_for_each_pass() {
 /// the forced rows start at different indices, so writing both would count
 /// one pass twice.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_forced_ride_the_strict_pass_also_matches_writes_one_row_per_pass() {
     for custom in [true, false] {
         let (mut engine, sid) = engine_with_section(custom);
@@ -225,6 +229,7 @@ fn a_forced_ride_the_strict_pass_also_matches_writes_one_row_per_pass() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_beyond_the_relaxed_bar_is_not_attached() {
     let (mut engine, sid) = engine_with_section(true);
     add_ride(&mut engine, "far", ride(PAST_RELAXED));
@@ -236,6 +241,7 @@ fn a_ride_beyond_the_relaxed_bar_is_not_attached() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_forced_ride_over_part_of_the_line_is_not_attached() {
     let (mut engine, sid) = engine_with_section(true);
     // Over the southern 60% of the line only.
@@ -248,6 +254,7 @@ fn a_forced_ride_over_part_of_the_line_is_not_attached() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_forced_ride_the_reset_of_the_bounds_leaves_behind_is_named_and_dropped() {
     for custom in [true, false] {
         let (mut engine, sid) = engine_with_section(custom);
@@ -267,6 +274,7 @@ fn a_forced_ride_the_reset_of_the_bounds_leaves_behind_is_named_and_dropped() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_excluded_forced_ride_stays_excluded_through_a_rebuild() {
     let (mut engine, sid) = engine_with_section(true);
     add_ride(&mut engine, "wide", ride(PAST_STRICT));
@@ -289,6 +297,7 @@ fn an_excluded_forced_ride_stays_excluded_through_a_rebuild() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn deleting_the_section_or_the_ride_deletes_the_record() {
     let (mut engine, sid) = engine_with_section(true);
     add_ride(&mut engine, "wide", ride(PAST_STRICT));
@@ -330,6 +339,7 @@ fn a_merge_re_cuts_the_forced_rides_of_both_sections_onto_the_one_kept() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_merge_names_the_forced_ride_that_has_no_pass_over_the_kept_line() {
     let (mut engine, donor) = engine_with_section(true);
     let kept_line = line()[160..190].to_vec();
@@ -365,6 +375,7 @@ fn a_merge_names_the_forced_ride_that_has_no_pass_over_the_kept_line() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn departed_rides_carry_the_name_and_date_the_library_holds() {
     let (mut engine, _) = engine_with_section(false);
     add_ride(&mut engine, "gone", ride(0.0));
@@ -385,6 +396,7 @@ fn departed_rides_carry_the_name_and_date_the_library_holds() {
 /// The scan offers what the force-match writes: one match per pass, at the
 /// indices the attach stores.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_scan_offers_each_pass_the_force_match_writes() {
     let (mut engine, sid) = engine_with_section(true);
     add_ride(&mut engine, "twice", out_and_back(PAST_STRICT));
@@ -403,6 +415,7 @@ fn the_scan_offers_each_pass_the_force_match_writes() {
 /// The scan says where along the ride each pass starts as the distance ridden
 /// to its first point, not as a share of the track's points.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_scan_places_each_pass_at_the_distance_ridden_to_its_start() {
     let (mut engine, sid) = engine_with_section(true);
     add_ride(&mut engine, "twice", out_and_back(0.0));
@@ -439,6 +452,7 @@ fn the_scan_places_each_pass_at_the_distance_ridden_to_its_start() {
 /// it was attached to by hand keeps the rows the relaxed cut gave it rather
 /// than the strict cut's, which start at other indices.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn re_attaching_a_forced_ride_keeps_its_forced_rows() {
     let (mut engine, sid) = engine_with_section(true);
     add_ride(&mut engine, "on", out_and_back(0.0));
@@ -552,6 +566,7 @@ fn an_excluded_forced_ride_stays_excluded_through_a_detection_apply() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_force_match_on_a_section_the_apply_did_not_bring_back_waits() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     add_ride(&mut engine, "source", line());

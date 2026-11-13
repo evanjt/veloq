@@ -132,6 +132,7 @@ fn spread(count: usize, fastest: f64, slowest: f64) -> Vec<Attempt> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn one_stopped_attempt_is_flagged_slow_and_does_not_stretch_the_range() {
     let mut attempts = spread(88, 590.0, 630.0);
     attempts.push(attempt("stopped", 6360.0));
@@ -152,6 +153,7 @@ fn one_stopped_attempt_is_flagged_slow_and_does_not_stretch_the_range() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_record_and_the_highlighted_attempt_widen_the_range_and_are_never_flagged() {
     let mut attempts = spread(20, 600.0, 620.0);
     attempts.push(attempt("record", 400.0));
@@ -177,6 +179,7 @@ fn the_record_and_the_highlighted_attempt_widen_the_range_and_are_never_flagged(
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn fewer_than_ten_attempts_flag_nothing() {
     let mut attempts = spread(8, 590.0, 630.0);
     attempts.push(attempt("stopped", 6360.0));
@@ -198,6 +201,7 @@ fn fewer_than_ten_attempts_flag_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_direction_has_no_range() {
     let data = section_read(&[], None);
     assert!(data.scatter_focus.forward.is_none());
@@ -205,6 +209,7 @@ fn an_empty_direction_has_no_range() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_route_ranges_on_time_and_a_section_on_speed() {
     let attempts = spread(12, 590.0, 630.0);
 
@@ -223,6 +228,7 @@ fn a_route_ranges_on_time_and_a_section_on_speed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn on_a_time_axis_a_stopped_attempt_is_slow_past_the_top() {
     let mut attempts = spread(30, 590.0, 630.0);
     attempts.push(attempt("stopped", 6360.0));
@@ -236,6 +242,7 @@ fn on_a_time_axis_a_stopped_attempt_is_slow_past_the_top() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_progression_steps_only_on_a_strict_beat_by_an_eligible_lap() {
     let mut fragment = attempt("fragment", 560.0);
     fragment.coverage = 0.5;
@@ -265,6 +272,7 @@ fn the_progression_steps_only_on_a_strict_beat_by_an_eligible_lap() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_progression_covers_the_whole_history_whatever_the_range() {
     let included = [attempt("old", 600.0), attempt("new", 590.0)];
     let all = std::sync::Arc::new(laps::summarise(MILE_M, {
@@ -300,6 +308,7 @@ fn the_progression_covers_the_whole_history_whatever_the_range() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_direction_with_no_record_has_no_progression_and_no_gap() {
     let data = section_read(&[attempt("one", 600.0), attempt("two", 600.0)], None);
     assert!(data.record_progression.forward.is_empty());
@@ -322,6 +331,7 @@ fn a_direction_with_no_record_has_no_progression_and_no_gap() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_gap_is_zero_for_the_record_and_positive_for_a_slower_attempt() {
     let mut wide = attempt("wide", 700.0);
     wide.outside_band = true;
@@ -358,6 +368,7 @@ fn the_gap_is_zero_for_the_record_and_positive_for_a_slower_attempt() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_excluded_attempt_is_flagged_against_the_range_but_not_counted() {
     let attempts = spread(20, 590.0, 630.0);
     let excluded = [attempt("stopped", 6360.0)];

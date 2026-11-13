@@ -62,7 +62,7 @@ describe('findRowIndexAtPageY', () => {
   });
 
   describe('monotonic scan - no row is ever silently skipped', () => {
-    it('a top-to-bottom sweep visits every row in order', () => {
+    vaultIt('a top-to-bottom sweep visits every row in order', () => {
       const visited = new Set<number>();
       let prev = -1;
       for (let y = 261; y < 509; y += 2) {
@@ -85,7 +85,7 @@ describe('findRowIndexAtPageY', () => {
     // both light up. This regression case verifies the two indexes remain
     // distinct across a small sweep (the previous Map-keyed implementation
     // overwrote the first with the second when sectionIds collided).
-    it('row 0 and row 1 map to distinct indexes', () => {
+    vaultIt('row 0 and row 1 map to distinct indexes', () => {
       const row0 = findRowIndexAtPageY({ ...DEFAULT, pageY: 292 });
       const row1 = findRowIndexAtPageY({ ...DEFAULT, pageY: 354 });
       expect(row0).toBe(0);
@@ -105,7 +105,7 @@ describe('findRowIndexAtPageY', () => {
   });
 
   describe('row boundary determinism', () => {
-    it('the boundary between two rows snaps down (floor semantics)', () => {
+    vaultIt('the boundary between two rows snaps down (floor semantics)', () => {
       // pageY=322 is the last pixel of row 0; 323 is the first of row 1.
       expect(findRowIndexAtPageY({ ...DEFAULT, pageY: 322 })).toBe(0);
       expect(findRowIndexAtPageY({ ...DEFAULT, pageY: 323 })).toBe(1);
@@ -189,7 +189,7 @@ describe('findRowIndexAtPageY with per-row heights', () => {
     expect(findRowIndexAtPageY({ ...base, pageY: 300 })).toBeNull();
   });
 
-  it('never skips a row on a top-to-bottom sweep', () => {
+  vaultIt('never skips a row on a top-to-bottom sweep', () => {
     const visited = new Set<number>();
     let prev = -1;
     for (let y = 261; y < 479; y += 2) {

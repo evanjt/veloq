@@ -29,7 +29,7 @@ const ALL_STATUSES: Record<RecordingUploadStatus, true> = {
 const KEEPS_ITS_FIT = Object.keys(ALL_STATUSES) as RecordingUploadStatus[];
 
 describe('recordingActions', () => {
-  it('shares the retained FIT while an uploaded recording awaits confirmation', () => {
+  vaultIt('shares the retained FIT while an uploaded recording awaits confirmation', () => {
     const actions = recordingActions({ ...ENTRY, uploadStatus: 'uploaded' }, null);
     expect(actions.canShare).toBe(true);
     expect(actions.canUpload).toBe(false);
@@ -41,12 +41,12 @@ describe('recordingActions', () => {
     }
   });
 
-  it('does not share a manual recording or a FIT without a path', () => {
+  vaultIt('does not share a manual recording or a FIT without a path', () => {
     expect(recordingActions({ ...ENTRY, kind: 'manual', fitPath: '' }, null).canShare).toBe(false);
     expect(recordingActions({ ...ENTRY, fitPath: '' }, null).canShare).toBe(false);
   });
 
-  it('treats an in-flight upload as uploading from either source', () => {
+  vaultIt('treats an in-flight upload as uploading from either source', () => {
     expect(recordingActions(ENTRY, 'rec-1').isUploading).toBe(true);
     expect(recordingActions({ ...ENTRY, uploadStatus: 'uploading' }, null).isUploading).toBe(true);
     expect(recordingActions(ENTRY, 'rec-2').isUploading).toBe(false);

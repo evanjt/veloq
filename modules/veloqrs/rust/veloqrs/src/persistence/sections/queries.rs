@@ -1517,6 +1517,7 @@ mod tests {
     /// Expected behaviour: a pooled reader, given the overlay, answers what the
     /// lock holder answers, row for row.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn pooled_sections_match_the_ones_a_lock_holder_gets() {
         let _serial = serial_global_state();
         let tmp = TempDir::new().unwrap();
@@ -1546,6 +1547,7 @@ mod tests {
     /// not shadow a rename made here. Without the bind above this fails with
     /// the generated name, which is what the parity tests were passing on.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn another_databases_overlay_does_not_shadow_a_rename_made_here() {
         let _serial = serial_global_state();
         let other_dir = TempDir::new().unwrap();
@@ -1574,6 +1576,7 @@ mod tests {
     /// show, and it is not on the row: it is resolved from the intent. A reader
     /// that skipped the overlay would quietly show the generated name back.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pooled_read_shows_the_name_the_athlete_gave_the_corridor() {
         let _serial = serial_global_state();
         let tmp = TempDir::new().unwrap();
@@ -1596,6 +1599,7 @@ mod tests {
     /// A section nobody has ridden and an id that is not there answer the same
     /// nothing on both paths.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn pooled_reads_are_empty_for_what_is_not_there() {
         let _serial = serial_global_state();
         let tmp = TempDir::new().unwrap();

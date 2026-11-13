@@ -45,43 +45,49 @@ function lastButtonProps() {
 }
 
 describe('ErrorState', () => {
-  it('names the engine reason inline and retries through the shared secondary button', async () => {
-    const onRetry = jest.fn();
-    await render(
-      <ErrorState variant="inline" error={busy} onRetry={onRetry} testID="card-failure" />
-    );
+  vaultIt(
+    'names the engine reason inline and retries through the shared secondary button',
+    async () => {
+      const onRetry = jest.fn();
+      await render(
+        <ErrorState variant="inline" error={busy} onRetry={onRetry} testID="card-failure" />
+      );
 
-    expect(screen.getByText('engine.failure.busy')).toBeTruthy();
-    expect(lastButtonProps()).toEqual(
-      expect.objectContaining({ label: 'common.retry', variant: 'secondary', size: 'sm' })
-    );
+      expect(screen.getByText('engine.failure.busy')).toBeTruthy();
+      expect(lastButtonProps()).toEqual(
+        expect.objectContaining({ label: 'common.retry', variant: 'secondary', size: 'sm' })
+      );
 
-    await fireEvent.press(screen.getByTestId('card-failure-retry'));
-    await fireEvent.press(screen.getByTestId('card-failure-retry'));
-    expect(onRetry).toHaveBeenCalledTimes(2);
-  });
+      await fireEvent.press(screen.getByTestId('card-failure-retry'));
+      await fireEvent.press(screen.getByTestId('card-failure-retry'));
+      expect(onRetry).toHaveBeenCalledTimes(2);
+    }
+  );
 
-  it('stands in for a screen with the primary button and the caller fallback for a failure not the engine', async () => {
-    const onRetry = jest.fn();
-    await render(
-      <ErrorState
-        error={new TypeError('Network request failed')}
-        fallbackKey="feed.failedToLoad"
-        onRetry={onRetry}
-      />
-    );
+  vaultIt(
+    'stands in for a screen with the primary button and the caller fallback for a failure not the engine',
+    async () => {
+      const onRetry = jest.fn();
+      await render(
+        <ErrorState
+          error={new TypeError('Network request failed')}
+          fallbackKey="feed.failedToLoad"
+          onRetry={onRetry}
+        />
+      );
 
-    expect(screen.getByText('emptyState.error.title')).toBeTruthy();
-    expect(screen.getByText('feed.failedToLoad')).toBeTruthy();
-    expect(screen.queryByText('Network request failed')).toBeNull();
-    expect(lastButtonProps()).toEqual(
-      expect.objectContaining({ label: 'common.retry', variant: 'primary' })
-    );
-    await fireEvent.press(screen.getByText('common.retry'));
-    expect(onRetry).toHaveBeenCalledTimes(1);
-  });
+      expect(screen.getByText('emptyState.error.title')).toBeTruthy();
+      expect(screen.getByText('feed.failedToLoad')).toBeTruthy();
+      expect(screen.queryByText('Network request failed')).toBeNull();
+      expect(lastButtonProps()).toEqual(
+        expect.objectContaining({ label: 'common.retry', variant: 'primary' })
+      );
+      await fireEvent.press(screen.getByText('common.retry'));
+      expect(onRetry).toHaveBeenCalledTimes(1);
+    }
+  );
 
-  it('reads a missing error as the generic line rather than as nothing', async () => {
+  vaultIt('reads a missing error as the generic line rather than as nothing', async () => {
     await render(<ErrorState error={undefined} onRetry={jest.fn()} />);
     expect(screen.getByText('emptyState.error.description')).toBeTruthy();
   });

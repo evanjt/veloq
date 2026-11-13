@@ -272,6 +272,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_seeded_index_evicts_by_modified_time_down_to_ninety_percent() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let dir = tmp.path();
@@ -294,6 +295,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_read_moves_a_tile_behind_the_rest_and_the_tile_served_is_never_evicted() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let dir = tmp.path();
@@ -311,6 +313,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_redraw_replaces_what_the_tile_held() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let mut index = DeepTileIndex::seed(tmp.path(), ZOOMS);
@@ -322,6 +325,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn under_the_budget_nothing_is_evicted() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let dir = tmp.path();

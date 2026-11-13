@@ -38,7 +38,7 @@ describe('turning route matching off keeps the catalogue', () => {
     expect(mockEngine.runClearDerived).not.toHaveBeenCalled();
   });
 
-  it('still tells the engine and refreshes the screens', async () => {
+  vaultIt('still tells the engine and refreshes the screens', async () => {
     await useRouteSettings.getState().setEnabled(false);
 
     expect(mockEngine.setSetting).toHaveBeenCalledWith('__detection_enabled', '0');

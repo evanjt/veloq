@@ -52,7 +52,7 @@ describe('awaitTilePass', () => {
     jest.useRealTimers();
   });
 
-  it('returns at once when no pass is running', async () => {
+  vaultIt('returns at once when no pass is running', async () => {
     const started = jest.fn();
 
     await awaitTilePass(started);
@@ -61,7 +61,7 @@ describe('awaitTilePass', () => {
     expect(progress).not.toHaveBeenCalled();
   });
 
-  it('reads nothing between the pass starting and the announcement', async () => {
+  vaultIt('reads nothing between the pass starting and the announcement', async () => {
     poll.mockReturnValue('running');
     progress.mockReturnValue([0, 200]);
 
@@ -89,7 +89,7 @@ describe('awaitTilePass', () => {
     expect(started).toHaveBeenCalledWith(3, 120);
   });
 
-  it('retires the finished pass with a single read', async () => {
+  vaultIt('retires the finished pass with a single read', async () => {
     poll.mockReturnValue('running');
     progress.mockReturnValue([0, 100]);
 
@@ -101,7 +101,7 @@ describe('awaitTilePass', () => {
     expect(poll).toHaveBeenCalledTimes(readsAtStart + 1);
   });
 
-  it.each([
+  vaultIt.each([
     [0, 3_000],
     [50, 2_000],
     [300, 3_000],
@@ -122,7 +122,7 @@ describe('awaitTilePass', () => {
     expect(settled).toHaveBeenCalled();
   });
 
-  it('leaves no listener or timer behind', async () => {
+  vaultIt('leaves no listener or timer behind', async () => {
     poll.mockReturnValue('running');
     progress.mockReturnValue([0, 10]);
 

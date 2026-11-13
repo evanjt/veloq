@@ -61,7 +61,7 @@ describe('the recording return pill', () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
   });
 
-  it.each([
+  vaultIt.each([
     ['light', false],
     ['dark', true],
   ] as const)(
@@ -89,7 +89,7 @@ describe('the recording return pill', () => {
     }
   );
 
-  it('is one button that reads the shared pill shape, shadow and dark edge', async () => {
+  vaultIt('is one button that reads the shared pill shape, shadow and dark edge', async () => {
     mockIsDark = true;
     const view = await render(<RecordingReturnPill />);
     const pill = view.getByTestId('recording-return-pill');
@@ -165,7 +165,7 @@ describe('the tour return pill', () => {
     expect(resumeTour).not.toHaveBeenCalled();
   });
 
-  it('closes the tour on a long press', async () => {
+  vaultIt('closes the tour on a long press', async () => {
     const view = await render(<TourReturnPill />);
 
     await fireEvent(view.getByTestId('tour-return-pill'), 'longPress');
@@ -173,7 +173,7 @@ describe('the tour return pill', () => {
     expect(resumeTour).not.toHaveBeenCalled();
   });
 
-  it('draws no buttons of its own', async () => {
+  vaultIt('draws no buttons of its own', async () => {
     const view = await render(<TourReturnPill />);
 
     expect(view.queryByText('whatsNew.closeTour')).toBeNull();
@@ -185,7 +185,7 @@ describe('the terrain notice', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  it('is a status pill that passes touches through and clears itself', async () => {
+  vaultIt('is a status pill that passes touches through and clears itself', async () => {
     const onDismiss = jest.fn();
     const view = await render(<TerrainUnavailableNotice onDismiss={onDismiss} />);
     const notice = view.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID);

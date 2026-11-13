@@ -40,7 +40,7 @@ describe('feed range paging', () => {
     }
   });
 
-  it('reads a single day as one page', () => {
+  vaultIt('reads a single day as one page', () => {
     const range = { oldest: '2024-02-29', newest: '2024-02-29' };
     expect(pagesOf(range)).toEqual([range]);
   });

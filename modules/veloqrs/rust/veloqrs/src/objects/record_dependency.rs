@@ -534,6 +534,7 @@ mod tests {
     /// Expected behaviour: nothing is stored and the call reports that, rather
     /// than failing the walk.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_store_record_dependency_declines_an_undated_activity() {
         let dir = tempfile::tempdir().unwrap();
         let mut engine =
@@ -884,6 +885,7 @@ mod uploaded_recording_tests {
     /// Expected behaviour: the record waits as unavailable and no request is
     /// spent learning that.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_restored_record_on_a_ride_the_server_cannot_name_spends_no_request() {
         let _serial = crate::test_globals::serial_global_state();
         let _dir = crate::test_globals::init_global_engine("never-uploaded.db");

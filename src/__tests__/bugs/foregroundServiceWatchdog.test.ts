@@ -146,7 +146,7 @@ describe('the tracking warning is re-decided, not latched', () => {
     expect(failed()).toBe(false);
   });
 
-  it('stops asking once the ride is over', async () => {
+  vaultIt('stops asking once the ride is over', async () => {
     mockLocationServiceRunning.mockResolvedValue(true);
     useRecordingStore.getState().startRecording('Ride', 'gps');
     await settle();
@@ -157,7 +157,7 @@ describe('the tracking warning is re-decided, not latched', () => {
     expect(mockLocationServiceRunning).not.toHaveBeenCalled();
   });
 
-  it('does not watch an indoor session, which has no location service at all', async () => {
+  vaultIt('does not watch an indoor session, which has no location service at all', async () => {
     mockLocationServiceRunning.mockResolvedValue(false);
     useRecordingStore.getState().startRecording('VirtualRide', 'indoor');
     await settle();

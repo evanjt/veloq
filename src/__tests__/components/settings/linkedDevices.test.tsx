@@ -194,7 +194,7 @@ describe('recent changes', () => {
     );
   });
 
-  it('lists each browser changes under its own row, newest first', async () => {
+  vaultIt('lists each browser changes under its own row, newest first', async () => {
     const tree = await render(<LinkedDevices />);
     const laptop = within(tree.getByTestId(`linked-device-writes-${LAPTOP.id}`));
 
@@ -206,7 +206,7 @@ describe('recent changes', () => {
     expect(laptop.queryByText('remoteLink.noChanges')).toBeNull();
   });
 
-  it('says there are no changes under a browser that has made none', async () => {
+  vaultIt('says there are no changes under a browser that has made none', async () => {
     const tree = await render(<LinkedDevices />);
     const tablet = within(tree.getByTestId(`linked-device-writes-${TABLET.id}`));
 

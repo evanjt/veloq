@@ -63,7 +63,7 @@ describe('what a period is', () => {
     expect(periodRangeDays('7d')).toBe(7);
   });
 
-  it.each(PICKERS)('$name draws every option from the one vocabulary', ({ options }) => {
+  vaultIt.each(PICKERS)('$name draws every option from the one vocabulary', ({ options }) => {
     expect(options.length).toBeGreaterThan(0);
     for (const option of options) {
       expect(Object.keys(PERIOD_LABEL_KEYS.short)).toContain(option.id);
@@ -72,7 +72,7 @@ describe('what a period is', () => {
   });
 
   // Every other locale is held to the reference one in translations.test.ts.
-  it('labels every period in the reference locale, short and long', () => {
+  vaultIt('labels every period in the reference locale, short and long', () => {
     const locale = JSON.parse(readFileSync(resolve(LOCALES, 'en-GB.json'), 'utf-8'));
     for (const form of ['short', 'long'] as const) {
       for (const key of Object.values(PERIOD_LABEL_KEYS[form])) {
@@ -83,7 +83,7 @@ describe('what a period is', () => {
     }
   });
 
-  it('builds options in the order asked and refuses nothing it knows', () => {
+  vaultIt('builds options in the order asked and refuses nothing it knows', () => {
     expect(periodOptions(['1y', '7d']).map((o) => o.id)).toEqual(['1y', '7d']);
     expect(periodOptions(['all'])[0].labelKey).toBe('period.short.all');
     expect(periodOptions([])).toEqual([]);
@@ -102,7 +102,7 @@ describe('what a period is', () => {
     );
   });
 
-  it('starts all before any library', () => {
+  vaultIt('starts all before any library', () => {
     expect(periodStart('all', new Date('2026-05-15T12:00:00Z')).getFullYear()).toBeLessThanOrEqual(
       2000
     );
@@ -120,19 +120,19 @@ describe('what a period is', () => {
  * first place, is `lint:picker-default-period`.
  */
 describe('what a picker opens on', () => {
-  it('is six months, and every picker that shares the default offers it', () => {
+  vaultIt('is six months, and every picker that shares the default offers it', () => {
     expect(DEFAULT_PERIOD).toBe('6m');
     for (const options of [TIME_RANGES, SECTION_TIME_RANGES, STRENGTH_PERIODS]) {
       expect(options.map((o) => o.id)).toContain(DEFAULT_PERIOD);
     }
   });
 
-  it('is one month on Fitness, which is offered by the Fitness range picker', () => {
+  vaultIt('is one month on Fitness, which is offered by the Fitness range picker', () => {
     expect(FITNESS_DEFAULT_PERIOD).toBe('1m');
     expect(TIME_RANGES.map((o) => o.id)).toContain(FITNESS_DEFAULT_PERIOD);
   });
 
-  it('is All on the map', () => {
+  vaultIt('is All on the map', () => {
     expect(DEFAULT_MAP_PERIOD).toBe('all');
     expect(MAP_PERIODS.map((o) => o.id)).toContain(DEFAULT_MAP_PERIOD);
   });

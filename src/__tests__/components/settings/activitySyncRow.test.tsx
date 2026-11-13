@@ -50,12 +50,12 @@ describe('ActivitySyncRow', () => {
     mockStatus = null;
   });
 
-  it('renders nothing before the engine has reported a status', async () => {
+  vaultIt('renders nothing before the engine has reported a status', async () => {
     const { queryByTestId } = await render(<ActivitySyncRow />);
     expect(queryByTestId('sync-stop-button')).toBeNull();
   });
 
-  it.each([SyncState.Idle, SyncState.Paused, SyncState.AuthExpired])(
+  vaultIt.each([SyncState.Idle, SyncState.Paused, SyncState.AuthExpired])(
     'renders nothing while the state is %s',
     async (state) => {
       mockStatus = { state, completed: 0, total: 0 };
@@ -64,7 +64,7 @@ describe('ActivitySyncRow', () => {
     }
   );
 
-  it('offers a stop control while the sync runs', async () => {
+  vaultIt('offers a stop control while the sync runs', async () => {
     mockStatus = { state: SyncState.Syncing, completed: 3, total: 8, step: SyncStep.Census };
     const { getByTestId } = await render(<ActivitySyncRow />);
     expect(getByTestId('sync-stop-button')).toBeTruthy();
@@ -73,7 +73,7 @@ describe('ActivitySyncRow', () => {
     );
   });
 
-  it('names the sync without a step before the engine reports one', async () => {
+  vaultIt('names the sync without a step before the engine reports one', async () => {
     mockStatus = { state: SyncState.Syncing, completed: 0, total: 0 };
     const { getByTestId } = await render(<ActivitySyncRow />);
     expect(getByTestId('sync-progress-label').props.children).toContain('settings.syncActivities');

@@ -9,7 +9,7 @@
  * band fill, a chart series the chart labels another way, which is 1.4.11's
  * exemption.
  *
- * The table is the rule. `textContrast.test.ts` reads it, measures every text
+ * The table is the rule. `textContrast.vault.test.ts` reads it, measures every text
  * and mark token against its grounds in the theme it lives in, and fails on an
  * unclassified token, so a token added tomorrow has to be put in a family
  * before it can land. A token that is under its bar today is in `UNDER_BAR`

@@ -94,7 +94,7 @@ describe('the sheet sparkline', () => {
     expect(efficiency.supportingData?.trend).toEqual({ direction: 'down', verdict: 'improved' });
   });
 
-  it('draws a move the generator judged flat on the neutral rung, with no arrow', async () => {
+  vaultIt('draws a move the generator judged flat on the neutral rung, with no arrow', async () => {
     const { glyphCount, line } = await drawn({
       history: history([100, 100.05, 100.1]),
       trend: { direction: 'flat', verdict: 'flat' },
@@ -104,7 +104,7 @@ describe('the sheet sparkline', () => {
     expect(glyphCount).toBe(0);
   });
 
-  it('draws a series that carries no verdict on the neutral rung, with no arrow', async () => {
+  vaultIt('draws a series that carries no verdict on the neutral rung, with no arrow', async () => {
     const { glyphCount, line } = await drawn({ history: history([10, 12, 15]) });
 
     expect(line).toBe(SERIES);
@@ -123,10 +123,13 @@ describe('the sheet sparkline', () => {
     );
   });
 
-  it('names the arrow with the verdict for a screen reader, not the direction it points', async () => {
-    const [efficiency] = generateEfficiencyTrendInsights([EFFICIENCY], 0, t);
-    const { glyph } = await drawn(efficiency.supportingData!);
+  vaultIt(
+    'names the arrow with the verdict for a screen reader, not the direction it points',
+    async () => {
+      const [efficiency] = generateEfficiencyTrendInsights([EFFICIENCY], 0, t);
+      const { glyph } = await drawn(efficiency.supportingData!);
 
-    expect(glyph?.accessibilityLabel).toBe('improved');
-  });
+      expect(glyph?.accessibilityLabel).toBe('improved');
+    }
+  );
 });

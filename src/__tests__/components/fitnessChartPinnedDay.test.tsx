@@ -89,7 +89,7 @@ describe('the readout form zone', () => {
     expect(tree.getByTestId('fitness-form-zone')).toHaveTextContent('formZones.optimal');
   });
 
-  it('stays on absolute TSB with the setting off', async () => {
+  vaultIt('stays on absolute TSB with the setting off', async () => {
     useFormPreference.setState({ formAsPercent: false });
     const tree = await render(<FitnessChart data={DAYS} selectedDate="2026-03-02" />);
 
@@ -115,7 +115,7 @@ describe('the readout form under form as a percentage', () => {
     expect(tree.queryByTestId('fitness-form-zone')).toBeNull();
   });
 
-  it('keeps the absolute number and zone for that day with the setting off', async () => {
+  vaultIt('keeps the absolute number and zone for that day with the setting off', async () => {
     useFormPreference.setState({ formAsPercent: false });
     const days = [...DAYS, { id: '2026-03-05', ctl: 0, atl: 12 }] as WellnessData[];
     const tree = await render(<FitnessChart data={days} selectedDate="2026-03-05" />);

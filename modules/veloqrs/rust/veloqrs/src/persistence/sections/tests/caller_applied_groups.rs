@@ -39,6 +39,7 @@ fn holds(groups: &[RouteGroup], member: &str) -> bool {
 /// second run regroups from the first one's catalogue and its write commits,
 /// rather than being refused as stale and leaving the second ride in no route.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_caller_applied_run_leaves_its_engine_on_the_groups_it_committed() {
     let _serial = serial_global_state();
     let dir = tempfile::TempDir::new().unwrap();

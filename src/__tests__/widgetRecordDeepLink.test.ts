@@ -41,7 +41,7 @@ describe('the deep link is composed once, in the snapshot', () => {
     );
   });
 
-  it('names the picker as the fallback, and only there', () => {
+  vaultIt('names the picker as the fallback, and only there', () => {
     expect(RECORD_PICKER_URL).toBe('veloq://record');
     expect(composeWidgetContext(raw()).recordShortcuts).toEqual([]);
   });
@@ -80,13 +80,13 @@ describe('the gather path reads the sports the recording preferences published',
     return handed();
   }
 
-  it('takes them in the order they were published', () => {
+  vaultIt('takes them in the order they were published', () => {
     expect(
       gatherWith(['Run', 'Ride']).recordShortcuts.map((s: { type: string }) => s.type)
     ).toEqual(['Run', 'Ride']);
   });
 
-  it('is empty before anything has been recorded, so the surfaces fall back', () => {
+  vaultIt('is empty before anything has been recorded, so the surfaces fall back', () => {
     expect(gatherWith([]).recordShortcuts).toEqual([]);
   });
 });
@@ -100,7 +100,7 @@ describe('the recording preferences publish the sports for the widget path', () 
     return require('@/features/recording/stores/RecordingPreferencesStore').useRecordingPreferences;
   }
 
-  it('publishes on every start, so the newest sport leads', () => {
+  vaultIt('publishes on every start, so the newest sport leads', () => {
     const { getRecentRecordingTypes } = require('@/shared/recording');
     store().getState().addRecentType('Ride');
     expect(getRecentRecordingTypes()).toEqual(['Ride']);
@@ -119,7 +119,7 @@ describe('the recording preferences publish the sports for the widget path', () 
     jest.dontMock('@/shared/storage');
   });
 
-  it('reads empty when nothing has been recorded', async () => {
+  vaultIt('reads empty when nothing has been recorded', async () => {
     jest.doMock('@/shared/storage', () => ({
       getSetting: jest.fn(async () => JSON.stringify({ recentActivityTypes: [] })),
       setSetting: jest.fn(async () => {}),

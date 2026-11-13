@@ -92,7 +92,7 @@ describe('wellness row height', () => {
     expect(canvasHeight()).toBe(ROWS.length * tallest);
   });
 
-  it('comes back down when the content shrinks, and never under the floor', async () => {
+  vaultIt('comes back down when the content shrinks, and never under the floor', async () => {
     await renderRows();
     await act(async () => {
       await layout('wellness-readings-hrv', 90);
@@ -138,7 +138,7 @@ function linesByRow() {
 describe('wellness row values column', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it.each([
+  vaultIt.each([
     ['1m', 7],
     ['7d', 'none'],
   ] as const)(

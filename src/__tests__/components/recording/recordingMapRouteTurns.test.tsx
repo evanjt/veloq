@@ -127,11 +127,14 @@ describe('the followed route turns on the map', () => {
     expect(turnSource().features).toEqual([]);
   });
 
-  it('draws the turns as circles from the followed line tone, with the next turn in the accent', async () => {
-    await render(<RecordingMap coordinates={[]} currentLocation={HERE} />);
+  vaultIt(
+    'draws the turns as circles from the followed line tone, with the next turn in the accent',
+    async () => {
+      await render(<RecordingMap coordinates={[]} currentLocation={HERE} />);
 
-    const layer = lastLayers.find((l) => l.source === 'route-turns');
-    expect(layer?.type).toBe('circle');
-    expect(JSON.stringify(layer?.paint)).toContain('"next"');
-  });
+      const layer = lastLayers.find((l) => l.source === 'route-turns');
+      expect(layer?.type).toBe('circle');
+      expect(JSON.stringify(layer?.paint)).toContain('"next"');
+    }
+  );
 });

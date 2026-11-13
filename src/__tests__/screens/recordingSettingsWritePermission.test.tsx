@@ -69,11 +69,14 @@ describe('recording settings write permission', () => {
     expect(view.getByTestId('settings-grant-access')).toBeTruthy();
   });
 
-  it('offers it with Auto-upload off too, since a manual upload needs the same scope', async () => {
-    useRecordingPreferences.setState({ autoUploadEnabled: false });
-    const view = await render(<RecordingUploadScreen />);
-    expect(view.getByTestId('settings-grant-access')).toBeTruthy();
-  });
+  vaultIt(
+    'offers it with Auto-upload off too, since a manual upload needs the same scope',
+    async () => {
+      useRecordingPreferences.setState({ autoUploadEnabled: false });
+      const view = await render(<RecordingUploadScreen />);
+      expect(view.getByTestId('settings-grant-access')).toBeTruthy();
+    }
+  );
 
   it('waits for permission hydration before offering it', async () => {
     useUploadPermissionStore.getState().reset();
@@ -84,14 +87,14 @@ describe('recording settings write permission', () => {
     expect(view.getByTestId('settings-grant-access')).toBeTruthy();
   });
 
-  it('says nothing once the write scope is confirmed', async () => {
+  vaultIt('says nothing once the write scope is confirmed', async () => {
     useUploadPermissionStore.setState({ hasWritePermission: true });
     const view = await render(<RecordingUploadScreen />);
     expect(view.queryByTestId('settings-grant-access')).toBeNull();
     expect(view.queryByText(/Write permission not granted/)).toBeNull();
   });
 
-  it.each(['apiKey', 'demo'] as const)('says nothing for a %s sign-in', async (authMethod) => {
+  vaultIt.each(['apiKey', 'demo'] as const)('says nothing for a %s sign-in', async (authMethod) => {
     useAuthStore.setState({ authMethod });
     const view = await render(<RecordingUploadScreen />);
     expect(view.queryByTestId('settings-grant-access')).toBeNull();

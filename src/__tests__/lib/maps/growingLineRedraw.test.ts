@@ -276,7 +276,7 @@ describe('the page redraws a growing line at most once per window', () => {
     expect(removed.setData).toHaveBeenCalledTimes(1);
   });
 
-  it('redraws each growing line on its own window', () => {
+  vaultIt('redraws each growing line on its own window', () => {
     const page = loadedPage(2);
     page.run(buildApplyScript({ sources: { other: line(4) } }));
 

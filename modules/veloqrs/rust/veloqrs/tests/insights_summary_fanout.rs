@@ -54,6 +54,7 @@ fn a_section_below_the_outing_floor_earns_no_pair() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_most_travelled_section_comes_first() {
     let summaries = vec![
         summary("quiet", &["Run"], 3, 4),
@@ -70,6 +71,7 @@ fn the_most_travelled_section_comes_first() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sport_nothing_travels_contributes_nothing() {
     let summaries = vec![summary("hill", &["Ride"], 4, 6)];
 
@@ -81,6 +83,7 @@ fn a_sport_nothing_travels_contributes_nothing() {
 /// The rewrite has to pair exactly what asking the database per sport paired,
 /// so the two are run against one populated library and compared.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_one_pass_pairing_matches_what_asking_per_sport_produced() {
     let tmp = tempfile::TempDir::new().expect("temp dir");
     let path = tmp.path().join("fanout.db");

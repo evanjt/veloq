@@ -51,6 +51,7 @@ mod tests {
     /// Each test names its own source, because the table is process-wide and
     /// the suite runs its tests on threads of one process.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_429_holds_the_source_until_the_hold_ends() {
         let at = Instant::now();
         remember("held-429", 429, at);
@@ -64,6 +65,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_503_crosses_as_itself() {
         let at = Instant::now();
         remember("held-503", 503, at);
@@ -72,6 +74,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_host_failing_in_any_other_way_is_asked_again() {
         let at = Instant::now();
         remember("failing", 500, at);
@@ -82,6 +85,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_hold_belongs_to_the_source_that_earned_it() {
         let at = Instant::now();
         remember("busy-host", 429, at);
@@ -90,6 +94,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_later_refusal_extends_the_hold() {
         let at = Instant::now();
         remember("extended", 429, at);

@@ -101,7 +101,7 @@ describe('the snapshot worker heartbeat', () => {
     expect(page.requested()).toBe(3);
   });
 
-  it('starts once, however many times the request asks', () => {
+  vaultIt('starts once, however many times the request asks', () => {
     const page = run(heartbeatScript());
     const heartbeat = page.window._heartbeat as { start: () => void };
     heartbeat.start();
@@ -160,7 +160,7 @@ describe('the snapshot worker heartbeat', () => {
 });
 
 describe('the worker page and the render script agree', () => {
-  it('the page carries the heartbeat and starts none of it at load', () => {
+  vaultIt('the page carries the heartbeat and starts none of it at load', () => {
     const html = buildSnapshotWorkerHtml(2);
     expect(html).toContain('window._heartbeat');
     expect(html).not.toContain('requestAnimationFrame(rafHeartbeat)');

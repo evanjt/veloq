@@ -126,7 +126,7 @@ describe('the exercise sets hook', () => {
   });
 
   /** Not a strength activity at all: the hook is disabled and claims nothing. */
-  it('says nothing for an activity that carries no FIT file', async () => {
+  vaultIt('says nothing for an activity that carries no FIT file', async () => {
     const { result } = await renderHook(() => useExerciseSets('act1', 'Ride'), { wrapper });
 
     await waitFor(() => expect(result.current.outcome).toBe('pending'));

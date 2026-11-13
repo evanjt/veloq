@@ -76,7 +76,7 @@ describe('activity detail retention', () => {
     expect(engine.getActivityRecord).toHaveBeenCalledTimes(readsAtOpen);
   });
 
-  it('lets a closed detail go and reads the engine again on reopen', async () => {
+  vaultIt('lets a closed detail go and reads the engine again on reopen', async () => {
     const view = await openDetail();
     const readsAtOpen = engine.getActivityRecord.mock.calls.length;
     await view.unmount();
@@ -87,7 +87,7 @@ describe('activity detail retention', () => {
     expect(engine.getActivityRecord.mock.calls.length).toBeGreaterThan(readsAtOpen);
   });
 
-  it('still has the body for a step to a neighbour and back', async () => {
+  vaultIt('still has the body for a step to a neighbour and back', async () => {
     const view = await openDetail();
     const readsAtOpen = engine.getActivityRecord.mock.calls.length;
     await view.unmount();
@@ -104,7 +104,7 @@ describe('activity detail retention', () => {
     ['streams', () => useActivityStreams('a1'), queryKeys.activities.streams('a1')],
   ];
 
-  it.each(detailQueries)(
+  vaultIt.each(detailQueries)(
     'holds the %s of a closed detail for minutes, not hours',
     async (_what, hook, key) => {
       const view = await renderHook(hook, { wrapper });

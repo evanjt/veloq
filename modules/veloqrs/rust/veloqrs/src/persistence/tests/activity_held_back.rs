@@ -61,6 +61,7 @@ fn store_page(engine: &mut PersistentEngine, bodies: &[(&str, i64, &str)]) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stub_is_marked_held_back_and_a_served_activity_is_not() {
     let engine = engine_with_page(&[("h1", 1_740_800_000, STUB), ("h2", 1_740_900_000, SERVED)]);
 
@@ -75,6 +76,7 @@ fn a_stub_is_marked_held_back_and_a_served_activity_is_not() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_stream_and_elevation_queues_leave_a_held_back_activity_out() {
     let engine = engine_with_page(&[("h1", 1_740_800_000, STUB), ("h2", 1_740_900_000, SERVED)]);
 
@@ -98,6 +100,7 @@ fn the_stream_and_elevation_queues_leave_a_held_back_activity_out() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_activity_screen_read_reports_the_mark() {
     let engine = engine_with_page(&[("h1", 1_740_800_000, STUB), ("h2", 1_740_900_000, SERVED)]);
 
@@ -114,6 +117,7 @@ fn the_activity_screen_read_reports_the_mark() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_later_full_body_clears_the_mark() {
     let mut engine = engine_with_page(&[("h1", 1_740_800_000, STUB)]);
     assert!(of(&engine.db, "h1").unwrap().is_some());
@@ -124,6 +128,7 @@ fn a_later_full_body_clears_the_mark() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_download_counts_the_stubs_not_held_before_and_a_repeat_counts_none() {
     let stub = |id: &str| {
         format!(
@@ -149,6 +154,7 @@ fn a_download_counts_the_stubs_not_held_before_and_a_repeat_counts_none() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_page_adds_to_the_count_until_the_next_download_begins() {
     let mut engine = PersistentEngine::in_memory().expect("in-memory engine");
     begin_download(&engine.db).unwrap();

@@ -113,14 +113,14 @@ afterEach(() => {
 });
 
 describe('a top banner reaches a screen reader', () => {
-  it.each(BANNERS)('%s is a %s live region', async (testID, politeness, banner, show) => {
+  vaultIt.each(BANNERS)('%s is a %s live region', async (testID, politeness, banner, show) => {
     show();
     await render(banner());
 
     expect(screen.getByTestId(testID).props.accessibilityLiveRegion).toBe(politeness);
   });
 
-  it.each(BANNERS)(
+  vaultIt.each(BANNERS)(
     '%s speaks once on iOS when it appears',
     async (testID, _politeness, banner, show) => {
       setOS('ios');
@@ -135,15 +135,18 @@ describe('a top banner reaches a screen reader', () => {
 });
 
 describe('a top banner pads the status bar by the reported inset', () => {
-  it.each(BANNERS)('%s adds no floor of its own on Android', async (testID, _p, banner, show) => {
-    setOS('android');
-    show();
-    await render(banner());
+  vaultIt.each(BANNERS)(
+    '%s adds no floor of its own on Android',
+    async (testID, _p, banner, show) => {
+      setOS('android');
+      show();
+      await render(banner());
 
-    expect(paddingTop(testID)).toBe(0);
-  });
+      expect(paddingTop(testID)).toBe(0);
+    }
+  );
 
-  it.each(BANNERS)(
+  vaultIt.each(BANNERS)(
     '%s pads by the inset when it is the topmost',
     async (testID, _p, banner, show) => {
       mockInsets.top = 44;
@@ -154,14 +157,14 @@ describe('a top banner pads the status bar by the reported inset', () => {
     }
   );
 
-  it('reads no inset on Android when the device reports none', async () => {
+  vaultIt('reads no inset on Android when the device reports none', async () => {
     setOS('android');
     const { result } = await renderHook(() => useBannerTopPadding('syncError'));
 
     expect(result.current).toBe(0);
   });
 
-  it('gives the inset to the banner in the slot and none to the one beneath it', async () => {
+  vaultIt('gives the inset to the banner in the slot and none to the one beneath it', async () => {
     mockInsets.top = 40;
     failingSync(SyncErrorReason.Network);
     useEngineStatus.setState({ initFailed: true, initFailureReason: null });
@@ -202,7 +205,7 @@ describe('a failing sync offers a way back', () => {
 });
 
 describe('the startup error closes like every other banner', () => {
-  it('dismisses through the shared close control', async () => {
+  vaultIt('dismisses through the shared close control', async () => {
     const onDismiss = jest.fn();
     await render(<StartupErrorBanner areas={['maps']} onRetry={() => {}} onDismiss={onDismiss} />);
 

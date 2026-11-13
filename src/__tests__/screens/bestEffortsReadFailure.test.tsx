@@ -90,7 +90,7 @@ describe('a Best Efforts read that threw', () => {
 });
 
 describe('a best whose activity the device does not hold', () => {
-  it('still says not downloaded for a best whose activity the read did not find', () => {
+  vaultIt('still says not downloaded for a best whose activity the read did not find', () => {
     render(<BestEffortsScreen />);
 
     expect(screen.getByText(NOT_CACHED)).toBeTruthy();

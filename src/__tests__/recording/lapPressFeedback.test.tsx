@@ -74,7 +74,7 @@ afterEach(() => {
 });
 
 describe('a lap press', () => {
-  it('shows and announces the lap with its time, then clears', async () => {
+  vaultIt('shows and announces the lap with its time, then clears', async () => {
     const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
     await render(<LiveScreen />);
 
@@ -102,7 +102,7 @@ describe('a lap press', () => {
     expect(screen.getByText('Lap 2 · 0:01')).toBeTruthy();
   });
 
-  it('shows over a standing GPS warning, which returns once the lap clears', async () => {
+  vaultIt('shows over a standing GPS warning, which returns once the lap clears', async () => {
     await render(<LiveScreen gpsWarning="Weak signal" />);
     expect(screen.getByText('Weak signal')).toBeTruthy();
 
@@ -114,7 +114,7 @@ describe('a lap press', () => {
     expect(screen.getByText('Weak signal')).toBeTruthy();
   });
 
-  it('does not announce laps already taken when the screen mounts', async () => {
+  vaultIt('does not announce laps already taken when the screen mounts', async () => {
     await advance(10_000);
     await act(() => useRecordingStore.getState().addLap());
     await render(<LiveScreen />);
@@ -122,7 +122,7 @@ describe('a lap press', () => {
     expect(screen.queryByText('Lap 1 · 0:10')).toBeNull();
   });
 
-  it('shows nothing for a press the store refuses, while paused', async () => {
+  vaultIt('shows nothing for a press the store refuses, while paused', async () => {
     await act(() => useRecordingStore.getState().pauseRecording());
     await render(<LiveScreen />);
     await act(() => useRecordingStore.getState().addLap());
@@ -149,7 +149,7 @@ describe('the bar haptics', () => {
     view.unmount();
   }
 
-  it.each([
+  vaultIt.each([
     ['recording', 'control-lap'],
     ['recording', 'control-pause'],
     ['paused', 'control-resume'],
@@ -163,7 +163,7 @@ describe('the bar haptics', () => {
     expect(haptics.success).not.toHaveBeenCalled();
   });
 
-  it('fires the success pattern for a manual save, which commits the entry', async () => {
+  vaultIt('fires the success pattern for a manual save, which commits the entry', async () => {
     jest.clearAllMocks();
     const view = await render(<ControlBar {...bar} mode="manual" status="idle" />);
     await fireEvent.press(view.getByTestId('control-save'));
@@ -172,7 +172,7 @@ describe('the bar haptics', () => {
     expect(haptics.selection).not.toHaveBeenCalled();
   });
 
-  it('fires nothing for Review, which only opens the next screen', async () => {
+  vaultIt('fires nothing for Review, which only opens the next screen', async () => {
     await press('stopped', 'control-review');
     expect(haptics.medium).not.toHaveBeenCalled();
     expect(haptics.selection).not.toHaveBeenCalled();

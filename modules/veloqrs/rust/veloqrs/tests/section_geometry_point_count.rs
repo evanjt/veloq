@@ -85,6 +85,7 @@ fn restore(path: &Path, version: i64) -> Option<Vec<GpsPoint>> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_recorded_version_carries_the_count_of_the_stream_it_was_cut_from() {
     let (_dir, path, _) = library();
     let conn = open(&path);
@@ -92,6 +93,7 @@ fn a_recorded_version_carries_the_count_of_the_stream_it_was_cut_from() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_consensus_version_carries_no_count() {
     let (_dir, path, _) = library();
     let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
@@ -127,6 +129,7 @@ fn a_version_whose_track_was_replaced_is_reported_unrestorable() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_version_with_no_stored_count_is_unverifiable() {
     let (_dir, path, version) = library();
     {
@@ -159,6 +162,7 @@ fn a_quantisation_only_rewrite_still_restores() {
 /// it keeps its blob and has no triple to check a count against. The stored
 /// line is the record and a track that moved underneath cannot reach it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_version_that_carries_its_own_line_needs_no_count() {
     let (_dir, path, _) = library();
     let averaged = track(12, 0.5);

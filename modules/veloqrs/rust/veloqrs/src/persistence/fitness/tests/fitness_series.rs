@@ -173,6 +173,7 @@ fn a_later_ride_rewrites_only_the_days_from_its_own() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_refresh_with_nothing_new_writes_nothing() {
     let (_dir, engine) = engine();
     ride(&engine, "src-a", "Ride", FIRST_DAY_AT, 100.0);
@@ -210,6 +211,7 @@ fn a_day_intervals_served_keeps_its_figures() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_day_holding_only_a_body_is_filled_in_and_keeps_the_body() {
     let (_dir, engine) = engine();
     ride(&engine, "src-a", "Ride", FIRST_DAY_AT, 100.0);
@@ -249,6 +251,7 @@ fn a_library_holding_anything_from_intervals_is_not_touched() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_with_no_load_writes_nothing() {
     let (_dir, engine) = engine();
 
@@ -277,6 +280,7 @@ fn the_time_constants_the_athlete_set_apply_from_their_date() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_wellness_days_read_carries_the_veloq_mark_on_a_computed_day_only() {
     let (_dir, engine) = engine();
     returned_to_garmin(&engine);

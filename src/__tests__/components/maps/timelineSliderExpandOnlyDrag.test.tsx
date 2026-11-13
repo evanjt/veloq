@@ -188,29 +188,32 @@ describe('TimelineSlider expandOnly start returns to the downloaded start', () =
     expect(lastStart(onRangeChange)).toBe(downloadedStart);
   });
 
-  it('draws the proposed span apart from the downloaded span only while a span is proposed', async () => {
-    const { view, onRangeChange, rerender } = await renderExpandOnly();
-    const proposed = () =>
-      StyleSheet.flatten(
-        view.getByTestId('timeline-slider-proposed-range', { includeHiddenElements: true }).props
-          .style
-      );
-    const downloaded = () =>
-      StyleSheet.flatten(
-        view.getByTestId('timeline-slider-downloaded-range', { includeHiddenElements: true }).props
-          .style
-      );
+  vaultIt(
+    'draws the proposed span apart from the downloaded span only while a span is proposed',
+    async () => {
+      const { view, onRangeChange, rerender } = await renderExpandOnly();
+      const proposed = () =>
+        StyleSheet.flatten(
+          view.getByTestId('timeline-slider-proposed-range', { includeHiddenElements: true }).props
+            .style
+        );
+      const downloaded = () =>
+        StyleSheet.flatten(
+          view.getByTestId('timeline-slider-downloaded-range', { includeHiddenElements: true })
+            .props.style
+        );
 
-    rerender();
-    expect(proposed().display).toBe('none');
-    expect(downloaded().backgroundColor).toBeDefined();
+      rerender();
+      expect(proposed().display).toBe('none');
+      expect(downloaded().backgroundColor).toBeDefined();
 
-    await dragStart(downloadedStart, may2025);
-    rerender();
-    expect(lastStart(onRangeChange)).toEqual(may2025);
-    expect(proposed().display).not.toBe('none');
-    expect(proposed().backgroundColor).not.toBe(downloaded().backgroundColor);
-  });
+      await dragStart(downloadedStart, may2025);
+      rerender();
+      expect(lastStart(onRangeChange)).toEqual(may2025);
+      expect(proposed().display).not.toBe('none');
+      expect(proposed().backgroundColor).not.toBe(downloaded().backgroundColor);
+    }
+  );
 
   it('refuses a tap right of the downloaded start, and a tap on it clears a proposal', async () => {
     const { onRangeChange } = await renderExpandOnly();

@@ -65,11 +65,11 @@ it('credits a date only when the insight is about a moment other than now', () =
   expect(specificityScore(rightNow)).toBe(any2);
 });
 
-it('scores an insight that names nothing at zero', () => {
+vaultIt('scores an insight that names nothing at zero', () => {
   expect(specificityScore(insight({ title: 'Keep going' }))).toBe(0);
 });
 
-it('reads the subtitle and the body, not the title alone', () => {
+vaultIt('reads the subtitle and the body, not the title alone', () => {
   const inSubtitle = insight({
     title: 'Sunday Climb getting faster',
     subtitle: '6 seconds off',

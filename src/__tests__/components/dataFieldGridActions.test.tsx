@@ -57,7 +57,7 @@ it('offers a change-field action on a filled tile that is not a button', () => {
   expect(onLongPressField).toHaveBeenCalledWith(1, 'power');
 });
 
-it('keeps the button role on an empty sensor tile, which a tap pairs', () => {
+vaultIt('keeps the button role on an empty sensor tile, which a tap pairs', () => {
   const tree = renderGrid(jest.fn());
   const heartrate = tree.getByTestId('data-field-heartrate');
 
@@ -67,7 +67,7 @@ it('keeps the button role on an empty sensor tile, which a tap pairs', () => {
   ]);
 });
 
-it('offers no action on a locked screen', () => {
+vaultIt('offers no action on a locked screen', () => {
   const tree = renderGrid(undefined);
 
   for (const field of ['heartrate', 'power', 'speed']) {

@@ -175,6 +175,7 @@ const THREE: [(&str, Option<i64>); 3] = [
 /// shown the shorter line after each of the three.
 /// Expected behaviour: the re-cut applies in that one ingest.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_change_the_earliest_ride_supports_applies_in_one_ingest() {
     let (identity, events, held) = bulk(&THREE, &["ride-c"]);
 
@@ -187,6 +188,7 @@ fn a_change_the_earliest_ride_supports_applies_in_one_ingest() {
 /// Expected behaviour: one sync per ride would have shown the change once, so
 /// it is pending after the ingest with one confirmation and the line is held.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_change_only_the_last_ride_supports_waits() {
     let (identity, events, held) = bulk(&THREE, &["ride-a"]);
 
@@ -198,6 +200,7 @@ fn a_change_only_the_last_ride_supports_waits() {
 /// counts the earlier one.
 /// Expected behaviour: two confirmations are not enough, so it waits.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_bulk_shorter_than_the_debounce_cannot_apply_a_change_alone() {
     let (identity, events, held) = bulk(&THREE[1..], &["ride-c"]);
 
@@ -209,6 +212,7 @@ fn a_bulk_shorter_than_the_debounce_cannot_apply_a_change_alone() {
 /// Expected behaviour: the registry and events are the same, since the
 /// confirmations follow the rides' dates and not the order they were stored.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn storage_order_does_not_reach_the_debounce() {
     let mut reversed = THREE;
     reversed.reverse();
@@ -224,6 +228,7 @@ fn storage_order_does_not_reach_the_debounce() {
 /// Expected behaviour: a ride with no date is ordered after every dated ride,
 /// so it is the last arrival and the change waits.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_undated_ride_counts_as_the_last_arrival() {
     let rides = [
         ("ride-a", Some(day(10))),
@@ -243,6 +248,7 @@ fn an_undated_ride_counts_as_the_last_arrival() {
 /// from the cut that took its ground, so it applies in the ingest, and the
 /// senior half's re-cut onto the whole line with it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_merge_the_earliest_ride_supports_applies_in_one_ingest() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("merge.db");
@@ -316,6 +322,7 @@ fn bulk_gone(on_line: &str) -> (SectionIdentity, Vec<SectionLifecycleEvent>, Str
 /// Expected behaviour: one sync per ride would have shown the corridor gone
 /// after each of the three, so it dissolves in the ingest.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn ground_the_earliest_ride_passed_and_no_cut_took_dissolves_in_one_ingest() {
     let (identity, events, held) = bulk_gone("ride-c");
 
@@ -332,6 +339,7 @@ fn ground_the_earliest_ride_passed_and_no_cut_took_dissolves_in_one_ingest() {
 /// Expected behaviour: the absence is confirmed once, so the corridor stays
 /// visible and pending.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn ground_only_the_last_ride_passed_waits() {
     let (identity, events, held) = bulk_gone("ride-a");
 

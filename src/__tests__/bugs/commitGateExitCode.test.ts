@@ -45,7 +45,7 @@ function runGates(gates: string[], shellFlags: string[] = []): { status: number;
 }
 
 describe('the commit gate runner', () => {
-  it('passes when every gate passes', () => {
+  vaultIt('passes when every gate passes', () => {
     const { status } = runGates(['first:true', 'second:true']);
 
     expect(status).toBe(0);
@@ -58,7 +58,7 @@ describe('the commit gate runner', () => {
     expect(output).toContain('bad');
   });
 
-  it('prints the failing gate output, which is the whole point of capturing it', () => {
+  vaultIt('prints the failing gate output, which is the whole point of capturing it', () => {
     const { output } = runGates(['bad:sh -c "echo the reason it failed; exit 3"']);
 
     expect(output).toContain('the reason it failed');
@@ -84,7 +84,7 @@ describe('the commit gate runner', () => {
     expect(output).toContain('killed');
   });
 
-  it('names a gate whose command carries a colon, as `npm run audit:guards` does', () => {
+  vaultIt('names a gate whose command carries a colon, as `npm run audit:guards` does', () => {
     const { status, output } = runGates(['audit:sh -c "echo ran audit:guards; exit 1"']);
 
     expect(status).toBe(1);

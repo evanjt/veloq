@@ -18,6 +18,7 @@ fn body() -> crate::FfiActivityBody {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_save_provisional_busy_writer_does_not_hold_engine_lock() {
     let _serial = serial_global_state();
     let dir = init_global_engine("provisional_busy.db");

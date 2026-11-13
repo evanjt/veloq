@@ -131,7 +131,7 @@ describe('the efficiency trend on the Insights list and the widget', () => {
     expect(shown[0].experimental).toBe(true);
   });
 
-  it('follows a flip of the switch between two reads', () => {
+  vaultIt('follows a flip of the switch between two reads', () => {
     useDebugStore.setState({
       experimentalFeatures: {
         efficiencyTrends: true,
@@ -145,7 +145,7 @@ describe('the efficiency trend on the Insights list and the widget', () => {
     expect(efficiencyInsights(computeInsightsFromData(bundle(), t, true).insights)).toEqual([]);
   });
 
-  it('draws the experimental label on the list card', async () => {
+  vaultIt('draws the experimental label on the list card', async () => {
     useDebugStore.setState({
       experimentalFeatures: {
         efficiencyTrends: true,
@@ -160,7 +160,7 @@ describe('the efficiency trend on the Insights list and the widget', () => {
     expect(screen.getByTestId('insight-experimental')).toBeTruthy();
   });
 
-  it('draws no experimental label on a card that is not experimental', async () => {
+  vaultIt('draws no experimental label on a card that is not experimental', async () => {
     useDebugStore.setState({
       experimentalFeatures: {
         efficiencyTrends: true,
@@ -184,7 +184,7 @@ describe('debug mode is not the experimental switch', () => {
     });
   });
 
-  it('yields no efficiency insight with debug on and the experimental switch off', () => {
+  vaultIt('yields no efficiency insight with debug on and the experimental switch off', () => {
     useDebugStore.setState({ enabled: true, unlocked: true });
     const { insights } = computeInsightsFromData(bundle(), t, true);
     expect(efficiencyInsights(insights)).toEqual([]);
@@ -268,7 +268,7 @@ describe('the experimental cards on the section and route pages', () => {
     expect(screen.queryByTestId('section-efficiency-card')).toBeNull();
   });
 
-  it('draws the card, labelled experimental, with the switch on', async () => {
+  vaultIt('draws the card, labelled experimental, with the switch on', async () => {
     useDebugStore.setState({
       experimentalFeatures: {
         efficiencyTrends: true,
@@ -290,7 +290,7 @@ describe('the experimental cards on the section and route pages', () => {
     }
   );
 
-  it.each(['section', 'route'] as const)(
+  vaultIt.each(['section', 'route'] as const)(
     'draws the wellness and speed card on the %s page, labelled experimental, with the switch on',
     async (subject) => {
       useDebugStore.setState({

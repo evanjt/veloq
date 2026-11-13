@@ -48,7 +48,7 @@ describe('preview area bounds', () => {
     expect(area.ne[1]).toBeCloseTo(BIN_NE[1], 9);
   });
 
-  it('falls back to one bin around the point when the key is unusable', () => {
+  vaultIt('falls back to one bin around the point when the key is unusable', () => {
     const area = previewAreaBounds({ binKey: 'not-a-bin', lat: 46.948, lng: 7.447 })!;
 
     expect(area.sw[0]).toBeCloseTo(7.447 - PREVIEW_BIN_DEG / 2, 9);
@@ -64,17 +64,17 @@ describe('preview area bounds', () => {
     expect(area.ne[1]).toBeCloseTo(-828 * PREVIEW_BIN_DEG, 9);
   });
 
-  it('is null without a centre', () => {
+  vaultIt('is null without a centre', () => {
     expect(previewAreaBounds(null)).toBeNull();
   });
 
-  it('is null for a centre that is not drawable', () => {
+  vaultIt('is null for a centre that is not drawable', () => {
     expect(previewAreaBounds({ binKey: null, lat: Number.NaN, lng: 7.447 })).toBeNull();
   });
 });
 
 describe('preview camera bounds', () => {
-  it('frames the selected area when the run returned nothing', () => {
+  vaultIt('frames the selected area when the run returned nothing', () => {
     const camera = previewCameraBounds(CENTRE, [])!;
 
     expect(camera.sw[0]).toBeCloseTo(BIN_SW[0], 9);
@@ -83,7 +83,7 @@ describe('preview camera bounds', () => {
     expect(camera.ne[1]).toBeCloseTo(BIN_NE[1], 9);
   });
 
-  it('tightens onto a single section inside the area', () => {
+  vaultIt('tightens onto a single section inside the area', () => {
     const camera = previewCameraBounds(CENTRE, [INSIDE])!;
 
     // 0.01° x 0.005° raw, padded by 15% of its own extent.
@@ -125,7 +125,7 @@ describe('preview camera bounds', () => {
     expect(camera.sw[1]).toBeGreaterThanOrEqual(BIN_SW[1]);
   });
 
-  it('holds a floor under the framed box when one point falls inside', () => {
+  vaultIt('holds a floor under the framed box when one point falls inside', () => {
     const camera = previewCameraBounds(CENTRE, [[[7.446, 46.947]]])!;
 
     expect(camera.ne[0] - camera.sw[0]).toBeCloseTo(PREVIEW_MIN_EXTENT_DEG, 9);
@@ -134,7 +134,7 @@ describe('preview camera bounds', () => {
     expect(within(camera.ne, BIN_SW, BIN_NE)).toBe(true);
   });
 
-  it('clamps the fractional padding to the area edge', () => {
+  vaultIt('clamps the fractional padding to the area edge', () => {
     const hugsTheEdge: LngLat[] = [
       [BIN_SW[0], BIN_SW[1]],
       [BIN_NE[0], BIN_NE[1]],
@@ -172,11 +172,11 @@ describe('preview camera bounds', () => {
     expect(camera.ne[0]).toBeCloseTo(7.4515, 9);
   });
 
-  it('is null without a centre, whatever the result holds', () => {
+  vaultIt('is null without a centre, whatever the result holds', () => {
     expect(previewCameraBounds(null, [INSIDE])).toBeNull();
   });
 
-  it('pads by a fraction of the framed extent, not a fixed degree count', () => {
+  vaultIt('pads by a fraction of the framed extent, not a fixed degree count', () => {
     expect(PREVIEW_AREA_BOUNDS_PADDING).toBeGreaterThan(0);
     expect(PREVIEW_AREA_BOUNDS_PADDING).toBeLessThan(1);
   });

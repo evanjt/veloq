@@ -37,30 +37,33 @@ jest.mock('@/features/stats/hooks/usePowerCurve', () => ({
 }));
 
 describe('the power curve per-kilogram toggle', () => {
-  it('offers the toggle and shows watts until it is pressed', async () => {
+  vaultIt('offers the toggle and shows watts until it is pressed', async () => {
     await render(<PowerCurveChart ftp={300} />);
 
     expect(screen.getByTestId('power-curve-watts')).toHaveTextContent('260 W');
     expect(screen.getByTestId('power-curve-unit-per-kg')).toBeTruthy();
   });
 
-  it('draws the pair as selectable buttons that each reach the tap-target minimum', async () => {
-    await render(<PowerCurveChart ftp={300} />);
+  vaultIt(
+    'draws the pair as selectable buttons that each reach the tap-target minimum',
+    async () => {
+      await render(<PowerCurveChart ftp={300} />);
 
-    for (const [testID, selected] of [
-      ['power-curve-unit-watts', true],
-      ['power-curve-unit-per-kg', false],
-    ] as const) {
-      const pill = screen.getByTestId(testID);
-      const flat = Object.assign({}, ...[pill.props.style].flat(Infinity).filter(Boolean));
-      const slop = pill.props.hitSlop ?? {};
-      expect(pill.props.accessibilityRole).toBe('button');
-      expect(pill.props.accessibilityState).toMatchObject({ selected });
-      expect(
-        Number(flat.minHeight ?? 0) + (slop.top ?? 0) + (slop.bottom ?? 0)
-      ).toBeGreaterThanOrEqual(layout.minTapTarget);
+      for (const [testID, selected] of [
+        ['power-curve-unit-watts', true],
+        ['power-curve-unit-per-kg', false],
+      ] as const) {
+        const pill = screen.getByTestId(testID);
+        const flat = Object.assign({}, ...[pill.props.style].flat(Infinity).filter(Boolean));
+        const slop = pill.props.hitSlop ?? {};
+        expect(pill.props.accessibilityRole).toBe('button');
+        expect(pill.props.accessibilityState).toMatchObject({ selected });
+        expect(
+          Number(flat.minHeight ?? 0) + (slop.top ?? 0) + (slop.bottom ?? 0)
+        ).toBeGreaterThanOrEqual(layout.minTapTarget);
+      }
     }
-  });
+  );
 
   it('switches the value, the axis and the FTP line to watts per kilogram', async () => {
     const tree = await render(<PowerCurveChart ftp={300} />);
@@ -77,7 +80,7 @@ describe('the power curve per-kilogram toggle', () => {
     );
   });
 
-  it('switches back to watts', async () => {
+  vaultIt('switches back to watts', async () => {
     const tree = await render(<PowerCurveChart ftp={300} />);
     await layoutViews(tree, 300, 200);
 
@@ -96,7 +99,7 @@ describe('the power curve per-kilogram toggle', () => {
     expect(screen.getByTestId('power-curve-watts')).toHaveTextContent('260 W');
   });
 
-  it('offers no toggle for a per-kilogram series that is all zero', async () => {
+  vaultIt('offers no toggle for a per-kilogram series that is all zero', async () => {
     mockCurve.current = { ...mockCurve.current, watts_per_kg: [0, 0, 0, 0, 0], weight: 80 };
     await render(<PowerCurveChart ftp={300} />);
 

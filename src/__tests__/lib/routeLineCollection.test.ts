@@ -127,11 +127,11 @@ describe('the routes source', () => {
     expect(routeLinesSourceData(layer(8))).not.toBe(routeLinesSourceData(layer(7)));
   });
 
-  it('is the empty collection with no current layer', () => {
+  vaultIt('is the empty collection with no current layer', () => {
     expect(routeLinesSourceData(undefined)).toEqual(EMPTY);
   });
 
-  it('turns the layer on without decoding a polyline and with a small patch', () => {
+  vaultIt('turns the layer on without decoding a polyline and with a small patch', () => {
     const stringify = jest.spyOn(JSON, 'stringify');
     const patcher = createSurfacePatcher();
     patcher.next({ sources: sources(routeLinesSourceData(undefined)), layers: layers() });
@@ -154,7 +154,7 @@ describe('the routes source', () => {
 });
 
 describe('the route line colour', () => {
-  it('reduces the engine palette key into the theme route palette', () => {
+  vaultIt('reduces the engine palette key into the theme route palette', () => {
     const line = layers().find((l) => l.id === ROUTES_LINE_LAYER_ID);
     const expression = line?.paint?.['line-color'];
 
@@ -164,7 +164,7 @@ describe('the route line colour', () => {
     });
   });
 
-  it('draws a route in the colour its id has always given it', () => {
+  vaultIt('draws a route in the colour its id has always given it', () => {
     // The engine writes these keys for these ids; the colours are the ones the route
     // lines were drawn in when the page hashed the id itself.
     const expression = routePaletteExpression();

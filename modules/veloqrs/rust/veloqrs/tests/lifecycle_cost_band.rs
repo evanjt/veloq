@@ -37,6 +37,7 @@ const BAND: Band = Band {
 const DETECT_THREADS: usize = 1;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn each_lifecycle_step_stays_inside_its_band() {
     rayon::ThreadPoolBuilder::new()
         .num_threads(DETECT_THREADS)

@@ -63,7 +63,7 @@ describe('clearAllGpsTracks', () => {
     expect(mockFileStore.has('/mock/docs/gps_tracks/act1.json')).toBe(false);
   });
 
-  it('does not throw when directory does not exist', async () => {
+  vaultIt('does not throw when directory does not exist', async () => {
     await expect(clearAllGpsTracks()).resolves.not.toThrow();
   });
 });
@@ -77,7 +77,7 @@ describe('deleteGpsTracks', () => {
     expect(mockFileStore.has('/mock/docs/gps_tracks/act2.json')).toBe(true);
   });
 
-  it('handles empty array', async () => {
+  vaultIt('handles empty array', async () => {
     await expect(deleteGpsTracks([])).resolves.not.toThrow();
   });
 });
@@ -90,7 +90,7 @@ describe('clearBoundsCache', () => {
     expect(mockFileStore.has('/mock/docs/bounds_cache/bounds.json')).toBe(false);
   });
 
-  it('does not throw when the file is absent', async () => {
+  vaultIt('does not throw when the file is absent', async () => {
     await expect(clearBoundsCache()).resolves.not.toThrow();
   });
 });

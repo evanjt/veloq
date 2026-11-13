@@ -29,34 +29,34 @@ const referenceLeaves = leaves(reference);
 const pseudoLeaves = new Map(leaves(pseudo));
 
 describe('pseudoLocalise', () => {
-  it('keeps interpolation tokens, nesting calls and component tags byte for byte', () => {
+  vaultIt('keeps interpolation tokens, nesting calls and component tags byte for byte', () => {
     const source = 'Hello {{athleteName}}, $t(common.save) <bold>now</bold> <0/>';
     const out = pseudoLocalise(source);
     expect(out.match(TOKEN)).toEqual(source.match(TOKEN));
   });
 
-  it('accents every letter outside a token and brackets both ends', () => {
+  vaultIt('accents every letter outside a token and brackets both ends', () => {
     const out = pseudoLocalise('Save {{count}} rides');
     expect(out.startsWith('[')).toBe(true);
     expect(out.endsWith(']')).toBe(true);
     expect(out.replace(TOKEN, '')).not.toMatch(/[A-Za-z]/);
   });
 
-  it('lengthens a single character string', () => {
+  vaultIt('lengthens a single character string', () => {
     expect(pseudoLocalise('W').length).toBeGreaterThanOrEqual(Math.ceil(1 * 1.3));
   });
 
-  it('leaves an empty string empty', () => {
+  vaultIt('leaves an empty string empty', () => {
     expect(pseudoLocalise('')).toBe('');
   });
 });
 
 describe('pseudoResource over the reference table', () => {
-  it('keeps every key and no more', () => {
+  vaultIt('keeps every key and no more', () => {
     expect([...pseudoLeaves.keys()]).toEqual(referenceLeaves.map(([key]) => key));
   });
 
-  it('keeps every token of every string and lengthens each by at least 30 per cent', () => {
+  vaultIt('keeps every token of every string and lengthens each by at least 30 per cent', () => {
     const offenders = referenceLeaves
       .filter(([, text]) => text.length > 0)
       .filter(([key, text]) => {
@@ -69,7 +69,7 @@ describe('pseudoResource over the reference table', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('does not alter the reference table it was built from', () => {
+  vaultIt('does not alter the reference table it was built from', () => {
     expect(leaves(loadLocale('en-GB'))).toEqual(referenceLeaves);
   });
 });
@@ -84,7 +84,7 @@ describe('pseudo-locale registration', () => {
     expect(registeredLocales(false)).toEqual([...SUPPORTED_LOCALES]);
   });
 
-  it('is registered in a development build alongside every supported locale', () => {
+  vaultIt('is registered in a development build alongside every supported locale', () => {
     expect(registeredLocales(true)).toEqual([...SUPPORTED_LOCALES, PSEUDO_LOCALE]);
   });
 });

@@ -30,7 +30,7 @@ function client(centres: PreviewCentre[], getPreviewCentres = jest.fn(() => cent
 }
 
 describe('usePreviewCentres', () => {
-  it('letters each area', async () => {
+  vaultIt('letters each area', async () => {
     const { client: c } = client([centre({})]);
 
     const { result } = await renderHook(() => usePreviewCentres(c));
@@ -38,7 +38,7 @@ describe('usePreviewCentres', () => {
     expect(result.current.labels[0].fallbackLetter).toBe('A');
   });
 
-  it('reads the centres once per mount and not on every render', async () => {
+  vaultIt('reads the centres once per mount and not on every render', async () => {
     const { client: c, getPreviewCentres } = client([centre({})]);
 
     const { rerender } = await renderHook(() => usePreviewCentres(c));
@@ -70,7 +70,7 @@ describe('usePreviewCentres', () => {
     expect(result.current.labels).toEqual([]);
   });
 
-  it('carries no error when the read succeeds', async () => {
+  vaultIt('carries no error when the read succeeds', async () => {
     const { client: c } = client([centre({})]);
 
     const { result } = await renderHook(() => usePreviewCentres(c));

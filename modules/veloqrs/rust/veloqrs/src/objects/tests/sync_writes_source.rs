@@ -26,6 +26,7 @@ fn indoor_entry() -> ManualActivityBody {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_manual_entry_reaches_the_source_create_with_its_body_unchanged() {
     let source = RecordingSource::new();
     let activity = indoor_entry();
@@ -93,6 +94,7 @@ fn an_upload_reaches_the_source_with_its_file_and_details() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_landed_lookup_hands_the_listed_window_to_the_matcher() {
     let mut source = RecordingSource::new();
     source.listed = vec![
@@ -131,6 +133,7 @@ fn a_landed_lookup_hands_the_listed_window_to_the_matcher() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_effort_names_the_activity_and_answers_its_id() {
     let source = RecordingSource::new();
 

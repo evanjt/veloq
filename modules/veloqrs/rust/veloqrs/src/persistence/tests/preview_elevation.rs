@@ -50,6 +50,7 @@ fn decoded(track: &crate::FfiPreviewTrack) -> Vec<GpsPoint> {
 /// Expected behaviour: its preview line carries an elevation at every vertex,
 /// the one the track holds there.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stored_activity_with_elevation_previews_with_elevation() {
     let dir = TempDir::new().unwrap();
     let engine = library(&dir, track(true));
@@ -70,6 +71,7 @@ fn a_stored_activity_with_elevation_previews_with_elevation() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stored_activity_without_elevation_previews_without_it() {
     let dir = TempDir::new().unwrap();
     let engine = library(&dir, track(false));
@@ -87,6 +89,7 @@ fn a_stored_activity_without_elevation_previews_without_it() {
 /// elevation, the vertices where they were, and the next read rebuilds
 /// nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_signature_row_without_elevation_is_refilled_once() {
     let dir = TempDir::new().unwrap();
     let mut engine = library(&dir, track(true));
@@ -123,6 +126,7 @@ fn a_signature_row_without_elevation_is_refilled_once() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_bare_signature_over_a_track_without_elevation_is_left_alone() {
     let dir = TempDir::new().unwrap();
     let engine = library(&dir, track(false));
@@ -134,6 +138,7 @@ fn a_bare_signature_over_a_track_without_elevation_is_left_alone() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_bare_signature_with_no_stored_track_is_left_alone() {
     let dir = TempDir::new().unwrap();
     let engine = library(&dir, track(true));

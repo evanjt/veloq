@@ -119,7 +119,7 @@ describe('the Android widget sources in the build tree', () => {
     expect(manifest).toContain('.MainActivity');
   });
 
-  it('refuses a tree missing a widget file that is only tracked', () => {
+  vaultIt('refuses a tree missing a widget file that is only tracked', () => {
     const { root } = tree();
     run(syncScript, root);
     write(path.join(root, 'widget/android/java/NewWidget.kt'), 'package __PKG__.widget\n');
@@ -130,7 +130,7 @@ describe('the Android widget sources in the build tree', () => {
     expect(result.stderr).toContain('NewWidget.kt');
   });
 
-  it('refuses a manifest that lacks a widget entry', () => {
+  vaultIt('refuses a manifest that lacks a widget entry', () => {
     const { root, main } = tree();
     run(syncScript, root);
     write(path.join(main, 'AndroidManifest.xml'), MANIFEST);
@@ -154,7 +154,7 @@ describe('the Android widget sources in the build tree', () => {
     expect(fs.statSync(path.join(built, 'SampleProvider.kt')).mtimeMs).toBe(before);
   });
 
-  it('skips the widget comparison when there is no Android tree to build', () => {
+  vaultIt('skips the widget comparison when there is no Android tree to build', () => {
     const { root } = tree();
     fs.rmSync(path.join(root, 'android'), { recursive: true });
 
@@ -163,7 +163,7 @@ describe('the Android widget sources in the build tree', () => {
     expect(result.status).toBe(0);
   });
 
-  it('is run by every recipe that builds the app, inside the build lock', () => {
+  vaultIt('is run by every recipe that builds the app, inside the build lock', () => {
     const scripts = (
       JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')) as {
         scripts: Record<string, string>;

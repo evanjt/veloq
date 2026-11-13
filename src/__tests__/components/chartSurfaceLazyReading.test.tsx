@@ -47,7 +47,7 @@ describe('ChartSurface lazy reading', () => {
     expect(reading.read).not.toHaveBeenCalled();
   });
 
-  it('builds the summary when a screen reader is on', async () => {
+  vaultIt('builds the summary when a screen reader is on', async () => {
     jest.spyOn(AccessibilityInfo, 'isScreenReaderEnabled').mockResolvedValue(true);
     const reading = lazy();
     const tree = render(

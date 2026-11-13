@@ -126,7 +126,7 @@ describe('the tile budget row', () => {
     await waitFor(() => expect(onBudgetApplied).toHaveBeenCalledTimes(1));
   });
 
-  it('says what raising the limit buys', async () => {
+  vaultIt('says what raising the limit buys', async () => {
     const view = await renderPanel();
 
     expect(view.getByTestId('settings-tile-cache-subtitle').props.children).toBe(
@@ -134,7 +134,7 @@ describe('the tile budget row', () => {
     );
   });
 
-  it('draws what the store holds against the budget, with free space beside it', async () => {
+  vaultIt('draws what the store holds against the budget, with free space beside it', async () => {
     const view = await renderPanel();
     const used = view.getByTestId('settings-tile-cache-used');
 
@@ -143,7 +143,7 @@ describe('the tile budget row', () => {
     expect(view.getByTestId('settings-tile-cache-free')).toBeTruthy();
   });
 
-  it('does not claim a usage figure while a store has not answered', async () => {
+  vaultIt('does not claim a usage figure while a store has not answered', async () => {
     const view = await render(<StorageStatsPanel {...baseProps} basemapTiles={null} />);
 
     expect(view.getByTestId('settings-tile-cache-used').props.children).toBe(
@@ -157,7 +157,7 @@ describe('what a screen reader hears in the storage stats', () => {
     mockBudget.mb = 50;
   });
 
-  it('speaks the tile limit by name with the size it draws, and never the chevron', () => {
+  vaultIt('speaks the tile limit by name with the size it draws, and never the chevron', () => {
     const view = renderPanel();
 
     const label: string = view.getByTestId('settings-tile-cache-limit').props.accessibilityLabel;
@@ -165,7 +165,7 @@ describe('what a screen reader hears in the storage stats', () => {
     expect(label).not.toContain('›');
   });
 
-  it('speaks each count beside its name', () => {
+  vaultIt('speaks each count beside its name', () => {
     const view = renderPanel();
 
     expect(view.getByRole('button', { name: 'settings.activities, 10' })).toBeTruthy();
@@ -173,14 +173,14 @@ describe('what a screen reader hears in the storage stats', () => {
     expect(view.getByRole('button', { name: 'settings.sectionsCount, 3' })).toBeTruthy();
   });
 
-  it('speaks a zero count, which is a reading', () => {
+  vaultIt('speaks a zero count, which is a reading', () => {
     const view = render(<StorageStatsPanel {...baseProps} totalActivities={0} totalSections={0} />);
 
     expect(view.getByRole('button', { name: 'settings.activities, 0' })).toBeTruthy();
     expect(view.getByRole('button', { name: 'settings.sectionsCount, 0' })).toBeTruthy();
   });
 
-  it('speaks no dash for route and section counts while matching is off', () => {
+  vaultIt('speaks no dash for route and section counts while matching is off', () => {
     const view = render(<StorageStatsPanel {...baseProps} routeMatchingEnabled={false} />);
 
     expect(view.getByRole('button', { name: 'settings.routesCount' })).toBeTruthy();

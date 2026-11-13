@@ -149,6 +149,7 @@ fn each_outgoing_section_becomes_an_archived_ledger_state() {
 /// Expected behaviour: the archived state still draws its line, so it can be
 /// pinned or rolled back to after the cutover is long done.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn promotion_keeps_the_archived_state_drawable() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(&dir, "promote.db");
@@ -168,6 +169,7 @@ fn promotion_keeps_the_archived_state_drawable() {
 /// Expected behaviour: the promotion removes the copy, so it does not wait for
 /// the next launch.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn promotion_releases_the_copy_the_upgrade_held_for_it() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(&dir, "promote_copy.db");
@@ -188,6 +190,7 @@ fn promotion_releases_the_copy_the_upgrade_held_for_it() {
 /// Expected behaviour: each retry reuses the states the first run wrote, and
 /// the diff still sees the section leave.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_retried_archive_reuses_its_states() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(&dir, "retry.db");
@@ -220,6 +223,7 @@ fn a_retried_archive_reuses_its_states() {
 /// ride is absent, and once the ride arrives and re-slices to it the range is
 /// the truth and the copy goes.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_archived_state_whose_ride_is_missing_keeps_its_line_until_the_ride_arrives() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "missing.db");
@@ -248,6 +252,7 @@ fn an_archived_state_whose_ride_is_missing_keeps_its_line_until_the_ride_arrives
 /// range does not slice to the state's line.
 /// Expected behaviour: the state stays on its own line.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_over_other_ground_leaves_the_state_on_its_own_line() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "elsewhere.db");
@@ -317,6 +322,7 @@ fn an_archived_state_survives_later_states_and_rolls_back() {
 /// Expected behaviour: the archived state lands on the local section by
 /// ground, draws its line from the ride, and can be pinned and rolled back to.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_archived_state_travels_in_the_record_and_lands_by_ground() {
     let dir = TempDir::new().expect("tempdir");
     let old = library(&dir, "old.db");
@@ -347,6 +353,7 @@ fn an_archived_state_travels_in_the_record_and_lands_by_ground() {
 /// range as provenance without claiming the range draws it, so nothing reads
 /// the line as a droppable cache of a slice it cannot rebuild.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn rolling_back_to_a_state_whose_ride_is_absent_keeps_its_line() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "absent-rollback.db");
@@ -387,6 +394,7 @@ fn rolling_back_to_a_state_whose_ride_is_absent_keeps_its_line() {
 /// Expected behaviour: the carried row is bookkeeping, so the section is still
 /// listed as retired by the event that retired it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_carried_archive_row_leaves_a_retired_section_listed() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(&dir, "retired.db");
@@ -444,6 +452,7 @@ fn retire(engine: &PersistentEngine, section_id: &str) {
 /// line and range, user-owned so a detect keeps it, pinned at that state, and
 /// the ledger says it was restored.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn rolling_back_a_retired_section_recreates_it_on_the_archived_line() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "retired-rollback.db");
@@ -513,6 +522,7 @@ fn rolling_back_a_retired_section_recreates_it_on_the_archived_line() {
 /// state's version, one the detector dissolved afterwards with no archived
 /// state reports none, and neither fails a roll back by the reported version.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_retired_section_reports_the_version_it_can_be_restored_from() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "restorable.db");
@@ -538,6 +548,7 @@ fn a_retired_section_reports_the_version_it_can_be_restored_from() {
 /// Scenario: a roll back names a section with no row and no such version.
 /// Expected behaviour: it fails and creates nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn rolling_back_an_unknown_section_creates_nothing() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "unknown.db");
@@ -617,6 +628,7 @@ fn salvaging_a_file_with_an_older_archive_keeps_its_archived_states() {
 /// Expected behaviour: the archive waits its turn and archives, rather than
 /// failing on a snapshot the regroup's commit made stale.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_archive_waits_out_a_writer_that_commits_under_it() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(&dir, "archive.db");
@@ -771,6 +783,7 @@ fn a_census_removal_of_a_retired_sections_reference_ride_leaves_it_restorable() 
 /// Expected behaviour: the restored state is held until the ride syncs, then
 /// draws its line and rolls back.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_retired_state_restored_before_its_ground_arrives_becomes_restorable() {
     let dir = TempDir::new().expect("tempdir");
     let old = library(&dir, "old.db");
@@ -869,6 +882,7 @@ fn a_restore_supersedes_the_auto_section_on_its_ground() {
 /// on another corridor. Expected behaviour: nothing is superseded and the
 /// ledger holds no `superseded` event.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_restore_leaves_an_auto_section_on_another_corridor_alone() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "restore-other-corridor.db");
@@ -928,6 +942,7 @@ fn retired_entry(
 /// behind it with the `superseded` pair on both ids, and asking again writes
 /// nothing more.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn preferring_the_restored_section_hides_the_auto_section_behind_it() {
     let dir = TempDir::new().expect("tempdir");
     let (mut engine, _) = restored_beside_a_recut(&dir, "prefer-custom.db");
@@ -969,6 +984,7 @@ fn preferring_the_restored_section_hides_the_auto_section_behind_it() {
 /// archived states and its junction rows' owner gone; the auto section shows
 /// and is no longer hidden. A second ask changes nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn preferring_the_auto_section_retires_the_restored_one_into_it() {
     let dir = TempDir::new().expect("tempdir");
     let (mut engine, version) = restored_beside_a_recut(&dir, "prefer-auto.db");
@@ -1010,6 +1026,7 @@ fn preferring_the_auto_section_retires_the_restored_one_into_it() {
 /// Expected behaviour: the restore hides the auto section behind it again,
 /// so the two preferences can be swapped for good.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_retired_by_preferring_the_other_can_be_restored_and_preferred_again() {
     let dir = TempDir::new().expect("tempdir");
     let (mut engine, version) = restored_beside_a_recut(&dir, "prefer-round-trip.db");
@@ -1059,6 +1076,7 @@ fn deleting_a_restored_section_leaves_it_restorable_into_the_auto_section_it_rep
 /// Expected behaviour: the section is on the retired list as dissolved, with no
 /// link, and restorable from its archived state.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn deleting_a_restored_section_with_no_ground_left_dissolves_it_restorable() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "delete-restored-alone.db");
@@ -1085,6 +1103,7 @@ fn deleting_a_restored_section_with_no_ground_left_dissolves_it_restorable() {
 /// Scenario: two sections on different corridors are offered as a pair.
 /// Expected behaviour: the write is refused and nothing changes.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn preferring_one_of_two_sections_on_different_corridors_is_refused() {
     let dir = TempDir::new().expect("tempdir");
     let (mut engine, _) = restored_beside_a_recut(&dir, "prefer-refused.db");
@@ -1103,6 +1122,7 @@ fn preferring_one_of_two_sections_on_different_corridors_is_refused() {
 /// Scenario: a section is preferred over itself, or over one that is not there.
 /// Expected behaviour: both are refused.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn preferring_a_section_over_itself_or_an_absent_one_is_refused() {
     let dir = TempDir::new().expect("tempdir");
     let (mut engine, _) = restored_beside_a_recut(&dir, "prefer-absent.db");
@@ -1136,6 +1156,7 @@ fn map_pair(engine: &PersistentEngine, a: &str, b: &str) -> bool {
 /// section behind it, the pair stays on the map, and preferring the auto
 /// section puts the retired one back on the retired list.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn preferring_a_pair_of_the_retired_map_acts_on_both_sides() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "prefer-map-pair.db");
@@ -1167,6 +1188,7 @@ fn preferring_a_pair_of_the_retired_map_acts_on_both_sides() {
 /// Expected behaviour: nothing is written and the call succeeds, since the
 /// retired section is already out of the catalogue.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn preferring_the_current_section_over_a_retired_one_writes_nothing() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "prefer-over-retired.db");

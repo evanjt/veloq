@@ -555,6 +555,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_429_stops_the_pass_asking_that_host_and_holds_it() {
         let plan = planned("seed-busy-429", 5);
 
@@ -571,6 +572,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_503_stops_the_pass_asking_that_host_and_holds_it() {
         let plan = planned("seed-busy-503", 5);
 
@@ -584,6 +586,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refusal_mid_pass_leaves_the_tiles_already_taken() {
         let plan = planned("seed-busy-later", 5);
 
@@ -602,6 +605,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_held_host_is_not_asked_at_all() {
         throttle::remember("seed-already-held", 429, Instant::now());
         let plan = planned("seed-already-held", 3);
@@ -613,6 +617,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refused_host_leaves_the_other_sources_asked() {
         let mut plan = planned("seed-refusing", 3);
         plan.extend(planned("seed-answering", 3));
@@ -632,6 +637,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_host_failing_otherwise_is_asked_for_the_next_tile() {
         let plan = planned("seed-flaky", 3);
 
@@ -645,6 +651,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn ground_already_refused_is_not_asked_for_and_a_404_is_remembered() {
         notfound::remember_refused("seed-border", 5, 1, 0);
         let plan = planned("seed-border", 3);
@@ -668,6 +675,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_source_takes_only_its_own_zooms() {
         let bounds = Bounds {
             min_lat: 46.5,
@@ -691,11 +699,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn no_bounds_at_all_plans_nothing() {
         assert!(plan_preseed(&[], &[source("ground", GROUND_ZOOMS)]).is_empty());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn no_sources_at_all_plans_nothing() {
         let bounds = Bounds {
             min_lat: 46.5,

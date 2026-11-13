@@ -313,7 +313,7 @@ describe('the gates', () => {
       encoding: 'utf8',
     });
 
-  it.each(['commit', 'land', 'all'])('run the whole-tree mode in the %s set', (set) => {
+  vaultIt.each(['commit', 'land', 'all'])('run the whole-tree mode in the %s set', (set) => {
     const guards = JSON.parse(listed(set)) as { cmd: string[] }[];
     expect(guards.map((g) => g.cmd.join(' '))).toContain(
       'bash scripts/check-no-private-data.sh --all'
@@ -340,11 +340,11 @@ describe('the CI workflow', () => {
       /scripts\/check-no-private-data\.sh --all/.test(step.run ?? '')
     );
 
-  it('runs on every push to main and every pull request', () => {
+  vaultIt('runs on every push to main and every pull request', () => {
     expect(Object.keys(workflow.on).sort()).toEqual(['pull_request', 'push']);
   });
 
-  it('runs the whole-tree guard in a job no change can skip, straight after checkout', () => {
+  vaultIt('runs the whole-tree guard in a job no change can skip, straight after checkout', () => {
     const holders = unconditional.filter(([, job]) => guardStep(job) >= 0);
     expect(holders.map(([name]) => name)).not.toEqual([]);
     for (const [, job] of holders) {

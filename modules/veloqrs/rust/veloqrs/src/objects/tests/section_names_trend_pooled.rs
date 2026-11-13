@@ -57,6 +57,7 @@ fn seed_lap(section_id: &str, n: i64, lap_time: f64, avg_hr: f64) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_all_names_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_names_under_writer.db");
@@ -65,6 +66,7 @@ fn test_get_all_names_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_efficiency_trend_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_trend_under_writer.db");
@@ -79,6 +81,7 @@ fn test_efficiency_trend_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_pooled_names_keep_the_precedence_and_the_numbered_label() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_names_pooled.db");
@@ -129,6 +132,7 @@ fn test_pooled_trend_needs_three_paced_heart_rate_laps() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_summary_names_are_the_names_the_name_read_gives() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_summary_names.db");

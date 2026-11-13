@@ -38,7 +38,7 @@ function enginePair(
  * the rows are read in.
  */
 describe('buildStrengthBalancePairs', () => {
-  it('names the pair and both sides from the slugs the engine sent', () => {
+  vaultIt('names the pair and both sides from the slugs the engine sent', () => {
     const [pair] = buildStrengthBalancePairs([
       enginePair('quads_hamstrings', 'quadriceps', 'hamstring', 10, 4, 'imbalanced', 2.5),
     ]);
@@ -64,7 +64,7 @@ describe('buildStrengthBalancePairs', () => {
     ]);
   });
 
-  it('leaves an even pair without a dominant name', () => {
+  vaultIt('leaves an even pair without a dominant name', () => {
     const [pair] = buildStrengthBalancePairs([
       enginePair('biceps_triceps', 'biceps', 'triceps', 4, 4, 'balanced', 1),
     ]);
@@ -72,7 +72,7 @@ describe('buildStrengthBalancePairs', () => {
     expect(pair.dominantLabel).toBeNull();
   });
 
-  it('falls back to the slug for a pair it has no copy for', () => {
+  vaultIt('falls back to the slug for a pair it has no copy for', () => {
     const [pair] = buildStrengthBalancePairs([
       enginePair('calves_shins', 'calves', 'shins', 4, 4, 'balanced', 1),
     ]);

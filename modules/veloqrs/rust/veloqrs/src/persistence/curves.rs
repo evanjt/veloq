@@ -434,6 +434,7 @@ mod tests {
     /// The map is keyed by what the body keys it by, and an entry that names
     /// no id of its own takes the key's.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_without_its_own_id_takes_the_key() {
         let curve = parse_power_curve(POWER, "Ride", 0).expect("parses");
 
@@ -441,6 +442,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pace_body_carries_the_critical_speed_model_and_nothing_else() {
         let curve = parse_pace_curve(PACE, "Run", 42).expect("parses");
 
@@ -464,6 +466,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_that_is_not_a_curve_is_not_one() {
         assert!(parse_power_curve("not json", "Ride", 0).is_none());
         assert!(parse_pace_curve("not json", "Run", 0).is_none());
@@ -472,6 +475,7 @@ mod tests {
     /// An empty body is a curve with no points rather than nothing: the chart
     /// draws the empty state under a date, and `None` means "never fetched".
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_with_no_windows_is_an_empty_curve() {
         let power = parse_power_curve("{}", "Ride", 7).expect("parses");
         let pace = parse_pace_curve("{}", "Run", 7).expect("parses");

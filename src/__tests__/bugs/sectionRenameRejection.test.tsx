@@ -128,7 +128,7 @@ describe('section haptics', () => {
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   });
 
-  it.each(['', '   '])('clears a name when the input is %j', async (name) => {
+  vaultIt.each(['', '   '])('clears a name when the input is %j', async (name) => {
     mockRenameSection.mockResolvedValueOnce(undefined);
     const hook = await mount();
     await act(async () => {
@@ -139,7 +139,7 @@ describe('section haptics', () => {
     expect(haptics.success).toHaveBeenCalledTimes(1);
   });
 
-  it('fires one success when a name passes its checks', async () => {
+  vaultIt('fires one success when a name passes its checks', async () => {
     mockRenameSection.mockResolvedValueOnce(undefined);
     const hook = await mount();
     await act(async () => {
@@ -155,14 +155,14 @@ describe('section haptics', () => {
     return (Alert.alert as jest.Mock).mock.calls[0][2] as AlertButton[];
   }
 
-  it('fires nothing when the delete confirm is cancelled', async () => {
+  vaultIt('fires nothing when the delete confirm is cancelled', async () => {
     const cancel = (await confirmButtons()).find((b) => b.style === 'cancel');
     cancel?.onPress?.();
     expect(haptics.medium).not.toHaveBeenCalled();
     expect(mockRemoveSection).not.toHaveBeenCalled();
   });
 
-  it('fires one medium impact when the delete is accepted', async () => {
+  vaultIt('fires one medium impact when the delete is accepted', async () => {
     mockRemoveSection.mockResolvedValueOnce(undefined);
     const destructive = (await confirmButtons()).find((b) => b.style === 'destructive');
     await act(async () => {

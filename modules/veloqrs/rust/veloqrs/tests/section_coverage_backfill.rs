@@ -114,6 +114,7 @@ fn a_portion_is_measured_against_the_section_it_spans() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_measured_portion_is_not_measured_again() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -124,6 +125,7 @@ fn a_measured_portion_is_not_measured_again() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_excluded_portion_is_never_measured() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -174,6 +176,7 @@ fn a_partial_lap_is_not_the_record_once_coverage_is_measured() {
 /// A portion of a single fix spans no distance, so no coverage can be taken
 /// from it. Looking at it once settles that, and it is not read again.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_portion_that_cannot_be_measured_is_not_examined_again() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -198,6 +201,7 @@ fn a_portion_that_cannot_be_measured_is_not_examined_again() {
 /// The verdict belongs to the indices it was taken from, so a portion whose
 /// indices are rewritten is looked at again.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unmeasurable_verdict_is_dropped_when_the_portion_is_rewritten() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);

@@ -80,6 +80,7 @@ fn stored_row(path: &Path, id: &str) -> (Vec<u8>, i64, String) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fresh_database_stores_every_track_as_unknown() {
     let (_dir, path, engine) = seeded_engine(&["a1", "a2", "a3"]);
 
@@ -101,6 +102,7 @@ fn a_fresh_database_stores_every_track_as_unknown() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn recording_state_is_idempotent_and_leaves_the_track_untouched() {
     let (_dir, path, engine) = seeded_engine(&["a1"]);
     let before = stored_row(&path, "a1");
@@ -127,6 +129,7 @@ fn recording_state_is_idempotent_and_leaves_the_track_untouched() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn recording_state_upserts_over_an_earlier_value() {
     let (_dir, path, engine) = seeded_engine(&["a1"]);
 
@@ -142,6 +145,7 @@ fn recording_state_upserts_over_an_earlier_value() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn counts_split_a_mixed_population() {
     let (_dir, _path, engine) = seeded_engine(&["a1", "a2", "a3", "a4", "a5"]);
 
@@ -165,6 +169,7 @@ fn counts_split_a_mixed_population() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn recording_state_for_an_unknown_activity_creates_nothing() {
     let (_dir, path, engine) = seeded_engine(&["a1"]);
 
@@ -278,6 +283,7 @@ fn queue_ids(engine: &PersistentEngine) -> Vec<String> {
 /// Expected behaviour: the asks are counted, and the one that reaches the limit
 /// takes the track out of the queue without claiming anything about its ground.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_leaves_the_queue_once_it_has_been_asked_the_limit_of_times() {
     let (_dir, path, engine) = seeded_engine(&["a1", "a2"]);
 
@@ -319,6 +325,7 @@ fn a_track_leaves_the_queue_once_it_has_been_asked_the_limit_of_times() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_retired_track_is_not_retired_twice() {
     let (_dir, _path, engine) = seeded_engine(&["a1"]);
 
@@ -341,6 +348,7 @@ fn a_retired_track_is_not_retired_twice() {
 /// about consecutive silence, so an answer that lands resets it and the track
 /// starts over if it ever returns to the queue.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_answer_that_lands_clears_the_asks_before_it() {
     let (_dir, path, engine) = seeded_engine(&["a1"]);
 
@@ -360,6 +368,7 @@ fn an_answer_that_lands_clears_the_asks_before_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_ask_that_crosses_with_a_fetch_never_demotes_the_track() {
     let (_dir, path, engine) = seeded_engine(&["a1"]);
 
@@ -380,6 +389,7 @@ fn an_ask_that_crosses_with_a_fetch_never_demotes_the_track() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn counting_an_ask_for_an_unknown_activity_creates_nothing() {
     let (_dir, path, engine) = seeded_engine(&["a1"]);
 
@@ -450,6 +460,7 @@ fn upgrading_from_v12_reaches_the_attempts_column_at_zero() {
 /// `UNAVAILABLE` are different claims and the diagnostics have to keep them
 /// apart.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_counts_keep_retired_apart_from_unavailable() {
     let (_dir, _path, engine) = seeded_engine(&["a1", "a2", "a3"]);
 
@@ -474,6 +485,7 @@ fn the_counts_keep_retired_apart_from_unavailable() {
 /// returns to the queue with a fresh count. A track retired for another reason
 /// keeps its state when the upload's answer arrives twice.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_upload_returns_a_retired_local_ride_to_the_queue() {
     let key = veloqrs::mint_local_activity_id();
     let (_dir, path, mut engine) = seeded_engine(&[key.as_str(), "i7"]);

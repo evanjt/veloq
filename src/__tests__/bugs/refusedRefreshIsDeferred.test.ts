@@ -74,7 +74,7 @@ describe('a refresh refused because a sync holds the slot', () => {
     expect(engine.syncNow).toHaveBeenCalledTimes(2);
   });
 
-  it('waits for the slot rather than watching every sync event', () => {
+  vaultIt('waits for the slot rather than watching every sync event', () => {
     const engine = engineThatRefuses([StartOutcome.Busy]);
 
     requestSyncRefresh();
@@ -83,7 +83,7 @@ describe('a refresh refused because a sync holds the slot', () => {
     expect(engine.subscribe).toHaveBeenCalledWith('syncSettled', expect.any(Function));
   });
 
-  it('lets go of the listener once the deferred refresh has run', () => {
+  vaultIt('lets go of the listener once the deferred refresh has run', () => {
     const engine = engineThatRefuses([StartOutcome.Busy]);
 
     requestSyncRefresh();
@@ -105,7 +105,7 @@ describe('a refresh refused because a sync holds the slot', () => {
     expect(engine.syncNow).toHaveBeenCalledTimes(4);
   });
 
-  it('tries again on the next settle when the slot was taken first', () => {
+  vaultIt('tries again on the next settle when the slot was taken first', () => {
     const engine = engineThatRefuses([StartOutcome.Busy, StartOutcome.Busy]);
 
     requestSyncRefresh();
@@ -135,7 +135,7 @@ describe('what a refresh asks the engine for', () => {
 });
 
 describe('a refresh that is accepted', () => {
-  it('defers nothing', () => {
+  vaultIt('defers nothing', () => {
     const engine = engineThatRefuses([StartOutcome.Started]);
 
     expect(requestSyncRefresh()).toBe(StartOutcome.Started);
@@ -144,7 +144,7 @@ describe('a refresh that is accepted', () => {
 });
 
 describe('no engine', () => {
-  it('is not a refusal to defer, because there is nothing to defer to', () => {
+  vaultIt('is not a refusal to defer, because there is nothing to defer to', () => {
     mockGetEngine.mockReturnValue(null);
 
     expect(requestSyncRefresh()).toBe(StartOutcome.NotReady);
@@ -186,7 +186,7 @@ describe('a held refresh whose account ends', () => {
     expect(engine.syncNow).toHaveBeenCalledTimes(1);
   });
 
-  it('lets go of the listener rather than leaving it on the old engine', () => {
+  vaultIt('lets go of the listener rather than leaving it on the old engine', () => {
     const engine = engineThatRefuses([StartOutcome.Busy]);
 
     requestSyncRefresh();
@@ -206,7 +206,7 @@ describe('a held refresh whose account ends', () => {
     expect(engine.syncNow).toHaveBeenCalledTimes(3);
   });
 
-  it('is a no-op when nothing is held', () => {
+  vaultIt('is a no-op when nothing is held', () => {
     const engine = engineThatRefuses([StartOutcome.Started]);
 
     cancelSyncRefresh();

@@ -40,13 +40,13 @@ describe('the notice', () => {
     fresh();
   });
 
-  it('stands after a run that left tracks behind', () => {
+  vaultIt('stands after a run that left tracks behind', () => {
     reportTrackFetchRun({ failedIds: ['a', 'b'] });
 
     expect(useTrackFetchNotice.getState()).toMatchObject({ failedCount: 2, dismissed: false });
   });
 
-  it('comes down when the next run lands them', () => {
+  vaultIt('comes down when the next run lands them', () => {
     reportTrackFetchRun({ failedIds: ['a'] });
     reportTrackFetchRun({ failedIds: [] });
 
@@ -69,7 +69,7 @@ describe('the notice', () => {
     expect(useTrackFetchNotice.getState()).toMatchObject({ failedCount: 2, dismissed: true });
   });
 
-  it('stays closed through a clean run and the same failure again', () => {
+  vaultIt('stays closed through a clean run and the same failure again', () => {
     reportTrackFetchRun({ failedIds: ['a'] });
     useTrackFetchNotice.getState().dismiss();
     reportTrackFetchRun({ failedIds: [] });
@@ -78,7 +78,7 @@ describe('the notice', () => {
     expect(useTrackFetchNotice.getState().dismissed).toBe(true);
   });
 
-  it('stays closed when only some of the dismissed set still fails', () => {
+  vaultIt('stays closed when only some of the dismissed set still fails', () => {
     reportTrackFetchRun({ failedIds: ['a', 'b'] });
     useTrackFetchNotice.getState().dismiss();
     reportTrackFetchRun({ failedIds: ['b'] });
@@ -86,7 +86,7 @@ describe('the notice', () => {
     expect(useTrackFetchNotice.getState().dismissed).toBe(true);
   });
 
-  it('reopens when a new id joins the dismissed set', () => {
+  vaultIt('reopens when a new id joins the dismissed set', () => {
     reportTrackFetchRun({ failedIds: ['a'] });
     useTrackFetchNotice.getState().dismiss();
     reportTrackFetchRun({ failedIds: ['a', 'b'] });
@@ -107,7 +107,7 @@ describe('the notice', () => {
     expect(useTrackFetchNotice.getState().dismissed).toBe(true);
   });
 
-  it('applies a dismissal that loads after the run reported', async () => {
+  vaultIt('applies a dismissal that loads after the run reported', async () => {
     mockSettings.set(DISMISSED_KEY, 'walk');
     reportTrackFetchRun({ failedIds: ['walk'] });
     expect(useTrackFetchNotice.getState().dismissed).toBe(false);

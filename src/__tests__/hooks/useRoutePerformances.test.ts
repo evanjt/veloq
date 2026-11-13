@@ -156,23 +156,26 @@ it('has no best when the engine throws', async () => {
   expect(result.current.best).toBeNull();
 });
 
-it('leaves a route the engine has not named with an empty name, never its group id', async () => {
-  getRoutePerformances.mockReturnValue({
-    performances: [performance('a1', 3600)],
-    activityMetrics: [metrics('a1', 3600)],
-    best: undefined,
-    bestForward: undefined,
-    bestReverse: undefined,
-    forwardStats: undefined,
-    reverseStats: undefined,
-    currentRank: undefined,
-  });
+vaultIt(
+  'leaves a route the engine has not named with an empty name, never its group id',
+  async () => {
+    getRoutePerformances.mockReturnValue({
+      performances: [performance('a1', 3600)],
+      activityMetrics: [metrics('a1', 3600)],
+      best: undefined,
+      bestForward: undefined,
+      bestReverse: undefined,
+      forwardStats: undefined,
+      reverseStats: undefined,
+      currentRank: undefined,
+    });
 
-  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
+    const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
 
-  expect(result.current.routeGroup?.id).toBe('g1');
-  expect(result.current.routeGroup?.name).toBe('');
-});
+    expect(result.current.routeGroup?.id).toBe('g1');
+    expect(result.current.routeGroup?.name).toBe('');
+  }
+);
 
 describe('a sport filter over a screen bundle', () => {
   const groups: FfiRouteGroup[] = [
@@ -207,7 +210,7 @@ describe('a sport filter over a screen bundle', () => {
     attemptCount: 2,
   };
 
-  it('reads the engine once across re-renders that rebuild the bundle object', async () => {
+  vaultIt('reads the engine once across re-renders that rebuild the bundle object', async () => {
     getRoutePerformances.mockReturnValue(filtered);
 
     // The screen builds this literal in its render body, so every render is a
@@ -276,7 +279,7 @@ describe('the trend curves the engine fitted', () => {
     { time: 1_700_086_400, value: 6.4, upper: 6.9, lower: 5.9 },
   ];
 
-  it('hands the engine result its curves unchanged', async () => {
+  vaultIt('hands the engine result its curves unchanged', async () => {
     const trendCurves = { forwardSpeed: curve, forwardTime: curve };
     getRoutePerformances.mockReturnValue({
       performances: [performance('a1', 3600)],
@@ -315,7 +318,7 @@ describe('chart points come from the engine performances', () => {
     expect(result.current.best?.activityId).toBe('a2');
   });
 
-  it('drops an attempt the engine gave no speed', async () => {
+  vaultIt('drops an attempt the engine gave no speed', async () => {
     getRoutePerformances.mockReturnValue({
       performances: [{ ...performance('a1', 0), speed: 0 }, performance('a2', 3300)],
       activityMetrics: [],

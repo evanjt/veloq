@@ -82,7 +82,7 @@ describe('a section delete that fails', () => {
     ]);
   });
 
-  it('alerts the same line when the throw is not an Error', async () => {
+  vaultIt('alerts the same line when the throw is not an Error', async () => {
     mockRemoveSection.mockRejectedValueOnce('engine closed');
 
     const alerts = await deleteAndConfirm();

@@ -46,7 +46,7 @@ afterEach(() => {
 });
 
 describe('the streams hook reads the body once', () => {
-  it('costs nothing on a re-render', async () => {
+  vaultIt('costs nothing on a re-render', async () => {
     const { result, rerender } = await renderHook(() => useActivityStreams('a1'), {
       wrapper,
     });
@@ -58,7 +58,7 @@ describe('the streams hook reads the body once', () => {
     expect(engine.getActivityStreams.mock.calls.length).toBe(afterFirstPaint);
   });
 
-  it('reads the body once for the first paint, not twice', async () => {
+  vaultIt('reads the body once for the first paint, not twice', async () => {
     const { result } = await renderHook(() => useActivityStreams('a1'), { wrapper });
     await waitFor(() => expect(result.current.data?.time).toEqual(new Float64Array([0, 1, 2])));
 
@@ -66,7 +66,7 @@ describe('the streams hook reads the body once', () => {
   });
 
   /** Nothing stored is the cue to ask Rust, and it must still fire exactly once. */
-  it('asks the engine for a body it does not hold, once', async () => {
+  vaultIt('asks the engine for a body it does not hold, once', async () => {
     engine.getActivityStreams.mockReturnValue(null);
 
     const { rerender } = await renderHook(() => useActivityStreams('a2'), {
@@ -79,7 +79,7 @@ describe('the streams hook reads the body once', () => {
   });
 
   /** An empty id is a screen with nothing open, and reads nothing at all. */
-  it('reads nothing without an id', async () => {
+  vaultIt('reads nothing without an id', async () => {
     await renderHook(() => useActivityStreams(''), { wrapper });
 
     expect(engine.getActivityStreams).not.toHaveBeenCalled();

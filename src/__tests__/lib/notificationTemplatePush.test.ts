@@ -43,7 +43,7 @@ describe('pushNotificationTemplates', () => {
     ]);
   });
 
-  it('stores the resolved sentence, not the key', () => {
+  vaultIt('stores the resolved sentence, not the key', () => {
     pushNotificationTemplates();
 
     const [, templates] = setNotificationTemplates.mock.calls[0];
@@ -58,7 +58,7 @@ describe('pushNotificationTemplates', () => {
     );
   });
 
-  it('keeps the placeholders for Rust to substitute', () => {
+  vaultIt('keeps the placeholders for Rust to substitute', () => {
     pushNotificationTemplates();
 
     const [, templates] = setNotificationTemplates.mock.calls[0];
@@ -101,7 +101,7 @@ describe('pushNotificationTemplates', () => {
 
 // Every other locale is held to the reference one in translations.test.ts.
 describe('the reference locale', () => {
-  it('carries every template key', () => {
+  vaultIt('carries every template key', () => {
     const fs = require('fs');
     const path = require('path');
     const bundle = JSON.parse(

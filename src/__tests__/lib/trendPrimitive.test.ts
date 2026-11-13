@@ -23,19 +23,19 @@ import {
 } from '@/shared/format/trend';
 
 describe('trendDirection', () => {
-  it('reads a rise above the deadband as up', () => {
+  vaultIt('reads a rise above the deadband as up', () => {
     expect(trendDirection(12, 10, 1)).toBe('up');
   });
 
-  it('reads a fall below the deadband as down', () => {
+  vaultIt('reads a fall below the deadband as down', () => {
     expect(trendDirection(8, 10, 1)).toBe('down');
   });
 
-  it('reads a move inside the deadband as flat', () => {
+  vaultIt('reads a move inside the deadband as flat', () => {
     expect(trendDirection(10.4, 10, 1)).toBe('flat');
   });
 
-  it('reads a move exactly on the deadband as a move', () => {
+  vaultIt('reads a move exactly on the deadband as a move', () => {
     // The deadband is what a move has to clear, not reach: every surface has
     // read it that way and this keeps them all saying the same thing.
     expect(trendDirection(11, 10, 1)).toBe('up');
@@ -69,12 +69,12 @@ describe('trendDirection', () => {
 });
 
 describe('trendArrow', () => {
-  it('draws the arrow the card and the wellness stats share', () => {
+  vaultIt('draws the arrow the card and the wellness stats share', () => {
     expect(trendArrow('up')).toBe('↑');
     expect(trendArrow('down')).toBe('↓');
   });
 
-  it('draws flat rather than nothing', () => {
+  vaultIt('draws flat rather than nothing', () => {
     expect(trendArrow('flat')).toBe('→');
     expect(trendArrow('flat')).not.toBe('');
   });
@@ -89,7 +89,7 @@ describe('trendArrow', () => {
  * surface reads instead of a direction, and a flat state that is always drawn.
  */
 describe('trend polarity', () => {
-  it('has an entry for every metric with a deadband', () => {
+  vaultIt('has an entry for every metric with a deadband', () => {
     for (const metric of Object.keys(TREND_DEADBAND) as TrendMetric[]) {
       expect(['higher', 'lower', 'none']).toContain(TREND_POLARITY[metric]);
     }
@@ -115,13 +115,13 @@ describe('trend polarity', () => {
     expect(trendVerdict('form', 'up')).toBe('moved');
   });
 
-  it('covers the weekly summary and treats load like fatigue', () => {
+  vaultIt('covers the weekly summary and treats load like fatigue', () => {
     expect(trendVerdict('weekDistance', 'up')).toBe('improved');
     expect(trendVerdict('weekTss', 'up')).toBe('moved');
     expect(trendVerdict('weekTss', 'down')).toBe('moved');
   });
 
-  it('is flat whichever way the metric points', () => {
+  vaultIt('is flat whichever way the metric points', () => {
     expect(trendVerdict('rhr', 'flat')).toBe('flat');
     expect(trendVerdict('weight', 'flat')).toBe('flat');
   });
@@ -135,13 +135,13 @@ describe('trendGlyph and trendIcon', () => {
     expect(trendIcon('rhr', 'up')).toBe('trending-down');
   });
 
-  it('keeps the bare direction for a metric with no polarity', () => {
+  vaultIt('keeps the bare direction for a metric with no polarity', () => {
     expect(trendGlyph('weight', 'down')).toBe('↓');
     expect(trendIcon('weight', 'down')).toBe('trending-down');
     expect(trendGlyph('fatigue', 'up')).toBe('↑');
   });
 
-  it('always draws flat', () => {
+  vaultIt('always draws flat', () => {
     expect(trendGlyph('ftp', 'flat')).toBe('→');
     expect(trendIcon('ftp', 'flat')).toBe('minus');
     expect(trendGlyph('weight', 'flat')).toBe('→');
@@ -149,7 +149,7 @@ describe('trendGlyph and trendIcon', () => {
 });
 
 describe('verdictRung', () => {
-  it('reaches the ladder without a mapping of its own', () => {
+  vaultIt('reaches the ladder without a mapping of its own', () => {
     expect(verdictRung('improved')).toBe('positive');
     expect(verdictRung('declined')).toBe('negative');
     expect(verdictRung('flat')).toBe('neutral');
@@ -159,7 +159,7 @@ describe('verdictRung', () => {
 
 describe('the two surfaces that draw the same metrics', () => {
   // That neither writes a threshold of its own is `scripts/lint-trend-thresholds.mjs`.
-  it('gives every metric both surfaces draw a threshold', () => {
+  vaultIt('gives every metric both surfaces draw a threshold', () => {
     for (const metric of ['weekHours', 'weekCount', 'ftp', 'thresholdPace', 'css'] as const) {
       expect(TREND_DEADBAND[metric]).toBeGreaterThan(0);
     }
@@ -167,23 +167,26 @@ describe('the two surfaces that draw the same metrics', () => {
 });
 
 describe('glyphMove', () => {
-  it('reads an up glyph on a pace that fell as an improvement', () => {
+  vaultIt('reads an up glyph on a pace that fell as an improvement', () => {
     const glyph = trendGlyph('thresholdPace', 'down');
     expect(glyph).toBe('↑');
     expect(glyphMove('thresholdPace', glyph)).toEqual({ verdict: 'improved', direction: 'down' });
   });
 
-  it('reads a down glyph on a resting heart rate that rose as a decline', () => {
+  vaultIt('reads a down glyph on a resting heart rate that rose as a decline', () => {
     const glyph = trendGlyph('rhr', 'up');
     expect(glyph).toBe('↓');
     expect(glyphMove('rhr', glyph)).toEqual({ verdict: 'declined', direction: 'up' });
   });
 
-  it('reads the bare direction for a metric with no polarity, and flat for the flat glyph', () => {
-    expect(glyphMove('weight', trendGlyph('weight', 'up'))).toEqual({
-      verdict: 'moved',
-      direction: 'up',
-    });
-    expect(glyphMove('fitness', '→')).toEqual({ verdict: 'flat', direction: 'flat' });
-  });
+  vaultIt(
+    'reads the bare direction for a metric with no polarity, and flat for the flat glyph',
+    () => {
+      expect(glyphMove('weight', trendGlyph('weight', 'up'))).toEqual({
+        verdict: 'moved',
+        direction: 'up',
+      });
+      expect(glyphMove('fitness', '→')).toEqual({ verdict: 'flat', direction: 'flat' });
+    }
+  );
 });

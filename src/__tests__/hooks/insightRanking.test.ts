@@ -38,11 +38,11 @@ const flat = (v: number): SectionRankingScores => ({
   engagement: v,
 });
 
-it('scores a section the engine rates highly above one it rates poorly', () => {
+vaultIt('scores a section the engine rates highly above one it rates poorly', () => {
   expect(rankingScore(ranked(flat(0.9)))).toBeGreaterThan(rankingScore(ranked(flat(0.2))));
 });
 
-it('gives a section the engine rates at its ceiling the whole term', () => {
+vaultIt('gives a section the engine rates at its ceiling the whole term', () => {
   expect(rankingScore(ranked(flat(1)))).toBeCloseTo(rankingWeight);
   expect(rankingScore(ranked(flat(0)))).toBe(0);
 });
@@ -66,7 +66,7 @@ it('clamps a relevance outside the unit range and ignores a non-finite one', () 
   expect(rankingScore(ranked({ ...flat(0), relevance: Number.NaN }))).toBe(0);
 });
 
-it('lets the engine score separate two insights the other terms tie', () => {
+vaultIt('lets the engine score separate two insights the other terms tie', () => {
   const strong = scoreInsight(ranked(flat(1)));
   const weak = scoreInsight(ranked(flat(0)));
 

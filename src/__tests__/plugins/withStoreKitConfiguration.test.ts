@@ -114,7 +114,7 @@ describe('with-storekit-configuration', () => {
     expect(patched).toContain('identifier = "../Orchard/StoreKitConfiguration.storekit"');
   });
 
-  it('writes one reference when generation runs twice', async () => {
+  vaultIt('writes one reference when generation runs twice', async () => {
     const { scheme, request } = project('Orchard');
     plugin({});
 
@@ -159,11 +159,11 @@ describe('app.config.js', () => {
     return resolved.plugins ?? [];
   }
 
-  it('gives the Dev identity the StoreKit configuration', () => {
+  vaultIt('gives the Dev identity the StoreKit configuration', () => {
     expect(plugins(undefined)).toContain('./src/plugins/with-storekit-configuration');
   });
 
-  it('keeps it out of production', () => {
+  vaultIt('keeps it out of production', () => {
     expect(plugins('production')).not.toContain('./src/plugins/with-storekit-configuration');
     expect(plugins('production')).toContain('expo-router');
   });

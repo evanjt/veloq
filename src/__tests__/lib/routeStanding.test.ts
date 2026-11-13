@@ -12,7 +12,7 @@ const t = ((key: string, vars?: Record<string, unknown>) =>
   `${key}|${JSON.stringify(vars ?? {})}`) as never;
 
 describe('formatRouteStanding', () => {
-  it('says nothing when the activity is not on the route', () => {
+  vaultIt('says nothing when the activity is not on the route', () => {
     expect(
       formatRouteStanding(
         {
@@ -27,7 +27,7 @@ describe('formatRouteStanding', () => {
     ).toBeNull();
   });
 
-  it('says nothing for a lone attempt', () => {
+  vaultIt('says nothing for a lone attempt', () => {
     expect(
       formatRouteStanding(
         {
@@ -42,7 +42,7 @@ describe('formatRouteStanding', () => {
     ).toBeNull();
   });
 
-  it('names the best without a gap or a percentile', () => {
+  vaultIt('names the best without a gap or a percentile', () => {
     expect(
       formatRouteStanding(
         {
@@ -57,7 +57,7 @@ describe('formatRouteStanding', () => {
     ).toBe('routes.standingBest|{"total":4}');
   });
 
-  it('states how much a record beat the previous best by', () => {
+  vaultIt('states how much a record beat the previous best by', () => {
     expect(
       formatRouteStanding(
         {
@@ -72,7 +72,7 @@ describe('formatRouteStanding', () => {
     ).toBe('routes.standingBestBy|{"total":5,"improvement":"14 s"}');
   });
 
-  it('states an improvement of a minute or more in minutes', () => {
+  vaultIt('states an improvement of a minute or more in minutes', () => {
     expect(
       formatRouteStanding(
         {
@@ -87,7 +87,7 @@ describe('formatRouteStanding', () => {
     ).toBe('routes.standingBestBy|{"total":3,"improvement":"1:35"}');
   });
 
-  it('names the best alone when the improvement rounds to nothing', () => {
+  vaultIt('names the best alone when the improvement rounds to nothing', () => {
     expect(
       formatRouteStanding(
         {
@@ -117,7 +117,7 @@ describe('formatRouteStanding', () => {
     ).toBe('routes.standingRank|{"rank":2,"total":4,"gap":"14 s"}');
   });
 
-  it('gives rank and gap under five attempts', () => {
+  vaultIt('gives rank and gap under five attempts', () => {
     expect(
       formatRouteStanding(
         {
@@ -147,7 +147,7 @@ describe('formatRouteStanding', () => {
     ).toBe('routes.standingRankPercentile|{"rank":5,"total":20,"gap":"1:35","percent":"75%"}');
   });
 
-  it('falls back to rank and gap when the percentile is missing', () => {
+  vaultIt('falls back to rank and gap when the percentile is missing', () => {
     expect(
       formatRouteStanding(
         {
@@ -177,7 +177,7 @@ describe('formatRouteStanding', () => {
     ).toBeNull();
   });
 
-  it('says nothing when the gap to best is unknown', () => {
+  vaultIt('says nothing when the gap to best is unknown', () => {
     expect(
       formatRouteStanding(
         {

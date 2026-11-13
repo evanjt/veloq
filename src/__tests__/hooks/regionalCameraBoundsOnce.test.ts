@@ -68,7 +68,7 @@ const WORLD = [
 describe('the regional map opening camera', () => {
   beforeEach(() => clusterSearch.mockClear());
 
-  it('searches for the cluster once, however many sync events land', async () => {
+  vaultIt('searches for the cluster once, however many sync events land', async () => {
     const { rerender } = await render(BERN);
     const afterMount = clusterSearch.mock.calls.length;
     expect(afterMount).toBeGreaterThan(0);
@@ -158,14 +158,17 @@ describe('the regional map opening camera', () => {
 });
 
 describe('the regional map opening camera walk', () => {
-  it('reads each activity bounds twice at most: once to find centres, once to bound the cluster', async () => {
-    const polyline = require('@/shared/geo/polyline');
-    const spy = jest.spyOn(polyline, 'normaliseBounds');
-    try {
-      await render(PLUS_ONE);
-      expect(spy.mock.calls.length).toBeLessThanOrEqual(PLUS_ONE.length * 2);
-    } finally {
-      spy.mockRestore();
+  vaultIt(
+    'reads each activity bounds twice at most: once to find centres, once to bound the cluster',
+    async () => {
+      const polyline = require('@/shared/geo/polyline');
+      const spy = jest.spyOn(polyline, 'normaliseBounds');
+      try {
+        await render(PLUS_ONE);
+        expect(spy.mock.calls.length).toBeLessThanOrEqual(PLUS_ONE.length * 2);
+      } finally {
+        spy.mockRestore();
+      }
     }
-  });
+  );
 });

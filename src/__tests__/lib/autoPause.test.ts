@@ -27,7 +27,7 @@ describe('createAutoPauseDetector', () => {
       expect(detector.update(0.5, 5000)).toBe('pause');
     });
 
-    it('returns pause exactly at the duration threshold', () => {
+    vaultIt('returns pause exactly at the duration threshold', () => {
       const detector = moved(defaultConfig);
 
       detector.update(0.5, 1000); // belowThresholdSince = 1000
@@ -54,7 +54,7 @@ describe('createAutoPauseDetector', () => {
       expect(detector.update(0.5, 16000)).toBe('pause');
     });
 
-    it('counts a speed equal to the threshold as movement', () => {
+    vaultIt('counts a speed equal to the threshold as movement', () => {
       const detector = createAutoPauseDetector(defaultConfig);
 
       detector.update(1.0, 0);
@@ -96,7 +96,7 @@ describe('createAutoPauseDetector', () => {
       expect(detector.stoppedSince()).toBe(1000);
     });
 
-    it('clears on a resume and on a reset', () => {
+    vaultIt('clears on a resume and on a reset', () => {
       const detector = moved(defaultConfig);
 
       detector.update(0.5, 0);
@@ -122,7 +122,7 @@ describe('createAutoPauseDetector', () => {
       expect(detector.update(2.0, 6000)).toBe('resume');
     });
 
-    it('returns null after resume when speed stays above threshold', () => {
+    vaultIt('returns null after resume when speed stays above threshold', () => {
       const detector = moved(defaultConfig);
 
       // Trigger pause, then resume
@@ -191,7 +191,7 @@ describe('createAutoPauseDetector', () => {
   });
 
   describe('configurable thresholds', () => {
-    it('uses custom speed threshold', () => {
+    vaultIt('uses custom speed threshold', () => {
       const config: AutoPauseConfig = {
         enabled: true,
         speedThreshold: 2.0,
@@ -204,7 +204,7 @@ describe('createAutoPauseDetector', () => {
       expect(detector.update(1.5, 3000)).toBe('pause');
     });
 
-    it('uses custom duration threshold', () => {
+    vaultIt('uses custom duration threshold', () => {
       const config: AutoPauseConfig = {
         enabled: true,
         speedThreshold: 1.0,
@@ -248,7 +248,7 @@ describe('createAutoPauseDetector', () => {
   });
 
   describe('zero speed', () => {
-    it('treats zero as below threshold and triggers pause', () => {
+    vaultIt('treats zero as below threshold and triggers pause', () => {
       const detector = moved(defaultConfig);
 
       expect(detector.update(0, 0)).toBeNull();
@@ -257,7 +257,7 @@ describe('createAutoPauseDetector', () => {
   });
 
   describe('negative speed', () => {
-    it('treats negative speed as below threshold', () => {
+    vaultIt('treats negative speed as below threshold', () => {
       const detector = moved(defaultConfig);
 
       expect(detector.update(-1, 0)).toBeNull();
@@ -342,7 +342,7 @@ describe('createAutoPauseDetector', () => {
   });
 
   describe('stress edge cases', () => {
-    it('rapid oscillation does not produce false pause signal', () => {
+    vaultIt('rapid oscillation does not produce false pause signal', () => {
       const detector = moved(defaultConfig);
       let result = null;
 
@@ -371,7 +371,7 @@ describe('createAutoPauseDetector', () => {
       expect(signals).toEqual(['pause']);
     });
 
-    it('oscillation with period longer than threshold triggers pause', () => {
+    vaultIt('oscillation with period longer than threshold triggers pause', () => {
       const detector = moved(defaultConfig);
       const signals: string[] = [];
 

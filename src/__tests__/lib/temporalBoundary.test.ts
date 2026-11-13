@@ -17,19 +17,19 @@ describe('temporal boundaries', () => {
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => jest.useRealTimers());
 
-    it('calls Dec 31 "Yesterday" when today is Jan 1', () => {
+    vaultIt('calls Dec 31 "Yesterday" when today is Jan 1', () => {
       jest.setSystemTime(new Date('2026-01-01T12:00:00'));
 
       expect(formatRelativeDate('2025-12-31T12:00:00')).toBe('Yesterday');
     });
 
-    it('calls the same calendar day "Today" just after midnight', () => {
+    vaultIt('calls the same calendar day "Today" just after midnight', () => {
       jest.setSystemTime(new Date('2026-01-01T00:30:00'));
 
       expect(formatRelativeDate('2026-01-01T00:00:00')).toBe('Today');
     });
 
-    it('keeps the year on a date from a previous year', () => {
+    vaultIt('keeps the year on a date from a previous year', () => {
       jest.setSystemTime(new Date('2026-01-01T12:00:00'));
 
       expect(formatRelativeDate('2024-11-20T12:00:00')).toContain('2024');
@@ -43,7 +43,7 @@ describe('temporal boundaries', () => {
       expect(result).toBe('2024-02-29');
     });
 
-    it('formatShortDate keeps the 29th of a leap February and drops the year', () => {
+    vaultIt('formatShortDate keeps the 29th of a leap February and drops the year', () => {
       // Locale decides the layout, so match on the day rather than the order.
       const result = formatShortDate('2024-02-29T12:00:00');
       expect(result).toMatch(/29/);

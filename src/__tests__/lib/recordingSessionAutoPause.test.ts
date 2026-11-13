@@ -299,7 +299,7 @@ describe('recordingSession auto-pause', () => {
   });
 
   describe('the GPS watch under each preset', () => {
-    it.each(['high', 'balanced', 'batterySaver'] as const)(
+    vaultIt.each(['high', 'balanced', 'batterySaver'] as const)(
       'asks for a fix at every interval under the %s preset, so a standing receiver keeps delivering and a stop can be paused',
       async (mode) => {
         useRecordingPreferences.setState({ gpsAccuracyMode: mode });

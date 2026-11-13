@@ -57,7 +57,7 @@ describe('LanguageStore', () => {
       expect(result).toBe('de-DE');
     });
 
-    it('returns en-GB for unknown language', () => {
+    vaultIt('returns en-GB for unknown language', () => {
       expect(resolveLanguageToLocale('xyz')).toBe('en-GB');
       expect(resolveLanguageToLocale('invalid-locale')).toBe('en-GB');
       expect(resolveLanguageToLocale('')).toBe('en-GB');
@@ -69,7 +69,7 @@ describe('LanguageStore', () => {
   // ============================================================
 
   describe('initialiseLanguage()', () => {
-    it('loads saved preference from AsyncStorage', async () => {
+    vaultIt('loads saved preference from AsyncStorage', async () => {
       await AsyncStorage.setItem(STORAGE_KEY, 'de-CH');
 
       const result = await initialiseLanguage();
@@ -79,7 +79,7 @@ describe('LanguageStore', () => {
       expect(useLanguageStore.getState().isInitialised).toBe(true);
     });
 
-    it('follows the device locale on first launch and saves that it follows', async () => {
+    vaultIt('follows the device locale on first launch and saves that it follows', async () => {
       mockGetLocales.mockReturnValue([
         { languageTag: 'en-AU', languageCode: 'en', regionCode: 'AU' },
       ]);
@@ -110,14 +110,14 @@ describe('LanguageStore', () => {
 
   describe('English Variant Functions', () => {
     describe('isEnglishVariant()', () => {
-      it('returns true for English values', () => {
+      vaultIt('returns true for English values', () => {
         expect(isEnglishVariant('en')).toBe(true);
         expect(isEnglishVariant('en-US')).toBe(true);
         expect(isEnglishVariant('en-AU')).toBe(true);
         expect(isEnglishVariant('en-GB')).toBe(true);
       });
 
-      it('returns false for non-English values', () => {
+      vaultIt('returns false for non-English values', () => {
         expect(isEnglishVariant('de')).toBe(false);
         expect(isEnglishVariant('de-CH')).toBe(false);
         expect(isEnglishVariant('fr')).toBe(false);
@@ -157,13 +157,13 @@ describe('LanguageStore', () => {
   // ============================================================
 
   describe('isLanguageVariant()', () => {
-    it('matches regional variants', () => {
+    vaultIt('matches regional variants', () => {
       expect(isLanguageVariant('de-CH', 'de')).toBe(true);
       expect(isLanguageVariant('en-AU', 'en')).toBe(true);
       expect(isLanguageVariant('pt-BR', 'pt')).toBe(true);
     });
 
-    it('returns false for non-matching languages', () => {
+    vaultIt('returns false for non-matching languages', () => {
       expect(isLanguageVariant('de-CH', 'en')).toBe(false);
       expect(isLanguageVariant('fr', 'de')).toBe(false);
     });
@@ -174,7 +174,7 @@ describe('LanguageStore', () => {
   // ============================================================
 
   describe('getAvailableLanguages()', () => {
-    it('includes German with Swiss dialect variants', () => {
+    vaultIt('includes German with Swiss dialect variants', () => {
       const groups = getAvailableLanguages();
       const german = groups[0].languages.find((l) => l.value === 'de');
 
@@ -191,7 +191,7 @@ describe('LanguageStore', () => {
   // ============================================================
 
   describe('Edge Cases', () => {
-    it('handles empty locales array from device', () => {
+    vaultIt('handles empty locales array from device', () => {
       mockGetLocales.mockReturnValue([]);
 
       // Should not crash and use fallback

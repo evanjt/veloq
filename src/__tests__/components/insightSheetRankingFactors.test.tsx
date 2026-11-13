@@ -64,13 +64,13 @@ describe('the ranking factors group on an insight sheet', () => {
   beforeAll(() => initialiseI18n('en-GB'));
   beforeEach(() => changeLanguage('en-GB'));
 
-  it('shows on a ranking-only insight with no methodology text', async () => {
+  vaultIt('shows on a ranking-only insight with no methodology text', async () => {
     await sheet(insight({}, ranking()));
     expect(screen.getAllByTestId('ranking-factors')).toHaveLength(1);
     expect(screen.getByText('Card ranking')).toBeTruthy();
   });
 
-  it('shows once on a trend insight that has methodology text', async () => {
+  vaultIt('shows once on a trend insight that has methodology text', async () => {
     await sheet(
       insight(
         {
@@ -84,7 +84,7 @@ describe('the ranking factors group on an insight sheet', () => {
     expect(screen.getByText('Tracks median performance.')).toBeTruthy();
   });
 
-  it('shows on a non-trend insight with methodology text', async () => {
+  vaultIt('shows on a non-trend insight with methodology text', async () => {
     await sheet(
       insight(
         { category: 'section_pr', methodology: { description: 'Compares times.' } },
@@ -94,23 +94,23 @@ describe('the ranking factors group on an insight sheet', () => {
     expect(screen.getAllByTestId('ranking-factors')).toHaveLength(1);
   });
 
-  it('shows no group without a ranking', async () => {
+  vaultIt('shows no group without a ranking', async () => {
     await sheet(insight({ category: 'section_pr', methodology: { description: 'Compares.' } }));
     expect(screen.queryByTestId('ranking-factors')).toBeNull();
   });
 
-  it('shows nothing at all for a ranking-free insight with no methodology', async () => {
+  vaultIt('shows nothing at all for a ranking-free insight with no methodology', async () => {
     await sheet(insight());
     expect(screen.queryByTestId('methodology-section')).toBeNull();
   });
 
-  it('never shows the composite relevance', async () => {
+  vaultIt('never shows the composite relevance', async () => {
     await sheet(insight({}, ranking()));
     expect(screen.queryByText(/relevance/i)).toBeNull();
     expect(screen.queryByText(/0\.91/)).toBeNull();
   });
 
-  it('labels the three bounded factors as scores on a 0 to 1 scale', async () => {
+  vaultIt('labels the three bounded factors as scores on a 0 to 1 scale', async () => {
     await sheet(insight({}, ranking()));
     expect(screen.getByTestId('ranking-factor-recency')).toHaveTextContent(/0\.80/);
     expect(screen.getByTestId('ranking-factor-anomaly')).toHaveTextContent(/0\.25/);
@@ -131,12 +131,12 @@ describe('the ranking factors group on an insight sheet', () => {
     expect(screen.getByTestId('ranking-factor-improvement')).not.toHaveTextContent(/0 to 1/);
   });
 
-  it('states the comparison basis for each kind of change', async () => {
+  vaultIt('states the comparison basis for each kind of change', async () => {
     await sheet(insight({}, ranking({ improvementBasis: 0 })));
     expect(screen.getByTestId('ranking-factor-improvement')).toHaveTextContent(/previous three/);
   });
 
-  it('states the first-to-last basis', async () => {
+  vaultIt('states the first-to-last basis', async () => {
     await sheet(insight({}, ranking({ improvementBasis: 1 })));
     expect(screen.getByTestId('ranking-factor-improvement')).toHaveTextContent(/first/);
   });
@@ -149,7 +149,7 @@ describe('the ranking factors group on an insight sheet', () => {
     expect(row).not.toHaveTextContent('%');
   });
 
-  it('draws in the athlete language under de-DE', async () => {
+  vaultIt('draws in the athlete language under de-DE', async () => {
     await changeLanguage('de-DE');
     await sheet(insight({}, ranking()));
     const group = screen.getByTestId('ranking-factors');

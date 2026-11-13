@@ -90,20 +90,23 @@ describe('useRetiredMapData', () => {
     expect(routesStatusIsFollowed()).toBe(false);
   });
 
-  it('reads once more for a worker that stopped before the follow began, then waits', async () => {
-    const library = { pending: true, running: false };
-    const fake = engine(library);
-    mockGetEngine.mockReturnValue(fake as unknown as ReturnType<typeof getEngine>);
+  vaultIt(
+    'reads once more for a worker that stopped before the follow began, then waits',
+    async () => {
+      const library = { pending: true, running: false };
+      const fake = engine(library);
+      mockGetEngine.mockReturnValue(fake as unknown as ReturnType<typeof getEngine>);
 
-    await renderHook(() => useRetiredMapData());
-    await tick();
-    expect(fake.getRetiredMapData).toHaveBeenCalledTimes(2);
+      await renderHook(() => useRetiredMapData());
+      await tick();
+      expect(fake.getRetiredMapData).toHaveBeenCalledTimes(2);
 
-    await tick(20);
-    expect(fake.getRetiredMapData).toHaveBeenCalledTimes(2);
-  });
+      await tick(20);
+      expect(fake.getRetiredMapData).toHaveBeenCalledTimes(2);
+    }
+  );
 
-  it('follows nothing when no ground pair is owed', async () => {
+  vaultIt('follows nothing when no ground pair is owed', async () => {
     const fake = engine({ pending: false, running: false });
     mockGetEngine.mockReturnValue(fake as unknown as ReturnType<typeof getEngine>);
 

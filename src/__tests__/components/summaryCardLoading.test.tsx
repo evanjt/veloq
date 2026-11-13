@@ -30,7 +30,7 @@ describe('SummaryCard loading', () => {
     expect(queryAllByText('-', { includeHiddenElements: true })).toHaveLength(0);
   });
 
-  it('draws the settled values when not loading', async () => {
+  vaultIt('draws the settled values when not loading', async () => {
     const { queryByTestId, queryAllByText } = await render(
       <SummaryCard
         heroValue="-"

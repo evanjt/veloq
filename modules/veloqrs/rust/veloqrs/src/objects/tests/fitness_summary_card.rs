@@ -2,6 +2,7 @@ use super::FitnessManager;
 use crate::test_globals::{init_global_engine, read_while_writer_holds, serial_global_state};
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_summary_card_data_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("summary_card_under_a_writer.db");

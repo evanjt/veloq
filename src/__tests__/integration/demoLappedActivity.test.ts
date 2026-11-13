@@ -38,7 +38,7 @@ function visitOrder(track: [number, number][], marks: [number, number][]): strin
 }
 
 describe('the demo lapped activity', () => {
-  it('is a tracked run sharing its loop with other demo runs', () => {
+  vaultIt('is a tracked run sharing its loop with other demo runs', () => {
     expect(lapped?.type).toBe('Run');
     const loop = lapped!._routeId!.replace(/-laps$/, '');
     expect(loop).not.toBe(lapped!._routeId);
@@ -57,7 +57,7 @@ describe('the demo lapped activity', () => {
     expect(visitOrder(track, marks)).toBe(oneLap.repeat(LAPS).replace(/(.)\1+/g, '$1'));
   });
 
-  it('carries a time stream as long as its track, so each lap is timed', () => {
+  vaultIt('carries a time stream as long as its track, so each lap is timed', () => {
     const track = getActivityMap(LAPPED_ID)!.latlngs!;
     expect(getActivityStreams(LAPPED_ID)!.time).toHaveLength(track.length);
   });

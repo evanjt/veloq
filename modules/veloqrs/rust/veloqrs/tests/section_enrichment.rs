@@ -79,6 +79,7 @@ fn a_detect_scores_every_section_and_the_scores_persist() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn two_engines_over_one_corpus_rank_identically() {
     let corpus = LifecycleCorpus::generate(&LifecycleConfig::default());
     let (mut a, _da) = fresh_engine();

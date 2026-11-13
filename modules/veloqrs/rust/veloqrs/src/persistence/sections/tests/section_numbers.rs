@@ -131,6 +131,7 @@ fn shown(engine: &PersistentEngine, id: &str) -> Option<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn mints_under_two_section_words_never_share_a_number() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = engine_with_rides(3);
@@ -239,6 +240,7 @@ fn every_writer_takes_the_next_number_after_the_highest_issued_without_naming_on
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_disabled_section_keeps_its_number() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = engine_with_rides(3);
@@ -255,6 +257,7 @@ fn a_disabled_section_keeps_its_number() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_named_custom_section_holds_a_number_and_clearing_the_name_shows_it() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = engine_with_rides(0);
@@ -294,6 +297,7 @@ fn deleting_a_section_keeps_its_number_retired() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_merged_away_keeps_its_number_and_a_new_section_takes_the_next() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = engine_with_rides(2);
@@ -314,6 +318,7 @@ fn a_section_merged_away_keeps_its_number_and_a_new_section_takes_the_next() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_typed_label_for_the_number_of_a_retired_section_is_refused() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = engine_with_rides(2);
@@ -365,6 +370,7 @@ fn five_sections_with_third_named() -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_typed_label_for_a_number_a_named_section_holds_is_refused() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = five_sections_with_third_named();
@@ -377,6 +383,7 @@ fn a_typed_label_for_a_number_a_named_section_holds_is_refused() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_typed_label_for_a_free_number_is_refused_and_changes_nothing() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = five_sections_with_third_named();
@@ -392,6 +399,7 @@ fn a_typed_label_for_a_free_number_is_refused_and_changes_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_typed_label_equal_to_the_sections_own_handle_clears_the_name() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = five_sections_with_third_named();
@@ -405,6 +413,7 @@ fn a_typed_label_equal_to_the_sections_own_handle_clears_the_name() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_typed_label_in_another_shipped_language_is_refused() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = five_sections_with_third_named();
@@ -414,6 +423,7 @@ fn a_typed_label_in_another_shipped_language_is_refused() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_name_with_no_section_word_ending_in_a_number_is_accepted() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = five_sections_with_third_named();
@@ -425,6 +435,7 @@ fn a_name_with_no_section_word_ending_in_a_number_is_accepted() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_typed_name_ending_in_a_number_on_an_auto_section_survives_the_next_apply() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = engine_with_rides(3);
@@ -445,6 +456,7 @@ fn a_typed_name_ending_in_a_number_on_an_auto_section_survives_the_next_apply() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_typed_name_a_trim_left_on_the_row_survives_the_next_apply() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = engine_with_rides(3);
@@ -464,6 +476,7 @@ fn a_typed_name_a_trim_left_on_the_row_survives_the_next_apply() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_legacy_minted_label_is_not_promoted_but_a_typed_name_ending_in_a_number_is() {
     let _serial = crate::test_globals::serial_global_state();
     let engine = engine_with_rides(3);
@@ -491,6 +504,7 @@ fn a_legacy_minted_label_is_not_promoted_but_a_typed_name_ending_in_a_number_is(
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn merging_keeps_a_typed_name_ending_in_a_number_from_either_side() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = engine_with_rides(2);

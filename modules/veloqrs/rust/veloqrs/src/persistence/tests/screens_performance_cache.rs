@@ -2,6 +2,7 @@ use super::pooled;
 use crate::persistence::fitness::performances::pooled as performances;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_section_detail_performance_repeat_uses_cache() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("pooled_performance_cache.db");
@@ -27,6 +28,7 @@ fn test_section_detail_performance_repeat_uses_cache() {
 /// The highlighted attempt is applied after the cached performances, so two
 /// activities opening the same section share one cached read.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn two_highlighted_activities_share_one_cached_read() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("pooled_performance_highlight.db");

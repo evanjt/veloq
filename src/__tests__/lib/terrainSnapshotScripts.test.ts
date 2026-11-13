@@ -43,7 +43,7 @@ function makeRequest(overrides: Partial<SnapshotRequest> = {}): SnapshotRequest 
 }
 
 describe('buildRenderSnapshotScript', () => {
-  it('injects terrain, sky, and hillshade for 3D requests', () => {
+  vaultIt('injects terrain, sky, and hillshade for 3D requests', () => {
     const page = snapshotRenderScript();
     expect(page).toContain("styleObj.sources['terrain'] = terrainSource");
     expect(page).toContain('styleObj.sky = skyConfig');
@@ -51,7 +51,7 @@ describe('buildRenderSnapshotScript', () => {
     expect(buildRenderSnapshotScript(makeRequest(), 0, 1)).toContain('"isFlat":false');
   });
 
-  it('marks flat requests so terrain injection is skipped at runtime', () => {
+  vaultIt('marks flat requests so terrain injection is skipped at runtime', () => {
     expect(buildRenderSnapshotScript(makeRequest({ flat: true }), 0, 1)).toContain('"isFlat":true');
     // Terrain injection is behind the isFlat guard
     const page = snapshotRenderScript();
@@ -59,7 +59,7 @@ describe('buildRenderSnapshotScript', () => {
     expect(page).toContain('if (!isFlat && !isSatellite) {');
   });
 
-  it('applies the request camera verbatim, including pitch 0 for flat', () => {
+  vaultIt('applies the request camera verbatim, including pitch 0 for flat', () => {
     const flatCamera = {
       center: [7.05, 46.05] as [number, number],
       zoom: 12,
@@ -70,14 +70,14 @@ describe('buildRenderSnapshotScript', () => {
     expect(script).toContain(JSON.stringify(flatCamera));
   });
 
-  it('tracks base mode so a flat/3D flip cannot reuse the fast path', () => {
+  vaultIt('tracks base mode so a flat/3D flip cannot reuse the fast path', () => {
     const script = snapshotRenderScript();
     expect(script).toContain("var baseMode = isFlat ? 'flat' : '3d'");
     expect(script).toContain('window._currentBaseMode === baseMode');
     expect(script).toContain('window._currentBaseMode = baseMode');
   });
 
-  it('keeps gap detection exclusive to 3D renders', () => {
+  vaultIt('keeps gap detection exclusive to 3D renders', () => {
     const script = snapshotRenderScript();
     expect(script).toContain('if (ctx && !isFlat) {');
     expect(script).toContain('if (ctx && (!isFlat || isSatellite)) {');
@@ -95,25 +95,25 @@ describe('buildRenderSnapshotScript', () => {
  * being served at the old setting for the life of the install.
  */
 describe('the snapshot encode', () => {
-  it('encodes through the shared constant, not a literal in the script', () => {
+  vaultIt('encodes through the shared constant, not a literal in the script', () => {
     const script = snapshotRenderScript();
 
     expect(script).toContain(`canvas.toDataURL('image/jpeg', ${SNAPSHOT_JPEG_QUALITY})`);
   });
 
-  it('keeps the quality in the band a feed thumbnail wants', () => {
+  vaultIt('keeps the quality in the band a feed thumbnail wants', () => {
     // Below 0.7 the route line's edge starts to show against satellite; at
     // 0.95 the file is twice the size for a difference measured at 1.8% RMSE.
     expect(SNAPSHOT_JPEG_QUALITY).toBeGreaterThanOrEqual(0.7);
     expect(SNAPSHOT_JPEG_QUALITY).toBeLessThanOrEqual(0.85);
   });
 
-  it('re-renders the previews drawn before the route was fitted to the card', () => {
+  vaultIt('re-renders the previews drawn before the route was fitted to the card', () => {
     expect(TERRAIN_CACHE_VERSION).toBe(12);
     expect(QUALITY_CACHE_VERSION).toBe(7);
   });
 
-  it('has a cache version recorded against the quality it was drawn at', () => {
+  vaultIt('has a cache version recorded against the quality it was drawn at', () => {
     // The pair moves together. A device holds previews drawn at whatever the
     // quality was when they were made, and only a version bump redraws them.
     expect(TERRAIN_CACHE_VERSION).toBeGreaterThanOrEqual(QUALITY_CACHE_VERSION);
@@ -133,16 +133,16 @@ describe('the stages a render stamps', () => {
   const stamped = (script: string) =>
     new Set(Array.from(script.matchAll(/\bphase\('([a-z]+)'\)/g), (m) => m[1]));
 
-  it('stamps exactly the stages the pool records, in the one function both modes run', () => {
+  vaultIt('stamps exactly the stages the pool records, in the one function both modes run', () => {
     expect([...stamped(snapshotRenderScript())].sort()).toEqual([...SNAPSHOT_PHASES].sort());
   });
 
-  it('carries them back on the message that carries the image', () => {
+  vaultIt('carries them back on the message that carries the image', () => {
     const script = snapshotRenderScript();
     expect(script).toContain('phases: window._phases');
   });
 
-  it('closes the style stage on both the fast path and the full one', () => {
+  vaultIt('closes the style stage on both the fast path and the full one', () => {
     // The fast path mounts no style, so its style stage is the camera jump
     // alone. A stamp only on the full path would read as the fast path
     // spending its whole elapsed settling.
@@ -152,7 +152,7 @@ describe('the stages a render stamps', () => {
 });
 
 describe('tile counts belong to one render', () => {
-  it.each(['fast', 'setStyle'] as const)(
+  vaultIt.each(['fast', 'setStyle'] as const)(
     'starts successive %s renders before counting map events',
     (path) => {
       const starts: Record<string, { loaded: number; total: number }>[] = [];
@@ -309,7 +309,7 @@ describe.each([true, false])('fast snapshot settle (flat=%s)', (flat) => {
     return { idle, layersAtIdle, postMessage, map, page };
   }
 
-  it('includes the route in the first idle cycle and captures once', () => {
+  vaultIt('includes the route in the first idle cycle and captures once', () => {
     const result = render();
     jest.advanceTimersByTime(16);
     expect(result.layersAtIdle).toEqual([
@@ -325,7 +325,7 @@ describe.each([true, false])('fast snapshot settle (flat=%s)', (flat) => {
     });
   });
 
-  it('captures a loaded style on the first 200ms poll without a data event', () => {
+  vaultIt('captures a loaded style on the first 200ms poll without a data event', () => {
     const result = render();
     jest.advanceTimersByTime(266);
     expect(result.postMessage).toHaveBeenCalledTimes(1);
@@ -363,7 +363,7 @@ describe.each([true, false])('fast snapshot settle (flat=%s)', (flat) => {
 describe('a request to a worker page that holds its style', () => {
   const registrations = (script: string) => script.match(/window\._styles\[/g)?.length ?? 0;
 
-  it('gives the page the style with its first request, once', () => {
+  vaultIt('gives the page the style with its first request, once', () => {
     const held: SnapshotStylesHeld = new Map();
     const script = buildRenderSnapshotScript(makeRequest(), 0, 1, held);
 
@@ -371,7 +371,7 @@ describe('a request to a worker page that holds its style', () => {
     expect(script).toContain('layers');
   });
 
-  it('sends only the request once the page holds the style', () => {
+  vaultIt('sends only the request once the page holds the style', () => {
     const held: SnapshotStylesHeld = new Map();
     buildRenderSnapshotScript(makeRequest(), 0, 1, held);
     const script = buildRenderSnapshotScript(makeRequest({ activityId: 'act-2' }), 0, 2, held);
@@ -381,14 +381,14 @@ describe('a request to a worker page that holds its style', () => {
     expect(script).not.toContain('layers');
   });
 
-  it('sends only the request for a held style in the other mode', () => {
+  vaultIt('sends only the request for a held style in the other mode', () => {
     const held: SnapshotStylesHeld = new Map();
     buildRenderSnapshotScript(makeRequest({ flat: true }), 0, 1, held);
 
     expect(registrations(buildRenderSnapshotScript(makeRequest(), 0, 2, held))).toBe(0);
   });
 
-  it('gives the page each style it does not hold yet', () => {
+  vaultIt('gives the page each style it does not hold yet', () => {
     const held: SnapshotStylesHeld = new Map();
     buildRenderSnapshotScript(makeRequest(), 0, 1, held);
 
@@ -400,7 +400,7 @@ describe('a request to a worker page that holds its style', () => {
     expect(registrations(buildRenderSnapshotScript(makeRequest(), 0, 3, held))).toBe(0);
   });
 
-  it('gives a fresh page the style again', () => {
+  vaultIt('gives a fresh page the style again', () => {
     const held: SnapshotStylesHeld = new Map();
     buildRenderSnapshotScript(makeRequest(), 0, 1, held);
     held.clear();
@@ -408,7 +408,7 @@ describe('a request to a worker page that holds its style', () => {
     expect(registrations(buildRenderSnapshotScript(makeRequest(), 0, 2, held))).toBe(1);
   });
 
-  it('gives the page a style again when it differs from the one it holds', () => {
+  vaultIt('gives the page a style again when it differs from the one it holds', () => {
     const held: SnapshotStylesHeld = new Map([['light', '{"version":8}']]);
 
     expect(registrations(buildRenderSnapshotScript(makeRequest(), 0, 1, held))).toBe(1);

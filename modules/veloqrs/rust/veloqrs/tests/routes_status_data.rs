@@ -36,6 +36,7 @@ fn open_engine() -> TempDir {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn one_read_answers_what_the_four_exports_answer() {
     let _serial_state = crate::serial_state();
     let _serial = serial();
@@ -66,6 +67,7 @@ fn one_read_answers_what_the_four_exports_answer() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_idle_library_reports_no_detection() {
     let _serial_state = crate::serial_state();
     let _serial = serial();
@@ -94,6 +96,7 @@ fn an_idle_library_reports_no_detection() {
 /// to cut, so flattening the two would cut against a library nobody asked
 /// about.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_count_the_engine_cannot_answer_is_null() {
     let _serial_state = crate::serial_state();
     let _serial = serial();

@@ -82,6 +82,7 @@ fn japanese() -> Vec<(String, String)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn nothing_is_held_before_the_first_push() {
     let dir = TempDir::new().unwrap();
     let (_path, engine) = open(&dir);
@@ -93,6 +94,7 @@ fn nothing_is_held_before_the_first_push() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_template_pushed_comes_back_under_its_locale() {
     let dir = TempDir::new().unwrap();
     let (_path, engine) = open(&dir);
@@ -125,6 +127,7 @@ fn every_template_pushed_comes_back_under_its_locale() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_push_of_the_same_bundle_writes_nothing() {
     let dir = TempDir::new().unwrap();
     let (_path, engine) = open(&dir);
@@ -141,6 +144,7 @@ fn a_second_push_of_the_same_bundle_writes_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_locale_change_leaves_none_of_the_previous_bundle() {
     let dir = TempDir::new().unwrap();
     let (_path, engine) = open(&dir);
@@ -180,6 +184,7 @@ fn a_locale_change_leaves_none_of_the_previous_bundle() {
 /// process that has never run JavaScript opens the same file and reads what
 /// the last push wrote.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fresh_engine_on_the_same_file_reads_the_last_push() {
     let dir = TempDir::new().unwrap();
     let (path, engine) = open(&dir);
@@ -199,6 +204,7 @@ fn a_fresh_engine_on_the_same_file_reads_the_last_push() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_bundle_is_refused_rather_than_stored() {
     let dir = TempDir::new().unwrap();
     let (_path, engine) = open(&dir);

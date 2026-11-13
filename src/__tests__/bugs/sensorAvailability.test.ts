@@ -133,7 +133,7 @@ afterEach(async () => {
 });
 
 describe('availability without the manager', () => {
-  it('reports the module as present without constructing the manager', () => {
+  vaultIt('reports the module as present without constructing the manager', () => {
     expect(manager.isBleAvailable()).toBe(true);
     expect(mockConstructed).not.toHaveBeenCalled();
   });
@@ -143,12 +143,12 @@ describe('availability without the manager', () => {
     expect(manager.isBleAvailable()).toBe(false);
   });
 
-  it('stops a scan that never started without constructing the manager', () => {
+  vaultIt('stops a scan that never started without constructing the manager', () => {
     manager.stopScan();
     expect(mockConstructed).not.toHaveBeenCalled();
   });
 
-  it('starts unknown until something is read', () => {
+  vaultIt('starts unknown until something is read', () => {
     expect(store.getState().availability).toBe('unknown');
   });
 });
@@ -214,7 +214,7 @@ describe('the scan', () => {
     expect(store.getState().scanFinished).toBe(true);
   });
 
-  it('does not report a scan the athlete stopped as finished', async () => {
+  vaultIt('does not report a scan the athlete stopped as finished', async () => {
     jest.useFakeTimers();
     const scan = manager.startScan();
     await settle();
@@ -226,7 +226,7 @@ describe('the scan', () => {
     expect(store.getState().scanFinished).toBe(false);
   });
 
-  it('clears the finished flag when the next scan starts', async () => {
+  vaultIt('clears the finished flag when the next scan starts', async () => {
     jest.useFakeTimers();
     let scan = manager.startScan();
     await settle();
@@ -387,7 +387,7 @@ describe('refreshBleAccess, on the way back from the system settings', () => {
     expect(store.getState().availability).not.toBe('needsLocation');
   });
 
-  it('reads nothing before the first ask', async () => {
+  vaultIt('reads nothing before the first ask', async () => {
     setPlatform('android', 33);
     androidHolds(true);
     await manager.refreshBleAccess();

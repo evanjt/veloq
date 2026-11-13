@@ -60,7 +60,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-test('the export is awaited and reports progress as it goes', async () => {
+vaultTest('the export is awaited and reports progress as it goes', async () => {
   mockProgress = { running: true, visited: 2, total: 3 };
   mockRunBulkExport.mockImplementation(
     () =>
@@ -124,7 +124,7 @@ describe('an export that never ends', () => {
  * suspension costs the export nothing.
  */
 describe('an export the app was suspended during', () => {
-  it('is not failed by the clock the resume brings back', async () => {
+  vaultIt('is not failed by the clock the resume brings back', async () => {
     jest.useRealTimers();
     const realNow = Date.now;
     let at = realNow();

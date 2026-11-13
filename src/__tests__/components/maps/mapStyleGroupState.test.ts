@@ -32,7 +32,7 @@ describe('group style state', () => {
     expect(groupStyleState(types('Foot'), { Walk: 'light' })).toEqual({ mixed: true });
   });
 
-  it('reports a single-member group by its one value', () => {
+  vaultIt('reports a single-member group by its one value', () => {
     const [only] = MAP_ACTIVITY_GROUPS.filter((group) => group.types.length === 1);
     if (only) {
       expect(groupStyleState(only.types, { [only.types[0]]: 'dark' })).toEqual({
@@ -69,7 +69,7 @@ describe('group terrain state', () => {
     });
   });
 
-  it('is independent of the style column', () => {
+  vaultIt('is independent of the style column', () => {
     expect(groupStyleState(types('Foot'), {})).toEqual({ mixed: false, value: 'default' });
     expect(groupTerrainState(types('Foot'), { Hike: 'always' }, 'off')).toEqual({
       mixed: true,

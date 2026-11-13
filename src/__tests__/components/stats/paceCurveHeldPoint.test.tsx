@@ -129,7 +129,7 @@ beforeEach(() => {
 });
 
 describe('the pace curve activity row', () => {
-  it('opens the activity from a tap-target row whose label carries no arrow', async () => {
+  vaultIt('opens the activity from a tap-target row whose label carries no arrow', async () => {
     await render(<PaceCurveChart days={42} />);
 
     const row = screen.getByRole('button', { name: 'Harbour long loop' });

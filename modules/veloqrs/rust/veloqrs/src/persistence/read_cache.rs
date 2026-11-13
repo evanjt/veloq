@@ -998,6 +998,7 @@ mod tests {
     /// arrays and its lap counts, and the typical lap, beside the laps' curves
     /// and split times.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_lap_curve_weight_counts_the_split_summary() {
         let mut curves = long_route_curves(10, 4_000);
         let bare = lap_curve_bytes(&Some(curves.clone()));
@@ -1026,6 +1027,7 @@ mod tests {
     /// Expected behaviour: the slot holds no more curve data than its budget,
     /// and the route opened last is still served without recomputing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn lap_curves_are_held_within_a_byte_budget() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = TempDir::new().unwrap();
@@ -1066,6 +1068,7 @@ mod tests {
     /// Expected behaviour: they are still held, alone, so the screen that
     /// asked keeps being served; anything held before them is evicted.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_entry_over_the_budget_is_held_alone() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = TempDir::new().unwrap();

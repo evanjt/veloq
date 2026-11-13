@@ -82,7 +82,7 @@ describe('useSectionLedger', () => {
     expect(result.current.pinnedVersion).toBeNull();
   });
 
-  it('is empty without a bundle, and writes nothing without an engine', async () => {
+  vaultIt('is empty without a bundle, and writes nothing without an engine', async () => {
     (getEngine as jest.Mock).mockReturnValue(null);
     const { result } = await renderHook(() => useSectionLedger('sec1'));
     expect(result.current.history).toEqual([]);
@@ -104,64 +104,70 @@ describe('useSectionLedger', () => {
     expect(result.current.versionPolyline(1)).toEqual([]);
   });
 
-  it('keeps the same rows while the bundle holds still, and empties when the id goes away', async () => {
-    const engine = engineWith();
-    (getEngine as jest.Mock).mockReturnValue(engine);
-    const bundle = bundleWith(1);
-    const { result, rerender } = await renderHook(
-      ({ id }: { id: string | undefined }) => useSectionLedger(id, id ? bundle : undefined),
-      { initialProps: { id: 'sec1' as string | undefined } }
-    );
-    const rows = result.current.history;
+  vaultIt(
+    'keeps the same rows while the bundle holds still, and empties when the id goes away',
+    async () => {
+      const engine = engineWith();
+      (getEngine as jest.Mock).mockReturnValue(engine);
+      const bundle = bundleWith(1);
+      const { result, rerender } = await renderHook(
+        ({ id }: { id: string | undefined }) => useSectionLedger(id, id ? bundle : undefined),
+        { initialProps: { id: 'sec1' as string | undefined } }
+      );
+      const rows = result.current.history;
 
-    await rerender({ id: 'sec1' });
-    expect(result.current.history).toBe(rows);
+      await rerender({ id: 'sec1' });
+      expect(result.current.history).toBe(rows);
 
-    await rerender({ id: undefined });
-    expect(result.current.history).toEqual([]);
-    expect(result.current.versions).toEqual([]);
-    expect(result.current.pinnedVersion).toBeNull();
-    expect(result.current.versionPolyline(1)).toEqual([]);
-    expect(result.current.unpin()).toBe(false);
-  });
+      await rerender({ id: undefined });
+      expect(result.current.history).toEqual([]);
+      expect(result.current.versions).toEqual([]);
+      expect(result.current.pinnedVersion).toBeNull();
+      expect(result.current.versionPolyline(1)).toEqual([]);
+      expect(result.current.unpin()).toBe(false);
+    }
+  );
 
-  it("hands the engine's typed details to the panel and reads an absent record as none", async () => {
-    const engine = engineWith();
-    const linked = { id: 'parent', name: 'Col de la Croix', available: true };
-    const bundle = bundleWith(null);
-    bundle.history = [
-      {
-        id: 3n,
-        at: '2026-08-21 00:00:00',
-        kind: 'formed',
-        details: {
-          around: ['a1'],
-          forkAround: [],
-          prs: [],
-          siblings: [],
-          splitFrom: linked,
-          splitInto: [],
-          boundaries: [],
+  vaultIt(
+    "hands the engine's typed details to the panel and reads an absent record as none",
+    async () => {
+      const engine = engineWith();
+      const linked = { id: 'parent', name: 'Col de la Croix', available: true };
+      const bundle = bundleWith(null);
+      bundle.history = [
+        {
+          id: 3n,
+          at: '2026-08-21 00:00:00',
+          kind: 'formed',
+          details: {
+            around: ['a1'],
+            forkAround: [],
+            prs: [],
+            siblings: [],
+            splitFrom: linked,
+            splitInto: [],
+            boundaries: [],
+          },
+          geometryVersion: 1n,
         },
-        geometryVersion: 1n,
-      },
-      {
-        id: 4n,
-        at: '2026-08-22 00:00:00',
-        kind: 'recut',
-        details: null,
-        geometryVersion: null,
-      },
-    ];
-    bundle.geometryVersions = [];
-    (getEngine as jest.Mock).mockReturnValue(engine);
+        {
+          id: 4n,
+          at: '2026-08-22 00:00:00',
+          kind: 'recut',
+          details: null,
+          geometryVersion: null,
+        },
+      ];
+      bundle.geometryVersions = [];
+      (getEngine as jest.Mock).mockReturnValue(engine);
 
-    const { result } = await renderHook(() => useSectionLedger('child', bundle));
+      const { result } = await renderHook(() => useSectionLedger('child', bundle));
 
-    expect(result.current.history[1].details?.splitFrom).toEqual(linked);
-    expect(result.current.history[1].details?.around).toEqual(['a1']);
-    expect(result.current.history[0].details).toBeUndefined();
-  });
+      expect(result.current.history[1].details?.splitFrom).toEqual(linked);
+      expect(result.current.history[1].details?.around).toEqual(['a1']);
+      expect(result.current.history[0].details).toBeUndefined();
+    }
+  );
 });
 
 /**

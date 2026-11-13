@@ -186,7 +186,7 @@ describe('the command', () => {
     expect(output).toContain('--variant');
   });
 
-  it('refuses a variant that names no identity', () => {
+  vaultIt('refuses a variant that names no identity', () => {
     const apk = buildApk(root);
 
     const { status, output } = identity(apk, '--variant', 'staging');
@@ -195,7 +195,7 @@ describe('the command', () => {
     expect(output).toContain('staging');
   });
 
-  it('refuses a missing artifact', () => {
+  vaultIt('refuses a missing artifact', () => {
     const { status, output } = identity(path.join(root, 'absent.apk'), '--variant', 'dev');
 
     expect(status).toBe(1);

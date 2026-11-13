@@ -123,14 +123,14 @@ describe('the push task asking whether an activity is already held', () => {
     await run;
   }
 
-  it('asks once and takes a boolean', async () => {
+  vaultIt('asks once and takes a boolean', async () => {
     await deliverPush();
 
     expect(mockHasActivity).toHaveBeenCalledWith('i1234');
     expect(mockHasActivity).toHaveBeenCalledTimes(1);
   });
 
-  it('never lifts the id list to decide it', async () => {
+  vaultIt('never lifts the id list to decide it', async () => {
     await deliverPush();
 
     expect(mockGetActivityIds).not.toHaveBeenCalled();
@@ -152,7 +152,7 @@ describe('the push task asking whether an activity is already held', () => {
     expect(mockIndexNewActivity).not.toHaveBeenCalled();
   });
 
-  it('readies the activity through the engine', async () => {
+  vaultIt('readies the activity through the engine', async () => {
     const { engine } = require('veloqrs');
     engine.readyActivityBodies.mockClear();
     mockHasActivity.mockReturnValue(false);

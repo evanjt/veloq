@@ -170,6 +170,7 @@ fn a_server_failure_composes_from_the_stored_rows_and_says_it_failed() {
 /// Expected behaviour: the refresh answers at the deadline with the stored
 /// rows and does not wait for the server.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pull_that_outlasts_the_deadline_composes_from_the_stored_rows() {
     let _guard = serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("widget_refresh_slow.db");
@@ -196,6 +197,7 @@ fn a_pull_that_outlasts_the_deadline_composes_from_the_stored_rows() {
 ///
 /// Expected behaviour: nothing is requested and the stored rows are composed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn with_no_credential_nothing_is_requested_and_the_stored_rows_are_composed() {
     let _guard = serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("widget_refresh_no_credential.db");
@@ -220,6 +222,7 @@ fn with_no_credential_nothing_is_requested_and_the_stored_rows_are_composed() {
 ///
 /// Expected behaviour: no snapshot, and no request spent on one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn with_no_stored_context_there_is_nothing_to_write_and_nothing_is_requested() {
     let _guard = serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("widget_refresh_no_context.db");
@@ -238,6 +241,7 @@ fn with_no_stored_context_there_is_nothing_to_write_and_nothing_is_requested() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn with_the_engine_closed_there_is_nothing_to_write() {
     let _guard = serial_global_state();
     crate::persistence::clear_persistent_engine();
@@ -251,6 +255,7 @@ fn with_the_engine_closed_there_is_nothing_to_write() {
 /// Expected behaviour: the engine opens at that path and the stored context
 /// there is used.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cold_refresh_opens_the_engine_at_the_path_it_was_given() {
     let _guard = serial_global_state();
     let tmp = crate::test_globals::init_global_engine("widget_refresh_cold.db");
@@ -283,6 +288,7 @@ fn a_cold_refresh_opens_the_engine_at_the_path_it_was_given() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_answer_is_one_object_holding_the_status_and_the_snapshot() {
     let refresh = WidgetRefresh {
         status: PullStatus::TimedOut,
@@ -328,6 +334,7 @@ fn a_snapshot_the_pull_did_not_refresh_says_the_data_is_as_of_the_last_sync() {
 ///
 /// Expected behaviour: the words are there and no time is invented for them.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn with_no_recorded_sync_the_words_stand_without_a_time() {
     let _guard = serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("widget_refresh_as_of_unknown.db");
@@ -348,6 +355,7 @@ fn with_no_recorded_sync_the_words_stand_without_a_time() {
 /// Expected behaviour: the snapshot is current and carries neither the words
 /// nor a time, so the widget's own age line is the whole story.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_snapshot_the_pull_refreshed_carries_no_as_of_marking() {
     let _guard = serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("widget_refresh_as_of_current.db");
@@ -427,6 +435,7 @@ fn a_refresh_with_a_keychain_credential_frees_the_leases_a_killed_process_left()
 ///
 /// Expected behaviour: the same open, so the claim is taken here too.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refresh_with_an_empty_keychain_frees_the_leases_a_killed_process_left() {
     let claim = claim_after_a_cold_refresh(
         "widget_refresh_empty_keychain_lease.db",
@@ -441,6 +450,7 @@ fn a_refresh_with_an_empty_keychain_frees_the_leases_a_killed_process_left() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refresh_with_a_stored_method_frees_the_leases_a_killed_process_left() {
     let claim = claim_after_a_cold_refresh(
         "widget_refresh_method_lease.db",

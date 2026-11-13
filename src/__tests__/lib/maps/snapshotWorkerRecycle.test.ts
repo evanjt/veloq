@@ -73,7 +73,7 @@ describe('recycling a snapshot worker map', () => {
     expect(page.map.setStyle).toHaveBeenCalledTimes(1);
   });
 
-  it('can be run again on a page it already recycled', () => {
+  vaultIt('can be run again on a page it already recycled', () => {
     const page = bootWorkerPage();
 
     page.recycle();

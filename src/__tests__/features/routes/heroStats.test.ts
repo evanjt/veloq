@@ -28,7 +28,7 @@ describe("a section's climbing", () => {
     klass: 'climb',
   } as const;
 
-  it('states the gain of a climb', () => {
+  vaultIt('states the gain of a climb', () => {
     const stat = elevationStat(sectionElevation(climb)!, t);
 
     expect(stat).toEqual({ text: '120 m', label: 'Elevation gain: 120 m' });
@@ -44,7 +44,7 @@ describe("a section's climbing", () => {
     expect(elevationStat(sectionElevation(climb)!, t, false).text).toBe('394 ft');
   });
 
-  it('states both grades of a climb, each named for a screen reader', () => {
+  vaultIt('states both grades of a climb, each named for a screen reader', () => {
     const stats = sectionGradeStats(climb, t);
 
     expect(texts(stats)).toEqual(['6.7%', 'Steepest 11.2%']);
@@ -68,18 +68,18 @@ describe("a section's climbing", () => {
 });
 
 describe('a scope label', () => {
-  it('names the sport and the range when both narrow the list', () => {
+  vaultIt('names the sport and the range when both narrow the list', () => {
     expect(scopeLabels({ sport: 'Ride', sportsOffered: 2, range: '1m' }, t)).toEqual([
       'Ride',
       t('period.long.1m'),
     ]);
   });
 
-  it('names the range alone when one sport is offered', () => {
+  vaultIt('names the range alone when one sport is offered', () => {
     expect(scopeLabels({ sport: 'Run', sportsOffered: 1, range: '1y' }, t)).toEqual(['1 year']);
   });
 
-  it('names the sport alone over every date', () => {
+  vaultIt('names the sport alone over every date', () => {
     expect(scopeLabels({ sport: 'Ride', sportsOffered: 3, range: 'all' }, t)).toEqual(['Ride']);
   });
 

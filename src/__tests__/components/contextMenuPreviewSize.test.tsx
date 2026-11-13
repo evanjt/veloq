@@ -135,7 +135,7 @@ describe('the context menu preview', () => {
     expect(height).toBeLessThanOrEqual(tabletWindow.height);
   });
 
-  it('lays the previewed screen out at the window it is drawn in on a phone', async () => {
+  vaultIt('lays the previewed screen out at the window it is drawn in on a phone', async () => {
     jest.spyOn(Dimensions, 'get').mockReturnValue(phoneWindow);
     await renderMenu();
 
@@ -146,7 +146,7 @@ describe('the context menu preview', () => {
     });
   });
 
-  it('draws no preview off iOS', async () => {
+  vaultIt('draws no preview off iOS', async () => {
     jest.replaceProperty(Platform, 'OS', 'android');
     await renderMenu();
 

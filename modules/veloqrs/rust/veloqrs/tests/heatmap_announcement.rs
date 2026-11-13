@@ -114,6 +114,7 @@ fn drain_pass() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_finished_tile_pass_announces_itself() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -133,6 +134,7 @@ fn a_finished_tile_pass_announces_itself() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_run_with_nobody_listening_is_not_an_error() {
     let _serial_state = super::serial_state();
     let _serial = serial();

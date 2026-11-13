@@ -43,20 +43,20 @@ describe('Android release configuration', () => {
   ) as { runs: { steps: Step[] } };
   const script = action.runs.steps[0].run ?? '';
 
-  it('checks configuration before accepting a cached APK or AAB', () => {
+  vaultIt('checks configuration before accepting a cached APK or AAB', () => {
     expect(steps.indexOf(configStep)).toBeLessThan(steps.indexOf(cacheStep));
     expect(configStep.if).toBeUndefined();
     expect(configStep.with?.['allow-stub']).toBe('${{ inputs.allow-stub }}');
     expect(cacheStep.with?.key).toContain('steps.native.outputs.toolchain');
   });
 
-  it('allows the placeholder only for a pull request build', () => {
+  vaultIt('allows the placeholder only for a pull request build', () => {
     const call = workflow('build').jobs['build-android'].with;
     expect(call?.variant).toBe('production');
     expect(call?.['allow-stub']).toBe("${{ github.event_name == 'pull_request' }}");
   });
 
-  it('bundles the identity the pull request build would have built', () => {
+  vaultIt('bundles the identity the pull request build would have built', () => {
     const build = workflow('build') as unknown as {
       jobs: Record<string, { with?: Record<string, string>; env?: Record<string, string> }>;
     };
@@ -174,7 +174,7 @@ describe('Android release signing', () => {
     expect(result.outputs).toContain('is_signed=true');
   });
 
-  it('runs the signing gate on a cache hit too', () => {
+  vaultIt('runs the signing gate on a cache hit too', () => {
     expect(signingStep.if).toBeUndefined();
   });
 });
@@ -224,12 +224,12 @@ describe('Build on a ci branch', () => {
     jobs: Record<string, { if?: string }>;
   };
 
-  it('starts on a push to a ci branch as well as main', () => {
+  vaultIt('starts on a push to a ci branch as well as main', () => {
     const triggers = build.on ?? build.true;
     expect(triggers?.push.branches).toEqual(expect.arrayContaining(['main', 'ci/**']));
   });
 
-  it('runs the E2E gate on main and on a ci branch, and nowhere else', () => {
+  vaultIt('runs the E2E gate on main and on a ci branch, and nowhere else', () => {
     const condition = build.jobs['e2e-gate'].if ?? '';
     expect(condition).toContain("github.ref == 'refs/heads/main'");
     expect(condition).toContain("startsWith(github.ref, 'refs/heads/ci/')");

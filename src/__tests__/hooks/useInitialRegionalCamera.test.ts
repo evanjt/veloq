@@ -49,7 +49,7 @@ describe('useInitialRegionalCamera', () => {
     expect(result.current).toEqual({ camera: ZURICH, restored: true });
   });
 
-  it('reads storage once, however many times it re-renders', async () => {
+  vaultIt('reads storage once, however many times it re-renders', async () => {
     (getMapCameraState as jest.Mock).mockReturnValue(BERN);
 
     const { rerender } = await renderHook(
@@ -62,7 +62,7 @@ describe('useInitialRegionalCamera', () => {
     expect(getMapCameraState).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to the stored camera again once the tab blur value clears', async () => {
+  vaultIt('falls back to the stored camera again once the tab blur value clears', async () => {
     (getMapCameraState as jest.Mock).mockReturnValue(BERN);
 
     const { result, rerender } = await renderHook(

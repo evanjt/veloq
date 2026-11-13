@@ -68,7 +68,7 @@ describe('paintPreview', () => {
     expect(diff.routes.every((r) => !r.isLargest)).toBe(true);
   });
 
-  it('has nothing to paint when the athlete has no routes yet', () => {
+  vaultIt('has nothing to paint when the athlete has no routes yet', () => {
     const diff = paintPreview([], [{ key: 'p1', activityIds: ['a1'] }]);
 
     expect(diff.routes).toEqual([]);
@@ -105,7 +105,7 @@ describe('parseGroupingInput', () => {
   });
 });
 
-describe('the ranges the sliders cover', () => {
+vaultDescribe('the ranges the sliders cover', () => {
   it('opens on a value inside both of them', () => {
     for (const key of ['minMatchPercentage', 'endpointThreshold'] as const) {
       const range = GROUPING_PARAM_RANGES[key];

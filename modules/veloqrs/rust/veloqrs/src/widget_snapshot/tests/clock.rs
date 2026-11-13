@@ -68,11 +68,13 @@ fn shows_the_impact_of_a_ride_an_hour_ago_east_of_greenwich() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn shows_the_impact_of_a_ride_an_hour_ago_west_of_greenwich_too() {
     assert!(compose(&data(RIDE), &context(), clock(-8)).impact.is_some());
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn still_refuses_a_ride_older_than_the_impact_window() {
     assert!(
         compose(&data(RIDE - 5 * DAY), &context(), clock(2))
@@ -99,6 +101,7 @@ fn a_ride_taken_today_reads_as_today_whatever_the_offset() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_today_pairs_the_last_sparkline_day_with_the_one_before() {
     let impact = compose(&data(RIDE), &context(), clock(2)).impact.unwrap();
     assert_eq!((impact.form_before, impact.form_after), (9.0, 10.0));
@@ -107,6 +110,7 @@ fn a_ride_today_pairs_the_last_sparkline_day_with_the_one_before() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_late_yesterday_pairs_its_own_day_with_the_day_before_it() {
     // 2026-09-11 23:00 seen from 01:00 the next morning: two hours, but another calendar day.
     let s = compose(&data(1_789_167_600), &context(), at_wall(1_789_174_800));
@@ -117,6 +121,7 @@ fn a_ride_late_yesterday_pairs_its_own_day_with_the_day_before_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_whose_day_before_is_outside_the_sparkline_has_no_impact() {
     // 2026-09-10 12:00 is inside two days of 2026-09-12 10:00, but the series starts on its own day.
     assert!(
@@ -127,6 +132,7 @@ fn a_ride_whose_day_before_is_outside_the_sparkline_has_no_impact() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_impact_window_holds_exactly_two_days_and_not_a_second_more() {
     let mut d = data(LOCAL_NOW - 2 * DAY);
     d.sparklines = Some(FfiWellnessSparklines {
@@ -143,6 +149,7 @@ fn the_impact_window_holds_exactly_two_days_and_not_a_second_more() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_dated_after_now_has_no_impact() {
     assert!(
         compose(&data(LOCAL_NOW + 1), &context(), at_wall(LOCAL_NOW))
@@ -202,6 +209,7 @@ fn label(ctx: &FfiWidgetContext, ride_date: i64, now_wall_seconds: i64) -> Strin
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_date_label_counts_calendar_days_on_the_wall_clock() {
     // 2026-09-11 16:00 seen from 08:00 the next day is sixteen hours, and yesterday.
     assert_eq!(label(&english(), 1_789_142_400, 1_789_200_000), "Yesterday");
@@ -209,6 +217,7 @@ fn the_date_label_counts_calendar_days_on_the_wall_clock() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_date_label_names_the_weekday_within_the_week() {
     // 2026-09-08 is a Tuesday and 2026-09-06 a Sunday, four and six days back.
     assert_eq!(label(&english(), 1_788_861_600, LOCAL_NOW), "Tuesday");
@@ -216,18 +225,21 @@ fn the_date_label_names_the_weekday_within_the_week() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_date_label_writes_a_short_date_from_a_week_back() {
     // 2026-09-05, seven days back.
     assert_eq!(label(&english(), 1_788_602_400, LOCAL_NOW), "Sep 5");
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_date_label_carries_the_year_once_it_is_not_this_one() {
     // 2025-12-31.
     assert_eq!(label(&english(), 1_767_175_200, LOCAL_NOW), "Dec 31, 2025");
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_date_label_falls_back_to_an_iso_date_without_the_locale_words() {
     assert_eq!(label(&context(), 1_788_861_600, LOCAL_NOW), "2026-09-08");
     assert_eq!(label(&context(), 1_767_175_200, LOCAL_NOW), "2025-12-31");
@@ -238,6 +250,7 @@ const MONDAY_14TH: i64 = 1_789_344_000;
 const MONDAY_7TH: i64 = 1_788_739_200;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn week_bounds_on_a_monday_start_at_its_own_midnight() {
     // 2026-09-14 08:15.
     let now = MONDAY_14TH + 8 * 3600 + 15 * 60;
@@ -249,6 +262,7 @@ fn week_bounds_on_a_monday_start_at_its_own_midnight() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn week_bounds_at_monday_midnight_put_that_instant_in_the_new_week() {
     assert_eq!(
         week_bounds(MONDAY_14TH),
@@ -257,6 +271,7 @@ fn week_bounds_at_monday_midnight_put_that_instant_in_the_new_week() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn week_bounds_on_a_sunday_reach_back_to_the_monday_before() {
     // 2026-09-20 23:59:59, the last second of the week.
     let now = 1_789_948_799;
@@ -267,6 +282,7 @@ fn week_bounds_on_a_sunday_reach_back_to_the_monday_before() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn week_bounds_mid_week_start_on_the_monday() {
     // 2026-09-16 13:30, a Wednesday.
     let now = 1_789_565_400;
@@ -290,6 +306,7 @@ fn test_week_bounds_tuesday_matches_the_previous_elapsed_week() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_week_bounds_half_hour_after_monday_midnight() {
     let now = MONDAY_14TH + 1800;
     let (current_start, current_end, prev_start, prev_end) = week_bounds(now);

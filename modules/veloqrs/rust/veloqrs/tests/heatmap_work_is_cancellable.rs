@@ -94,6 +94,7 @@ fn seed_engine() -> (PersistentEngine, TempDir) {
 /// The corpus is generated from a fixed config, so the two engines here draw
 /// the same tiles and the counts are comparable.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cancelled_pass_draws_less_than_a_pass_left_alone() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -128,6 +129,7 @@ fn a_cancelled_pass_draws_less_than_a_pass_left_alone() {
 /// A cancelled pass leaves the ground it did not draw owed to the next one.
 /// Clearing the marker would leave the heatmap permanently half-drawn.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cancelled_pass_leaves_the_set_dirty() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -146,6 +148,7 @@ fn a_cancelled_pass_leaves_the_set_dirty() {
 /// The slot is structural, so a cancelled pass frees it the way a finished one
 /// does and the next pass is not refused by the one the athlete stopped.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_slot_comes_back_after_a_cancel() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -164,6 +167,7 @@ fn the_slot_comes_back_after_a_cancel() {
 /// A pass nobody cancelled finishes and says so, which is what keeps the two
 /// outcomes distinguishable.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_uncancelled_pass_reports_a_clean_finish() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -184,6 +188,7 @@ fn an_uncancelled_pass_reports_a_clean_finish() {
 /// gap, and the workers share the waiting, so the pass takes at least the
 /// whole gap budget divided by the pool. The pass still draws every tile.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_interacting_athlete_slows_the_pass_without_shrinking_it() {
     use veloqrs::net::pacing;
 
@@ -340,6 +345,7 @@ fn a_clear_stops_a_running_pass_before_it_deletes() {
 /// The token is the house shape, so its own contract is pinned here rather
 /// than only through a pass that happens to use it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_token_is_shared_and_latches() {
     let _serial_state = super::serial_state();
     let token = CancelToken::new();

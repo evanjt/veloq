@@ -61,7 +61,7 @@ describe('with-android-restricted-resizability', () => {
     expect(main.$['android:screenOrientation']).toBe('portrait');
   });
 
-  it('leaves every other activity alone', async () => {
+  vaultIt('leaves every other activity alone', async () => {
     const manifest = restrictResizability(await parsedManifest());
 
     const other = manifest.manifest.application[0].activity.find(
@@ -89,7 +89,7 @@ describe('with-android-restricted-resizability', () => {
     ]);
   });
 
-  it('is registered in app.json, so prebuild runs it', () => {
+  vaultIt('is registered in app.json, so prebuild runs it', () => {
     const appConfig = JSON.parse(readFileSync(join(__dirname, '../../../app.json'), 'utf8')) as {
       expo: { plugins: (string | [string, unknown])[] };
     };

@@ -64,7 +64,7 @@ describe('the storage bar line', () => {
     expect(String(line)).not.toContain('total=');
   });
 
-  it('draws no line without a free-space reading', async () => {
+  vaultIt('draws no line without a free-space reading', async () => {
     const { queryByText } = await panel(null);
     expect(queryByText(/storageUsed/)).toBeNull();
   });
@@ -78,7 +78,7 @@ describe('the storage bar line', () => {
     expect(labels.some((l) => l.includes('settings.storageBackups'))).toBe(true);
   });
 
-  it('draws no backups segment when there are none', async () => {
+  vaultIt('draws no backups segment when there are none', async () => {
     const { getAllByTestId } = await panel(20_000_000_000, 0);
     const labels = getAllByTestId('storage-legend-label').map((n) => String(n.props.children));
     expect(labels.some((l) => l.includes('settings.storageBackups'))).toBe(false);
@@ -94,16 +94,19 @@ describe('the storage bar line', () => {
  * reason.
  */
 describe('the route and section counts with matching off', () => {
-  it.each(['settings.routesCount', 'settings.sectionsCount'])('says why %s is out', async (key) => {
-    const { getByTestId } = await panel(null, 0, false);
-    const stat = getByTestId(`storage-stat-${key}`);
+  vaultIt.each(['settings.routesCount', 'settings.sectionsCount'])(
+    'says why %s is out',
+    async (key) => {
+      const { getByTestId } = await panel(null, 0, false);
+      const stat = getByTestId(`storage-stat-${key}`);
 
-    expect(stat.props.accessibilityState).toMatchObject({ disabled: true });
-    expect(stat.props.accessibilityLabel).toContain(key);
-    expect(stat.props.accessibilityLabel).toContain('settings.routeMatchingOff');
-  });
+      expect(stat.props.accessibilityState).toMatchObject({ disabled: true });
+      expect(stat.props.accessibilityLabel).toContain(key);
+      expect(stat.props.accessibilityLabel).toContain('settings.routeMatchingOff');
+    }
+  );
 
-  it.each([
+  vaultIt.each([
     ['settings.routesCount', 2],
     ['settings.sectionsCount', 3],
   ])('keeps %s live with matching on, saying its count %i', async (key, count) => {

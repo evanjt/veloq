@@ -63,7 +63,7 @@ it.each([
   expect(runGuard(`export type R = {\n${field}\n};\n`).status).toBe(1);
 });
 
-it.each([
+vaultIt.each([
   ['a parameter', 'export function cancelRun(run: bigint): boolean {'],
   ['a parameter on its own line', '    startTs: bigint,'],
   ['an array parameter', '    weekStarts: Array<bigint>,'],
@@ -78,7 +78,7 @@ it.each([
   expect(output).toContain('veloqrs.ts:2');
 });
 
-it('leaves f64 fields, parameters and returns alone', () => {
+vaultIt('leaves f64 fields, parameters and returns alone', () => {
   const { status } = runGuard(
     [
       'export type R = {',
@@ -94,7 +94,7 @@ it('leaves f64 fields, parameters and returns alone', () => {
   expect(status).toBe(0);
 });
 
-it('leaves the callback vtable handle and comments alone', () => {
+vaultIt('leaves the callback vtable handle and comments alone', () => {
   const { status } = runGuard(
     [
       'const vtable = {',

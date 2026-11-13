@@ -141,7 +141,7 @@ describe('upgrade-test.sh', () => {
     });
   }
 
-  it.each(['com.veloq.app.dev', 'com.veloq.app'])(
+  vaultIt.each(['com.veloq.app.dev', 'com.veloq.app'])(
     'launches %s in both flows, the app it installed and counted',
     (appId) => {
       const result = upgrade(appId);
@@ -203,7 +203,7 @@ describe('measure-feed-jank.sh', () => {
     for (const call of lines(result.dir, 'maestro.log')) expect(call).toContain(EMULATOR);
   });
 
-  it('takes the lock on DEVICE when that is what names the handset', () => {
+  vaultIt('takes the lock on DEVICE when that is what names the handset', () => {
     const result = jank({ DEVICE: EMULATOR });
 
     expect(new Set(targets(result.dir))).toEqual(new Set([EMULATOR]));
@@ -213,7 +213,7 @@ describe('measure-feed-jank.sh', () => {
     for (const [, locked] of driving) expect(locked).toBe(EMULATOR);
   });
 
-  it('installs the named APK through the stamp check, on the locked handset', () => {
+  vaultIt('installs the named APK through the stamp check, on the locked handset', () => {
     const result = jank({ ANDROID_SERIAL: EMULATOR });
 
     expect(result.stderr).toContain('stamped deadbee');
@@ -257,7 +257,7 @@ describe('capture-hierarchy.sh', () => {
     return fs.existsSync(snapshots) ? fs.readdirSync(snapshots) : [];
   };
 
-  it('captures the dev build when it has focus, on the locked handset', () => {
+  vaultIt('captures the dev build when it has focus, on the locked handset', () => {
     const result = capture('com.veloq.app.dev', VELOQ_FOCUS);
 
     expect(result.status).toBe(0);
@@ -270,7 +270,7 @@ describe('capture-hierarchy.sh', () => {
     for (const dump of dumps) expect(dump).toContain(`--device ${TEST_HANDSET}`);
   });
 
-  it('writes nothing when another app has focus', () => {
+  vaultIt('writes nothing when another app has focus', () => {
     const result = capture('com.veloq.app.dev', BROWSER_FOCUS);
 
     expect(result.status).not.toBe(0);
@@ -278,7 +278,7 @@ describe('capture-hierarchy.sh', () => {
     expect(lines(result.dir, 'maestro.log')).toEqual([]);
   });
 
-  it('refuses an intent Android could not resolve', () => {
+  vaultIt('refuses an intent Android could not resolve', () => {
     const result = capture('com.veloq.app', VELOQ_FOCUS);
 
     expect(result.status).not.toBe(0);
@@ -331,7 +331,7 @@ exit 0
     });
   }
 
-  it('launches the seed flow as the release application id', () => {
+  vaultIt('launches the seed flow as the release application id', () => {
     const result = capture();
 
     expect(result.status).toBe(0);

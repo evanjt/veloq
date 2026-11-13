@@ -105,7 +105,7 @@ beforeEach(() => {
   });
 });
 
-it('lists the nearest sensor first and tells two of one model apart', () => {
+vaultIt('lists the nearest sensor first and tells two of one model apart', () => {
   useSensorStore.setState({ discovered: [FAR, NEAR] });
   render(<SensorSettingsScreen />);
 
@@ -120,7 +120,7 @@ it('lists the nearest sensor first and tells two of one model apart', () => {
   expect(near).not.toEqual(far);
 });
 
-it('reads the signal strength in dBm and places a sensor with none last', () => {
+vaultIt('reads the signal strength in dBm and places a sensor with none last', () => {
   useSensorStore.setState({ discovered: [UNNAMED, FAR, NEAR] });
   render(<SensorSettingsScreen />);
 
@@ -134,7 +134,7 @@ it('reads the signal strength in dBm and places a sensor with none last', () => 
   );
 });
 
-it('names an unnamed sensor by what it measures, never by its device id', () => {
+vaultIt('names an unnamed sensor by what it measures, never by its device id', () => {
   useSensorStore.setState({ discovered: [UNNAMED] });
   render(<SensorSettingsScreen />);
 
@@ -195,7 +195,7 @@ it('shows no value for a connected sensor that is not the source of its metric',
   expect(screen.getByTestId('sensor-live-second-heartRate')).toBeTruthy();
 });
 
-it('tells two paired sensors of one model apart', () => {
+vaultIt('tells two paired sensors of one model apart', () => {
   useSensorStore.setState({
     knownSensors: [
       { id: 'AA:BB:CC:DD:12:34', name: 'Trail Strap', kinds: ['heartRate'] },

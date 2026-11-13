@@ -976,6 +976,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn create_opens_a_database_when_none_is_live() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
@@ -1015,6 +1016,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn stats_counts_and_backfill_list_read_through_the_object() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("engine.db");
@@ -1042,6 +1044,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn stats_read_while_a_writer_holds_the_engine() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("stats_under_writer.db");
@@ -1053,6 +1056,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activity_count_reads_while_a_writer_holds_the_engine() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("count_under_writer.db");
@@ -1107,6 +1111,7 @@ mod tests {
     /// caches; the last empties the engine's LRUs and the satellite rasters as
     /// well. The Developer Dashboard's figures follow, and the engine reads on.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn releasing_memory_keeps_the_caches_until_the_hard_level() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("release_memory.db");
@@ -1148,6 +1153,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_flag_set_in_one_write_reads_as_the_later_write_left_it() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("stats_flag_later_write.db");
@@ -1474,6 +1480,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn name_translations_are_written_to_the_shared_words() {
         let _serial = crate::test_globals::serial_global_state();
         let engine = VeloqEngine;
@@ -1486,6 +1493,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_manager_hangs_off_the_engine() {
         let engine = VeloqEngine;
         let _ = engine.sections();
@@ -1521,6 +1529,7 @@ mod tests {
     /// Expected behaviour: a wipe still running refuses the second call and
     /// touches nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_clear_all_is_refused_behind_a_wipe_still_running() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("clear-all-slot-held.db");
@@ -1701,6 +1710,7 @@ mod tests {
     /// `Database` it read as a failed database, and only the English message
     /// told the two apart.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_held_slot_refuses_as_busy_not_as_a_database_failure() {
         static SLOT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
         let held = InFlight::claim(&SLOT, "An export is already running").expect("free slot");
@@ -1813,6 +1823,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn bulk_exports_write_a_file_per_format() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("engine.db");
@@ -1847,6 +1858,7 @@ mod tests {
     /// Expected behaviour: it finishes anyway, because it reads from a
     /// connection of its own.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_export_finishes_while_the_engine_write_lock_is_held() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("engine.db");
@@ -1905,6 +1917,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_export_is_refused_while_one_runs() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("engine.db");
@@ -1965,6 +1978,7 @@ mod tests {
     /// Expected behaviour: it answers cancelled, leaves no file, frees its
     /// slot, and its id stops nothing once it has ended.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_running_export_can_be_cancelled_and_leaves_no_file() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("engine.db");
@@ -2022,6 +2036,7 @@ mod tests {
     /// Expected behaviour: it answers cancelled, writes nothing, and the next
     /// backup is not refused.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_running_record_backup_can_be_cancelled_and_writes_nothing() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("engine.db");
@@ -2101,6 +2116,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_geojson_export_reports_its_counts_and_writes_the_collection() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("engine.db");
@@ -2127,6 +2143,7 @@ mod tests {
 
     /// An export of an empty library still terminates and still writes a file.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_export_with_nothing_to_write_completes() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("engine.db");
@@ -2144,6 +2161,7 @@ mod tests {
     /// A destination that cannot be created fails the call rather than
     /// stranding the slot at "running" forever.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unwritable_destination_fails_and_frees_the_slot() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("engine.db");

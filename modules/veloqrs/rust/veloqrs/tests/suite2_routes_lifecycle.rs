@@ -310,6 +310,7 @@ fn route_name_row_survives_resync_under_the_stable_id() {
 /// re-hydrates from `route_names`, so `get_route_name` returns None even though
 /// the DB row is intact (asserted above). Green when the re-hydrate lands.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_name_survives_resync() {
     let corpus = route_corpus(COLD_N);
     let (mut engine, _dir) = fresh_engine();

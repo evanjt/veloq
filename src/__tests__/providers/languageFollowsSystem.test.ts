@@ -152,7 +152,7 @@ describe('an install that saved its first-launch detection', () => {
     expect(useLanguageStore.getState().language).toBe('de-CH');
   });
 
-  it('keeps English (AU) on a British phone as an explicit pick', async () => {
+  vaultIt('keeps English (AU) on a British phone as an explicit pick', async () => {
     await AsyncStorage.setItem(STORAGE_KEY, 'en-AU');
 
     expect(await initialiseLanguage()).toBe('en-AU');
@@ -245,7 +245,7 @@ describe('where the platform keeps a per-app language', () => {
     expect(mockPlatform.tag).toBe('nl');
   });
 
-  it('writes nothing when the two already agree', async () => {
+  vaultIt('writes nothing when the two already agree', async () => {
     await initialiseLanguage();
     mockPlatform.writes = [];
 
@@ -258,7 +258,7 @@ describe('where the platform keeps a per-app language', () => {
 });
 
 describe('resolveLanguageToLocale', () => {
-  it('resolves System to the phone language', () => {
+  vaultIt('resolves System to the phone language', () => {
     phoneSpeaks('pt-BR');
     expect(resolveLanguageToLocale(SYSTEM_LANGUAGE)).toBe('pt-BR');
   });

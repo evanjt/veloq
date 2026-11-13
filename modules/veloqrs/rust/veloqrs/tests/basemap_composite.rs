@@ -46,6 +46,7 @@ const NORTH_LAND: GeoBox = GeoBox {
 };
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_composite_fetches_each_tile_from_the_provider_that_holds_it() {
     let _serial = super::serial_state();
     let tmp = TempDir::new().expect("tempdir");
@@ -93,6 +94,7 @@ fn a_composite_fetches_each_tile_from_the_provider_that_holds_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_region_with_no_tile_hands_it_to_the_next_provider() {
     let _serial = super::serial_state();
     let tmp = TempDir::new().expect("tempdir");
@@ -130,6 +132,7 @@ fn a_region_with_no_tile_hands_it_to_the_next_provider() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_composite_with_no_provider_for_a_tile_answers_404() {
     let _serial = super::serial_state();
     let tmp = TempDir::new().expect("tempdir");
@@ -153,6 +156,7 @@ fn a_composite_with_no_provider_for_a_tile_answers_404() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_composite_nobody_registered_is_refused_without_asking_a_host() {
     let _serial = super::serial_state();
     let tmp = TempDir::new().expect("tempdir");

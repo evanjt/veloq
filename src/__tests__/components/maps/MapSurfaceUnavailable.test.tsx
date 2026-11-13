@@ -45,7 +45,7 @@ const post = (message: object) =>
   });
 
 describe('MapSurface basemap availability', () => {
-  it('shows nothing extra on a surface that has not failed', async () => {
+  vaultIt('shows nothing extra on a surface that has not failed', async () => {
     await renderSurface();
 
     expect(screen.queryByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeNull();

@@ -16,13 +16,13 @@ beforeAll(async () => {
 });
 
 describe('the date label under a sparkline crosshair', () => {
-  it('spells the month in the app language, not the device one', async () => {
+  vaultIt('spells the month in the app language, not the device one', async () => {
     await changeLanguage('de-DE');
 
     expect(scrubDateLabel(0, new Date(2026, 2, 14))).toBe('14. März');
   });
 
-  it('counts back from the day the scrub is read on', async () => {
+  vaultIt('counts back from the day the scrub is read on', async () => {
     await changeLanguage('en-AU');
 
     expect(scrubDateLabel(3, new Date(2026, 2, 14))).toBe('11 Mar');

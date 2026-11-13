@@ -55,6 +55,7 @@ fn detect(engine: &mut PersistentEngine) -> Vec<String> {
 /// Expected behaviour: the detect reads and processes three, and the next
 /// detect after the other two are decided reads all five.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_owed_track_is_left_out_and_unprocessed_until_decided() {
     let _serial = crate::test_globals::serial_global_state();
     let _creds = crate::objects::test_credentials();
@@ -82,6 +83,7 @@ fn an_owed_track_is_left_out_and_unprocessed_until_decided() {
 /// Expected behaviour: nothing is owed, so the pool is the whole library and
 /// a library that never updates is not starved of sections.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn nothing_is_held_out_when_the_download_cannot_run() {
     let _serial = crate::test_globals::serial_global_state();
     crate::objects::clear_test_credentials();
@@ -94,6 +96,7 @@ fn nothing_is_held_out_when_the_download_cannot_run() {
 /// Scenario: a library of only owed tracks.
 /// Expected behaviour: the pool is empty and nothing is marked processed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_wholly_owed_has_an_empty_pool() {
     let _serial = crate::test_globals::serial_global_state();
     let _creds = crate::objects::test_credentials();
@@ -111,6 +114,7 @@ fn a_library_wholly_owed_has_an_empty_pool() {
 /// Expected behaviour: the detect answers with an empty catalogue, does not
 /// report aborted, and records no abandoned pool.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_wholly_owed_library_detects_without_abandoning_the_pool() {
     let _serial = crate::test_globals::serial_global_state();
     let _creds = crate::objects::test_credentials();

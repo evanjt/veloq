@@ -149,7 +149,7 @@ describe('locating the user on the inline activity map', () => {
     });
   };
 
-  it('asks for one fix across two presses', async () => {
+  vaultIt('asks for one fix across two presses', async () => {
     await mount();
     await press();
     await press();

@@ -172,6 +172,7 @@ fn visible_ids(engine: &PersistentEngine) -> Vec<String> {
 /// still visible, still pending, and the registry is byte for byte the one
 /// the ingest left.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn idle_syncs_leave_a_pending_retirement_where_the_ingest_left_it() {
     let dir = TempDir::new().expect("tempdir");
     let (mut engine, held) = half_retired(&dir.path().join("idle.db"));
@@ -195,6 +196,7 @@ fn idle_syncs_leave_a_pending_retirement_where_the_ingest_left_it() {
 /// Expected behaviour: the worker steps nothing and still reports the run
 /// settled.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn idle_syncs_settled_on_the_worker_leave_the_registry_unmoved() {
     use crate::persistence::sections::detection::ApplyOn;
     use crate::persistence::{WorkerApply, with_persistent_engine};
@@ -241,6 +243,7 @@ fn idle_syncs_settled_on_the_worker_leave_the_registry_unmoved() {
 /// retiring section, so stepping it would read as the ground continuing and
 /// clear the confirmation the ingest gave.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn idle_syncs_after_a_restart_leave_the_registry_unmoved() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("restart.db");
@@ -267,6 +270,7 @@ fn idle_syncs_after_a_restart_leave_the_registry_unmoved() {
 /// Expected behaviour: its batch is new evidence and steps the debounce, so the
 /// registry moves where an idle detect would leave it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_detect_owing_a_recompute_still_steps() {
     let dir = TempDir::new().expect("tempdir");
     let (mut engine, _) = half_retired(&dir.path().join("dirty.db"));

@@ -4,6 +4,7 @@ use crate::net::elevation_backfill;
 use crate::test_globals::serial_global_state;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_serial_global_state_resets_process_state_between_calls() {
     {
         let _serial = serial_global_state();

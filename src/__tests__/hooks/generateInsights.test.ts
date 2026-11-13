@@ -116,7 +116,7 @@ describe('generateInsights', () => {
   // ============================================================
 
   describe('section PRs', () => {
-    it('generates insight for recent PR', () => {
+    vaultIt('generates insight for recent PR', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -138,7 +138,7 @@ describe('generateInsights', () => {
       expect(pr!.title).toContain('insights.sectionPr');
     });
 
-    it('limits to 3 PRs max', () => {
+    vaultIt('limits to 3 PRs max', () => {
       const prs = Array.from({ length: 5 }, (_, i) => ({
         sectionId: `s${i}`,
         sectionName: `Section ${i}`,
@@ -186,7 +186,7 @@ describe('generateInsights', () => {
       mockGetEngine.mockReturnValue(null);
     });
 
-    it('generates HRV trend from the engine verdict', () => {
+    vaultIt('generates HRV trend from the engine verdict', () => {
       const result = generateInsights(
         withHrv(EMPTY_INPUT, hrvTrend('trendingUp', [50, 52, 55, 58, 60])),
         mockT
@@ -206,7 +206,7 @@ describe('generateInsights', () => {
       expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
     });
 
-    it('titles each verdict the engine can return', () => {
+    vaultIt('titles each verdict the engine can return', () => {
       for (const label of ['trendingUp', 'trendingDown', 'stable']) {
         const result = generateInsights(
           withHrv(EMPTY_INPUT, hrvTrend(label, [50, 52, 55, 58, 60])),
@@ -217,7 +217,7 @@ describe('generateInsights', () => {
       }
     });
 
-    it('includes HRV sparkline in supporting data', () => {
+    vaultIt('includes HRV sparkline in supporting data', () => {
       const result = generateInsights(
         withHrv(EMPTY_INPUT, hrvTrend('trendingUp', [48, 50, 52, 55, 58, 60])),
         mockT
@@ -229,7 +229,7 @@ describe('generateInsights', () => {
       });
     });
 
-    it('includes methodology with Kiviniemi reference in APA format', () => {
+    vaultIt('includes methodology with Kiviniemi reference in APA format', () => {
       const result = generateInsights(
         withHrv(EMPTY_INPUT, hrvTrend('trendingUp', [50, 52, 55, 58, 60])),
         mockT
@@ -244,7 +244,7 @@ describe('generateInsights', () => {
   // ============================================================
 
   describe('fitness milestones', () => {
-    it('detects FTP increase', () => {
+    vaultIt('detects FTP increase', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -280,7 +280,7 @@ describe('generateInsights', () => {
       expect(result.find((i) => i.id === 'fitness_milestone-ftp')).toBeUndefined();
     });
 
-    it('detects pace improvement from a higher threshold speed', () => {
+    vaultIt('detects pace improvement from a higher threshold speed', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -315,7 +315,7 @@ describe('generateInsights', () => {
       expect(result.find((i) => i.id === 'fitness_milestone-pace')).toBeUndefined();
     });
 
-    it('detects swim pace improvement from a higher threshold speed', () => {
+    vaultIt('detects swim pace improvement from a higher threshold speed', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -421,7 +421,7 @@ describe('generateInsights', () => {
       expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
     });
 
-    it('reads last week against the chronic average off the engine too', () => {
+    vaultIt('reads last week against the chronic average off the engine too', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -444,7 +444,7 @@ describe('generateInsights', () => {
       expect(vol!.supportingData!.comparisonData!.previous.value).toBe(100);
     });
 
-    it('detects load increase >15% (uses TSS when available)', () => {
+    vaultIt('detects load increase >15% (uses TSS when available)', () => {
       const result = generateInsights(
         withComparisons({
           ...EMPTY_INPUT,
@@ -468,7 +468,7 @@ describe('generateInsights', () => {
       expect(vol!.title).toContain('weeklyLoadUp');
     });
 
-    it('detects load decrease >15% (uses TSS when available)', () => {
+    vaultIt('detects load decrease >15% (uses TSS when available)', () => {
       const result = generateInsights(
         withComparisons({
           ...EMPTY_INPUT,
@@ -541,7 +541,7 @@ describe('generateInsights', () => {
       expect(vol!.supportingData!.comparisonData!.previous.unit).toBe('min');
     });
 
-    it('change context is always neutral (no warning)', () => {
+    vaultIt('change context is always neutral (no warning)', () => {
       const result = generateInsights(
         withComparisons({
           ...EMPTY_INPUT,
@@ -648,7 +648,7 @@ describe('generateInsights', () => {
      * The gate that used to stand here read a TypeScript trend and a non-empty
      * section list, neither of which the engine's answer depends on.
      */
-    it('renders what the engine decided without a trend on this side', () => {
+    vaultIt('renders what the engine decided without a trend on this side', () => {
       const result = generateInsights(
         withStalePrs(EMPTY_INPUT, [
           {
@@ -680,7 +680,7 @@ describe('generateInsights', () => {
   // ============================================================
 
   describe('priority ordering', () => {
-    it('sorts by priority ascending', () => {
+    vaultIt('sorts by priority ascending', () => {
       const result = generateInsights(
         withComparisons({
           ...EMPTY_INPUT,
@@ -771,66 +771,75 @@ describe('generateInsights', () => {
   });
 
   describe('navigation coverage', () => {
-    it('generated insight categories include navigation targets for current detail flows', () => {
-      const result = generateInsights(
-        withComparisons({
-          ...EMPTY_INPUT,
-          currentPeriod: {
-            count: 5,
-            totalDuration: 7200,
-            totalDistance: 100000,
-            totalTss: 240,
-          },
-          previousPeriod: {
-            count: 4,
-            totalDuration: 5400,
-            totalDistance: 70000,
-            totalTss: 180,
-          },
-          ftpTrend: {
-            latestFtp: 265,
-            latestDate: BigInt(1000),
-            previousFtp: 255,
-            previousDate: BigInt(500),
-          },
-          recentPRs: [
-            { sectionId: 's1', sectionName: 'Hill', bestTime: 300, daysAgo: 1, traversalCount: 12 },
-          ],
-          sectionTrends: [
-            {
-              sectionId: 's1',
-              sectionName: 'Hill',
-              trend: 1,
-              medianRecentSecs: 320,
-              bestTimeSecs: 300,
-              traversalCount: 8,
-              sportType: 'Ride',
-              recentEfforts: [],
+    vaultIt(
+      'generated insight categories include navigation targets for current detail flows',
+      () => {
+        const result = generateInsights(
+          withComparisons({
+            ...EMPTY_INPUT,
+            currentPeriod: {
+              count: 5,
+              totalDuration: 7200,
+              totalDistance: 100000,
+              totalTss: 240,
             },
-            {
-              sectionId: 's2',
-              sectionName: 'Valley',
-              trend: 1,
-              medianRecentSecs: 420,
-              bestTimeSecs: 390,
-              traversalCount: 6,
-              sportType: 'Ride',
-              recentEfforts: [],
+            previousPeriod: {
+              count: 4,
+              totalDuration: 5400,
+              totalDistance: 70000,
+              totalTss: 180,
             },
-          ],
-        }),
-        mockT
-      );
+            ftpTrend: {
+              latestFtp: 265,
+              latestDate: BigInt(1000),
+              previousFtp: 255,
+              previousDate: BigInt(500),
+            },
+            recentPRs: [
+              {
+                sectionId: 's1',
+                sectionName: 'Hill',
+                bestTime: 300,
+                daysAgo: 1,
+                traversalCount: 12,
+              },
+            ],
+            sectionTrends: [
+              {
+                sectionId: 's1',
+                sectionName: 'Hill',
+                trend: 1,
+                medianRecentSecs: 320,
+                bestTimeSecs: 300,
+                traversalCount: 8,
+                sportType: 'Ride',
+                recentEfforts: [],
+              },
+              {
+                sectionId: 's2',
+                sectionName: 'Valley',
+                trend: 1,
+                medianRecentSecs: 420,
+                bestTimeSecs: 390,
+                traversalCount: 6,
+                sportType: 'Ride',
+                recentEfforts: [],
+              },
+            ],
+          }),
+          mockT
+        );
 
-      expect(result.length).toBeGreaterThan(0);
-      result.forEach((insight) => {
-        if (insight.category === 'section_trend') {
-          expect(insight.supportingData?.sections?.length).toBeGreaterThan(0);
-        } else {
-          expect(insight.navigationTarget).toBeDefined();
-        }
-      });
-    });
+        expect(result.length).toBeGreaterThan(0);
+        result.forEach((insight) => {
+          if (insight.category === 'section_trend') {
+            expect(insight.supportingData?.sections?.length).toBeGreaterThan(0);
+          } else {
+            expect(insight.navigationTarget).toBeDefined();
+          }
+        });
+      }
+    );
   });
 
   // ============================================================
@@ -838,7 +847,7 @@ describe('generateInsights', () => {
   // ============================================================
 
   describe('isNew field', () => {
-    it('all generated insights have isNew = false (annotated by useInsights)', () => {
+    vaultIt('all generated insights have isNew = false (annotated by useInsights)', () => {
       const result = generateInsights(
         {
           ...EMPTY_INPUT,
@@ -858,7 +867,7 @@ describe('generateInsights', () => {
   // ============================================================
 
   describe('informational framing', () => {
-    it('no insight has alternatives array (removed prescriptive zone comparisons)', () => {
+    vaultIt('no insight has alternatives array (removed prescriptive zone comparisons)', () => {
       const result = generateInsights(
         withComparisons({
           ...EMPTY_INPUT,
@@ -894,7 +903,7 @@ describe('generateInsights', () => {
   // ============================================================
 
   describe('body text', () => {
-    it('load insight has body with TSS and duration context', () => {
+    vaultIt('load insight has body with TSS and duration context', () => {
       const result = generateInsights(
         withComparisons({
           ...EMPTY_INPUT,
@@ -1021,7 +1030,7 @@ describe('generateInsights - additional edge cases', () => {
    * Section PR with bestTime = 0 should be skipped.
    * 0 seconds is clearly invalid for a section time.
    */
-  it('section PR with bestTime = 0 is skipped', () => {
+  vaultIt('section PR with bestTime = 0 is skipped', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -1042,7 +1051,7 @@ describe('generateInsights - additional edge cases', () => {
    * Section PR with negative bestTime should be filtered.
    * Negative time makes no physical sense.
    */
-  it('section PR with negative bestTime is skipped', () => {
+  vaultIt('section PR with negative bestTime is skipped', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -1062,7 +1071,7 @@ describe('generateInsights - additional edge cases', () => {
    * Period comparison with both periods having identical non-zero values.
    * Change should be < 10% so no insight is generated.
    */
-  it('identical periods produce no comparison insight', () => {
+  vaultIt('identical periods produce no comparison insight', () => {
     const period = {
       count: 5,
       totalDuration: 7200,
@@ -1083,7 +1092,7 @@ describe('generateInsights - additional edge cases', () => {
   /**
    * FTP equal values (no change) should not generate milestone.
    */
-  it('FTP with no change (same value) does not generate insight', () => {
+  vaultIt('FTP with no change (same value) does not generate insight', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -1102,7 +1111,7 @@ describe('generateInsights - additional edge cases', () => {
   /**
    * Pace got worse (lower threshold speed) should not generate milestone.
    */
-  it('pace regression does not produce insight', () => {
+  vaultIt('pace regression does not produce insight', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -1142,7 +1151,7 @@ describe('generateInsights - boundary conditions', () => {
     mockGetEngine.mockReturnValue(null);
   });
 
-  it('the sparkline passes through the engine window untouched', () => {
+  vaultIt('the sparkline passes through the engine window untouched', () => {
     const result = generateInsights(
       withHrv(EMPTY_INPUT, {
         label: 'stable',
@@ -1193,7 +1202,7 @@ describe('generateInsights - boundary conditions', () => {
   /**
    * FTP improvement at exactly 5W boundary generates insight.
    */
-  it('FTP improvement by exactly 5W generates insight', () => {
+  vaultIt('FTP improvement by exactly 5W generates insight', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -1217,7 +1226,7 @@ describe('generateInsights - boundary conditions', () => {
    * `!data.sectionTrends || data.sectionTrends.length === 0`
    * so no stale PR insight should be generated.
    */
-  it('empty sectionTrends produces no stale PR insight', () => {
+  vaultIt('empty sectionTrends produces no stale PR insight', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -1235,7 +1244,7 @@ describe('generateInsights - boundary conditions', () => {
     expect(result.find((i) => i.id.startsWith('stale_pr-'))).toBeUndefined();
   });
 
-  it('sectionTrends present but no fitness trend produces no stale PR insight', () => {
+  vaultIt('sectionTrends present but no fitness trend produces no stale PR insight', () => {
     const result = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -1289,7 +1298,7 @@ describe('generateInsights - boundary conditions', () => {
    * Period comparison at 16% triggers (above 15% threshold).
    * 116/100 - 1 = 0.16 > 0.15.
    */
-  it('period comparison at 16% triggers (above 15% threshold)', () => {
+  vaultIt('period comparison at 16% triggers (above 15% threshold)', () => {
     const result = generateInsights(
       withComparisons({
         ...EMPTY_INPUT,
@@ -1395,7 +1404,7 @@ describe('consolidateInsights', () => {
   // dedup does not depend on that order.
   // ============================================================
 
-  it('keeps the order it was given rather than re-sorting by priority', () => {
+  vaultIt('keeps the order it was given rather than re-sorting by priority', () => {
     const result = consolidateInsights([
       createInsight('third-priority', 'fitness_milestone', 3),
       createInsight('first-priority', 'period_comparison', 1),
@@ -1418,7 +1427,7 @@ describe('consolidateInsights', () => {
     expect(result.map((insight) => insight.id)).toEqual(['section-pr']);
   });
 
-  it('drops an efficiency trend its own PR covers even when the trend comes first', () => {
+  vaultIt('drops an efficiency trend its own PR covers even when the trend comes first', () => {
     const result = consolidateInsights([
       createInsight('efficiency-s1', 'efficiency_trend', 1, { sectionIds: ['s1'] }),
       createInsight('section-pr', 'section_pr', 1, { navigationTarget: '/section/s1' }),
@@ -1427,7 +1436,7 @@ describe('consolidateInsights', () => {
     expect(result.map((insight) => insight.id)).toEqual(['section-pr']);
   });
 
-  it('drops a section story whose sections a later PR covers, whatever its priority', () => {
+  vaultIt('drops a section story whose sections a later PR covers, whatever its priority', () => {
     const result = consolidateInsights([
       createInsight('stale-s1', 'stale_pr', 1, { sectionIds: ['s1'] }),
       createInsight('section-pr', 'section_pr', 5, { navigationTarget: '/section/s1' }),
@@ -1455,7 +1464,7 @@ describe('consolidateInsights', () => {
     expect(result.map((insight) => insight.id)).toEqual(['stale-s3', 'efficiency-s1']);
   });
 
-  it('leaves insights of equal priority in the order they arrived', () => {
+  vaultIt('leaves insights of equal priority in the order they arrived', () => {
     const result = consolidateInsights([
       createInsight('second', 'fitness_milestone', 2),
       createInsight('first', 'hrv_trend', 2),
@@ -1464,7 +1473,7 @@ describe('consolidateInsights', () => {
     expect(result.map((insight) => insight.id)).toEqual(['second', 'first']);
   });
 
-  it('returns a single insight untouched', () => {
+  vaultIt('returns a single insight untouched', () => {
     const result = consolidateInsights([createInsight('only', 'fitness_milestone', 3)]);
 
     expect(result.map((insight) => insight.id)).toEqual(['only']);
@@ -1479,7 +1488,7 @@ describe('consolidateInsights', () => {
   // its final order and every consolidation drop with its reason.
   // ============================================================
 
-  it('carries the consolidated list and its drops into the pipeline outcome', () => {
+  vaultIt('carries the consolidated list and its drops into the pipeline outcome', () => {
     generateInsights(EMPTY_INPUT, mockT);
 
     const kept = consolidateInsights([
@@ -1507,7 +1516,7 @@ describe('consolidateInsights', () => {
   // looking for a PR card that was never generated.
   // ============================================================
 
-  it('names the earlier story, not a PR, when one story covers another', () => {
+  vaultIt('names the earlier story, not a PR, when one story covers another', () => {
     generateInsights(EMPTY_INPUT, mockT);
 
     consolidateInsights([
@@ -1520,7 +1529,7 @@ describe('consolidateInsights', () => {
     ).toEqual([['efficiency-s1', 'duplicate section (already covered by an earlier story)']]);
   });
 
-  it('still names the PR when the PR is what covered the section', () => {
+  vaultIt('still names the PR when the PR is what covered the section', () => {
     generateInsights(EMPTY_INPUT, mockT);
 
     consolidateInsights([
@@ -1533,7 +1542,7 @@ describe('consolidateInsights', () => {
     ).toEqual([['efficiency-s1', 'duplicate section (already covered by PR insight)']]);
   });
 
-  it('names the earlier story when a PR covers one section and a story the other', () => {
+  vaultIt('names the earlier story when a PR covers one section and a story the other', () => {
     generateInsights(EMPTY_INPUT, mockT);
 
     consolidateInsights([
@@ -1547,7 +1556,7 @@ describe('consolidateInsights', () => {
     ).toEqual([['efficiency-both', 'duplicate section (already covered by an earlier story)']]);
   });
 
-  it('names the PR for a story a later PR covers, since no story covered it', () => {
+  vaultIt('names the PR for a story a later PR covers, since no story covered it', () => {
     generateInsights(EMPTY_INPUT, mockT);
 
     consolidateInsights([
@@ -1560,7 +1569,7 @@ describe('consolidateInsights', () => {
     ).toEqual([['stale-s1', 'duplicate section (already covered by PR insight)']]);
   });
 
-  it('records the section story limit as the reason it dropped a card', () => {
+  vaultIt('records the section story limit as the reason it dropped a card', () => {
     generateInsights(EMPTY_INPUT, mockT);
 
     consolidateInsights([
@@ -1574,7 +1583,7 @@ describe('consolidateInsights', () => {
     ).toEqual([['stale', 'section story limit (max 2)']]);
   });
 
-  it('records the short-circuited single insight, which drops nothing', () => {
+  vaultIt('records the short-circuited single insight, which drops nothing', () => {
     generateInsights(EMPTY_INPUT, mockT);
 
     consolidateInsights([createInsight('only', 'fitness_milestone', 2)]);
@@ -1583,7 +1592,7 @@ describe('consolidateInsights', () => {
     expect(getLastInsightOutcome()?.consolidationDropped).toEqual([]);
   });
 
-  it('records an empty consolidation rather than leaving the previous run standing', () => {
+  vaultIt('records an empty consolidation rather than leaving the previous run standing', () => {
     generateInsights(EMPTY_INPUT, mockT);
     consolidateInsights([
       createInsight('a', 'fitness_milestone', 2),
@@ -1596,7 +1605,7 @@ describe('consolidateInsights', () => {
     expect(getLastInsightOutcome()?.consolidated).toEqual([]);
   });
 
-  it('a fresh generation clears the consolidated list until consolidation runs again', () => {
+  vaultIt('a fresh generation clears the consolidated list until consolidation runs again', () => {
     generateInsights(EMPTY_INPUT, mockT);
     consolidateInsights([
       createInsight('a', 'fitness_milestone', 2),
@@ -1669,7 +1678,7 @@ describe('consolidateInsights', () => {
       }
     );
 
-    it('logs again on a second generation that throws again', () => {
+    vaultIt('logs again on a second generation that throws again', () => {
       withNodeEnv('production', () => {
         generateInsights(inputWithUnreadableHrv(), mockT);
         generateInsights(inputWithUnreadableHrv(), mockT);

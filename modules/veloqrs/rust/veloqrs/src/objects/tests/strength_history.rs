@@ -28,6 +28,7 @@ fn test_summarise_session_best_set_and_rest() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_summarise_session_missing_time_has_no_rest() {
     let session = summarise_session(vec![set(0, 80.0, 5, None), set(1, 85.0, 5, Some(190.0))]);
     assert!(session.groups[0].rest_seconds.is_empty());

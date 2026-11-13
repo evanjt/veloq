@@ -154,7 +154,7 @@ describe('useNamedCorridors', () => {
     expect(result.current.corridors.map((c) => c.intentId)).toEqual(['intent-9']);
   });
 
-  it('re-reads once on the announcement a removal makes', async () => {
+  vaultIt('re-reads once on the announcement a removal makes', async () => {
     const engine = engineWith([corridor()]);
     (getEngine as jest.Mock).mockReturnValue(engine);
     const { result } = await renderHook(() => useNamedCorridors());

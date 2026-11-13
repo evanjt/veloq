@@ -68,37 +68,43 @@ async function renderStack(props: Partial<React.ComponentProps<typeof MapControl
 }
 
 describe('MapControlStack', () => {
-  it('keeps the layer toggles and fit-all out of the column until the layers menu opens', async () => {
-    await renderStack();
+  vaultIt(
+    'keeps the layer toggles and fit-all out of the column until the layers menu opens',
+    async () => {
+      await renderStack();
 
-    for (const id of ['map-toggle-3d', 'map-compass', 'map-location', 'map-layers']) {
-      expect(screen.getByTestId(id)).toBeTruthy();
+      for (const id of ['map-toggle-3d', 'map-compass', 'map-location', 'map-layers']) {
+        expect(screen.getByTestId(id)).toBeTruthy();
+      }
+      for (const id of LAYER_IDS) {
+        expect(screen.queryByTestId(id)).toBeNull();
+      }
+      expect(screen.getByTestId('map-layers').props.accessibilityState).toMatchObject({
+        expanded: false,
+      });
     }
-    for (const id of LAYER_IDS) {
-      expect(screen.queryByTestId(id)).toBeNull();
-    }
-    expect(screen.getByTestId('map-layers').props.accessibilityState).toMatchObject({
-      expanded: false,
-    });
-  });
+  );
 
-  it('draws each column control at the icon-button size and reaches the tap minimum by slop', async () => {
-    await renderStack();
+  vaultIt(
+    'draws each column control at the icon-button size and reaches the tap minimum by slop',
+    async () => {
+      await renderStack();
 
-    for (const id of ['map-toggle-3d', 'map-compass', 'map-location', 'map-layers']) {
-      const node = screen.getByTestId(id);
-      const style = StyleSheet.flatten(node.props.style);
-      expect(style.width ?? style.minWidth).toBe(controlHeight.button);
-      expect(style.height ?? style.minHeight).toBe(controlHeight.button);
-      const slop = node.props.hitSlop;
-      expect(controlHeight.button + slop.top + slop.bottom).toBeGreaterThanOrEqual(
-        layout.minTapTarget
-      );
-      expect(controlHeight.button + slop.left + slop.right).toBeGreaterThanOrEqual(
-        layout.minTapTarget
-      );
+      for (const id of ['map-toggle-3d', 'map-compass', 'map-location', 'map-layers']) {
+        const node = screen.getByTestId(id);
+        const style = StyleSheet.flatten(node.props.style);
+        expect(style.width ?? style.minWidth).toBe(controlHeight.button);
+        expect(style.height ?? style.minHeight).toBe(controlHeight.button);
+        const slop = node.props.hitSlop;
+        expect(controlHeight.button + slop.top + slop.bottom).toBeGreaterThanOrEqual(
+          layout.minTapTarget
+        );
+        expect(controlHeight.button + slop.left + slop.right).toBeGreaterThanOrEqual(
+          layout.minTapTarget
+        );
+      }
     }
-  });
+  );
 
   it('opens a menu with every available layer, its state, and fit-all', async () => {
     const handlers = await renderStack();
@@ -126,7 +132,7 @@ describe('MapControlStack', () => {
     expect(screen.getByTestId('map-toggle-sections')).toBeTruthy();
   });
 
-  it('draws the check glyph on a checked layer row only', async () => {
+  vaultIt('draws the check glyph on a checked layer row only', async () => {
     await renderStack({ showSections: true, showRoutes: false });
 
     await fireEvent.press(screen.getByTestId('map-layers'));
@@ -175,7 +181,7 @@ describe('MapControlStack', () => {
     }
   });
 
-  it('lists only the layers that have something to show', async () => {
+  vaultIt('lists only the layers that have something to show', async () => {
     await renderStack({ sectionCount: 0, routeCount: 0, onToggleHeatmap: undefined });
 
     await fireEvent.press(screen.getByTestId('map-layers'));
@@ -187,7 +193,7 @@ describe('MapControlStack', () => {
     }
   });
 
-  it('offers no layers control when the map has nothing to layer', async () => {
+  vaultIt('offers no layers control when the map has nothing to layer', async () => {
     await renderStack({
       activityCount: 0,
       sectionCount: 0,
@@ -216,17 +222,24 @@ describe('MapControlStack', () => {
         within(screen.getByTestId(rowId)).getByTestId('map-key-swatch').props.style
       ).backgroundColor;
 
-    it('names each sport in view beside a swatch in the colour its dots are drawn in', async () => {
-      await openKey();
+    vaultIt(
+      'names each sport in view beside a swatch in the colour its dots are drawn in',
+      async () => {
+        await openKey();
 
-      expect(swatchColour('map-key-category-Ride')).toBe(sportMarkColour('Ride', false));
-      expect(swatchColour('map-key-category-Run')).toBe(sportMarkColour('Run', false));
-      expect(within(screen.getByTestId('map-key-category-Ride')).getByText('Cycling')).toBeTruthy();
-      expect(within(screen.getByTestId('map-key-category-Run')).getByText('Running')).toBeTruthy();
-      expect(screen.queryByTestId('map-key-category-Water')).toBeNull();
-    });
+        expect(swatchColour('map-key-category-Ride')).toBe(sportMarkColour('Ride', false));
+        expect(swatchColour('map-key-category-Run')).toBe(sportMarkColour('Run', false));
+        expect(
+          within(screen.getByTestId('map-key-category-Ride')).getByText('Cycling')
+        ).toBeTruthy();
+        expect(
+          within(screen.getByTestId('map-key-category-Run')).getByText('Running')
+        ).toBeTruthy();
+        expect(screen.queryByTestId('map-key-category-Water')).toBeNull();
+      }
+    );
 
-    it('explains the fade from a recent dot to one a year old or more', async () => {
+    vaultIt('explains the fade from a recent dot to one a year old or more', async () => {
       await openKey();
 
       const recency = screen.getByTestId('map-key-recency');
@@ -234,19 +247,19 @@ describe('MapControlStack', () => {
       expect(within(recency).getByText('A year or more')).toBeTruthy();
     });
 
-    it('names what the recency ramp measures above its bar', async () => {
+    vaultIt('names what the recency ramp measures above its bar', async () => {
       await openKey();
 
       expect(within(screen.getByTestId('map-key-recency')).getByText('Activity age')).toBeTruthy();
     });
 
-    it('names what the heat ramp measures above its bar', async () => {
+    vaultIt('names what the heat ramp measures above its bar', async () => {
       await openKey({ showHeatmap: true });
 
       expect(within(screen.getByTestId('map-key-heat')).getByText('Passes')).toBeTruthy();
     });
 
-    it('draws the heat ramp from fewer to more passes while the heatmap shows', async () => {
+    vaultIt('draws the heat ramp from fewer to more passes while the heatmap shows', async () => {
       await openKey({ showHeatmap: true });
 
       const heat = screen.getByTestId('map-key-heat');
@@ -259,7 +272,7 @@ describe('MapControlStack', () => {
       expect(steps[steps.length - 1]).toBe(HEAT[HEAT.length - 1]);
     });
 
-    it('hides each row with its layer', async () => {
+    vaultIt('hides each row with its layer', async () => {
       await openKey({ showActivities: false, showHeatmap: false });
 
       expect(screen.queryByTestId('map-key-category-Ride')).toBeNull();
@@ -267,21 +280,24 @@ describe('MapControlStack', () => {
       expect(screen.queryByTestId('map-key-heat')).toBeNull();
     });
 
-    it("draws each shown layer's key inside its own row, the sports on one wrapping line", async () => {
-      await openKey({ showHeatmap: true });
+    vaultIt(
+      "draws each shown layer's key inside its own row, the sports on one wrapping line",
+      async () => {
+        await openKey({ showHeatmap: true });
 
-      const activities = within(screen.getByTestId('map-toggle-activities'));
-      expect(activities.getByTestId('map-key-recency')).toBeTruthy();
-      const sports = activities.getByTestId('map-key-categories');
-      expect(within(sports).getByTestId('map-key-category-Ride')).toBeTruthy();
-      expect(within(sports).getByTestId('map-key-category-Run')).toBeTruthy();
-      expect(StyleSheet.flatten(sports.props.style).flexWrap).toBe('wrap');
-      expect(
-        within(screen.getByTestId('map-toggle-heatmap')).getByTestId('map-key-heat')
-      ).toBeTruthy();
-    });
+        const activities = within(screen.getByTestId('map-toggle-activities'));
+        expect(activities.getByTestId('map-key-recency')).toBeTruthy();
+        const sports = activities.getByTestId('map-key-categories');
+        expect(within(sports).getByTestId('map-key-category-Ride')).toBeTruthy();
+        expect(within(sports).getByTestId('map-key-category-Run')).toBeTruthy();
+        expect(StyleSheet.flatten(sports.props.style).flexWrap).toBe('wrap');
+        expect(
+          within(screen.getByTestId('map-toggle-heatmap')).getByTestId('map-key-heat')
+        ).toBeTruthy();
+      }
+    );
 
-    it('keeps the layer name as the row label and reads its key as the hint', async () => {
+    vaultIt('keeps the layer name as the row label and reads its key as the hint', async () => {
       await openKey({ showHeatmap: true });
 
       const activities = screen.getByTestId('map-toggle-activities');
@@ -294,7 +310,7 @@ describe('MapControlStack', () => {
       expect(screen.getByTestId('map-toggle-routes').props.accessibilityHint).toBeUndefined();
     });
 
-    it('takes a fixed width, and stretches each ramp to the label column', async () => {
+    vaultIt('takes a fixed width, and stretches each ramp to the label column', async () => {
       await openKey({ showHeatmap: true });
 
       expect(StyleSheet.flatten(screen.getByTestId('map-layers-menu').props.style).width).toBe(
@@ -307,7 +323,7 @@ describe('MapControlStack', () => {
       }
     });
 
-    it('drops the heat ramp from its row when the heatmap is off', async () => {
+    vaultIt('drops the heat ramp from its row when the heatmap is off', async () => {
       await openKey({ showHeatmap: false });
 
       expect(screen.getByTestId('map-toggle-heatmap')).toBeTruthy();
@@ -315,7 +331,7 @@ describe('MapControlStack', () => {
       expect(screen.getByTestId('map-toggle-heatmap').props.accessibilityHint).toBeUndefined();
     });
 
-    it('draws no heat ramp when the map has no heatmap layer to show', async () => {
+    vaultIt('draws no heat ramp when the map has no heatmap layer to show', async () => {
       await openKey({ showHeatmap: true, onToggleHeatmap: undefined });
 
       expect(screen.queryByTestId('map-key-heat')).toBeNull();
@@ -329,27 +345,30 @@ describe('MapControlStack', () => {
         await openKey({ showRoutes: true, linePalette: base, ...props });
       }
 
-      it('draws each key inside its own row, under the label, as a swatch with no caption', async () => {
-        await openLines(mapPalette('light'));
+      vaultIt(
+        'draws each key inside its own row, under the label, as a swatch with no caption',
+        async () => {
+          await openLines(mapPalette('light'));
 
-        for (const [row, key] of [
-          ['map-toggle-sections', 'map-key-sections'],
-          ['map-toggle-routes', 'map-key-routes'],
-        ] as const) {
-          const keyNode = within(screen.getByTestId(row)).getByTestId(key);
-          expect(within(keyNode).getByTestId('map-key-swatch')).toBeTruthy();
-          expect(
-            within(keyNode)
-              .queryAllByText(/./)
-              .map((text) => text.props.children)
-          ).toEqual([]);
-          expect(screen.getByTestId(row).props.accessibilityHint).toBeUndefined();
+          for (const [row, key] of [
+            ['map-toggle-sections', 'map-key-sections'],
+            ['map-toggle-routes', 'map-key-routes'],
+          ] as const) {
+            const keyNode = within(screen.getByTestId(row)).getByTestId(key);
+            expect(within(keyNode).getByTestId('map-key-swatch')).toBeTruthy();
+            expect(
+              within(keyNode)
+                .queryAllByText(/./)
+                .map((text) => text.props.children)
+            ).toEqual([]);
+            expect(screen.getByTestId(row).props.accessibilityHint).toBeUndefined();
+          }
+          expect(screen.queryByText('Each section its own colour')).toBeNull();
+          expect(screen.queryByText('Each route its own colour')).toBeNull();
         }
-        expect(screen.queryByText('Each section its own colour')).toBeNull();
-        expect(screen.queryByText('Each route its own colour')).toBeNull();
-      });
+      );
 
-      it.each(['light', 'dark', 'satellite'] as const)(
+      vaultIt.each(['light', 'dark', 'satellite'] as const)(
         "draws sections as a dash of several section colours on the %s base's edge",
         async (base) => {
           const palette = mapPalette(base);
@@ -373,7 +392,7 @@ describe('MapControlStack', () => {
         }
       );
 
-      it.each(['light', 'dark', 'satellite'] as const)(
+      vaultIt.each(['light', 'dark', 'satellite'] as const)(
         "draws routes as a solid run of route colours on the %s base's edge",
         async (base) => {
           const palette = mapPalette(base);
@@ -388,7 +407,7 @@ describe('MapControlStack', () => {
         }
       );
 
-      it('hides each key while its layer is off', async () => {
+      vaultIt('hides each key while its layer is off', async () => {
         await openLines(mapPalette('light'), { showSections: false, showRoutes: false });
 
         expect(screen.getByTestId('map-toggle-sections')).toBeTruthy();

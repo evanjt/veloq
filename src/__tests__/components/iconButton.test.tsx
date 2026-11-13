@@ -28,7 +28,7 @@ function flatten(style: unknown): Record<string, number | string> {
 }
 
 describe('IconButton', () => {
-  it('reaches the tap-target minimum square around a small glyph', async () => {
+  vaultIt('reaches the tap-target minimum square around a small glyph', async () => {
     const { getByTestId } = await render(
       <IconButton accessibilityLabel="Rename" onPress={() => {}} testID="i">
         <Text>x</Text>
@@ -45,7 +45,7 @@ describe('IconButton', () => {
     );
   });
 
-  it('reaches the accessibility tree as a named button', async () => {
+  vaultIt('reaches the accessibility tree as a named button', async () => {
     const { getByRole } = await render(
       <IconButton accessibilityLabel="Rename" onPress={() => {}}>
         <Text>x</Text>
@@ -73,7 +73,7 @@ describe('IconButton', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('takes the Button variant ground', async () => {
+  vaultIt('takes the Button variant ground', async () => {
     const { getByTestId } = await render(
       <IconButton accessibilityLabel="Go" variant="primary" onPress={() => {}} testID="i">
         <Text>x</Text>
@@ -99,7 +99,7 @@ function contrastRatio(a: string, b: string): number {
 }
 
 describe('iconButtonSkin', () => {
-  it.each([
+  vaultIt.each([
     ['light', false, colors],
     ['dark', true, darkColors],
   ] as const)(
@@ -114,7 +114,7 @@ describe('iconButtonSkin', () => {
     }
   );
 
-  it.each([
+  vaultIt.each([
     ['light', false, colors],
     ['dark', true, darkColors],
   ] as const)(
@@ -127,14 +127,14 @@ describe('iconButtonSkin', () => {
     }
   );
 
-  it('keeps white on the filled variants', () => {
+  vaultIt('keeps white on the filled variants', () => {
     expect(iconButtonSkin({ variant: 'primary', isDark: false }).glyph).toBe(colors.textOnFill);
     expect(iconButtonSkin({ variant: 'destructive', isDark: true }).glyph).toBe(colors.textOnFill);
   });
 });
 
 describe('IconButton selected', () => {
-  it('reports the selected state and draws the on ground with a white glyph', async () => {
+  vaultIt('reports the selected state and draws the on ground with a white glyph', async () => {
     const { getByTestId, UNSAFE_getByType } = await render(
       <IconButton accessibilityLabel="Terrain" variant="secondary" selected testID="i">
         <IconButton.Glyph name="terrain" />
@@ -146,7 +146,7 @@ describe('IconButton selected', () => {
     expect(UNSAFE_getByType(MaterialCommunityIcons).props.color).toBe(colors.textOnFill);
   });
 
-  it('reports unselected and gives the glyph the secondary icon ink', async () => {
+  vaultIt('reports unselected and gives the glyph the secondary icon ink', async () => {
     const { getByTestId, UNSAFE_getByType } = await render(
       <IconButton accessibilityLabel="Terrain" variant="secondary" selected={false} testID="i">
         <IconButton.Glyph name="terrain" />
@@ -156,7 +156,7 @@ describe('IconButton selected', () => {
     expect(UNSAFE_getByType(MaterialCommunityIcons).props.color).toBe(colors.iconSecondary);
   });
 
-  it('leaves the selected state out of a plain action', async () => {
+  vaultIt('leaves the selected state out of a plain action', async () => {
     const { getByTestId } = await render(
       <IconButton accessibilityLabel="Share" testID="i">
         <IconButton.Glyph name="share-variant" />
@@ -167,7 +167,7 @@ describe('IconButton selected', () => {
 });
 
 describe('IconButton selected over a caller ground', () => {
-  it('keeps the on fill when the caller paints its own ground', async () => {
+  vaultIt('keeps the on fill when the caller paints its own ground', async () => {
     const { getByTestId } = await render(
       <IconButton
         accessibilityLabel="Terrain"

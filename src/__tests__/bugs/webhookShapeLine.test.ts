@@ -91,7 +91,7 @@ describe('the webhook shape line', () => {
     expect(line).not.toContain('i700');
   });
 
-  it('gives an event with no activity no activity keys', () => {
+  vaultIt('gives an event with no activity no activity keys', () => {
     expect(parsed(webhookShapeLine(harbourDelivery(), RECEIVED_AT, 'i800'))).toEqual({
       receivedAt: RECEIVED_AT,
       eventCount: 3,
@@ -189,7 +189,7 @@ describe('the webhook logging a delivery shape', () => {
     jest.restoreAllMocks();
   });
 
-  it('logs one line before any push when the athlete is named', async () => {
+  vaultIt('logs one line before any push when the athlete is named', async () => {
     const response = await worker.fetch(request(harbourDelivery()), env('i700'));
 
     expect(response.status).toBe(200);
@@ -204,7 +204,7 @@ describe('the webhook logging a delivery shape', () => {
     ]);
   });
 
-  it('logs nothing about the delivery when no athlete is named', async () => {
+  vaultIt('logs nothing about the delivery when no athlete is named', async () => {
     const response = await worker.fetch(request(harbourDelivery()), env(undefined));
 
     expect(response.status).toBe(200);

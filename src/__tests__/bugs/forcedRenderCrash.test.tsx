@@ -60,16 +60,19 @@ describe('the forced render crash', () => {
     expect(mockRequireNativeModule).toHaveBeenCalledWith('VeloqDebugCrash');
   });
 
-  it('holds the request through a render retry rather than spending it on the first attempt', async () => {
-    const takeRequest = jest.fn().mockReturnValueOnce(true).mockReturnValue(false);
-    mockRequireNativeModule.mockReturnValue({ takeRequest });
-    const mounted = await mountApp();
+  vaultIt(
+    'holds the request through a render retry rather than spending it on the first attempt',
+    async () => {
+      const takeRequest = jest.fn().mockReturnValueOnce(true).mockReturnValue(false);
+      mockRequireNativeModule.mockReturnValue({ takeRequest });
+      const mounted = await mountApp();
 
-    expect(mounted.getByText('Something went wrong')).toBeTruthy();
-    expect(takeRequest).toHaveBeenCalledTimes(1);
-  });
+      expect(mounted.getByText('Something went wrong')).toBeTruthy();
+      expect(takeRequest).toHaveBeenCalledTimes(1);
+    }
+  );
 
-  it('renders the app when no crash was requested', async () => {
+  vaultIt('renders the app when no crash was requested', async () => {
     mockRequireNativeModule.mockReturnValue({ takeRequest: jest.fn(() => false) });
 
     const mounted = await mountApp();

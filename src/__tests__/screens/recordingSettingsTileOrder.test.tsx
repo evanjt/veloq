@@ -65,7 +65,7 @@ beforeEach(async () => {
 });
 
 describe('recording settings tile order', () => {
-  it('lists every tile of each mode in order', async () => {
+  vaultIt('lists every tile of each mode in order', async () => {
     const view = await render(<RecordingDataFieldsScreen />);
     const gps = ['speed', 'distance', 'heartrate', 'power'];
     gps.forEach((field, index) => {
@@ -77,7 +77,7 @@ describe('recording settings tile order', () => {
     ).toBeTruthy();
   });
 
-  it('opens the field picker on the tile with its current field', async () => {
+  vaultIt('opens the field picker on the tile with its current field', async () => {
     const view = await render(<RecordingDataFieldsScreen />);
     void fireEvent.press(view.getByTestId('settings-tile-gps-1'));
     const pushed = mockPush.mock.calls.at(-1)[0];
@@ -155,7 +155,7 @@ describe('recording settings tile order', () => {
     expect(await storedFields('gps')).toBeUndefined();
   });
 
-  it('lists the default tiles of a mode the stored layout never named', async () => {
+  vaultIt('lists the default tiles of a mode the stored layout never named', async () => {
     useRecordingPreferences.setState({ dataFields: { gps: ['speed'] } });
     const view = await render(<RecordingDataFieldsScreen />);
     ['heartrate', 'power', 'cadence', 'timer'].forEach((field, index) => {

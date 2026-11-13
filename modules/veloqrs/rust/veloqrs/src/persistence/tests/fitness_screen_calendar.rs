@@ -198,6 +198,7 @@ fn a_window_includes_an_activity_on_its_last_second() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_library_is_empty_parts_and_zero_totals() {
     let engine = PersistentEngine::in_memory().unwrap();
     let data = read(&engine.db, &windows()).unwrap();
@@ -277,6 +278,7 @@ fn span(r: &FfiTimestampRange) -> (i64, i64) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_weekly_comparison_ends_last_week_at_the_same_hour_as_now() {
     let engine = synced(vec![
         at("last-monday", "2026-02-23", 9, 3_600),
@@ -325,6 +327,7 @@ fn the_weekly_comparison_matches_the_home_card_window_to_the_second() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_longer_range_ends_its_previous_window_the_same_span_after_its_start() {
     let engine = PersistentEngine::in_memory().unwrap();
     // Tuesday 3 March 2026, 12:00.
@@ -380,6 +383,7 @@ fn a_previous_window_never_runs_into_the_current_one() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_period_with_nothing_before_it_is_not_judged_and_a_level_one_has_no_percentage() {
     let engine = synced(vec![
         at("last-month", "2026-02-02", 9, 3_600),
@@ -400,6 +404,7 @@ fn a_period_with_nothing_before_it_is_not_judged_and_a_level_one_has_no_percenta
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn hours_are_judged_as_the_card_prints_them() {
     let engine = synced(vec![
         at("last-monday", "2026-02-23", 8, 3_600),
@@ -439,6 +444,7 @@ fn glyph(trend: &Option<crate::FfiStatTrend>) -> Option<(&str, Option<u32>)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_move_inside_each_totals_deadband_is_flat() {
     // 20 minutes more is under the half-hour deadband, 600 m under a
     // kilometre, three points of load under five.
@@ -449,6 +455,7 @@ fn a_move_inside_each_totals_deadband_is_flat() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn more_time_and_distance_are_up_and_load_moves_with_no_judgement() {
     let up = weekly_moves((18_000, 120_000.0, 300.0), (21_600, 132_000.0, 360.0));
     assert_eq!(glyph(&up.duration), Some(("↑", Some(20))));
@@ -463,6 +470,7 @@ fn more_time_and_distance_are_up_and_load_moves_with_no_judgement() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn one_more_activity_than_last_week_is_a_move_up() {
     let engine = synced(vec![
         at("last-a", "2026-02-23", 8, 3_600),
@@ -567,6 +575,7 @@ fn from(dates: &[NaiveDate], day: &str) -> Vec<NaiveDate> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_calendar_spans_the_held_window_and_counts_the_older_activities_owed() {
     let mut engine = signed_in("2026-07-20");
     let census = weekly_census(&mut engine, "2025-11-03");
@@ -600,6 +609,7 @@ fn the_calendar_spans_the_held_window_and_counts_the_older_activities_owed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_older_than_the_cap_answers_the_cap() {
     let mut engine = signed_in("2024-01-01");
     // An account older than the cap too.
@@ -616,6 +626,7 @@ fn a_window_older_than_the_cap_answers_the_cap() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_account_younger_than_the_window_starts_on_the_monday_of_its_oldest_activity() {
     let mut engine = signed_in("2026-07-20");
     // Wednesday 2 September 2026.
@@ -629,6 +640,7 @@ fn an_account_younger_than_the_window_starts_on_the_monday_of_its_oldest_activit
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_stored_athlete_answers_the_default_window() {
     let engine = PersistentEngine::in_memory().unwrap();
 
@@ -640,6 +652,7 @@ fn no_stored_athlete_answers_the_default_window() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_widened_ask_grows_the_span_and_the_older_rows_leave_the_count() {
     let mut engine = signed_in("2026-07-20");
     let census = weekly_census(&mut engine, "2025-11-03");
@@ -734,6 +747,7 @@ fn no_trend(c: &crate::FfiSummaryComparison) -> bool {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_previous_week_the_device_holds_part_of_is_not_compared() {
     let mut engine = census_of(&[LAST_WEEK.as_slice(), THIS_WEEK.as_slice()].concat());
     store_rows(&mut engine, &LAST_WEEK[..1]);
@@ -762,6 +776,7 @@ fn a_previous_week_the_device_holds_part_of_is_not_compared() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn owed_rows_in_the_current_week_withhold_the_trend_too() {
     let mut engine = census_of(&[LAST_WEEK.as_slice(), THIS_WEEK.as_slice()].concat());
     store_rows(&mut engine, &LAST_WEEK);
@@ -775,6 +790,7 @@ fn owed_rows_in_the_current_week_withhold_the_trend_too() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_previous_week_the_census_confirms_empty_answers_empty_and_no_trend() {
     let mut engine = census_of(&THIS_WEEK);
     store_rows(&mut engine, &THIS_WEEK);
@@ -787,6 +803,7 @@ fn a_previous_week_the_census_confirms_empty_answers_empty_and_no_trend() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_census_at_all_answers_not_fetched_and_no_trend() {
     let mut engine = signed_in("2024-01-01");
     engine
@@ -804,6 +821,7 @@ fn no_census_at_all_answers_not_fetched_and_no_trend() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_stored_athlete_answers_not_fetched_and_no_trend() {
     let mut engine = PersistentEngine::in_memory().unwrap();
     engine
@@ -837,6 +855,7 @@ fn season_read(engine: &PersistentEngine) -> crate::FfiFitnessScreenData {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_season_months_are_each_month_before_this_one_whole_then_this_month_to_date() {
     let data = season_read(&PersistentEngine::in_memory().unwrap());
 
@@ -873,6 +892,7 @@ fn the_season_months_are_each_month_before_this_one_whole_then_this_month_to_dat
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_last_year_the_device_holds_part_of_has_no_year_change() {
     let mut engine = census_of(&[LAST_YEAR.as_slice(), THIS_YEAR.as_slice()].concat());
     store_rows(&mut engine, &LAST_YEAR[..2]);

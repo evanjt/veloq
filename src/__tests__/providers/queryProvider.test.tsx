@@ -49,7 +49,7 @@ describe('QueryProvider', () => {
   });
 
   describe('client defaults', () => {
-    it('configures staleTime, gcTime, network mode, retry, and refetch flags', () => {
+    vaultIt('configures staleTime, gcTime, network mode, retry, and refetch flags', () => {
       const defaults = queryClient.getDefaultOptions().queries!;
       expect(defaults.staleTime).toBe(1000 * 60 * 5);
       expect(defaults.gcTime).toBe(1000 * 60 * 60 * 2);
@@ -103,7 +103,7 @@ describe('QueryProvider', () => {
       expect(keysRead).not.toContain('veloq-query-cache');
     });
 
-    it('runs the first query on the first render, with no restore step between', async () => {
+    vaultIt('runs the first query on the first render, with no restore step between', async () => {
       const queryFn = jest.fn().mockResolvedValue('engine');
       await render(
         <QueryProvider>
@@ -127,7 +127,7 @@ describe('QueryProvider', () => {
   });
 
   describe('rendering', () => {
-    it('renders children inside the provider', async () => {
+    vaultIt('renders children inside the provider', async () => {
       const { getByText } = await render(
         <QueryProvider>
           <Text>child marker</Text>

@@ -349,6 +349,7 @@ fn a_backfill_killed_mid_way_resumes_the_same_ingest() {
 /// Expected behaviour: the registry holds where the ingest began, so the next
 /// run can replay from it, and the run's own section is visible meanwhile.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_before_the_download_ends_is_provisional() {
     let dir = TempDir::new().expect("tempdir");
     let (mut engine, _, mut stored) = seeded(&dir);
@@ -403,6 +404,7 @@ fn an_ingest_closes_only_once_every_stored_ride_is_detected() {
 /// Expected behaviour: it is a step of its own, as on the engine that took the
 /// backfill in one detect: the re-cut gains one confirmation and still waits.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sync_after_the_backfill_is_its_own_ingest() {
     let reference = TempDir::new().expect("tempdir");
     let chunked = TempDir::new().expect("tempdir");
@@ -430,6 +432,7 @@ fn a_sync_after_the_backfill_is_its_own_ingest() {
 /// Expected behaviour: its one run comes after the download, so nothing about
 /// the registry it began on is ever recorded.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sync_with_no_run_mid_download_records_no_state() {
     let dir = TempDir::new().expect("tempdir");
     let (mut engine, _, mut stored) = seeded(&dir);

@@ -253,6 +253,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_run_is_read_back_with_its_outcome_and_detail() {
         let (_tmp, mut engine) = engine();
 
@@ -277,6 +278,7 @@ mod tests {
     /// Expected behaviour: the silent outcomes are told apart, which is the
     /// whole reason the table exists.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_three_silent_outcomes_are_distinguishable() {
         let (_tmp, mut engine) = engine();
 
@@ -307,6 +309,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_table_keeps_only_the_newest_runs() {
         let (_tmp, mut engine) = engine();
 
@@ -331,6 +334,7 @@ mod tests {
 
     /// Scenario: the dashboard is opened on an install that has had no push.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_table_reads_as_no_runs() {
         let (_tmp, engine) = engine();
 
@@ -381,6 +385,7 @@ mod tests {
     ///
     /// Expected behaviour: the highlight is posted, replacing the plain entry.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_highlight_after_the_plain_entry_is_posted() {
         let (_tmp, mut engine) = engine();
 
@@ -406,6 +411,7 @@ mod tests {
     /// Expected behaviour: no second entry. A plain entry never follows another
     /// entry for the same ride, even when the name it carries changed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_plain_entry_never_follows_another_entry_for_the_ride() {
         let (_tmp, mut engine) = engine();
 
@@ -453,6 +459,7 @@ mod tests {
     /// Expected behaviour: the new sentence is posted, and compared against
     /// from then on rather than the first.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_different_highlight_is_posted_and_becomes_the_one_compared() {
         let (_tmp, mut engine) = engine();
 
@@ -492,6 +499,7 @@ mod tests {
     /// Expected behaviour: each ride is judged against its own entries only,
     /// and a run that posted nothing is not an entry.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn each_ride_is_judged_against_its_own_entries() {
         let (_tmp, mut engine) = engine();
         engine
@@ -526,6 +534,7 @@ mod tests {
     /// Expected behaviour: the reason stays on the row, so the dashboard still
     /// says why the run had nothing better.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unchanged_run_keeps_its_reason() {
         let (_tmp, mut engine) = engine();
         settle(

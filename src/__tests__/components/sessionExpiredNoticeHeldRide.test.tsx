@@ -84,7 +84,7 @@ beforeEach(() => {
 });
 
 describe('the notice', () => {
-  it('names the held ride and where it reappears', async () => {
+  vaultIt('names the held ride and where it reappears', async () => {
     const view = await render(
       <SessionExpiredNotice
         notice={{ reason: 'signed_out', cachedAthleteId: 'i1', heldRideStart: START }}
@@ -95,7 +95,7 @@ describe('the notice', () => {
     ).toBeTruthy();
   });
 
-  it('mentions no ride when none is held', async () => {
+  vaultIt('mentions no ride when none is held', async () => {
     const view = await render(
       <SessionExpiredNotice
         notice={{ reason: 'signed_out', cachedAthleteId: 'i1', heldRideStart: null }}

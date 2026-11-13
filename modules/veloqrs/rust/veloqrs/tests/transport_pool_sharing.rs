@@ -79,6 +79,7 @@ fn get(transport: &Transport) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn two_transports_built_the_same_way_reuse_one_connection() {
     let (base, connections) = start_server();
 
@@ -102,6 +103,7 @@ fn two_transports_built_the_same_way_reuse_one_connection() {
 /// The credential belongs to the transport, not to the pool, so two athletes'
 /// transports still share the connection to the same host.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_different_credential_still_shares_the_connection() {
     let (base, connections) = start_server();
 

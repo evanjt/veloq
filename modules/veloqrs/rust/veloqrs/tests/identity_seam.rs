@@ -237,6 +237,7 @@ fn assert_registry_mirrors_pure(engine: &PersistentEngine, ctx: &str) {
 /// row (created_at included), every junction row (the seen-set guard), and the
 /// serialised registry state are all identical after each pass.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn double_apply_is_a_no_op() {
     let (mut engine, dir) = fresh_engine();
     let rides = corridor_rides("cold", 0.0, 9, 0);
@@ -356,6 +357,7 @@ fn run_graves_scenario(check_each_apply: bool) -> GravesRun {
 /// re-emerged ground returns under its old real id and birth date, clearing
 /// the pair on both sides.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn graves_track_tombstones_exactly() {
     let mut run = run_graves_scenario(true);
     assert!(
@@ -463,6 +465,7 @@ fn grave_restore_survives_restart() {
 /// tombstones both read empty. The returning ground mints a fresh real id and
 /// never re-issues A's, which the ledger still holds.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_expired_tombstone_takes_its_grave_with_it() {
     const HORIZON: u64 = 3;
     let mut run = run_graves_scenario(false);
@@ -517,6 +520,7 @@ fn an_expired_tombstone_takes_its_grave_with_it() {
 /// apply sweeps tombstoned ground against the durable-intent grounds; with
 /// the corridor suppressed no restore could ever have drained the pair.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn durable_claim_mid_tombstone_clears_the_grave() {
     let (mut engine, _dir) = fresh_engine();
     let ground_a = corridor_ground(0.0);
@@ -650,6 +654,7 @@ fn trim_relinquishes_and_survives_resync() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn set_reference_relinquishes_and_survives_resync() {
     run_promotion_case("setref", true, |e, id, fp| {
         let aid = fp
@@ -663,6 +668,7 @@ fn set_reference_relinquishes_and_survives_resync() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn expand_relinquishes_and_survives_resync() {
     run_promotion_case("expand", true, |e, id, fp| {
         let aid = fp
@@ -678,6 +684,7 @@ fn expand_relinquishes_and_survives_resync() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn disable_relinquishes_and_survives_resync() {
     run_promotion_case("disable", false, |e, id, _| e.disable_section(id));
 }
@@ -773,6 +780,7 @@ fn trunk_then_spur(to_m: f64, spur_m: f64) -> Vec<GpsPoint> {
 /// the pure visible set. This is the mechanical mirror the adoption seam
 /// promises, checked at every step rather than scenario endpoints.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn mirror_rows_equal_pure_grounds() {
     let (mut engine, _dir) = fresh_engine();
     let cold = corridor_rides("agree_cold", 0.0, 9, 0);

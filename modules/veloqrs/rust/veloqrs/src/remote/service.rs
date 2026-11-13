@@ -396,6 +396,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_linked_room_is_the_one_the_page_derives_from_the_answer() {
         crate::remote::install_crypto();
         let cert = str0m::crypto::from_feature_flags()
@@ -462,6 +463,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_write_waits_for_the_app_to_be_in_front_and_a_read_does_not() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().unwrap();

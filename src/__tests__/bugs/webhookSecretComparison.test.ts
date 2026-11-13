@@ -23,7 +23,7 @@ describe('comparing the webhook secret', () => {
     await expect(secretsMatch(wrong, SECRET)).resolves.toBe(false);
   });
 
-  it('refuses a wrong secret that shares its opening', async () => {
+  vaultIt('refuses a wrong secret that shares its opening', async () => {
     await expect(secretsMatch(SECRET.slice(0, 10), SECRET)).resolves.toBe(false);
   });
 

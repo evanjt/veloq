@@ -115,7 +115,7 @@ describe('useStartupData read count', () => {
     return rendered;
   }
 
-  it('reads once when a launch sync announces five times', async () => {
+  vaultIt('reads once when a launch sync announces five times', async () => {
     await mount();
 
     for (let i = 0; i < 5; i += 1) await announce('activities');
@@ -148,7 +148,7 @@ describe('useStartupData read count', () => {
     expect(reads).toBe(2);
   });
 
-  it('still refreshes on an announcement outside a sync', async () => {
+  vaultIt('still refreshes on an announcement outside a sync', async () => {
     syncState = SyncState.Idle;
     await mount();
     expect(reads).toBe(1);
@@ -158,14 +158,14 @@ describe('useStartupData read count', () => {
     expect(reads).toBe(2);
   });
 
-  it('paints from the first read even though a sync is running', async () => {
+  vaultIt('paints from the first read even though a sync is running', async () => {
     const { result } = await mount();
 
     expect(reads).toBe(1);
     expect(result.current.data).not.toBeNull();
   });
 
-  it('does not read again when the settle brings nothing new to announce', async () => {
+  vaultIt('does not read again when the settle brings nothing new to announce', async () => {
     syncState = SyncState.Idle;
     await mount();
     const after = reads;

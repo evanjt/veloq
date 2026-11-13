@@ -144,10 +144,10 @@ const TS_EXEMPT_PATTERNS = [
 // Tests of the guards themselves, whose fixtures are the American spelling on
 // purpose: a guard test needs a line that fails.
 const TS_FIXTURE_FILES = [
-  'src/__tests__/bugs/auSpellingLintExitCode.test.ts',
-  'src/__tests__/bugs/guardsReadTheIndex.test.ts',
-  'src/__tests__/bugs/lintGuardGitEnv.test.ts',
-  'src/__tests__/i18n/enUsRegister.test.ts',
+  'src/__tests__/bugs/auSpellingLintExitCode.vault.test.ts',
+  'src/__tests__/bugs/guardsReadTheIndex.vault.test.ts',
+  'src/__tests__/bugs/lintGuardGitEnv.vault.test.ts',
+  'src/__tests__/i18n/enUsRegister.vault.test.ts',
 ];
 
 // Left as spelled, in the tracematch submodule only. `ScaleName::Optimized`

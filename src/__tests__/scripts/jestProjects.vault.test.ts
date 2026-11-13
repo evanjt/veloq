@@ -39,14 +39,15 @@ function withoutComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 }
 
-describe('the app and tooling projects', () => {
+describe('the app, tooling and vault projects', () => {
   const all = listTests();
   const app = listTests('--selectProjects', 'app');
   const tooling = listTests('--selectProjects', 'tooling');
+  const vault = listTests('--selectProjects', 'vault');
 
   it('puts every suite in exactly one project', () => {
     expect(app.filter((suite) => tooling.includes(suite))).toEqual([]);
-    expect([...app, ...tooling].sort()).toEqual(all);
+    expect([...app, ...tooling, ...vault].sort()).toEqual(all);
     expect(app.length).toBeGreaterThan(0);
     expect(tooling.length).toBeGreaterThan(0);
   });

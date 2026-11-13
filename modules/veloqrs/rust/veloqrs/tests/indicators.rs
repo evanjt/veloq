@@ -120,6 +120,7 @@ fn a_stale_version_recomputes_with_no_sections_present() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_read_never_recomputes_however_stale_the_version_reads() {
     let setup = setup();
     // Written behind the open engine's back, which is the only way the version
@@ -144,6 +145,7 @@ fn a_read_never_recomputes_however_stale_the_version_reads() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_matching_version_leaves_the_table_alone_on_open() {
     let setup = setup();
     set_indicator_version(&setup.raw, CURRENT_VERSION);
@@ -159,6 +161,7 @@ fn a_matching_version_leaves_the_table_alone_on_open() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fresh_install_stamps_the_version_on_the_first_open() {
     // No stored version reads as 0, which is behind the current one.
     let setup = setup();
@@ -170,6 +173,7 @@ fn a_fresh_install_stamps_the_version_on_the_first_open() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_activity_id_list_returns_empty() {
     let setup = setup();
     insert_stale_indicator(&setup.raw, "ghost");
@@ -421,6 +425,7 @@ fn a_lone_interval_session_does_not_compare_against_its_own_laps() {
 /// Expected behaviour: two outings at the same time leave neither of them a
 /// record. Equalling the best is not beating it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn matching_the_best_time_earns_no_pr_row() {
     let s = setup();
     insert_oval(&s.raw);
@@ -447,6 +452,7 @@ fn matching_the_best_time_earns_no_pr_row() {
 /// Expected behaviour: a hundredth of a second is inside the noise the
 /// tolerance exists to absorb, so it is not a beat. A whole second is.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_beat_has_to_clear_the_noise_the_tolerance_absorbs() {
     for (lap, expect_pr) in [(99.995_f64, false), (99.0_f64, true)] {
         let s = setup();
@@ -648,6 +654,7 @@ fn insert_untimed_pass(db: &Connection, activity_id: &str, distance: f64) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_untimed_pass_that_an_estimate_would_rank_fastest_takes_no_record() {
     let s = setup();
     insert_oval(&s.raw);
@@ -680,6 +687,7 @@ fn an_untimed_pass_that_an_estimate_would_rank_fastest_takes_no_record() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn one_timed_and_one_untimed_pass_form_no_pair() {
     let s = setup();
     insert_oval(&s.raw);
@@ -693,6 +701,7 @@ fn one_timed_and_one_untimed_pass_form_no_pair() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn passes_with_no_lap_time_on_any_activity_write_nothing() {
     let s = setup();
     insert_oval(&s.raw);
@@ -720,6 +729,7 @@ fn passes_with_no_lap_time_on_any_activity_write_nothing() {
 // with no denominator, so its untimed pass has no time by either route.
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_that_writes_nothing_over_repeat_traversals_does_not_stamp() {
     let setup = setup();
     insert_oval(&setup.raw);
@@ -744,6 +754,7 @@ fn a_pass_that_writes_nothing_over_repeat_traversals_does_not_stamp() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_later_open_still_tries_again_after_an_empty_pass() {
     let setup = setup();
     insert_oval(&setup.raw);
@@ -778,6 +789,7 @@ fn a_later_open_still_tries_again_after_an_empty_pass() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_with_no_repeat_traversals_is_still_stamped() {
     // One outing over the oval can never earn a record or a trend, so an empty
     // result there is the correct answer and re-running every open is waste.

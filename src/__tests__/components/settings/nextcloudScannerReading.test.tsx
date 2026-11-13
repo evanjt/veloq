@@ -90,7 +90,7 @@ describe('a code that is not a Nextcloud login', () => {
     });
   });
 
-  it('reads again after a second wrong code too', async () => {
+  vaultIt('reads again after a second wrong code too', async () => {
     const { onScanned } = await renderScanner();
 
     await scan(WIFI_CODE);
@@ -116,7 +116,7 @@ describe('a Nextcloud login', () => {
 });
 
 describe('torch', () => {
-  it('starts off and toggles the camera light from its button', async () => {
+  vaultIt('starts off and toggles the camera light from its button', async () => {
     const { tree } = await renderScanner();
     expect(camera.props.enableTorch).toBe(false);
 

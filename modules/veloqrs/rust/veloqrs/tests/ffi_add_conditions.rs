@@ -14,6 +14,7 @@ use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
 use veloqrs::persistence::with_persistent_engine;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_batch_added_through_the_ffi_conditions_itself() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -67,6 +68,7 @@ fn a_batch_added_through_the_ffi_conditions_itself() {
 /// catalogue, the routes regroup it owed is answered within a few seconds, so
 /// no screen reads "Computing routes" over a library whose routes are listed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_batch_added_through_the_ffi_leaves_no_regroup_owed() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();

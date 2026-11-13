@@ -44,7 +44,7 @@ async function setup(value: number, scale: StepperScale = LITRES) {
 }
 
 describe('Stepper', () => {
-  it('is one adjustable element whose value is the formatted reading', async () => {
+  vaultIt('is one adjustable element whose value is the formatted reading', async () => {
     const { view } = await setup(100);
     const node = view.getByTestId('tank-value');
     expect(node.props.accessible).toBe(true);

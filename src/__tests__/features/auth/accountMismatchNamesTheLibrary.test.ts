@@ -41,7 +41,7 @@ beforeEach(() => {
 });
 
 describe('the account mismatch prompt', () => {
-  it('titles the on-device library without calling it a backup', () => {
+  vaultIt('titles the on-device library without calling it a backup', () => {
     promptBody(500);
     const title = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[0] as string;
     expect(title).toMatch(/library.*device/i);
@@ -56,15 +56,15 @@ describe('the account mismatch prompt', () => {
     expect(promptBody(500)).toContain('500 activities');
   });
 
-  it('counts a single activity in the singular', () => {
+  vaultIt('counts a single activity in the singular', () => {
     expect(promptBody(1)).toContain('1 activity ');
   });
 
-  it('says the deletion is permanent', () => {
+  vaultIt('says the deletion is permanent', () => {
     expect(promptBody(500)).toMatch(/permanently/);
   });
 
-  it('does not call the library restored', () => {
+  vaultIt('does not call the library restored', () => {
     expect(promptBody(500)).not.toMatch(/restored/i);
   });
 });

@@ -61,7 +61,7 @@ describe('a pager page inside a sheet', () => {
     expect(handOff(view)).toEqual(['flat', 'flat', 'nested']);
   });
 
-  it('scrolls nested outside a pager', async () => {
+  vaultIt('scrolls nested outside a pager', async () => {
     const view = await render(<Page name="alone" />);
     expect(view.getByTestId('page-alone').props.children).toBe('nested');
   });

@@ -75,7 +75,7 @@ describe('on Android', () => {
     Platform.OS = 'android';
   });
 
-  it('offers Save to device beside Share, with Share not the only way out', async () => {
+  vaultIt('offers Save to device beside Share, with Share not the only way out', async () => {
     const shared = shareExistingFile(ZIP, 'zip');
     await untilAsked();
     const labels = buttons().map((b) => b.text);
@@ -98,7 +98,7 @@ describe('on Android', () => {
     expect(Sharing.shareAsync).not.toHaveBeenCalled();
   });
 
-  it('suggests the name the caller gives over the file name on disk', async () => {
+  vaultIt('suggests the name the caller gives over the file name on disk', async () => {
     const shared = shareExistingFile('file:///data/files/recordings/1728-k3j.fit', 'fit', {
       name: 'Morning Paddle.fit',
     });
@@ -127,7 +127,7 @@ describe('on Android', () => {
     );
   });
 
-  it('opens the share chooser when Share is chosen', async () => {
+  vaultIt('opens the share chooser when Share is chosen', async () => {
     const shared = shareExistingFile(ZIP, 'zip');
     await untilAsked();
     press('Share');
@@ -139,7 +139,7 @@ describe('on Android', () => {
     expect(mockSaveDocument).not.toHaveBeenCalled();
   });
 
-  it('does nothing when the choice is dismissed', async () => {
+  vaultIt('does nothing when the choice is dismissed', async () => {
     const shared = shareExistingFile(ZIP, 'zip');
     await untilAsked();
     const options = alert.mock.calls[0][3] as { onDismiss?: () => void };

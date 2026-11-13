@@ -64,7 +64,7 @@ describe('section display names follow the engine', () => {
     expect(result.current.s1).toBe('My climb');
   });
 
-  it('does not re-read on a render that nothing announced', async () => {
+  vaultIt('does not re-read on a render that nothing announced', async () => {
     const { rerender } = await renderHook(() => useSectionDisplayNames());
     const afterMount = engine.getSectionSummaries.mock.calls.length;
 
@@ -73,7 +73,7 @@ describe('section display names follow the engine', () => {
     expect(engine.getSectionSummaries.mock.calls.length).toBe(afterMount);
   });
 
-  it('gives an empty map when the engine is not open', async () => {
+  vaultIt('gives an empty map when the engine is not open', async () => {
     mockGetEngine.mockReturnValue(null as unknown as ReturnType<typeof getEngine>);
     const { result } = await renderHook(() => useSectionDisplayNames());
 

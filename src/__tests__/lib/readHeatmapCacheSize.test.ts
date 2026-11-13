@@ -56,7 +56,7 @@ describe('reading the heatmap cache size off the JS thread', () => {
     expect(engine.started).toEqual([BASE]);
   });
 
-  it('returns the figure without waiting when the walk is already done', async () => {
+  vaultIt('returns the figure without waiting when the walk is already done', async () => {
     const engine = engineFrom(['complete'], 7);
 
     await expect(readHeatmapCacheSize(engine, BASE)).resolves.toBe(7);
@@ -72,7 +72,7 @@ describe('reading the heatmap cache size off the JS thread', () => {
     expect(engine.takes).toBe(1);
   });
 
-  it('starts a fresh walk for a caller who asks after the last one ended', async () => {
+  vaultIt('starts a fresh walk for a caller who asks after the last one ended', async () => {
     const engine = engineFrom(['complete'], 64);
 
     await readHeatmapCacheSize(engine, BASE);
@@ -95,7 +95,7 @@ describe('reading the heatmap cache size off the JS thread', () => {
     expect(engine.takes).toBe(0);
   });
 
-  it('reads zero for an empty tree rather than treating it as unknown', async () => {
+  vaultIt('reads zero for an empty tree rather than treating it as unknown', async () => {
     const engine = engineFrom(['complete'], 0);
 
     await expect(readHeatmapCacheSize(engine, BASE)).resolves.toBe(0);

@@ -66,7 +66,7 @@ it('renders the effort count and the HR change the engine measured', async () =>
   expect(getByTestId('section-efficiency-detail').props.children).toContain('-6');
 });
 
-it('renders the chart for a section that has a series', async () => {
+vaultIt('renders the chart for a section that has a series', async () => {
   const { getByTestId } = await render(<SectionEfficiencyCard trend={trend()} isDark={false} />);
 
   expect(getByTestId('section-efficiency-chart')).toBeTruthy();
@@ -88,7 +88,7 @@ it('dates each effort by the day the engine stamped it, whatever the device zone
   expect(plotted.props.points.map((p: { label: string }) => p.label)).toEqual(['5 Nov', '5 Nov']);
 });
 
-it('titles the card as a heading', async () => {
+vaultIt('titles the card as a heading', async () => {
   const { getByRole } = await render(<SectionEfficiencyCard trend={trend()} isDark={false} />);
 
   expect(getByRole('header', { name: 'sections.aerobicEfficiency' })).toBeTruthy();
@@ -119,13 +119,13 @@ it('rounds a rise in heart rate with its sign kept', async () => {
   expect(getByTestId('section-efficiency-detail').props.children).toContain('+4');
 });
 
-it('renders nothing when the section has no efficiency series', async () => {
+vaultIt('renders nothing when the section has no efficiency series', async () => {
   const { queryByTestId } = await render(<SectionEfficiencyCard trend={null} isDark={false} />);
 
   expect(queryByTestId('section-efficiency-card')).toBeNull();
 });
 
-it('draws the plot across the width the card gives it, not a fixed width', async () => {
+vaultIt('draws the plot across the width the card gives it, not a fixed width', async () => {
   // A 412 dp window less the card's margins and padding.
   const contentWidth = 348;
   const tree = await render(<SectionEfficiencyCard trend={trend()} isDark={false} />);
@@ -147,7 +147,7 @@ describe.each([false, true])('an improving trend, dark %s', (isDark) => {
     return tree;
   }
 
-  it('draws the series in the single-series colour, never the verdict colour', async () => {
+  vaultIt('draws the series in the single-series colour, never the verdict colour', async () => {
     const tree = await drawn();
 
     // The last effort's dot sits in a ring of the surface it is drawn on.
@@ -195,7 +195,7 @@ it('prints the lowest and highest ratio and says a lower ratio is drawn higher',
   );
 });
 
-it('speaks the effort count and the range on the plot', async () => {
+vaultIt('speaks the effort count and the range on the plot', async () => {
   const { getByTestId } = await render(
     <SectionEfficiencyCard
       trend={trend({ points: [point(141.4, DAY), point(150.6, 2 * DAY), point(138.2, 3 * DAY)] })}

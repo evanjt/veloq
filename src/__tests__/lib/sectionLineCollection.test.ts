@@ -103,7 +103,7 @@ describe('section line collection', () => {
     expect(overlay.sections.map((s) => s.id)).toEqual(['one', 'nan', 'inf', 'ok']);
   });
 
-  it('colours a section by its id, so the list order and the activity map agree', () => {
+  vaultIt('colours a section by its id, so the list order and the activity map agree', () => {
     const ids = ['sec-a', 'sec-b', 'sec-c', 'sec-d', 'sec-e', 'sec-f', 'sec-g'];
     const draw = (order: string[]) =>
       createSectionLineCache().overlay({
@@ -127,39 +127,48 @@ describe('section line collection', () => {
     expect(forward[0]?.properties).not.toHaveProperty('patternIndex');
   });
 
-  it('is an empty collection, never null, with no sections, so the source stays mounted', () => {
-    const overlay = createSectionLineCache().overlay({ stamp: 1, sections: [] });
-    expect(overlay.collection).toEqual({ type: 'FeatureCollection', features: [] });
-  });
+  vaultIt(
+    'is an empty collection, never null, with no sections, so the source stays mounted',
+    () => {
+      const overlay = createSectionLineCache().overlay({ stamp: 1, sections: [] });
+      expect(overlay.collection).toEqual({ type: 'FeatureCollection', features: [] });
+    }
+  );
 
-  it('hands back the identical overlay under one stamp, with the lines left out or resent', () => {
-    const cache = createSectionLineCache();
-    const first = cache.overlay({ stamp: 4, sections: twoSections() });
-    expect(cache.stamp()).toBe(4);
+  vaultIt(
+    'hands back the identical overlay under one stamp, with the lines left out or resent',
+    () => {
+      const cache = createSectionLineCache();
+      const first = cache.overlay({ stamp: 4, sections: twoSections() });
+      expect(cache.stamp()).toBe(4);
 
-    expect(cache.overlay({ stamp: 4, sections: undefined })).toBe(first);
-    expect(cache.overlay({ stamp: 4, sections: twoSections() })).toBe(first);
-    expect(decodeCoordsFlat).toHaveBeenCalledTimes(2);
+      expect(cache.overlay({ stamp: 4, sections: undefined })).toBe(first);
+      expect(cache.overlay({ stamp: 4, sections: twoSections() })).toBe(first);
+      expect(decodeCoordsFlat).toHaveBeenCalledTimes(2);
 
-    const moved = cache.overlay({ stamp: 5, sections: twoSections() });
-    expect(moved).not.toBe(first);
-    expect(moved.collection).not.toBe(first.collection);
-    expect(cache.stamp()).toBe(5);
-  });
+      const moved = cache.overlay({ stamp: 5, sections: twoSections() });
+      expect(moved).not.toBe(first);
+      expect(moved.collection).not.toBe(first.collection);
+      expect(cache.stamp()).toBe(5);
+    }
+  );
 
-  it('holds nothing when the overlay is off, and starts again from the next stamped read', () => {
-    const cache = createSectionLineCache();
-    cache.overlay({ stamp: 4, sections: twoSections() });
+  vaultIt(
+    'holds nothing when the overlay is off, and starts again from the next stamped read',
+    () => {
+      const cache = createSectionLineCache();
+      cache.overlay({ stamp: 4, sections: twoSections() });
 
-    const off = cache.overlay(undefined);
-    expect(off.collection.features).toEqual([]);
-    expect(off.sections).toEqual([]);
-    expect(cache.stamp()).toBeUndefined();
+      const off = cache.overlay(undefined);
+      expect(off.collection.features).toEqual([]);
+      expect(off.sections).toEqual([]);
+      expect(cache.stamp()).toBeUndefined();
 
-    expect(cache.overlay({ stamp: 4, sections: twoSections() }).sections).toHaveLength(2);
-  });
+      expect(cache.overlay({ stamp: 4, sections: twoSections() }).sections).toHaveLength(2);
+    }
+  );
 
-  it('holds no stamp for an unstamped read, so every read decodes again', () => {
+  vaultIt('holds no stamp for an unstamped read, so every read decodes again', () => {
     const cache = createSectionLineCache();
     const first = cache.overlay({ stamp: undefined, sections: twoSections() });
     expect(cache.stamp()).toBeUndefined();
@@ -169,7 +178,7 @@ describe('section line collection', () => {
     expect(decodeCoordsFlat).toHaveBeenCalledTimes(4);
   });
 
-  it('draws nothing for lines left out under a stamp it does not hold', () => {
+  vaultIt('draws nothing for lines left out under a stamp it does not hold', () => {
     const cache = createSectionLineCache();
     cache.overlay({ stamp: 4, sections: twoSections() });
 
@@ -178,7 +187,7 @@ describe('section line collection', () => {
     expect(cache.stamp()).toBeUndefined();
   });
 
-  it('leaves the patcher nothing to serialise for the sections on a filter re-read', () => {
+  vaultIt('leaves the patcher nothing to serialise for the sections on a filter re-read', () => {
     const cache = createSectionLineCache();
     const patcher = createSurfacePatcher();
     // The markers are a new object on every read, as a filter change makes them.

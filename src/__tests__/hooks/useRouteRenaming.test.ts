@@ -100,7 +100,7 @@ it('keeps the field open with the typed name and the reason when the name is tak
   expect(haptics.success).not.toHaveBeenCalled();
 });
 
-it('drops the reason once the athlete edits the refused name', async () => {
+vaultIt('drops the reason once the athlete edits the refused name', async () => {
   setRouteName.mockImplementationOnce((_id: string, name: string) => {
     throw nameTaken(name);
   });
@@ -116,7 +116,7 @@ it('drops the reason once the athlete edits the refused name', async () => {
   expect(hook.result.current.customName).toBe('River Loop 2');
 });
 
-it('drops the reason when the edit is cancelled', async () => {
+vaultIt('drops the reason when the edit is cancelled', async () => {
   setRouteName.mockImplementation((_id: string, name: string) => {
     throw nameTaken(name);
   });
@@ -141,7 +141,7 @@ it('keeps the field open with the typed name when the write fails', async () => 
   expect(hook.result.current.editName).toBe('Hill Climb');
 });
 
-it('closes the field once a new name is saved', async () => {
+vaultIt('closes the field once a new name is saved', async () => {
   const hook = await renderHook(() => useRouteRenaming('route-1', 'Old', t));
   await act(() => hook.result.current.handleStartEditing());
   await rename(hook, 'Hill Climb');
@@ -162,7 +162,7 @@ it('writes nothing when the field is saved unchanged', async () => {
   expect(Alert.alert).not.toHaveBeenCalled();
 });
 
-it('writes when the field is edited away from the name it opened with', async () => {
+vaultIt('writes when the field is edited away from the name it opened with', async () => {
   const hook = await renderHook(() => useRouteRenaming('route-1', 'Route 3', t));
   await act(() =>
     (hook.result.current as ReturnType<typeof useRouteRenaming>).handleStartEditing()
@@ -210,7 +210,7 @@ it('writes nothing when a route with no shown name is saved empty', async () => 
   expect(hook.result.current.isEditing).toBe(false);
 });
 
-it('saves when the route has no shown name yet', async () => {
+vaultIt('saves when the route has no shown name yet', async () => {
   const hook = await renderHook(() => useRouteRenaming('route-1', undefined, t));
   await rename(hook, 'First');
 
@@ -218,19 +218,19 @@ it('saves when the route has no shown name yet', async () => {
 });
 
 describe('route rename haptics', () => {
-  it('fires one success when a new name is saved', async () => {
+  vaultIt('fires one success when a new name is saved', async () => {
     const hook = await renderHook(() => useRouteRenaming('route-1', 'Old', t));
     await rename(hook, 'Hill Climb');
     expect(haptics.success).toHaveBeenCalledTimes(1);
   });
 
-  it('fires one success when the typed name is cleared', async () => {
+  vaultIt('fires one success when the typed name is cleared', async () => {
     const hook = await renderHook(() => useRouteRenaming('route-1', 'Old', t));
     await rename(hook, '   ');
     expect(haptics.success).toHaveBeenCalledTimes(1);
   });
 
-  it('fires nothing for an unchanged name', async () => {
+  vaultIt('fires nothing for an unchanged name', async () => {
     const hook = await renderHook(() => useRouteRenaming('route-1', 'Route 3', t));
     await act(() =>
       (hook.result.current as ReturnType<typeof useRouteRenaming>).handleStartEditing()
@@ -239,7 +239,7 @@ describe('route rename haptics', () => {
     expect(haptics.success).not.toHaveBeenCalled();
   });
 
-  it('fires nothing for a duplicate name', async () => {
+  vaultIt('fires nothing for a duplicate name', async () => {
     setRouteName.mockImplementation((_id: string, name: string) => {
       throw nameTaken(name);
     });

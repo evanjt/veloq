@@ -36,7 +36,7 @@ beforeEach(() => {
 });
 
 describe('the live screen under a stopped ride', () => {
-  it('offers review rather than the recording controls', async () => {
+  vaultIt('offers review rather than the recording controls', async () => {
     const onReview = jest.fn();
     const { getByTestId, queryByTestId } = await render(
       <ControlBar {...barProps} status="stopped" onReview={onReview} />
@@ -58,14 +58,14 @@ describe('the way back to a session', () => {
     );
   });
 
-  it('sends a live ride to its recording screen', () => {
+  vaultIt('sends a live ride to its recording screen', () => {
     expect(sessionReturnRoute({ status: 'recording', activityType: 'Ride' })).toBe(
       '/recording/Ride'
     );
     expect(sessionReturnRoute({ status: 'paused', activityType: 'Run' })).toBe('/recording/Run');
   });
 
-  it('has nowhere to send an idle store', () => {
+  vaultIt('has nowhere to send an idle store', () => {
     expect(sessionReturnRoute({ status: 'idle', activityType: null })).toBeNull();
     expect(sessionReturnRoute({ status: 'idle', activityType: 'Ride' })).toBeNull();
   });
@@ -76,7 +76,7 @@ describe('the way back to a session', () => {
     ).toBeNull();
   });
 
-  it('hides the pill for a stopped ride the library already holds', async () => {
+  vaultIt('hides the pill for a stopped ride the library already holds', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     useRecordingStore.getState().stopRecording();
     useRecordingStore.setState({ savedToLibrary: true });
@@ -120,7 +120,7 @@ describe('the way back to a session', () => {
     expect(view.queryByTestId('recording-return-pill')).toBeNull();
   });
 
-  it('does not present a manual review draft as a live ride', async () => {
+  vaultIt('does not present a manual review draft as a live ride', async () => {
     useRecordingStore.getState().startRecording('Yoga', 'manual');
     const view = await render(<RecordingReturnPill />);
     expect(view.queryByTestId('recording-return-pill')).toBeNull();

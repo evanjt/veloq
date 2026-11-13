@@ -82,7 +82,7 @@ describe('queryKeys.wellness.byRange', () => {
     expect(dayOne).not.toEqual(dayTwo);
   });
 
-  it('keeps the wellness prefix, so blanket invalidation still matches', () => {
+  vaultIt('keeps the wellness prefix, so blanket invalidation still matches', () => {
     const key = queryKeys.wellness.byRange('3m', '2026-05-30', '2026-08-28');
     expect(key.slice(0, queryKeys.wellness.all.length)).toEqual([...queryKeys.wellness.all]);
   });
@@ -147,7 +147,7 @@ describe('toWellnessData', () => {
 
   // A field on `WellnessData` that the mapper never writes is one a screen can
   // ask for and always get `undefined` from. Nineteen accumulated that way.
-  it('writes every field the screen type declares', () => {
+  vaultIt('writes every field the screen type declares', () => {
     const mapped = toWellnessData({ date: '2026-08-28', sportLoad: [] });
 
     expect(Object.keys(mapped).sort()).toEqual(

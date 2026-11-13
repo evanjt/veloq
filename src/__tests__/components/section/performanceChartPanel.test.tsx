@@ -157,7 +157,7 @@ const recordMarks = (lines: Record<string, unknown>[]) =>
 describe('PerformanceChartPanel', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('shows the trend key only for the direction with a drawn curve', async () => {
+  vaultIt('shows the trend key only for the direction with a drawn curve', async () => {
     const trend = [
       { time: 1, value: 5, upper: 5.2, lower: 4.8 },
       { time: 2, value: 5.1, upper: 5.3, lower: 4.9 },
@@ -170,7 +170,7 @@ describe('PerformanceChartPanel', () => {
     expect(tree.queryByText('sections.legendTrend')).toBeNull();
   });
 
-  it('keys the direction on show and never a reverse swatch over a forward plot', async () => {
+  vaultIt('keys the direction on show and never a reverse swatch over a forward plot', async () => {
     const forwardOnly = CHART_DATA.filter((p) => p.direction !== 'reverse');
     const tree = await render(
       panel({
@@ -183,7 +183,7 @@ describe('PerformanceChartPanel', () => {
     expect(legend.getAllByText('sections.forward')).toHaveLength(1);
   });
 
-  it('keys reverse once when both directions exist and reverse is plotted', async () => {
+  vaultIt('keys reverse once when both directions exist and reverse is plotted', async () => {
     const tree = await render(panel());
     await fireEvent.press(tree.getByTestId('section-chart-direction-reverse'));
     const legend = within(tree.getByTestId('scatter-legend'));
@@ -191,7 +191,7 @@ describe('PerformanceChartPanel', () => {
     expect(legend.queryByText('sections.forward')).toBeNull();
   });
 
-  it('keys the record only when the plot rings one', async () => {
+  vaultIt('keys the record only when the plot rings one', async () => {
     const unringed = await render(panel());
     expect(
       within(unringed.getByTestId('scatter-legend')).queryByText('sections.legendRecord')
@@ -204,7 +204,7 @@ describe('PerformanceChartPanel', () => {
     ).toBeTruthy();
   });
 
-  it('opens on the scatter and switches to the histogram and back', async () => {
+  vaultIt('opens on the scatter and switches to the histogram and back', async () => {
     const tree = await render(panel());
 
     expect(tree.queryByTestId('attempt-histogram')).toBeNull();
@@ -218,7 +218,7 @@ describe('PerformanceChartPanel', () => {
     expect(tree.queryByTestId('attempt-histogram')).toBeNull();
   });
 
-  it('draws the plot switch as chips, not bordered buttons', async () => {
+  vaultIt('draws the plot switch as chips, not bordered buttons', async () => {
     const tree = await render(panel());
 
     const style = StyleSheet.flatten(tree.getByTestId('chart-plot-scatter').props.style);
@@ -226,13 +226,16 @@ describe('PerformanceChartPanel', () => {
     expect([colors.controlOn, colors.fillNeutral]).toContain(style.backgroundColor);
   });
 
-  it("wraps the plot switch inside the panel, so a narrow phone at large text keeps every view's chip", async () => {
-    const tree = await render(panel());
+  vaultIt(
+    "wraps the plot switch inside the panel, so a narrow phone at large text keeps every view's chip",
+    async () => {
+      const tree = await render(panel());
 
-    const row = StyleSheet.flatten(tree.getByTestId('chart-plot-row').props.style);
-    expect(row.flexWrap).toBe('wrap');
-    expect(row.alignSelf).toBe('center');
-  });
+      const row = StyleSheet.flatten(tree.getByTestId('chart-plot-row').props.style);
+      expect(row.flexWrap).toBe('wrap');
+      expect(row.alignSelf).toBe('center');
+    }
+  );
 
   it("switches direction on a grey track carrying the engine's count per direction", async () => {
     const tree = await render(panel());
@@ -244,14 +247,14 @@ describe('PerformanceChartPanel', () => {
     expect(tree.getByTestId('section-chart-direction-reverse')).toHaveTextContent(/4/);
   });
 
-  it('draws no direction switch when the engine counts one direction empty', async () => {
+  vaultIt('draws no direction switch when the engine counts one direction empty', async () => {
     const tree = await render(panel({ reverseStats: { ...REVERSE_STATS, count: 0 } }));
 
     expect(tree.queryByTestId('section-chart-direction-forward')).toBeNull();
     expect(tree.queryByTestId('section-chart-direction-reverse')).toBeNull();
   });
 
-  it('hands the map the direction on show while both are drawn', async () => {
+  vaultIt('hands the map the direction on show while both are drawn', async () => {
     const onShownDirectionChange = jest.fn();
     const tree = await render(panel({ onShownDirectionChange }));
     expect(onShownDirectionChange).toHaveBeenLastCalledWith('forward');
@@ -263,7 +266,7 @@ describe('PerformanceChartPanel', () => {
     expect(onShownDirectionChange).toHaveBeenLastCalledWith(null);
   });
 
-  it('hands the map no direction for a section ridden one way', async () => {
+  vaultIt('hands the map no direction for a section ridden one way', async () => {
     const onShownDirectionChange = jest.fn();
     const forwardOnly = CHART_DATA.filter((p) => p.direction !== 'reverse');
     await render(panel({ chartData: forwardOnly, onShownDirectionChange }));
@@ -300,7 +303,7 @@ describe('PerformanceChartPanel', () => {
     expect(tree.getByTestId('attempt-histogram-record-key')).toHaveTextContent('sections.legendPr');
   });
 
-  it('keeps the chosen direction when the plot changes', async () => {
+  vaultIt('keeps the chosen direction when the plot changes', async () => {
     const tree = await render(panel());
 
     await fireEvent.press(tree.getByTestId('section-chart-direction-reverse'));
@@ -311,7 +314,7 @@ describe('PerformanceChartPanel', () => {
     ).toBe(true);
   });
 
-  it('offers no histogram segment when the direction has no bins', async () => {
+  vaultIt('offers no histogram segment when the direction has no bins', async () => {
     const tree = await render(panel({ histograms: { reverse: REVERSE } }));
 
     expect(tree.queryByTestId('chart-plot-histogram')).toBeNull();
@@ -353,7 +356,7 @@ describe('PerformanceChartPanel', () => {
     }
   });
 
-  it('shows the scatter legend under the scatter only', async () => {
+  vaultIt('shows the scatter legend under the scatter only', async () => {
     const tree = await render(panel({ highlightedActivityId: 'act-0', bestForwardIsRecord: true }));
     expect(tree.getByTestId('scatter-legend-this-activity')).toBeTruthy();
 
@@ -395,25 +398,28 @@ function forwardCurves(withTypical: boolean): FfiSectionLapCurves {
 describe('PerformanceChartPanel plot height', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('draws the over-time, spread and ahead-or-behind plots at one height, switch after switch', async () => {
-    const tree = await render(
-      panel({ curves: forwardCurves(false), highlightedActivityId: 'act-0' })
-    );
-    const heightOf = (testID: string) =>
-      StyleSheet.flatten(tree.getByTestId(testID).props.style).height;
+  vaultIt(
+    'draws the over-time, spread and ahead-or-behind plots at one height, switch after switch',
+    async () => {
+      const tree = await render(
+        panel({ curves: forwardCurves(false), highlightedActivityId: 'act-0' })
+      );
+      const heightOf = (testID: string) =>
+        StyleSheet.flatten(tree.getByTestId(testID).props.style).height;
 
-    const seen = [heightOf('section-scatter-chart')];
-    await fireEvent.press(tree.getByTestId('chart-plot-histogram'));
-    seen.push(heightOf('attempt-histogram-plot'));
-    await fireEvent.press(tree.getByTestId('chart-plot-delta'));
-    seen.push(heightOf('section-delta-plot'));
-    await fireEvent.press(tree.getByTestId('chart-plot-scatter'));
-    seen.push(heightOf('section-scatter-chart'));
+      const seen = [heightOf('section-scatter-chart')];
+      await fireEvent.press(tree.getByTestId('chart-plot-histogram'));
+      seen.push(heightOf('attempt-histogram-plot'));
+      await fireEvent.press(tree.getByTestId('chart-plot-delta'));
+      seen.push(heightOf('section-delta-plot'));
+      await fireEvent.press(tree.getByTestId('chart-plot-scatter'));
+      seen.push(heightOf('section-scatter-chart'));
 
-    expect(seen).toEqual(Array(4).fill(PERFORMANCE_PLOT_HEIGHT));
-  });
+      expect(seen).toEqual(Array(4).fill(PERFORMANCE_PLOT_HEIGHT));
+    }
+  );
 
-  it('reserves the same minimum height under the plot in every view', async () => {
+  vaultIt('reserves the same minimum height under the plot in every view', async () => {
     const tree = await render(
       panel({ curves: forwardCurves(false), highlightedActivityId: 'act-0' })
     );
@@ -432,7 +438,7 @@ describe('PerformanceChartPanel plot height', () => {
     expect(seen).toEqual(Array(4).fill(PERFORMANCE_BELOW_PLOT_HEIGHT));
   });
 
-  it('draws the typical attempt at the same height when no attempt is chosen', async () => {
+  vaultIt('draws the typical attempt at the same height when no attempt is chosen', async () => {
     const tree = await render(panel({ curves: forwardCurves(true) }));
     await fireEvent.press(tree.getByTestId('chart-plot-delta'));
 
@@ -468,46 +474,49 @@ describe('AttemptHistogramChart', () => {
     expect(markX(record)).toBeGreaterThan(firstBinEnd(bars));
   });
 
-  it('draws the record mark dashed and the attempt mark solid, and keys them the same way', async () => {
-    const drawn = captureLines();
-    const tree = await render(
-      <AttemptHistogramChart
-        histogram={bins([3, 2], 300, 30)}
-        activityType="Ride"
-        isDark={false}
-        highlightedTime={305}
-        recordTime={308}
-        recordHeld
-      />
-    );
-    await layoutViews(tree, 400, 300);
+  vaultIt(
+    'draws the record mark dashed and the attempt mark solid, and keys them the same way',
+    async () => {
+      const drawn = captureLines();
+      const tree = await render(
+        <AttemptHistogramChart
+          histogram={bins([3, 2], 300, 30)}
+          activityType="Ride"
+          isDark={false}
+          highlightedTime={305}
+          recordTime={308}
+          recordHeld
+        />
+      );
+      await layoutViews(tree, 400, 300);
 
-    const record = recordMarks(drawn).at(-1);
-    const attempt = thisActivityMarks(drawn).at(-1);
-    expect(record).toBeDefined();
-    expect(attempt).toBeDefined();
-    expect(isDashed(record!)).toBe(true);
-    expect(isDashed(attempt!)).toBe(false);
+      const record = recordMarks(drawn).at(-1);
+      const attempt = thisActivityMarks(drawn).at(-1);
+      expect(record).toBeDefined();
+      expect(attempt).toBeDefined();
+      expect(isDashed(record!)).toBe(true);
+      expect(isDashed(attempt!)).toBe(false);
 
-    // Each key draws its line across, in the plot line's colour and stroke.
-    const swatches = drawn.filter((l) => !isUpright(l));
-    const recordSwatch = swatches.filter((l) => l.color === TOKENS['achievement-text']);
-    const attemptSwatch = swatches.filter((l) => l.color === TOKENS['text-primary']);
-    expect(recordSwatch.length).toBeGreaterThan(0);
-    expect(attemptSwatch.length).toBeGreaterThan(0);
-    expect(recordSwatch.every(isDashed)).toBe(true);
-    expect(attemptSwatch.some(isDashed)).toBe(false);
-    expect(
-      within(tree.getByTestId('attempt-histogram-record-key')).getByTestId(
-        'attempt-histogram-record-key-mark'
-      )
-    ).toBeTruthy();
-    expect(
-      within(tree.getByTestId('attempt-histogram-highlight-key')).getByTestId(
-        'attempt-histogram-highlight-key-mark'
-      )
-    ).toBeTruthy();
-  });
+      // Each key draws its line across, in the plot line's colour and stroke.
+      const swatches = drawn.filter((l) => !isUpright(l));
+      const recordSwatch = swatches.filter((l) => l.color === TOKENS['achievement-text']);
+      const attemptSwatch = swatches.filter((l) => l.color === TOKENS['text-primary']);
+      expect(recordSwatch.length).toBeGreaterThan(0);
+      expect(attemptSwatch.length).toBeGreaterThan(0);
+      expect(recordSwatch.every(isDashed)).toBe(true);
+      expect(attemptSwatch.some(isDashed)).toBe(false);
+      expect(
+        within(tree.getByTestId('attempt-histogram-record-key')).getByTestId(
+          'attempt-histogram-record-key-mark'
+        )
+      ).toBeTruthy();
+      expect(
+        within(tree.getByTestId('attempt-histogram-highlight-key')).getByTestId(
+          'attempt-histogram-highlight-key-mark'
+        )
+      ).toBeTruthy();
+    }
+  );
 
   it('draws no mark for a time outside the bins', async () => {
     const drawn = captureRects();
@@ -571,7 +580,7 @@ describe('AttemptHistogramChart', () => {
 });
 
 describe('the route page chart', () => {
-  it('mounts the panel and offers the plot switch', async () => {
+  vaultIt('mounts the panel and offers the plot switch', async () => {
     const tree = await render(
       <SectionPerformanceSection
         subject="route"

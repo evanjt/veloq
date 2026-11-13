@@ -158,6 +158,7 @@ fn query() -> FfiRoutesScreenQuery {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn name_order_takes_the_first_page_of_the_library_not_of_a_page() {
     let dir = TempDir::new().expect("tempdir");
     let engine = seeded(&dir);
@@ -196,6 +197,7 @@ fn name_order_takes_the_first_page_of_the_library_not_of_a_page() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_route_screen_name_sort_uses_displayed_name_and_id_fallback() {
     let dir = TempDir::new().expect("tempdir");
     let engine = seeded(&dir);
@@ -233,6 +235,7 @@ fn test_route_screen_name_sort_uses_displayed_name_and_id_fallback() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_section_screen_name_sort_uses_displayed_name_and_id_fallback() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = seeded(&dir);
@@ -447,6 +450,7 @@ fn detect_and_save(engine: &mut PersistentEngine) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn retired_auto_sections_follow_the_removed_filter_and_sort_after_visible_rows() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = seeded(&dir);
@@ -498,6 +502,7 @@ fn retired_auto_sections_follow_the_removed_filter_and_sort_after_visible_rows()
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn disabled_custom_sections_follow_the_removed_filter_too() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = seeded(&dir);
@@ -570,6 +575,7 @@ fn the_review_counters_cover_the_catalogue_not_the_page() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_hidden_filter_narrows_the_page_and_its_total() {
     let dir = TempDir::new().expect("tempdir");
     let engine = seeded(&dir);
@@ -712,6 +718,7 @@ fn a_record_set_on_an_older_outing_is_not_flagged() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_with_no_record_row_is_not_flagged() {
     let dir = TempDir::new().expect("tempdir");
     let engine = seeded(&dir);
@@ -831,6 +838,7 @@ fn seed_scores(dir: &TempDir, scores: &[(&str, Option<f64>, Option<f64>)]) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn relevance_order_ranks_high_first_ties_by_id_and_unranked_last() {
     let dir = TempDir::new().expect("tempdir");
     let engine = seeded(&dir);
@@ -864,6 +872,7 @@ fn relevance_order_ranks_high_first_ties_by_id_and_unranked_last() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn relevance_order_within_a_sport_follows_the_sport_score() {
     let dir = TempDir::new().expect("tempdir");
     let engine = seeded(&dir);

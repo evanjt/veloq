@@ -23,7 +23,7 @@ describe('which locales a launch has to load', () => {
     expect(localesToLoad('es-ES')).toEqual(['es-ES', 'es', 'en-GB']);
   });
 
-  it('names each locale once', () => {
+  vaultIt('names each locale once', () => {
     const chain = localesToLoad('en-AU');
     expect(chain).toEqual([...new Set(chain)]);
     expect(chain).toEqual(['en-AU', 'en-GB']);
@@ -45,24 +45,24 @@ describe('which locales a launch has to load', () => {
     expect(localesToLoad('xx-YY')).toEqual([ROOT_LOCALE]);
   });
 
-  it('is far short of every locale, which is the point', () => {
+  vaultIt('is far short of every locale, which is the point', () => {
     expect(localesToLoad('ja').length).toBeLessThan(loadableLocales().length);
   });
 });
 
 describe('loading one bundle', () => {
-  it('hands back a populated object', () => {
+  vaultIt('hands back a populated object', () => {
     const bundle = loadLocale('en-GB');
     expect(Object.keys(bundle).length).toBeGreaterThan(0);
   });
 
-  it('hands back the same object on a second call, the module being cached', () => {
+  vaultIt('hands back the same object on a second call, the module being cached', () => {
     expect(loadLocale('ja')).toBe(loadLocale('ja'));
   });
 });
 
 describe('the store a launch leaves behind', () => {
-  it('holds the launch locale and its chain and not the other fourteen', async () => {
+  vaultIt('holds the launch locale and its chain and not the other fourteen', async () => {
     await initialiseI18n('de-CH');
 
     for (const needed of localesToLoad('de-CH')) {
@@ -86,7 +86,7 @@ describe('the store a launch leaves behind', () => {
     expect(translated.length).toBeGreaterThan(0);
   });
 
-  it('keeps the previous locale loaded, so switching back costs nothing', async () => {
+  vaultIt('keeps the previous locale loaded, so switching back costs nothing', async () => {
     await initialiseI18n('en-GB');
     await changeLanguage('ja');
     await changeLanguage('en-GB');

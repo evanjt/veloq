@@ -244,90 +244,102 @@ describe('activity detail for an activity that is not stored', () => {
     expect(retryBody).not.toHaveBeenCalled();
   });
 
-  it('tints the back chevron for the page background when a loaded activity has no map', async () => {
-    mockStackScreen.mockClear();
-    answer({
-      data: {
-        id: 'act-9',
-        name: 'Trainer ride',
-        sportType: 'VirtualRide',
-        startDateLocal: '2026-01-01T07:00:00',
-        streamTypes: [],
-      },
-      bodyStatus: 'ready',
-    });
-
-    await render(<ActivityDetailScreen />);
-
-    const tints = mockStackScreen.mock.calls.map(
-      ([props]) => (props as { options?: { headerTintColor?: string } }).options?.headerTintColor
-    );
-    expect(tints).toContain(colors.textPrimary);
-  });
-
-  it('titles the opaque platform header with the name of a loaded activity that has no map', async () => {
-    mockStackScreen.mockClear();
-    answer({
-      data: {
-        id: 'act-9',
-        name: 'Trainer ride',
-        sportType: 'VirtualRide',
-        startDateLocal: '2026-01-01T07:00:00',
-        streamTypes: [],
-      },
-      bodyStatus: 'ready',
-    });
-
-    const { queryByText } = await render(<ActivityDetailScreen />);
-
-    expect(lastHeaderOptions()).toMatchObject({
-      headerTransparent: false,
-      headerTitleStyle: { color: colors.textPrimary },
-    });
-    expect(lastHeaderTitle()).toBe('Trainer ride');
-    expect(queryByText('Trainer ride')).toBeNull();
-    expect(queryByText('emptyState.error.title')).toBeNull();
-  });
-
-  it('starts the waiting and failed states directly under an opaque header, with no spacer', async () => {
-    for (const overrides of [{}, { error: new Error('read failed') }]) {
+  vaultIt(
+    'tints the back chevron for the page background when a loaded activity has no map',
+    async () => {
       mockStackScreen.mockClear();
-      answer(overrides);
+      answer({
+        data: {
+          id: 'act-9',
+          name: 'Trainer ride',
+          sportType: 'VirtualRide',
+          startDateLocal: '2026-01-01T07:00:00',
+          streamTypes: [],
+        },
+        bodyStatus: 'ready',
+      });
 
-      const { toJSON, unmount } = await render(<ActivityDetailScreen />);
+      await render(<ActivityDetailScreen />);
 
-      expect(lastHeaderOptions()).toMatchObject({ headerTransparent: false });
-      const root = toJSON() as { props: { testID?: string }; children: unknown[] };
-      expect(root.props.testID).toBe('activity-detail-screen');
-      expect(root.children).toHaveLength(1);
-      await unmount();
+      const tints = mockStackScreen.mock.calls.map(
+        ([props]) => (props as { options?: { headerTintColor?: string } }).options?.headerTintColor
+      );
+      expect(tints).toContain(colors.textPrimary);
     }
-  });
+  );
 
-  it('puts the transparent header back once a waiting activity loads with a hero', async () => {
-    mockStackScreen.mockClear();
-    answer({});
-    const { rerender } = await render(<ActivityDetailScreen />);
-    expect(lastHeaderOptions()).toMatchObject({ headerTransparent: false });
+  vaultIt(
+    'titles the opaque platform header with the name of a loaded activity that has no map',
+    async () => {
+      mockStackScreen.mockClear();
+      answer({
+        data: {
+          id: 'act-9',
+          name: 'Trainer ride',
+          sportType: 'VirtualRide',
+          startDateLocal: '2026-01-01T07:00:00',
+          streamTypes: [],
+        },
+        bodyStatus: 'ready',
+      });
 
-    answer({
-      data: {
-        id: 'act-9',
-        name: 'Leg day',
-        sportType: 'WeightTraining',
-        startDateLocal: '2026-01-01T07:00:00',
-        streamTypes: [],
-      },
-      bodyStatus: 'ready',
-    });
-    await rerender(<ActivityDetailScreen />);
+      const { queryByText } = await render(<ActivityDetailScreen />);
 
-    expect(lastHeaderOptions()).toMatchObject({
-      headerTransparent: true,
-      headerTitleStyle: { color: OVER_MAP_TITLE_COLOR },
-    });
-    expect(lastHeaderTitle()).toBe('Leg day');
-  });
+      expect(lastHeaderOptions()).toMatchObject({
+        headerTransparent: false,
+        headerTitleStyle: { color: colors.textPrimary },
+      });
+      expect(lastHeaderTitle()).toBe('Trainer ride');
+      expect(queryByText('Trainer ride')).toBeNull();
+      expect(queryByText('emptyState.error.title')).toBeNull();
+    }
+  );
+
+  vaultIt(
+    'starts the waiting and failed states directly under an opaque header, with no spacer',
+    async () => {
+      for (const overrides of [{}, { error: new Error('read failed') }]) {
+        mockStackScreen.mockClear();
+        answer(overrides);
+
+        const { toJSON, unmount } = await render(<ActivityDetailScreen />);
+
+        expect(lastHeaderOptions()).toMatchObject({ headerTransparent: false });
+        const root = toJSON() as { props: { testID?: string }; children: unknown[] };
+        expect(root.props.testID).toBe('activity-detail-screen');
+        expect(root.children).toHaveLength(1);
+        await unmount();
+      }
+    }
+  );
+
+  vaultIt(
+    'puts the transparent header back once a waiting activity loads with a hero',
+    async () => {
+      mockStackScreen.mockClear();
+      answer({});
+      const { rerender } = await render(<ActivityDetailScreen />);
+      expect(lastHeaderOptions()).toMatchObject({ headerTransparent: false });
+
+      answer({
+        data: {
+          id: 'act-9',
+          name: 'Leg day',
+          sportType: 'WeightTraining',
+          startDateLocal: '2026-01-01T07:00:00',
+          streamTypes: [],
+        },
+        bodyStatus: 'ready',
+      });
+      await rerender(<ActivityDetailScreen />);
+
+      expect(lastHeaderOptions()).toMatchObject({
+        headerTransparent: true,
+        headerTitleStyle: { color: OVER_MAP_TITLE_COLOR },
+      });
+      expect(lastHeaderTitle()).toBe('Leg day');
+    }
+  );
 });
 
 function lastHeaderOptions(): Record<string, unknown> | undefined {

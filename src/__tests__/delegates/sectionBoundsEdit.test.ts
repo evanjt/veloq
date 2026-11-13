@@ -37,7 +37,7 @@ it('notifies sections readers only once the edit has ended', async () => {
   expect(notifyAll).toHaveBeenCalledWith('sections');
 });
 
-it('passes an edit that took no ride out through as an empty list', async () => {
+vaultIt('passes an edit that took no ride out through as an empty list', async () => {
   const { host } = fixture(jest.fn(() => Promise.resolve([])));
   await expect(
     runSectionBoundsEdit(host, { kind: 'trim', sectionId: 'sec-1', startIndex: 2, endIndex: 9 })

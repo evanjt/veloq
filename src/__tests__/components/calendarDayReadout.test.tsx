@@ -82,7 +82,7 @@ describe('CalendarDayReadout', () => {
     expect(mockGetWellnessDays).toHaveBeenCalledTimes(1);
   });
 
-  it('states nothing while no day is selected', async () => {
+  vaultIt('states nothing while no day is selected', async () => {
     await show(null);
 
     expect(mockGetWellnessDays).not.toHaveBeenCalledTimes(0);

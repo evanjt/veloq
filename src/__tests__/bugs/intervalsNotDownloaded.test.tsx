@@ -201,23 +201,26 @@ describe('the intervals hook', () => {
 });
 
 describe('the charts section with no intervals', () => {
-  it('says the laps were never downloaded when the body is still owed', async () => {
+  vaultIt('says the laps were never downloaded when the body is still owed', async () => {
     const { getByTestId, queryByTestId } = await renderSection({ intervalsOutcome: 'pending' });
 
     expect(getByTestId('intervals-not-downloaded')).toBeTruthy();
     expect(queryByTestId('activity-interval-table')).toBeNull();
   });
 
-  it('says the laps are not shared for a ride intervals.icu holds, with no download line', async () => {
-    const { getByTestId, queryByTestId } = await renderSection({
-      intervalsOutcome: 'pending',
-      heldBack: { source: 'GARMIN_CONNECT', externalId: '5550001' },
-    });
+  vaultIt(
+    'says the laps are not shared for a ride intervals.icu holds, with no download line',
+    async () => {
+      const { getByTestId, queryByTestId } = await renderSection({
+        intervalsOutcome: 'pending',
+        heldBack: { source: 'GARMIN_CONNECT', externalId: '5550001' },
+      });
 
-    expect(getByTestId('intervals-held-back').props.children).toBe('activity.heldBack.title');
-    expect(queryByTestId('intervals-not-downloaded')).toBeNull();
-    expect(queryByTestId('activity-interval-table')).toBeNull();
-  });
+      expect(getByTestId('intervals-held-back').props.children).toBe('activity.heldBack.title');
+      expect(queryByTestId('intervals-not-downloaded')).toBeNull();
+      expect(queryByTestId('activity-interval-table')).toBeNull();
+    }
+  );
 
   it.each<EngineBodyStatus>(['timedOut', 'refused'])(
     'offers a Retry that asks again once the wait is %s',
@@ -234,7 +237,7 @@ describe('the charts section with no intervals', () => {
     }
   );
 
-  it('offers no Retry while the laps are still being fetched', async () => {
+  vaultIt('offers no Retry while the laps are still being fetched', async () => {
     const { getByTestId, queryByTestId } = await renderSection({
       intervalsOutcome: 'pending',
       intervalsStatus: 'waiting',
@@ -245,14 +248,14 @@ describe('the charts section with no intervals', () => {
     expect(queryByTestId('intervals-not-downloaded-retry')).toBeNull();
   });
 
-  it('says nothing at all for a ride the server settled as lapless', async () => {
+  vaultIt('says nothing at all for a ride the server settled as lapless', async () => {
     const { queryByTestId } = await renderSection({ intervalsOutcome: 'empty' });
 
     expect(queryByTestId('intervals-not-downloaded')).toBeNull();
     expect(queryByTestId('activity-interval-table')).toBeNull();
   });
 
-  it('draws the table, and no caveat, once the laps are there', async () => {
+  vaultIt('draws the table, and no caveat, once the laps are there', async () => {
     const { getByTestId, queryByTestId } = await renderSection({
       intervalsData: intervals,
       intervalsOutcome: 'loaded',
@@ -264,7 +267,7 @@ describe('the charts section with no intervals', () => {
 });
 
 describe('the intervals bar', () => {
-  it('reaches the tap-target floor, since the card clips any hit slop', () => {
+  vaultIt('reaches the tap-target floor, since the card clips any hit slop', () => {
     const { getByLabelText } = renderSection({
       intervalsData: intervals,
       intervalsOutcome: 'loaded',

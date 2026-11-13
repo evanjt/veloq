@@ -58,7 +58,7 @@ function withoutSignalDelta(trend: EfficiencyTrend): EfficiencyTrend {
 beforeEach(() => jest.clearAllMocks());
 
 describe('the HRV trend insight', () => {
-  it('measures the latest reading against the window it sits in', () => {
+  vaultIt('measures the latest reading against the window it sits in', () => {
     const [insight] = generateHrvTrendInsight(
       hrv({
         label: 'trendingUp',
@@ -126,7 +126,7 @@ describe("the reading is the engine's", () => {
     expect(insight.meta?.signalDelta).toBe(0.25);
   });
 
-  it('carries the efficiency delta the engine took, not one read off the points', () => {
+  vaultIt('carries the efficiency delta the engine took, not one read off the points', () => {
     const [insight] = generateEfficiencyTrendInsights([efficiency({ signalDelta: 0.75 })], NOW, t);
 
     expect(insight.meta?.signalDelta).toBe(0.75);
@@ -134,7 +134,7 @@ describe("the reading is the engine's", () => {
 });
 
 describe('the efficiency trend insight', () => {
-  it('measures the newest effort against the series behind it', () => {
+  vaultIt('measures the newest effort against the series behind it', () => {
     const [insight] = generateEfficiencyTrendInsights([efficiency()], NOW, t);
 
     expect(insight.meta?.signalDelta).toBeGreaterThan(0);

@@ -111,6 +111,7 @@ fn load_gpx(path: &Path) -> (Vec<GpsPoint>, Option<i64>) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_preview_on_the_live_config_proposes_the_catalogue_it_already_holds() {
     let _serial = crate::serial_state();
     let Some((dir, gpx_count)) = largest_corpus() else {

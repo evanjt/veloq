@@ -112,7 +112,7 @@ it('leaves a settled activity alone across the edge', async () => {
   expect(engine.fetchAndParseExerciseSets).not.toHaveBeenCalled();
 });
 
-it('stays quiet while the connection never drops', async () => {
+vaultIt('stays quiet while the connection never drops', async () => {
   const { result, rerender } = await renderHook(() => useCardWithRetry('act1'), { wrapper });
 
   await waitFor(() => expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledTimes(1));

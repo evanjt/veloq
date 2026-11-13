@@ -142,6 +142,7 @@ fn a_long_ride_is_answered_as_one_line_matching_the_stored_points() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_query_string_only_busts_the_cache() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = init_global_engine();
@@ -174,6 +175,7 @@ fn a_point_with_no_finite_coordinate_is_left_off_the_line() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_too_short_to_draw_is_an_empty_collection() {
     let _serial_state = super::serial_state();
     let (_dir, path) = init_global_engine();
@@ -192,6 +194,7 @@ fn a_track_too_short_to_draw_is_an_empty_collection() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unknown_activity_or_kind_is_not_found() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = init_global_engine();
@@ -255,6 +258,7 @@ fn ask_c(path: &str) -> (Option<Vec<u8>>, u16) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_ios_entry_answers_the_same_bytes_and_statuses() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = init_global_engine();
@@ -273,6 +277,7 @@ fn the_ios_entry_answers_the_same_bytes_and_statuses() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_malformed_under_point_key_is_refused() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = init_global_engine();
@@ -290,6 +295,7 @@ fn a_malformed_under_point_key_is_refused() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn under_point_traces_are_not_found_while_the_heatmap_is_off() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = init_global_engine();
@@ -299,6 +305,7 @@ fn under_point_traces_are_not_found_while_the_heatmap_is_off() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn under_point_answers_the_traces_of_the_named_group_as_a_feature_collection() {
     let _serial_state = super::serial_state();
     let (dir, _path) = init_global_engine();

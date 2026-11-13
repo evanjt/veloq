@@ -62,7 +62,7 @@ describe('a pending unregister', () => {
     expect(resolvePendingUnregisterAthleteId()).toBe('i12345');
   });
 
-  it('has nothing to retry when none is pending', () => {
+  vaultIt('has nothing to retry when none is pending', () => {
     expect(resolvePendingUnregisterAthleteId()).toBeNull();
   });
 
@@ -74,7 +74,7 @@ describe('a pending unregister', () => {
     expect(resolvePendingUnregisterAthleteId()).toBeNull();
   });
 
-  it('forgets the athlete when notifications are turned back on', () => {
+  vaultIt('forgets the athlete when notifications are turned back on', () => {
     useNotificationPreferences.getState().setEnabled(false);
     useNotificationPreferences.getState().setEnabled(true);
 

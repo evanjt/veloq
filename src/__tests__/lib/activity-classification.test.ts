@@ -12,7 +12,7 @@ import { activityTypeColors } from '@/theme/colors';
 import type { ActivityType } from '@/types';
 
 describe('sortByDateId', () => {
-  it('sorts by date id without mutating the source, and handles empty input', () => {
+  vaultIt('sorts by date id without mutating the source, and handles empty input', () => {
     const items = [
       { id: '2024-01-15', value: 3 },
       { id: '2024-01-10', value: 1 },
@@ -35,15 +35,15 @@ describe('sortByDateId', () => {
 });
 
 describe('icon & color lookup', () => {
-  it('falls back to the Other colour for an unmapped activity type', () => {
+  vaultIt('falls back to the Other colour for an unmapped activity type', () => {
     expect(getActivityColor('SomeUnknownActivity' as ActivityType)).toBe(activityTypeColors.Other);
   });
 
-  it('falls back to heart-pulse for an unmapped activity type', () => {
+  vaultIt('falls back to heart-pulse for an unmapped activity type', () => {
     expect(getActivityIcon('SomeUnknownActivity')).toBe('heart-pulse');
   });
 
-  it('gives every generated sport except Other an icon of its own', () => {
+  vaultIt('gives every generated sport except Other an icon of its own', () => {
     const withFallbackIcon = ACTIVITY_TYPES.filter(
       (type) => type !== 'Other' && getActivityIcon(type) === 'heart-pulse'
     );
@@ -65,7 +65,7 @@ describe('type classification', () => {
 
   // Every cycling type the engine's taxonomy names, read from the generated
   // copy so a sport added in Rust is asserted here without a hand edit.
-  it('classifies every cycling type the engine counts', () => {
+  vaultIt('classifies every cycling type the engine counts', () => {
     expect(SPORT_FAMILIES.cycling).toContain('EBikeRide');
     for (const type of SPORT_FAMILIES.cycling) {
       expect(isCyclingActivity(type as ActivityType)).toBe(true);
@@ -79,7 +79,7 @@ describe('type classification', () => {
 
   // Power is a wider question than cycling: a rower's effort is watts too,
   // and the activity chart already opens a row on power.
-  it('says which sports measure power', () => {
+  vaultIt('says which sports measure power', () => {
     for (const type of SPORT_FAMILIES.cycling) {
       expect(measuresPower(type as ActivityType)).toBe(true);
     }
@@ -91,7 +91,7 @@ describe('type classification', () => {
     expect(measuresPower('' as ActivityType)).toBe(false);
   });
 
-  it('reads pace membership from the same taxonomy', () => {
+  vaultIt('reads pace membership from the same taxonomy', () => {
     for (const type of [...SPORT_FAMILIES.running, ...SPORT_FAMILIES.walking]) {
       expect(isPaceSport(type as ActivityType)).toBe(true);
     }

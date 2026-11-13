@@ -291,6 +291,7 @@ fn pace_bests_carry_the_time_and_drop_a_distance_with_no_time() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_curve_never_fetched_for_the_period_says_so_and_holds_no_values() {
     let engine = PersistentEngine::in_memory().unwrap();
     engine
@@ -389,6 +390,7 @@ fn a_virtual_or_assisted_activity_never_holds_a_climb_best() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_library_has_every_climb_window_and_no_value() {
     let engine = PersistentEngine::in_memory().unwrap();
     let data = read(&engine, ALL_TIME);
@@ -406,6 +408,7 @@ fn an_empty_library_has_every_climb_window_and_no_value() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn activities_still_owed_rows_are_counted_within_the_period_and_family() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -527,6 +530,7 @@ fn a_checkpoint_between_distant_samples_or_past_the_curve_has_no_best() {
 /// row carries what it measures and no display string. The pattern names every
 /// field, so a label added back fails to compile here.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_checkpoint_row_carries_its_kind_and_measure_and_no_words() {
     let engine = PersistentEngine::in_memory().unwrap();
     let data = read(&engine, ALL_TIME);
@@ -611,6 +615,7 @@ fn only_a_corrected_track_ranks_and_the_rest_are_counted_as_excluded() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_family_with_no_corrected_track_has_no_best_and_a_count() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -628,6 +633,7 @@ fn a_family_with_no_corrected_track_has_no_best_and_a_count() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_with_no_elevation_is_neither_owed_nor_excluded_and_holds_no_best() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -679,6 +685,7 @@ const LATE_START: i64 = 1_772_407_800;
 /// activity of its own to label them. An activity the device does not hold
 /// has no name, which is the cue the screen shows as not cached.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pace_best_carries_the_name_and_start_of_the_activity_holding_it() {
     let engine = PersistentEngine::in_memory().unwrap();
     engine
@@ -706,6 +713,7 @@ fn a_pace_best_carries_the_name_and_start_of_the_activity_holding_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_power_best_carries_the_name_of_the_activity_holding_it() {
     let engine = PersistentEngine::in_memory().unwrap();
     engine
@@ -726,6 +734,7 @@ fn a_power_best_carries_the_name_of_the_activity_holding_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_climb_best_carries_the_name_of_the_activity_holding_it() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -899,6 +908,7 @@ fn a_run_curve_ending_at_nineteen_kilometres_leaves_the_half_and_marathon_empty(
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_power_body_without_per_kilogram_series_leaves_watts_per_kg_empty() {
     let engine = PersistentEngine::in_memory().unwrap();
     engine
@@ -951,6 +961,7 @@ fn a_ride_retyped_to_a_run_counts_in_the_run_climb_and_leaves_the_ride_climb() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_retyped_to_a_virtual_ride_holds_no_climb_rows() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -964,6 +975,7 @@ fn a_ride_retyped_to_a_virtual_ride_holds_no_climb_rows() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unmeasured_ride_retyped_to_a_run_is_owed_to_the_run_family() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();

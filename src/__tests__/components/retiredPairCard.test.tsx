@@ -155,7 +155,7 @@ describe('the retired pair card', () => {
     expect(tree.getByTestId('retired-pair-stats-b').props.children).toBe('800 m');
   });
 
-  it('says a section shares its ground with nothing', async () => {
+  vaultIt('says a section shares its ground with nothing', async () => {
     const tree = await render(
       <RetiredPairCard
         selection={{ ...RETIRED, pairs: [] }}
@@ -168,34 +168,37 @@ describe('the retired pair card', () => {
     expect(tree.queryByTestId('retired-pair-a')).toBeNull();
   });
 
-  it('says the ground is still being worked out rather than that nothing shares it', async () => {
-    const empty = await render(
-      <RetiredPairCard
-        selection={{ ...RETIRED, pairs: [], pairsPending: true }}
-        onSelect={jest.fn()}
-        onClose={jest.fn()}
-      />
-    );
-    expect(empty.getByTestId('retired-pairs-pending')).toBeTruthy();
-    expect(empty.queryByTestId('retired-pair-none')).toBeNull();
+  vaultIt(
+    'says the ground is still being worked out rather than that nothing shares it',
+    async () => {
+      const empty = await render(
+        <RetiredPairCard
+          selection={{ ...RETIRED, pairs: [], pairsPending: true }}
+          onSelect={jest.fn()}
+          onClose={jest.fn()}
+        />
+      );
+      expect(empty.getByTestId('retired-pairs-pending')).toBeTruthy();
+      expect(empty.queryByTestId('retired-pair-none')).toBeNull();
 
-    const ledgerOnly = await render(
-      <RetiredPairCard
-        selection={{ ...RETIRED, pairs: RETIRED.pairs.slice(1), pairsPending: true }}
-        onSelect={jest.fn()}
-        onClose={jest.fn()}
-      />
-    );
-    expect(ledgerOnly.getByTestId('retired-pairs-pending')).toBeTruthy();
-    expect(ledgerOnly.getByTestId('retired-pair-b')).toBeTruthy();
+      const ledgerOnly = await render(
+        <RetiredPairCard
+          selection={{ ...RETIRED, pairs: RETIRED.pairs.slice(1), pairsPending: true }}
+          onSelect={jest.fn()}
+          onClose={jest.fn()}
+        />
+      );
+      expect(ledgerOnly.getByTestId('retired-pairs-pending')).toBeTruthy();
+      expect(ledgerOnly.getByTestId('retired-pair-b')).toBeTruthy();
 
-    const level = await render(
-      <RetiredPairCard selection={RETIRED} onSelect={jest.fn()} onClose={jest.fn()} />
-    );
-    expect(level.queryByTestId('retired-pairs-pending')).toBeNull();
-  });
+      const level = await render(
+        <RetiredPairCard selection={RETIRED} onSelect={jest.fn()} onClose={jest.fn()} />
+      );
+      expect(level.queryByTestId('retired-pairs-pending')).toBeNull();
+    }
+  );
 
-  it('closes from its close button', async () => {
+  vaultIt('closes from its close button', async () => {
     const onClose = jest.fn();
     const tree = await render(
       <RetiredPairCard selection={RETIRED} onSelect={jest.fn()} onClose={onClose} />

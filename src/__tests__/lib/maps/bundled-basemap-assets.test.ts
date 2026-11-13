@@ -125,7 +125,7 @@ describe('the page', () => {
     } as any),
   ];
 
-  it('registers no asset protocol and asks the host for nothing', () => {
+  vaultIt('registers no asset protocol and asks the host for nothing', () => {
     for (const html of pages) {
       expect(html).not.toContain("addProtocol('bundled'");
       expect(html).not.toContain('bundledAssetRequest');

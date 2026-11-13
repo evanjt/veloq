@@ -85,6 +85,7 @@ fn retention_keeps_birth_milestones_pin_and_newest_three() {
 /// Expected behaviour: the formerly pinned version becomes prunable like any
 /// other non-milestone.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn unpin_releases_the_version_to_retention() {
     let (mut engine, _dir) = fresh_engine();
     for seed in 1..=4 {
@@ -109,6 +110,7 @@ fn unpin_releases_the_version_to_retention() {
 /// A pin must always be restorable: pinning a version that never existed or
 /// was already pruned is refused, not recorded.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn pin_refuses_a_missing_version() {
     let (mut engine, _dir) = fresh_engine();
     engine
@@ -132,6 +134,7 @@ fn pin_refuses_a_missing_version() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn history_events_append_in_order_and_read_back() {
     let (mut engine, _dir) = fresh_engine();
     let v = engine

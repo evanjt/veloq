@@ -63,15 +63,15 @@ jest.mock('@/features/auth/lib/pendingSignIn', () => {
 const mockValidateCredentials = validateCredentials as jest.Mock;
 
 describe('what a sign-in attempt should do', () => {
-  it('validates a key while the radio is up', () => {
+  vaultIt('validates a key while the radio is up', () => {
     expect(signInPlan(true, 'a-key')).toBe('validate');
   });
 
-  it('queues a key while the radio is down', () => {
+  vaultIt('queues a key while the radio is down', () => {
     expect(signInPlan(false, 'a-key')).toBe('queue');
   });
 
-  it('refuses an empty key either way', () => {
+  vaultIt('refuses an empty key either way', () => {
     expect(signInPlan(true, '   ')).toBe('empty');
     expect(signInPlan(false, '')).toBe('empty');
   });

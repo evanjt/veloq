@@ -144,6 +144,7 @@ fn direct_junction_writes_keep_the_count_true() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn excluding_and_reincluding_keeps_the_count_true() {
     let mut s = setup();
     insert_activity(&s.raw, "a1", 1_700_000_000);
@@ -164,6 +165,7 @@ fn excluding_and_reincluding_keeps_the_count_true() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn merging_two_sections_keeps_the_count_true() {
     let mut s = setup();
     insert_activity(&s.raw, "a1", 1_700_000_000);
@@ -190,6 +192,7 @@ fn merging_two_sections_keeps_the_count_true() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn merging_across_sports_keeps_the_count_true() {
     let mut s = setup();
     insert_activity(&s.raw, "a1", 1_700_000_000);
@@ -258,6 +261,7 @@ fn a_database_left_stale_by_an_older_build_repairs_on_open() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn deleting_a_section_leaves_no_orphan_rows() {
     let mut s = setup();
     insert_activity(&s.raw, "a1", 1_700_000_000);
@@ -303,6 +307,7 @@ fn setup_lapped_oval() -> Setup {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_persistence_summary_path_separates_traversals_from_outings() {
     let mut s = setup_lapped_oval();
     s.engine.load().expect("load");
@@ -319,6 +324,7 @@ fn the_persistence_summary_path_separates_traversals_from_outings() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_crud_summary_path_separates_traversals_from_outings() {
     let mut s = setup_lapped_oval();
     s.engine.load().expect("load");
@@ -367,6 +373,7 @@ fn both_summary_paths_agree_on_a_lapped_section() {
 /// the column as the one owner after the last independent COUNT(*) was
 /// retired from `get_section_visit_count`.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_section_detail_read_serves_the_column() {
     let mut s = setup_lapped_oval();
     s.engine.load().expect("load");
@@ -394,6 +401,7 @@ fn the_section_detail_read_serves_the_column() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn excluding_a_lap_drops_one_traversal_but_keeps_the_outing() {
     let mut s = setup_lapped_oval();
     s.engine.load().expect("load");
@@ -435,6 +443,7 @@ fn insert_single_session_lapped_section(db: &Connection) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn one_lapped_session_does_not_clear_a_repetition_floor() {
     let mut s = setup();
     insert_single_session_lapped_section(&s.raw);
@@ -457,6 +466,7 @@ fn one_lapped_session_does_not_clear_a_repetition_floor() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn returning_often_enough_clears_the_floor() {
     let mut s = setup();
     insert_section(&s.raw, "sec_commute", "Run");
@@ -529,6 +539,7 @@ fn a_restart_keeps_the_visit_count_at_the_column() {
 /// delete must take the junction rows with it, letting the triggers recompute
 /// the column.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_clear_takes_the_junction_rows_with_it() {
     let s = setup();
     let mut engine = s.engine;

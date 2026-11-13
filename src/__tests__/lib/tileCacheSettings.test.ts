@@ -27,7 +27,7 @@ beforeEach(async () => {
 });
 
 describe('initialiseTileCacheSettings', () => {
-  it('writes nothing when no value is stored', async () => {
+  vaultIt('writes nothing when no value is stored', async () => {
     await initialiseTileCacheSettings();
     expect(await AsyncStorage.getItem(TILE_CACHE_KEY)).toBeNull();
   });
@@ -43,7 +43,7 @@ describe('initialiseTileCacheSettings', () => {
     expect(stored.maxSize).toBeUndefined();
   });
 
-  it('leaves an already-ambient value untouched', async () => {
+  vaultIt('leaves an already-ambient value untouched', async () => {
     await AsyncStorage.setItem(
       TILE_CACHE_KEY,
       JSON.stringify({ cacheMode: 'ambient', extra: 'field' })
@@ -74,7 +74,7 @@ describe('initialiseTileCacheSettings', () => {
     expect(stored.cacheMode).toBe('ambient');
   });
 
-  it('loads a stored ceiling, snapped onto the ladder', async () => {
+  vaultIt('loads a stored ceiling, snapped onto the ladder', async () => {
     await AsyncStorage.setItem(TILE_CACHE_KEY, JSON.stringify({ budgetMb: 250 }));
     await initialiseTileCacheSettings();
     expect(getTileCacheBudgetMb()).toBe(200);

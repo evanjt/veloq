@@ -68,7 +68,7 @@ describe('what the app takes on the way back', () => {
     expect(keys).toContain(JSON.stringify({ queryKey: queryKeys.sections.all }));
   });
 
-  it('invalidates nothing when no push landed while it was away', async () => {
+  vaultIt('invalidates nothing when no push landed while it was away', async () => {
     mockTakeExternalWrites.mockReturnValue(false);
     await renderHook(() => usePushedWritesOnForeground(), { wrapper });
 
@@ -78,7 +78,7 @@ describe('what the app takes on the way back', () => {
     expect(invalidate).not.toHaveBeenCalled();
   });
 
-  it('does not ask on the inactive flicker of a notification shade', async () => {
+  vaultIt('does not ask on the inactive flicker of a notification shade', async () => {
     mockTakeExternalWrites.mockReturnValue(true);
     await renderHook(() => usePushedWritesOnForeground(), { wrapper });
 

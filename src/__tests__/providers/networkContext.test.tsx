@@ -108,12 +108,12 @@ describe('NetworkContext', () => {
   });
 
   describe('initial state', () => {
-    it('starts online (optimistic)', async () => {
+    vaultIt('starts online (optimistic)', async () => {
       const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
       expect(result.current.isOnline).toBe(true);
     });
 
-    it('subscribes to network state listener on mount', async () => {
+    vaultIt('subscribes to network state listener on mount', async () => {
       await renderHook(() => useNetwork(), { wrapper: wrapperFor });
       const Network = require('expo-network');
       expect(Network.addNetworkStateListener).toHaveBeenCalledTimes(1);
@@ -245,7 +245,7 @@ describe('NetworkContext', () => {
   });
 
   describe('fallback: getNetworkStateAsync', () => {
-    it('does NOT call getNetworkStateAsync if listener fires within 100ms', async () => {
+    vaultIt('does NOT call getNetworkStateAsync if listener fires within 100ms', async () => {
       await renderHook(() => useNetwork(), { wrapper: wrapperFor });
       await act(() => {
         getMock().listener!({
@@ -306,13 +306,13 @@ describe('NetworkContext', () => {
   });
 
   describe('cleanup on unmount', () => {
-    it('removes the listener subscription', async () => {
+    vaultIt('removes the listener subscription', async () => {
       const { unmount } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
       await unmount();
       expect(getMock().remove).toHaveBeenCalledTimes(1);
     });
 
-    it('cancels pending offline debounce on unmount', async () => {
+    vaultIt('cancels pending offline debounce on unmount', async () => {
       const { result, unmount } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
       // A drop is only debounced once a reading has confirmed online.
       await act(() => {
@@ -381,7 +381,7 @@ describe('NetworkContext', () => {
       expect(onlineManager.isOnline()).toBe(true);
     });
 
-    it('leaves the manager online once the provider unmounts', async () => {
+    vaultIt('leaves the manager online once the provider unmounts', async () => {
       const { unmount } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
 
       await act(() => {
@@ -713,7 +713,7 @@ describe('NetworkContext', () => {
         expect(mockReturnPushed).not.toHaveBeenCalled();
       });
 
-      it('does not mark the quarter-hour re-read as a return', async () => {
+      vaultIt('does not mark the quarter-hour re-read as a return', async () => {
         const original = Object.getOwnPropertyDescriptor(AppState, 'currentState');
         Object.defineProperty(AppState, 'currentState', { value: 'active', configurable: true });
         try {
@@ -762,7 +762,7 @@ describe('NetworkContext', () => {
   });
 
   describe('useNetwork() outside provider', () => {
-    it('throws a clear error', async () => {
+    vaultIt('throws a clear error', async () => {
       // Silence expected console.error from React
       const consoleErr = jest.spyOn(console, 'error').mockImplementation(() => {});
       await expect((async () => renderHook(() => useNetwork()))()).rejects.toThrow(
@@ -884,7 +884,7 @@ describe('the first reading after a cold boot', () => {
       expect(result.current.offlineIndicator).toBe('none');
     });
 
-    it('goes straight to none from the pill on an online reading', async () => {
+    vaultIt('goes straight to none from the pill on an online reading', async () => {
       const { result } = await dropOffline();
       await act(() => {
         jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS + OFFLINE_BANNER_DELAY_MS);
@@ -917,7 +917,7 @@ describe('the first reading after a cold boot', () => {
       expect(result.current.offlineIndicator).toBe('badge');
     });
 
-    it('a repeated offline reading in the badge stays the badge', async () => {
+    vaultIt('a repeated offline reading in the badge stays the badge', async () => {
       const { result } = await dropOffline();
       await act(() => {
         jest.advanceTimersByTime(

@@ -16,6 +16,7 @@ fn group(id: &str, members: &[&str]) -> RouteGroup {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_reseed_identity_preserves_numeric_seniority_on_merge() {
     let prior = vec![
         group("r_9", &["a", "b", "c", "d"]),
@@ -38,6 +39,7 @@ fn test_reseed_identity_preserves_numeric_seniority_on_merge() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_reseed_identity_places_other_ids_after_numeric_ids() {
     let prior = vec![
         group("legacy_b", &["b"]),
@@ -52,6 +54,7 @@ fn test_reseed_identity_places_other_ids_after_numeric_ids() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_remap_breaks_equal_seniority_by_numeric_route_id() {
     let mut identity = RouteIdentity {
         first_seen: [("r_9".to_string(), 1), ("r_10".to_string(), 1)]
@@ -69,6 +72,7 @@ fn test_remap_breaks_equal_seniority_by_numeric_route_id() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_remap_mints_past_adopted_route_ids() {
     let mut identity = RouteIdentity {
         first_seen: [("r_2".to_string(), 2)].into_iter().collect(),

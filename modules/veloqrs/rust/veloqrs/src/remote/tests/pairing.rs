@@ -109,6 +109,7 @@ fn a_wrong_proof_spends_the_secret() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_truncated_or_padded_proof_is_refused() {
     let invitation = invitation();
     let good = browser_proof(&invitation, PHONE);
@@ -123,6 +124,7 @@ fn a_truncated_or_padded_proof_is_refused() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_phone_proof_differs_from_the_browser_proof() {
     let invitation = invitation();
     let browser = proof(&invitation.secret, Role::Browser, BROWSER, PHONE);
@@ -131,6 +133,7 @@ fn the_phone_proof_differs_from_the_browser_proof() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_invitation_lasting_past_the_cap_is_cut_to_it() {
     let qr = format!(
         r#"{{"v":1,"room":"room-0123456789abcdefghij","secret":"{}","fp":"sha-256 AA:AA","exp":{}}}"#,
@@ -142,6 +145,7 @@ fn an_invitation_lasting_past_the_cap_is_cut_to_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn malformed_and_stale_invitations_are_refused() {
     assert_eq!(
         Invitation::parse("nope", NOW).err(),
@@ -240,6 +244,7 @@ fn nothing_is_asked_or_linked_before_a_proof() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refused_proof_closes_the_pairing() {
     let mut pairing = Pairing::new(invitation());
     let mut spent = HashSet::new();

@@ -62,7 +62,7 @@ describe('the activity stat tiles', () => {
     expect(card('Power')).toMatchObject({ value: '245', unit: 'W' });
   });
 
-  it('never write a power value against its symbol', () => {
+  vaultIt('never write a power value against its symbol', () => {
     const texts = stats().flatMap((s) => [
       s.value,
       s.context ?? '',
@@ -86,12 +86,12 @@ describe('the activity stat tiles', () => {
     expect(power?.context).toBe('Max 812 W');
   });
 
-  it('names the maximum heart rate Max, as the power card does', () => {
+  vaultIt('names the maximum heart rate Max, as the power card does', () => {
     expect(row('Heart rate', 'Max')).toBe('181 bpm');
     expect(i18n.exists('activity.stats.peak')).toBe(false);
   });
 
-  it('print HRV in ms through the one formatter on both cards', () => {
+  vaultIt('print HRV in ms through the one formatter on both cards', () => {
     expect(row('Heart rate', 'HRV that day')).toBe('48 ms');
     expect(row('Your form', 'HRV')).toBe('48 ms');
   });
@@ -101,11 +101,11 @@ describe('the activity stat tiles', () => {
     expect(row('Energy', 'Calories burned')).toBe('820 kcal');
   });
 
-  it('name the intensity factor through the locale', () => {
+  vaultIt('name the intensity factor through the locale', () => {
     expect(card('Training load').context).toBe('IF 88%');
   });
 
-  it('print the sleep score as a score, as Health does', () => {
+  vaultIt('print the sleep score as a score, as Health does', () => {
     expect(row('Your form', 'Sleep score')).toBe('85');
   });
 });

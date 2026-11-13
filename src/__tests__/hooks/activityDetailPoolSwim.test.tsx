@@ -92,7 +92,7 @@ describe('the activity detail read of a pool swim', () => {
     expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledWith('swim');
   });
 
-  it('does not ask again when a re-read still finds the file owed', async () => {
+  vaultIt('does not ask again when a re-read still finds the file owed', async () => {
     const engine = fakeEngine(() => detail(owed));
     await render(<Probe id="swim" />);
 
@@ -101,7 +101,7 @@ describe('the activity detail read of a pool swim', () => {
     expect(engine.fetchAndParseExerciseSets).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
+  vaultIt.each([
     ['read', read],
     ['settled with no lengths', settled],
     ['not a pool swim', undefined],

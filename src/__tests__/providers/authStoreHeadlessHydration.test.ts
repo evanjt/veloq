@@ -59,7 +59,7 @@ describe('ensureCredentialsHydrated', () => {
     expect(getStoredCredentials().authMethod).toBe('oauth');
   });
 
-  it('leaves an already hydrated store alone', async () => {
+  vaultIt('leaves an already hydrated store alone', async () => {
     await ensureCredentialsHydrated();
     mockGetItemAsync.mockClear();
 

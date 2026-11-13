@@ -522,6 +522,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_point_no_activity_covers_is_not_owed_rather_than_refused() {
             let _guard = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -538,6 +539,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_suspended_detection_holds_the_preview_rather_than_refusing_it() {
             let _guard = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -557,6 +559,7 @@ mod tests {
         /// Scenario: a real detect holds the detection slot and takes no
         /// suspension. Expected behaviour: the preview is held and claims nothing.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_running_detect_refuses_the_preview_as_busy_without_a_suspension() {
             let _guard = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -590,6 +593,7 @@ mod tests {
         /// Expected behaviour: once the app is back the key is free, rather
         /// than held for the rest of the process.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_suspension_after_the_claim_leaves_the_component_free() {
             use crate::persistence::suspension::{
                 entered_background, prepare_for_suspension, resume_after_suspension,
@@ -635,6 +639,7 @@ mod tests {
         /// The backoff is read rather than spent: the clock is handed in, so
         /// nothing here sleeps and nothing asserts on wall clock.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_component_that_failed_backs_off_and_lifts_when_the_clock_passes_it() {
             let _guard = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -692,6 +697,7 @@ mod tests {
         /// what the screen re-renders over, so keying on them would free the
         /// backoff exactly when it is needed.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_backoff_is_not_freed_by_moving_a_slider() {
             let _guard = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -844,6 +850,7 @@ mod tests {
     /// A slack strictness cannot split what a strict one joined, so the two
     /// runs are evidence the knob is actually reaching the grouping.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_slacker_strictness_groups_at_least_as_hard() {
         let _guard = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -868,6 +875,7 @@ mod tests {
 
     /// An empty library has nothing to group, and that is not an error.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_library_has_nothing_to_group() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("grouping_preview.db");
@@ -918,6 +926,7 @@ mod tests {
 
     /// A poisoned slot lock must not read "error" for the rest of the session.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_poisoned_grouping_slot_does_not_fail_every_later_call() {
         let _guard = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -934,6 +943,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_poisoned_slot_lock_does_not_fail_every_later_call() {
         let _guard = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -967,6 +977,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_library_has_no_centres_and_nothing_to_preview() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("preview.db");
@@ -989,6 +1000,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_library_with_no_sections_ranks_its_activity_bins() {
         let _guard = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -1015,6 +1027,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_preview_runs_to_a_payload_that_is_taken_once() {
         let _guard = serial_global_state();
         let _tmp = seeded_global_engine();

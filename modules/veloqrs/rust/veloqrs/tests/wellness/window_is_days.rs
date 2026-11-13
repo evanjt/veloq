@@ -75,6 +75,7 @@ fn the_window_holds_the_days_asked_for_and_no_older_row() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_wider_window_reaches_back_over_the_gap() {
     let dir = TempDir::new().unwrap();
     let mut engine = engine(&dir);
@@ -109,6 +110,7 @@ fn a_row_outside_the_window_is_left_out_however_few_rows_remain() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_library_yields_an_empty_window() {
     let dir = TempDir::new().unwrap();
     let engine = engine(&dir);
@@ -157,6 +159,7 @@ fn the_hrv_flag_does_not_read_a_decline_across_a_gap() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_hrv_flag_still_reads_a_decline_on_two_days_running() {
     let dir = TempDir::new().unwrap();
     let mut engine = engine(&dir);
@@ -191,6 +194,7 @@ fn the_hrv_flag_still_reads_a_decline_on_two_days_running() {
 /// standard deviations, so no caller averages the sparkline a second time, and
 /// a window with no spread carries none rather than a number on another scale.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_hrv_trend_carries_the_latest_day_against_its_own_window() {
     let dir = TempDir::new().unwrap();
     let mut engine = engine(&dir);
@@ -225,6 +229,7 @@ fn the_hrv_trend_carries_the_latest_day_against_its_own_window() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_flat_hrv_window_carries_no_distance() {
     let dir = TempDir::new().unwrap();
     let mut engine = engine(&dir);
@@ -252,6 +257,7 @@ fn a_flat_hrv_window_carries_no_distance() {
 // That only holds if the array carries one entry per calendar day.
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sparkline_carries_one_entry_per_day_in_the_window() {
     let dir = TempDir::new().unwrap();
     let mut engine = engine(&dir);
@@ -285,6 +291,7 @@ fn a_day_with_no_row_holds_the_last_value_the_athlete_had() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn yesterday_is_the_entry_before_last_even_across_a_gap() {
     let dir = TempDir::new().unwrap();
     let mut engine = engine(&dir);
@@ -305,6 +312,7 @@ fn yesterday_is_the_entry_before_last_even_across_a_gap() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_that_starts_inside_the_window_is_not_padded_before_its_first_row() {
     let dir = TempDir::new().unwrap();
     let mut engine = engine(&dir);

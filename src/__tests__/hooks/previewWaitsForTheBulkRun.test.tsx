@@ -102,7 +102,7 @@ it('opens the gate for good when a run ended before the card mounted', async () 
   await waitFor(() => expect(mockRequestStreams).toHaveBeenCalledWith('a1', expect.anything()));
 });
 
-it('asks for nothing for a card the startup bundle already filled', async () => {
+vaultIt('asks for nothing for a card the startup bundle already filled', async () => {
   await renderHook(() => useMapPreviewCoordinates('a1', true, { points: [] } as never), {
     wrapper,
   });

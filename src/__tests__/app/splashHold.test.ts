@@ -24,13 +24,13 @@ describe('splash hold', () => {
     mockSetOptions.mockReset();
   });
 
-  it('asks for the hold once on import and does not hide yet', () => {
+  vaultIt('asks for the hold once on import and does not hide yet', () => {
     load();
     expect(mockPrevent).toHaveBeenCalledTimes(1);
     expect(mockHide).not.toHaveBeenCalled();
   });
 
-  it('hides exactly once however often it is released', () => {
+  vaultIt('hides exactly once however often it is released', () => {
     const { releaseSplash } = load();
     releaseSplash();
     releaseSplash();
@@ -45,7 +45,7 @@ describe('splash hold', () => {
     await Promise.resolve();
   });
 
-  it('sets one cross-fade for both platforms before the hide', () => {
+  vaultIt('sets one cross-fade for both platforms before the hide', () => {
     const { releaseSplash } = load();
     releaseSplash();
     expect(mockSetOptions).toHaveBeenCalledTimes(1);

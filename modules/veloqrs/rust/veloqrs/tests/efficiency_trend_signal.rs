@@ -111,6 +111,7 @@ fn the_trend_carries_the_newest_effort_against_its_own_series() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_series_with_no_spread_carries_no_distance() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine_with_efforts(&dir, &[145.0, 145.0, 145.0, 145.0, 145.0]);

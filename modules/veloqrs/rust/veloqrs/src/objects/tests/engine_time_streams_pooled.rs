@@ -10,6 +10,7 @@ use crate::test_globals::{init_global_engine, read_while_writer_holds, serial_gl
 use crate::with_persistent_engine;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn activities_needing_time_streams_do_not_wait_for_a_writer() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("needing_streams_under_a_writer.db");
@@ -48,6 +49,7 @@ fn activities_needing_time_streams_do_not_wait_for_a_writer() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_pooled_list_is_the_one_the_engine_method_gives() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("needing_streams_parity.db");

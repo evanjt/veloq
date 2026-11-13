@@ -222,6 +222,11 @@ static TABLES: &[Table] = &[
         "each exercise's last day, session count and decayed use, rebuilt from the sets",
     ),
     t(
+        "strength_signatures",
+        Derived,
+        "the sorted set of exercises each strength session used, rebuilt from the sets",
+    ),
+    t(
         "exercise_followers",
         Derived,
         "how often one exercise followed another in a session, rebuilt from the sets",

@@ -96,7 +96,7 @@ describe('the foreground location watch', () => {
     expect(watchPosition).toHaveBeenCalledTimes(1);
   });
 
-  it('is armed once when three callers arm it together', async () => {
+  vaultIt('is armed once when three callers arm it together', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     void ensureLocationWatch();
     void ensureLocationWatch();

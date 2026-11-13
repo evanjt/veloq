@@ -103,19 +103,19 @@ describe.each([
   const expected = () =>
     `[settings.terrain3DSmartHint|${formatElevation(SMART_3D_MIN_RELIEF_M, isMetric)}]`;
 
-  it('is drawn in the Maps settings', async () => {
+  vaultIt('is drawn in the Maps settings', async () => {
     const tree = await surface(<MapsSection />);
     expect(await tree.findByText(expected())).toBeTruthy();
   });
 
-  it('is drawn on the map tour slide', async () => {
+  vaultIt('is drawn on the map tour slide', async () => {
     const tree = await surface(<MapPreferencesSlide />);
     expect(await tree.findByText(expected())).toBeTruthy();
   });
 });
 
 describe('the smart 3D hint string', () => {
-  it.each(SUPPORTED_LOCALES.map((l) => [l]))('exists in %s and takes the height', (locale) => {
+  vaultIt.each(SUPPORTED_LOCALES.map((l) => [l]))('exists in %s and takes the height', (locale) => {
     const settings = (resolvedLocale(locale) as unknown as Record<string, Record<string, string>>)
       .settings;
     expect(settings.terrain3DSmartHint).toContain('{{height}}');

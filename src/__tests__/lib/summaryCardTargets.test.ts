@@ -50,7 +50,7 @@ describe('summary card targets', () => {
     }
   });
 
-  it.each<[MetricId, string, string]>([
+  vaultIt.each<[MetricId, string, string]>([
     ['fitness', '/fitness', 'fitness'],
     ['form', '/fitness', 'form'],
     ['ftp', '/fitness', 'ftp'],
@@ -67,7 +67,7 @@ describe('summary card targets', () => {
 });
 
 describe('the fitness parser', () => {
-  it('reads the wellness, week and calendar charts the tab now draws', () => {
+  vaultIt('reads the wellness, week and calendar charts the tab now draws', () => {
     expect(fitnessEntryFromParams({ chart: 'hrv' }).chart).toBe('hrv');
     expect(fitnessEntryFromParams({ chart: 'rhr' }).chart).toBe('rhr');
     expect(fitnessEntryFromParams({ chart: 'weight' }).chart).toBe('weight');
@@ -80,18 +80,18 @@ describe('the fitness parser', () => {
     expect(fitnessEntryFromParams({}).chart).toBeNull();
   });
 
-  it('takes the first of a repeated chart param', () => {
+  vaultIt('takes the first of a repeated chart param', () => {
     expect(fitnessEntryFromParams({ chart: ['ftp', 'css'] }).chart).toBe('ftp');
     expect(fitnessEntryFromParams({ chart: ['week', 'hrv'] }).chart).toBe('week');
   });
 
-  it('opens the sport-agnostic cards with no section and no sport switch', () => {
+  vaultIt('opens the sport-agnostic cards with no section and no sport switch', () => {
     for (const chart of ['hrv', 'rhr', 'weight', 'week', 'calendar'] as const) {
       expect(FITNESS_CHART_PLACEMENT[chart]).toMatchObject({ section: null, sport: null });
     }
   });
 
-  it('scrolls each chart to the card that draws it', () => {
+  vaultIt('scrolls each chart to the card that draws it', () => {
     expect(fitnessChartAnchor('hrv')).toBe('wellness');
     expect(fitnessChartAnchor('rhr')).toBe('wellness');
     expect(fitnessChartAnchor('weight')).toBe('wellness');
@@ -102,7 +102,7 @@ describe('the fitness parser', () => {
     expect(fitnessChartAnchor('css')).toBe('chart');
   });
 
-  it('switch to the sport a fitness chart needs and open its section when it has one', () => {
+  vaultIt('switch to the sport a fitness chart needs and open its section when it has one', () => {
     expect(FITNESS_CHART_PLACEMENT.ftp).toEqual({
       section: 'trends',
       sport: 'Cycling',

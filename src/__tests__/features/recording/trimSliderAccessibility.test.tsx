@@ -87,26 +87,29 @@ async function setup(props: { startIdx?: number; endIdx?: number; totalPoints?: 
 beforeEach(() => mockGestures.clear());
 
 describe('TrimSlider handles', () => {
-  it('exposes each handle as an adjustable element with the elapsed time as its value', async () => {
-    const { view } = await setup();
-    for (const [testID, time] of [
-      ['review-trim-start-handle', '1:40'],
-      ['review-trim-end-handle', '15:00'],
-    ] as const) {
-      const handle = view.getByTestId(testID);
-      expect(handle.props.accessible).toBe(true);
-      expect(handle.props.accessibilityRole).toBe('adjustable');
-      expect(handle.props.accessibilityLabel).toBeTruthy();
-      expect(handle.props.accessibilityValue.text).toContain(time);
-      expect(handle.props.accessibilityActions).toEqual([
-        { name: 'increment' },
-        { name: 'decrement' },
-      ]);
+  vaultIt(
+    'exposes each handle as an adjustable element with the elapsed time as its value',
+    async () => {
+      const { view } = await setup();
+      for (const [testID, time] of [
+        ['review-trim-start-handle', '1:40'],
+        ['review-trim-end-handle', '15:00'],
+      ] as const) {
+        const handle = view.getByTestId(testID);
+        expect(handle.props.accessible).toBe(true);
+        expect(handle.props.accessibilityRole).toBe('adjustable');
+        expect(handle.props.accessibilityLabel).toBeTruthy();
+        expect(handle.props.accessibilityValue.text).toContain(time);
+        expect(handle.props.accessibilityActions).toEqual([
+          { name: 'increment' },
+          { name: 'decrement' },
+        ]);
+      }
+      expect(view.getByTestId('review-trim-start-handle').props.accessibilityLabel).not.toBe(
+        view.getByTestId('review-trim-end-handle').props.accessibilityLabel
+      );
     }
-    expect(view.getByTestId('review-trim-start-handle').props.accessibilityLabel).not.toBe(
-      view.getByTestId('review-trim-end-handle').props.accessibilityLabel
-    );
-  });
+  );
 
   it('increment on the start handle moves the start one step and commits it', async () => {
     const { onTrimChange, onTrimCommit, action } = await setup();
@@ -152,7 +155,7 @@ describe('TrimSlider step buttons', () => {
     expect(onTrimChange).toHaveBeenCalledTimes(4);
   });
 
-  it('labels every button and disables the ones that cannot move', async () => {
+  vaultIt('labels every button and disables the ones that cannot move', async () => {
     const { view } = await setup({ startIdx: 0, endIdx: 1000 });
     for (const testID of [
       'review-trim-start-earlier',
@@ -192,7 +195,7 @@ describe('TrimSlider drag', () => {
     expect(onTrimCommit).toHaveBeenLastCalledWith(783, 900);
   });
 
-  it('puts the handle last moved above the other so it takes the shared touches', async () => {
+  vaultIt('puts the handle last moved above the other so it takes the shared touches', async () => {
     const { view, action } = await setup();
     const zIndex = (testID: string) =>
       StyleSheet.flatten(view.getByTestId(testID).props.style).zIndex ?? 0;
@@ -210,7 +213,7 @@ describe('TrimSlider drag', () => {
 });
 
 describe('TrimSlider range text', () => {
-  it('draws the trimmed range in the primary text colour', async () => {
+  vaultIt('draws the trimmed range in the primary text colour', async () => {
     const { view } = await setup();
     const text = view.getByTestId('review-trim-range');
     expect(StyleSheet.flatten(text.props.style).color).toBe(colors.textPrimary);

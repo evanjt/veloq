@@ -37,14 +37,14 @@ describe('MapHeroStatusBar', () => {
     mockFocused = true;
   });
 
-  it('asks for light glyphs over the hero in either theme', async () => {
+  vaultIt('asks for light glyphs over the hero in either theme', async () => {
     await render(<MapHeroStatusBar scrolledPastHero={false} isDark={false} />);
     expect(entryStyle()).toBe('light');
     await screen.rerender(<MapHeroStatusBar scrolledPastHero={false} isDark />);
     expect(entryStyle()).toBe('light');
   });
 
-  it("follows the theme's glyphs once the hero has scrolled away", async () => {
+  vaultIt("follows the theme's glyphs once the hero has scrolled away", async () => {
     await render(<MapHeroStatusBar scrolledPastHero isDark={false} />);
     expect(entryStyle()).toBe('dark');
     await screen.rerender(<MapHeroStatusBar scrolledPastHero isDark />);

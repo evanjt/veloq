@@ -34,7 +34,7 @@ const selected = (screen: ReturnType<typeof render>, label: string) =>
   screen.getByLabelText(label).props.accessibilityState?.selected;
 
 describe('the System row', () => {
-  it('comes before every language and names the phone language', () => {
+  vaultIt('comes before every language and names the phone language', () => {
     const screen = render(<LanguageList language="de-CH" onSelect={jest.fn()} />);
     const row = screen.getByTestId('language-system');
     const all = screen.UNSAFE_root.findAll((n) => n.props.accessibilityRole === 'button');
@@ -50,13 +50,13 @@ describe('the System row', () => {
     expect(onSelect).toHaveBeenCalledWith(SYSTEM_LANGUAGE);
   });
 
-  it('is the only row chosen while the app follows the phone', () => {
+  vaultIt('is the only row chosen while the app follows the phone', () => {
     const screen = render(<LanguageList language={SYSTEM_LANGUAGE} onSelect={jest.fn()} />);
     expect(screen.getByTestId('language-system').props.accessibilityState?.selected).toBe(true);
     expect(selected(screen, 'Français')).toBe(false);
   });
 
-  it('is not chosen while a language is picked', () => {
+  vaultIt('is not chosen while a language is picked', () => {
     const screen = render(<LanguageList language="fr" onSelect={jest.fn()} />);
     expect(screen.getByTestId('language-system').props.accessibilityState?.selected).toBe(false);
     expect(selected(screen, 'Français')).toBe(true);
@@ -69,7 +69,7 @@ describe("the app's page in the Settings app", () => {
     Platform.OS = os;
   });
 
-  it('is offered on iOS and opens the settings page', () => {
+  vaultIt('is offered on iOS and opens the settings page', () => {
     Platform.OS = 'ios';
     const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
     const screen = render(<LanguageList language="fr" onSelect={jest.fn()} />);
@@ -78,7 +78,7 @@ describe("the app's page in the Settings app", () => {
     openSettings.mockRestore();
   });
 
-  it('is not offered on Android, whose own page lists the app from its locale config', () => {
+  vaultIt('is not offered on Android, whose own page lists the app from its locale config', () => {
     Platform.OS = 'android';
     const screen = render(<LanguageList language="fr" onSelect={jest.fn()} />);
     expect(screen.queryByTestId('language-open-settings')).toBeNull();

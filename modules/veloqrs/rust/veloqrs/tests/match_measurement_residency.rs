@@ -142,6 +142,7 @@ fn quiesce() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn full_scope_regroup_residency_on_the_private_corpus() {
     let phases = install_phase_log();
 

@@ -73,7 +73,7 @@ it('names every line, not only the first', () => {
 
 it('skips an allowlisted path, which is how this test file survives the guard', () => {
   const root = fixture({
-    'src/__tests__/bugs/emDashLintExitCode.test.ts': "const dash = '\u2014';\n",
+    'src/__tests__/bugs/emDashLintExitCode.vault.test.ts': "const dash = '\u2014';\n",
     'src/other.ts': "const dash = 'plain';\n",
   });
 

@@ -12,32 +12,35 @@ jest.mock('@/shared/storage', () => ({
 }));
 
 describe('defaultDataFields', () => {
-  it.each(['Run', 'TrailRun', 'Walk', 'Hike'] as const)('gives %s pace and no power', (sport) => {
-    const fields = defaultDataFields(sport);
-    expect(fields).toContain('pace');
-    expect(fields).not.toContain('speed');
-    expect(fields).not.toContain('power');
-    expect(fields).toEqual(['pace', 'distance', 'heartrate', 'movingTime']);
-  });
+  vaultIt.each(['Run', 'TrailRun', 'Walk', 'Hike'] as const)(
+    'gives %s pace and no power',
+    (sport) => {
+      const fields = defaultDataFields(sport);
+      expect(fields).toContain('pace');
+      expect(fields).not.toContain('speed');
+      expect(fields).not.toContain('power');
+      expect(fields).toEqual(['pace', 'distance', 'heartrate', 'movingTime']);
+    }
+  );
 
-  it('keeps speed and power for a ride', () => {
+  vaultIt('keeps speed and power for a ride', () => {
     expect(defaultDataFields('Ride')).toEqual(['speed', 'distance', 'heartrate', 'power']);
   });
 
-  it('drops power for an outdoor sport that does not measure it', () => {
+  vaultIt('drops power for an outdoor sport that does not measure it', () => {
     const fields = defaultDataFields('NordicSki');
     expect(fields).toContain('speed');
     expect(fields).not.toContain('power');
   });
 
-  it('gives an indoor run pace in place of power', () => {
+  vaultIt('gives an indoor run pace in place of power', () => {
     const fields = defaultDataFields('Treadmill');
     expect(fields).toContain('pace');
     expect(fields).not.toContain('power');
     expect(defaultDataFields('VirtualRide')).toContain('power');
   });
 
-  it('never exceeds the cap', () => {
+  vaultIt('never exceeds the cap', () => {
     for (const sport of ['Ride', 'Run', 'Swim', 'Yoga', 'VirtualRow'] as const) {
       expect(defaultDataFields(sport).length).toBeLessThanOrEqual(MAX_DATA_FIELDS);
     }
@@ -45,11 +48,11 @@ describe('defaultDataFields', () => {
 });
 
 describe('fieldsForMode', () => {
-  it('falls back to the sport default when nothing is stored', () => {
+  vaultIt('falls back to the sport default when nothing is stored', () => {
     expect(fieldsForMode({}, 'gps', 'Run')).toEqual(defaultDataFields('Run'));
   });
 
-  it('prefers the stored layout over the sport default', () => {
+  vaultIt('prefers the stored layout over the sport default', () => {
     expect(fieldsForMode({ gps: ['speed'] }, 'gps', 'Run')).toEqual(['speed']);
   });
 
@@ -61,12 +64,12 @@ describe('fieldsForMode', () => {
 });
 
 describe('the field cap', () => {
-  it('is even, so the half-width tiles fill whole rows', () => {
+  vaultIt('is even, so the half-width tiles fill whole rows', () => {
     expect(MAX_DATA_FIELDS % 2).toBe(0);
     expect(MAX_DATA_FIELDS).toBeLessThan(ALL_DATA_FIELDS.length);
   });
 
-  it('stores at most the cap when every field is set', () => {
+  vaultIt('stores at most the cap when every field is set', () => {
     useRecordingPreferences.getState().setDataFields('gps', [...ALL_DATA_FIELDS]);
     expect(useRecordingPreferences.getState().dataFields.gps).toEqual(
       ALL_DATA_FIELDS.slice(0, MAX_DATA_FIELDS)

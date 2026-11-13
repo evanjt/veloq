@@ -51,7 +51,7 @@ describe('section creation in the map tool bar', () => {
     expect(handlers.onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('draws none of the old compact bar', async () => {
+  vaultIt('draws none of the old compact bar', async () => {
     await render(tool('complete').element);
     expect(screen.queryByRole('button', { name: 'routes.createSection' })).toBeNull();
     expect(screen.queryByRole('button', { expanded: false })).toBeNull();
@@ -69,7 +69,7 @@ describe('section creation in the map tool bar', () => {
     expect(screen.queryByRole('button', { name: 'common.reset' })).toBeNull();
   });
 
-  it('offers Reset once a point is placed', async () => {
+  vaultIt('offers Reset once a point is placed', async () => {
     const { element, handlers } = tool('selectingEnd');
     await render(element);
     expect(screen.getByText('maps.tapSelectEnd')).toBeTruthy();

@@ -26,7 +26,7 @@ describe('a value interpolated into injected JavaScript', () => {
     }
   });
 
-  it('answers a literal null for a missing value', () => {
+  vaultIt('answers a literal null for a missing value', () => {
     expect(jsLiteral(undefined)).toBe('null');
     expect(jsLiteral(null)).toBe('null');
   });

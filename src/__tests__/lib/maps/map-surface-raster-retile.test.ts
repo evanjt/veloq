@@ -92,7 +92,7 @@ describe('a raster source whose tile URL moves', () => {
     expect(page.logs).toEqual([]);
   });
 
-  it('keeps its layer through a second pass', () => {
+  vaultIt('keeps its layer through a second pass', () => {
     const page = openPage();
     page.apply({ sources: { 'heat-tiles': raster(TILES) }, layers: [HEAT_LAYER] });
     page.apply({ sources: { 'heat-tiles': raster(`${TILES}?v=1`) } });

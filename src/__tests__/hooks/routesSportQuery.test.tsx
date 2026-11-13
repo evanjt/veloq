@@ -51,7 +51,7 @@ describe('the routes screen sport filter', () => {
     expect(result.current.data?.availableSportTypes).toEqual(['Ride', 'Run']);
   });
 
-  it('leaves both fields off when no sport is chosen', async () => {
+  vaultIt('leaves both fields off when no sport is chosen', async () => {
     const getRoutesScreenData = jest.fn(() => PAGE);
     mockedGetEngine.mockReturnValue({ getRoutesScreenData } as never);
 

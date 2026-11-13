@@ -164,7 +164,7 @@ describe('SectionInlinePlot row layout', () => {
 
   beforeEach(() => mockSparkline.mockClear());
 
-  it('prints the pace as its own line that cannot break between value and unit', async () => {
+  vaultIt('prints the pace as its own line that cannot break between value and unit', async () => {
     const { getByText } = await renderGroup([slowSecond()], 0, 'Run');
 
     const pace = getByText('27:47 /km');
@@ -173,7 +173,7 @@ describe('SectionInlinePlot row layout', () => {
     expect(pace.props.numberOfLines).toBe(1);
   });
 
-  it('gives the medal and the plot their own slots beside the text column', async () => {
+  vaultIt('gives the medal and the plot their own slots beside the text column', async () => {
     const { getByTestId } = await renderGroup([slowSecond()], 0, 'Run');
 
     const row = getByTestId('section-inline-row-0');
@@ -196,7 +196,7 @@ describe('SectionInlinePlot row layout', () => {
     );
   });
 
-  it('keeps the trophy and the partial word in the marker slot', async () => {
+  vaultIt('keeps the trophy and the partial word in the marker slot', async () => {
     const { getByTestId } = await renderGroup([
       encounter({ sectionId: 'sec-a', direction: 'same', isPr: true }),
       encounter({ sectionId: 'sec-a', direction: 'reverse', isComplete: false }),
@@ -210,7 +210,7 @@ describe('SectionInlinePlot row layout', () => {
     );
   });
 
-  it('drops the range labels once the row is too narrow for them and the pace', async () => {
+  vaultIt('drops the range labels once the row is too narrow for them and the pace', async () => {
     const screen = await renderGroup([slowSecond()], 0, 'Run');
     expect(mockSparkline).toHaveBeenLastCalledWith(expect.objectContaining({ showRange: true }));
 
@@ -223,25 +223,31 @@ describe('SectionInlinePlot row layout', () => {
     expect(mockSparkline).toHaveBeenLastCalledWith(expect.objectContaining({ showRange: false }));
   });
 
-  it('keeps the distance and traversals line beside the pace while its widest word fits', async () => {
-    const screen = await renderGroup([historied()], 0, 'Ride');
+  vaultIt(
+    'keeps the distance and traversals line beside the pace while its widest word fits',
+    async () => {
+      const screen = await renderGroup([historied()], 0, 'Ride');
 
-    await layOutRow(screen, 375);
-    await layOutMetaWords(screen, (word) => (word === TRAVERSALS_WORD ? 60 : 20));
+      await layOutRow(screen, 375);
+      await layOutMetaWords(screen, (word) => (word === TRAVERSALS_WORD ? 60 : 20));
 
-    const text = screen.getByTestId('section-inline-text-0');
-    expect(hostParent(screen.getByTestId('section-inline-meta-0')) === text).toBe(true);
-  });
+      const text = screen.getByTestId('section-inline-text-0');
+      expect(hostParent(screen.getByTestId('section-inline-meta-0')) === text).toBe(true);
+    }
+  );
 
-  it('moves the distance and traversals line onto its own line at narrow width and text size 1.3', async () => {
-    const screen = await renderGroup([historied()], 0, 'Ride');
+  vaultIt(
+    'moves the distance and traversals line onto its own line at narrow width and text size 1.3',
+    async () => {
+      const screen = await renderGroup([historied()], 0, 'Ride');
 
-    await layOutRow(screen, 260);
-    await layOutMetaWords(screen, (word) => (word === TRAVERSALS_WORD ? 120 : 20));
+      await layOutRow(screen, 260);
+      await layOutMetaWords(screen, (word) => (word === TRAVERSALS_WORD ? 120 : 20));
 
-    const row = screen.getByTestId('section-inline-row-0');
-    expect(hostParent(screen.getByTestId('section-inline-meta-0')) === row).toBe(true);
-  });
+      const row = screen.getByTestId('section-inline-row-0');
+      expect(hostParent(screen.getByTestId('section-inline-meta-0')) === row).toBe(true);
+    }
+  );
 });
 
 describe('SectionInlinePlot', () => {
@@ -284,7 +290,7 @@ describe('SectionInlinePlot', () => {
     expect(queryByText('2')).toBeNull();
   });
 
-  it('marks each direction inside the card', async () => {
+  vaultIt('marks each direction inside the card', async () => {
     const { getByText } = await renderGroup([
       encounter({ sectionId: 'sec-63', direction: 'same' }),
       encounter({ sectionId: 'sec-63', direction: 'reverse' }),
@@ -294,14 +300,14 @@ describe('SectionInlinePlot', () => {
     expect(getByText('↩')).toBeTruthy();
   });
 
-  it('leaves a single forward crossing unmarked', async () => {
+  vaultIt('leaves a single forward crossing unmarked', async () => {
     const { queryByText } = await renderGroup([encounter({ sectionId: 'sec-70' })]);
 
     expect(queryByText('→')).toBeNull();
     expect(queryByText('↩')).toBeNull();
   });
 
-  it('marks a single reverse crossing, which is not the default direction', async () => {
+  vaultIt('marks a single reverse crossing, which is not the default direction', async () => {
     const { getByText } = await renderGroup([
       encounter({ sectionId: 'sec-70', direction: 'reverse' }),
     ]);
@@ -319,7 +325,7 @@ describe('SectionInlinePlot', () => {
     expect(queryByTestId('section-inline-trophy-0-1')).toBeNull();
   });
 
-  it.each([
+  vaultIt.each([
     [2, 'sections.placeSecond'],
     [3, 'sections.placeThird'],
   ])('marks place %i beside the trophy slot with its label', async (rank, label) => {
@@ -331,7 +337,7 @@ describe('SectionInlinePlot', () => {
     expect(queryByTestId('section-inline-trophy-0')).toBeNull();
   });
 
-  it.each([4, undefined])('draws no place mark for rank %s', async (rank) => {
+  vaultIt.each([4, undefined])('draws no place mark for rank %s', async (rank) => {
     const { queryByTestId } = await renderGroup([
       encounter({ sectionId: 'sec-podium', ...(rank === undefined ? {} : { rank }) }),
     ]);
@@ -353,7 +359,7 @@ describe('SectionInlinePlot', () => {
     expect(queryByTestId('section-inline-partial-0')).toBeNull();
   });
 
-  it('shows neither direction nor visits for a partial-direction pass', async () => {
+  vaultIt('shows neither direction nor visits for a partial-direction pass', async () => {
     const { getByTestId, queryByText } = await renderGroup([
       encounter({ sectionId: 'sec-short', direction: 'partial', isComplete: false, visitCount: 0 }),
     ]);
@@ -366,7 +372,7 @@ describe('SectionInlinePlot', () => {
 
   // The index number matches its section's colour on the map, and the palette
   // is drawn for map lines: six of its eight hues are under 3:1 on white.
-  it.each(
+  vaultIt.each(
     sectionPalette.flatMap((hue, slot) => [
       [hue, slot, false],
       [hue, slot, true],
@@ -387,7 +393,7 @@ describe('SectionInlinePlot', () => {
     }
   );
 
-  it('keeps the section colour beside the index number', async () => {
+  vaultIt('keeps the section colour beside the index number', async () => {
     const slot = 5;
     const screen = await renderGroup([encounter({ sectionId: sectionIdInSlot(slot) })]);
 
@@ -396,24 +402,27 @@ describe('SectionInlinePlot', () => {
     expect(ground).toBe(sectionPalette[slot]);
   });
 
-  it('speaks each direction with its distance, traversals, lap, record and place', async () => {
-    const { getByRole } = await renderGroup([
-      encounter({
-        sectionId: 'sec-63',
-        direction: 'same',
-        isPr: true,
-        historyTimes: [140, 150],
-        historyActivityIds: ['act-1', 'act-0'],
-        historyDates: [1_700_000_000, 1_700_086_400],
-      }),
-      encounter({ sectionId: 'sec-63', direction: 'reverse', lapTime: 150, rank: 2 }),
-    ]);
+  vaultIt(
+    'speaks each direction with its distance, traversals, lap, record and place',
+    async () => {
+      const { getByRole } = await renderGroup([
+        encounter({
+          sectionId: 'sec-63',
+          direction: 'same',
+          isPr: true,
+          historyTimes: [140, 150],
+          historyActivityIds: ['act-1', 'act-0'],
+          historyDates: [1_700_000_000, 1_700_086_400],
+        }),
+        encounter({ sectionId: 'sec-63', direction: 'reverse', lapTime: 150, rank: 2 }),
+      ]);
 
-    expect(getByRole('button').props.accessibilityLabel).toBe(
-      'Mont d’Orge, sections.forward, 1.2 km, sections.traversalsCount, 2:20, a11y.personalRecord, ' +
-        'charts.summary.series, sections.reverse, 1.2 km, 2:30, sections.placeSecond'
-    );
-  });
+      expect(getByRole('button').props.accessibilityLabel).toBe(
+        'Mont d’Orge, sections.forward, 1.2 km, sections.traversalsCount, 2:20, a11y.personalRecord, ' +
+          'charts.summary.series, sections.reverse, 1.2 km, 2:30, sections.placeSecond'
+      );
+    }
+  );
 
   it('speaks a partial pass as partial and claims no record for it', async () => {
     const { getByRole } = await renderGroup([
@@ -425,7 +434,7 @@ describe('SectionInlinePlot', () => {
     );
   });
 
-  it('speaks the record trophy rather than leaving it a bare icon', async () => {
+  vaultIt('speaks the record trophy rather than leaving it a bare icon', async () => {
     const { getByTestId } = await renderGroup([encounter({ sectionId: 'sec-pr', isPr: true })]);
 
     const trophy = getByTestId('section-inline-trophy-0');
@@ -433,7 +442,7 @@ describe('SectionInlinePlot', () => {
     expect(trophy.props.accessibilityLabel).toBe('a11y.personalRecord');
   });
 
-  it('reports the whole card height once, not one height per direction', async () => {
+  vaultIt('reports the whole card height once, not one height per direction', async () => {
     const onRowHeight = jest.fn();
     const [group] = groupSectionEncounters([
       encounter({ sectionId: 'sec-63', direction: 'same' }),

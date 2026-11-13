@@ -129,6 +129,7 @@ fn the_reference_moves_to_the_member_whose_pass_is_closest_in_length() {
 
 /// Deterministic and reproducible: two members equally close break on the id.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tie_breaks_on_the_activity_id() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine_with_section(
@@ -316,6 +317,7 @@ fn the_outgoing_line_survives_the_delete_and_the_new_version_reverts_whole() {
 /// The athlete can read why the line moved: which activity was the reference,
 /// which replaced it, and the cause.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_move_is_written_into_the_ledger_with_both_ids() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine_with_section(
@@ -547,6 +549,7 @@ fn an_upload_answer_keeps_the_saved_ride_when_nothing_else_can_carry_the_line() 
 /// A member whose pass runs to the last point of its stream is a usable
 /// candidate: its half-open end equals the stream length.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_that_runs_to_the_last_point_can_carry_the_line() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine_with_section(

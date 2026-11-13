@@ -89,7 +89,7 @@ describe('sign-out with notifications on', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
   });
 
-  it('says nothing when the unregister lands', async () => {
+  vaultIt('says nothing when the unregister lands', async () => {
     mockFetch.mockResolvedValue({ ok: true, status: 200 });
     await useAuthStore.getState().clearCredentials();
     expect(Alert.alert).not.toHaveBeenCalled();

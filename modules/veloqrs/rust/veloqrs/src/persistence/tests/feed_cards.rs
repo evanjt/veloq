@@ -41,6 +41,7 @@ fn store(engine: &mut PersistentEngine, rows: &[(&str, i64, &str)]) {
 /// zero climb as measured, and a duration stored with a fraction is rounded
 /// rather than costing the card.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_feed_cards_carry_every_card_field_from_the_stored_body() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     store(
@@ -112,6 +113,7 @@ fn test_feed_cards_carry_every_card_field_from_the_stored_body() {
 /// row that holds the ride, and its web link names the server's id. The demo
 /// card has no web link.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_feed_card_is_named_by_its_row_key_and_carries_the_web_link() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     store(
@@ -212,6 +214,7 @@ fn test_feed_card_search_pages_like_the_body_read_and_skips_a_corrupt_row() {
 /// an id that is not Garmin's is never offered an update, whatever the key. A
 /// served activity is not a stub.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_feed_card_carries_one_stub_verdict_from_the_body_and_the_key() {
     use crate::net::garmin_swap::FfiStubVerdict::*;
     let mut engine = PersistentEngine::in_memory().expect("engine");

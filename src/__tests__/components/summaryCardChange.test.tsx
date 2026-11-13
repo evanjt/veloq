@@ -56,14 +56,14 @@ describe('formatSignedChange', () => {
     expect(formatSignedChange(0)).toBe('0');
   });
 
-  it('prints nothing for a missing change', () => {
+  vaultIt('prints nothing for a missing change', () => {
     expect(formatSignedChange(null)).toBeNull();
     expect(formatSignedChange(undefined)).toBeNull();
   });
 });
 
 describe('riseDayPoints', () => {
-  it('places each marked day on the line at its index', () => {
+  vaultIt('places each marked day on the line at its index', () => {
     const points = riseDayPoints([40, 50, 60], [1], {
       width: 100,
       top: 0,
@@ -74,7 +74,7 @@ describe('riseDayPoints', () => {
     expect(points).toEqual([{ x: 50, y: 5 }]);
   });
 
-  it('drops an index outside the series', () => {
+  vaultIt('drops an index outside the series', () => {
     expect(
       riseDayPoints([40, 50], [5], { width: 100, top: 0, height: 10, min: 40, max: 50 })
     ).toEqual([]);
@@ -87,12 +87,12 @@ describe('the hero change', () => {
     expect(tree.getByTestId('summary-card-fitness-change').props.children).toContain('+9');
   });
 
-  it('prints a fall', async () => {
+  vaultIt('prints a fall', async () => {
     const tree = await renderCard({ fitnessDelta: -4 });
     expect(tree.getByTestId('summary-card-fitness-change').props.children).toContain('-4');
   });
 
-  it('prints nothing without a delta', async () => {
+  vaultIt('prints nothing without a delta', async () => {
     const tree = await renderCard({ fitnessDelta: undefined });
     expect(tree.queryByTestId('summary-card-fitness-change')).toBeNull();
   });

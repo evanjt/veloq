@@ -74,7 +74,7 @@ describe('the superseded lookup after a custom section is created', () => {
     expect(mock.createSectionFromIndices).toHaveBeenCalledTimes(1);
   });
 
-  it('never reads the auto section list into JavaScript', async () => {
+  vaultIt('never reads the auto section list into JavaScript', async () => {
     const mock = engine();
     await createOne(mock);
 
@@ -103,7 +103,7 @@ describe('the superseded lookup after a custom section is created', () => {
     expect(mock.getSectionById).not.toHaveBeenCalled();
   });
 
-  it('makes one mutation on each call, including the second', async () => {
+  vaultIt('makes one mutation on each call, including the second', async () => {
     const mock = engine();
     mockedGetEngine.mockReturnValue(mock as never);
     const { result } = await renderHook(() => useCustomSections(), { wrapper });

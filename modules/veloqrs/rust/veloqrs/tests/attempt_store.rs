@@ -31,6 +31,7 @@ fn engine(dir: &TempDir) -> PersistentEngine {
 /// The store adopts this vocabulary rather than inventing a third, so every
 /// one of them has to come back out of `JobKey` byte for byte.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_spawn_once_key_shapes_round_trip() {
     let cases: [(JobKey, &str); 6] = [
         (JobKey::new("power", &["Ride", "42"]), "power:Ride:42"),
@@ -64,6 +65,7 @@ fn the_spawn_once_key_shapes_round_trip() {
 /// into a TEXT primary key. It becomes a hash of the list with the count, and
 /// that has to stay short however long the list is.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_key_over_a_list_is_bounded_and_names_its_count() {
     let short: Vec<String> = (0..3).map(|i| format!("a{i}")).collect();
     let long: Vec<String> = (0..5_000).map(|i| format!("a{i}")).collect();
@@ -88,6 +90,7 @@ fn a_key_over_a_list_is_bounded_and_names_its_count() {
 /// Order is part of the identity for the joined shapes, so it has to be part
 /// of it here too, or two different requests share one key.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_reordered_list_is_a_different_key() {
     let one = vec!["a1".to_string(), "a2".to_string()];
     let other = vec!["a2".to_string(), "a1".to_string()];
@@ -101,6 +104,7 @@ fn a_reordered_list_is_a_different_key() {
 /// The hash is written into a database that outlives the process, so it must
 /// not move between builds. Pinned to its value rather than to itself.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_list_hash_is_stable_across_builds() {
     let ids = vec!["a1".to_string(), "a2".to_string(), "a3".to_string()];
 
@@ -117,6 +121,7 @@ fn the_list_hash_is_stable_across_builds() {
 // ---------------------------------------------------------------------------
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_free_key_is_claimed_and_the_same_key_is_then_refused() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);
@@ -136,6 +141,7 @@ fn a_free_key_is_claimed_and_the_same_key_is_then_refused() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_released_key_is_free_again_in_the_same_run() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);
@@ -190,6 +196,7 @@ fn a_restart_frees_every_lease_without_waiting() {
 /// one wasted attempt; the cost of remembering must never be a job that never
 /// runs again.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_lease_a_restart_freed_is_not_also_backing_off() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);
@@ -211,6 +218,7 @@ fn a_lease_a_restart_freed_is_not_also_backing_off() {
 /// A pure function of the attempt count, so the schedule is read rather than
 /// spent. No wall clock anywhere in this file.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_backoff_doubles_per_attempt_and_caps() {
     assert_eq!(attempt_backoff_ms(0), 1_000);
     assert_eq!(attempt_backoff_ms(1), 2_000);
@@ -231,6 +239,7 @@ fn the_backoff_doubles_per_attempt_and_caps() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_failed_key_backs_off_and_is_claimable_once_the_delay_runs_out() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);
@@ -257,6 +266,7 @@ fn a_failed_key_backs_off_and_is_claimable_once_the_delay_runs_out() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_repeatedly_failing_key_waits_longer_each_time() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);
@@ -285,6 +295,7 @@ fn a_repeatedly_failing_key_waits_longer_each_time() {
 /// The refusal is recorded, not just the failure, so a caller can say why the
 /// last attempt did not land rather than re-deriving it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_row_carries_the_reason_the_last_attempt_gave() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);
@@ -309,6 +320,7 @@ fn the_row_carries_the_reason_the_last_attempt_gave() {
 /// A key that lands after failing starts clean, or one bad afternoon backs it
 /// off for the rest of the install.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn work_that_lands_clears_the_attempts_behind_it() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);
@@ -378,6 +390,7 @@ fn a_quarantine_salvage_leaves_the_attempt_store_empty() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_store_is_declared_derived() {
     use veloqrs::persistence::tables::{TableClass, class_of};
 

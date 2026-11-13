@@ -1114,7 +1114,7 @@ describe('carriers', () => {
     );
   });
 
-  it('draws a carrier failure in the dark error tone in the dark theme', async () => {
+  vaultIt('draws a carrier failure in the dark error tone in the dark theme', async () => {
     mockIsDark = true;
     mockFolderName = 'Records';
     mockFailures = { folder: { kind: 'folder_unavailable', status: null, at: Date.now() } };
@@ -1266,14 +1266,14 @@ describe('on Android, where the app carries nothing in the device backup', () =>
     );
   });
 
-  it('has no explanation sheet on the automatic switch, its line sits under it', async () => {
+  vaultIt('has no explanation sheet on the automatic switch, its line sits under it', async () => {
     await render(<BackupSection />);
 
     expect(screen.queryByTestId('backup-info-auto')).toBeNull();
     expect(screen.getByTestId('backup-holds')).toHaveTextContent(/^backup\.autoBackupScope$/);
   });
 
-  it('has no destinations explanation on any row', async () => {
+  vaultIt('has no destinations explanation on any row', async () => {
     await render(<BackupSection />);
 
     expect(screen.queryByTestId('backup-info-destinations')).toBeNull();
@@ -1283,7 +1283,7 @@ describe('on Android, where the app carries nothing in the device backup', () =>
 describe('one layout', () => {
   const explanations = ['backup.restoreInfo', 'backup.exportInfo'];
 
-  it('draws no explanation inline, only labels and states', async () => {
+  vaultIt('draws no explanation inline, only labels and states', async () => {
     await render(<BackupSection />);
 
     for (const key of explanations) {
@@ -1294,16 +1294,19 @@ describe('one layout', () => {
     expect(screen.queryByTestId('backup-manual-restore-path')).toBeNull();
   });
 
-  it('says at the top of the section what automatic backup keeps, under the switch', async () => {
-    await render(<BackupSection />);
+  vaultIt(
+    'says at the top of the section what automatic backup keeps, under the switch',
+    async () => {
+      await render(<BackupSection />);
 
-    expect(screen.getByTestId('backup-holds')).toHaveTextContent(/^backup\.autoBackupScope$/);
-    expect(screen.getByTestId('backup-auto-switch').props.accessibilityHint).toBe(
-      'backup.autoBackupScope'
-    );
-  });
+      expect(screen.getByTestId('backup-holds')).toHaveTextContent(/^backup\.autoBackupScope$/);
+      expect(screen.getByTestId('backup-auto-switch').props.accessibilityHint).toBe(
+        'backup.autoBackupScope'
+      );
+    }
+  );
 
-  it.each([
+  vaultIt.each([
     ['backup-info-restore', ['backup.restoreInfo']],
     ['backup-info-export', ['backup.exportInfo']],
   ])('keeps the explanation behind %s', async (testID, keys) => {
@@ -1319,7 +1322,7 @@ describe('one layout', () => {
     for (const key of keys) expect(message).toContain(key);
   });
 
-  it('names every info button after its topic, each one a control of its own', async () => {
+  vaultIt('names every info button after its topic, each one a control of its own', async () => {
     await render(<BackupSection />);
 
     const names = ['restore', 'export'].map((id) => {
@@ -1429,7 +1432,7 @@ describe('the Google Drive destination', () => {
   });
 });
 
-it('names each bulk export pill by what it does, not only its format', async () => {
+vaultIt('names each bulk export pill by what it does, not only its format', async () => {
   await render(<BackupSection />);
 
   expect(
@@ -1550,7 +1553,7 @@ describe('the iCloud Drive destination', () => {
     expect(screen.getByTestId('backup-carrier-icloud')).toBeTruthy();
   });
 
-  it('puts no explanation on the iCloud Drive row', async () => {
+  vaultIt('puts no explanation on the iCloud Drive row', async () => {
     mockIcloudSupported = true;
     await render(<BackupSection />);
 

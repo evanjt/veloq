@@ -71,14 +71,14 @@ describe('the fitted critical-power models under the power curve', () => {
     );
   });
 
-  it('draws no footer for a body carrying no models', async () => {
+  vaultIt('draws no footer for a body carrying no models', async () => {
     mockCurve.current = { ...baseCurve, models: undefined };
     await render(<PowerCurveChart ftp={300} />);
 
     expect(screen.queryByTestId('power-curve-models')).toBeNull();
   });
 
-  it('draws no footer for a body whose models parsed to none', async () => {
+  vaultIt('draws no footer for a body whose models parsed to none', async () => {
     mockCurve.current = { ...baseCurve, models: [] };
     await render(<PowerCurveChart ftp={300} />);
 

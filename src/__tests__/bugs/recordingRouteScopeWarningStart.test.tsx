@@ -112,7 +112,7 @@ it('starts once from the entry screen Start after the athlete continues past the
   expect(starts).toBe(1);
 });
 
-it('starts nothing while the warning is still up', async () => {
+vaultIt('starts nothing while the warning is still up', async () => {
   mockParams = { type: 'Ride', from: QUICKSTART_ENTRY };
   await render(<RecordingScreen />);
   await act(() => jest.advanceTimersByTime(10_000));

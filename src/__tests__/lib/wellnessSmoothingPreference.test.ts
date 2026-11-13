@@ -20,7 +20,7 @@ beforeEach(async () => {
 });
 
 describe('parseSmoothingWindow', () => {
-  it.each([
+  vaultIt.each([
     [null, 'auto'],
     ['auto', 'auto'],
     ['none', 'none'],
@@ -37,7 +37,7 @@ describe('parseSmoothingWindow', () => {
 });
 
 describe('readWellnessSmoothing and writeWellnessSmoothing', () => {
-  it('reads Auto when nothing is stored', async () => {
+  vaultIt('reads Auto when nothing is stored', async () => {
     await expect(readWellnessSmoothing()).resolves.toBe('auto');
   });
 
@@ -46,7 +46,7 @@ describe('readWellnessSmoothing and writeWellnessSmoothing', () => {
     await expect(readWellnessSmoothing()).resolves.toBe(21);
   });
 
-  it('stores the choice under the settings key the backup carries', async () => {
+  vaultIt('stores the choice under the settings key the backup carries', async () => {
     await writeWellnessSmoothing('none');
     expect(WELLNESS_SMOOTHING_KEY).toBe('veloq-wellness-smoothing');
     await expect(AsyncStorage.getItem(WELLNESS_SMOOTHING_KEY)).resolves.toBe('none');

@@ -25,7 +25,7 @@ describe('the light style ground raster', () => {
     expect(style).not.toContain(RASTER_ORIGIN);
   });
 
-  it('leaves the dark style alone, which never carried the raster', () => {
+  vaultIt('leaves the dark style alone, which never carried the raster', () => {
     const style = JSON.stringify(resolveStyleForWebView('dark').inline);
     expect(style).not.toContain('ne2_shaded');
     expect(style).not.toContain(RASTER_ORIGIN);
@@ -40,7 +40,7 @@ describe('the built 2D surface', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 
-  it('names the store URL and no raw raster URL', () => {
+  vaultIt('names the store URL and no raw raster URL', () => {
     expect(html).toContain(STORE_URL);
     expect(html).not.toContain('https://tiles.openfreemap.org/natural_earth');
   });

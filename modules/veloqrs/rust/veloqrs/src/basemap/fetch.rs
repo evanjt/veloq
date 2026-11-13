@@ -467,12 +467,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_exactly_at_the_cap_is_read_whole() {
         let body = read(&[4, 4, 2], 10).expect("at the cap");
         assert_eq!(body.len(), 10);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_one_byte_past_the_cap_is_refused() {
         assert!(matches!(
             read(&[4, 4, 3], 10),
@@ -481,6 +483,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_single_chunk_past_the_cap_is_refused() {
         assert!(matches!(
             read(&[11], 10),
@@ -489,12 +492,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_body_reads_as_empty() {
         assert_eq!(read(&[], 10).expect("empty").len(), 0);
     }
 
     /// A stream that breaks mid-body is the host going away, not a tile.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stream_that_breaks_is_unreachable() {
         let broken = futures::stream::iter(vec![Ok(vec![1u8; 3]), Err("reset".to_string())]);
         let read = futures::executor::block_on(read_capped(broken, 10));
@@ -502,6 +507,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_declared_length_past_the_cap_is_refused_before_reading() {
         assert!(declared_past_cap(Some(11), 10));
         assert!(!declared_past_cap(Some(10), 10));
@@ -511,6 +517,7 @@ mod tests {
     /// A gzip of zeroes is about a thousandth of what it inflates to, so a body
     /// well inside the wire cap can still be past it once decompressed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_gzip_that_inflates_past_the_cap_is_refused() {
         use std::io::Write;
         let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
@@ -538,6 +545,7 @@ mod tests {
     /// feature fails the build if it is dropped again, which no runtime
     /// assertion could do without a tile host to talk to.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_tile_client_can_negotiate_http2() {
         let _: fn(reqwest::ClientBuilder) -> reqwest::ClientBuilder =
             reqwest::ClientBuilder::http2_prior_knowledge;
@@ -620,6 +628,7 @@ mod tests {
     /// all of them would contend for the radio. One goes first and the rest
     /// wait for it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_burst_on_a_cold_pool_opens_one_connection_before_it_fans_out() {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(4)
@@ -736,6 +745,7 @@ mod tests {
     /// the pool's race rather than the fetcher's, and only a runtime that
     /// polls one task at a time rules it out.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_burst_to_an_http2_host_with_no_open_connection_shares_one_and_goes_out_together() {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -777,6 +787,7 @@ mod tests {
     /// closed, by the host, by a NAT, or by a keep-alive ping that went
     /// unanswered, so the next burst goes as on a cold pool.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_send_error_leads_the_next_burst() {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -804,6 +815,7 @@ mod tests {
     /// shares one connect across the burst, and neither does an HTTP/1.1
     /// host, whose burst needs a connection per request whatever goes first.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_burst_is_led_only_for_a_host_never_heard_from() {
         assert!(leads_burst(None));
         assert!(!leads_burst(Some(answered_now(false))));
@@ -811,6 +823,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn hosts_are_told_apart_by_scheme_host_and_port() {
         assert_eq!(
             host_key("https://tiles.example.org/planet/1/2/3.pbf"),
@@ -832,6 +845,7 @@ mod tests {
     /// still carried by the connection the last pan used. The clock is paused
     /// only across each idle, so the requests themselves run on real time.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_connection_idle_for_a_pan_pause_is_replaced_and_one_idle_twenty_seconds_is_reused() {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -874,6 +888,7 @@ mod tests {
     /// follows 20 ms later rides it rather than opening its own: no connection
     /// is accepted after the warm's.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_warm_after_a_pan_pause_opens_the_connection_the_next_burst_rides() {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -923,6 +938,7 @@ mod tests {
     /// A warm on a host answered inside the pool's idle window costs nothing:
     /// the connection is still open, so nothing goes on the wire.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_warm_inside_the_idle_window_sends_nothing() {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -950,6 +966,7 @@ mod tests {
     /// arriving while its handshake is under way waits on it: one connection
     /// is open when the first answer goes back, not one per request.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_warm_on_a_host_never_heard_from_leads_the_burst_behind_it() {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(4)
@@ -981,6 +998,7 @@ mod tests {
     /// A warm that cannot reach its host forgets what the host last showed,
     /// as a failed tile does, so the next burst goes as on a cold pool.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_warm_that_cannot_reach_its_host_leads_the_next_burst() {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()

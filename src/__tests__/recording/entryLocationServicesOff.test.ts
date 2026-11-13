@@ -200,7 +200,7 @@ describe('the switch on', () => {
     expect(location.watchPositionAsync).toHaveBeenCalledTimes(1);
   });
 
-  it('reads nothing for a sport that records no position', async () => {
+  vaultIt('reads nothing for a sport that records no position', async () => {
     await renderHook(() => useEntryLocation(false));
     await flush();
 

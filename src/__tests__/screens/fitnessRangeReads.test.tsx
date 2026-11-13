@@ -162,7 +162,7 @@ async function mountVisitedPages() {
 }
 
 describe('a range change on the Fitness page', () => {
-  it('makes no zone, coverage or curve read', async () => {
+  vaultIt('makes no zone, coverage or curve read', async () => {
     await mountVisitedPages();
     const reads = [engine.getZoneDistribution, engine.rangeCoverage, engine.getPowerCurve];
     reads.forEach((read) => read.mockClear());

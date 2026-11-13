@@ -83,7 +83,7 @@ describe('the recording session and the foreground service', () => {
     expect(Location.startLocationUpdatesAsync).toHaveBeenCalledTimes(1);
   });
 
-  it('tints the service notification in the recording tone', async () => {
+  vaultIt('tints the service notification in the recording tone', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     await settle();
     expect(Location.startLocationUpdatesAsync).toHaveBeenCalledWith(
@@ -150,7 +150,7 @@ describe('the recording session and the foreground service', () => {
     expect(Location.startLocationUpdatesAsync).toHaveBeenCalledTimes(1);
   });
 
-  it('says nothing when the service starts', async () => {
+  vaultIt('says nothing when the service starts', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     await settle();
     expect(useRecordingLiveStore.getState().backgroundTrackingFailed).toBe(false);

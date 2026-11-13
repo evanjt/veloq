@@ -59,7 +59,7 @@ describe('SectionStatusLine glyphs', () => {
     return element.findAll((n) => typeof n.props.name === 'string')[0]?.props.name;
   }
 
-  it('draws Pinned and Accepted with different glyphs', async () => {
+  vaultIt('draws Pinned and Accepted with different glyphs', async () => {
     const pinned = await renderLine({ pinnedVersion: 2 });
     const pin = glyph(pinned.getByTestId('section-pinned-version'));
     expect(pinned.queryByTestId('section-accepted')).toBeNull();
@@ -72,12 +72,12 @@ describe('SectionStatusLine glyphs', () => {
     expect(acceptedGlyph).not.toMatch(/^pin/);
   });
 
-  it('draws the partly excluded chip with the exclusion glyph', async () => {
+  vaultIt('draws the partly excluded chip with the exclusion glyph', async () => {
     const { getByTestId } = await renderLine({ partlyExcluded: true });
     expect(glyph(getByTestId('section-partly-excluded'))).toBe('eye-off-outline');
   });
 
-  it('draws nothing for an offered section with no exclusion', async () => {
+  vaultIt('draws nothing for an offered section with no exclusion', async () => {
     const { queryByTestId } = await renderLine();
     expect(queryByTestId('section-status-line')).toBeNull();
   });
@@ -97,14 +97,14 @@ describe('section trim reset control', () => {
     onReset: jest.fn(),
   };
 
-  it('finds reset in the tool bar by role and name and fires it', async () => {
+  vaultIt('finds reset in the tool bar by role and name and fires it', async () => {
     const onReset = jest.fn();
     const { getByRole } = await render(<SectionTrimToolBar {...props} onReset={onReset} />);
     await fireEvent.press(getByRole('button', { name: 'common.reset' }));
     expect(onReset).toHaveBeenCalledTimes(1);
   });
 
-  it('hides reset when there is nothing to reset', async () => {
+  vaultIt('hides reset when there is nothing to reset', async () => {
     const { queryByRole } = await render(<SectionTrimToolBar {...props} canReset={false} />);
     expect(queryByRole('button', { name: 'common.reset' })).toBeNull();
   });
@@ -139,7 +139,7 @@ describe('section trim in the map tool bar', () => {
     onToggleExpand: jest.fn(),
   };
 
-  it('heads the bar with the tool and the kept length, and saves from Save', async () => {
+  vaultIt('heads the bar with the tool and the kept length, and saves from Save', async () => {
     const onConfirm = jest.fn();
     const onCancel = jest.fn();
     const { getByTestId, getByText, getByRole } = await render(
@@ -165,7 +165,7 @@ describe('section trim in the map tool bar', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves the panel without its own length, Cancel, Save or Reset', async () => {
+  vaultIt('leaves the panel without its own length, Cancel, Save or Reset', async () => {
     const { getByTestId, queryByTestId, queryByRole, queryByText } = await render(
       <SectionTrimOverlay {...panelProps} />
     );
@@ -206,7 +206,7 @@ describe('SectionTrimOverlay step buttons', () => {
     return Object.assign({}, ...[button.props.style].flat(Infinity).filter(Boolean)).opacity;
   }
 
-  it('greys the steps that cannot move and keeps the ones that can', async () => {
+  vaultIt('greys the steps that cannot move and keeps the ones that can', async () => {
     const { getByRole } = await render(<SectionTrimOverlay {...props} />);
     const startEarlier = getByRole('button', { name: 'sections.trimStartEarlier' });
     const endLater = getByRole('button', { name: 'sections.trimEndLater' });

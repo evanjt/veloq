@@ -53,6 +53,7 @@ fn every_pair_in_a_batch_is_stored() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pair_that_is_already_stored_is_skipped() {
     let dir = TempDir::new().unwrap();
     let (_path, engine) = open(&dir);
@@ -70,6 +71,7 @@ fn a_pair_that_is_already_stored_is_skipped() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_batch_that_changes_nothing_writes_nothing() {
     let dir = TempDir::new().unwrap();
     let (_path, engine) = open(&dir);

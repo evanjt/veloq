@@ -81,7 +81,7 @@ describe('gate flow sharding', () => {
     expect(all.sort()).toEqual(SELECTED);
   });
 
-  it('runs every flow in the one shard of a count of one', async () => {
+  vaultIt('runs every flow in the one shard of a count of one', async () => {
     const select = await loadSelect();
     const files = select({
       dir,
@@ -93,7 +93,7 @@ describe('gate flow sharding', () => {
     expect(files).toHaveLength(SELECTED.length);
   });
 
-  it('leaves a shard with no flow empty rather than failing', async () => {
+  vaultIt('leaves a shard with no flow empty rather than failing', async () => {
     const select = await loadSelect();
     expect(
       select({ dir, include: ['tier0'], exclude: [], index: 3, count: 5 }).length
@@ -101,7 +101,7 @@ describe('gate flow sharding', () => {
     expect(select({ dir, include: ['nothing'], exclude: [], index: 1, count: 3 })).toEqual([]);
   });
 
-  it('refuses an index outside the count', async () => {
+  vaultIt('refuses an index outside the count', async () => {
     const select = await loadSelect();
     expect(() => select({ dir, include: ['tier0'], exclude: [], index: 4, count: 3 })).toThrow();
     expect(() => select({ dir, include: ['tier0'], exclude: [], index: 0, count: 3 })).toThrow();
@@ -121,7 +121,7 @@ describe('the gate workflow', () => {
     fs.readFileSync(path.join(REPO_ROOT, '.github/workflows/e2e-gate.yml'), 'utf8')
   );
 
-  it('matrixes the gate job over three shards and reports each under its own name', () => {
+  vaultIt('matrixes the gate job over three shards and reports each under its own name', () => {
     const job = gate.jobs.gate;
     expect(job.strategy['fail-fast']).toBe(false);
     expect(job.strategy.matrix.shard).toEqual([1, 2, 3]);

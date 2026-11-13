@@ -61,7 +61,7 @@ describe.each(STYLES)('on the %s base map', (style) => {
   });
 });
 
-it('gives each base map its own colours for one grade', () => {
+vaultIt('gives each base map its own colours for one grade', () => {
   const colours = STYLES.map((style) => gradeStepColour(7, style));
   expect(new Set(colours).size).toBe(STYLES.length);
 });

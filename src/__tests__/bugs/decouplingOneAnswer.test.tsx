@@ -151,7 +151,7 @@ describe('aerobic decoupling', () => {
     expect(tree.getByText(new RegExp(formatRelativeDate(RIDE_START)))).toBeTruthy();
   });
 
-  it('grades nothing: no verdict badge and no target line', async () => {
+  vaultIt('grades nothing: no verdict badge and no target line', async () => {
     const tree = await render(<FitnessDecouplingCard />);
 
     expect(tree.queryByText('stats.goodAerobicFitness')).toBeNull();
@@ -159,7 +159,7 @@ describe('aerobic decoupling', () => {
     expect(tree.queryByText('stats.targetLessThan5')).toBeNull();
   });
 
-  it('heads the Fitness card once with the title of the measurement inside it', async () => {
+  vaultIt('heads the Fitness card once with the title of the measurement inside it', async () => {
     const tree = await render(<FitnessDecouplingCard />);
 
     expect(tree.getAllByText('stats.aerobicDecoupling')).toHaveLength(1);

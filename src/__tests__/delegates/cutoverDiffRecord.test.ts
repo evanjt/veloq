@@ -67,7 +67,7 @@ describe('the cutover diff delegate', () => {
     expect(getCutoverDiff(host(true))?.counts).toEqual(counts);
   });
 
-  it('gives the card the counts, with new spelled as the card spells it', () => {
+  vaultIt('gives the card the counts, with new spelled as the card spells it', () => {
     mockDiff.mockReturnValue(record());
 
     const diff = getCutoverDiff(host(true));

@@ -246,7 +246,7 @@ describe('useReviewSave', () => {
       expect(result.current.canRetry).toBe(true);
     });
 
-    it('names the space for a manual entry too', async () => {
+    vaultIt('names the space for a manual entry too', async () => {
       freeSpace(10 * MB);
       mockSaveRecording.mockResolvedValue(null);
       useRecordingStore.setState({ status: 'recording', mode: 'manual' });
@@ -334,7 +334,7 @@ describe('useReviewSave', () => {
       );
     });
 
-    it('keeps the ride on the device with auto-upload off', async () => {
+    vaultIt('keeps the ride on the device with auto-upload off', async () => {
       useRecordingPreferences.setState({ autoUploadEnabled: false });
 
       const { result } = await renderHook(() => useReviewSave(makeArgs()));
@@ -418,7 +418,7 @@ describe('useReviewSave', () => {
     expect(mockShareFit).toHaveBeenCalledWith(expect.objectContaining({ id: 'rec-1' }), undefined);
   });
 
-  it('leaves the detail out when the refusal carries none', async () => {
+  vaultIt('leaves the detail out when the refusal carries none', async () => {
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
@@ -493,7 +493,7 @@ describe('useReviewSave', () => {
     expect(mockUploadRecording).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the second failure of a repeated permission grant', async () => {
+  vaultIt('shows the second failure of a repeated permission grant', async () => {
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.PermissionBlocked });
     mockUpgradeOutcome.mockResolvedValue({ granted: false, error: 'login.oauthUnreachable' });
 
@@ -641,7 +641,7 @@ describe('useReviewSave', () => {
     expect(router.dismissTo).toHaveBeenCalledWith('/');
   });
 
-  it('requests no sync when the upload fails', async () => {
+  vaultIt('requests no sync when the upload fails', async () => {
     mockSaveRecording.mockResolvedValue(ENTRY);
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Network });
 
@@ -859,21 +859,24 @@ it('drops a lap the trim removes and reads the next one from its own samples', a
 describe('the save haptic', () => {
   const successes = () => (haptics.success as jest.Mock).mock.calls.length;
 
-  it('plays one success once the library holds the ride, before it leaves the review', async () => {
-    let successesAtLeave = -1;
-    (router.dismissTo as jest.Mock).mockImplementationOnce(() => {
-      successesAtLeave = successes();
-    });
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+  vaultIt(
+    'plays one success once the library holds the ride, before it leaves the review',
+    async () => {
+      let successesAtLeave = -1;
+      (router.dismissTo as jest.Mock).mockImplementationOnce(() => {
+        successesAtLeave = successes();
+      });
+      mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
 
-    const { result } = await renderHook(() => useReviewSave(makeArgs()));
-    await act(() => result.current.handleSave());
+      const { result } = await renderHook(() => useReviewSave(makeArgs()));
+      await act(() => result.current.handleSave());
 
-    expect(successes()).toBe(1);
-    expect(successesAtLeave).toBe(1);
-  });
+      expect(successes()).toBe(1);
+      expect(successesAtLeave).toBe(1);
+    }
+  );
 
-  it('plays one success for a saved manual entry', async () => {
+  vaultIt('plays one success for a saved manual entry', async () => {
     useRecordingStore.setState({ status: 'recording', mode: 'manual' });
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
 
@@ -884,7 +887,7 @@ describe('the save haptic', () => {
     expect(successes()).toBe(1);
   });
 
-  it('plays nothing when the library save fails', async () => {
+  vaultIt('plays nothing when the library save fails', async () => {
     mockSaveRecording.mockResolvedValue(null);
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
@@ -893,7 +896,7 @@ describe('the save haptic', () => {
     expect(successes()).toBe(0);
   });
 
-  it('plays no second success when a failed upload is retried', async () => {
+  vaultIt('plays no second success when a failed upload is retried', async () => {
     mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected, errorDetail: 'x' });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
@@ -904,7 +907,7 @@ describe('the save haptic', () => {
     expect(successes()).toBe(1);
   });
 
-  it('plays nothing for a ride the library already held', async () => {
+  vaultIt('plays nothing for a ride the library already held', async () => {
     useRecordingStore.setState({ savedToLibrary: true });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));

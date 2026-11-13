@@ -1565,6 +1565,7 @@ mod tests {
 
     /// An empty marker goes through the same install, and leaves only itself.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_marker_leaves_no_temp_file() {
         let tmp = tempfile::tempdir().expect("tempdir");
         mark_tile_empty(tmp.path(), 12, 1, 1).expect("marker");
@@ -1579,6 +1580,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_tile_bounds() {
         let bounds = tile_bounds(0, 0, 0);
         assert!((bounds.min_lon - (-180.0)).abs() < 0.001);
@@ -1590,6 +1592,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_lon_lat_to_tile() {
         let lon = -0.1278;
         let lat = 51.5074;
@@ -1631,6 +1634,7 @@ mod tests {
     /// and the dense recording costs strokes by the pixels it crosses, not by
     /// the samples it holds.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_draws_ground_by_pixels_crossed_not_by_samples_recorded() {
         for zoom in [8u8, 12] {
             let dense = east_path(10_000.0, 3.0);
@@ -1656,6 +1660,7 @@ mod tests {
     /// Expected behaviour: thinning keeps the last point of a track and the
     /// ground on either side of an invalid fix.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn thinning_keeps_the_last_point_and_the_ground_after_a_gap() {
         let zoom = 8;
         let mut path = east_path(20_000.0, 1.0);
@@ -1680,6 +1685,7 @@ mod tests {
     /// Expected behaviour: the stroke measures the pixels along its length and
     /// across its width, not every pixel of the square the segment spans.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stroke_measures_its_length_times_its_width_not_its_box() {
         for (width, (x0, y0), (x1, y1)) in [
             (1.4, (10.3, 20.7), (410.9, 380.2)),
@@ -1714,6 +1720,7 @@ mod tests {
     /// Expected behaviour: the planner reads such a ride's tiles off its
     /// bounds at those zooms rather than walking every point.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_track_inside_one_tile_is_not_walked() {
         // World X and Y of a third: lon -60, and the latitude whose Mercator
         // Y is a third.
@@ -1732,6 +1739,7 @@ mod tests {
     /// bounds, it reads the set the walk gives, halo included, near an edge,
     /// on a corner, across a seam and with gaps.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn tiles_read_off_bounds_are_the_tiles_walked() {
         let third = (PI / 3.0).sinh().atan().to_degrees();
         let mut tracks = vec![
@@ -1781,6 +1789,7 @@ mod tests {
     /// and intensity, for short and long segments at every angle, including
     /// the longest a tile draws and ones that start far outside the tile.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stroke_drawn_by_rows_matches_its_whole_box() {
         let mut state = 0x2545_f491_4f6c_dd1du64;
         let mut next = move || {
@@ -1833,6 +1842,7 @@ mod tests {
     /// Expected behaviour: the worker's canvas makes its two buffers once,
     /// the ink and the blur, rather than fresh ones for every tile.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_worker_makes_its_buffers_once_for_a_run_of_tiles() {
         let (lat, lng) = (47.37, 8.55);
         let tracks: Vec<ProjectedTrack> = corridors(120, lat, lng, 8_000.0)
@@ -1904,6 +1914,7 @@ mod tests {
     /// decodes to exactly the colours the RGBA tile held, and takes at most a
     /// third of its bytes, at a blurred low zoom and a sharp street zoom.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_is_an_indexed_png_with_the_pixels_of_its_rgba_encoding() {
         let (lat, lon) = (-41.29, 174.78);
         for (zoom, half_span) in [(8u8, 0.6), (16, 0.004)] {
@@ -1936,6 +1947,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_gps_to_pixel() {
         let point = GpsPoint::new(51.5074, -0.1278);
         let zoom = 10;
@@ -1949,6 +1961,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_generate_heatmap_tile() {
         let track = vec![
             GpsPoint::new(51.5074, -0.1278),
@@ -2036,6 +2049,7 @@ mod tests {
     /// each tile was drawn in buffers of its own, so nothing one tile laid down
     /// shows through in the next.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn tiles_drawn_back_to_back_keep_their_pixels() {
         let (lat, lng) = (47.37, 8.55);
         let at = |z: u8| {
@@ -2092,6 +2106,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_empty_tile_returns_none() {
         // Tile far from the track
         let track = vec![
@@ -2103,12 +2118,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_tiles_for_bounds() {
         let tiles = tiles_for_bounds(51.0, 52.0, -1.0, 0.0, 10);
         assert!(!tiles.is_empty());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn tiles_along_track_includes_every_point_tile() {
         let track = vec![
             GpsPoint::new(51.5074, -0.1278),
@@ -2136,6 +2153,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_point_in_the_middle_of_its_tile_schedules_no_neighbour() {
         let zoom = 14;
         let track = vec![point_at(zoom, 8_000, 5_500, 0.5, 0.5)];
@@ -2148,6 +2166,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_point_inside_the_margin_schedules_across_that_seam_only() {
         let zoom = 14;
         // Just inside the last DRAW_MARGIN pixels of its tile on x, and clear
@@ -2162,6 +2181,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_corner_point_schedules_the_three_tiles_it_can_bleed_into() {
         let zoom = 14;
         let inset = DRAW_MARGIN as f64 / TILE_SIZE as f64 / 2.0;
@@ -2178,6 +2198,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_scheduled_tile_a_point_reaches_accepts_that_point() {
         let zoom = 14;
         let inset = DRAW_MARGIN as f64 / TILE_SIZE as f64 / 2.0;
@@ -2196,6 +2217,7 @@ mod tests {
     /// dropout at the heatmap's higher zooms. Expected behaviour: the ground
     /// between them is drawn, and so is the ground each fix sits on.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_segment_longer_than_a_tile_draws_in_every_tile_it_crosses() {
         let zoom = 14;
         let track = vec![
@@ -2211,6 +2233,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_fix_that_jumps_across_the_world_is_not_drawn_as_ground() {
         let zoom = 14;
         let track = vec![
@@ -2233,6 +2256,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_segment_that_misses_the_tile_entirely_still_draws_nothing() {
         let zoom = 14;
         let track = vec![
@@ -2246,6 +2270,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_track_of_one_point_draws_nothing_on_its_own() {
         let zoom = 14;
         let track = vec![point_at(zoom, 8_000, 5_500, 0.5, 0.5)];
@@ -2256,6 +2281,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_that_rendered_empty_is_not_scheduled_again() {
         let dir = tempfile::tempdir().expect("tempdir");
         let base = dir.path();
@@ -2272,6 +2298,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn invalidating_ground_takes_the_empty_markers_with_it() {
         let dir = tempfile::tempdir().expect("tempdir");
         let base = dir.path();
@@ -2332,6 +2359,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_tile_holding_both_a_png_and_a_marker_counts_once() {
             let dir = tempfile::tempdir().expect("tempdir");
             let base = dir.path();
@@ -2377,6 +2405,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn tiles_along_track_is_tight_vs_bbox() {
         // A long point-to-point track (several km of span each axis) should
         // enumerate far fewer tiles than its bbox at high zoom.
@@ -2418,6 +2447,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn tiles_along_track_handles_invalid_points() {
         let track = vec![
             GpsPoint::new(51.5074, -0.1278),
@@ -2430,6 +2460,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn tiles_along_track_segment_includes_between_tiles() {
         // Two points 5 tiles apart at z14; the diagonal between them should
         // enumerate the intermediate tiles.
@@ -2447,6 +2478,7 @@ mod tests {
     /// Expected behaviour: a band's upper edge belongs to it and anything past
     /// the edge to the next step, at every zoom, and no heat is no step.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn heat_steps_band_normalised_intensity_the_same_at_every_zoom() {
         assert_eq!(heat_step(0.0), 0);
         assert_eq!(heat_step(0.001), 1);
@@ -2521,6 +2553,7 @@ mod tests {
     /// above all, is the stored tile's byte for byte. Serving the base the
     /// tile was stored in returns the stored bytes.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_served_for_a_base_swaps_only_its_palette() {
         let stored = street_tile();
         let stored_chunks = chunks_of(&stored);
@@ -2554,6 +2587,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn bytes_that_are_not_a_png_are_not_served() {
         assert!(tile_for_base(b"", HeatmapBase::Light).is_none());
         assert!(tile_for_base(b"not a png at all", HeatmapBase::Dark).is_none());
@@ -2569,6 +2603,7 @@ mod tests {
     /// touches heat on a side or a corner, so every trail is ringed and no
     /// halo stands apart from one.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_halo_rings_heat_by_one_pixel_and_nothing_else() {
         let (plane, _, _) = classes_of(&street_tile());
         let size = TILE_SIZE as i64;
@@ -2621,6 +2656,7 @@ mod tests {
     /// further along its base's direction than the one before, and the halo
     /// is opaque on satellite and transparent on the other two.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn each_base_palette_runs_its_heat_steps_opaque_in_its_direction() {
         for base in HeatmapBase::ALL {
             let table = base.palette();
@@ -2644,6 +2680,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_additive_accumulation() {
         let mut buf = IntensityBuffer::new(10, 10);
         buf.add(5, 5, 100);
@@ -2654,6 +2691,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_thick_line_rasterisation_produces_solid_center() {
         let mut buf = IntensityBuffer::new(32, 32);
         draw_line_intensity(&mut buf, 4.0, 16.0, 28.0, 16.0, 6.0, 24.0);

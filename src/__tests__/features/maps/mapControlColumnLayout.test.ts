@@ -33,33 +33,36 @@ describe('mapControlColumnLayout', () => {
     expect(perColumn * result.columns).toBeGreaterThanOrEqual(MAX_MAP_CONTROLS);
   });
 
-  it('uses one column when the buttons fit', () => {
+  vaultIt('uses one column when the buttons fit', () => {
     const result = mapControlColumnLayout(3, 600, TOP);
     expect(result.columns).toBe(1);
     expect(result.footprint).toBe(layout.cardMargin + BUTTON + GAP);
   });
 
-  it('widens the footprint by one button and gap per extra column', () => {
+  vaultIt('widens the footprint by one button and gap per extra column', () => {
     const one = mapControlColumnLayout(1, 600, TOP);
     const two = mapControlColumnLayout(MAX_MAP_CONTROLS, SMALLEST_HERO, TOP);
     expect(two.footprint).toBe(one.footprint + (two.columns - 1) * (BUTTON + GAP));
   });
 
-  it('is drawn as wide as every column, since layout sizes a wrapping column to its first', () => {
-    const one = mapControlColumnLayout(3, 600, TOP);
-    const two = mapControlColumnLayout(MAX_MAP_CONTROLS, SMALLEST_HERO, TOP);
-    expect(one.width).toBe(BUTTON);
-    expect(two.columns).toBeGreaterThan(1);
-    expect(two.width).toBe(two.columns * BUTTON + (two.columns - 1) * GAP);
-  });
+  vaultIt(
+    'is drawn as wide as every column, since layout sizes a wrapping column to its first',
+    () => {
+      const one = mapControlColumnLayout(3, 600, TOP);
+      const two = mapControlColumnLayout(MAX_MAP_CONTROLS, SMALLEST_HERO, TOP);
+      expect(one.width).toBe(BUTTON);
+      expect(two.columns).toBeGreaterThan(1);
+      expect(two.width).toBe(two.columns * BUTTON + (two.columns - 1) * GAP);
+    }
+  );
 
-  it('reserves nothing for no buttons', () => {
+  vaultIt('reserves nothing for no buttons', () => {
     expect(mapControlColumnLayout(0, 300, TOP).footprint).toBe(0);
   });
 });
 
 describe('activityMapControlCount', () => {
-  it('counts the style, compass and location buttons that are always drawn', () => {
+  vaultIt('counts the style, compass and location buttons that are always drawn', () => {
     expect(
       activityMapControlCount({
         shown: true,
@@ -70,7 +73,7 @@ describe('activityMapControlCount', () => {
     ).toBe(3);
   });
 
-  it('counts every optional button when all are drawn', () => {
+  vaultIt('counts every optional button when all are drawn', () => {
     expect(
       activityMapControlCount({
         shown: true,
@@ -81,14 +84,14 @@ describe('activityMapControlCount', () => {
     ).toBe(MAX_MAP_CONTROLS);
   });
 
-  it('counts each optional button on its own', () => {
+  vaultIt('counts each optional button on its own', () => {
     const base = { shown: true, hasGradientData: false, hasRoute: false, enableFullscreen: false };
     expect(activityMapControlCount({ ...base, hasGradientData: true })).toBe(4);
     expect(activityMapControlCount({ ...base, hasRoute: true })).toBe(4);
     expect(activityMapControlCount({ ...base, enableFullscreen: true })).toBe(4);
   });
 
-  it('counts nothing when the column is hidden', () => {
+  vaultIt('counts nothing when the column is hidden', () => {
     expect(
       activityMapControlCount({
         shown: false,
@@ -108,7 +111,7 @@ describe('useMapControlColumn', () => {
   const wrapper = ({ children }: { children: React.ReactNode }) =>
     React.createElement(SafeAreaProvider, { initialMetrics: METRICS }, children);
 
-  it('reserves one column for three buttons on a hero where six would wrap', async () => {
+  vaultIt('reserves one column for three buttons on a hero where six would wrap', async () => {
     const height = 280;
     const { result: three } = await renderHook(() => useMapControlColumn(height, 3), { wrapper });
     const { result: six } = await renderHook(() => useMapControlColumn(height, MAX_MAP_CONTROLS), {
@@ -119,7 +122,7 @@ describe('useMapControlColumn', () => {
     expect(three.current.footprint).toBeLessThan(six.current.footprint);
   });
 
-  it('reserves nothing when no button is drawn', async () => {
+  vaultIt('reserves nothing when no button is drawn', async () => {
     const { result } = await renderHook(() => useMapControlColumn(320, 0), { wrapper });
     expect(result.current.footprint).toBe(0);
   });

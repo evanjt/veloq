@@ -96,7 +96,7 @@ describe('a curve chart with nothing to draw', () => {
     expect(screen.getByText('stats.noPowerData')).toBeTruthy();
   });
 
-  it('says the same on the swim pace curve', async () => {
+  vaultIt('says the same on the swim pace curve', async () => {
     coverage.current = RangeCoverage.NotFetched;
 
     await render(<SwimPaceCurveChart />, { wrapper });
@@ -105,7 +105,7 @@ describe('a curve chart with nothing to draw', () => {
     expect(screen.queryByText('stats.noSwimPaceData')).toBeNull();
   });
 
-  it('says the same on the pace curve', async () => {
+  vaultIt('says the same on the pace curve', async () => {
     coverage.current = RangeCoverage.NotFetched;
 
     await render(<PaceCurveChart />, { wrapper });
@@ -155,13 +155,16 @@ describe('a curve chart whose body the engine is fetching', () => {
     expect(mockRetryBody).toHaveBeenCalledTimes(2);
   });
 
-  it.each(charts)('offers no Retry for a %s range the census finds empty', async (_, chart) => {
-    bodyStatus.current = 'timedOut';
+  vaultIt.each(charts)(
+    'offers no Retry for a %s range the census finds empty',
+    async (_, chart) => {
+      bodyStatus.current = 'timedOut';
 
-    await render(chart(), { wrapper });
+      await render(chart(), { wrapper });
 
-    expect(screen.queryByText('common.retry')).toBeNull();
-  });
+      expect(screen.queryByText('common.retry')).toBeNull();
+    }
+  );
 });
 
 describe('a curve chart whose read threw', () => {

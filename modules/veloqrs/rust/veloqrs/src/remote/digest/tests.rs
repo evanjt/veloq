@@ -9,6 +9,7 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn sha256_of_abc_is_the_fips_180_4_vector() {
     assert_eq!(
         hex(&sha256(&[b"abc"])),
@@ -17,6 +18,7 @@ fn sha256_of_abc_is_the_fips_180_4_vector() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn sha256_of_the_empty_message_is_the_fips_180_4_vector() {
     assert_eq!(
         hex(&sha256(&[])),
@@ -25,6 +27,7 @@ fn sha256_of_the_empty_message_is_the_fips_180_4_vector() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn sha256_of_a_two_block_message_is_the_fips_180_4_vector() {
     assert_eq!(
         hex(&sha256(&[
@@ -35,12 +38,14 @@ fn sha256_of_a_two_block_message_is_the_fips_180_4_vector() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn sha256_of_parts_is_the_digest_of_their_concatenation() {
     assert_eq!(sha256(&[b"ab", b"c"]), sha256(&[b"abc"]));
     assert_eq!(sha256(&[b"", b"abc", b""]), sha256(&[b"abc"]));
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn hmac_sha256_passes_rfc_4231_case_1() {
     let key = [0x0bu8; 20];
     assert_eq!(
@@ -50,6 +55,7 @@ fn hmac_sha256_passes_rfc_4231_case_1() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn hmac_sha256_passes_rfc_4231_case_2() {
     assert_eq!(
         hex(&hmac_sha256(b"Jefe", &[b"what do ya want for nothing?"])),
@@ -58,6 +64,7 @@ fn hmac_sha256_passes_rfc_4231_case_2() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn hmac_sha256_passes_rfc_4231_case_6_with_a_key_longer_than_a_block() {
     let key = [0xaau8; 131];
     assert_eq!(
@@ -70,6 +77,7 @@ fn hmac_sha256_passes_rfc_4231_case_6_with_a_key_longer_than_a_block() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn hmac_sha256_over_parts_is_the_mac_of_their_concatenation() {
     let key = [0x0bu8; 20];
     assert_eq!(

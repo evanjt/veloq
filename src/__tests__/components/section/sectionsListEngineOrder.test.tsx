@@ -114,7 +114,7 @@ describe('SectionsList over an engine-ordered page', () => {
     expect(ids).toEqual(['auto_c', 'auto_a', 'auto_b']);
   });
 
-  it('offers Accept all on the engine count, not the page tally', async () => {
+  vaultIt('offers Accept all on the engine count, not the page tally', async () => {
     // Every section on this page is already accepted, so a tally taken here is
     // zero while 63 of the catalogue still await review.
     const tree = await renderList();
@@ -167,7 +167,7 @@ describe('the filter chips count the catalogue, not the page', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('shows the custom and retired figures it was given', async () => {
+  vaultIt('shows the custom and retired figures it was given', async () => {
     const { getByText } = await renderList();
 
     expect(getByText('18 custom sections')).toBeTruthy();

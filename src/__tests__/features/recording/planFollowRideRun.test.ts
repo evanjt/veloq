@@ -123,11 +123,11 @@ describe('untimed steps and the end of the plan', () => {
 });
 
 describe('targets', () => {
-  it('shows a pace range in its supplied units without an absolute pace', () => {
+  vaultIt('shows a pace range in its supplied units without an absolute pace', () => {
     expect(formatTarget({ metric: 'pace', low: 90, high: 95, units: '%pace' })).toBe('90–95% pace');
   });
 
-  it('shows a relative heart-rate target with its conversion where it has one', () => {
+  vaultIt('shows a relative heart-rate target with its conversion where it has one', () => {
     const relative = { metric: 'hr', low: 75, high: 85, units: '%lthr' } as const;
     expect(formatTarget(relative)).toBe('75–85% LTHR');
     expect(formatTarget({ ...relative, absolute: { low: 128, high: 145, units: 'bpm' } })).toBe(
@@ -135,7 +135,7 @@ describe('targets', () => {
     );
   });
 
-  it('shows power relative to FTP, absolute watts and a zone in their own terms', () => {
+  vaultIt('shows power relative to FTP, absolute watts and a zone in their own terms', () => {
     expect(
       formatTarget({
         metric: 'power',

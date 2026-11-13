@@ -39,13 +39,13 @@ afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-it('keeps the metro cache in a worktree and in the main checkout', () => {
+vaultIt('keeps the metro cache in a worktree and in the main checkout', () => {
   for (const git of ['file', 'directory'] as const) {
     expect(argsIn(tree(git))).not.toContain('--reset-cache');
   }
 });
 
-it('writes where the Android build reads, either way', () => {
+vaultIt('writes where the Android build reads, either way', () => {
   for (const git of ['file', 'directory'] as const) {
     expect(argsIn(tree(git))).toContain(
       '--bundle-output android/app/src/main/assets/index.android.bundle'

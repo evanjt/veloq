@@ -187,19 +187,19 @@ describe('a landing is judged on the range it would land', () => {
     said = land(fx, LANDING);
   }, 120_000);
 
-  it('runs the suite whose file the landing touched', () => {
+  vaultIt('runs the suite whose file the landing touched', () => {
     expect(ran(fx)).toMatch(/cargo nextest run .*--test app/);
   });
 
-  it('runs the schema suites a migration maps to', () => {
+  vaultIt('runs the schema suites a migration maps to', () => {
     expect(ran(fx)).toMatch(/--test migration(?:\s|$)/);
   });
 
-  it('hands the landed TypeScript to jest', () => {
+  vaultIt('hands the landed TypeScript to jest', () => {
     expect(ran(fx)).toMatch(/npx jest .*src\/landed\.ts/);
   });
 
-  it('names the unformatted file the landing carried', () => {
+  vaultIt('names the unformatted file the landing carried', () => {
     expect(said.output).toMatch(/prettier would rewrite/);
     expect(said.output).toMatch(/^ {2}src\/landed\.ts$/m);
   });
@@ -212,15 +212,19 @@ describe('a landing is judged on the range it would land', () => {
 });
 
 describe('a deleted Android module source', () => {
-  it('still selects the JVM gate', () => {
-    const fx = fixture();
-    const result = land(fx, {
-      'modules/veloqrs/android/src/main/java/example/Widget.kt': null,
-    });
+  vaultIt(
+    'still selects the JVM gate',
+    () => {
+      const fx = fixture();
+      const result = land(fx, {
+        'modules/veloqrs/android/src/main/java/example/Widget.kt': null,
+      });
 
-    expect(result.output).toContain('merge gate: ./scripts/check-android-jvm.sh');
-    expect(result.status).not.toBe(0);
-  }, 120_000);
+      expect(result.output).toContain('merge gate: ./scripts/check-android-jvm.sh');
+      expect(result.status).not.toBe(0);
+    },
+    120_000
+  );
 });
 
 describe('another session’s files in the checkout', () => {

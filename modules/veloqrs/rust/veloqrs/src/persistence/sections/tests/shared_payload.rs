@@ -97,6 +97,7 @@ fn assert_shared(engine: &PersistentEngine, step: &str) -> usize {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_visible_auto_section_shares_its_identity_row() {
     let rides = library(30);
     let (first, later) = rides.split_at(24);
@@ -233,6 +234,7 @@ const FIXED_REGISTRY_SHA256: &str =
     "9e1c860228b2ce4d7ba8b3b33511f9e0e9c387cb08a10c510a6e9e85ba274b6b";
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_shared_payload_encodes_the_registry_blob_unchanged() {
     let mut identity = SectionIdentity::default();
     for (pid, real_id, latitude, members) in [

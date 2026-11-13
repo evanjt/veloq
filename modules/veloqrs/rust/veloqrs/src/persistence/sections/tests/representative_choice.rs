@@ -99,6 +99,7 @@ fn stored_representative(conn: &Connection, route: &str) -> (String, bool) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn regroup_replaces_a_representative_nobody_chose() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -138,6 +139,7 @@ fn regroup_keeps_the_representative_the_athlete_chose() {
 /// A released build keyed a route by one of its members, so the grouping's own
 /// carry of a representative by route id can reach this one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn regroup_replaces_an_unchosen_representative_under_a_member_keyed_route() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -160,6 +162,7 @@ fn regroup_replaces_an_unchosen_representative_under_a_member_keyed_route() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn background_regroup_replaces_a_representative_nobody_chose() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();

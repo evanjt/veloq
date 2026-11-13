@@ -48,18 +48,18 @@ describe('the summary card form bar', () => {
     expect(rects[0].zone).toBeNull();
   });
 
-  it('keeps the absolute band on that day with the setting off', () => {
+  vaultIt('keeps the absolute band on that day with the setting off', () => {
     expect(formBarLayout([-8], [0], false, 100).rects[0].zone).toBe('greyZone');
   });
 
-  it('lays the bars edge to edge across the width', () => {
+  vaultIt('lays the bars edge to edge across the width', () => {
     const { rects } = formBarLayout([1, 2, 3], [10, 10, 10], false, 100);
 
     expect(rects[0].x).toBe(0);
     expect(rects[2].x + rects[2].width - 0.5).toBe(100);
   });
 
-  it('lays out one rect per zone when each day sits in another zone', () => {
+  vaultIt('lays out one rect per zone when each day sits in another zone', () => {
     // One day in each zone, as absolute form on a fitness of 100.
     const form = [-40, -20, 0, 10, 30];
     const fitness = [100, 100, 100, 100, 100];

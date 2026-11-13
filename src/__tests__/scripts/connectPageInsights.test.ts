@@ -163,7 +163,7 @@ function reply(): InsightsReply {
 }
 
 describe('the insights reply in the engine form', () => {
-  it('puts each enum as the number the bindings give it', () => {
+  vaultIt('puts each enum as the number the bindings give it', () => {
     const bundle = engineForm(reply());
     expect(bundle.weekOverWeek?.metric).toBe(LOAD_METRIC.tss);
     expect(bundle.efficiencyTrends[0]?.direction).toBe(EFFICIENCY_DIRECTION.worsening);
@@ -172,7 +172,7 @@ describe('the insights reply in the engine form', () => {
     );
   });
 
-  it('puts a polyline as the bytes the decoder reads, and an absent field as absent', () => {
+  vaultIt('puts a polyline as the bytes the decoder reads, and an absent field as absent', () => {
     const bundle = engineForm(reply());
     const line = bundle.recentSectionChanges[0]?.encodedPolyline;
     expect(line).toBeInstanceOf(ArrayBuffer);
@@ -184,7 +184,7 @@ describe('the insights reply in the engine form', () => {
     expect(bundle.efficiencyTrends[0] && 'signalDelta' in bundle.efficiencyTrends[0]).toBe(false);
   });
 
-  it('leaves the reply it was given as it was', () => {
+  vaultIt('leaves the reply it was given as it was', () => {
     const held = reply();
     engineForm(held);
     expect(held.weekOverWeek?.metric).toBe('tss');
@@ -253,14 +253,17 @@ describe('the cards from the reply', () => {
     expect(categories).toContain('efficiency_trend');
   });
 
-  it('leave the experimental trend out while it is off, and every section card out with routes off', () => {
-    const noTrend = insightsOf(reply(), { ...on, efficiencyTrendsOn: false }, t).insights;
-    expect(noTrend.map((card) => card.category)).not.toContain('efficiency_trend');
-    const noRoutes = insightsOf(reply(), { ...on, routeMatchingOn: false }, t).insights;
-    expect(noRoutes.map((card) => card.category)).not.toContain('efficiency_trend');
-  });
+  vaultIt(
+    'leave the experimental trend out while it is off, and every section card out with routes off',
+    () => {
+      const noTrend = insightsOf(reply(), { ...on, efficiencyTrendsOn: false }, t).insights;
+      expect(noTrend.map((card) => card.category)).not.toContain('efficiency_trend');
+      const noRoutes = insightsOf(reply(), { ...on, routeMatchingOn: false }, t).insights;
+      expect(noRoutes.map((card) => card.category)).not.toContain('efficiency_trend');
+    }
+  );
 
-  it('are none, and not a failure, before the phone has answered', () => {
+  vaultIt('are none, and not a failure, before the phone has answered', () => {
     expect(insightsOf(undefined, on, t)).toEqual({ insights: [], failed: false });
   });
 
@@ -276,7 +279,7 @@ describe('the settings the cards depend on', () => {
     refused: [],
   });
 
-  it('read route matching as on unless the phone turned it off', () => {
+  vaultIt('read route matching as on unless the phone turned it off', () => {
     expect(insightsSettings(undefined, 'en-GB').routeMatchingOn).toBe(true);
     expect(
       insightsSettings(values([['veloq-route-settings', '{"enabled":false}']]), 'en-GB')
@@ -287,7 +290,7 @@ describe('the settings the cards depend on', () => {
     ).toBe(true);
   });
 
-  it('read the experimental trend as on only when chosen', () => {
+  vaultIt('read the experimental trend as on only when chosen', () => {
     expect(insightsSettings(undefined, 'en-GB').efficiencyTrendsOn).toBe(false);
     const chosen = values([['veloq-experimental', '{"features":{"efficiencyTrends":true}}']]);
     expect(insightsSettings(chosen, 'en-GB').efficiencyTrendsOn).toBe(true);
@@ -295,14 +298,17 @@ describe('the settings the cards depend on', () => {
     expect(insightsSettings(other, 'en-GB').efficiencyTrendsOn).toBe(false);
   });
 
-  it('follow the unit choice, and the browser region while the choice is left to the device', () => {
-    const units = (choice: string) => values([['veloq-unit-preference', choice]]);
-    expect(insightsSettings(units('imperial'), 'en-GB').isMetric).toBe(false);
-    expect(insightsSettings(units('metric'), 'en-US').isMetric).toBe(true);
-    expect(insightsSettings(units('auto'), 'en-US').isMetric).toBe(false);
-    expect(insightsSettings(units('auto'), 'de-CH').isMetric).toBe(true);
-    expect(insightsSettings(undefined, 'en').isMetric).toBe(true);
-  });
+  vaultIt(
+    'follow the unit choice, and the browser region while the choice is left to the device',
+    () => {
+      const units = (choice: string) => values([['veloq-unit-preference', choice]]);
+      expect(insightsSettings(units('imperial'), 'en-GB').isMetric).toBe(false);
+      expect(insightsSettings(units('metric'), 'en-US').isMetric).toBe(true);
+      expect(insightsSettings(units('auto'), 'en-US').isMetric).toBe(false);
+      expect(insightsSettings(units('auto'), 'de-CH').isMetric).toBe(true);
+      expect(insightsSettings(undefined, 'en').isMetric).toBe(true);
+    }
+  );
 });
 
 describe('the ask for the bundle', () => {
@@ -315,7 +321,7 @@ describe('the ask for the bundle', () => {
     expect(ask.wellnessNewest).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it('asks over the trailing windows ending at the wall clock now', () => {
+  vaultIt('asks over the trailing windows ending at the wall clock now', () => {
     jest.useFakeTimers({ now: new Date(2026, 2, 11, 9, 30, 0) });
     try {
       const ask = insightsAsk(on);

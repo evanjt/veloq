@@ -109,7 +109,7 @@ describe('the sections tab over its screen read', () => {
     mockCalls.length = 0;
   });
 
-  it('reads nothing from the engine beside the page it was given', async () => {
+  vaultIt('reads nothing from the engine beside the page it was given', async () => {
     await renderList();
     await act(async () => {
       await Promise.resolve();
@@ -135,7 +135,7 @@ describe('the sections tab over its screen read', () => {
     alert.mockRestore();
   });
 
-  it('offers pull to refresh when given a handler, and the pull calls it', async () => {
+  vaultIt('offers pull to refresh when given a handler, and the pull calls it', async () => {
     const onRefresh = jest.fn();
     const tree = await renderList({ onRefresh, refreshing: true });
     const control = tree.UNSAFE_getByType(RefreshControl);
@@ -147,7 +147,7 @@ describe('the sections tab over its screen read', () => {
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
-  it('offers no refresh without a handler', async () => {
+  vaultIt('offers no refresh without a handler', async () => {
     const tree = await renderList();
 
     expect(tree.UNSAFE_queryAllByType(RefreshControl)).toHaveLength(0);

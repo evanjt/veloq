@@ -48,7 +48,7 @@ describe('mapCameraState', () => {
     expect(mod.getMapCameraState()).toBeNull();
   });
 
-  it('asks the engine once and caches the answer', () => {
+  vaultIt('asks the engine once and caches the answer', () => {
     const mod = freshModule(JSON.stringify(BERN));
 
     mod.getMapCameraState();

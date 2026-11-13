@@ -77,6 +77,7 @@ fn each_bounds_edit_resolves_with_the_line_it_named() {
 /// Expected behaviour: it resolves as an error, the line is unchanged, and the
 /// slot is free for the next edit.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refused_edit_resolves_as_an_error_and_frees_the_slot() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();
@@ -99,6 +100,7 @@ fn a_refused_edit_resolves_as_an_error_and_frees_the_slot() {
 /// Expected behaviour: the second is refused as busy without waiting, and the
 /// first still completes once the engine is free.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_edit_while_one_runs_is_refused() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();
@@ -267,6 +269,7 @@ fn set_and_reset_reference_run_as_section_edits() {
 /// Expected behaviour: both are refused as busy without waiting, and the
 /// running edit still completes.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_reference_edit_while_a_bounds_edit_runs_is_refused() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();
@@ -377,6 +380,7 @@ fn a_revert_runs_as_a_section_edit_and_pins_the_version() {
 /// Expected behaviour: the edit resolves as an error, the line is unchanged,
 /// and the slot is free for the next edit.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_revert_to_a_missing_version_is_refused_and_frees_the_slot() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();
@@ -435,6 +439,7 @@ fn a_merge_runs_off_the_thread_and_names_the_kept_section() {
 /// Expected behaviour: both are refused as busy without waiting, the
 /// secondary survives, and the running edit still completes.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_revert_or_merge_while_a_bounds_edit_runs_is_refused() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();

@@ -7,7 +7,7 @@ const t = ((key: string, options?: Record<string, string>) =>
 const ride = { activityId: 'a1', name: 'Morning ride', date: 1_710_200_000 };
 
 describe('departedRideLines', () => {
-  it('names each ride that left with its date', () => {
+  vaultIt('names each ride that left with its date', () => {
     const lines = departedRideLines([ride, { ...ride, activityId: 'a2', name: 'Evening ride' }], t);
 
     expect(lines).toHaveLength(2);
@@ -45,7 +45,7 @@ describe('announceDepartedRides', () => {
   beforeEach(() => jest.spyOn(Alert, 'alert').mockImplementation(() => {}));
   afterEach(() => jest.restoreAllMocks());
 
-  it('shows one alert naming the ride that left', () => {
+  vaultIt('shows one alert naming the ride that left', () => {
     announceDepartedRides([ride], t);
 
     expect(Alert.alert).toHaveBeenCalledTimes(1);

@@ -68,6 +68,7 @@ fn seed_ride(id: &str, track: Vec<GpsPoint>) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_match_activity_to_sections_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_scan_under_writer.db");
@@ -85,6 +86,7 @@ fn test_match_activity_to_sections_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_extension_track_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_extension_under_writer.db");
@@ -135,6 +137,7 @@ fn test_scan_offers_a_forward_and_a_reverse_pass_like_the_engine() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_scan_answers_nothing_for_a_short_track_an_empty_catalogue_or_no_track() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_scan_empty.db");
@@ -165,6 +168,7 @@ fn test_scan_answers_nothing_for_a_short_track_an_empty_catalogue_or_no_track() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_extension_track_refuses_a_missing_section_and_one_with_no_representative() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_extension_refusals.db");

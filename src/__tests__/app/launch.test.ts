@@ -272,7 +272,7 @@ describe('initialiseApp', () => {
     expect(i18n.language).toBe('fr');
   });
 
-  it('reads the tile cache key once', async () => {
+  vaultIt('reads the tile cache key once', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     stored.set('veloq-tile-cache', JSON.stringify({ cacheMode: 'aggressive', budgetMb: 200 }));
 
@@ -295,7 +295,7 @@ describe('initialiseApp', () => {
     expect(useAuthStore.getState().isLoading).toBe(false);
   });
 
-  it('never probes the engine for a legacy purchaser', async () => {
+  vaultIt('never probes the engine for a legacy purchaser', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
 
     await initialiseApp();
@@ -303,7 +303,7 @@ describe('initialiseApp', () => {
     expect(mockEngine.getActivityCount).not.toHaveBeenCalled();
   });
 
-  it('marks each launch step in order', async () => {
+  vaultIt('marks each launch step in order', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     const mark = jest.fn();
     Object.assign(performance, { mark });
@@ -314,7 +314,7 @@ describe('initialiseApp', () => {
     expect(names).toEqual(['launch:auth', 'launch:engine', 'launch:stores']);
   });
 
-  it('hands the basemap tile store its directory under documents', async () => {
+  vaultIt('hands the basemap tile store its directory under documents', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
 
     await initialiseApp();
@@ -325,7 +325,7 @@ describe('initialiseApp', () => {
     expect(path.startsWith('file://')).toBe(false);
   });
 
-  it('hands the basemap store the tile limit once it has its directory', async () => {
+  vaultIt('hands the basemap store the tile limit once it has its directory', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
 
     await initialiseApp();

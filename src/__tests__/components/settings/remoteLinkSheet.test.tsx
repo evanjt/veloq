@@ -62,7 +62,7 @@ beforeEach(async () => {
 });
 
 describe('RemoteLinkSheet', () => {
-  it('names each linked browser with its connection, and the time one connected', () => {
+  vaultIt('names each linked browser with its connection, and the time one connected', () => {
     const tree = render(<RemoteLinkSheet />);
     expect(tree.getByText('Firefox on Linux')).toBeTruthy();
     expect(tree.getByText('Chrome on Android')).toBeTruthy();
@@ -80,7 +80,7 @@ describe('RemoteLinkSheet', () => {
     expect(disconnectRemoteLink).toHaveBeenCalledTimes(1);
   });
 
-  it('offers no disconnect when no browser is connected', () => {
+  vaultIt('offers no disconnect when no browser is connected', () => {
     useRemoteLinkStatus.setState({ connected: 0, linked: 2, rooms: 2 });
     const tree = render(<RemoteLinkSheet />);
     expect(tree.queryByTestId('remote-link-sheet-disconnect')).toBeNull();

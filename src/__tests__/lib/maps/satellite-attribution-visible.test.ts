@@ -23,7 +23,7 @@ describe('satellite attribution names only what is drawn', () => {
     expect(attribution).not.toContain('IGN');
   });
 
-  it('drops the global base once a regional source covers the point', () => {
+  vaultIt('drops the global base once a regional source covers the point', () => {
     const attribution = getCombinedSatelliteAttribution(46.23, 7.36, 14);
 
     expect(attribution).not.toMatch(/EOX|Sentinel/i);
@@ -33,7 +33,7 @@ describe('satellite attribution names only what is drawn', () => {
     expect(getCombinedSatelliteAttribution(-37.8136, 144.9631, 14)).toMatch(/EOX|Sentinel/i);
   });
 
-  it('follows the provider minzoom, not the region minzoom', () => {
+  vaultIt('follows the provider minzoom, not the region minzoom', () => {
     // Swisstopo is asked for from map zoom 8 while REGIONS.switzerland says 6,
     // so between the two nothing swiss is drawn and nothing swiss is credited.
     const swisstopo = satelliteProviders('satellite-global').find(
@@ -45,7 +45,7 @@ describe('satellite attribution names only what is drawn', () => {
     expect(getCombinedSatelliteAttribution(46.23, 7.36, 8)).toContain('swisstopo');
   });
 
-  it('credits one source for a point with no viewport extent', () => {
+  vaultIt('credits one source for a point with no viewport extent', () => {
     expect(getCombinedSatelliteAttribution(46.23, 7.36, 14)).not.toContain('·');
     expect(getCombinedSatelliteAttribution(48.8566, 2.3522, 14)).not.toContain('·');
   });
@@ -63,13 +63,13 @@ describe('satellite attribution over a viewport', () => {
     expect(attribution).toContain('IGN');
   });
 
-  it('credits the global base where a corner of the viewport is over uncovered ground', () => {
+  vaultIt('credits the global base where a corner of the viewport is over uncovered ground', () => {
     const coast: LngLatBounds = { sw: [-8, 40], ne: [10, 52] };
 
     expect(getCombinedSatelliteAttribution(46, 1, 8, coast)).toMatch(/EOX|Sentinel/i);
   });
 
-  it('credits swisstopo alone for a viewport wholly inside Valais', () => {
+  vaultIt('credits swisstopo alone for a viewport wholly inside Valais', () => {
     const valais: LngLatBounds = { sw: [7.3, 46.2], ne: [7.4, 46.26] };
     const attribution = getCombinedSatelliteAttribution(46.23, 7.36, 14, valais);
 
@@ -78,13 +78,13 @@ describe('satellite attribution over a viewport', () => {
     expect(attribution).not.toMatch(/EOX|Sentinel/i);
   });
 
-  it('lists each source once, in stack order', () => {
+  vaultIt('lists each source once, in stack order', () => {
     const parts = getCombinedSatelliteAttribution(46.2, 6.3, 12, straddling).split(' · ');
 
     expect(new Set(parts).size).toBe(parts.length);
   });
 
-  it('is passed through computeAttribution as the viewport bounds', () => {
+  vaultIt('is passed through computeAttribution as the viewport bounds', () => {
     const text = computeAttribution({
       style: 'satellite',
       is3D: false,

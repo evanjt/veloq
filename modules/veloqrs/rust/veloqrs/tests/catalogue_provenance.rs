@@ -30,6 +30,7 @@ fn open(config: SectionConfig) -> (TempDir, PersistentEngine) {
 
 /// Saving the catalogue stamps the method and the digest of the live config.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn save_records_method_and_digest() {
     let config = SectionConfig {
         ..Default::default()
@@ -69,6 +70,7 @@ const DIGEST_MARKER: &str = "DIGESTS:";
 /// The digest is a property of the config alone, so a second process computes
 /// the same string for the same config and a different one for a changed field.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn digest_is_stable_across_processes() {
     if std::env::var(PROBE).is_ok() {
         println!(

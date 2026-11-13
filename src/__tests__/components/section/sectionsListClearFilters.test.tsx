@@ -132,31 +132,34 @@ describe('a sections list its filters have emptied', () => {
     expect(screen.getByText('Quay sprint')).toBeTruthy();
   });
 
-  it('says the reason rather than the filters when the catalogue itself is empty', async () => {
-    const noneFound = {
-      tag: 'NoneFound',
-      inner: { minActivities: 3 },
-    } as unknown as FfiCatalogueEmptyReason;
-    await render(
-      <SectionsList
-        batchSections={[]}
-        totalSectionCount={0}
-        sortOption="name"
-        onSortChange={jest.fn()}
-        searchQuery="weir"
-        onSearchChange={jest.fn()}
-        emptyReason={noneFound}
-        hiddenFilters={DEFAULT_SECTION_HIDE_FLAGS}
-        onHiddenFiltersChange={jest.fn()}
-        onClearFilters={jest.fn()}
-        unacceptedAutoCount={0}
-        acceptedAutoCount={0}
-        customSectionCount={0}
-        removedSectionCount={0}
-      />
-    );
+  vaultIt(
+    'says the reason rather than the filters when the catalogue itself is empty',
+    async () => {
+      const noneFound = {
+        tag: 'NoneFound',
+        inner: { minActivities: 3 },
+      } as unknown as FfiCatalogueEmptyReason;
+      await render(
+        <SectionsList
+          batchSections={[]}
+          totalSectionCount={0}
+          sortOption="name"
+          onSortChange={jest.fn()}
+          searchQuery="weir"
+          onSearchChange={jest.fn()}
+          emptyReason={noneFound}
+          hiddenFilters={DEFAULT_SECTION_HIDE_FLAGS}
+          onHiddenFiltersChange={jest.fn()}
+          onClearFilters={jest.fn()}
+          unacceptedAutoCount={0}
+          acceptedAutoCount={0}
+          customSectionCount={0}
+          removedSectionCount={0}
+        />
+      );
 
-    expect(screen.getByText('No frequent sections yet')).toBeTruthy();
-    expect(screen.queryByTestId('sections-clear-filters')).toBeNull();
-  });
+      expect(screen.getByText('No frequent sections yet')).toBeTruthy();
+      expect(screen.queryByTestId('sections-clear-filters')).toBeNull();
+    }
+  );
 });

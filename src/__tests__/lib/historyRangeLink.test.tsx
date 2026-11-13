@@ -37,7 +37,7 @@ describe('the retired history range link', () => {
     }
   );
 
-  it('opens the sheet once when Settings carries the request, and clears it', () => {
+  vaultIt('opens the sheet once when Settings carries the request, and clears it', () => {
     mockParams = { [HISTORY_RANGE_PARAM]: '1' };
     renderHook(() => useOpenHistoryRangeFromLink());
 
@@ -46,7 +46,7 @@ describe('the retired history range link', () => {
     expect(mockSetParams).toHaveBeenCalledWith({ [HISTORY_RANGE_PARAM]: undefined });
   });
 
-  it('opens nothing without the request', () => {
+  vaultIt('opens nothing without the request', () => {
     renderHook(() => useOpenHistoryRangeFromLink());
 
     expect(mockOpenSheet).not.toHaveBeenCalled();

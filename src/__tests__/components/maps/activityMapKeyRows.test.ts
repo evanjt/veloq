@@ -122,7 +122,7 @@ describe('activity map key', () => {
       expect(keyed.has(colour.toUpperCase())).toBe(true);
   });
 
-  it('names nothing the map is not drawing', () => {
+  vaultIt('names nothing the map is not drawing', () => {
     expect(
       activityKeyRows({
         palette: mapPalette('light'),
@@ -134,7 +134,7 @@ describe('activity map key', () => {
     ).toEqual([]);
   });
 
-  it('names no record when the sections drawn hold none', () => {
+  vaultIt('names no record when the sections drawn hold none', () => {
     const rows = activityKeyRows({
       palette: mapPalette('dark'),
       overlayHasData: false,

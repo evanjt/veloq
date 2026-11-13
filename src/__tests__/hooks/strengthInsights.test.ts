@@ -188,7 +188,7 @@ describe('generateStrengthInsights', () => {
     });
   });
 
-  it('emits a balance insight when a major antagonist pair is skewed', () => {
+  vaultIt('emits a balance insight when a major antagonist pair is skewed', () => {
     const monthly = makeSummary(
       [
         { slug: 'quadriceps', weightedSets: 12 },
@@ -327,7 +327,7 @@ describe('generateStrengthInsights', () => {
     expect(progression!.iconTone).toBe('neutral');
   });
 
-  it('labels a one-sided pair one-sided in every row it draws', () => {
+  vaultIt('labels a one-sided pair one-sided in every row it draws', () => {
     const monthly = makeSummary(
       [
         { slug: 'quadriceps', weightedSets: 6 },
@@ -368,7 +368,7 @@ describe('the progression reading the ranker scores', () => {
       (insight) => insight.id === 'strength_progression-hamstring'
     );
 
-  it('is the engine reading the record carries', () => {
+  vaultIt('is the engine reading the record carries', () => {
     const insight = progressionInsight(
       makeProgression('hamstring', [2, 3, 6, 7], { signalDelta: 0.42 })
     );
@@ -376,7 +376,7 @@ describe('the progression reading the ranker scores', () => {
     expect(insight!.meta?.signalDelta).toBe(0.42);
   });
 
-  it('is absent when the engine sent none', () => {
+  vaultIt('is absent when the engine sent none', () => {
     const insight = progressionInsight(makeProgression('hamstring', [2, 3, 6, 7]));
 
     expect(insight).toBeDefined();
@@ -431,13 +431,13 @@ describe('the one ratio formatter', () => {
     ...fields,
   });
 
-  it('prints the one-sided copy for a pair with no ratio', () => {
+  vaultIt('prints the one-sided copy for a pair with no ratio', () => {
     expect(formatBalanceRatio(pair({ status: 'one-sided' }), t)).toBe(
       'insights.strengthBalance.oneSided'
     );
   });
 
-  it('prints the no-signal copy when there is nothing to divide', () => {
+  vaultIt('prints the no-signal copy when there is nothing to divide', () => {
     expect(formatBalanceRatio(pair({}), t)).toBe('insights.strengthBalance.noSignal');
   });
 
@@ -488,7 +488,7 @@ describe('the strength gates', () => {
 });
 
 describe('the strength titles', () => {
-  it('states a one-sided pair as all its volume on one side', () => {
+  vaultIt('states a one-sided pair as all its volume on one side', () => {
     const monthly = makeSummary(
       [
         { slug: 'quadriceps', weightedSets: 6 },
@@ -516,7 +516,7 @@ describe('the strength titles', () => {
     expect(balance?.title).toMatch(/^insights\.strengthBalance\.allOneSideTitle:/);
   });
 
-  it.each(['watch', 'imbalanced'] as const)(
+  vaultIt.each(['watch', 'imbalanced'] as const)(
     'titles a %s pair by its name alone, naming the dominant muscle once',
     (status) => {
       const monthly = makeSummary(
@@ -548,7 +548,7 @@ describe('the strength titles', () => {
     }
   );
 
-  it('states a rise in volume as volume up', () => {
+  vaultIt('states a rise in volume as volume up', () => {
     const monthly = makeSummary([{ slug: 'hamstring', weightedSets: 18 }]);
     const weekly = [makeSummary([{ slug: 'hamstring', weightedSets: 6 }], 1)];
     const progression = generateStrengthInsights(

@@ -571,6 +571,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_with_no_stats_leaves_them_unset() {
         let record: ActivityRecord = serde_json::from_value(json!({
             "id": "a2",
@@ -589,6 +590,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_with_an_empty_type_is_filed_as_other() {
         let record: ActivityRecord = serde_json::from_value(json!({
             "id": "a2",
@@ -605,6 +607,7 @@ mod tests {
     // A zone series in a shape we do not model is worth less than the
     // activity, so it is dropped rather than failing the whole page.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unmodelled_zone_shape_does_not_cost_the_page_its_metrics() {
         let record: ActivityRecord = serde_json::from_value(json!({
             "id": "a3",

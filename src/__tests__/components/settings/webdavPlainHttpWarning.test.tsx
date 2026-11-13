@@ -50,14 +50,14 @@ it('saves a plain http address to a public host and warns', async () => {
   expect(mockSave).toHaveBeenCalledWith('http://cloud.example.com/dav', 'athlete', 'pw');
 });
 
-it('warns on a stored plain http config without being asked', async () => {
+vaultIt('warns on a stored plain http config without being asked', async () => {
   mockStored = { url: 'http://nas.example.org/dav', username: 'a', password: 'p' };
   await render(<WebdavConfigForm onConfigChange={jest.fn()} onRemoved={jest.fn()} />);
 
   expect(screen.getByText(WARNING)).toBeTruthy();
 });
 
-it('shows no warning for https', async () => {
+vaultIt('shows no warning for https', async () => {
   mockStored = { url: 'https://nas.example.org/dav', username: 'a', password: 'p' };
   await render(<WebdavConfigForm onConfigChange={jest.fn()} onRemoved={jest.fn()} />);
 

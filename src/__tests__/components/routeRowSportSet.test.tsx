@@ -53,7 +53,7 @@ describe('placeholder glyph', () => {
     return view.UNSAFE_getAllByType(MaterialCommunityIcons).map((icon) => icon.props);
   };
 
-  it.each([
+  vaultIt.each([
     ['Hike', 'hiking'],
     ['TrailRun', 'run-fast'],
     ['Rowing', 'rowing'],
@@ -62,7 +62,7 @@ describe('placeholder glyph', () => {
     expect(icons.filter((icon) => icon.name === glyph)).toHaveLength(2);
   });
 
-  it('draws the sport icons at the section row size', async () => {
+  vaultIt('draws the sport icons at the section row size', async () => {
     const icons = await placeholderIcons('Ride', ['Ride']);
     expect(icons.filter((icon) => icon.name === 'bike').map((icon) => icon.size)).toContain(12);
   });

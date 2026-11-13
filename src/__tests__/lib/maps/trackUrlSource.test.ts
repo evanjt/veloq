@@ -98,14 +98,14 @@ function mount(sources: Record<string, MapSourceSpec>) {
 describe('the activity map line as a URL', () => {
   const url = nativeGeoUrl('track', 'i9001', 0);
 
-  it('names the engine URL as the route source, on a lineMetrics source', () => {
+  vaultIt('names the engine URL as the route source, on a lineMetrics source', () => {
     const route = activitySources(url).route;
 
     expect(route).toEqual({ kind: 'geojson', data: url, lineMetrics: true });
     expect(route.kind === 'geojson' && route.data).toMatch(/veloq-geo\/track\/i9001\?v=0$/);
   });
 
-  it('stringifies a few kilobytes on mount where the inline ride costs the track', () => {
+  vaultIt('stringifies a few kilobytes on mount where the inline ride costs the track', () => {
     const inline = mount(activitySources(rideLine()));
     const byUrl = mount(activitySources(url));
 
@@ -145,7 +145,7 @@ describe('the patcher with a URL source', () => {
     });
   });
 
-  it('never treats a URL as a growing line', () => {
+  vaultIt('never treats a URL as a growing line', () => {
     expect(
       growingLine({ kind: 'geojson', data: 'https://veloq.fit/veloq-geo/track/a', growing: true })
     ).toBeNull();
@@ -205,13 +205,13 @@ describe('the page with a URL source', () => {
 });
 
 describe('the traces under a tap as a URL', () => {
-  it('names the tap, the zoom and the group, with the revision as the query', () => {
+  vaultIt('names the tap, the zoom and the group, with the revision as the query', () => {
     const url = nativeGeoUrl('under-point', '46200000_7350000_14_route-9', 3);
 
     expect(url).toMatch(/veloq-geo\/under-point\/46200000_7350000_14_route-9\?v=3$/);
   });
 
-  it('names the activities in no route by an underscore', () => {
+  vaultIt('names the activities in no route by an underscore', () => {
     const url = nativeGeoUrl('under-point', '-33871234_151204567_12__', 0);
 
     expect(url).toMatch(/veloq-geo\/under-point\/-33871234_151204567_12__\?v=0$/);

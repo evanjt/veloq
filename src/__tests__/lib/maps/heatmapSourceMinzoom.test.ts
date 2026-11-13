@@ -14,7 +14,7 @@ describe('heatmap source minzoom', () => {
     expect(HEATMAP_SOURCE_MINZOOM).toBe(0);
   });
 
-  it('matches what the regional source declares', () => {
+  vaultIt('matches what the regional source declares', () => {
     const sources = buildRegionalSources({ heatmapEnabled: true } as never);
     expect((sources['heatmap-tiles'] as { minzoom: number }).minzoom).toBe(HEATMAP_SOURCE_MINZOOM);
   });

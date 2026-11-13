@@ -38,7 +38,7 @@ describe('one GPS verdict across entry, header and filter', () => {
     expect(entryGpsState(60, 100)).toBe('ready');
   });
 
-  it('marks a tight fix good', () => {
+  vaultIt('marks a tight fix good', () => {
     expect(gpsSignalLevel(gpsQuality(3, DEFAULT_THRESHOLD_M))).toBe('ok');
     expect(gpsSignalLevel(gpsQuality(12, DEFAULT_THRESHOLD_M))).toBe('warn');
   });

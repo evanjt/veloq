@@ -114,7 +114,7 @@ describe('a signed-out session', () => {
     expect(screen.queryByTestId('login-error-text')).toBeNull();
   });
 
-  it('says the library is still on the device', async () => {
+  vaultIt('says the library is still on the device', async () => {
     await rememberCachedAthleteId(ATHLETE);
     await showExpiry();
 
@@ -123,14 +123,14 @@ describe('a signed-out session', () => {
     ).toBeTruthy();
   });
 
-  it('names the athlete a sign-in restores', async () => {
+  vaultIt('names the athlete a sign-in restores', async () => {
     await rememberCachedAthleteId(ATHLETE);
     await showExpiry();
 
     expect(screen.getByText(`Sign in again as ${ATHLETE} to get them back.`)).toBeTruthy();
   });
 
-  it('still reassures when the mirror holds no athlete', async () => {
+  vaultIt('still reassures when the mirror holds no athlete', async () => {
     await showExpiry();
 
     expect(
@@ -142,7 +142,7 @@ describe('a signed-out session', () => {
 
   /// A 401 is all the app has. It cannot tell an expiry from another device
   /// taking the credential, so it claims neither.
-  it('claims neither an expiry nor a revocation the server never signalled', async () => {
+  vaultIt('claims neither an expiry nor a revocation the server never signalled', async () => {
     await rememberCachedAthleteId(ATHLETE);
     await showExpiry();
 
@@ -172,7 +172,7 @@ describe('a rejected API key', () => {
     expect(screen.getByTestId('login-session-notice')).toBeTruthy();
   }
 
-  it('says the key was rejected rather than talking about a token', async () => {
+  vaultIt('says the key was rejected rather than talking about a token', async () => {
     await rememberCachedAthleteId(ATHLETE);
     await showKeyRejected();
 
@@ -180,7 +180,7 @@ describe('a rejected API key', () => {
     expect(screen.queryByText('You have been signed out.')).toBeNull();
   });
 
-  it('keeps the reassurance the signed-out notice gives', async () => {
+  vaultIt('keeps the reassurance the signed-out notice gives', async () => {
     await rememberCachedAthleteId(ATHLETE);
     await showKeyRejected();
 

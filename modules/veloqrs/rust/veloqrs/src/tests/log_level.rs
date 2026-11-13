@@ -1,6 +1,7 @@
 use crate::ffi::{EngineLogLevel, set_engine_log_level};
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_engine_log_level_changes_after_initialisation() {
     let _serial = crate::test_globals::serial_global_state();
     let original = log::max_level();

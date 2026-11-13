@@ -43,6 +43,7 @@ fn a_stored_tile_reads_back_byte_for_byte() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tile_that_was_never_stored_reads_as_absent() {
     let (store, _tmp) = store();
 
@@ -51,6 +52,7 @@ fn a_tile_that_was_never_stored_reads_as_absent() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_three_sources_share_one_tree_without_colliding() {
     let (store, _tmp) = store();
     store
@@ -74,6 +76,7 @@ fn the_three_sources_share_one_tree_without_colliding() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn storing_the_same_key_twice_replaces_rather_than_accumulates() {
     let (store, _tmp) = store();
     store
@@ -92,6 +95,7 @@ fn storing_the_same_key_twice_replaces_rather_than_accumulates() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_put_leaves_no_temporary_file_behind() {
     let (store, _tmp) = store();
     store
@@ -115,6 +119,7 @@ fn a_put_leaves_no_temporary_file_behind() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn size_is_answerable_with_no_webview_and_no_network() {
     let (store, _tmp) = store();
     store
@@ -128,6 +133,7 @@ fn size_is_answerable_with_no_webview_and_no_network() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn size_of_a_source_that_holds_nothing_is_zero_not_an_error() {
     let (store, _tmp) = store();
     store
@@ -142,6 +148,7 @@ fn size_of_a_source_that_holds_nothing_is_zero_not_an_error() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_satellite_tile_is_served_again_from_memory_and_never_written_to_the_tree() {
     let (store, tmp) = store();
     let tile = bytes(4096, 9);
@@ -167,6 +174,7 @@ fn a_satellite_tile_is_served_again_from_memory_and_never_written_to_the_tree() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_satellite_tile_never_put_is_a_miss() {
     let (store, _tmp) = store();
 
@@ -174,6 +182,7 @@ fn a_satellite_tile_never_put_is_a_miss() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_same_tile_in_another_satellite_region_is_a_different_key() {
     let (store, _tmp) = store();
 
@@ -186,6 +195,7 @@ fn the_same_tile_in_another_satellite_region_is_a_different_key() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_regional_satellite_source_is_held_in_memory_not_on_disk() {
     let (store, _tmp) = store();
 
@@ -207,6 +217,7 @@ fn every_regional_satellite_source_is_held_in_memory_not_on_disk() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refused_satellite_put_leaves_no_file_and_no_directory_behind() {
     let (store, tmp) = store();
 
@@ -222,6 +233,7 @@ fn a_refused_satellite_put_leaves_no_file_and_no_directory_behind() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_satellite_cache_evicts_the_least_recently_read_tile_at_its_cap() {
     let tmp = TempDir::new().expect("tempdir");
     let store = TileStore::new(tmp.path().join("basemap-tiles")).with_satellite_cache_cap(300);
@@ -247,6 +259,7 @@ fn the_satellite_cache_evicts_the_least_recently_read_tile_at_its_cap() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_satellite_tile_larger_than_the_cap_is_not_kept_and_evicts_nothing() {
     let tmp = TempDir::new().expect("tempdir");
     let store = TileStore::new(tmp.path().join("basemap-tiles")).with_satellite_cache_cap(100);
@@ -264,6 +277,7 @@ fn a_satellite_tile_larger_than_the_cap_is_not_kept_and_evicts_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn putting_a_satellite_key_again_replaces_it_without_double_counting_bytes() {
     let tmp = TempDir::new().expect("tempdir");
     let store = TileStore::new(tmp.path().join("basemap-tiles")).with_satellite_cache_cap(200);
@@ -283,6 +297,7 @@ fn putting_a_satellite_key_again_replaces_it_without_double_counting_bytes() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clearing_the_store_empties_the_satellite_cache() {
     let (store, _tmp) = store();
     store
@@ -303,6 +318,7 @@ fn clearing_the_store_empties_the_satellite_cache() {
 /// next read of one misses so the caller fetches it again, and the vector tiles
 /// on disk are not touched, since only memory was asked for.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn releasing_memory_empties_the_satellite_cache_and_keeps_the_tree() {
     let (store, _tmp) = store();
     store
@@ -336,6 +352,7 @@ fn releasing_memory_empties_the_satellite_cache_and_keeps_the_tree() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clearing_one_satellite_source_leaves_the_other_regions_cached() {
     let (store, _tmp) = store();
     store
@@ -352,6 +369,7 @@ fn clearing_one_satellite_source_leaves_the_other_regions_cached() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_satellite_put_from_before_a_clear_is_not_kept() {
     let (store, _tmp) = store();
     let began = store.generation();
@@ -365,6 +383,7 @@ fn a_satellite_put_from_before_a_clear_is_not_kept() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_source_whose_name_merely_contains_satellite_is_still_kept() {
     let (store, _tmp) = store();
 
@@ -392,6 +411,7 @@ fn a_source_whose_name_merely_contains_satellite_is_still_kept() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn eviction_takes_the_least_recently_read_tile_first() {
     let (store, _tmp) = store();
     store
@@ -448,6 +468,7 @@ fn eviction_scrubs_every_opportunistic_tile_before_it_touches_the_pre_seed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_budget_is_a_hard_cap_so_a_pinned_tile_goes_once_nothing_else_is_left() {
     let (store, _tmp) = store();
     store
@@ -483,6 +504,7 @@ fn the_budget_is_a_hard_cap_so_a_pinned_tile_goes_once_nothing_else_is_left() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_budget_is_one_pool_over_every_source_rather_than_a_share_each() {
     let (store, _tmp) = store();
     store
@@ -537,6 +559,7 @@ fn one_pool_evicts_the_oldest_bytes_wherever_they_sit_and_spares_the_pre_seed() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_read_orders_a_tile_against_reads_of_every_other_source() {
     let (store, _tmp) = store();
     // A busy source and a quiet one. The busy source has read its own tiles
@@ -569,6 +592,7 @@ fn a_read_orders_a_tile_against_reads_of_every_other_source() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn evicting_a_store_already_under_budget_removes_nothing() {
     let (held, _tmp) = store();
     held.put(VECTOR, 5, 0, 0, "pbf", &bytes(100, 1), false)
@@ -605,6 +629,7 @@ fn clear_empties_every_source_including_the_pinned_pre_seed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clear_leaves_the_root_standing_and_the_store_writable() {
     let (store, _tmp) = store();
     store
@@ -634,6 +659,7 @@ fn clear_leaves_the_root_standing_and_the_store_writable() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pre_seed_that_began_before_a_clear_writes_nothing_after_it() {
     let (store, _tmp) = store();
     store
@@ -656,6 +682,7 @@ fn a_pre_seed_that_began_before_a_clear_writes_nothing_after_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pre_seed_in_the_current_generation_stores_its_tile() {
     let (store, _tmp) = store();
     store.clear().expect("clear");
@@ -670,6 +697,7 @@ fn a_pre_seed_in_the_current_generation_stores_its_tile() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clearing_one_source_leaves_the_others_standing() {
     let (store, _tmp) = store();
     store
@@ -721,6 +749,7 @@ fn clearing_every_unpinned_tile_keeps_the_pre_seed_across_sources_and_a_reopen()
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clearing_every_unpinned_tile_of_an_empty_store_is_not_an_error() {
     let (store, _tmp) = store();
 
@@ -728,6 +757,7 @@ fn clearing_every_unpinned_tile_of_an_empty_store_is_not_an_error() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clearing_an_empty_store_is_not_an_error() {
     let (store, _tmp) = store();
 
@@ -820,6 +850,7 @@ fn a_pinned_tile_reaches_the_sidecar_before_the_put_returns() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_read_order_survives_a_reopen() {
     let tmp = TempDir::new().expect("tempdir");
     let root = tmp.path().join("basemap-tiles");
@@ -850,6 +881,7 @@ fn the_read_order_survives_a_reopen() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fetched_tile_lands_under_its_key_and_is_readable_offline() {
     let server = MockServer::start();
     let tile = server.mock(|when, then| {
@@ -877,6 +909,7 @@ fn a_fetched_tile_lands_under_its_key_and_is_readable_offline() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rejected_fetch_stores_nothing_at_all() {
     let server = MockServer::start();
     server.mock(|when, then| {
@@ -906,6 +939,7 @@ fn a_rejected_fetch_stores_nothing_at_all() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_response_is_not_stored_as_a_tile() {
     let server = MockServer::start();
     server.mock(|when, then| {
@@ -931,6 +965,7 @@ fn an_empty_response_is_not_stored_as_a_tile() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fetch_that_cannot_reach_the_host_leaves_the_store_untouched() {
     let (store, _tmp) = store();
     let fetcher = TileFetcher::new(Duration::from_millis(0)).expect("fetcher");
@@ -951,6 +986,7 @@ fn a_fetch_that_cannot_reach_the_host_leaves_the_store_untouched() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn tile_requests_keep_their_own_pace_rather_than_the_intervals_icu_budget() {
     let server = MockServer::start();
     server.mock(|when, then| {
@@ -979,6 +1015,7 @@ fn tile_requests_keep_their_own_pace_rather_than_the_intervals_icu_budget() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_tile_fetcher_never_carries_an_intervals_icu_credential() {
     let server = MockServer::start();
     let unauthenticated = server.mock(|when, then| {
@@ -1034,6 +1071,7 @@ fn asks_for_gzip(req: &HttpMockRequest) -> bool {
 /// athlete's data plan, and no counter says so because the byte counts are
 /// taken after decoding.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_tile_client_asks_for_gzip_and_hands_back_the_tile_decoded() {
     let tile = pbf(4096);
     let server = MockServer::start();
@@ -1058,6 +1096,7 @@ fn the_tile_client_asks_for_gzip_and_hands_back_the_tile_decoded() {
 /// half as many tiles again, and hands the map the tile it can draw: a tile
 /// served still compressed renders blank.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_gzipped_tile_is_kept_as_the_host_sent_it_and_reads_back_decoded() {
     let tile = pbf(4096);
     let sent = gzip(&tile);
@@ -1094,6 +1133,7 @@ fn a_gzipped_tile_is_kept_as_the_host_sent_it_and_reads_back_decoded() {
 /// Tiles kept before the store kept compressed bodies are plain, and they sit
 /// beside compressed ones under the same source until eviction takes them.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn plain_and_gzipped_tiles_read_back_side_by_side() {
     let (store, _tmp) = store();
     let old = pbf(2048);
@@ -1117,6 +1157,7 @@ fn plain_and_gzipped_tiles_read_back_side_by_side() {
 /// A compressed body cut short is not a tile. Read as a miss, the next pan
 /// asks the host again and the fetched tile replaces it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_kept_body_that_does_not_decompress_reads_as_a_miss() {
     let (store, _tmp) = store();
     let mut cut = gzip(&pbf(4096));
@@ -1134,6 +1175,7 @@ fn a_kept_body_that_does_not_decompress_reads_as_a_miss() {
 /// A host that answers in an encoding the client never asked for would leave
 /// bytes on disk that nothing here can decode.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_body_in_an_encoding_never_asked_for_is_not_kept() {
     let server = MockServer::start();
     server.mock(|when, then| {
@@ -1164,6 +1206,7 @@ fn a_body_in_an_encoding_never_asked_for_is_not_kept() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_body_labelled_gzip_that_is_not_gzip_is_neither_kept_nor_served() {
     let server = MockServer::start();
     server.mock(|when, then| {
@@ -1230,6 +1273,7 @@ fn walk(dir: &std::path::Path) -> Vec<String> {
 /// other end.
 #[cfg(unix)]
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_read_that_blocks_forever_does_not_block_another_source() {
     use std::sync::Arc;
     use std::sync::mpsc;
@@ -1315,6 +1359,7 @@ fn a_read_that_blocks_forever_does_not_block_another_source() {
 /// The read still stamps what it read, or eviction loses its order, and it
 /// still corrects a byte count for a file the OS truncated under it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_read_still_stamps_the_entry_and_follows_the_bytes_it_got() {
     let (store, tmp) = store();
     store
@@ -1348,6 +1393,7 @@ fn a_read_still_stamps_the_entry_and_follows_the_bytes_it_got() {
 
 /// The index outliving its file is still forgotten rather than answered.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_read_of_a_file_that_vanished_forgets_the_entry() {
     let (store, tmp) = store();
     store
@@ -1385,6 +1431,7 @@ fn sidecar_clock(root: &std::path::Path, source: &str) -> u64 {
 /// Expected behaviour: those vector reads are the newest in the tree, so an
 /// eviction takes the ground tiles last read in the previous session.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_read_after_a_restart_is_newer_than_every_source_on_disk() {
     let tmp = TempDir::new().expect("tempdir");
     let root = tmp.path().join("basemap-tiles");
@@ -1427,6 +1474,7 @@ fn a_read_after_a_restart_is_newer_than_every_source_on_disk() {
 /// Expected behaviour: the new tile is the newest in the source, an eviction
 /// takes an old one, and the sidecar's clock does not go backwards.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_first_tile_stored_after_a_restart_is_the_newest() {
     let tmp = TempDir::new().expect("tempdir");
     let root = tmp.path().join("basemap-tiles");
@@ -1471,6 +1519,7 @@ fn the_first_tile_stored_after_a_restart_is_the_newest() {
 /// Expected behaviour: no `put` leaves the tree over the ceiling, and the
 /// pinned pre-seed survives for as long as an opportunistic tile is left.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_store_filled_past_its_budget_through_put_stays_inside_it() {
     let (store, _tmp) = store();
     let budget = 5_000;
@@ -1505,6 +1554,7 @@ fn a_store_filled_past_its_budget_through_put_stays_inside_it() {
 /// Expected behaviour: the store is brought under it at once, every
 /// opportunistic tile going before the oldest pinned ones.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn lowering_the_budget_evicts_at_once_and_takes_the_pre_seed_last() {
     let (store, _tmp) = store();
     for y in 0..4u32 {
@@ -1536,6 +1586,7 @@ fn lowering_the_budget_evicts_at_once_and_takes_the_pre_seed_last() {
 
 /// Raising the ceiling keeps everything, and so does a store with no ceiling.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn raising_the_budget_evicts_nothing() {
     let (store, _tmp) = store();
     for y in 0..4u32 {
@@ -1551,6 +1602,7 @@ fn raising_the_budget_evicts_nothing() {
 
 /// A clear empties the tree and leaves the ceiling where the athlete set it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_clear_keeps_the_budget() {
     let (store, _tmp) = store();
     store.set_budget(200).expect("budget");
@@ -1571,6 +1623,7 @@ fn a_clear_keeps_the_budget() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_read_counts_a_hit_when_the_tile_is_held_and_a_miss_when_it_is_not() {
     let (store, _tmp) = store();
     store
@@ -1587,6 +1640,7 @@ fn a_read_counts_a_hit_when_the_tile_is_held_and_a_miss_when_it_is_not() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fetch_through_counts_a_fetch_and_a_satellite_read_counts_no_miss() {
     let (store, _tmp) = store();
 
@@ -1605,6 +1659,7 @@ fn a_fetch_through_counts_a_fetch_and_a_satellite_read_counts_no_miss() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_counters_read_zero_after_a_reset_and_count_again_after() {
     let (store, _tmp) = store();
     store.get(VECTOR, 1, 0, 0);
@@ -1619,6 +1674,7 @@ fn the_counters_read_zero_after_a_reset_and_count_again_after() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_screen_read_carries_each_sources_counts_after_a_hit_a_miss_and_a_fetch() {
     let (store, _tmp) = store();
     store

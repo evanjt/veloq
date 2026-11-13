@@ -89,12 +89,15 @@ const ids = (insights: Insight[], category: string) =>
   insights.filter((i) => i.category === category).map((i) => i.id);
 
 describe('section and sport identity', () => {
-  it('keeps the sport out of the id separator and treats an absent sport as its own pair', () => {
-    expect(sectionPairKey('a:b', 'Ride')).not.toBe(sectionPairKey('a', 'b:Ride'));
-    expect(sectionPairKey('a|b,c#d', 'Ride')).not.toMatch(/[|,#]/);
-    expect(sectionPairKey('a')).toBe('a');
-    expect(sectionPairKey('a')).not.toBe(sectionPairKey('a', 'Ride'));
-  });
+  vaultIt(
+    'keeps the sport out of the id separator and treats an absent sport as its own pair',
+    () => {
+      expect(sectionPairKey('a:b', 'Ride')).not.toBe(sectionPairKey('a', 'b:Ride'));
+      expect(sectionPairKey('a|b,c#d', 'Ride')).not.toMatch(/[|,#]/);
+      expect(sectionPairKey('a')).toBe('a');
+      expect(sectionPairKey('a')).not.toBe(sectionPairKey('a', 'Ride'));
+    }
+  );
 
   it('gives two PR candidates on one section different ids', () => {
     const result = generateInsights({ ...EMPTY, recentPRs: [pr('Ride'), pr('Run')] }, t);
@@ -138,7 +141,7 @@ describe('section and sport identity', () => {
     expect(ids(result, 'section_trend')).toHaveLength(1);
   });
 
-  it('still suppresses a trend whose pair already has a PR', () => {
+  vaultIt('still suppresses a trend whose pair already has a PR', () => {
     const result = generateInsights(
       { ...EMPTY, recentPRs: [pr('Run')], sectionTrends: [trend('Run')] },
       t

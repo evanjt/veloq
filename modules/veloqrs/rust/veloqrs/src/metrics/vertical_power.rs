@@ -175,6 +175,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn flat_track_gives_zero() {
         let out = best_climb_windows(&secs(60), &track(|_| 50.0, 60), &[15]);
         let best = out[0].unwrap();
@@ -183,6 +184,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn empty_short_and_mismatched_inputs_give_none() {
         assert_eq!(best_climb_windows(&[], &[], &[15]), vec![None]);
         assert_eq!(
@@ -200,6 +202,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn missing_elevation_inside_a_window_rules_it_out() {
         let time = secs(40);
         let mut elev = track(f64::from, 40);
@@ -235,6 +238,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn non_increasing_time_rules_a_window_out() {
         let mut time = secs(40);
         time[20] = time[19];
@@ -246,6 +250,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pause_on_the_last_step_is_not_differenced_across() {
         // 20 s of flat at 100 m, then a 31 s gap to a final sample at 150 m.
         let mut time = secs(20);
@@ -258,6 +263,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_last_step_that_stalls_or_goes_backwards_rules_out_windows_ending_on_it() {
         for last in [19, 10] {
             let mut time = secs(20);
@@ -271,6 +277,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_valid_last_step_still_counts() {
         // Flat to t=19, then a 5 m rise, the steepest a step may be, on the final step.
         let time = secs(21);
@@ -282,6 +289,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_window_may_span_samples_unevenly_spaced_within_the_step_limit() {
         let time: Vec<u32> = (0..30).map(|i| i * 5).collect();
         let elev: Vec<Option<f64>> = time.iter().map(|&t| Some(f64::from(t) * 0.1)).collect();
@@ -294,6 +302,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn one_raised_sample_sets_no_best() {
         let time = secs(240);
         let mut elev = clean_climb(240);
@@ -310,6 +319,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_step_at_the_start_does_not_set_the_best() {
         let time = secs(60);
         let elev = track(
@@ -328,6 +338,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_step_at_exactly_the_cap_passes() {
         let time = secs(30);
         let elev = track(|t| MAX_STEP_RISE_M_PER_S * f64::from(t), 30);
@@ -336,6 +347,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn honest_one_metre_steps_over_three_seconds_are_unchanged() {
         let time: Vec<u32> = (0..40).map(|i| i * 3).collect();
         let elev = track(f64::from, 40);

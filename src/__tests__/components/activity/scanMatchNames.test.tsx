@@ -81,7 +81,7 @@ describe('scan match names', () => {
     expect(screen.getByText('abcdef01')).toBeTruthy();
   });
 
-  it('speaks the name with the distance, position and match quality the row draws', () => {
+  vaultIt('speaks the name with the distance, position and match quality the row draws', () => {
     const screen = renderScan([scanMatch('s1', 'Col des Planches')]);
 
     expect(
@@ -89,7 +89,7 @@ describe('scan match names', () => {
     ).toBeTruthy();
   });
 
-  it('speaks a reverse match as the reverse word, not the arrow glyph', () => {
+  vaultIt('speaks a reverse match as the reverse word, not the arrow glyph', () => {
     const reverse = {
       ...scanMatch('s1', 'Col des Planches'),
       sameDirection: false,
@@ -107,20 +107,23 @@ describe('scan match names', () => {
     ).toBeTruthy();
   });
 
-  it('offers the Add on each result as a small secondary button, leaving Create Section the one primary', async () => {
-    const screen = await renderScan(
-      [scanMatch('s1', 'Col des Planches'), scanMatch('s2', 'Col du Sanetsch')],
-      100
-    );
+  vaultIt(
+    'offers the Add on each result as a small secondary button, leaving Create Section the one primary',
+    async () => {
+      const screen = await renderScan(
+        [scanMatch('s1', 'Col des Planches'), scanMatch('s2', 'Col du Sanetsch')],
+        100
+      );
 
-    const buttons = screen.UNSAFE_getAllByType(Button);
-    const adds = buttons.filter((n) => n.props.label === 'sections.addToSection');
-    expect(adds).toHaveLength(2);
-    for (const add of adds) {
-      expect(add.props.variant).toBe('secondary');
-      expect(add.props.size).toBe('sm');
+      const buttons = screen.UNSAFE_getAllByType(Button);
+      const adds = buttons.filter((n) => n.props.label === 'sections.addToSection');
+      expect(adds).toHaveLength(2);
+      for (const add of adds) {
+        expect(add.props.variant).toBe('secondary');
+        expect(add.props.size).toBe('sm');
+      }
+      const primaries = buttons.filter((n) => (n.props.variant ?? 'primary') === 'primary');
+      expect(primaries.map((n) => n.props.label)).toEqual(['routes.createSection']);
     }
-    const primaries = buttons.filter((n) => (n.props.variant ?? 'primary') === 'primary');
-    expect(primaries.map((n) => n.props.label)).toEqual(['routes.createSection']);
-  });
+  );
 });

@@ -47,17 +47,17 @@ describe('sortRows', () => {
     ]);
   });
 
-  it('orders text without regard to case and leaves the input alone', () => {
+  vaultIt('orders text without regard to case and leaves the input alone', () => {
     const named = [row('1', { name: 'beta' }), row('2', { name: 'Alpha' })];
     expect(sortRows(named, { column: 'name', dir: 'asc' }).map((r) => r.id)).toEqual(['2', '1']);
     expect(named.map((r) => r.id)).toEqual(['1', '2']);
   });
 
-  it('keeps the loaded order when no sort is chosen', () => {
+  vaultIt('keeps the loaded order when no sort is chosen', () => {
     expect(sortRows(rows, null)).toEqual(rows);
   });
 
-  it('has every column the table shows', () => {
+  vaultIt('has every column the table shows', () => {
     expect(COLUMNS.map((c) => c.key)).toEqual([
       'date',
       'name',
@@ -73,7 +73,7 @@ describe('sortRows', () => {
 });
 
 describe('the hash query', () => {
-  it('round-trips range, sport, sort and selection', () => {
+  vaultIt('round-trips range, sport, sort and selection', () => {
     const state = {
       range: 'thisYear' as const,
       families: ['ride' as const, 'run' as const],
@@ -85,7 +85,7 @@ describe('the hash query', () => {
     expect(readFeedQuery(parse(hash))).toEqual(state);
   });
 
-  it('reads an empty query as no range, no sport, no sort and nothing selected', () => {
+  vaultIt('reads an empty query as no range, no sport, no sort and nothing selected', () => {
     expect(readFeedQuery(parse('#/feed'))).toEqual({
       range: null,
       families: [],
@@ -95,13 +95,13 @@ describe('the hash query', () => {
     });
   });
 
-  it('ignores a range, a sport or a sort it does not know', () => {
+  vaultIt('ignores a range, a sport or a sort it does not know', () => {
     const got = readFeedQuery(parse('#/feed?range=never&sport=ride,quad&sort=nope:asc'));
     expect(got).toEqual({ range: null, families: ['ride'], sort: null, id: null, ids: [] });
     expect(readFeedQuery(parse('#/feed?sort=name:sideways')).sort).toBeNull();
   });
 
-  it('writes nothing for the defaults', () => {
+  vaultIt('writes nothing for the defaults', () => {
     expect(feedQuery({ range: null, families: [], sort: null, id: null, ids: [] })).toEqual([]);
   });
 });
@@ -129,7 +129,7 @@ describe('rangeBounds', () => {
     });
   });
 
-  it('is unbounded with no preset', () => {
+  vaultIt('is unbounded with no preset', () => {
     expect(rangeBounds(null, today)).toEqual({ oldestTs: null, newestTs: null });
   });
 });
@@ -137,22 +137,22 @@ describe('rangeBounds', () => {
 describe('selectionAfter', () => {
   const ids = ['a', 'b', 'c'];
 
-  it('steps down and up within the rows', () => {
+  vaultIt('steps down and up within the rows', () => {
     expect(selectionAfter(ids, 'a', 'next')).toBe('b');
     expect(selectionAfter(ids, 'c', 'previous')).toBe('b');
   });
 
-  it('stops at the ends', () => {
+  vaultIt('stops at the ends', () => {
     expect(selectionAfter(ids, 'c', 'next')).toBe('c');
     expect(selectionAfter(ids, 'a', 'previous')).toBe('a');
   });
 
-  it('starts at the first row when nothing, or a row no longer loaded, is selected', () => {
+  vaultIt('starts at the first row when nothing, or a row no longer loaded, is selected', () => {
     expect(selectionAfter(ids, null, 'next')).toBe('a');
     expect(selectionAfter(ids, 'gone', 'previous')).toBe('a');
   });
 
-  it('selects nothing in an empty list', () => {
+  vaultIt('selects nothing in an empty list', () => {
     expect(selectionAfter([], null, 'next')).toBeNull();
   });
 });

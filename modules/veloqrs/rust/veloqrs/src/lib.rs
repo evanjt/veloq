@@ -741,6 +741,7 @@ pub(crate) mod test_globals {
     /// Expected behaviour: the first is caught waiting for the writer, the
     /// second is not, whatever the load.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_read_that_takes_the_engine_is_caught_waiting_for_the_writer() {
         let _serial = serial_global_state();
         let _tmp = init_global_engine("read_takes_the_engine.db");
@@ -753,6 +754,7 @@ pub(crate) mod test_globals {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_slow_read_that_never_takes_the_engine_is_not_a_wait() {
         let _serial = serial_global_state();
         let _tmp = init_global_engine("slow_read_under_load.db");

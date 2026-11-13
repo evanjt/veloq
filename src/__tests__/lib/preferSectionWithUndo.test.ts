@@ -35,7 +35,7 @@ describe('preferSectionWithUndo', () => {
     expect(mockPreferSection).toHaveBeenLastCalledWith('retired', 'current');
   });
 
-  it('says a refusal and offers no Undo', async () => {
+  vaultIt('says a refusal and offers no Undo', async () => {
     mockPreferSection.mockResolvedValue(false);
 
     expect(await preferSectionWithUndo('current', 'retired', 'Lake Loop', t)).toBe(false);

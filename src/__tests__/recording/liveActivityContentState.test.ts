@@ -46,7 +46,7 @@ describe('buildContentState', () => {
     expect(state.frozenElapsedS).toBe(540);
   });
 
-  it('goes stale a stale window after it was built, so a dead process stops the card', () => {
+  vaultIt('goes stale a stale window after it was built, so a dead process stops the card', () => {
     const recording = buildContentState({ ...base, status: 'recording' });
     const paused = buildContentState({ ...base, status: 'paused' });
 
@@ -54,7 +54,7 @@ describe('buildContentState', () => {
     expect(paused.staleAt).toBe(base.now + LIVE_ACTIVITY_STALE_MS);
   });
 
-  it('keeps a live ride fresh through many missed refreshes', () => {
+  vaultIt('keeps a live ride fresh through many missed refreshes', () => {
     // A background tick can slip behind a busy JS thread or a GPS gap. A live
     // ride must survive several of those in a row before the card calls it
     // stopped, or the rider is told to open an app that is still recording.
@@ -67,7 +67,7 @@ describe('buildContentState', () => {
     expect(state.frozenElapsedS).toBe(510);
   });
 
-  it('normalises the trace into the unit box and keeps both ends', () => {
+  vaultIt('normalises the trace into the unit box and keeps both ends', () => {
     const state = buildContentState({ ...base, status: 'recording' });
 
     expect(state.trace).not.toBeNull();
@@ -80,7 +80,7 @@ describe('buildContentState', () => {
     expect(state.trace!.points.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('carries no trace when there are too few fixes to draw one', () => {
+  vaultIt('carries no trace when there are too few fixes to draw one', () => {
     expect(buildContentState({ ...base, status: 'recording', gps: [] }).trace).toBeNull();
     expect(buildContentState({ ...base, status: 'recording', gps: track(1) }).trace).toBeNull();
   });
@@ -96,7 +96,7 @@ describe('buildContentState', () => {
 describe('fitContentState', () => {
   const oversize = buildContentState({ ...base, status: 'recording', gps: track(400) });
 
-  it('decimates the trace but keeps the first and last point', () => {
+  vaultIt('decimates the trace but keeps the first and last point', () => {
     const full = { ...oversize, trace: { points: oversize.trace!.points, aspect: 1 } };
     const fitted = fitContentState(full, 600);
 
@@ -114,7 +114,7 @@ describe('fitContentState', () => {
     expect(fitted.speedLabel).toBe('28.1 km/h');
   });
 
-  it('leaves a payload that already fits untouched', () => {
+  vaultIt('leaves a payload that already fits untouched', () => {
     const small = buildContentState({ ...base, status: 'recording', gps: track(4) });
 
     expect(fitContentState(small, CONTENT_STATE_MAX_BYTES)).toEqual(small);

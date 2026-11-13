@@ -89,6 +89,9 @@ fn recorded(key: &str) -> StrengthSession {
             started_at: Some(1_100),
             duration_secs: Some(88.0),
         }],
+        current_exercise: None,
+        current_set: None,
+        rest_started_at: None,
     }
 }
 

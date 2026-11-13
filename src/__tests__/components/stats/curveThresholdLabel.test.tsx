@@ -116,14 +116,17 @@ beforeEach(() => {
 });
 
 describe('the pace curve threshold', () => {
-  it('labels the critical speed on its line, in the reference colour, with no legend row', async () => {
-    const tree = await render(<PaceCurveChart />);
-    await layoutViews(tree, 320, 200);
+  vaultIt(
+    'labels the critical speed on its line, in the reference colour, with no legend row',
+    async () => {
+      const tree = await render(<PaceCurveChart />);
+      await layoutViews(tree, 320, 200);
 
-    expect(screen.getByTestId('pace-curve-cs-label')).toHaveTextContent(/^CS 4:00\/km$/);
-    expect(screen.queryByTestId('pace-curve-cs-legend')).toBeNull();
-    expect(referenceRules(tree)).toHaveLength(1);
-  });
+      expect(screen.getByTestId('pace-curve-cs-label')).toHaveTextContent(/^CS 4:00\/km$/);
+      expect(screen.queryByTestId('pace-curve-cs-legend')).toBeNull();
+      expect(referenceRules(tree)).toHaveLength(1);
+    }
+  );
 
   it('reads the critical speed per mile when imperial', async () => {
     useUnitPreference.setState({ unitPreference: 'imperial' });
@@ -144,7 +147,7 @@ describe('the pace curve threshold', () => {
 });
 
 describe('the pace curve axes', () => {
-  it('says faster is at the top of the inverted pace axis', async () => {
+  vaultIt('says faster is at the top of the inverted pace axis', async () => {
     const tree = await render(<PaceCurveChart />);
     await layoutViews(tree, 320, 200);
 
@@ -153,7 +156,7 @@ describe('the pace curve axes', () => {
     );
   });
 
-  it('marks the distance axis in miles for an imperial athlete', async () => {
+  vaultIt('marks the distance axis in miles for an imperial athlete', async () => {
     useUnitPreference.setState({ unitPreference: 'imperial' });
     const tree = await render(<PaceCurveChart />);
     await layoutViews(tree, 320, 200);
@@ -165,7 +168,7 @@ describe('the pace curve axes', () => {
 });
 
 describe('the curve plot height', () => {
-  it.each([
+  vaultIt.each([
     ['pace', () => <PaceCurveChart />],
     ['swim', () => <SwimPaceCurveChart />],
     ['power', () => <PowerCurveChart ftp={300} />],
@@ -176,7 +179,7 @@ describe('the curve plot height', () => {
     expect(plot.props.plotHeight).toBeGreaterThanOrEqual(MIN_PLOT_HEIGHT);
   });
 
-  it('lays the plot out at the height it was given, whatever its parent leaves', async () => {
+  vaultIt('lays the plot out at the height it was given, whatever its parent leaves', async () => {
     const tree = await render(
       <CurveChart
         testID="plot"
@@ -200,7 +203,7 @@ describe('the curve plot height', () => {
 });
 
 describe('the power and swim curve thresholds', () => {
-  it('labels the FTP on its line and draws no legend row', async () => {
+  vaultIt('labels the FTP on its line and draws no legend row', async () => {
     const tree = await render(<PowerCurveChart ftp={300} />);
     await layoutViews(tree, 320, 200);
 
@@ -209,7 +212,7 @@ describe('the power and swim curve thresholds', () => {
     expect(referenceRules(tree)).toHaveLength(1);
   });
 
-  it('labels the CSS on its line', async () => {
+  vaultIt('labels the CSS on its line', async () => {
     const tree = await render(<SwimPaceCurveChart />);
     await layoutViews(tree, 320, 200);
 

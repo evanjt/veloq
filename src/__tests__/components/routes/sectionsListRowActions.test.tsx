@@ -108,7 +108,7 @@ async function swipedAction(item: FrequentSection, isDisabled: boolean) {
 }
 
 describe('a section row swipe', () => {
-  it('draws removing a detected section as the reversible remove, not a delete', async () => {
+  vaultIt('draws removing a detected section as the reversible remove, not a delete', async () => {
     expect(await swipedAction(section('s1', 'auto'), false)).toEqual({
       label: 'common.remove',
       ink: swipeAction.hide.text,
@@ -117,7 +117,7 @@ describe('a section row swipe', () => {
     });
   });
 
-  it('draws restoring a removed section as the restore', async () => {
+  vaultIt('draws restoring a removed section as the restore', async () => {
     expect(await swipedAction(section('h1', 'auto'), true)).toEqual({
       label: 'common.restore',
       ink: swipeAction.restore.text,
@@ -126,7 +126,7 @@ describe('a section row swipe', () => {
     });
   });
 
-  it('keeps deleting a custom section on the destructive fill', async () => {
+  vaultIt('keeps deleting a custom section on the destructive fill', async () => {
     const drawn = await swipedAction(section('c1', 'custom'), false);
     expect(drawn).toMatchObject({
       label: 'common.delete',

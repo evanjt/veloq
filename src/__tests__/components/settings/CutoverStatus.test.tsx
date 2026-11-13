@@ -56,26 +56,26 @@ describe('the cutover status line', () => {
     await changeLanguage('en-AU');
   });
 
-  it('says nothing when nothing is running', async () => {
+  vaultIt('says nothing when nothing is running', async () => {
     mockUseCutoverSummary.mockReturnValue(settled('idle'));
     await render(<CutoverStatus />);
     expect(screen.queryByTestId(CUTOVER_STATUS_TEST_ID)).toBeNull();
   });
 
-  it('names the phase while the run holds the slot', async () => {
+  vaultIt('names the phase while the run holds the slot', async () => {
     mockUseCutoverSummary.mockReturnValue(running('detecting'));
     await render(<CutoverStatus />);
     expect(screen.getByTestId(CUTOVER_STATUS_TEST_ID)).toBeTruthy();
     expect(screen.getByText('Rebuilding sections: Detecting sections')).toBeTruthy();
   });
 
-  it('uses the preparing wording while the run drains', async () => {
+  vaultIt('uses the preparing wording while the run drains', async () => {
     mockUseCutoverSummary.mockReturnValue(running('draining'));
     await render(<CutoverStatus />);
     expect(screen.getByText('Rebuilding sections: Preparing catalogue')).toBeTruthy();
   });
 
-  it('names every phase a run can hold the slot in', async () => {
+  vaultIt('names every phase a run can hold the slot in', async () => {
     for (const phase of ['draining', 'archiving', 'detecting', 'diffing'] as const) {
       mockUseCutoverSummary.mockReturnValue(running(phase));
       const tree = await render(<CutoverStatus />);
@@ -87,7 +87,7 @@ describe('the cutover status line', () => {
     }
   });
 
-  it('goes away when the run settles', async () => {
+  vaultIt('goes away when the run settles', async () => {
     mockUseCutoverSummary.mockReturnValue(running('diffing'));
     const tree = await render(<CutoverStatus />);
     expect(screen.getByTestId(CUTOVER_STATUS_TEST_ID)).toBeTruthy();
@@ -128,7 +128,7 @@ describe('the cutover status line', () => {
     expect(screen.queryByText(/Your sections are unchanged/)).toBeNull();
   });
 
-  it('says nothing about a run that was already over when the screen opened', async () => {
+  vaultIt('says nothing about a run that was already over when the screen opened', async () => {
     mockUseCutoverSummary.mockReturnValue(settled('failed'));
     await render(<CutoverStatus />);
     expect(screen.queryByTestId(CUTOVER_STATUS_TEST_ID)).toBeNull();

@@ -78,7 +78,7 @@ describe('a recording notification with no ride behind it', () => {
     expect(installRecordingNotificationActions).toHaveBeenCalledTimes(1);
   });
 
-  it('is kept when the restored ride is paused', () => {
+  vaultIt('is kept when the restored ride is paused', () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     useRecordingStore.getState().pauseRecording();
     jest.clearAllMocks();
@@ -88,7 +88,7 @@ describe('a recording notification with no ride behind it', () => {
     expect(clearRecordingNotification).not.toHaveBeenCalled();
   });
 
-  it('reaps once per install, not on every status change afterwards', () => {
+  vaultIt('reaps once per install, not on every status change afterwards', () => {
     uninstall = installRecordingSession();
     jest.clearAllMocks();
 

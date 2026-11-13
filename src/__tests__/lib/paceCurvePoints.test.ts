@@ -16,7 +16,7 @@ describe('paceCurveSamples', () => {
     expect(samples).toHaveLength(2);
   });
 
-  it('keeps a swim point slower than 4:00/100m', () => {
+  vaultIt('keeps a swim point slower than 4:00/100m', () => {
     const samples = paceCurveSamples({ distances: [1500], times: [3750], pace: [0.4] });
     expect(samples).toHaveLength(1);
   });

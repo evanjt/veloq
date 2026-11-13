@@ -73,7 +73,7 @@ describe('insight card histories', () => {
     expect(printedEdges(card.supportingData?.history)).toEqual({ top: '4:00', bottom: '4:20' });
   });
 
-  it('does not mark a best effort outside the capped tail', () => {
+  vaultIt('does not mark a best effort outside the capped tail', () => {
     const [card] = generateSectionPRInsights(
       [
         {
@@ -99,7 +99,7 @@ describe('insight card histories', () => {
     expect(card.supportingData?.history).not.toHaveProperty('mark');
   });
 
-  it('marks the stale record at its activity', () => {
+  vaultIt('marks the stale record at its activity', () => {
     const row = {
       sectionId: 'ridge',
       sectionName: 'Ridge',
@@ -149,15 +149,15 @@ describe('insight card histories', () => {
     return card;
   }
 
-  it('omits a history of five readings, too few to draw', () => {
+  vaultIt('omits a history of five readings, too few to draw', () => {
     expect(hrvCard(5).supportingData?.history).toBeUndefined();
   });
 
-  it('draws a history from six readings', () => {
+  vaultIt('draws a history from six readings', () => {
     expect(hrvCard(6).supportingData?.history).toMatchObject({ kind: 'sparkline' });
   });
 
-  it('marks the HRV split over dated readings', () => {
+  vaultIt('marks the HRV split over dated readings', () => {
     const [card] = generateHrvTrendInsight(
       {
         label: 'trendingUp',
@@ -195,7 +195,7 @@ describe('insight card histories', () => {
     });
   });
 
-  it('marks the matched efficiency efforts', () => {
+  vaultIt('marks the matched efficiency efforts', () => {
     const trend = {
       sectionId: 'ridge',
       sectionName: 'Ridge',
@@ -231,7 +231,7 @@ describe('insight card histories', () => {
     });
   });
 
-  it('marks the FTP and pace comparison dates', () => {
+  vaultIt('marks the FTP and pace comparison dates', () => {
     const previousDate = 1_700_000_000;
     const latestDate = previousDate + DAY * 2;
     const points = [1, 2, 3, 4, 5, 6].map((day) => ({
@@ -317,7 +317,7 @@ describe('insight card histories', () => {
     });
   });
 
-  it('carries the decoded section line', () => {
+  vaultIt('carries the decoded section line', () => {
     const points = [
       { lat: 1, lng: 2 },
       { lat: 3, lng: 4 },
@@ -357,7 +357,7 @@ describe('the values a history prints at its edges, in its own unit', () => {
       t
     )[0];
 
-  it('prints the fastest time at the top of a stale record timeline', () => {
+  vaultIt('prints the fastest time at the top of a stale record timeline', () => {
     const [card] = generateStalePRInsights(
       [
         {
@@ -389,7 +389,7 @@ describe('the values a history prints at its edges, in its own unit', () => {
     expect(printedEdges(card.supportingData?.history)).toEqual({ top: '4:00', bottom: '4:20' });
   });
 
-  it('prints the highest reading at the top of the HRV sparkline, in milliseconds', () => {
+  vaultIt('prints the highest reading at the top of the HRV sparkline, in milliseconds', () => {
     expect(printedEdges(hrvCard().supportingData?.history)).toEqual({
       top: '55 ms',
       bottom: '50 ms',
@@ -479,7 +479,7 @@ describe('the values a history prints at its edges, in its own unit', () => {
     expect(printedEdges(byTime.supportingData?.history)).toEqual({ top: '2 h', bottom: '0 s' });
   });
 
-  it('prints the efficiency scale in heart rate times pace', () => {
+  vaultIt('prints the efficiency scale in heart rate times pace', () => {
     const [card] = generateEfficiencyTrendInsights(
       [
         {

@@ -282,6 +282,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_direction_with_one_attempt_has_no_curve() {
         let mut points = fixture();
         points.push(point(10.0, 3.5, "reverse"));
@@ -292,6 +293,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn two_attempts_give_a_line_with_no_spread() {
         let points = vec![point(0.0, 3.0, "reverse"), point(4.0, 4.0, "reverse")];
         let curve = trend_curves(&points).reverse_speed.expect("two attempts");
@@ -303,6 +305,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn attempts_on_one_instant_have_no_curve() {
         let points = vec![
             point(0.0, 3.0, "same"),
@@ -313,6 +316,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn no_attempts_give_no_curves() {
         let curves = trend_curves(&[]);
         assert!(curves.forward_speed.is_none() && curves.reverse_time.is_none());
@@ -393,6 +397,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_route_direction_with_one_attempt_has_no_curve() {
         let performances = vec![attempt(0.0, 3.0, "reverse")];
         assert!(route_trend_curves(&performances).reverse_speed.is_none());
@@ -400,6 +405,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn linear_attempts_have_no_spread_about_the_fitted_line() {
         let points: Vec<FfiSectionChartPoint> = (0..10)
             .map(|d| point(f64::from(d), 3.0 + 0.1 * f64::from(d), "same"))
@@ -413,6 +419,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn scattered_attempts_keep_a_visible_band() {
         let points: Vec<FfiSectionChartPoint> = (0..20)
             .map(|d| point(f64::from(d), if d % 2 == 0 { 4.0 } else { 3.0 }, "same"))

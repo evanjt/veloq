@@ -2,6 +2,7 @@ use super::*;
 use crate::test_globals::{init_global_engine, read_while_writer_holds, serial_global_state};
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_activity_intervals_return_while_engine_writer_holds() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("interval_body_under_writer.db");

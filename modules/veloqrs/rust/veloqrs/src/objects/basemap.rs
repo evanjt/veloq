@@ -222,6 +222,7 @@ mod tests {
     use crate::test_globals::serial_global_state;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_round_trips_and_the_store_answers_sizes_and_clears() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
@@ -270,6 +271,7 @@ mod tests {
     /// The ceiling holds for every tile stored after it is set, and survives a
     /// clear of the whole store.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_budget_holds_the_tiles_stored_after_it_and_outlives_a_clear() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
@@ -295,6 +297,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_store_with_no_path_refuses_a_budget_and_sizes_as_empty() {
         let _guard = serial_global_state();
         basemap::close();
@@ -312,6 +315,7 @@ mod tests {
     /// on the thread the settings hub mounts on. Expected behaviour: the app
     /// can flush on backgrounding, which leaves every source a sidecar.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn flushing_leaves_a_sidecar_for_a_source_under_the_flush_cadence() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
@@ -343,6 +347,7 @@ mod tests {
     /// write: a source the parse path misses is a tile nothing counts or ever
     /// evicts.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_flushed_sidecar_carries_every_tile_the_source_holds() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
@@ -373,6 +378,7 @@ mod tests {
     /// Backgrounding happens far more often than a tile is written, so the
     /// second flush and the flush of an empty store both have to be quiet.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn flushing_is_safe_with_nothing_owed_and_with_nothing_stored() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();

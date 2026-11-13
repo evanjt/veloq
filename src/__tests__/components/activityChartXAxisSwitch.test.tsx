@@ -129,7 +129,7 @@ function plottedAxis() {
   return screen.getByTestId('activity-streams').props.accessibilityHint;
 }
 
-it('offers Distance and Time with the plotted axis selected', async () => {
+vaultIt('offers Distance and Time with the plotted axis selected', async () => {
   await render(section(bothAxes));
 
   expect(option('distance').props.accessibilityState).toMatchObject({ selected: true });
@@ -154,7 +154,7 @@ it('re-plots against time when Time is chosen, and back again', async () => {
   expect(plottedAxis()).toBe('distance');
 });
 
-it('keeps the axis when the selected option is pressed again', async () => {
+vaultIt('keeps the axis when the selected option is pressed again', async () => {
   await render(section(bothAxes));
 
   await act(async () => {

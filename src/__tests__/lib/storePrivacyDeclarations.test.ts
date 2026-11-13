@@ -127,7 +127,7 @@ function withPermission(permission: string) {
 }
 
 describe('appJsonCarriers', () => {
-  it('names permissions, background modes, prompts and package plugins', () => {
+  vaultIt('names permissions, background modes, prompts and package plugins', () => {
     const app = {
       expo: {
         ios: {
@@ -151,14 +151,14 @@ describe('appJsonCarriers', () => {
     ]);
   });
 
-  it('names nothing for an app.json that grants nothing', () => {
+  vaultIt('names nothing for an app.json that grants nothing', () => {
     expect(appJsonCarriers({})).toEqual([]);
     expect(appJsonCarriers({ expo: {} })).toEqual([]);
   });
 });
 
 describe('privacyDeclarationGaps', () => {
-  it('passes a record that accounts for everything', () => {
+  vaultIt('passes a record that accounts for everything', () => {
     expect(privacyDeclarationGaps(greenhouseApp, greenhouseRecord())).toEqual([]);
   });
 
@@ -169,7 +169,7 @@ describe('privacyDeclarationGaps', () => {
     ]);
   });
 
-  it('refuses a permission accounted for on one store only', () => {
+  vaultIt('refuses a permission accounted for on one store only', () => {
     const record = greenhouseRecord();
     record.appStore.notCollected.push({
       what: 'seed packet scan',
@@ -182,7 +182,7 @@ describe('privacyDeclarationGaps', () => {
     ]);
   });
 
-  it('accepts a permission listed as not collected with a reason', () => {
+  vaultIt('accepts a permission listed as not collected with a reason', () => {
     const record = greenhouseRecord();
     for (const store of ['appStore', 'play'] as const) {
       record[store].notCollected.push({
@@ -195,7 +195,7 @@ describe('privacyDeclarationGaps', () => {
     expect(privacyDeclarationGaps(withPermission('CAMERA'), record)).toEqual([]);
   });
 
-  it('refuses a not-collected entry whose reason is none of the three', () => {
+  vaultIt('refuses a not-collected entry whose reason is none of the three', () => {
     const record = greenhouseRecord();
     for (const store of ['appStore', 'play'] as const) {
       record[store].notCollected.push({
@@ -211,7 +211,7 @@ describe('privacyDeclarationGaps', () => {
     ]);
   });
 
-  it('refuses a record entry for a capability app.json no longer grants', () => {
+  vaultIt('refuses a record entry for a capability app.json no longer grants', () => {
     const record = greenhouseRecord();
     record.noUserData.push({ carriers: ['permission:VIBRATE'], note: 'haptics' });
     expect(privacyDeclarationGaps(greenhouseApp, record)).toEqual([
@@ -244,7 +244,7 @@ describe('privacyDeclarationGaps', () => {
     ]);
   });
 
-  it('refuses a declaration of something the server does not hold', () => {
+  vaultIt('refuses a declaration of something the server does not hold', () => {
     const record = greenhouseRecord();
     record.appStore.dataTypes[0].holds.push('soilReadings');
     expect(privacyDeclarationGaps(greenhouseApp, record)).toEqual([
@@ -252,13 +252,13 @@ describe('privacyDeclarationGaps', () => {
     ]);
   });
 
-  it('asks nothing of an ephemeral item', () => {
+  vaultIt('asks nothing of an ephemeral item', () => {
     const record = greenhouseRecord();
     expect(record.serverHeld.some((i) => i.ephemeral)).toBe(true);
     expect(privacyDeclarationGaps(greenhouseApp, record)).toEqual([]);
   });
 
-  it('refuses "not linked" for an item filed under the account', () => {
+  vaultIt('refuses "not linked" for an item filed under the account', () => {
     const record = greenhouseRecord();
     record.appStore.dataTypes[1].linked = false;
     expect(privacyDeclarationGaps(greenhouseApp, record)).toEqual([
@@ -275,7 +275,7 @@ describe('privacyDeclarationGaps', () => {
     ]);
   });
 
-  it('accepts "cannot be deleted" when nothing kept has a deletion path', () => {
+  vaultIt('accepts "cannot be deleted" when nothing kept has a deletion path', () => {
     const record = greenhouseRecord();
     for (const item of record.serverHeld) item.deletion = [];
     record.play.deletion = { userCanRequest: false, paths: [] };
@@ -288,7 +288,7 @@ describe('the record in the tree', () => {
     expect(privacyDeclarationGaps(loadAppJson(), loadPrivacyRecord())).toEqual([]);
   });
 
-  it('declares the Android Drive backup on Play as going to the athlete only', () => {
+  vaultIt('declares the Android Drive backup on Play as going to the athlete only', () => {
     const record = loadPrivacyRecord();
     const drive = (entries: StorePrivacyRecord['play']['notCollected']) =>
       entries.filter((entry) => entry.what === 'Google Drive backups');

@@ -52,5 +52,3 @@ export type {
   ExerciseSummary,
   MuscleExerciseSummary,
 } from './types';
-
-export { demoStrengthSets } from './demo';

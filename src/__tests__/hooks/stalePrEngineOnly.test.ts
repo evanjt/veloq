@@ -37,7 +37,7 @@ const ROW: StalePrOpportunity = {
 };
 
 describe('generateStalePRInsights', () => {
-  it('renders what the bundle carries', () => {
+  vaultIt('renders what the bundle carries', () => {
     const insights = generateStalePRInsights([ROW], t, NOW);
 
     expect(insights).toHaveLength(1);
@@ -86,7 +86,7 @@ describe('generateStalePRInsights', () => {
     expect(card.supportingData?.history).toBeUndefined();
   });
 
-  it('renders nothing when the bundle carries none, rather than deciding for itself', () => {
+  vaultIt('renders nothing when the bundle carries none, rather than deciding for itself', () => {
     expect(generateStalePRInsights([], t, NOW)).toEqual([]);
   });
 

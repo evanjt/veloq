@@ -182,7 +182,7 @@ describe('a re-entry after a rejected key', () => {
     await settle();
     expect(screen.getByTestId('login-apikey-input').props.value).toBe(STORED_KEY);
   });
-  it('brings the key back into the field', async () => {
+  vaultIt('brings the key back into the field', async () => {
     await rememberCachedAthleteId(ATHLETE);
     keychain({ intervals_api_key: STORED_KEY, intervals_api_key_athlete_id: ATHLETE });
 
@@ -191,14 +191,17 @@ describe('a re-entry after a rejected key', () => {
     expect(screen.getByTestId('login-apikey-input').props.value).toBe(STORED_KEY);
   });
 
-  it('opens the key section, or the prefill is behind a tap nobody knows to make', async () => {
-    await rememberCachedAthleteId(ATHLETE);
-    keychain({ intervals_api_key: STORED_KEY, intervals_api_key_athlete_id: ATHLETE });
+  vaultIt(
+    'opens the key section, or the prefill is behind a tap nobody knows to make',
+    async () => {
+      await rememberCachedAthleteId(ATHLETE);
+      keychain({ intervals_api_key: STORED_KEY, intervals_api_key_athlete_id: ATHLETE });
 
-    await reEnter();
+      await reEnter();
 
-    expect(screen.getByTestId('login-apikey-button')).toBeTruthy();
-  });
+      expect(screen.getByTestId('login-apikey-button')).toBeTruthy();
+    }
+  );
 
   it('keeps the section shut when the key belongs to another athlete', async () => {
     await rememberCachedAthleteId(ATHLETE);
@@ -217,7 +220,7 @@ describe('a re-entry after a rejected key', () => {
     expect(screen.queryByTestId('login-apikey-input')).toBeNull();
   });
 
-  it('keeps the section shut after an explicit sign-out, which deletes the key', async () => {
+  vaultIt('keeps the section shut after an explicit sign-out, which deletes the key', async () => {
     await rememberCachedAthleteId(ATHLETE);
     keychain({});
 
@@ -228,7 +231,7 @@ describe('a re-entry after a rejected key', () => {
 });
 
 describe('a first sign-in', () => {
-  it('leaves the field empty, because there is no re-entry to prefill', async () => {
+  vaultIt('leaves the field empty, because there is no re-entry to prefill', async () => {
     await rememberCachedAthleteId(ATHLETE);
     keychain({ intervals_api_key: STORED_KEY, intervals_api_key_athlete_id: ATHLETE });
 
@@ -254,7 +257,7 @@ describe('the form itself', () => {
     );
   }
 
-  it('starts empty and shut without a prefill', async () => {
+  vaultIt('starts empty and shut without a prefill', async () => {
     await renderForm(null);
 
     expect(screen.queryByTestId('login-apikey-input')).toBeNull();

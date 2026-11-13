@@ -89,22 +89,22 @@ async function draw(props: Partial<React.ComponentProps<typeof AttemptHistogramC
 }
 
 describe('the attempt histogram key', () => {
-  it('names no record when there is no record time', async () => {
+  vaultIt('names no record when there is no record time', async () => {
     const tree = await draw({ recordTime: null });
     expect(tree.queryByTestId('attempt-histogram-record-key')).toBeNull();
   });
 
-  it('names no record when the record falls outside the bins', async () => {
+  vaultIt('names no record when the record falls outside the bins', async () => {
     const tree = await draw({ recordTime: 1200 });
     expect(tree.queryByTestId('attempt-histogram-record-key')).toBeNull();
   });
 
-  it('names the record when its line is drawn', async () => {
+  vaultIt('names the record when its line is drawn', async () => {
     const tree = await draw({ recordTime: 310 });
     expect(tree.getByTestId('attempt-histogram-record-key')).toHaveTextContent('sections.best');
   });
 
-  it('names this activity only when its line is drawn', async () => {
+  vaultIt('names this activity only when its line is drawn', async () => {
     expect(
       (await draw({ highlightedTime: null })).queryByTestId('attempt-histogram-highlight-key')
     ).toBeNull();
@@ -116,7 +116,7 @@ describe('the attempt histogram key', () => {
     ).toHaveTextContent('sections.legendThisActivity');
   });
 
-  it('gives each drawn line a row of its own', async () => {
+  vaultIt('gives each drawn line a row of its own', async () => {
     const tree = await draw({ recordTime: 310, highlightedTime: 340 });
     const key = tree.getByTestId('attempt-histogram-key');
     expect(within(key).getByTestId('attempt-histogram-record-key')).toBeTruthy();
@@ -131,7 +131,7 @@ describe.each(['light', 'dark'] as const)('the attempt histogram marks, %s', (sc
     mockScheme = scheme;
   });
 
-  it('draws capped rounded bars in the series colour', async () => {
+  vaultIt('draws capped rounded bars in the series colour', async () => {
     const bars = capture(RoundedRect);
     await draw();
 
@@ -143,7 +143,7 @@ describe.each(['light', 'dark'] as const)('the attempt histogram marks, %s', (sc
     }
   });
 
-  it('draws gridlines in the grid token and the baseline in the axis token', async () => {
+  vaultIt('draws gridlines in the grid token and the baseline in the axis token', async () => {
     const lines = capture(Line);
     await draw();
 
@@ -154,22 +154,25 @@ describe.each(['light', 'dark'] as const)('the attempt histogram marks, %s', (sc
     expect(across.some((l) => !isDashed(l) && l.color === tokens['chart-axis'])).toBe(true);
   });
 
-  it('draws the record dashed in the achievement text colour and this activity solid in ink', async () => {
-    const lines = capture(Line);
-    await draw({ recordTime: 310, highlightedTime: 340 });
+  vaultIt(
+    'draws the record dashed in the achievement text colour and this activity solid in ink',
+    async () => {
+      const lines = capture(Line);
+      await draw({ recordTime: 310, highlightedTime: 340 });
 
-    const marks = lines.filter(vertical);
-    const record = marks.filter((l) => l.color === tokens['achievement-text']);
-    const attempt = marks.filter((l) => l.color === tokens['text-primary']);
-    expect(record).toHaveLength(1);
-    expect(attempt).toHaveLength(1);
-    expect(isDashed(record[0])).toBe(true);
-    expect(isDashed(attempt[0])).toBe(false);
-  });
+      const marks = lines.filter(vertical);
+      const record = marks.filter((l) => l.color === tokens['achievement-text']);
+      const attempt = marks.filter((l) => l.color === tokens['text-primary']);
+      expect(record).toHaveLength(1);
+      expect(attempt).toHaveLength(1);
+      expect(isDashed(record[0])).toBe(true);
+      expect(isDashed(attempt[0])).toBe(false);
+    }
+  );
 });
 
 describe('the attempt histogram text', () => {
-  it('sets no text below the 12 px chart label', async () => {
+  vaultIt('sets no text below the 12 px chart label', async () => {
     const tree = await draw({ recordTime: 310, highlightedTime: 340 });
     const sizes = tree
       .UNSAFE_getAllByType(Text)
@@ -187,7 +190,7 @@ describe('the attempt histogram text', () => {
 });
 
 describe('the attempt histogram surface', () => {
-  it('speaks a summary and offers Show data', async () => {
+  vaultIt('speaks a summary and offers Show data', async () => {
     const tree = await draw();
     const surface = tree.getByTestId('attempt-histogram-plot');
     expect(surface.props.accessibilityRole).toBe('image');

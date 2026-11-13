@@ -82,7 +82,7 @@ describe('the insights computation and the experimental switch', () => {
     expect(lastExperimental()).toBe(false);
   });
 
-  it('computes with them when the switch is on at the visit', async () => {
+  vaultIt('computes with them when the switch is on at the visit', async () => {
     useDebugStore.setState({
       experimentalFeatures: {
         efficiencyTrends: true,

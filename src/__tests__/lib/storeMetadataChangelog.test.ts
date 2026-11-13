@@ -32,7 +32,7 @@ describe('changelogCharCount', () => {
     expect(changelogCharCount('a\n')).toBe(2);
   });
 
-  it('counts an empty file as nothing', () => {
+  vaultIt('counts an empty file as nothing', () => {
     expect(changelogCharCount('')).toBe(0);
   });
 
@@ -48,13 +48,13 @@ describe('validateMetadata', () => {
     expect(tooLong.map((e) => e.message)).toEqual([]);
   });
 
-  it('reports nothing else broken either', () => {
+  vaultIt('reports nothing else broken either', () => {
     expect(validateMetadata().map((e) => e.message)).toEqual([]);
   });
 });
 
 describe('unsupportedClaimsIn', () => {
-  it('refuses advice and patterns no insight kind produces', () => {
+  vaultIt('refuses advice and patterns no insight kind produces', () => {
     expect(
       unsupportedClaimsIn(
         'Daily insights: fitness milestones, activity patterns, and form advice. ' +
@@ -63,7 +63,7 @@ describe('unsupportedClaimsIn', () => {
     ).toEqual(['form advice', 'activity patterns', 'positive framing']);
   });
 
-  it('refuses a no-personal-data promise in any case and any locale', () => {
+  vaultIt('refuses a no-personal-data promise in any case and any locale', () => {
     expect(unsupportedClaimsIn('A device token, No Personal Data is retained.')).toEqual([
       'no personal data kept',
     ]);
@@ -73,7 +73,7 @@ describe('unsupportedClaimsIn', () => {
     expect(unsupportedClaimsIn('不保留任何个人数据')).toEqual(['no personal data kept']);
   });
 
-  it('accepts a listing that names what the server stores', () => {
+  vaultIt('accepts a listing that names what the server stores', () => {
     expect(
       unsupportedClaimsIn(
         'Section PRs and trends, HRV trends. Optional push notifications store your ' +
@@ -82,7 +82,7 @@ describe('unsupportedClaimsIn', () => {
     ).toEqual([]);
   });
 
-  it('refuses a conformance claim to an accessibility standard', () => {
+  vaultIt('refuses a conformance claim to an accessibility standard', () => {
     expect(unsupportedClaimsIn('Meets WCAG 2.2 AA for every screen.')).toEqual([
       'accessibility conformance',
     ]);
@@ -93,7 +93,7 @@ describe('unsupportedClaimsIn', () => {
     expect(unsupportedClaimsIn('完全无障碍')).toEqual(['accessibility conformance']);
   });
 
-  it('accepts a sentence naming the accessibility the app supports', () => {
+  vaultIt('accepts a sentence naming the accessibility the app supports', () => {
     expect(
       unsupportedClaimsIn(
         'Accessibility: screen reader labels on every control, text that follows your ' +
@@ -102,20 +102,20 @@ describe('unsupportedClaimsIn', () => {
     ).toEqual([]);
   });
 
-  it('refuses a feature promised behind a purchase', () => {
+  vaultIt('refuses a feature promised behind a purchase', () => {
     expect(unsupportedClaimsIn('Upgrade to Pro to unlock every section.')).toEqual(['paywall']);
     expect(unsupportedClaimsIn('Premium maps and paid features.')).toEqual(['paywall']);
     expect(unsupportedClaimsIn('Jetzt auf Premium upgraden.')).toEqual(['paywall']);
   });
 
-  it('finds no unsupported claim in any store description', () => {
+  vaultIt('finds no unsupported claim in any store description', () => {
     const claims = validateMetadata().filter((e) => e.type === 'unsupported_claim');
     expect(claims.map((e) => e.message)).toEqual([]);
   });
 });
 
 describe('oversizedChangelogs', () => {
-  it('finds no changelog over the cap, for any version code', () => {
+  vaultIt('finds no changelog over the cap, for any version code', () => {
     expect(oversizedChangelogs().map((e) => e.message)).toEqual([]);
   });
 });

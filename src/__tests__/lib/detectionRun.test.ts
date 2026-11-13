@@ -85,7 +85,7 @@ describe('following a detection run', () => {
     await expect(settled).resolves.toBe('error');
   });
 
-  it('settles on the poll verdict when the slot reads idle', async () => {
+  vaultIt('settles on the poll verdict when the slot reads idle', async () => {
     const { engine, announce } = engineWith();
     const { settled } = followDetection(engine as never);
 
@@ -95,7 +95,7 @@ describe('following a detection run', () => {
     await expect(settled).resolves.toBe('idle');
   });
 
-  it('keeps the failed verdict after the worker cleared its slot', async () => {
+  vaultIt('keeps the failed verdict after the worker cleared its slot', async () => {
     const { engine, announce } = engineWith();
     const { settled } = followDetection(engine as never);
 
@@ -105,7 +105,7 @@ describe('following a detection run', () => {
     await expect(settled).resolves.toBe('error');
   });
 
-  it('reads a completed run after the worker cleared its slot', async () => {
+  vaultIt('reads a completed run after the worker cleared its slot', async () => {
     const { engine, announce } = engineWith();
     const { settled } = followDetection(engine as never);
 
@@ -245,7 +245,7 @@ describe('following a detection run', () => {
     expect(engine.pollSectionDetection).toHaveBeenCalledTimes(1);
   });
 
-  it('treats an engine that cannot say as able to announce', () => {
+  vaultIt('treats an engine that cannot say as able to announce', () => {
     const { engine } = engineWith();
     followDetection(engine as never);
 

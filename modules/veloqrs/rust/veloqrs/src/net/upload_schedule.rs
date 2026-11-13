@@ -187,6 +187,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn nothing_pending_drains_nothing() {
         let r = run(1_000, |_| None, |_| false, 3);
         assert_eq!(r.drained, 0);
@@ -199,12 +200,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_due_ride_while_offline_is_not_drained() {
         let r = run(1_000, |_| Some(0), |_| true, 3);
         assert_eq!(r.drained, 0);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ride_due_later_sleeps_to_its_time_then_drains_once() {
         let r = run(
             1_000,
@@ -226,12 +229,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_far_off_due_time_is_re_read_within_the_resting_wait() {
         let r = run(0, |_| Some(i64::MAX / 2), |_| false, 1);
         assert_eq!(r.waits[0], RESTING_WAIT);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ride_still_due_after_a_drain_is_drained_again_after_resting() {
         let r = run(0, |_| Some(0), |_| false, 3);
         assert_eq!(r.drained, 3);
@@ -239,6 +244,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn coming_back_online_drains_a_due_ride_at_the_next_wake() {
         let r = run(
             0,
@@ -250,12 +256,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_sweep_runs_once_at_the_start_and_after_every_drain() {
         let r = run(0, |_| Some(0), |_| false, 2);
         assert_eq!(r.order, "sdsds");
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_wake_with_nothing_drained_runs_no_sweep_after_the_first() {
         let r = run(1_000, |_| None, |_| false, 3);
         assert_eq!(r.order, "s");
@@ -264,12 +272,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sweep_that_left_work_owed_runs_again_on_an_idle_online_wake() {
         let r = run_with_sweeps(1_000, |_| None, |_| false, 3, vec![true]);
         assert_eq!(r.order, "ss");
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn owed_work_waits_for_the_connection_before_its_sweep() {
         let offline_for_one_rest = |now: i64| now < 1_000 + RESTING_WAIT.as_millis() as i64;
         let r = run_with_sweeps(1_000, |_| None, offline_for_one_rest, 3, vec![true]);

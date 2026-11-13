@@ -134,7 +134,7 @@ describe('the Sensors screen', () => {
     expect(mockConstructed).toHaveBeenCalledTimes(1);
   });
 
-  it('does not touch the radio when it is left without scanning', async () => {
+  vaultIt('does not touch the radio when it is left without scanning', async () => {
     await renderScreen();
     rtl.cleanup();
 

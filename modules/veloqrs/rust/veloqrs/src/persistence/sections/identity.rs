@@ -3029,6 +3029,7 @@ mod tests {
     /// Expected behaviour: the first takes the cell's id and the second its
     /// next ordinal, and neither id names a sport.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_minted_id_names_the_cell_and_no_sport() {
         let line = track();
         let first = content_id_for(&line, &BTreeSet::new()).expect("a line has a heart");
@@ -3052,6 +3053,7 @@ mod tests {
     /// Expected behaviour: the row the registry carries out is labelled Run,
     /// the sport its members do, and not the label it arrived with.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_carried_row_takes_its_members_dominant_sport() {
         let dir = TempDir::new().expect("tempdir");
         let mut engine =
@@ -3083,6 +3085,7 @@ mod tests {
     /// A row none of whose members has a known sport keeps its label, and a
     /// row already matching its members is unchanged.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn relabelling_leaves_rows_without_known_member_sports_alone() {
         let row = |id: &str, sport: &str, members: &[&str]| {
             let section = FrequentSection {
@@ -3119,6 +3122,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn split_piece_order_follows_the_parent_line_in_either_direction() {
         let parent: Vec<GpsPoint> = (0..5)
             .map(|i| GpsPoint::new(46.0, 7.0 + i as f64 * 0.001))
@@ -3148,6 +3152,7 @@ mod tests {
     /// hands it is one of the ones that works, since that constant is a single
     /// line nothing else guards.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_shipped_merge_size_ratio_refuses_the_small_senior_capture() {
         let long: Vec<GpsPoint> = (0..120)
             .map(|i| GpsPoint::new(46.0 + i as f64 * 0.0001, 7.0))
@@ -3215,6 +3220,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn lifecycle_events_count_as_added_changed_and_retired() {
         let events: Vec<_> = [
             "formed",
@@ -3456,6 +3462,7 @@ mod tests {
     /// What the version byte is now standing in front of: the encoding this
     /// replaced could not read its own output for such a section.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_positional_encoding_could_not_read_its_own_output() {
         let dir = TempDir::new().expect("tempdir");
         let engine = engine_holding(&dir, section_without_elevation());
@@ -3488,6 +3495,7 @@ mod tests {
     /// birth date, version, recalibration stamp and sport), not the line and
     /// members of a section nobody can see.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_grave_costs_what_a_restore_reads_and_no_more() {
         const GRAVES: usize = 50;
         // The named body is what a restore decodes and a clone copies. The
@@ -3666,6 +3674,7 @@ mod tests {
     /// Expected behaviour: the short senior does not take the long corridor and
     /// the prior that described it is not tombstoned.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_shipped_merge_guards_deny_a_marginal_senior_the_corridor() {
         let long: Vec<GpsPoint> = (0..120)
             .map(|i| GpsPoint {
@@ -3742,6 +3751,7 @@ mod tests {
     /// The cached blob is still the first answer, so the ordinary read costs
     /// no rebuild.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_durable_intent_ground_reads_the_cache_when_it_is_there() {
         let dir = TempDir::new().expect("tempdir");
         let engine = engine_with_durable_row(&dir);
@@ -3923,6 +3933,7 @@ mod tests {
     /// valley minted at the first is re-cut at the fourth, a step whose
     /// catalogue is carried over unchanged.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_replay_of_arrivals_lands_where_one_apply_per_arrival_lands() {
         let one_by_one_dir = TempDir::new().expect("tempdir");
         let (mut one_by_one, mut one_by_one_identity) = seeded(&one_by_one_dir);
@@ -4021,6 +4032,7 @@ mod tests {
     /// Expected behaviour: the re-cut names the activities of the two forks
     /// that name its cut, and not the neighbour's, whatever the distances.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_change_names_the_forks_that_name_its_cut() {
         let dir = TempDir::new().expect("tempdir");
         let (mut engine, mut identity) = seeded(&dir);
@@ -4095,6 +4107,7 @@ mod tests {
     /// and the backoff are kept by neither. A step that fires no event keeps
     /// nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_change_keeps_the_reasons_that_name_its_cut() {
         let dir = TempDir::new().expect("tempdir");
         let (mut engine, mut identity) = seeded(&dir);
@@ -4173,6 +4186,7 @@ mod tests {
     /// taken at and the neighbour's persisted id, a neighbour that has no
     /// persisted row is left out, and the cliff is not the valley's.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_kept_reason_names_its_place_and_its_neighbour_by_persisted_id() {
         let at = GpsPoint::new(46.002, 7.001);
         let records = vec![
@@ -4199,6 +4213,7 @@ mod tests {
     /// Expected behaviour: neither event carries a `boundaries` key, so a
     /// reader renders an event with no reason, not an empty list of them.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_change_with_no_reason_writes_no_reason() {
         let dir = TempDir::new().expect("tempdir");
         let (mut engine, mut identity) = seeded(&dir);
@@ -4224,6 +4239,7 @@ mod tests {
     /// None of the rides passed the hill and no cut took its ground, so its
     /// absence is one step, however many rides the step covered.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn one_apply_for_many_arrivals_steps_the_debounce_once() {
         let dir = TempDir::new().expect("tempdir");
         let (mut engine, mut identity) = seeded(&dir);
@@ -4253,6 +4269,7 @@ mod tests {
     /// it and once as the whole-batch form.
     /// Expected behaviour: the two are the same apply.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_one_step_replay_is_the_whole_batch_apply() {
         let catalogue = valley_catalogues().remove(0);
         let whole_dir = TempDir::new().expect("tempdir");
@@ -4293,6 +4310,7 @@ mod tests {
     /// visible catalogue is the one the registry held, and there is no raw
     /// catalogue to store.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_replay_steps_nothing() {
         let dir = TempDir::new().expect("tempdir");
         let (mut engine, mut identity) = seeded(&dir);

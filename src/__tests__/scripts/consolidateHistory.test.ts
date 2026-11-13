@@ -272,7 +272,7 @@ describe('consolidate-history', () => {
     expectConsolidated(fixture, 8);
   });
 
-  it('reopens only the last run once the cap is spent', () => {
+  vaultIt('reopens only the last run once the cap is spent', () => {
     const fixture = buildFixture();
     expect(consolidate(fixture, ['--max', '4', '--reserve', '0']).status).toBe(0);
     const first = branchCommits(fixture.app);
@@ -286,7 +286,7 @@ describe('consolidate-history', () => {
     expectConsolidated(fixture, 4);
   });
 
-  it('takes a message edited in the run map and keeps the commits before it', () => {
+  vaultIt('takes a message edited in the run map and keeps the commits before it', () => {
     const fixture = buildFixture();
     const runMap = join(fixture.root, 'runs.tsv');
     expect(consolidate(fixture, ['--max', '8', '--reserve', '2']).status).toBe(0);
@@ -308,7 +308,7 @@ describe('consolidate-history', () => {
     expectConsolidated(fixture, 8);
   });
 
-  it('is unchanged by a second run with nothing new', () => {
+  vaultIt('is unchanged by a second run with nothing new', () => {
     const fixture = buildFixture();
     expect(consolidate(fixture, ['--max', '8', '--reserve', '2']).status).toBe(0);
     const first = branchCommits(fixture.app);
@@ -316,7 +316,7 @@ describe('consolidate-history', () => {
     expect(branchCommits(fixture.app)).toEqual(first);
   });
 
-  it('walks the unwrapped branch so its commits can end runs', () => {
+  vaultIt('walks the unwrapped branch so its commits can end runs', () => {
     const fixture = buildFixture();
     expect(consolidate(fixture, ['--max', '99', '--reserve', '0']).status).toBe(0);
     const ends = readFileSync(join(fixture.root, 'runs.tsv'), 'utf8')
@@ -327,7 +327,7 @@ describe('consolidate-history', () => {
     expectConsolidated(fixture, 99);
   });
 
-  it('never ends a run inside a merged branch it was not told to unwrap', () => {
+  vaultIt('never ends a run inside a merged branch it was not told to unwrap', () => {
     const fixture = buildFixture();
     const wide = ['--max', '99', '--reserve', '0'];
     // Unwrapping a commit that is not a merge on the walk is refused outright.

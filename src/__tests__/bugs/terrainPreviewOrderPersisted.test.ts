@@ -93,13 +93,13 @@ describe('reconciling the stored order against the directory', () => {
     expect(reconcileTerrainOrder([], ['a', 'b'])).toEqual(['a', 'b']);
   });
 
-  it('is nothing when the directory is empty, whatever the order said', () => {
+  vaultIt('is nothing when the directory is empty, whatever the order said', () => {
     expect(reconcileTerrainOrder(['a', 'b'], [])).toEqual([]);
   });
 });
 
 describe('the cache index across a launch', () => {
-  it('records the order when a preview is saved', async () => {
+  vaultIt('records the order when a preview is saved', async () => {
     await initTerrainPreviewCache();
     await saveTerrainPreview('a1', 'light', FLAT, 'one');
     await saveTerrainPreview('a2', 'light', FLAT, 'two');
@@ -133,7 +133,7 @@ describe('the cache index across a launch', () => {
     expect(hasTerrainPreview('a1', 'light', FLAT)).toBe(true);
   });
 
-  it('forgets the order when the cache is cleared', async () => {
+  vaultIt('forgets the order when the cache is cleared', async () => {
     await initTerrainPreviewCache();
     await saveTerrainPreview('a1', 'light', FLAT, 'one');
 

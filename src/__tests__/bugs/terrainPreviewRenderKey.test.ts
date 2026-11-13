@@ -72,7 +72,7 @@ describe('terrain preview cache keys the render, not just the style', () => {
     expect(hasTerrainPreview('a1', 'light', DRAPED)).toBe(false);
   });
 
-  it('holds the two renders of one activity as two files', async () => {
+  vaultIt('holds the two renders of one activity as two files', async () => {
     await saveTerrainPreview('a1', 'light', FLAT, 'flatbytes');
     await saveTerrainPreview('a1', 'light', DRAPED, 'drapedbytes');
 

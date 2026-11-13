@@ -63,7 +63,7 @@ describe('intervalTypeLabel', () => {
     ).toBe('Z4');
   });
 
-  it('labels a work interval with no zone colour, as it did before', () => {
+  vaultIt('labels a work interval with no zone colour, as it did before', () => {
     expect(intervalTypeLabel({ kind: IntervalKind.Work, zone: null, zoneColoured: false })).toBe(
       'Work'
     );
@@ -77,7 +77,7 @@ describe('intervalTypeLabel', () => {
     ).toBe('openers');
   });
 
-  it('names recovery and rest the way the table already does', () => {
+  vaultIt('names recovery and rest the way the table already does', () => {
     expect(
       intervalTypeLabel({ kind: IntervalKind.Recovery, zone: null, zoneColoured: false })
     ).toBe('Rec');
@@ -86,7 +86,7 @@ describe('intervalTypeLabel', () => {
     );
   });
 
-  it('lets an athlete name a recovery interval too', () => {
+  vaultIt('lets an athlete name a recovery interval too', () => {
     expect(
       intervalTypeLabel({
         kind: IntervalKind.Recovery,
@@ -97,7 +97,7 @@ describe('intervalTypeLabel', () => {
     ).toBe('jog back');
   });
 
-  it('names a warm up and a cool down from the locale, never by the raw type', () => {
+  vaultIt('names a warm up and a cool down from the locale, never by the raw type', () => {
     expect(intervalTypeLabel({ kind: IntervalKind.Warmup, zone: null, zoneColoured: false })).toBe(
       'WU'
     );

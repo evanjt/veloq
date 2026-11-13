@@ -69,16 +69,16 @@ const FONTS = {
   'assets/fonts/Quillwork-Bold.ttf': 'font bytes',
 };
 
-it('passes fonts with their licence beside them, named by the plugin', () => {
+vaultIt('passes fonts with their licence beside them, named by the plugin', () => {
   const result = runOn({ ...FONTS, 'assets/fonts/Quillwork-OFL.txt': OFL }, config(PATHS));
   expect(result).toEqual({ status: 0, output: '' });
 });
 
-it('passes a tree with no fonts and no plugin entry', () => {
+vaultIt('passes a tree with no fonts and no plugin entry', () => {
   expect(runOn({}, { expo: { plugins: [] } }).status).toBe(0);
 });
 
-it('refuses a font with no licence beside it', () => {
+vaultIt('refuses a font with no licence beside it', () => {
   const result = runOn(
     { ...FONTS, 'assets/fonts/Quillwork-OFL.txt': OFL, 'assets/fonts/Inkline-Bold.otf': 'x' },
     config(PATHS)
@@ -89,7 +89,7 @@ it('refuses a font with no licence beside it', () => {
   expect(result.output).not.toContain('Quillwork-Regular.ttf has no');
 });
 
-it('refuses a licence file that is not the OFL', () => {
+vaultIt('refuses a licence file that is not the OFL', () => {
   const result = runOn(
     { ...FONTS, 'assets/fonts/Quillwork-OFL.txt': 'All rights reserved.\n' },
     config(PATHS)

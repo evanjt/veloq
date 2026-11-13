@@ -131,6 +131,7 @@ fn ids(engine: &PersistentEngine, limit: u32) -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn truncating_the_ranking_drops_the_stale_candidate() {
     let (engine, _tmp) = seeded();
 
@@ -144,6 +145,7 @@ fn truncating_the_ranking_drops_the_stale_candidate() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_uncapped_ranking_keeps_it() {
     let (engine, _tmp) = seeded();
 
@@ -220,6 +222,7 @@ fn the_stale_section_keeps_every_one_of_its_traversals() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_threshold_nothing_meets_returns_nothing() {
     let (engine, _tmp) = seeded();
 
@@ -232,6 +235,7 @@ fn a_threshold_nothing_meets_returns_nothing() {
 /// A threshold of zero is every section, which is the whole ranked list. This
 /// pins that the narrowing is a filter and not a different query.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_zero_threshold_is_every_section() {
     let (engine, _tmp) = seeded();
 
@@ -242,6 +246,7 @@ fn a_zero_threshold_is_every_section() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_stale_query_answers_nothing_for_a_sport_with_no_sections() {
     let (engine, _tmp) = seeded();
 

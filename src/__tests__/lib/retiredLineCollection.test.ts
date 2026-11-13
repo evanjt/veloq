@@ -85,23 +85,26 @@ const DATA = {
 const ids = (c: GeoJSON.FeatureCollection) => c.features.map((f) => f.properties?.id);
 
 describe('the retired lines', () => {
-  it('draws each retired and each current row in its own collection', () => {
+  vaultIt('draws each retired and each current row in its own collection', () => {
     const { retired: r, current: c } = buildRetiredLines(DATA, { decode });
 
     expect(ids(r)).toEqual(['r-north', 'r-far']);
     expect(ids(c)).toEqual(['c-north', 'c-hidden', 'c-south']);
   });
 
-  it('leaves a row with no decodable line out of the collections and keeps it in the list', () => {
-    const { retired: r, current: c, rows } = buildRetiredLines(DATA, { decode });
+  vaultIt(
+    'leaves a row with no decodable line out of the collections and keeps it in the list',
+    () => {
+      const { retired: r, current: c, rows } = buildRetiredLines(DATA, { decode });
 
-    expect(ids(r)).not.toContain('r-bare');
-    expect(ids(c)).not.toContain('c-empty');
-    expect(rows.map((row) => row.id)).toEqual(['r-north', 'r-bare', 'r-far']);
-    expect(rows.find((row) => row.id === 'r-bare')?.hasLine).toBe(false);
-  });
+      expect(ids(r)).not.toContain('r-bare');
+      expect(ids(c)).not.toContain('c-empty');
+      expect(rows.map((row) => row.id)).toEqual(['r-north', 'r-bare', 'r-far']);
+      expect(rows.find((row) => row.id === 'r-bare')?.hasLine).toBe(false);
+    }
+  );
 
-  it('carries the pair ids on both sides of a pair', () => {
+  vaultIt('carries the pair ids on both sides of a pair', () => {
     const { retired: r, current: c } = buildRetiredLines(DATA, { decode });
 
     expect(r.features[0]?.properties?.pairIds).toBe('c-north,c-hidden');
@@ -109,13 +112,13 @@ describe('the retired lines', () => {
     expect(c.features[2]?.properties?.pairIds).toBe('');
   });
 
-  it('flags a hidden current row', () => {
+  vaultIt('flags a hidden current row', () => {
     const { current: c } = buildRetiredLines(DATA, { decode });
 
     expect(c.features.map((f) => f.properties?.hidden)).toEqual([false, true, false]);
   });
 
-  it('keeps only the lines that touch the area', () => {
+  vaultIt('keeps only the lines that touch the area', () => {
     const area = { sw: [7.4, 46.9] as LngLat, ne: [7.5, 47.0] as LngLat };
     const { retired: r, current: c, rows } = buildRetiredLines(DATA, { decode, area });
 
@@ -124,14 +127,14 @@ describe('the retired lines', () => {
     expect(rows).toHaveLength(3);
   });
 
-  it('marks nothing as selected before a tap', () => {
+  vaultIt('marks nothing as selected before a tap', () => {
     const { retired: r, current: c, selection } = buildRetiredLines(DATA, { decode });
 
     expect([...r.features, ...c.features].every((f) => f.properties?.role === 'idle')).toBe(true);
     expect(selection.features).toHaveLength(0);
   });
 
-  it('marks the selected line and its pairs and nothing else', () => {
+  vaultIt('marks the selected line and its pairs and nothing else', () => {
     const {
       retired: r,
       current: c,
@@ -147,7 +150,7 @@ describe('the retired lines', () => {
     expect(ids(selection)).toEqual(['r-north', 'c-north', 'c-hidden']);
   });
 
-  it('selects from the current side and reaches the retired line it pairs with', () => {
+  vaultIt('selects from the current side and reaches the retired line it pairs with', () => {
     const { retired: r, current: c } = buildRetiredLines(DATA, { decode, selectedId: 'c-north' });
 
     expect(c.features[0]?.properties?.role).toBe('selected');
@@ -155,7 +158,7 @@ describe('the retired lines', () => {
     expect(c.features[1]?.properties?.role).toBe('other');
   });
 
-  it('is empty for an empty read', () => {
+  vaultIt('is empty for an empty read', () => {
     const empty = buildRetiredLines(
       { retired: [], current: [], pairs: [], pairsPending: false },
       { decode }
@@ -211,14 +214,14 @@ describe('naming the pair of a tapped line', () => {
     expect(describeRetiredSelection(data, 'r-far')?.distanceMeters).toBeNull();
   });
 
-  it('carries whether the ground pairs are still owed into the selection', () => {
+  vaultIt('carries whether the ground pairs are still owed into the selection', () => {
     expect(describeRetiredSelection(DATA, 'r-north')?.pairsPending).toBe(false);
     expect(describeRetiredSelection({ ...DATA, pairsPending: true }, 'c-north')?.pairsPending).toBe(
       true
     );
   });
 
-  it('keeps a restored section’s pair selectable from both live rows', () => {
+  vaultIt('keeps a restored section’s pair selectable from both live rows', () => {
     const data = {
       retired: [],
       current: [current('c-restored', buf(1)), current('c-hidden', buf(1), { hidden: true })],
@@ -234,7 +237,7 @@ describe('naming the pair of a tapped line', () => {
     ]);
   });
 
-  it('names the retired sections from the current side', () => {
+  vaultIt('names the retired sections from the current side', () => {
     const named = describeRetiredSelection(DATA, 'c-north');
 
     expect(named?.kind).toBe('current');
@@ -243,7 +246,7 @@ describe('naming the pair of a tapped line', () => {
     expect([named?.pairs[0]?.distanceMeters, named?.pairs[0]?.visitCount]).toEqual([900, 7]);
   });
 
-  it('answers an unpaired section with no pairs and an unknown id with nothing', () => {
+  vaultIt('answers an unpaired section with no pairs and an unknown id with nothing', () => {
     expect(describeRetiredSelection(DATA, 'r-far')?.pairs).toEqual([]);
     expect(describeRetiredSelection(DATA, 'nope')).toBeNull();
   });
@@ -255,7 +258,7 @@ describe('the area the retired layer opens on', () => {
   const here = centre('1043:165', 46.95, 7.44);
   const there = centre('1051:197', 47.3, 8.9);
 
-  it('picks the area holding the most retired lines', () => {
+  vaultIt('picks the area holding the most retired lines', () => {
     const data = {
       ...DATA,
       retired: [retired('a', buf(1)), retired('b', buf(1)), retired('c', buf(3))],
@@ -264,7 +267,7 @@ describe('the area the retired layer opens on', () => {
     expect(busiestCentre([there, here], data, decode)).toBe(here);
   });
 
-  it('keeps the first area when no retired line falls in any of them', () => {
+  vaultIt('keeps the first area when no retired line falls in any of them', () => {
     expect(busiestCentre([there, here], { ...DATA, retired: [] }, decode)).toBe(there);
     expect(busiestCentre([], DATA, decode)).toBeNull();
   });
@@ -278,11 +281,11 @@ describe('the area a named retired line is in', () => {
     retired: [retired('a', buf(1)), retired('b', buf(1)), retired('c', buf(3))],
   };
 
-  it('picks the area holding that line, not the busiest one', () => {
+  vaultIt('picks the area holding that line, not the busiest one', () => {
     expect(centreHoldingRetired([north, far], data, 'c', decode)).toBe(far);
   });
 
-  it('falls back to the busiest area for an id with no line', () => {
+  vaultIt('falls back to the busiest area for an id with no line', () => {
     expect(centreHoldingRetired([north, far], data, 'missing', decode)).toBe(north);
   });
 });

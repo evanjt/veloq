@@ -546,6 +546,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unlisted_sport_takes_the_entry_for_unlisted_sports_and_a_family_has_no_fallback() {
         let settings = SportSettings::parse(Some(SETTINGS));
 
@@ -564,6 +565,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_first_entry_listing_a_sport_wins_over_a_later_one() {
         let settings = SportSettings::parse(Some(
             r#"[{"types":["Ride"],"ftp":200},{"types":["Ride","VirtualRide"],"ftp":300}]"#,
@@ -602,6 +604,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn power_zones_place_nothing_without_a_reading_an_ftp_or_usable_bounds() {
         let settings = SportSettings::parse(Some(SETTINGS));
         let ride = settings.entry_for("Ride").unwrap();
@@ -625,6 +628,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_that_is_not_an_array_has_no_entries() {
         for raw in [
             None,
@@ -662,6 +666,7 @@ mod tests {
     const DAY: i64 = 86_400;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_library_with_only_files_answers_the_newest_files_figures() {
         let conn = settings_db();
         record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
@@ -698,6 +703,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_date_before_every_file_answers_the_earliest_file() {
         let conn = settings_db();
         record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
@@ -708,6 +714,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sport_with_no_file_figures_answers_none_but_the_profile_follows_the_athlete() {
         let conn = settings_db();
         record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
@@ -719,6 +726,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_file_with_no_figures_records_nothing() {
         let conn = settings_db();
         record_file_thresholds(&conn, "Ride", DAY, &crate::fit::FitThresholds::default()).unwrap();
@@ -729,6 +737,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_file_repeating_the_figures_in_force_adds_no_record() {
         let conn = settings_db();
         record_file_thresholds(&conn, "Ride", 10 * DAY, &read(240.0, 170.0)).unwrap();
@@ -796,6 +805,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_sport_settings_body_answers_before_the_files() {
         let conn = settings_db();
         conn.execute(
@@ -834,6 +844,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_thresholds_screen_shows_the_files_then_the_athletes_figure_then_the_files_again() {
         use crate::{FfiThresholdField as Field, FfiThresholdSource as Source};
         let conn = settings_db();

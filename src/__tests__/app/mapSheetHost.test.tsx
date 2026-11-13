@@ -236,7 +236,7 @@ describe('a map sheet host', () => {
     expect(presentedStop()).toBe(MAP_SHEET_PEEK_STOP);
   });
 
-  it('draws a strip over the map’s leading edge for the iOS edge swipe', async () => {
+  vaultIt('draws a strip over the map’s leading edge for the iOS edge swipe', async () => {
     await openOrchard();
 
     expect(app.getByTestId('map-sheet-back-edge', { includeHiddenElements: true })).toBeTruthy();
@@ -328,7 +328,7 @@ describe('a map sheet host', () => {
       expect(app.getByTestId('orchard-card')).toHaveTextContent('pear:quince');
     });
 
-    it('leaves the host in one press of Android back', async () => {
+    vaultIt('leaves the host in one press of Android back', async () => {
       Platform.OS = 'android';
       const back = stubHardwareBack();
       try {

@@ -471,6 +471,7 @@ mod tests {
     /// An electric mountain bike is ridden, measures power and is drawn as a
     /// ride, and its assisted climbing counts toward no climbing best.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_electric_mountain_bike_is_cycling_with_assisted_climbing() {
         assert!(is_cycling("EMountainBikeRide"));
         assert!(measures_power("EMountainBikeRide"));
@@ -491,6 +492,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn running_and_walking_are_paces_and_not_cycling() {
         for sport in RUNNING.iter().chain(WALKING) {
             assert!(shows_pace(sport), "{sport}");
@@ -501,6 +503,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn swimming_is_neither_a_kilometre_pace_nor_power() {
         for sport in SWIMMING {
             assert!(is_swimming(sport), "{sport}");
@@ -509,6 +512,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn only_the_simulated_sports_are_virtual() {
         for sport in ["VirtualRide", "VirtualRun", "VirtualRow"] {
             assert!(is_virtual(sport), "{sport}");
@@ -527,6 +531,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn rowing_measures_power_without_being_cycling() {
         assert!(measures_power("Rowing"));
         assert!(measures_power("VirtualRow"));
@@ -537,6 +542,7 @@ mod tests {
     /// twice the number, while a ride's revolutions and a swim's strokes show
     /// as stored.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn cadence_is_steps_on_foot_and_as_stored_elsewhere() {
         use crate::FfiCadenceUnit::*;
         assert_eq!(cadence_unit("Run"), StepsPerMinute);
@@ -563,6 +569,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unknown_sport_answers_no_to_everything_and_is_its_own_family() {
         for sport in ["", "Unicycle", "ride", "RIDE", "Rid"] {
             assert!(!is_cycling(sport), "{sport}");
@@ -573,6 +580,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_family_is_the_whole_list_from_any_member() {
         assert_eq!(family_of("Cyclocross"), CYCLING.to_vec());
         assert_eq!(family_of("Treadmill"), RUNNING.to_vec());
@@ -581,6 +589,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_missing_or_empty_sport_is_other_and_a_reported_one_is_kept() {
         assert_eq!(sport_or_unknown(None), "Other");
         assert_eq!(sport_or_unknown(Some("")), "Other");
@@ -598,6 +607,7 @@ mod tests {
     /// A chip claims its family and Other takes the rest, so a sport the
     /// athlete takes up next year is under a chip the day it syncs.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_sport_answers_to_one_feed_chip_and_other_takes_the_rest() {
         use crate::FfiSportFamily;
         for (name, sports) in FAMILIES {
@@ -616,6 +626,7 @@ mod tests {
     /// families together are the whole list. A sport in none would draw grey
     /// on one screen and answer to a chip on another.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_named_sport_sits_in_exactly_one_family() {
         let named: Vec<&str> = [CYCLING, RUNNING, WALKING, SWIMMING, POWER, VIRTUAL]
             .concat()
@@ -640,6 +651,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_families_stack_in_their_fixed_order() {
         let names: Vec<&str> = FAMILIES.iter().map(|(family, _)| *family).collect();
         assert_eq!(
@@ -651,6 +663,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sport_takes_its_family_and_fixed_shade() {
         assert_eq!(sport_family("IceSkate"), "Winter");
         assert_eq!(sport_shade("IceSkate"), 3);
@@ -675,6 +688,7 @@ mod tests {
     /// Every cycling, running, walking and swimming sport is drawn with the
     /// family its numbers are counted in.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_counting_families_fold_whole_into_one_drawn_family() {
         for sport in CYCLING {
             assert_eq!(sport_family(sport), "Ride", "{sport}");
@@ -693,6 +707,7 @@ mod tests {
     /// A sport intervals.icu adds next year is drawn as Other with the base
     /// shade the day it syncs, and a prefix claims nothing longer than itself.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unknown_sport_is_other_at_the_base_shade() {
         for sport in ["", "Padel", "Hockey", "RideTheWind", "Rungby", "ride"] {
             assert_eq!(sport_family(sport), "Other", "{sport}");
@@ -701,6 +716,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_shade_names_a_sport_of_a_family_and_other_has_none() {
         for sport in SHADE_2.iter().chain(SHADE_3) {
             assert_ne!(sport_family(sport), "Other", "{sport}");
@@ -711,6 +727,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn no_sport_sits_in_two_families() {
         let all: Vec<&str> = [CYCLING, RUNNING, WALKING, SWIMMING].concat();
         let mut seen = std::collections::HashSet::new();

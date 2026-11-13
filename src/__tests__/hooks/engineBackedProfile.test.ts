@@ -93,7 +93,7 @@ describe('useAthlete', () => {
     );
   });
 
-  it('leaves the preferences unset when the profile carries none', async () => {
+  vaultIt('leaves the preferences unset when the profile carries none', async () => {
     engine.getAthleteProfile.mockReturnValue({ id: 'i1', name: 'Demo' });
 
     const { result } = await renderHook(() => useAthlete(), { wrapper });
@@ -104,7 +104,7 @@ describe('useAthlete', () => {
     expect(useFormPreference.getState().formAsPercent).toBeNull();
   });
 
-  it('reads as absent when nothing has been synced', async () => {
+  vaultIt('reads as absent when nothing has been synced', async () => {
     const { result } = await renderHook(() => useAthlete(), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -149,7 +149,7 @@ describe('useWellness', () => {
     expect(total).toBe(91);
   });
 
-  it('asks for the window the range covers', async () => {
+  vaultIt('asks for the window the range covers', async () => {
     const { result } = await renderHook(() => useWellness('7d'), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

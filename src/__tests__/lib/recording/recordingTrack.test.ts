@@ -69,12 +69,15 @@ describe('readRecordingTrack', () => {
     expect(mockGetTrack).toHaveBeenCalledWith('local-deadbeef');
   });
 
-  it('does not read a sidecar an earlier build left, when the engine holds no track', async () => {
-    await expect(readRecordingTrack(ENTRY)).resolves.toEqual([]);
-    expect(FileSystem.readAsStringAsync).not.toHaveBeenCalled();
-  });
+  vaultIt(
+    'does not read a sidecar an earlier build left, when the engine holds no track',
+    async () => {
+      await expect(readRecordingTrack(ENTRY)).resolves.toEqual([]);
+      expect(FileSystem.readAsStringAsync).not.toHaveBeenCalled();
+    }
+  );
 
-  it('answers empty for a recording that has no engine row yet', async () => {
+  vaultIt('answers empty for a recording that has no engine row yet', async () => {
     const unkeyed = { ...ENTRY };
     delete unkeyed.engineActivityId;
     await expect(readRecordingTrack(unkeyed)).resolves.toEqual([]);
@@ -82,7 +85,7 @@ describe('readRecordingTrack', () => {
     expect(FileSystem.readAsStringAsync).not.toHaveBeenCalled();
   });
 
-  it('does not ask a closed engine', async () => {
+  vaultIt('does not ask a closed engine', async () => {
     (engine as unknown as { ready: boolean }).ready = false;
 
     await expect(readRecordingTrack(ENTRY)).resolves.toEqual([]);

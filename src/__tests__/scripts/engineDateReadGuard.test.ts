@@ -62,21 +62,21 @@ describe('engine date reads', () => {
     expect(output).toContain(`${SCREEN}:1`);
   });
 
-  it('passes a true instant that carries a marker with a reason', () => {
+  vaultIt('passes a true instant that carries a marker with a reason', () => {
     const { status } = runGuard({
       [SCREEN]: 'const t = new Date(run.ts * 1000); // true-instant: a recorded run time\n',
     });
     expect(status).toBe(0);
   });
 
-  it('fails a marker with no reason', () => {
+  vaultIt('fails a marker with no reason', () => {
     const { status } = runGuard({
       [SCREEN]: 'const t = new Date(run.ts * 1000); // true-instant:\n',
     });
     expect(status).toBe(1);
   });
 
-  it('exempts the two owners and the tests', () => {
+  vaultIt('exempts the two owners and the tests', () => {
     const { status } = runGuard({
       'src/shared/time/startDate.ts': RAW,
       'src/shared/format/format.ts': RAW,
@@ -85,15 +85,15 @@ describe('engine date reads', () => {
     expect(status).toBe(0);
   });
 
-  it('passes a read the baseline records', () => {
+  vaultIt('passes a read the baseline records', () => {
     expect(runGuard({ [SCREEN]: RAW }, { [SCREEN]: 1 }).status).toBe(0);
   });
 
-  it('fails a file above its baseline count', () => {
+  vaultIt('fails a file above its baseline count', () => {
     expect(runGuard({ [SCREEN]: RAW + RAW }, { [SCREEN]: 1 }).status).toBe(1);
   });
 
-  it('fails a stale baseline entry whose reads are gone', () => {
+  vaultIt('fails a stale baseline entry whose reads are gone', () => {
     const { status, output } = runGuard({ [SCREEN]: 'export {};\n' }, { [SCREEN]: 1 });
     expect(status).toBe(1);
     expect(output).toContain(SCREEN);

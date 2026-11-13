@@ -15,22 +15,22 @@ const LAP = [
 ];
 
 describe('scrubCoordinate', () => {
-  it('sits on the first point at distance 0', () => {
+  vaultIt('sits on the first point at distance 0', () => {
     expect(scrubCoordinate(LAP, 0, 1000)).toEqual({ lat: 0, lng: 10 });
   });
 
-  it('sits halfway along the trace at half the section length', () => {
+  vaultIt('sits halfway along the trace at half the section length', () => {
     const point = scrubCoordinate(LAP, 500, 1000);
     expect(point?.lat).toBeCloseTo(1, 6);
     expect(point?.lng).toBeCloseTo(10, 6);
   });
 
-  it('interpolates inside a leg', () => {
+  vaultIt('interpolates inside a leg', () => {
     const point = scrubCoordinate(LAP, 250, 1000);
     expect(point?.lat).toBeCloseTo(0.5, 3);
   });
 
-  it('sits on the last point at the end', () => {
+  vaultIt('sits on the last point at the end', () => {
     expect(scrubCoordinate(LAP, 1000, 1000)).toEqual({ lat: 2, lng: 10 });
   });
 
@@ -39,7 +39,7 @@ describe('scrubCoordinate', () => {
     expect(scrubCoordinate(LAP, -20, 1000)).toEqual({ lat: 0, lng: 10 });
   });
 
-  it('places by share of the length when the trace is longer than the section', () => {
+  vaultIt('places by share of the length when the trace is longer than the section', () => {
     const point = scrubCoordinate(LAP, 500, 500);
     expect(point).toEqual({ lat: 2, lng: 10 });
   });
@@ -50,11 +50,11 @@ describe('scrubCoordinate', () => {
     expect(scrubCoordinate(LAP, Number.NaN, 1000)).toBeNull();
   });
 
-  it('gives the only point of a one-point trace', () => {
+  vaultIt('gives the only point of a one-point trace', () => {
     expect(scrubCoordinate([{ lat: 3, lng: 4 }], 10, 100)).toEqual({ lat: 3, lng: 4 });
   });
 
-  it('gives the first point of a trace that does not move', () => {
+  vaultIt('gives the first point of a trace that does not move', () => {
     const still = [
       { lat: 3, lng: 4 },
       { lat: 3, lng: 4 },

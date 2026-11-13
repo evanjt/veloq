@@ -397,6 +397,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn wire_records_live_under_the_intervals_module() {
         let record: crate::net::types::ActivityRecord =
             crate::net::intervals::wire::ActivityRecord::default();
@@ -408,6 +409,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn year_counts_bucket_every_dated_activity() {
         let acts: Vec<CensusRecord> = serde_json::from_value(json!([
             {"id": "a", "start_date_local": "2024-06-20T07:00:00"},
@@ -422,6 +424,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn year_counts_skip_what_cannot_be_placed() {
         // A row with no start date is already dropped by the window sync, and
         // a malformed one would bucket under a year that does not exist.
@@ -437,11 +440,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn year_counts_of_nothing_is_empty() {
         assert!(activity_counts_by_year(&[]).is_empty());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn parses_activities_subset() {
         // Shape derived from the live activities endpoint; values synthetic.
         let body = json!([
@@ -482,6 +487,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_optional_number_reads_a_non_finite_string_as_none() {
         let numbers = [
             "distance",
@@ -513,6 +519,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn oldest_date_is_min_start() {
         let acts: Vec<CensusRecord> = serde_json::from_value(json!([
             {"id": "a", "start_date_local": "2026-06-20T07:00:00"},
@@ -575,6 +582,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn parses_wellness_null_fields_present() {
         // Wellness rows send unmeasured metrics as explicit null (not absent);
         // Option fields must accept that. restingHR/sleepSecs arrive as integers.

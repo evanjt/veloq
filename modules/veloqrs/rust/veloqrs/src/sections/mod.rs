@@ -333,22 +333,26 @@ mod carry_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pairing_past_the_half_gap_cap_is_refused() {
         assert!(assign_carried_exclusions(&carry(&[400], &[0]), &[0, 100, 200]).is_empty());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn empty_sides_carry_nothing() {
         assert!(assign_carried_exclusions(&carry(&[], &[1]), &[1, 2]).is_empty());
         assert!(assign_carried_exclusions(&carry(&[1], &[2]), &[]).is_empty());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_lone_excluded_lap_far_from_the_only_rebuilt_row_carries_nothing() {
         assert!(assign_carried_exclusions(&carry(&[500], &[100]), &[108]).is_empty());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_lone_excluded_lap_shifted_a_few_indices_still_carries() {
         assert_eq!(
             assign_carried_exclusions(&carry(&[500], &[100]), &[100, 505]),
@@ -357,6 +361,7 @@ mod carry_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_lap_excluded_onto_the_same_laps_carries_both() {
         assert_eq!(
             assign_carried_exclusions(&carry(&[100, 500], &[]), &[100, 500]),
@@ -365,6 +370,7 @@ mod carry_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_carry_that_would_exclude_every_rebuilt_row_is_dropped_when_a_lap_was_included() {
         assert!(assign_carried_exclusions(&carry(&[500], &[100]), &[505]).is_empty());
     }

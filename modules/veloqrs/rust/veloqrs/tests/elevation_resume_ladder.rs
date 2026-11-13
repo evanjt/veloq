@@ -67,6 +67,7 @@ fn climb_with(
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_ladder_climbs_and_then_rests() {
     let run = climb(8, |_| Some(5), false);
     assert_eq!(run.slept[..RESUME_WAITS.len()], RESUME_WAITS[..]);
@@ -78,6 +79,7 @@ fn the_ladder_climbs_and_then_rests() {
 /// Expected behaviour: an answered track never waits, so the ladder only covers
 /// an outage or pushback, and no rung of it exceeds five minutes.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_rung_of_the_ladder_waits_longer_than_five_minutes() {
     let longest = RESUME_WAITS.iter().max().copied().expect("a ladder");
     assert!(
@@ -88,6 +90,7 @@ fn no_rung_of_the_ladder_waits_longer_than_five_minutes() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rung_is_never_shorter_than_the_one_before_it() {
     let run = climb(6, |_| Some(5), false);
     for pair in run.slept.windows(2) {
@@ -96,6 +99,7 @@ fn a_rung_is_never_shorter_than_the_one_before_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_queue_ends_the_ladder() {
     let run = climb(6, |round| if round >= 2 { Some(0) } else { Some(5) }, false);
     // The second rung read zero and stopped before attempting, so the ladder
@@ -105,6 +109,7 @@ fn an_empty_queue_ends_the_ladder() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_completed_ladder_leaves_the_next_one_at_the_bottom() {
     let first = climb(3, |_| Some(5), false);
     let second = climb(3, |_| Some(5), false);
@@ -113,6 +118,7 @@ fn a_completed_ladder_leaves_the_next_one_at_the_bottom() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_offline_rung_costs_no_attempt_and_still_climbs() {
     let run = climb(3, |_| Some(5), true);
     assert_eq!(run.attempts, 0);
@@ -120,12 +126,14 @@ fn an_offline_rung_costs_no_attempt_and_still_climbs() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_queue_that_cannot_be_read_is_not_an_empty_one() {
     let run = climb(2, |_| None, false);
     assert_eq!(run.attempts, 2);
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_wait_for_a_rung_is_the_ladder_capped_at_its_last() {
     for (i, expected) in RESUME_WAITS.iter().enumerate() {
         assert_eq!(resume_wait(i), *expected);
@@ -137,6 +145,7 @@ fn the_wait_for_a_rung_is_the_ladder_capped_at_its_last() {
 /// that declined on the pause every half hour. Resuming lays a new ladder, so
 /// ending the climb loses nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pause_ends_the_climb_rather_than_attempting_for_ever() {
     let run = climb_paused(8, |_| Some(5), false, |round| round >= 3);
     assert_eq!(run.slept.len(), 3, "the rung that read paused is the last");
@@ -144,6 +153,7 @@ fn a_pause_ends_the_climb_rather_than_attempting_for_ever() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_install_that_is_never_paused_climbs_as_before() {
     let run = climb_paused(4, |_| Some(5), false, |_| false);
     assert_eq!(run.attempts, 4);
@@ -159,6 +169,7 @@ fn an_install_that_is_never_paused_climbs_as_before() {
 /// the queue emptying, a pause, and the sleep refusing to wait, which is the
 /// test harness and never production.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn nothing_the_ladder_counts_ends_it_on_its_own() {
     // Well past the last rung, so the cap is being sat on rather than climbed.
     let long = climb(RESUME_WAITS.len() + 40, |_| Some(5), false);
@@ -192,6 +203,7 @@ fn nothing_the_ladder_counts_ends_it_on_its_own() {
 /// separately from the queue, because only that tells "the engine is gone" from
 /// "the read failed", and the second must not end anything.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_destroyed_engine_ends_the_climb_and_a_failed_read_does_not() {
     let gone = climb_with(20, |_| None, false, |_| false, |round| round >= 3);
     assert_eq!(
@@ -220,6 +232,7 @@ fn a_destroyed_engine_ends_the_climb_and_a_failed_read_does_not() {
 /// The engine is asked every rung, not once at the start: it can go away at any
 /// point in a climb that spans hours.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_engine_is_asked_on_every_rung() {
     let asked = Cell::new(0usize);
     let run = climb_with(
@@ -244,6 +257,7 @@ fn the_engine_is_asked_on_every_rung() {
 /// a rung that wakes early, on the connection coming back, asks nothing while
 /// the cooldown still holds.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stored_cooldown_holds_every_attempt_until_it_ends() {
     use veloqrs::net::elevation_backfill::resume_ladder_after_cooldown;
 
@@ -298,6 +312,7 @@ fn a_stored_cooldown_holds_every_attempt_until_it_ends() {
 /// every pass succeeds. The queue shrinks at every rung, so nothing is failing
 /// and the wait never leaves the bottom of the ladder.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_queue_that_keeps_shrinking_never_climbs_past_the_first_rung() {
     let run = climb(6, |round| Some(300 - 40 * round as u64), false);
     assert_eq!(run.slept, vec![RESUME_WAITS[0]; 6]);
@@ -306,6 +321,7 @@ fn a_queue_that_keeps_shrinking_never_climbs_past_the_first_rung() {
 /// Expected behaviour: only rungs that moved nothing climb, and a rung that
 /// moved something starts the climb again from the bottom.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rung_that_moved_nothing_climbs_and_the_next_that_moves_something_resets() {
     let run = climb(
         5,
@@ -337,6 +353,7 @@ fn a_rung_that_moved_nothing_climbs_and_the_next_that_moves_something_resets() {
 /// queue waits nothing, and the climb is still at its first rung when a pass
 /// then moves nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_that_drained_part_of_the_queue_is_followed_at_once() {
     let attempts = Cell::new(0usize);
     let slept = RefCell::new(Vec::new());

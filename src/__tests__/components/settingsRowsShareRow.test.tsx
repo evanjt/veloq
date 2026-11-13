@@ -94,18 +94,21 @@ function expectOnlyRowChevrons(tree: Awaited<ReturnType<typeof render>>, count: 
 }
 
 describe('settings list rows', () => {
-  it('renders the clear-cache row on the shared Row with no chevron, since it acts', async () => {
-    const onClearCache = jest.fn();
-    const tree = await render(
-      <CacheManagementPanel isDark={false} isDemoMode={false} onClearCache={onClearCache} />
-    );
-    const style = rootStyle(tree.getByTestId('settings-clear-cache'));
-    expect(style.minHeight).toBe(layout.minTapTarget);
-    expect(style.borderTopWidth).toBeUndefined();
-    expect(tree.queryByTestId('row-chevron', { includeHiddenElements: true })).toBeNull();
-    await fireEvent.press(tree.getByTestId('settings-clear-cache'));
-    expect(onClearCache).toHaveBeenCalledTimes(1);
-  });
+  vaultIt(
+    'renders the clear-cache row on the shared Row with no chevron, since it acts',
+    async () => {
+      const onClearCache = jest.fn();
+      const tree = await render(
+        <CacheManagementPanel isDark={false} isDemoMode={false} onClearCache={onClearCache} />
+      );
+      const style = rootStyle(tree.getByTestId('settings-clear-cache'));
+      expect(style.minHeight).toBe(layout.minTapTarget);
+      expect(style.borderTopWidth).toBeUndefined();
+      expect(tree.queryByTestId('row-chevron', { includeHiddenElements: true })).toBeNull();
+      await fireEvent.press(tree.getByTestId('settings-clear-cache'));
+      expect(onClearCache).toHaveBeenCalledTimes(1);
+    }
+  );
 
   it('does not run the clear-cache action in demo mode', async () => {
     const onClearCache = jest.fn();
@@ -116,7 +119,7 @@ describe('settings list rows', () => {
     expect(onClearCache).not.toHaveBeenCalled();
   });
 
-  it('renders the nav row on the shared Row with one chevron', async () => {
+  vaultIt('renders the nav row on the shared Row with one chevron', async () => {
     const { getByTestId, getAllByTestId } = await render(
       <SettingsNavRow icon="cog" title="Title" onPress={jest.fn()} testID="nav" />
     );
@@ -126,7 +129,7 @@ describe('settings list rows', () => {
     expect(getAllByTestId('row-chevron', { includeHiddenElements: true })).toHaveLength(1);
   });
 
-  it('speaks the nav row subtitle, which holds the current value, after its title', () => {
+  vaultIt('speaks the nav row subtitle, which holds the current value, after its title', () => {
     const { getByTestId } = render(
       <SettingsNavRow
         icon="cog"
@@ -139,53 +142,59 @@ describe('settings list rows', () => {
     expect(getByTestId('nav').props.accessibilityLabel).toBe('Units, Furlongs');
   });
 
-  it('speaks only the title of a nav row with no subtitle', () => {
+  vaultIt('speaks only the title of a nav row with no subtitle', () => {
     const { getByTestId } = render(
       <SettingsNavRow icon="cog" title="Units" onPress={jest.fn()} testID="nav" />
     );
     expect(getByTestId('nav').props.accessibilityLabel).toBe('Units');
   });
 
-  it('keeps no row frame of its own in settingsStyles', () => {
+  vaultIt('keeps no row frame of its own in settingsStyles', () => {
     expect('actionRow' in settingsStyles).toBe(false);
   });
 });
 
 describe('chevrons on the settings screens', () => {
-  it('draws the shared chevron on the licences row of About and nowhere else', async () => {
+  vaultIt('draws the shared chevron on the licences row of About and nowhere else', async () => {
     expectOnlyRowChevrons(await render(<AboutScreen />), 1);
   });
 
-  it('draws the shared chevron on the tour, release notes, About, experimental and dashboard rows of the footer', async () => {
-    useDebugStore.setState({ unlocked: true, enabled: true });
-    try {
-      expectOnlyRowChevrons(await render(<FooterSection />), 5);
-    } finally {
-      useDebugStore.setState({ unlocked: false, enabled: false });
+  vaultIt(
+    'draws the shared chevron on the tour, release notes, About, experimental and dashboard rows of the footer',
+    async () => {
+      useDebugStore.setState({ unlocked: true, enabled: true });
+      try {
+        expectOnlyRowChevrons(await render(<FooterSection />), 5);
+      } finally {
+        useDebugStore.setState({ unlocked: false, enabled: false });
+      }
     }
-  });
+  );
 
-  it('draws no chevron on Support, whose subscription row leaves for a web page', async () => {
+  vaultIt('draws no chevron on Support, whose subscription row leaves for a web page', async () => {
     useAuthStore.setState({ authMethod: 'oauth' });
     const tree = await render(<SupportSection />);
     expectOnlyRowChevrons(tree, 0);
     expect(tree.getAllByTestId('row-external', { includeHiddenElements: true })).toHaveLength(1);
   });
 
-  it('draws the shared chevron on the six recording settings rows', async () => {
+  vaultIt('draws the shared chevron on the six recording settings rows', async () => {
     expectOnlyRowChevrons(await render(<RecordingSettingsScreen />), 6);
   });
 
-  it('draws the shared chevron on the data field tile slot rows', async () => {
+  vaultIt('draws the shared chevron on the data field tile slot rows', async () => {
     const tree = await render(<RecordingDataFieldsScreen />);
     const tileSlots = tree.queryAllByTestId(/^settings-tile-/).length;
     expect(tileSlots).toBeGreaterThan(0);
     expectOnlyRowChevrons(tree, tileSlots);
   });
 
-  it('draws the shared chevron on the two preview rows and the retired sections row of detection settings', async () => {
-    expectOnlyRowChevrons(await render(<DetectionSettingsScreen />), 3);
-  });
+  vaultIt(
+    'draws the shared chevron on the two preview rows and the retired sections row of detection settings',
+    async () => {
+      expectOnlyRowChevrons(await render(<DetectionSettingsScreen />), 3);
+    }
+  );
 });
 
 describe('account rows', () => {
@@ -193,7 +202,7 @@ describe('account rows', () => {
     useAuthStore.setState({ authMethod: 'apiKey' });
   });
 
-  it('marks the profile row as a web page and neither sign-out row as anything', async () => {
+  vaultIt('marks the profile row as a web page and neither sign-out row as anything', async () => {
     const tree = await render(<ProfileAccountSection athlete={{ name: 'Rider' }} />);
     expectOnlyRowChevrons(tree, 0);
     expect(tree.getAllByTestId('row-external', { includeHiddenElements: true })).toHaveLength(1);
@@ -203,8 +212,11 @@ describe('account rows', () => {
     }
   });
 
-  it('draws no chevron on the profile row of the demo account, which opens nothing', async () => {
-    useAuthStore.setState({ authMethod: 'demo' });
-    expectOnlyRowChevrons(await render(<ProfileAccountSection athlete={{ name: 'Rider' }} />), 0);
-  });
+  vaultIt(
+    'draws no chevron on the profile row of the demo account, which opens nothing',
+    async () => {
+      useAuthStore.setState({ authMethod: 'demo' });
+      expectOnlyRowChevrons(await render(<ProfileAccountSection athlete={{ name: 'Rider' }} />), 0);
+    }
+  );
 });

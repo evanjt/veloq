@@ -33,7 +33,7 @@ describe('areaFillsFromZero', () => {
 });
 
 describe('areaWashOpacity', () => {
-  it('reads the first tint step in light and the second in dark', () => {
+  vaultIt('reads the first tint step in light and the second in dark', () => {
     expect(areaWashOpacity(false)).toBe(opacity.tint1);
     expect(areaWashOpacity(true)).toBe(opacity.tint2);
   });

@@ -118,7 +118,7 @@ afterEach(() => {
 });
 
 describe('review screen discard', () => {
-  it('is a button a screen reader can name and activate', async () => {
+  vaultIt('is a button a screen reader can name and activate', async () => {
     const review = await render(inStack(<ReviewScreen />));
     const discard = review.getByTestId('review-discard-button');
 

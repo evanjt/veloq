@@ -274,6 +274,7 @@ fn a_clear_leaves_the_record_tables_alone() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_clear_empties_the_derived_caches() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -309,6 +310,7 @@ fn a_clear_empties_the_derived_caches() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_clear_finds_nothing_and_does_not_fail() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -325,6 +327,7 @@ fn a_second_clear_finds_nothing_and_does_not_fail() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_engine_clears_to_zero() {
     let dir = TempDir::new().unwrap();
     let mut engine = open(&dir.path().join("empty.db"));
@@ -419,6 +422,7 @@ fn clearing_routes_and_sections_keeps_the_attempts_the_athlete_took_out() {
 /// An exclusion the athlete never made must not appear, so the restore is a
 /// restore and not a blanket re-flag.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_clear_invents_no_exclusion_that_was_never_made() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -580,6 +584,7 @@ fn keyed_rows(db: &Connection, table: &str, id: &str) -> i64 {
 /// The seed list is read against the schema, so a table added with an
 /// `activity_id` column and no seed here fails rather than going untested.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_seeds_cover_every_table_keyed_on_an_activity() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -613,6 +618,7 @@ fn the_seeds_cover_every_table_keyed_on_an_activity() {
 /// body, the metrics every aggregate counts and the stream bytes the clear
 /// exists to free.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_clear_takes_every_row_keyed_on_a_removed_activity() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -657,6 +663,7 @@ fn a_clear_takes_every_row_keyed_on_a_removed_activity() {
 /// and by predicate, so a table it was never told about keeps its rows even
 /// for an activity the clear removes.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_clear_keeps_a_table_it_was_never_told_about() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -763,6 +770,7 @@ fn assert_only_the_athletes_record_left(
 /// Expected behaviour: the record goes with the section, so the widget stops
 /// calling the ride a PR, and the record on the athlete's own section stays.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clearing_routes_and_sections_takes_the_records_of_the_sections_it_removed() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -780,6 +788,7 @@ fn clearing_routes_and_sections_takes_the_records_of_the_sections_it_removed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_clear_takes_the_records_of_the_sections_it_removed() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);
@@ -1085,6 +1094,7 @@ mod through_the_redetect {
     /// Nothing excluded before the clear, nothing excluded after the
     /// re-detect: the carry restores and never invents.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_redetect_after_a_clear_invents_no_exclusion() {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("redetect_none.db");
@@ -1123,6 +1133,7 @@ fn heatmap(db: &Connection) -> Vec<(String, i64, i64, i64)> {
 /// left. A day that held only removed activities has no row, and a day that
 /// also held a kept reference activity counts that one alone.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_clear_leaves_the_heatmap_matching_the_metrics_it_kept() {
     let dir = TempDir::new().unwrap();
     let path = seed(&dir);

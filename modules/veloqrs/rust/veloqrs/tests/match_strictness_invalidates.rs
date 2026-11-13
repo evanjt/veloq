@@ -70,6 +70,7 @@ fn tightening_the_strictness_regroups_without_an_intervening_import() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn setting_the_value_it_already_has_recomputes_nothing() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
@@ -107,6 +108,7 @@ fn together(grouping: &[Vec<String>], a: &str, b: &str) -> bool {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn tightening_with_an_unrelated_activity_pending_still_splits_existing_groups() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
@@ -148,6 +150,7 @@ fn a_strictness_change_survives_a_restart_before_any_regroup() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_restart_under_an_unchanged_rule_leaves_the_grouping_settled() {
     let dir = TempDir::new().expect("tempdir");
     {

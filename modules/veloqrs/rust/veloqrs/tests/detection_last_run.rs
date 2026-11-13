@@ -95,6 +95,7 @@ fn detection_rows(db: &std::path::Path) -> Vec<Row> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_finished_run_records_what_it_handled_and_formed() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");

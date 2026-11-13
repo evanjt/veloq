@@ -27,7 +27,7 @@ describe('the selected line colour on the global map', () => {
     expect(selectedRouteColor(SPORT, { enabled: false, shown: true }, palette)).toBe(SPORT);
   });
 
-  it.each(['light', 'dark', 'satellite'] as const)(
+  vaultIt.each(['light', 'dark', 'satellite'] as const)(
     'switches to the %s base map ink while the heatmap is drawn',
     (base) => {
       const drawn = mapPalette(base);
@@ -76,7 +76,7 @@ describe('the selected line against its casing', () => {
     }
   );
 
-  it('edges a sport-coloured line when the heatmap is hidden', () => {
+  vaultIt('edges a sport-coloured line when the heatmap is hidden', () => {
     expect(selectedOutline('light', false)).toBe(mapPalette('light').edge);
   });
 });

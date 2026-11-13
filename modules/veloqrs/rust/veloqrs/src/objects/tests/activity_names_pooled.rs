@@ -23,6 +23,7 @@ fn metrics(id: &str, name: &str, date: i64) -> crate::types::ActivityMetrics {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_activity_names_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("activity_names_under_a_writer.db");
@@ -41,6 +42,7 @@ fn test_get_activity_names_writer_held() {
 /// unknown id is absent, an empty batch is empty, and the answer is what the
 /// engine's own read says.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_activity_names_pooled_matches_locked() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("activity_names_parity.db");

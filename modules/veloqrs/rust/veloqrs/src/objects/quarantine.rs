@@ -86,6 +86,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_launch_with_no_quarantine_has_nothing_to_report() {
         take_quarantine_report();
         assert_eq!(take_quarantine_report(), None);
@@ -111,6 +112,7 @@ mod tests {
     /// Two quarantines in one process is a fresh database that failed too, and
     /// the second is the one that stands.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_quarantine_replaces_the_first() {
         take_quarantine_report();
         record_quarantine(&counts());

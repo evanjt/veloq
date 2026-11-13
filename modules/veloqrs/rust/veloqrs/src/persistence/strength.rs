@@ -432,6 +432,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn re_storing_the_same_session_is_one_commit() {
         let (_dir, engine) = engine();
         let sets: Vec<FitExerciseSet> = (0..30).map(set).collect();
@@ -445,6 +446,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_session_with_no_sets_writes_nothing() {
         let (_dir, engine) = engine();
         let commits = commit_counter::watch(&engine);
@@ -473,6 +475,7 @@ mod tests {
     /// nothing about the rest, so a caller can fall back to the id rather than
     /// draw an empty chip. This had no test at all until the panel needed it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activity_names_answers_only_the_ids_it_knows() {
         let (_dir, engine) = engine();
         engine
@@ -537,6 +540,7 @@ mod tests {
     /// download, newest first, and the open-water swim, which has no lengths to
     /// read, is not.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pool_swim_is_owed_its_file_and_an_open_water_swim_is_not() {
         let (_dir, engine) = engine();
         add_activity(&engine, "lift", "WeightTraining", 100);
@@ -550,6 +554,7 @@ mod tests {
     /// The strength tab counts its owed sessions from this list, so a swim in it
     /// would keep the tab promising sets that never come.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_strength_queue_still_holds_strength_alone() {
         let (_dir, engine) = engine();
         add_activity(&engine, "lift", "WeightTraining", 100);
@@ -576,6 +581,7 @@ mod tests {
     /// Expected behaviour: upstream has no activity to fetch, so none of the
     /// three reads owes it, and the tab's count does not promise a download.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_device_or_file_key_that_no_upload_has_named_is_owed_nothing() {
         let (_dir, engine) = engine();
         add_activity(&engine, "local-recording-x", "WeightTraining", 200);
@@ -586,6 +592,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_device_key_is_owed_once_an_upload_has_stored_its_upstream_id() {
         let (_dir, engine) = engine();
         add_activity(&engine, "local-recording-x", "WeightTraining", 200);
@@ -603,6 +610,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_device_key_whose_upstream_id_is_on_the_activity_row_is_owed() {
         let (_dir, engine) = engine();
         add_activity(&engine, "local-pool", "Swim", 200);
@@ -623,6 +631,7 @@ mod tests {
     /// is owed with no stored id, so the exclusion of minted keys leaves it
     /// alone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_key_that_names_its_own_upstream_activity_is_owed_without_a_stored_id() {
         let (_dir, engine) = engine();
         add_activity(&engine, "i123", "WeightTraining", 200);
@@ -633,6 +642,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_intake_follows_the_sport() {
         let (_dir, engine) = engine();
         add_activity(&engine, "lift", "WeightTraining", 100);
@@ -722,6 +732,7 @@ mod tests {
     /// A file with no lengths, such as a ride's, is a swim with nothing to
     /// show, and leaves nothing behind.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_file_with_no_lengths_settles_a_swim_empty_with_no_rows() {
         let (_dir, engine) = engine();
         add_activity(&engine, "pool", "Swim", 200);
@@ -852,6 +863,7 @@ mod tests {
     /// A swim whose file has not been read is owed, with nothing to show yet,
     /// and one settled without lengths is told apart from it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pool_swim_reads_owed_until_settled_and_none_once_settled_empty() {
         let (_dir, engine) = engine();
         add_activity(&engine, "pool", "Swim", 200);
@@ -881,6 +893,7 @@ mod tests {
     /// Only a pool swim has lengths: a ride, an open-water swim and an id the
     /// library does not hold read none at all.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn only_a_pool_swim_reads_a_pool_swim() {
         let (_dir, engine) = engine();
         add_activity(&engine, "ride", "Ride", 100);
@@ -907,6 +920,7 @@ mod tests {
     /// claimed; a length with no stroke count has no SWOLF and an active
     /// length with no stroke is totalled as unknown.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_swim_with_no_pool_length_falls_back_to_the_device_speed() {
         let lengths = vec![crate::fit::FitPoolLength {
             length_type: Some(1),
@@ -927,6 +941,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activity_names_answers_nothing_for_no_ids() {
         let (_dir, engine) = engine();
 
@@ -936,6 +951,7 @@ mod tests {
     /// The panel asks for every id on the event, and a section with many
     /// traversals asks for many at once.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activity_names_answers_a_whole_batch_in_one_read() {
         let (_dir, engine) = engine();
         for i in 0..25 {
@@ -1281,4 +1297,18 @@ pub(crate) mod pooled {
         }
         Ok(result)
     }
+}
+
+/// Remove every set stored under an activity, with the usage and signature rows
+/// derived from them.
+pub(super) fn delete_exercise_sets(
+    conn: &rusqlite::Connection,
+    activity_id: &str,
+) -> SqlResult<()> {
+    let before = super::exercise_usage::detach(conn, activity_id)?;
+    conn.execute(
+        "DELETE FROM exercise_sets WHERE activity_id = ?1",
+        [activity_id],
+    )?;
+    super::exercise_usage::attach(conn, activity_id, &before)
 }

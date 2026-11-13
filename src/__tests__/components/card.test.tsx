@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 describe('Card surface', () => {
-  it('draws a flat card on the light surface with no shadow', async () => {
+  vaultIt('draws a flat card on the light surface with no shadow', async () => {
     const { getByTestId } = await render(
       <Card variant="flat" testID="c">
         <Text>x</Text>
@@ -40,7 +40,7 @@ describe('Card surface', () => {
     expect(style.elevation).toBeUndefined();
   });
 
-  it('gives a raised card the card shadow in light', async () => {
+  vaultIt('gives a raised card the card shadow in light', async () => {
     const { getByTestId } = await render(
       <Card variant="raised" testID="c">
         <Text>x</Text>
@@ -49,7 +49,7 @@ describe('Card surface', () => {
     expect(flat(getByTestId('c'))).toMatchObject(shadows.card);
   });
 
-  it('puts both variants on the dark card surface', async () => {
+  vaultIt('puts both variants on the dark card surface', async () => {
     mockIsDark = true;
     for (const variant of ['flat', 'raised'] as const) {
       const { getByTestId } = await render(
@@ -61,7 +61,7 @@ describe('Card surface', () => {
     }
   });
 
-  it('swaps the raised shadow for a border in dark', async () => {
+  vaultIt('swaps the raised shadow for a border in dark', async () => {
     mockIsDark = true;
     const { getByTestId } = await render(
       <Card variant="raised" testID="c">
@@ -74,7 +74,7 @@ describe('Card surface', () => {
     expect(style).toMatchObject(shadows.none);
   });
 
-  it('draws a flat dark card with no border', async () => {
+  vaultIt('draws a flat dark card with no border', async () => {
     mockIsDark = true;
     const { getByTestId } = await render(
       <Card variant="flat" testID="c">
@@ -86,7 +86,7 @@ describe('Card surface', () => {
 });
 
 describe('Card padding and clipping', () => {
-  it('pads by default and clips on an inner view when padding is none', async () => {
+  vaultIt('pads by default and clips on an inner view when padding is none', async () => {
     const padded = await render(
       <Card variant="flat" testID="c">
         <Text testID="child">x</Text>
@@ -107,7 +107,7 @@ describe('Card padding and clipping', () => {
 });
 
 describe('Card layout style', () => {
-  it('passes layout keys through and carries no margin of its own', async () => {
+  vaultIt('passes layout keys through and carries no margin of its own', async () => {
     const { getByTestId } = await render(
       <Card variant="flat" testID="c" style={{ alignSelf: 'flex-start' }}>
         <Text>x</Text>
@@ -123,7 +123,7 @@ describe('Card layout style', () => {
 });
 
 describe('Card press', () => {
-  it('requires a role and label when pressable', () => {
+  vaultIt('requires a role and label when pressable', () => {
     type PressableCardProps = Extract<CardProps, { onPress: () => void }>;
     const roleRequired: object extends Pick<PressableCardProps, 'accessibilityRole'>
       ? false
@@ -148,7 +148,7 @@ describe('Card press', () => {
 });
 
 describe('Card title', () => {
-  it('names the card with a header in the card title role', () => {
+  vaultIt('names the card with a header in the card title role', () => {
     const { getByRole } = render(
       <Card variant="flat" title="Weekly load">
         <Text>x</Text>
@@ -162,7 +162,7 @@ describe('Card title', () => {
     expect(style.textTransform).toBeUndefined();
   });
 
-  it('draws the title in the dark primary text colour in dark', () => {
+  vaultIt('draws the title in the dark primary text colour in dark', () => {
     mockIsDark = true;
     const { getByRole } = render(
       <Card variant="raised" title="Weekly load">
@@ -172,7 +172,7 @@ describe('Card title', () => {
     expect(flat(getByRole('header', { name: 'Weekly load' })).color).toBe(darkColors.textPrimary);
   });
 
-  it('puts the accessory beside the title and the title before the content', () => {
+  vaultIt('puts the accessory beside the title and the title before the content', () => {
     const { getByRole, getByTestId, toJSON } = render(
       <Card
         variant="flat"
@@ -190,7 +190,7 @@ describe('Card title', () => {
     expect(order.indexOf('Weekly load')).toBeLessThan(order.indexOf('"content"'));
   });
 
-  it('draws no header when the card has no title', () => {
+  vaultIt('draws no header when the card has no title', () => {
     const { queryByRole } = render(
       <Card variant="flat">
         <Text>x</Text>
@@ -201,7 +201,7 @@ describe('Card title', () => {
 });
 
 describe('CardHeader', () => {
-  it('heads a card a feature draws itself, with the same role and a caption under it', () => {
+  vaultIt('heads a card a feature draws itself, with the same role and a caption under it', () => {
     const { getByRole, getByTestId } = render(
       <CardHeader title="Activity calendar" subtitle="Jan to Dec" testID="h" />
     );

@@ -19,7 +19,7 @@ describe('basicAuthHeader', () => {
     expect(basicAuthHeader(user, pass)).toBe(expected(`${user}:${pass}`));
   });
 
-  it('sends the two UTF-8 bytes for a Latin-1 letter', () => {
+  vaultIt('sends the two UTF-8 bytes for a Latin-1 letter', () => {
     const b64 = basicAuthHeader('u', 'pä55').replace('Basic ', '');
     expect([...Buffer.from(b64, 'base64')]).toEqual([...Buffer.from('u:pä55', 'utf8')]);
     expect(Buffer.from(b64, 'base64').includes(0xc3)).toBe(true);

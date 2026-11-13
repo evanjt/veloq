@@ -48,7 +48,7 @@ describe('a preference read before the engine exists', () => {
     expect(mockGetItem).toHaveBeenCalledWith('theme');
   });
 
-  it('is answered as absent when AsyncStorage has nothing either', async () => {
+  vaultIt('is answered as absent when AsyncStorage has nothing either', async () => {
     const storage = loadStorage();
     await expect(storage.getSetting('theme')).resolves.toBeNull();
   });

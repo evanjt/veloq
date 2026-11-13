@@ -51,6 +51,7 @@ fn fail(engine: &PersistentEngine, id: &str, runs: u32) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_is_unavailable_only_once_it_has_failed_the_limit_of_settled_runs() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);
@@ -63,6 +64,7 @@ fn a_track_is_unavailable_only_once_it_has_failed_the_limit_of_settled_runs() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unavailable_track_no_longer_counts_as_owed_by_the_library() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);
@@ -74,6 +76,7 @@ fn an_unavailable_track_no_longer_counts_as_owed_by_the_library() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_landed_track_clears_its_count() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);
@@ -88,6 +91,7 @@ fn a_landed_track_clears_its_count() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_count_survives_a_second_census_naming_the_same_version() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
@@ -101,6 +105,7 @@ fn the_count_survives_a_second_census_naming_the_same_version() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_version_moved_upstream_retires_the_mark_and_restarts_the_count() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
@@ -122,6 +127,7 @@ fn a_version_moved_upstream_retires_the_mark_and_restarts_the_count() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_the_census_does_not_name_is_ignored() {
     let dir = TempDir::new().expect("tempdir");
     let engine = engine(&dir);

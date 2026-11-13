@@ -136,20 +136,23 @@ const buildCount = () =>
   fs.existsSync(builds) ? fs.readFileSync(builds, 'utf8').split('\n').filter(Boolean).length : 0;
 const bindings = (root: string) => fs.readFileSync(path.join(root, 'src/generated/veloqrs.ts'));
 
-it('builds nothing in a second tree at the same Rust source and gives it identical bindings', () => {
-  const first = tree('first');
-  const second = tree('second');
+vaultIt(
+  'builds nothing in a second tree at the same Rust source and gives it identical bindings',
+  () => {
+    const first = tree('first');
+    const second = tree('second');
 
-  expect(generate(first).status).toBe(0);
-  expect(buildCount()).toBe(1);
+    expect(generate(first).status).toBe(0);
+    expect(buildCount()).toBe(1);
 
-  const result = generate(second);
+    const result = generate(second);
 
-  expect(result.status).toBe(0);
-  expect(buildCount()).toBe(1);
-  expect(bindings(second).equals(bindings(first))).toBe(true);
-  expect(fs.existsSync(path.join(second, 'rust/target'))).toBe(false);
-});
+    expect(result.status).toBe(0);
+    expect(buildCount()).toBe(1);
+    expect(bindings(second).equals(bindings(first))).toBe(true);
+    expect(fs.existsSync(path.join(second, 'rust/target'))).toBe(false);
+  }
+);
 
 it('builds exactly once more when one Rust file changes', () => {
   const first = tree('first');
@@ -164,18 +167,22 @@ it('builds exactly once more when one Rust file changes', () => {
   expect(bindings(second).toString()).toContain(path.join(second, 'rust'));
 });
 
-it('builds once for trees that miss together, and the rest take that build', async () => {
-  const trees = ['one', 'two', 'three'].map((name) => tree(name));
+vaultIt(
+  'builds once for trees that miss together, and the rest take that build',
+  async () => {
+    const trees = ['one', 'two', 'three'].map((name) => tree(name));
 
-  const codes = await Promise.all(
-    trees.map((root) => generateAsync(root, { TEST_BUILD_MS: '1500' }))
-  );
+    const codes = await Promise.all(
+      trees.map((root) => generateAsync(root, { TEST_BUILD_MS: '1500' }))
+    );
 
-  expect(codes).toEqual([0, 0, 0]);
-  expect(buildCount()).toBe(1);
-  expect(bindings(trees[1]).equals(bindings(trees[0]))).toBe(true);
-  expect(bindings(trees[2]).equals(bindings(trees[0]))).toBe(true);
-}, 30000);
+    expect(codes).toEqual([0, 0, 0]);
+    expect(buildCount()).toBe(1);
+    expect(bindings(trees[1]).equals(bindings(trees[0]))).toBe(true);
+    expect(bindings(trees[2]).equals(bindings(trees[0]))).toBe(true);
+  },
+  30000
+);
 
 it('keeps nothing from a failed build, so the next run builds again', () => {
   const root = tree('first');
@@ -187,7 +194,7 @@ it('keeps nothing from a failed build, so the next run builds again', () => {
   expect(bindings(root).toString()).toContain(path.join(root, 'rust'));
 });
 
-it('builds in the tree every time when the cache is off', () => {
+vaultIt('builds in the tree every time when the cache is off', () => {
   const root = tree('first');
 
   expect(generate(root, { VELOQ_ENGINE_CACHE: 'off' }).status).toBe(0);

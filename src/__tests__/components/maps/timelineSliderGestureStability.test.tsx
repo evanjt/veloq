@@ -112,7 +112,7 @@ describe('TimelineSlider gesture stability', () => {
 
   afterEach(() => jest.useRealTimers());
 
-  it('hands the detector the same gestures across an engine-driven re-render', async () => {
+  vaultIt('hands the detector the same gestures across an engine-driven re-render', async () => {
     const view = await renderLaidOut(0);
     const start = latest(START);
     const track = latest(TRACK);

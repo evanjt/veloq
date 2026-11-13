@@ -34,6 +34,7 @@ fn write_tile(base: &std::path::Path, z: u8, x: u32, y: u32, bytes: &[u8]) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_drawn_tile_is_read_straight_off_disk() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -52,6 +53,7 @@ fn a_drawn_tile_is_read_straight_off_disk() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tile_the_pass_has_not_drawn_yet_reads_as_nothing() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -69,6 +71,7 @@ fn a_tile_the_pass_has_not_drawn_yet_reads_as_nothing() {
 
 /// An empty file is the marker the pass writes for a tile with no track on it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_tile_marker_reads_as_nothing() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -84,6 +87,7 @@ fn an_empty_tile_marker_reads_as_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_heatmap_switched_off_serves_nothing_even_where_tiles_remain() {
     let _serial_state = super::serial_state();
     let _serial = serial();

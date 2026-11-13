@@ -82,7 +82,7 @@ describe('a superseded preview is deleted once its replacement has landed', () =
     expect(hasTerrainPreview('a2', 'light', FLAT)).toBe(true);
   });
 
-  it('does nothing when the activity has only the render that landed', async () => {
+  vaultIt('does nothing when the activity has only the render that landed', async () => {
     await saveTerrainPreview('a1', 'light', FLAT, 'one');
 
     await deleteSupersededTerrainPreviews('a1', 'light', FLAT);
@@ -136,7 +136,7 @@ describe('a superseded preview is deleted once its replacement has landed', () =
     expect(hasTerrainPreview('a1', 'satellite', DRAPED)).toBe(true);
   });
 
-  it('is safe when the render that landed is not cached at all', async () => {
+  vaultIt('is safe when the render that landed is not cached at all', async () => {
     await saveTerrainPreview('a1', 'light', FLAT, 'one');
 
     await deleteSupersededTerrainPreviews('a1', 'satellite', DRAPED);

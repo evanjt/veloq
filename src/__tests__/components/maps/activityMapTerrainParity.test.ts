@@ -90,7 +90,7 @@ describe.each(inputs().map((input, index) => [index, input] as const))(
       expect(tilted.map(withoutSizes)).toEqual(flat.map(withoutSizes));
     });
 
-    it('with every width and radius at the 3D scale, highlighted or not', () => {
+    vaultIt('with every width and radius at the 3D scale, highlighted or not', () => {
       let compared = 0;
       flat.forEach((layer, index) => {
         const flatPaint = (layer.paint ?? {}) as Record<string, unknown>;
@@ -112,7 +112,7 @@ describe.each(inputs().map((input, index) => [index, input] as const))(
       expect(compared).toBeGreaterThan(0);
     });
 
-    it('with the endpoint glyph scaled with its disc', () => {
+    vaultIt('with the endpoint glyph scaled with its disc', () => {
       const glyph = (layers: MapLayerSpec[]) =>
         layers.find((layer) => layer.id === ENDPOINT_GLYPH)!.layout!['icon-size'] as number;
       expect(glyph(tilted)).toBeCloseTo(glyph(flat) * MAP_3D_SCALE, 9);

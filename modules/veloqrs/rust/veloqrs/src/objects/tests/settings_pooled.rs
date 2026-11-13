@@ -44,6 +44,7 @@ fn seed_rides_from_home() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_setting_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("setting_under_writer.db");
@@ -56,6 +57,7 @@ fn test_get_setting_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_athlete_profile_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("profile_under_writer.db");
@@ -72,6 +74,7 @@ fn test_get_athlete_profile_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_stream_retention_days_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("retention_under_writer.db");
@@ -88,6 +91,7 @@ fn test_stream_retention_days_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_stream_store_bytes_writer_held_matches_locked() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("store_bytes_under_writer.db");
@@ -100,6 +104,7 @@ fn test_stream_store_bytes_writer_held_matches_locked() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_suggest_export_home_writer_held_matches_locked() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("home_under_writer.db");
@@ -119,6 +124,7 @@ fn test_suggest_export_home_writer_held_matches_locked() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_export_privacy_preview_writer_held_matches_locked() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("preview_under_writer.db");

@@ -81,7 +81,7 @@ describe('highlight identity across an engine announcement', () => {
     mockBundle.mockImplementation(() => bundle(120, 1));
   });
 
-  it('hands back the same entries when nothing changed', async () => {
+  vaultIt('hands back the same entries when nothing changed', async () => {
     const { result } = await renderHook(() => useActivitySectionHighlights(IDS));
     const first = result.current;
 
@@ -155,7 +155,7 @@ describe('highlight identity across an engine announcement', () => {
     expect(result.current.sections.get('a1')?.[0].lapTime).toBe(120);
   });
 
-  it('keeps feed entries when a detail hook reads one activity', async () => {
+  vaultIt('keeps feed entries when a detail hook reads one activity', async () => {
     mockBundle.mockImplementation((ids: string[]) => ({
       indicators: ids.map((id) => indicator(id, 120)),
       routeHighlights: ids.map((id) => routeHighlight(id, 1)),

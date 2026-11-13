@@ -48,12 +48,15 @@ describe('the fitness window an insight opens', () => {
     expect(hook.result.current.selectedDate).toBe('2026-09-10');
   });
 
-  it('opens on one month with no entry, not the six months the other screens share', async () => {
-    const { hook } = await mountWith(NONE);
+  vaultIt(
+    'opens on one month with no entry, not the six months the other screens share',
+    async () => {
+      const { hook } = await mountWith(NONE);
 
-    expect(hook.result.current.timeRange).toBe('1m');
-    expect(hook.result.current.selectedDate).toBeNull();
-  });
+      expect(hook.result.current.timeRange).toBe('1m');
+      expect(hook.result.current.selectedDate).toBeNull();
+    }
+  );
 
   it('opens on the range a cold link names rather than the default', async () => {
     const { hook } = await mountWith({ range: '1y', date: null });

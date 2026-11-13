@@ -36,7 +36,7 @@ describe('connectivity pushes', () => {
     expect(() => connectivity.setNetworkOnline(false)).not.toThrow();
   });
 
-  it('swallows a binding that throws on the touch edge', () => {
+  vaultIt('swallows a binding that throws on the touch edge', () => {
     const connectivity = bindDelegates(host, connectivityDelegates);
     expect(() => connectivity.setInteracting(true)).not.toThrow();
   });

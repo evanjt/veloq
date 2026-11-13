@@ -6,6 +6,7 @@ use super::FitnessManager;
 use crate::test_globals::{init_global_engine, read_while_writer_holds, serial_global_state};
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_weekly_summaries_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("weekly_under_a_writer.db");
@@ -36,6 +37,7 @@ fn calendar_windows() -> crate::FfiFitnessScreenWindows {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_wellness_sparklines_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("sparklines_under_a_writer.db");
@@ -48,6 +50,7 @@ fn test_get_wellness_sparklines_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_available_sport_types_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("sports_under_a_writer.db");
@@ -60,6 +63,7 @@ fn test_get_available_sport_types_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_zone_distribution_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("zones_under_a_writer.db");
@@ -73,6 +77,7 @@ fn test_get_zone_distribution_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_fitness_screen_data_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("fitness_screen_under_a_writer.db");
@@ -89,6 +94,7 @@ fn test_get_fitness_screen_data_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_wellness_days_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("wellness_days_under_a_writer.db");
@@ -106,6 +112,7 @@ fn test_get_wellness_days_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_wellness_days_says_whether_the_window_was_pulled() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("wellness_days_coverage.db");
@@ -140,6 +147,7 @@ fn test_get_wellness_days_says_whether_the_window_was_pulled() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_power_curve_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("power_curve_under_a_writer.db");
@@ -152,6 +160,7 @@ fn test_get_power_curve_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_pace_curve_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("pace_curve_under_a_writer.db");
@@ -164,6 +173,7 @@ fn test_get_pace_curve_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_planned_events_writer_held() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("calendar_under_a_writer.db");
@@ -231,6 +241,7 @@ fn wellness_row(
 /// Expected behaviour: every moved export answers what the engine answers for
 /// the same rows, and what the rows say.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_fitness_reads_pooled_match_locked() {
     let _serial = serial_global_state();
     let _tmp = init_global_engine("fitness_pooled_parity.db");

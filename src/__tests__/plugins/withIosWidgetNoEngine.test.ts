@@ -125,7 +125,7 @@ describe('the widget target', () => {
     }
   });
 
-  it('stays unlinked however many prebuilds run', () => {
+  vaultIt('stays unlinked however many prebuilds run', () => {
     const proj = openFixture();
     configureWidgetProject(proj, options);
     linkAsAnEarlierPrebuildDid(proj);

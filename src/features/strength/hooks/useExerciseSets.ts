@@ -9,7 +9,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 
-import { demoStrengthSets } from '../demo';
+import { isDemoStrengthActivity } from '../lib/demoStrength';
 import type { StrengthCardData } from '../components/StrengthActivityCard';
 import { strength } from 'veloqrs';
 
@@ -93,10 +93,10 @@ export function useExerciseSets(activityId: string, activityType: string) {
         // A settled activity has nothing more to fetch, whether or not it has sets.
         if (strength.isFitProcessed(activityId)) return { session: EMPTY_SESSION, settled: true };
 
-        // Demo mode has no FIT file - seed synthetic sets for any fixture
-        // activity that carries one, then read back through the normal path.
-        if (isDemo() && demoStrengthSets[activityId]) {
-          strength.bulkInsertExerciseSets(activityId, demoStrengthSets[activityId]);
+        // Demo mode has no FIT file. The engine settles a demo strength session
+        // from its corpus inside this call, then the read goes the normal way.
+        if (isDemo() && isDemoStrengthActivity(activityId)) {
+          requestFitFile(activityId);
           return { session: strength.getExerciseSets(activityId), settled: true };
         }
 
@@ -228,14 +228,8 @@ export function useStrengthCardData(
     for (const row of rows) {
       if (row.settled || asked.current.has(row.activityId)) continue;
       asked.current.add(row.activityId);
-      // Demo mode has no FIT file: the seed lands the sets and announces them.
-      const seed = isDemo() ? demoStrengthSets[row.activityId] : undefined;
       try {
-        if (seed) {
-          strength.bulkInsertExerciseSets(row.activityId, seed);
-        } else {
-          requestFitFile(row.activityId);
-        }
+        requestFitFile(row.activityId);
       } catch (err) {
         console.error('[StrengthCards] Error:', err);
       }

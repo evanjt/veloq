@@ -107,7 +107,7 @@ it.each(['land', 'all'])(
   }
 );
 
-it('passes matching bindings on repeated checks and removes temporary output', () => {
+vaultIt('passes matching bindings on repeated checks and removes temporary output', () => {
   const root = fixture();
 
   expect(runGuard(root).status).toBe(0);
@@ -142,7 +142,7 @@ it('refuses stale C++ bindings', () => {
   expect(result.output).toContain(header);
 });
 
-it.each(['untracked', 'obsolete'])('refuses %s generated files', (scenario) => {
+vaultIt.each(['untracked', 'obsolete'])('refuses %s generated files', (scenario) => {
   const root = fixture();
   if (scenario === 'untracked') runGit(['rm', '--cached', BINDING], root);
   else {
@@ -153,7 +153,7 @@ it.each(['untracked', 'obsolete'])('refuses %s generated files', (scenario) => {
   expect(runGuard(root).status).toBe(1);
 });
 
-it('refuses an empty indexed binding corpus before generation', () => {
+vaultIt('refuses an empty indexed binding corpus before generation', () => {
   const root = fixture();
   runGit(['rm', '-r', '--cached', `${MODULE}/src/generated`, `${MODULE}/cpp/generated`], root);
 
@@ -164,7 +164,7 @@ it('refuses an empty indexed binding corpus before generation', () => {
   expect(existsSync(join(root, 'output.path'))).toBe(false);
 });
 
-it('reports failed generation and cleans its partial output', () => {
+vaultIt('reports failed generation and cleans its partial output', () => {
   const root = fixture();
   const generator = readFileSync(join(root, GENERATOR), 'utf8');
   put(root, GENERATOR, `${generator}\nprocess.exit(7);\n`);
@@ -177,14 +177,14 @@ it('reports failed generation and cleans its partial output', () => {
   expect(readFileSync(join(root, BINDING), 'utf8')).toBe(ORIGINAL);
 });
 
-it('refuses a generator that exits successfully without generating files', () => {
+vaultIt('refuses a generator that exits successfully without generating files', () => {
   const root = fixture();
   put(root, GENERATOR, '');
 
   expect(runGuard(root).status).toBe(1);
 });
 
-it('reports when the generator command cannot start', () => {
+vaultIt('reports when the generator command cannot start', () => {
   const root = fixture();
   const bin = join(root, 'bin');
   mkdirSync(bin);

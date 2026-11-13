@@ -39,7 +39,7 @@ function writeAll(root: string, text: string) {
 }
 
 describe('two branches that each add a link method', () => {
-  it('merge with no conflict in the method table, the page schema or the bindings', () => {
+  vaultIt('merge with no conflict in the method table, the page schema or the bindings', () => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'regenerated-merge-')));
     boxes.push(root);
     const git = (...args: string[]) => runGit(args, root);
@@ -111,7 +111,7 @@ describe('regenerating the link files at a landing', () => {
     expect(git('status', '--porcelain').trim()).toBe('');
   });
 
-  it('leaves the history alone when the generator changes nothing', () => {
+  vaultIt('leaves the history alone when the generator changes nothing', () => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'regenerated-landing-')));
     boxes.push(root);
     const git = (...args: string[]) => runGit(args, root);

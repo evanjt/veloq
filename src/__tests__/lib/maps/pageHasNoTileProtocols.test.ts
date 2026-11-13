@@ -31,20 +31,20 @@ jest.mock('veloqrs', () =>
 const PAGE_PROTOCOLS = ['cached-satellite', 'cached-ground', 'cached-vector', 'heatmap-file'];
 
 describe('the page registers no tile protocol of its own', () => {
-  it.each(PAGE_PROTOCOLS)('%s is not registered by the shared script', (name) => {
+  vaultIt.each(PAGE_PROTOCOLS)('%s is not registered by the shared script', (name) => {
     expect(tileProtocolsScript()).not.toContain(`addProtocol('${name}'`);
   });
 
-  it.each(PAGE_PROTOCOLS)('%s is not registered by the snapshot worker', (name) => {
+  vaultIt.each(PAGE_PROTOCOLS)('%s is not registered by the snapshot worker', (name) => {
     expect(buildSnapshotWorkerHtml(0)).not.toContain(`addProtocol('${name}'`);
   });
 
-  it('opens no Cache API bucket for tiles', () => {
+  vaultIt('opens no Cache API bucket for tiles', () => {
     expect(tileProtocolsScript()).not.toContain('caches.open(');
     expect(buildSnapshotWorkerHtml(0)).not.toContain('caches.open(');
   });
 
-  it('registers no bundled-asset protocol, the interceptor answers those too', () => {
+  vaultIt('registers no bundled-asset protocol, the interceptor answers those too', () => {
     expect(tileProtocolsScript()).not.toContain("addProtocol('bundled'");
     expect(tileProtocolsScript()).not.toContain('addProtocol(');
   });
@@ -76,7 +76,7 @@ describe('a style built with no store to hand the template to', () => {
     }
   });
 
-  it('asks for heatmap tiles under the tile prefix', () => {
+  vaultIt('asks for heatmap tiles under the tile prefix', () => {
     expect(heatmapTileTemplate('dark')).toMatch(
       /\/veloq-tile\/heatmap-dark\/\{z\}\/\{x\}\/\{y\}\.png$/
     );

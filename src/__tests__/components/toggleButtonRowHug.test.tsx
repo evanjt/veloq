@@ -33,7 +33,7 @@ const LONG_OPTIONS = [
 ] as const;
 
 describe('ToggleButtonRow sized to its labels', () => {
-  it('marks exactly the chosen option selected', async () => {
+  vaultIt('marks exactly the chosen option selected', async () => {
     const { getByTestId } = await render(
       <ToggleButtonRow layout="hug" options={OPTIONS} value="b" onValueChange={() => {}} />
     );
@@ -54,7 +54,7 @@ describe('ToggleButtonRow sized to its labels', () => {
     expect(onValueChange).toHaveBeenCalledWith('b');
   });
 
-  it('draws a chip, not a bordered button', async () => {
+  vaultIt('draws a chip, not a bordered button', async () => {
     const { getByTestId } = await render(
       <ToggleButtonRow layout="hug" options={OPTIONS} value="a" onValueChange={() => {}} />
     );
@@ -67,31 +67,34 @@ describe('ToggleButtonRow sized to its labels', () => {
     expect(unselected.backgroundColor).toBe(colors.fillNeutral);
   });
 
-  it('keys an option that stands for a series by its mark, on the standard selected fill', async () => {
-    const { getByTestId } = await render(
-      <ToggleButtonRow
-        layout="hug"
-        options={[
-          { value: 'a', label: 'Alpha', mark: '#2E8B57', testID: 'chip-a' },
-          { value: 'b', label: 'Beta', mark: '#8B2E5A', testID: 'chip-b' },
-        ]}
-        value="a"
-        onValueChange={() => {}}
-      />
-    );
+  vaultIt(
+    'keys an option that stands for a series by its mark, on the standard selected fill',
+    async () => {
+      const { getByTestId } = await render(
+        <ToggleButtonRow
+          layout="hug"
+          options={[
+            { value: 'a', label: 'Alpha', mark: '#2E8B57', testID: 'chip-a' },
+            { value: 'b', label: 'Beta', mark: '#8B2E5A', testID: 'chip-b' },
+          ]}
+          value="a"
+          onValueChange={() => {}}
+        />
+      );
 
-    expect(StyleSheet.flatten(getByTestId('chip-a-mark').props.style).backgroundColor).toBe(
-      '#2E8B57'
-    );
-    expect(StyleSheet.flatten(getByTestId('chip-b-mark').props.style).backgroundColor).toBe(
-      '#8B2E5A'
-    );
-    expect(StyleSheet.flatten(getByTestId('chip-a').props.style).backgroundColor).toBe(
-      colors.controlOn
-    );
-  });
+      expect(StyleSheet.flatten(getByTestId('chip-a-mark').props.style).backgroundColor).toBe(
+        '#2E8B57'
+      );
+      expect(StyleSheet.flatten(getByTestId('chip-b-mark').props.style).backgroundColor).toBe(
+        '#8B2E5A'
+      );
+      expect(StyleSheet.flatten(getByTestId('chip-a').props.style).backgroundColor).toBe(
+        colors.controlOn
+      );
+    }
+  );
 
-  it('draws a selected option in its accent pair', async () => {
+  vaultIt('draws a selected option in its accent pair', async () => {
     const { getByTestId } = await render(
       <ToggleButtonRow
         layout="hug"
@@ -107,33 +110,36 @@ describe('ToggleButtonRow sized to its labels', () => {
     expect(StyleSheet.flatten(getByTestId('a').props.style).backgroundColor).toBe('#123456');
   });
 
-  it('wraps every chip sized to its label onto another line, so none runs past the edge', async () => {
-    const screen = await render(
-      <ToggleButtonRow
-        layout="hug"
-        testID="chip-row"
-        options={LONG_OPTIONS}
-        value="one"
-        onValueChange={() => {}}
-      />
-    );
+  vaultIt(
+    'wraps every chip sized to its label onto another line, so none runs past the edge',
+    async () => {
+      const screen = await render(
+        <ToggleButtonRow
+          layout="hug"
+          testID="chip-row"
+          options={LONG_OPTIONS}
+          value="one"
+          onValueChange={() => {}}
+        />
+      );
 
-    expect(screen.UNSAFE_queryByType(ScrollView)).toBeNull();
-    const row = StyleSheet.flatten(screen.getByTestId('chip-row').props.style);
-    expect(row.flexDirection).toBe('row');
-    expect(row.flexWrap).toBe('wrap');
-    expect(row.columnGap ?? row.gap).toBe(spacing.sm);
-    expect(row.rowGap ?? row.gap).toBe(spacing.sm);
-    for (const option of LONG_OPTIONS) {
-      const chip = StyleSheet.flatten(screen.getByTestId(option.testID).props.style);
-      expect(chip.flex).toBeUndefined();
-      expect(chip.flexBasis).toBeUndefined();
-      // A chip longer than the whole row shrinks to it, where its label fits, rather than overflowing.
-      expect(chip.flexShrink).toBe(1);
+      expect(screen.UNSAFE_queryByType(ScrollView)).toBeNull();
+      const row = StyleSheet.flatten(screen.getByTestId('chip-row').props.style);
+      expect(row.flexDirection).toBe('row');
+      expect(row.flexWrap).toBe('wrap');
+      expect(row.columnGap ?? row.gap).toBe(spacing.sm);
+      expect(row.rowGap ?? row.gap).toBe(spacing.sm);
+      for (const option of LONG_OPTIONS) {
+        const chip = StyleSheet.flatten(screen.getByTestId(option.testID).props.style);
+        expect(chip.flex).toBeUndefined();
+        expect(chip.flexBasis).toBeUndefined();
+        // A chip longer than the whole row shrinks to it, where its label fits, rather than overflowing.
+        expect(chip.flexShrink).toBe(1);
+      }
     }
-  });
+  );
 
-  it('keeps a row narrower than its parent centred where the caller centres it', async () => {
+  vaultIt('keeps a row narrower than its parent centred where the caller centres it', async () => {
     const screen = await render(
       <ToggleButtonRow
         layout="hug"
@@ -151,7 +157,7 @@ describe('ToggleButtonRow sized to its labels', () => {
     expect(row.justifyContent).toBe('center');
   });
 
-  it('keeps the equal-width layout as the default, with no scroller', async () => {
+  vaultIt('keeps the equal-width layout as the default, with no scroller', async () => {
     const screen = await render(
       <ToggleButtonRow options={OPTIONS} value="a" onValueChange={() => {}} />
     );

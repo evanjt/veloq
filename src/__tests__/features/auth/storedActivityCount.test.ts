@@ -85,7 +85,7 @@ describe('the count a destructive path reads', () => {
     expect(await readStoredActivityCountMirror()).toBe(0);
   });
 
-  it('turns Try Demo over a restored library into a confirmation', async () => {
+  vaultIt('turns Try Demo over a restored library into a confirmation', async () => {
     await rememberStoredActivityCount(240);
 
     const count = await resolveStoredActivityCount();

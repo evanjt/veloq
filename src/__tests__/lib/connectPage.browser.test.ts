@@ -192,7 +192,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
     return visited;
   }
 
-  it(
+  vaultIt(
     'shows the pairing pane with a code drawn on the canvas when nothing is kept',
     async () => {
       const connect = await visit(await scriptFor({ invite: null, linked: null }));
@@ -214,7 +214,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
     TIMEOUT_MS
   );
 
-  it.each([
+  vaultIt.each([
     ['fr', 'fr', 'Connecté', 'Associer ce navigateur'],
     ['ja', 'ja', '接続済み', 'このブラウザーをリンク'],
     ['de-CH,fr', 'de-CH', 'Verbunden', 'Diesen Browser verknüpfen'],
@@ -321,7 +321,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
     TIMEOUT_MS
   );
 
-  it(
+  vaultIt(
     'shows the phone settings, profile and linked devices in the settings panes, with no control',
     async () => {
       const connect = await visit(
@@ -387,7 +387,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
     TIMEOUT_MS
   );
 
-  it(
+  vaultIt(
     'draws the strength tab for its period and opens a recording from the recordings list',
     async () => {
       const recording = {
@@ -470,7 +470,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
     TIMEOUT_MS
   );
 
-  it(
+  vaultIt(
     'draws the fitness panels the phone answers and asks the range panels again for a new range',
     async () => {
       const connect = await visit(

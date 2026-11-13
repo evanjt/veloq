@@ -146,7 +146,7 @@ describe('the Insights screen', () => {
     expect(mockStrip.pages).toHaveLength(mockStrip.tabs.length);
   });
 
-  it('keeps developer tools out of the tab bar with debug mode on', async () => {
+  vaultIt('keeps developer tools out of the tab bar with debug mode on', async () => {
     Object.assign(mockFlags, { strength: 'shown', routeMatching: true, debug: true });
 
     await render(<InsightsScreen />);
@@ -159,29 +159,35 @@ describe('the Insights screen', () => {
     ]);
   });
 
-  it('offers no Routes or Sections tab and shows the disabled hint with route matching off', async () => {
-    Object.assign(mockFlags, { strength: 'shown', routeMatching: false, debug: true });
+  vaultIt(
+    'offers no Routes or Sections tab and shows the disabled hint with route matching off',
+    async () => {
+      Object.assign(mockFlags, { strength: 'shown', routeMatching: false, debug: true });
 
-    await render(<InsightsScreen />);
+      await render(<InsightsScreen />);
 
-    const keys = mockStrip.tabs.map((tab) => tab.key);
-    expect(keys).not.toContain('routes');
-    expect(keys).not.toContain('sections');
-    expect(screen.getByText('insights.routesDisabledLine1')).toBeTruthy();
-  });
+      const keys = mockStrip.tabs.map((tab) => tab.key);
+      expect(keys).not.toContain('routes');
+      expect(keys).not.toContain('sections');
+      expect(screen.getByText('insights.routesDisabledLine1')).toBeTruthy();
+    }
+  );
 
-  it('offers the Routes and Sections tabs and no disabled hint with route matching on', async () => {
-    Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
+  vaultIt(
+    'offers the Routes and Sections tabs and no disabled hint with route matching on',
+    async () => {
+      Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
 
-    await render(<InsightsScreen />);
+      await render(<InsightsScreen />);
 
-    const keys = mockStrip.tabs.map((tab) => tab.key);
-    expect(keys).toContain('routes');
-    expect(keys).toContain('sections');
-    expect(screen.queryByText('insights.routesDisabledLine1')).toBeNull();
-  });
+      const keys = mockStrip.tabs.map((tab) => tab.key);
+      expect(keys).toContain('routes');
+      expect(keys).toContain('sections');
+      expect(screen.queryByText('insights.routesDisabledLine1')).toBeNull();
+    }
+  );
 
-  it('says in its header that it is beta', async () => {
+  vaultIt('says in its header that it is beta', async () => {
     Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
 
     await render(<InsightsScreen />);
@@ -190,7 +196,7 @@ describe('the Insights screen', () => {
     expect(screen.getByText('insights.beta')).toBeTruthy();
   });
 
-  it('names the control that explains the screen', async () => {
+  vaultIt('names the control that explains the screen', async () => {
     Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
 
     await render(<InsightsScreen />);
@@ -198,7 +204,7 @@ describe('the Insights screen', () => {
     expect(screen.getByRole('button', { name: 'insights.aboutTitle' })).toBeTruthy();
   });
 
-  it('opens the explanation of the screen in the explainer sheet, not an alert', async () => {
+  vaultIt('opens the explanation of the screen in the explainer sheet, not an alert', async () => {
     Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     mockOpenExplainer.mockClear();
@@ -214,15 +220,18 @@ describe('the Insights screen', () => {
     alertSpy.mockRestore();
   });
 
-  it('leaves a failed engine start to the global banner and shows none of its own', async () => {
-    Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
-    mockEngine.initFailed = true;
+  vaultIt(
+    'leaves a failed engine start to the global banner and shows none of its own',
+    async () => {
+      Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
+      mockEngine.initFailed = true;
 
-    await render(<InsightsScreen />);
-    mockEngine.initFailed = false;
+      await render(<InsightsScreen />);
+      mockEngine.initFailed = false;
 
-    expect(screen.queryByText('engine.initFailed')).toBeNull();
-  });
+      expect(screen.queryByText('engine.initFailed')).toBeNull();
+    }
+  );
 
   it('lands on strength again when a second card pushes the same tab after a swipe away', async () => {
     Object.assign(mockFlags, { strength: 'shown', routeMatching: false, debug: false });
@@ -266,16 +275,19 @@ describe('a link to the strength tab that names a period', () => {
     expect(mockParams.current.period).toBeUndefined();
   });
 
-  it.each(['bogus', '1y', 'all', ''])('leaves the tab its own period for %p', async (period) => {
-    mockParams.current = { tab: 'strength', period };
+  vaultIt.each(['bogus', '1y', 'all', ''])(
+    'leaves the tab its own period for %p',
+    async (period) => {
+      mockParams.current = { tab: 'strength', period };
 
-    await render(<InsightsScreen />);
+      await render(<InsightsScreen />);
 
-    expect(mockStrip.activeTab).toBe('strength');
-    expect(linkedPeriod()).toBeUndefined();
-  });
+      expect(mockStrip.activeTab).toBe('strength');
+      expect(linkedPeriod()).toBeUndefined();
+    }
+  );
 
-  it('leaves the tab its own period when the link names none', async () => {
+  vaultIt('leaves the tab its own period when the link names none', async () => {
     mockParams.current = { tab: 'strength' };
 
     await render(<InsightsScreen />);
@@ -296,7 +308,7 @@ describe('a link to the strength tab that names a period', () => {
     expect(mockParams.current.period).toBeUndefined();
   });
 
-  it('hands a fresh link when a second link names the same period again', async () => {
+  vaultIt('hands a fresh link when a second link names the same period again', async () => {
     mockParams.current = { tab: 'strength', period: '1m' };
     const { rerender } = await render(<InsightsScreen />);
     await rerender(<InsightsScreen />);

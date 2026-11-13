@@ -31,7 +31,7 @@ describe('the tested ranges', () => {
     }
   });
 
-  it('states a clamp only where the detector has one, and inside the tested range', () => {
+  vaultIt('states a clamp only where the detector has one, and inside the tested range', () => {
     expect(DETECTION_PARAM_RANGES.divergenceThreshold.clamp).toEqual({ min: 0.05, max: 0.5 });
     expect(DETECTION_PARAM_RANGES.proximityThreshold.clamp).toEqual({ min: 100, max: 300 });
     expect(DETECTION_PARAM_RANGES.minSectionLength.clamp).toBeUndefined();
@@ -47,7 +47,7 @@ describe('the tested ranges', () => {
    * catalogue in every column at 10, 50 and 100 m, and the same again at 300,
    * 450 and 600. Past a clamp is for typing, not for dragging.
    */
-  it('never lets a slider reach past a clamp, which is what typing is for', () => {
+  vaultIt('never lets a slider reach past a clamp, which is what typing is for', () => {
     for (const key of KEYS) {
       const { min, max, clamp } = DETECTION_PARAM_RANGES[key];
       if (!clamp) continue;
@@ -56,7 +56,7 @@ describe('the tested ranges', () => {
     }
   });
 
-  it('leaves every slider a range to move over', () => {
+  vaultIt('leaves every slider a range to move over', () => {
     for (const key of KEYS) {
       const { min, max, step } = DETECTION_PARAM_RANGES[key];
       expect(max).toBeGreaterThan(min);
@@ -66,21 +66,21 @@ describe('the tested ranges', () => {
 });
 
 describe('a value past the clamp', () => {
-  it('is named for the two parameters that have one', () => {
+  vaultIt('is named for the two parameters that have one', () => {
     expect(isPastClamp('divergenceThreshold', 0.8)).toBe(true);
     expect(isPastClamp('divergenceThreshold', 0.01)).toBe(true);
     expect(isPastClamp('proximityThreshold', 500)).toBe(true);
     expect(isPastClamp('proximityThreshold', 50)).toBe(true);
   });
 
-  it('is not claimed on the bound itself', () => {
+  vaultIt('is not claimed on the bound itself', () => {
     expect(isPastClamp('divergenceThreshold', 0.5)).toBe(false);
     expect(isPastClamp('divergenceThreshold', 0.05)).toBe(false);
     expect(isPastClamp('proximityThreshold', 100)).toBe(false);
     expect(isPastClamp('proximityThreshold', 300)).toBe(false);
   });
 
-  it('is never claimed where the detector acts on whatever it is given', () => {
+  vaultIt('is never claimed where the detector acts on whatever it is given', () => {
     expect(isPastClamp('minSectionLength', 999999)).toBe(false);
     expect(isPastClamp('maxSectionLength', 1)).toBe(false);
     expect(isPastClamp('minActivities', 400)).toBe(false);
@@ -110,7 +110,7 @@ describe('a typed value', () => {
 });
 
 describe('the presets', () => {
-  it('set all five fields, so none is left where the last drag put it', () => {
+  vaultIt('set all five fields, so none is left where the last drag put it', () => {
     for (const name of DETECTION_PRESET_NAMES) {
       expect(Object.keys(DETECTION_PRESETS[name]).sort()).toEqual(KEYS.slice().sort());
     }
@@ -130,7 +130,7 @@ describe('the presets', () => {
     expect(DETECTION_PRESETS.default).toEqual({ ...UNIFIED_CONFIG });
   });
 
-  it('splits more eagerly when strict and less when relaxed', () => {
+  vaultIt('splits more eagerly when strict and less when relaxed', () => {
     expect(DETECTION_PRESETS.strict.divergenceThreshold).toBeLessThan(
       DETECTION_PRESETS.default.divergenceThreshold
     );
@@ -142,7 +142,7 @@ describe('the presets', () => {
     );
   });
 
-  it('names which preset a set of parameters is, and none when it is neither', () => {
+  vaultIt('names which preset a set of parameters is, and none when it is neither', () => {
     expect(presetOf(DETECTION_PRESETS.strict)).toBe('strict');
     expect(presetOf(DETECTION_PRESETS.default)).toBe('default');
     expect(presetOf({ ...DETECTION_PRESETS.strict, minActivities: 9 })).toBeNull();
@@ -150,7 +150,7 @@ describe('the presets', () => {
 });
 
 describe('a value past the tested range', () => {
-  it('is named where the detector has no clamp', () => {
+  vaultIt('is named where the detector has no clamp', () => {
     expect(isPastTestedRange('minSectionLength', 25)).toBe(true);
     expect(isPastTestedRange('minSectionLength', 100)).toBe(false);
     expect(isPastTestedRange('minSectionLength', 50)).toBe(false);
@@ -159,7 +159,7 @@ describe('a value past the tested range', () => {
     expect(isPastTestedRange('minActivities', 10)).toBe(false);
   });
 
-  it('is left to the clamp note where the detector has a clamp', () => {
+  vaultIt('is left to the clamp note where the detector has a clamp', () => {
     expect(isPastTestedRange('proximityThreshold', 50)).toBe(false);
     expect(isPastTestedRange('divergenceThreshold', 0.8)).toBe(false);
   });

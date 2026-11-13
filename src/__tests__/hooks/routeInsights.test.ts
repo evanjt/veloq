@@ -85,7 +85,7 @@ describe('generateRouteInsights', () => {
     expect(card.supportingData?.change).toBeUndefined();
   });
 
-  it('states no figure on the group card', () => {
+  vaultIt('states no figure on the group card', () => {
     const [card] = generateRouteInsights(THREE_ROUTES, COUNTS, NOW, t);
 
     expect(card.supportingData?.hero).toBeUndefined();
@@ -134,7 +134,7 @@ describe('generateRouteInsights', () => {
     expect([2900, 3000].map((value) => format?.(value))).toEqual(['48:20', '50:00']);
   });
 
-  it('titles a single trend row faster or slower', () => {
+  vaultIt('titles a single trend row faster or slower', () => {
     const faster = generateRouteInsights(
       [row({ trend: 1 })],
       { records: 0, faster: 1, slower: 0 },
@@ -177,7 +177,7 @@ describe('generateRouteInsights', () => {
     expect(slower.line).toContain('"change":"42 s"');
   });
 
-  it('keeps the record sentence and states no change on a recent record', () => {
+  vaultIt('keeps the record sentence and states no change on a recent record', () => {
     const [card] = generateRouteInsights(
       [row({ isRecentRecord: true, trend: 1, trendSeconds: -100 })],
       { records: 1, faster: 0, slower: 0 },
@@ -189,7 +189,7 @@ describe('generateRouteInsights', () => {
     expect(card.supportingData?.change).toBeUndefined();
   });
 
-  it('carries the change in seconds onto the route the card lists', () => {
+  vaultIt('carries the change in seconds onto the route the card lists', () => {
     const [card] = generateRouteInsights(
       [row({ trend: 1, trendSeconds: -100 })],
       { records: 0, faster: 1, slower: 0 },
@@ -234,7 +234,7 @@ describe('generateRouteInsights', () => {
     expect(card.title).toContain('{"count":6}');
   });
 
-  it('names the first three routes in the body and the rest as a count', () => {
+  vaultIt('names the first three routes in the body and the rest as a count', () => {
     const rows = ['a', 'b', 'c', 'd', 'e'].map((id) =>
       row({ routeId: id, routeName: `Route ${id}`, trend: 1 })
     );
@@ -247,7 +247,7 @@ describe('generateRouteInsights', () => {
     expect(card.supportingData?.routes).toHaveLength(5);
   });
 
-  it('is priority 2 with a record and 3 with trends only', () => {
+  vaultIt('is priority 2 with a record and 3 with trends only', () => {
     expect(generateRouteInsights(THREE_ROUTES, COUNTS, NOW, t)[0].priority).toBe(2);
     expect(
       generateRouteInsights(THREE_ROUTES.slice(1), { records: 0, faster: 2, slower: 0 }, NOW, t)[0]
@@ -255,7 +255,7 @@ describe('generateRouteInsights', () => {
     ).toBe(3);
   });
 
-  it('stands on the thinnest row and the freshest attempt', () => {
+  vaultIt('stands on the thinnest row and the freshest attempt', () => {
     const [card] = generateRouteInsights(THREE_ROUTES, COUNTS, NOW, t);
 
     expect(card.meta?.repetitionCount).toBe(7);
@@ -275,7 +275,7 @@ describe('generateRouteInsights', () => {
     expect(new Set(listed.map((r) => r.rowKey)).size).toBe(2);
   });
 
-  it('labels the direction only where the route has both', () => {
+  vaultIt('labels the direction only where the route has both', () => {
     const rows = [
       row({ routeId: 'r5', routeName: 'Ridge', trend: 1, isReverse: false }),
       row({ routeId: 'r5', routeName: 'Ridge', trend: 1, isReverse: true }),
@@ -287,7 +287,7 @@ describe('generateRouteInsights', () => {
     expect(listed.map((r) => r.direction)).toEqual(['forward', 'reverse', undefined]);
   });
 
-  it('gives each direction its own id on a single row', () => {
+  vaultIt('gives each direction its own id on a single row', () => {
     const forward = generateRouteInsights(
       [row({ trend: 1 })],
       { records: 0, faster: 1, slower: 0 },
@@ -307,7 +307,7 @@ describe('generateRouteInsights', () => {
 });
 
 describe('generateInsights with route rows', () => {
-  it('returns one route card with every route listed', () => {
+  vaultIt('returns one route card with every route listed', () => {
     const insights = generateInsights(
       { ...EMPTY_INPUT, routeInsights: THREE_ROUTES, routeInsightCounts: COUNTS },
       t
@@ -318,7 +318,7 @@ describe('generateInsights with route rows', () => {
     expect(routeCards[0].supportingData?.routes).toHaveLength(3);
   });
 
-  it('returns no route card without rows', () => {
+  vaultIt('returns no route card without rows', () => {
     const insights = generateInsights(
       {
         ...EMPTY_INPUT,
@@ -331,7 +331,7 @@ describe('generateInsights with route rows', () => {
     expect(insights.filter((i) => i.category === 'route')).toEqual([]);
   });
 
-  it('ranks the card under the existing caps beside eight stronger cards', () => {
+  vaultIt('ranks the card under the existing caps beside eight stronger cards', () => {
     const maxTotalBefore = INSIGHTS_CONFIG.surface.maxTotal;
     const prs = Array.from({ length: 8 }, (_, i) => ({
       sectionId: `s${i}`,

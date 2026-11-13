@@ -40,7 +40,7 @@ describe('heatmap rows are weekdays', () => {
     }
   });
 
-  it('puts today in its weekday row of the newest column', () => {
+  vaultIt('puts today in its weekday row of the newest column', () => {
     expect(cellPositions(WEDNESDAY).get('2026-09-23')).toEqual({
       x: (HEATMAP_WEEKS - 1) * PITCH,
       y: 2 * PITCH,
@@ -116,7 +116,7 @@ describe('heatmap interval', () => {
 });
 
 describe('heatmap month labels', () => {
-  it('keeps every label at least three columns from the next, on every day of a year', () => {
+  vaultIt('keeps every label at least three columns from the next, on every day of a year', () => {
     const crowded: string[] = [];
     for (let offset = 0; offset < 366; offset++) {
       const today = new Date(2027, 0, 1 + offset, 12, 0);
@@ -131,7 +131,7 @@ describe('heatmap month labels', () => {
     expect(crowded).toEqual([]);
   });
 
-  it('drops the leftmost month when the next one starts a column later', () => {
+  vaultIt('drops the leftmost month when the next one starts a column later', () => {
     // On 24 September 2026 column 0 starts on 29 September 2025 and column 1
     // on 6 October, so a September label at column 0 would sit 12 px from October.
     const labels = heatmapLayout(new Date(2026, 8, 24, 10, 0)).monthLabels;
@@ -139,7 +139,7 @@ describe('heatmap month labels', () => {
     expect(labels[0]).toMatchObject({ col: 1, month: 9 });
   });
 
-  it('carries a year on January only', () => {
+  vaultIt('carries a year on January only', () => {
     const labels = heatmapLayout(WEDNESDAY).monthLabels;
 
     expect(labels.filter((l) => l.year !== undefined)).toEqual([
@@ -205,7 +205,7 @@ describe('heatmap span follows the first drawn day', () => {
     expect(layout.cells).toHaveLength(7);
   });
 
-  it('keeps every month label inside the drawn columns', () => {
+  vaultIt('keeps every month label inside the drawn columns', () => {
     const layout = heatmapLayout(SUNDAY, day('2026-07-20'));
 
     // July's two columns are too few for its label beside August's.

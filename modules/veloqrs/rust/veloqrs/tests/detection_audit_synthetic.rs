@@ -129,6 +129,7 @@ fn build_fixture() -> (Vec<Track>, HashMap<String, String>) {
 // ---------------------------------------------------------------------------
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn synthetic_overlap_produces_sections() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
@@ -148,6 +149,7 @@ fn synthetic_overlap_produces_sections() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn section_distance_is_reasonable() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
@@ -166,6 +168,7 @@ fn section_distance_is_reasonable() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn most_activities_appear_in_section() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
@@ -184,6 +187,7 @@ fn most_activities_appear_in_section() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn corridor_populates_activity_portions() {
     // Regression: before the portions fix, corridor detection returned
     // sections with empty `activity_portions`. The section detail screen
@@ -230,6 +234,7 @@ fn corridor_populates_activity_portions() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn consensus_polyline_is_near_tracks() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();

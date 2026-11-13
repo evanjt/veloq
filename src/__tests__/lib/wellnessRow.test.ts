@@ -36,7 +36,7 @@ describe('wellnessRowReading', () => {
     expect(wellnessRowReading(smoothed, 3)).toEqual({ x: 3, date: '2026-03-04', value: 62 });
   });
 
-  it('states the reading unchanged when smoothing is off', () => {
+  vaultIt('states the reading unchanged when smoothing is off', () => {
     expect(wellnessRowReading(smoothDataPoints(points(HRV), 0), 3)?.value).toBe(62);
   });
 
@@ -50,29 +50,29 @@ describe('wellnessRowReading', () => {
     expect(wellnessRowReading(smoothed, 5)).toBeNull();
   });
 
-  it('states nothing for a row with no readings', () => {
+  vaultIt('states nothing for a row with no readings', () => {
     expect(wellnessRowReading([], null)).toBeNull();
     expect(wellnessRowReading([], 2)).toBeNull();
   });
 });
 
 describe('wellnessRowMarker', () => {
-  it('sits on the smoothed line at the scrubbed day, not at the day’s reading', () => {
+  vaultIt('sits on the smoothed line at the scrubbed day, not at the day’s reading', () => {
     const smoothed = smoothDataPoints(points(HRV), 7);
     const marker = wellnessRowMarker(smoothed, 3);
     expect(marker).toEqual({ x: 3, value: smoothed[3].value });
     expect(marker?.value).not.toBeCloseTo(62);
   });
 
-  it('sits at the reading itself when smoothing is off', () => {
+  vaultIt('sits at the reading itself when smoothing is off', () => {
     expect(wellnessRowMarker(smoothDataPoints(points(HRV), 0), 3)).toEqual({ x: 3, value: 62 });
   });
 
-  it('draws no dot for a scrubbed day the metric was not logged on', () => {
+  vaultIt('draws no dot for a scrubbed day the metric was not logged on', () => {
     expect(wellnessRowMarker(smoothDataPoints(points(HRV, [5]), 7), 5)).toBeNull();
   });
 
-  it('draws no dot at rest', () => {
+  vaultIt('draws no dot at rest', () => {
     expect(wellnessRowMarker(smoothDataPoints(points(HRV), 7), null)).toBeNull();
   });
 });
@@ -87,13 +87,13 @@ describe('wellnessRowStats', () => {
     expect(stats!.average).toBeCloseTo(46.1);
   });
 
-  it('states nothing for a row with no readings', () => {
+  vaultIt('states nothing for a row with no readings', () => {
     expect(wellnessRowStats([])).toBeNull();
   });
 });
 
 describe('wellnessRowDomain', () => {
-  it('holds every raw reading under smoothing, so a scrubbed dot stays inside its row', () => {
+  vaultIt('holds every raw reading under smoothing, so a scrubbed dot stays inside its row', () => {
     const smoothed = smoothDataPoints(points(HRV), 7);
     const { min, max } = wellnessRowDomain(smoothed);
     for (const d of smoothed) {
@@ -104,7 +104,7 @@ describe('wellnessRowDomain', () => {
     }
   });
 
-  it('pads a flat row so it still has a height to draw in', () => {
+  vaultIt('pads a flat row so it still has a height to draw in', () => {
     const { min, max } = wellnessRowDomain(points([50, 50, 50]));
     expect(min).toBeLessThan(50);
     expect(max).toBeGreaterThan(50);

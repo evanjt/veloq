@@ -52,7 +52,7 @@ function routeLine(): number[][] {
 }
 
 describe('the live line on the recording map', () => {
-  it('ships one fix as one point from a track that grows in place', async () => {
+  vaultIt('ships one fix as one point from a track that grows in place', async () => {
     const track: [number, number][] = [
       [46.948, 7.447],
       [46.949, 7.448],
@@ -85,7 +85,7 @@ describe('the live line on the recording map', () => {
     ]);
   });
 
-  it('draws only the length the render saw, not points added after it', async () => {
+  vaultIt('draws only the length the render saw, not points added after it', async () => {
     const track: [number, number][] = [
       [46.948, 7.447],
       [46.949, 7.448],

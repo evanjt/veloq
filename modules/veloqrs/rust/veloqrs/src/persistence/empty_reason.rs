@@ -159,6 +159,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn owed_elevation_waits_a_detect_only_while_the_cutover_is_owed() {
         assert_eq!(
             hold_from(false, false, 7, true),
@@ -173,6 +174,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_running_or_paused_download_holds_after_the_cutover_too() {
         assert_eq!(
             hold_from(false, true, 0, false),
@@ -186,6 +188,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn no_gps_answers_ahead_of_a_running_detect_and_a_hold() {
         let state = DetectionState {
             running: Some(("loading".into(), 10)),
@@ -199,6 +202,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_running_detect_answers_with_its_phase_and_percent() {
         let state = DetectionState {
             running: Some(("analyzing".into(), 42)),
@@ -215,6 +219,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_hold_answers_only_while_a_detect_is_owed() {
         let held = DetectionState {
             hold: Some(FfiDetectionHold::ElevationPaused),
@@ -237,6 +242,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_owed_cutover_holds_a_library_every_detect_has_seen() {
         let state = DetectionState {
             hold: Some(FfiDetectionHold::Cutover),
@@ -251,6 +257,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn unseen_activities_with_nothing_holding_read_as_not_yet_run() {
         assert_eq!(
             empty_reason(&resting(5, 4), 2),
@@ -259,6 +266,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_library_every_detect_has_seen_carries_the_threshold() {
         assert_eq!(
             empty_reason(&resting(5, 0), 3),

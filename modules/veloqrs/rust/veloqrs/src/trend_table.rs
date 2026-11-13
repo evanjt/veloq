@@ -172,6 +172,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_metric_is_named_once() {
         let mut names: Vec<&str> = TREND_METRICS.iter().map(|m| m.name).collect();
         names.sort_unstable();
@@ -185,6 +186,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn no_deadband_is_negative() {
         for m in TREND_METRICS {
             assert!(
@@ -196,6 +198,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn weekly_weighted_sets_carry_no_polarity() {
         let m = metric("weekSets").expect("weekSets is in the table");
         assert_eq!(m.polarity, Polarity::None);
@@ -232,6 +235,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_name_the_table_does_not_carry_is_none() {
         assert!(metric("fitness").is_some());
         assert!(metric("not-a-metric").is_none());

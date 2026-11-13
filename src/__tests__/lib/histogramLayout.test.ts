@@ -32,7 +32,7 @@ describe('layoutHistogram', () => {
     expect(bars[0].y + bars[0].height).toBe(bars[1].y + bars[1].height);
   });
 
-  it('caps six bins on a 340 px plot at 24 px, each centred in its bin', () => {
+  vaultIt('caps six bins on a 340 px plot at 24 px, each centred in its bin', () => {
     const frame = {
       width: 360,
       height: 120,
@@ -52,7 +52,7 @@ describe('layoutHistogram', () => {
     });
   });
 
-  it('leaves a gap of at least 2 px between dense bars', () => {
+  vaultIt('leaves a gap of at least 2 px between dense bars', () => {
     const frame = { width: 100, height: 120, padding: { left: 0, right: 0, top: 10, bottom: 10 } };
     const { bars } = layoutHistogram(histogram(Array.from({ length: 20 }, () => 1)), frame);
 
@@ -62,7 +62,7 @@ describe('layoutHistogram', () => {
     }
   });
 
-  it('carries a zero count tick on the baseline', () => {
+  vaultIt('carries a zero count tick on the baseline', () => {
     const { countTicks } = layoutHistogram(histogram([3, 2]), FRAME);
 
     expect(countTicks[0]).toEqual({ count: 0, y: 110 });
@@ -76,7 +76,7 @@ describe('layoutHistogram', () => {
     expect(bars[1].binLeft).toBeCloseTo(10 + 200 / 3);
   });
 
-  it('places a time inside the first bin within the first bar span', () => {
+  vaultIt('places a time inside the first bin within the first bar span', () => {
     const { bars, xForTime } = layoutHistogram(histogram([3, 2]), FRAME);
     const x = xForTime(305)!;
 
@@ -84,7 +84,7 @@ describe('layoutHistogram', () => {
     expect(x).toBeLessThan(bars[0].binRight);
   });
 
-  it('marks a time over the bar of its bin when the bars are narrower than the bins', () => {
+  vaultIt('marks a time over the bar of its bin when the bars are narrower than the bins', () => {
     const frame = {
       width: 260,
       height: 120,
@@ -100,14 +100,17 @@ describe('layoutHistogram', () => {
     expect(x).toBeLessThanOrEqual(bar.x + bar.width);
   });
 
-  it('marks the centre of the bin a time falls in, the last bin closed at the span end', () => {
-    const { bars, xForTime } = layoutHistogram(histogram([3, 2]), FRAME);
+  vaultIt(
+    'marks the centre of the bin a time falls in, the last bin closed at the span end',
+    () => {
+      const { bars, xForTime } = layoutHistogram(histogram([3, 2]), FRAME);
 
-    expect(xForTime(360)).toBe(bars[1].centre);
-    expect(xForTime(299)).toBeNull();
-    expect(xForTime(361)).toBeNull();
-    expect(xForTime(NaN)).toBeNull();
-  });
+      expect(xForTime(360)).toBe(bars[1].centre);
+      expect(xForTime(299)).toBeNull();
+      expect(xForTime(361)).toBeNull();
+      expect(xForTime(NaN)).toBeNull();
+    }
+  );
 
   it('assigns a time on a bin edge to the bin it opens, and the span end to the last bin', () => {
     const hist = { ...histogram([1, 2, 3, 4]), startSecs: 100, binWidthSecs: 10 };
@@ -130,18 +133,18 @@ describe('layoutHistogram', () => {
 });
 
 describe('integerCountTicks', () => {
-  it('lists whole counts from zero for a short chart', () => {
+  vaultIt('lists whole counts from zero for a short chart', () => {
     expect(integerCountTicks(3)).toEqual([0, 1, 2, 3]);
   });
 
-  it('thins a tall chart to at most four whole ticks above zero', () => {
+  vaultIt('thins a tall chart to at most four whole ticks above zero', () => {
     const ticks = integerCountTicks(23);
     expect(ticks[0]).toBe(0);
     expect(ticks.length).toBeLessThanOrEqual(5);
     expect(ticks.every(Number.isInteger)).toBe(true);
   });
 
-  it('gives the zero tick alone for nothing to count', () => {
+  vaultIt('gives the zero tick alone for nothing to count', () => {
     expect(integerCountTicks(0)).toEqual([0]);
     expect(integerCountTicks(NaN)).toEqual([0]);
   });

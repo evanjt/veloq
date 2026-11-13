@@ -136,14 +136,14 @@ async function openChooser() {
 }
 
 describe('restore from backup on the login screen', () => {
-  it('offers a file and a WebDAV server', async () => {
+  vaultIt('offers a file and a WebDAV server', async () => {
     await openChooser();
 
     expect(screen.getByTestId('restore-chooser-file')).toBeTruthy();
     expect(screen.getByTestId('restore-chooser-webdav')).toBeTruthy();
   });
 
-  it('names no device backup on Android, where the app carries nothing in it', async () => {
+  vaultIt('names no device backup on Android, where the app carries nothing in it', async () => {
     const os = Platform.OS;
     Platform.OS = 'android';
     try {
@@ -156,19 +156,22 @@ describe('restore from backup on the login screen', () => {
     }
   });
 
-  it('keeps the API key form and the inline WebDAV form on the scroll view that clears the keyboard', async () => {
-    await openChooser();
-    await act(async () => {
-      await fireEvent.press(screen.getByTestId('restore-chooser-webdav'));
-    });
-    const scroll = within(screen.UNSAFE_getByType(ScreenScrollView));
+  vaultIt(
+    'keeps the API key form and the inline WebDAV form on the scroll view that clears the keyboard',
+    async () => {
+      await openChooser();
+      await act(async () => {
+        await fireEvent.press(screen.getByTestId('restore-chooser-webdav'));
+      });
+      const scroll = within(screen.UNSAFE_getByType(ScreenScrollView));
 
-    expect(scroll.getByTestId('login-apikey-section')).toBeTruthy();
-    expect(scroll.getByLabelText(i18n.t('backup.password'))).toBeTruthy();
-    expect(screen.UNSAFE_getAllByType(ScrollView)[0]?.props.keyboardShouldPersistTaps).toBe(
-      'handled'
-    );
-  });
+      expect(scroll.getByTestId('login-apikey-section')).toBeTruthy();
+      expect(scroll.getByLabelText(i18n.t('backup.password'))).toBeTruthy();
+      expect(screen.UNSAFE_getAllByType(ScrollView)[0]?.props.keyboardShouldPersistTaps).toBe(
+        'handled'
+      );
+    }
+  );
 
   it("lists a WebDAV server's backups from the inline form and holds the chosen one for sign-in", async () => {
     const fetchMock = stubServer();
@@ -270,7 +273,7 @@ describe('restoring from a WebDAV server typed in without leaving the last field
     expect(alert).not.toHaveBeenCalled();
   });
 
-  it('names the missing field rather than calling the destination unavailable', async () => {
+  vaultIt('names the missing field rather than calling the destination unavailable', async () => {
     const fetchMock = stubServer();
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     await openChooser();
@@ -296,7 +299,7 @@ describe('restoring from a WebDAV server typed in without leaving the last field
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('asks for every field when none is filled in', async () => {
+  vaultIt('asks for every field when none is filled in', async () => {
     stubServer();
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     await openChooser();
@@ -332,7 +335,7 @@ describe('restoring from a WebDAV server typed in without leaving the last field
 });
 
 describe('the login screen', () => {
-  it('opens on its title as a heading', async () => {
+  vaultIt('opens on its title as a heading', async () => {
     await render(<LoginScreen />);
 
     expect(screen.getByRole('header', { name: i18n.t('login.title') })).toBeTruthy();

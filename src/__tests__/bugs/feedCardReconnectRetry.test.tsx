@@ -135,7 +135,7 @@ describe('a feed card whose preview failed offline', () => {
     expect(noMapMarks(tree)).toBe(0);
   });
 
-  it('asks once per reconnect, not on every render after it', async () => {
+  vaultIt('asks once per reconnect, not on every render after it', async () => {
     const { requestSnapshot, rerender } = await failOffline();
 
     mockOnline = true;
@@ -159,7 +159,7 @@ describe('a feed card whose preview failed offline', () => {
     expect(requestSnapshot).toHaveBeenCalledTimes(3);
   });
 
-  it('does not ask on reconnect for a card that did not fail', async () => {
+  vaultIt('does not ask on reconnect for a card that did not fail', async () => {
     mockOnline = false;
     const { requestSnapshot, rerender } = await renderCard();
 
@@ -169,7 +169,7 @@ describe('a feed card whose preview failed offline', () => {
     expect(requestSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it('does not ask on reconnect for a card outside the preview range', async () => {
+  vaultIt('does not ask on reconnect for a card outside the preview range', async () => {
     setVisibleRange({ first: 0, last: 1 });
     mockOnline = false;
     const { requestSnapshot, tree, rerender } = await renderCard(10);

@@ -19,17 +19,18 @@ import { trailingWeekRanges } from '@/shared/time/trailingWeeks';
 
 import { strengthTabState, type StrengthTabState } from '../lib/strengthTabState';
 import { normaliseStrengthProgression, normaliseStrengthSummary } from '../lib/analysis';
-import { demoStrengthSets } from '../demo';
+import { demoStrengthActivityIds } from '../lib/demoStrength';
+import { requestFitFile } from './useExerciseSets';
 import type { StrengthPeriod, StrengthScreenData } from '../types';
 
 /**
- * Seed synthetic strength sets for demo activities that have none in the
- * engine. The Strength tab queries aggregate summaries directly (not
- * per-activity) so the demo-mode seed path in useExerciseSets doesn't cover
- * this entry point. The engine is the only record of whether a set exists, so
- * this asks it for each activity on every call rather than latching: a library
- * wipe clears the sets, and the next demo session must put them back.
- * Idempotent - bulk_insert_exercise_sets uses INSERT OR REPLACE.
+ * Settle the demo library's strength sessions the engine has not yet settled.
+ * The Strength tab queries aggregate summaries directly (not per-activity), so
+ * the demo-mode path in useExerciseSets doesn't cover this entry point. The
+ * engine is the only record of whether a set exists, so this asks it for each
+ * session on every call rather than latching: a library wipe clears the sets,
+ * and the next demo session must put them back. The engine settles a demo
+ * session from its corpus synchronously, and settling is idempotent.
  * Returns whether anything was written, so a caller knows if there is news to announce.
  */
 function ensureDemoStrengthSeeded(): boolean {
@@ -37,11 +38,10 @@ function ensureDemoStrengthSeeded(): boolean {
   if (!isEngineReady()) return false;
   let wrote = false;
   try {
-    for (const [activityId, sets] of Object.entries(demoStrengthSets)) {
-      if (strength.getExerciseSets(activityId).sets.length === 0) {
-        strength.bulkInsertExerciseSets(activityId, sets);
-        wrote = true;
-      }
+    for (const activityId of demoStrengthActivityIds()) {
+      if (strength.getExerciseSets(activityId).sets.length > 0) continue;
+      requestFitFile(activityId);
+      if (strength.getExerciseSets(activityId).sets.length > 0) wrote = true;
     }
   } catch (err) {
     console.warn('[StrengthVolume] demo seed failed:', err);

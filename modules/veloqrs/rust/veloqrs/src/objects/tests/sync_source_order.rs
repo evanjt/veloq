@@ -380,6 +380,7 @@ fn two_sports(source: &mut FakeSource<'_>) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_calls_come_in_step_order_with_their_arguments_and_lanes() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("sync_source_order.db");
@@ -463,6 +464,7 @@ fn the_calls_come_in_step_order_with_their_arguments_and_lanes() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_profile_carrying_its_sport_settings_asks_for_none() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("sync_source_embedded.db");
@@ -478,6 +480,7 @@ fn a_profile_carrying_its_sport_settings_asks_for_none() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_current_stored_profile_is_not_asked_for_and_every_step_still_counts() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("sync_source_profile_current.db");
@@ -525,6 +528,7 @@ fn a_401_on_the_census_confirmed_parks_the_service() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_401_on_the_census_not_confirmed_ends_idle_without_the_latch() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("sync_source_census_401_once.db");
@@ -543,6 +547,7 @@ fn a_401_on_the_census_not_confirmed_ends_idle_without_the_latch() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_401_on_the_detail_body_still_asks_the_activitys_other_bodies() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("sync_source_detail_401.db");
@@ -570,6 +575,7 @@ fn a_401_on_the_detail_body_still_asks_the_activitys_other_bodies() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_401_on_the_first_curve_asks_no_second() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("sync_source_curve_401.db");
@@ -591,6 +597,7 @@ fn a_401_on_the_first_curve_asks_no_second() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_fixture_with_two_sports_asks_more_than_one_curve() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("sync_source_two_sports.db");
@@ -612,6 +619,7 @@ fn the_fixture_with_two_sports_asks_more_than_one_curve() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cancel_inside_the_census_asks_nothing_after_it() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("sync_source_cancel.db");

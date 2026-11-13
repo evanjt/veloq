@@ -202,7 +202,7 @@ afterEach(() => {
 });
 
 describe('a detail host’s one map', () => {
-  it('draws the route card on one page', async () => {
+  vaultIt('draws the route card on one page', async () => {
     await openOrchard();
 
     expect(mockPage.mounts).toBe(1);

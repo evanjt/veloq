@@ -52,7 +52,7 @@ beforeEach(() => {
 });
 
 describe('the experimental row in the settings footer', () => {
-  it('is there with no taps, above the version line, and has no master switch', async () => {
+  vaultIt('is there with no taps, above the version line, and has no master switch', async () => {
     const screen = await render(<FooterSection />);
     const row = screen.getByTestId('settings-experimental-dashboard-link');
     expect(screen.queryByTestId('settings-experimental-switch')).toBeNull();
@@ -66,7 +66,7 @@ describe('the experimental row in the settings footer', () => {
     expect(navigateTo).toHaveBeenCalledWith('/experimental');
   });
 
-  it('keeps the debug switch behind five taps on the version line', async () => {
+  vaultIt('keeps the debug switch behind five taps on the version line', async () => {
     const { queryByTestId, getByLabelText } = await render(<FooterSection />);
     expect(queryByTestId('settings-debug-switch')).toBeNull();
 
@@ -80,18 +80,21 @@ describe('the experimental row in the settings footer', () => {
 });
 
 describe('the experimental page', () => {
-  it('opens with a note above the first switch that the features are unfinished previews', async () => {
-    const screen = await renderPage();
+  vaultIt(
+    'opens with a note above the first switch that the features are unfinished previews',
+    async () => {
+      const screen = await renderPage();
 
-    expect(screen.getByText('t(experimental.previewNote)')).toBeTruthy();
-    const tree = JSON.stringify(screen.toJSON());
-    expect(tree.indexOf('experimental-preview-note')).toBeGreaterThanOrEqual(0);
-    expect(tree.indexOf('experimental-preview-note')).toBeLessThan(
-      tree.indexOf(`experimental-switch-${EXPERIMENTAL_FEATURES[0].key}`)
-    );
-  });
+      expect(screen.getByText('t(experimental.previewNote)')).toBeTruthy();
+      const tree = JSON.stringify(screen.toJSON());
+      expect(tree.indexOf('experimental-preview-note')).toBeGreaterThanOrEqual(0);
+      expect(tree.indexOf('experimental-preview-note')).toBeLessThan(
+        tree.indexOf(`experimental-switch-${EXPERIMENTAL_FEATURES[0].key}`)
+      );
+    }
+  );
 
-  it('lists every feature with its blurb and its switch', async () => {
+  vaultIt('lists every feature with its blurb and its switch', async () => {
     const screen = await renderPage();
 
     for (const feature of EXPERIMENTAL_FEATURES) {
@@ -115,7 +118,7 @@ describe('the experimental page', () => {
     expect(navigateTo).toHaveBeenLastCalledWith('/best-efforts');
   });
 
-  it('says so, with no link, for a feature the library has no example of', async () => {
+  vaultIt('says so, with no link, for a feature the library has no example of', async () => {
     withEngine({ sectionCorrelationSectionId: 'sec-corr' });
     const screen = await renderPage();
 

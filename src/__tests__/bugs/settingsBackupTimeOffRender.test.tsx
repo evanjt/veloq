@@ -40,7 +40,7 @@ beforeEach(() => {
 });
 
 describe('the settings backup time is read on focus', () => {
-  it('reads once however many times the screen re-renders', async () => {
+  vaultIt('reads once however many times the screen re-renders', async () => {
     const { result, rerender } = await renderHook(() => useLastBackupTimestamp());
     expect(result.current).toBe(1_700_000_000_000);
 

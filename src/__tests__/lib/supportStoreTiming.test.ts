@@ -65,14 +65,14 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('does not show on a fresh install launched every day for 13 days', async () => {
+vaultIt('does not show on a fresh install launched every day for 13 days', async () => {
   for (let day = 0; day < 13; day++) {
     await launchOn(day);
     expect(shows()).toBe(false);
   }
 });
 
-it('shows on the 14th day after five distinct days of use', async () => {
+vaultIt('shows on the 14th day after five distinct days of use', async () => {
   for (const day of [0, 2, 5, 9]) {
     await launchOn(day);
     expect(shows()).toBe(false);
@@ -83,13 +83,13 @@ it('shows on the 14th day after five distinct days of use', async () => {
   expect(shows()).toBe(true);
 });
 
-it('does not show when the app was opened once and left for 30 days', async () => {
+vaultIt('does not show when the app was opened once and left for 30 days', async () => {
   await launchOn(0);
   await launchOn(30);
   expect(shows()).toBe(false);
 });
 
-it('counts ten launches on one day as one use', async () => {
+vaultIt('counts ten launches on one day as one use', async () => {
   for (let i = 0; i < 10; i++) {
     await launchOn(0, 8 + i);
   }
@@ -131,7 +131,7 @@ it('starts the count from today for a row stored before the count existed', asyn
   expect(shows()).toBe(true);
 });
 
-it('keeps the 30-day interval after a remind-later once the card has shown', async () => {
+vaultIt('keeps the 30-day interval after a remind-later once the card has shown', async () => {
   for (const day of [0, 1, 2, 3, 14]) {
     await launchOn(day);
   }

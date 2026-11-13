@@ -70,6 +70,7 @@ fn merged_library() -> PersistentEngine {
 /// "Canal tow" and its route over ride c "Lock gate". Here one route holds
 /// all three rides.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn two_names_on_one_merged_route_keep_the_closer_match_in_either_order() {
     let _serial = crate::test_globals::serial_global_state();
     let long = name_entry("old-tow", "Canal tow", &["a", "b"]);
@@ -93,6 +94,7 @@ fn two_names_on_one_merged_route_keep_the_closer_match_in_either_order() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn equal_matches_on_one_route_go_to_the_first_in_the_record() {
     let _serial = crate::test_globals::serial_global_state();
     let mut restored = merged_library();
@@ -110,6 +112,7 @@ fn equal_matches_on_one_route_go_to_the_first_in_the_record() {
 /// Scenario: two backed-up routes carried the same name and now share one
 /// route here. The athlete loses nothing, so nothing is reported dropped.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_same_name_twice_on_one_route_is_placed_twice() {
     let _serial = crate::test_globals::serial_global_state();
     let mut restored = merged_library();
@@ -163,6 +166,7 @@ fn a_later_pass_never_overwrites_a_name_an_earlier_pass_restored() {
 /// Scenario: two backed-up routes land on two different routes here, one in
 /// each pass. Neither is a merge, so both names stand.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn names_on_different_routes_place_across_passes() {
     let _serial = crate::test_globals::serial_global_state();
     let mut restored = merged_library();
@@ -186,6 +190,7 @@ fn names_on_different_routes_place_across_passes() {
 /// Scenario: a restore named a route and finished. A later import of another
 /// backup is a restore of its own, and its name for that route is written.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_finished_restore_does_not_hold_its_names_against_the_next() {
     let _serial = crate::test_globals::serial_global_state();
     let mut restored = merged_library();
@@ -253,6 +258,7 @@ fn backup_settings_reports_the_names_the_latest_restore_dropped() {
 /// Scenario: a restore gives up on history whose section no longer exists,
 /// then another backup is imported with nothing given up.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn backup_settings_reports_the_history_the_latest_restore_dropped() {
     let _serial = crate::test_globals::serial_global_state();
     let mut restored = merged_library();

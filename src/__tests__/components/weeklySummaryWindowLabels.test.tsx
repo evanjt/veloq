@@ -118,7 +118,7 @@ describe('WeeklySummary calendar windows', () => {
     }
   );
 
-  it.each(['3m', '6m'] as const)(
+  vaultIt.each(['3m', '6m'] as const)(
     'labels the %s chip and heading apart from every trailing period',
     async (range) => {
       const view = await render(

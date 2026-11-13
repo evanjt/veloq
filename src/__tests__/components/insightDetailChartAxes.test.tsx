@@ -81,18 +81,18 @@ describe('the HRV trend chart', () => {
     return t;
   };
 
-  it('is the shared scrubbable chart', async () => {
+  vaultIt('is the shared scrubbable chart', async () => {
     expect((await tree()).UNSAFE_getAllByType(CurveChart)).toHaveLength(1);
   });
 
-  it('names its series and prints its ticks in milliseconds', async () => {
+  vaultIt('names its series and prints its ticks in milliseconds', async () => {
     const t = await tree();
     const chart = t.getByTestId('insight-series-chart');
     expect(t.getByText('Resting variability')).toBeTruthy();
     expect(within(chart).getByTestId('insight-series-axis-top').props.children).toMatch(/ms$/);
   });
 
-  it('labels its first and last dates, placed on the dates they name', async () => {
+  vaultIt('labels its first and last dates, placed on the dates they name', async () => {
     const t = await tree();
     const axis = within(t.getByTestId('insight-series-chart'));
     expect(axis.getByText(dayLabel(START))).toBeTruthy();
@@ -129,7 +129,7 @@ describe('the supporting history chart', () => {
     },
   };
 
-  it('names its series, labels its dates and reads out a sample', async () => {
+  vaultIt('names its series, labels its dates and reads out a sample', async () => {
     const t = await render(<SupportingDataSection data={data} category="efficiency_trend" />);
     await layout(t);
 
@@ -183,7 +183,7 @@ describe('the section effort timeline', () => {
   const records = [record('a', 0, 300), record('b', 4, 290), record('c', 25, 310)];
   const bests = { forward: records[1], reverse: null, forwardIsPr: true, reverseIsPr: false };
 
-  it('places efforts on their dates and puts the fastest at the top', async () => {
+  vaultIt('places efforts on their dates and puts the fastest at the top', async () => {
     const t = await render(<SectionPerformanceTimeline records={records} bests={bests} />);
     await layout(t);
 
@@ -197,7 +197,7 @@ describe('the section effort timeline', () => {
     expect(t.getByTestId('insight-series-caption').props.children).toBe('Faster is up');
   });
 
-  it('marks the record and reads out an effort as a time and a date', async () => {
+  vaultIt('marks the record and reads out an effort as a time and a date', async () => {
     const t = await render(<SectionPerformanceTimeline records={records} bests={bests} />);
     await layout(t);
 

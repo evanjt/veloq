@@ -14,7 +14,7 @@ import { BulkExportProgress } from '@/features/settings/components/BulkExportPro
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 
-it('shows a spinner and no count while the total is unknown', async () => {
+vaultIt('shows a spinner and no count while the total is unknown', async () => {
   await render(
     <BulkExportProgress
       phase="generating"
@@ -32,7 +32,7 @@ it('shows a spinner and no count while the total is unknown', async () => {
   expect(screen.queryByTestId('bulk-export-count')).toBeNull();
 });
 
-it('shows the count and no spinner once the worker reports a total', async () => {
+vaultIt('shows the count and no spinner once the worker reports a total', async () => {
   await render(
     <BulkExportProgress
       phase="generating"
@@ -51,7 +51,7 @@ it('shows the count and no spinner once the worker reports a total', async () =>
   );
 });
 
-it('shows the size once the export has produced one', async () => {
+vaultIt('shows the size once the export has produced one', async () => {
   await render(
     <BulkExportProgress
       phase="sharing"
@@ -68,7 +68,7 @@ it('shows the size once the export has produced one', async () => {
   expect(screen.getByText(/8/)).toBeTruthy();
 });
 
-it('says nothing about a size it does not have yet', async () => {
+vaultIt('says nothing about a size it does not have yet', async () => {
   await render(
     <BulkExportProgress
       phase="generating"
@@ -84,7 +84,7 @@ it('says nothing about a size it does not have yet', async () => {
   expect(screen.queryByText(/B$/)).toBeNull();
 });
 
-it('exposes the running count as a progress bar a screen reader can read', async () => {
+vaultIt('exposes the running count as a progress bar a screen reader can read', async () => {
   await render(
     <BulkExportProgress
       phase="generating"
@@ -104,7 +104,7 @@ it('exposes the running count as a progress bar a screen reader can read', async
   });
 });
 
-it('marks the row busy before the worker reports a total', async () => {
+vaultIt('marks the row busy before the worker reports a total', async () => {
   await render(
     <BulkExportProgress
       phase="generating"

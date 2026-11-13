@@ -906,6 +906,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn sends_basic_auth_and_parses_json() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -923,6 +924,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn sends_bearer_auth() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -938,6 +940,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn forwards_query_params() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -958,6 +961,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn unauthorized_maps_to_error() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1046,6 +1050,7 @@ mod tests {
     /// refusal in a row ends the retries in a cooldown, on reads and writes
     /// alike.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_edge_burst_is_retried_once_and_the_next_refusal_cools_down() {
         let server = MockServer::start();
         let read = server.mock(|when, then| {
@@ -1143,6 +1148,7 @@ mod tests {
     /// until that midnight, not the one after, and the backfill goes again
     /// once it passes with no success in between.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_probe_refused_just_before_midnight_holds_only_until_that_midnight() {
         static NOW: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
         fn clock() -> DateTime<Utc> {
@@ -1202,6 +1208,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refusal_record_carries_every_header_and_the_start_of_the_body() {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert("retry-after", "370".parse().unwrap());
@@ -1224,6 +1231,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn retries_5xx_then_returns_http_error() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1241,6 +1249,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_governor_that_skips_backoff_waits_counts_the_retry_ladder_and_sends_every_retry() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1261,6 +1270,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn decode_error_on_bad_shape() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1300,6 +1310,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn drops_the_file_scheme_from_a_storage_uri() {
         assert_eq!(
             strip_file_scheme("file:///data/rec/1.fit"),
@@ -1373,6 +1384,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn multipart_accepts_a_file_scheme_path() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1401,6 +1413,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn multipart_403_surfaces_once_with_its_body() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1493,6 +1506,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn multipart_transport_failure_surfaces_immediately() {
         let (_file, path) = staged_fit();
         let t = fast_transport("http://127.0.0.1:1".to_string(), AuthMethod::ApiKey("k"));
@@ -1513,6 +1527,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_missing_file_is_an_io_error_not_a_network_one() {
         // Misreading this as a network failure would queue the upload forever
         // against a file that will never appear.
@@ -1555,6 +1570,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn post_json_401_is_terminal() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1652,6 +1668,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_hanging_socket_costs_the_interactive_lane_one_attempt_not_four() {
         let socket = hanging_socket();
         let t = transport_to(socket.addr, brisk_timeouts());
@@ -1672,6 +1689,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_backfill_lane_still_spends_every_retry_on_a_hanging_socket() {
         // Backfill has no user waiting on it, so the retry budget is the point.
         let socket = hanging_socket();
@@ -1686,6 +1704,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_repeated_429_stops_at_the_interactive_budget() {
         // Retry-After is honoured, but not past what the waiting user is owed.
         let server = MockServer::start();
@@ -1712,6 +1731,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_5xx_run_stops_at_the_interactive_budget() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1755,6 +1775,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_retry_whose_governor_wait_spends_the_budget_keeps_the_503() {
         let _clock = crate::test_globals::real_clock();
         // The 400 ms backoff fits the 800 ms budget, but the governor's next
@@ -1778,6 +1799,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_429_retry_whose_governor_wait_spends_the_budget_is_rate_limited() {
         let _clock = crate::test_globals::real_clock();
         let server = MockServer::start();
@@ -1792,6 +1814,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_first_attempt_queued_past_the_budget_is_never_sent() {
         let _clock = crate::test_globals::real_clock();
         let server = MockServer::start();
@@ -1813,6 +1836,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_post_retry_whose_governor_wait_spends_the_budget_is_rate_limited() {
         let _clock = crate::test_globals::real_clock();
         let server = MockServer::start();
@@ -1853,6 +1877,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_retry_left_a_sliver_of_budget_keeps_the_503() {
         // The first answer fits the budget with its backoff, but the clock
         // leaves the retry 100 ms. It times out before the one-second answer
@@ -1877,6 +1902,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_post_retry_left_a_sliver_of_budget_is_rate_limited() {
         let _clock = crate::test_globals::real_clock();
         let server = MockServer::start();
@@ -1897,6 +1923,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_first_attempt_that_times_out_is_still_a_transport_failure() {
         // Only a retry has an earlier answer to fall back on. A first attempt
         // that runs out of time never reached the server as far as anyone
@@ -1926,6 +1953,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_multipart_429_stops_at_the_interactive_budget() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1971,6 +1999,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_multipart_retry_whose_governor_wait_spends_the_budget_is_rate_limited() {
         let _clock = crate::test_globals::real_clock();
         let server = MockServer::start();
@@ -1998,6 +2027,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_attempt_never_gets_more_than_the_budget_has_left() {
         let t = LaneTimeouts::default();
         let budget = t.interactive_budget;
@@ -2015,6 +2045,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_shipped_timeouts_bound_what_a_user_can_be_made_to_wait() {
         let t = LaneTimeouts::default();
         assert!(

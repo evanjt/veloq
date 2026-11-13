@@ -84,6 +84,7 @@ fn a_range_the_device_has_in_full_is_loaded() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_range_the_census_names_nothing_in_is_empty() {
     let dir = TempDir::new().expect("tempdir");
     let engine = fetched_march(&dir);
@@ -159,6 +160,7 @@ fn a_second_athlete_reads_none_of_the_first_ones_coverage() {
 /// The range is inclusive of both ends, and `start_date_local` carries a time
 /// the caller's day boundary does not.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn both_ends_of_the_range_are_inside_it() {
     let dir = TempDir::new().expect("tempdir");
     let engine = fetched_march(&dir);
@@ -176,6 +178,7 @@ fn both_ends_of_the_range_are_inside_it() {
 /// An empty athlete id is no athlete, and answering `Empty` there would tell a
 /// signed-out screen the account holds nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_athlete_id_owes_the_range() {
     let dir = TempDir::new().expect("tempdir");
     let engine = fetched_march(&dir);

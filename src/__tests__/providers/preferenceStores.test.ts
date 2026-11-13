@@ -89,7 +89,7 @@ describe('UnitPreferenceStore', () => {
   });
 
   describe('initialise()', () => {
-    it('defaults to auto when nothing stored', async () => {
+    vaultIt('defaults to auto when nothing stored', async () => {
       await initialiseUnitPreference();
       expect(useUnitPreference.getState().unitPreference).toBe('auto');
     });
@@ -168,7 +168,7 @@ describe('UnitPreferenceStore', () => {
         expect(resolveIsMetric()).toBe(true);
       });
 
-      it('resolves metric when there is no locale at all', () => {
+      vaultIt('resolves metric when there is no locale at all', () => {
         getLocales.mockReturnValue([]);
         useUnitPreference.setState({ unitPreference: 'auto', intervalsPreferences: null });
         expect(resolveIsMetric()).toBe(true);
@@ -185,7 +185,7 @@ describe('UnitPreferenceStore', () => {
   });
 
   describe('getIntervalsUnitSystem()', () => {
-    it('returns the unit system, not display text', () => {
+    vaultIt('returns the unit system, not display text', () => {
       expect(
         getIntervalsUnitSystem({
           measurementPreference: 'meters',
@@ -216,7 +216,7 @@ describe('RouteSettingsStore', () => {
   });
 
   describe('initialise() - Corruption Recovery', () => {
-    it('loads valid settings', async () => {
+    vaultIt('loads valid settings', async () => {
       await AsyncStorage.setItem(
         ROUTE_SETTINGS_KEY,
         JSON.stringify({
@@ -244,7 +244,7 @@ describe('RouteSettingsStore', () => {
       );
     });
 
-    it('merges partial settings with defaults', async () => {
+    vaultIt('merges partial settings with defaults', async () => {
       await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify({ enabled: false }));
       await initialiseRouteSettings();
       expect(useRouteSettings.getState().settings.enabled).toBe(false);
@@ -290,7 +290,7 @@ describe('RouteSettingsStore', () => {
   });
 
   describe('Synchronous Helpers', () => {
-    it('isRouteMatchingEnabled reflects state', () => {
+    vaultIt('isRouteMatchingEnabled reflects state', () => {
       useRouteSettings.setState({
         settings: {
           enabled: false,
@@ -300,7 +300,7 @@ describe('RouteSettingsStore', () => {
       expect(isRouteMatchingEnabled()).toBe(false);
     });
 
-    it('helpers work before initialisation', () => {
+    vaultIt('helpers work before initialisation', () => {
       useRouteSettings.setState({
         settings: DEFAULT_ROUTE_SETTINGS,
         isLoaded: false,
@@ -355,7 +355,7 @@ describe('SportPreferenceStore', () => {
       expect(useSportPreference.getState().isChosen).toBe(false);
     });
 
-    it('follows the library while the sport is still a default', async () => {
+    vaultIt('follows the library while the sport is still a default', async () => {
       await useSportPreference.getState().initialise();
       await useSportPreference.getState().adoptLibrarySport('Running');
       await useSportPreference.getState().adoptLibrarySport('Swimming');
@@ -387,14 +387,14 @@ describe('SportPreferenceStore', () => {
   });
 
   describe('setPrimarySport()', () => {
-    it('updates and persists', async () => {
+    vaultIt('updates and persists', async () => {
       await useSportPreference.getState().setPrimarySport('Swimming');
       expect(useSportPreference.getState().primarySport).toBe('Swimming');
       expect(await AsyncStorage.getItem(SPORT_PREFERENCE_KEY)).toBe('Swimming');
     });
   });
 
-  it('initialiseSportPreference() delegates to store', async () => {
+  vaultIt('initialiseSportPreference() delegates to store', async () => {
     await initialiseSportPreference();
     expect(useSportPreference.getState().isLoaded).toBe(true);
   });
@@ -415,7 +415,7 @@ describe('summaryCardPreferences', () => {
   });
 
   describe('getMetricDefinition()', () => {
-    it('resolves every id in AVAILABLE_METRICS and rejects unknown ids', () => {
+    vaultIt('resolves every id in AVAILABLE_METRICS and rejects unknown ids', () => {
       for (const metric of AVAILABLE_METRICS) {
         expect(getMetricDefinition(metric.id)?.id).toBe(metric.id);
       }
@@ -424,7 +424,7 @@ describe('summaryCardPreferences', () => {
   });
 
   describe('setSummaryCardPreferences()', () => {
-    it('partial update preserves other fields', () => {
+    vaultIt('partial update preserves other fields', () => {
       const original = { ...useDashboardPreferences.getState().summaryCard };
       useDashboardPreferences.getState().setSummaryCardPreferences({ showSparkline: false });
       expect(useDashboardPreferences.getState().summaryCard.showSparkline).toBe(false);
@@ -433,7 +433,7 @@ describe('summaryCardPreferences', () => {
   });
 
   describe('initialisation', () => {
-    it('reads only the summary card key', async () => {
+    vaultIt('reads only the summary card key', async () => {
       await initialiseDashboardPreferences();
       const reads = (AsyncStorage.getItem as jest.Mock).mock.calls.map(([key]) => key);
       expect(reads).not.toContain('dashboard_preferences');
@@ -458,7 +458,7 @@ describe('summaryCardPreferences', () => {
       }
     });
 
-    it('keeps a stored summary card that matches the current shape', async () => {
+    vaultIt('keeps a stored summary card that matches the current shape', async () => {
       const stored: SummaryCardPreferences = {
         enabled: false,
         heroMetric: 'hrv',
@@ -513,7 +513,7 @@ describe('MapPreferencesContext', () => {
     jest.clearAllMocks();
   });
 
-  it('throws when used outside provider', async () => {
+  vaultIt('throws when used outside provider', async () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     await expect(
       (async () => {
@@ -524,7 +524,7 @@ describe('MapPreferencesContext', () => {
   });
 
   describe('Style Resolution', () => {
-    it('returns default when no override, override when set', async () => {
+    vaultIt('returns default when no override, override when set', async () => {
       const { result } = await renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
@@ -539,7 +539,7 @@ describe('MapPreferencesContext', () => {
       expect(result.current.getStyleForActivity('Run')).toBe('light');
     });
 
-    it('removes override when style is null', async () => {
+    vaultIt('removes override when style is null', async () => {
       await AsyncStorage.setItem(
         MAP_PREFS_KEY,
         JSON.stringify({
@@ -560,7 +560,7 @@ describe('MapPreferencesContext', () => {
   });
 
   describe('setDefaultStyle()', () => {
-    it('updates default without affecting overrides', async () => {
+    vaultIt('updates default without affecting overrides', async () => {
       const { result } = await renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
@@ -579,7 +579,7 @@ describe('MapPreferencesContext', () => {
   });
 
   describe('setActivityGroupStyle() - Batch Updates', () => {
-    it('updates multiple activity types at once', async () => {
+    vaultIt('updates multiple activity types at once', async () => {
       const { result } = await renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
@@ -593,7 +593,7 @@ describe('MapPreferencesContext', () => {
       expect(result.current.preferences.activityTypeStyles.GravelRide).toBe('dark');
     });
 
-    it('removes multiple overrides when null', async () => {
+    vaultIt('removes multiple overrides when null', async () => {
       const { result } = await renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });

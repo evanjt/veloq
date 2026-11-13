@@ -367,6 +367,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activity_year_counts_read_pairs_and_ignore_bad_settings() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("year_counts.db");
@@ -442,6 +443,7 @@ mod tests {
     /// write has no reason to queue behind the engine, and on the JavaScript
     /// thread queuing is a frozen screen for the whole length of the batch.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn settings_writes_do_not_wait_for_the_engine_lock() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("settings_off_the_lock.db");
@@ -528,6 +530,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_batch_write_counts_only_the_pairs_that_changed() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("settings.db");
@@ -595,6 +598,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn stream_retention_defaults_to_keeping_everything_and_zero_says_so() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("settings.db");
@@ -611,6 +615,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_library_offers_no_export_home_and_previews_nothing() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("settings.db");
@@ -625,6 +630,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_call_reports_not_initialised_without_an_engine() {
         let _guard = serial_global_state();
         crate::persistence::clear_persistent_engine();
@@ -660,6 +666,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_settings_write_refused_by_a_suspension_reports_suspended() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("settings_suspended.db");

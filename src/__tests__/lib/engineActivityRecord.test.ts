@@ -50,7 +50,7 @@ describe('readActivityRecord', () => {
     expect(engine.idReads).toEqual(['b']);
   });
 
-  it('never reads a window', () => {
+  vaultIt('never reads a window', () => {
     const engine = fakeEngine({ a: { name: 'Morning ride' } });
     withEngine(engine);
 
@@ -59,7 +59,7 @@ describe('readActivityRecord', () => {
     expect(engine.windowReads).toBe(0);
   });
 
-  it('scans nothing for an activity that is not stored', () => {
+  vaultIt('scans nothing for an activity that is not stored', () => {
     const engine = fakeEngine({ a: { name: 'Morning ride' } });
     withEngine(engine);
 
@@ -67,7 +67,7 @@ describe('readActivityRecord', () => {
     expect(engine.windowReads).toBe(0);
   });
 
-  it('asks nothing at all for an empty id', () => {
+  vaultIt('asks nothing at all for an empty id', () => {
     const engine = fakeEngine({ a: { name: 'Morning ride' } });
     withEngine(engine);
 
@@ -76,7 +76,7 @@ describe('readActivityRecord', () => {
     expect(engine.windowReads).toBe(0);
   });
 
-  it('reads null when the engine holds nothing it can type', () => {
+  vaultIt('reads null when the engine holds nothing it can type', () => {
     withEngine({ getActivityRecord: () => undefined });
 
     expect(readActivityRecord('a')).toBeNull();
@@ -88,7 +88,7 @@ describe('readActivityRecord', () => {
     expect(readActivityRecord('a')).toBeNull();
   });
 
-  it('reads null when the engine predates the primary-key read', () => {
+  vaultIt('reads null when the engine predates the primary-key read', () => {
     withEngine({ getFeedCards: () => [] });
 
     expect(readActivityRecord('a')).toBeNull();

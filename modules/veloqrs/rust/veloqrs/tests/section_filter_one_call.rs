@@ -132,6 +132,7 @@ fn name_of(filter: FfiSectionFilter, id: &str) -> Option<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_filter_returns_every_visible_section() {
     let _serial_state = crate::serial_state();
     let _g = serial();
@@ -142,6 +143,7 @@ fn an_empty_filter_returns_every_visible_section() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sport_narrows_the_list() {
     let _serial_state = crate::serial_state();
     let _g = serial();
@@ -158,6 +160,7 @@ fn a_sport_narrows_the_list() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_visit_floor_narrows_the_list() {
     let _serial_state = crate::serial_state();
     let _g = serial();
@@ -174,6 +177,7 @@ fn a_visit_floor_narrows_the_list() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_type_narrows_the_list() {
     let _serial_state = crate::serial_state();
     let _g = serial();
@@ -190,6 +194,7 @@ fn a_type_narrows_the_list() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_narrows_the_list() {
     let _serial_state = crate::serial_state();
     let _g = serial();
@@ -206,6 +211,7 @@ fn an_activity_narrows_the_list() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_corridor_name_shows_under_every_filter() {
     let _serial_state = crate::serial_state();
     let _g = serial();
@@ -236,6 +242,7 @@ fn the_corridor_name_shows_under_every_filter() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_the_athlete_drew_keeps_its_own_name() {
     let _serial_state = crate::serial_state();
     let _g = serial();

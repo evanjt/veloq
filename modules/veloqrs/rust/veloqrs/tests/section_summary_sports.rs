@@ -3,6 +3,7 @@ use tempfile::TempDir;
 use veloqrs::PersistentEngine;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn filtered_summaries_keep_sports_before_activity_metrics_load() {
     let dir = TempDir::new().expect("temp dir");
     let path = dir.path().join("sports.db");

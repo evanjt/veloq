@@ -87,7 +87,7 @@ it('re-reads when the detail body for this activity lands', async () => {
   expect(result.current.data?.maxHR).toBe(196);
 });
 
-it('does not re-read for another activity or another kind of body', async () => {
+vaultIt('does not re-read for another activity or another kind of body', async () => {
   const { engine, emit, getActivityDetailData } = engineAnswering(() => 185);
   mockGetEngine.mockReturnValue(engine);
   await renderHook(() => useActivityDetailData('a1'));
@@ -150,7 +150,7 @@ describe('stream arrival', () => {
     }
   );
 
-  it.each(streamAnnouncements)(
+  vaultIt.each(streamAnnouncements)(
     'ignores %s for another activity (%s)',
     async (event, _label, payload) => {
       const { engine, emit, getActivityDetailData } = engineAnswering(() => 185);

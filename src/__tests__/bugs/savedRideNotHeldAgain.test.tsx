@@ -461,44 +461,47 @@ describe('a backup that outlived the library save of its ride', () => {
   });
 });
 
-it("does not reopen a saved ride held in memory through another athlete's sign-in", async () => {
-  await stopRide('athlete-a');
-  mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
-  let finishSave!: (entry: unknown) => void;
-  mockSaveRecording.mockImplementationOnce(
-    () =>
-      new Promise((resolve) => {
-        finishSave = resolve;
-      })
-  );
-  const review = await renderHook(() => useReviewSave(reviewArgs));
-  let saving!: Promise<void>;
-  await act(() => {
-    saving = review.result.current.handleSave();
-  });
-  await act(async () => {
-    await Promise.resolve();
-  });
+vaultIt(
+  "does not reopen a saved ride held in memory through another athlete's sign-in",
+  async () => {
+    await stopRide('athlete-a');
+    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    let finishSave!: (entry: unknown) => void;
+    mockSaveRecording.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSave = resolve;
+        })
+    );
+    const review = await renderHook(() => useReviewSave(reviewArgs));
+    let saving!: Promise<void>;
+    await act(() => {
+      saving = review.result.current.handleSave();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
-  const FileSystem = jest.requireMock('expo-file-system/legacy');
-  FileSystem.writeAsStringAsync.mockRejectedValueOnce(new Error('disk full'));
-  await holdRecordingOnSignOut('athlete-a');
-  signOut();
-  signIn('athlete-b');
-  FileSystem.writeAsStringAsync.mockRejectedValueOnce(new Error('disk full'));
-  expect(await resumeHeldRecordingForAthlete('athlete-b')).toBeNull();
-  expect(useRecordingStore.getState().status).toBe('idle');
+    const FileSystem = jest.requireMock('expo-file-system/legacy');
+    FileSystem.writeAsStringAsync.mockRejectedValueOnce(new Error('disk full'));
+    await holdRecordingOnSignOut('athlete-a');
+    signOut();
+    signIn('athlete-b');
+    FileSystem.writeAsStringAsync.mockRejectedValueOnce(new Error('disk full'));
+    expect(await resumeHeldRecordingForAthlete('athlete-b')).toBeNull();
+    expect(useRecordingStore.getState().status).toBe('idle');
 
-  await act(async () => {
-    finishSave(libraryRow(START));
-    await saving;
-  });
-  await review.unmount();
-  signOut();
+    await act(async () => {
+      finishSave(libraryRow(START));
+      await saving;
+    });
+    await review.unmount();
+    signOut();
 
-  expect(await signInAndSaveAnyReview('athlete-a')).toBeNull();
-  expect(mockSaveRecording).toHaveBeenCalledTimes(1);
-});
+    expect(await signInAndSaveAnyReview('athlete-a')).toBeNull();
+    expect(mockSaveRecording).toHaveBeenCalledTimes(1);
+  }
+);
 
 describe('a review left after its upload failed', () => {
   it.each([

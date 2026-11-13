@@ -314,7 +314,7 @@ it('replaces a startup preview when its track moves under the same activity id',
   expect(mockCardTracks.get('a2')).toBe(heldA2);
 });
 
-it('hands a card no new-ground chip, even for an activity on wholly new ground', async () => {
+vaultIt('hands a card no new-ground chip, even for an activity on wholly new ground', async () => {
   mockNewGround = [{ activityId: 'a2', fraction: 1, tiles: 10, newTiles: 10 }];
   await renderFeed();
   await waitFor(() => expect(getActivityHighlightsBundle).toHaveBeenCalled());
@@ -323,26 +323,29 @@ it('hands a card no new-ground chip, even for an activity on wholly new ground',
 });
 
 describe('feed search does not re-read the highlight bundle', () => {
-  it('scrolls past the measured search section on Android when the estimate matches', async () => {
-    const platform = Platform.OS;
-    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
-    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
-    try {
-      await renderFeed();
-      const searchSection = screen.getByTestId('home-filter-section');
-      await act(() =>
-        searchSection.props.onLayout({
-          nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 78 } },
-        })
-      );
-      expect(scrollToOffset).toHaveBeenCalledWith({ offset: 78, animated: false });
-    } finally {
-      scrollToOffset.mockRestore();
-      Object.defineProperty(Platform, 'OS', { value: platform, configurable: true });
+  vaultIt(
+    'scrolls past the measured search section on Android when the estimate matches',
+    async () => {
+      const platform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+      const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
+      try {
+        await renderFeed();
+        const searchSection = screen.getByTestId('home-filter-section');
+        await act(() =>
+          searchSection.props.onLayout({
+            nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 78 } },
+          })
+        );
+        expect(scrollToOffset).toHaveBeenCalledWith({ offset: 78, animated: false });
+      } finally {
+        scrollToOffset.mockRestore();
+        Object.defineProperty(Platform, 'OS', { value: platform, configurable: true });
+      }
     }
-  });
+  );
 
-  it('hides revealed controls after returning to an unfiltered feed', async () => {
+  vaultIt('hides revealed controls after returning to an unfiltered feed', async () => {
     const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
     try {
       const feed = await renderFeed();
@@ -365,7 +368,7 @@ describe('feed search does not re-read the highlight bundle', () => {
     }
   });
 
-  it('does not render again for sync progress within the same state', async () => {
+  vaultIt('does not render again for sync progress within the same state', async () => {
     let renders = 0;
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
     await render(
@@ -390,7 +393,7 @@ describe('feed search does not re-read the highlight bundle', () => {
     expect(renders).toBe(before);
   });
 
-  it('anchors only when an evicted page can be fetched back', async () => {
+  vaultIt('anchors only when an evicted page can be fetched back', async () => {
     const view = await renderFeed();
     const list = () => screen.getByTestId('home-activity-list');
     expect(list().props.maintainVisibleContentPosition).toBeUndefined();
@@ -437,21 +440,24 @@ describe('feed search does not re-read the highlight bundle', () => {
     expect(getActivityHighlightsBundle.mock.calls.length).toBe(callsBeforeTyping);
   });
 
-  it('does not read again when the search is cleared or a type filter is applied', async () => {
-    await renderFeed();
-    await waitFor(() => expect(getActivityHighlightsBundle).toHaveBeenCalled());
-    const baseline = getActivityHighlightsBundle.mock.calls.length;
+  vaultIt(
+    'does not read again when the search is cleared or a type filter is applied',
+    async () => {
+      await renderFeed();
+      await waitFor(() => expect(getActivityHighlightsBundle).toHaveBeenCalled());
+      const baseline = getActivityHighlightsBundle.mock.calls.length;
 
-    await fireEvent.changeText(screen.getByTestId('native-header-search'), 'zebra');
-    await waitFor(() => expect(screen.queryByTestId('card-a1')).toBeNull());
-    await fireEvent.changeText(screen.getByTestId('native-header-search'), '');
-    await waitFor(() => expect(screen.getByTestId('card-a1')).toBeTruthy());
+      await fireEvent.changeText(screen.getByTestId('native-header-search'), 'zebra');
+      await waitFor(() => expect(screen.queryByTestId('card-a1')).toBeNull());
+      await fireEvent.changeText(screen.getByTestId('native-header-search'), '');
+      await waitFor(() => expect(screen.getByTestId('card-a1')).toBeTruthy());
 
-    await fireEvent.press(screen.getByTestId('home-filter-run'));
-    await waitFor(() => expect(screen.queryByTestId('card-a1')).toBeNull());
+      await fireEvent.press(screen.getByTestId('home-filter-run'));
+      await waitFor(() => expect(screen.queryByTestId('card-a1')).toBeNull());
 
-    expect(getActivityHighlightsBundle.mock.calls.length).toBe(baseline);
-  });
+      expect(getActivityHighlightsBundle.mock.calls.length).toBe(baseline);
+    }
+  );
 
   it('reads nothing when a query matches no activity, and keeps the full-feed key', async () => {
     await renderFeed();
@@ -471,7 +477,7 @@ describe('feed search does not re-read the highlight bundle', () => {
 });
 
 describe('feed pull to refresh', () => {
-  it('shows the disc only for a pull, not for background feed refetches', async () => {
+  vaultIt('shows the disc only for a pull, not for background feed refetches', async () => {
     const feed = await renderFeed();
     const list = await screen.findByTestId('home-activity-list');
     const refreshing = () => list.props.refreshControl.props.refreshing;
@@ -526,7 +532,7 @@ describe('a date range narrows the feed like a search or a sport chip', () => {
     );
   }
 
-  it('keeps the range chips on screen after a pull to refresh', async () => {
+  vaultIt('keeps the range chips on screen after a pull to refresh', async () => {
     jest.useFakeTimers();
     const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
     try {
@@ -549,7 +555,7 @@ describe('a date range narrows the feed like a search or a sport chip', () => {
     }
   });
 
-  it('keeps the range chips on screen when the feed tab is returned to', async () => {
+  vaultIt('keeps the range chips on screen when the feed tab is returned to', async () => {
     const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
     try {
       mockRangeActivities = lastYear;

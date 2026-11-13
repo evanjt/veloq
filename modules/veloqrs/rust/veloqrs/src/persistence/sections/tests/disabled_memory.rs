@@ -13,6 +13,7 @@ fn listed(engine: &crate::PersistentEngine) -> bool {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_exclude_on_a_removed_section_keeps_it_out_of_memory() {
     let mut engine = library(true);
     assert!(listed(&engine), "the detected section starts in memory");
@@ -26,6 +27,7 @@ fn an_exclude_on_a_removed_section_keeps_it_out_of_memory() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_include_on_a_removed_section_keeps_it_out_of_memory() {
     let mut engine = library(true);
     engine.disable_section(SECTION).unwrap();
@@ -38,6 +40,7 @@ fn an_include_on_a_removed_section_keeps_it_out_of_memory() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn enabling_a_removed_section_puts_it_back_in_memory() {
     let mut engine = library(true);
     engine.disable_section(SECTION).unwrap();

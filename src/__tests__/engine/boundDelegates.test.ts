@@ -39,7 +39,7 @@ describe('bindDelegates', () => {
     expect(bound.countHounds('beagle', 3)).toBe('beagle:3');
   });
 
-  it('leaves out what is not a delegate function', () => {
+  vaultIt('leaves out what is not a delegate function', () => {
     const bound = bindDelegates(hostWith(true), kennel) as Record<string, unknown>;
     expect(bound.KENNEL_SIZES).toBeUndefined();
   });

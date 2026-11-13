@@ -273,6 +273,7 @@ fn rmp_blob_without_elevation_reads_present() {
 // ------------------------------------------------------------ failures
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn missing_row_is_distinct_from_corrupt() {
     let mut s = setup();
     s.add("a1", track(4, true));
@@ -283,6 +284,7 @@ fn missing_row_is_distinct_from_corrupt() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn corrupt_bytes_name_the_failed_step_and_the_blob() {
     let mut s = setup();
     s.add("a1", track(4, true));
@@ -304,6 +306,7 @@ fn corrupt_bytes_name_the_failed_step_and_the_blob() {
 /// The quantised polyline stream opens on a varint count, so no container
 /// claims it. It must be refused rather than mis-parsed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn quantised_blob_reports_an_unrecognised_container() {
     let mut s = setup();
     s.add("a1", track(4, true));
@@ -325,6 +328,7 @@ fn quantised_blob_reports_an_unrecognised_container() {
 /// is the one shape that could decode as a short array and return the wrong
 /// points. It must fail instead.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn quantised_blob_with_an_array_header_byte_is_not_mis_parsed() {
     let blob = encode_polyline(&track(400, true));
     assert_eq!(blob[0], 0x90, "fixture must exercise the fixarray range");
@@ -338,6 +342,7 @@ fn quantised_blob_with_an_array_header_byte_is_not_mis_parsed() {
 /// The reason reaches the log, so it must describe the container and nothing
 /// about where the athlete was.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn corrupt_reason_carries_no_coordinates() {
     let mut s = setup();
     let points = track(4, true);
@@ -358,6 +363,7 @@ fn corrupt_reason_carries_no_coordinates() {
 // ------------------------------------------------------------ batch reads
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn tracks_batch_labels_every_requested_id() {
     let mut s = setup();
     let good = track(5, true);
@@ -381,6 +387,7 @@ fn tracks_batch_labels_every_requested_id() {
 /// Expected behaviour: both entry points call it the same thing, and neither
 /// reports a stored activity as one that was never synced.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_failed_query_reads_the_same_way_one_at_a_time_and_in_a_batch() {
     let mut s = setup();
     s.add("a1", track(5, true));
@@ -402,6 +409,7 @@ fn a_failed_query_reads_the_same_way_one_at_a_time_and_in_a_batch() {
 /// A repeated id is a stored row on every occurrence, never `Missing` on the
 /// second one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn tracks_batch_answers_a_repeated_id_the_same_way_twice() {
     let mut s = setup();
     let good = track(5, true);
@@ -476,6 +484,7 @@ fn a_row_the_driver_cannot_read_is_counted_not_hidden() {
 
 /// A walk over sound rows reports nothing lost.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_clean_walk_reports_no_failures() {
     let mut s = setup();
     let ids: Vec<String> = (0..3).map(|i| format!("a{i}")).collect();
@@ -498,6 +507,7 @@ fn a_clean_walk_reports_no_failures() {
 /// Expected behaviour: the read gives up rather than returning a signature
 /// with no points, which would group the activity against an empty geometry.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_corrupt_signature_yields_no_signature_at_all() {
     let mut s = setup();
     s.add("a1", track(40, true));
@@ -524,6 +534,7 @@ fn a_corrupt_signature_yields_no_signature_at_all() {
 /// assertion is on the size as well as on the tag: a writer that fell back
 /// would still round-trip and would still be wrong.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stored_signature_is_written_in_the_quantised_container() {
     let mut s = setup();
     s.add("a1", track(400, true));
@@ -575,6 +586,7 @@ fn a_legacy_postcard_signature_still_reads() {
 /// Expected behaviour: peak live memory tracks one decoded track, not all of
 /// them, so nothing the callback saw survives the call.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn for_each_track_holds_one_track_at_a_time() {
     const ACTIVITIES: usize = 20;
     const POINTS: usize = 400;

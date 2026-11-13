@@ -102,30 +102,33 @@ describe('the summary card trend for a screen reader', () => {
     expect(label).not.toMatch(/\d:\d\d/);
   });
 
-  it('names a resting heart rate that rose as declined, by its spoken name', async () => {
+  vaultIt('names a resting heart rate that rose as declined, by its spoken name', async () => {
     await renderFromHook('fitness', ['rhr']);
 
     const label = metricLabel(0);
     expect(label).toBe('Resting heart rate 52, declined. Compared with 49 on 8 Oct');
   });
 
-  it('says the week hours and the week before in words, and a flat week as steady', async () => {
-    await renderFromHook('fitness', ['weekHours', 'weekCount']);
+  vaultIt(
+    'says the week hours and the week before in words, and a flat week as steady',
+    async () => {
+      await renderFromHook('fitness', ['weekHours', 'weekCount']);
 
-    expect(metricLabel(0)).toBe(
-      'Week 4 hours 6 minutes, steady. Compared with 4 hours at this point last week'
-    );
-    expect(metricLabel(1)).not.toContain('#');
-  });
+      expect(metricLabel(0)).toBe(
+        'Week 4 hours 6 minutes, steady. Compared with 4 hours at this point last week'
+      );
+      expect(metricLabel(1)).not.toContain('#');
+    }
+  );
 
-  it('names the hero trend with its judgement', async () => {
+  vaultIt('names the hero trend with its judgement', async () => {
     await renderFromHook('fitness', [], { onHeroPress: () => {} });
 
     const hero = screen.getByLabelText(/^Fitness/);
     expect(hero.props.accessibilityLabel).toBe('Fitness 42, improved. Compared with 40 on 8 Oct');
   });
 
-  it('names the HRV hero by its spoken name', async () => {
+  vaultIt('names the HRV hero by its spoken name', async () => {
     await renderFromHook('hrv', []);
 
     const hero = screen.getByLabelText(/^Heart rate variability/);

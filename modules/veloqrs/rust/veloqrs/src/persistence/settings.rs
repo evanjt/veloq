@@ -745,6 +745,7 @@ mod tests {
     /// Expected behaviour: what one process writes, a relaunch or another
     /// process reads back exactly, and a cleared cooldown reads as none.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_request_budget_round_trips_through_the_settings_rows() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("budget.db");
@@ -780,6 +781,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_request_budget_value_that_will_not_parse_reads_as_absent() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("budget.db");
@@ -838,6 +840,7 @@ mod tests {
     /// Expected behaviour: the three Garmin switches read as the athlete set
     /// them, and an absent or mistyped one reads as unknown rather than off.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_garmin_switches_read_as_set_and_unknown_when_absent() {
         let (_dir, engine) = engine_holding_profile(
             r#"{"icu_garmin_sync_activities":true,"icu_garmin_download_wellness":false,"icu_garmin_upload_workouts":"yes"}"#,
@@ -849,6 +852,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_athlete_body_reads_as_a_profile_of_absent_fields() {
         let (_dir, engine) = engine_holding_profile("{}");
         assert_eq!(athlete_profile(&engine.db), Some(AthleteProfile::default()));
@@ -858,6 +862,7 @@ mod tests {
     /// costs the record nothing else, and an id sent as a number still names
     /// the athlete.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_field_of_another_shape_reads_as_absent_without_losing_the_rest() {
         let (_dir, engine) = engine_holding_profile(
             r#"{"id":42,"name":7,"sex":"M","measurement_preference":null,"icu_form_as_percent":"yes","icu_weight":"heavy","weight":81.5}"#,
@@ -887,6 +892,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_that_is_not_json_or_no_body_reads_as_no_profile() {
         let (_dir, engine) = engine_holding_profile("not json");
         assert_eq!(athlete_profile(&engine.db), None);

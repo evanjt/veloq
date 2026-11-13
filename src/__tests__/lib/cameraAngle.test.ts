@@ -68,7 +68,7 @@ describe('calculateTerrainCamera', () => {
       expect(result.hasInterestingTerrain).toBe(false);
     });
 
-    it('handles two identical coordinates with altitude', () => {
+    vaultIt('handles two identical coordinates with altitude', () => {
       // Same location but different altitudes - gradient magnitude is zero
       // because (lng - centerLng) and (lat - centerLat) are both 0
       const result = calculateTerrainCamera(
@@ -86,7 +86,7 @@ describe('calculateTerrainCamera', () => {
   });
 
   describe('fallback (no altitude)', () => {
-    it('uses perpendicular bearing when no altitude provided', () => {
+    vaultIt('uses perpendicular bearing when no altitude provided', () => {
       // West to east route (bearing ~90°), perpendicular = 180°
       const coords = line(10, 45, 11, 45);
       const result = calculateTerrainCamera(coords);
@@ -98,7 +98,7 @@ describe('calculateTerrainCamera', () => {
   });
 
   describe('flat route fallback (<30m range)', () => {
-    it('falls back to perpendicular bearing when elevation range < 30m', () => {
+    vaultIt('falls back to perpendicular bearing when elevation range < 30m', () => {
       const coords = line(10, 45, 11, 45, 10);
       // 20m range - below threshold
       const altitude = Array.from({ length: 10 }, (_, i) => 100 + (i / 9) * 20);
@@ -109,7 +109,7 @@ describe('calculateTerrainCamera', () => {
   });
 
   describe('elevation-aware camera', () => {
-    it('points toward high terrain on a mountain climb', () => {
+    vaultIt('points toward high terrain on a mountain climb', () => {
       // Route goes north (lat increases), altitude increases with latitude
       const coords = line(10, 45, 10, 46, 20);
       const altitude = Array.from({ length: 20 }, (_, i) => 500 + (i / 19) * 1500);
@@ -128,7 +128,7 @@ describe('calculateTerrainCamera', () => {
       expect(result.elevationRange).toBe(1500);
     });
 
-    it('handles loop routes well (camera faces summit side)', () => {
+    vaultIt('handles loop routes well (camera faces summit side)', () => {
       // Loop centered at (10, 45), with a summit on the north side
       const coords = loop(10, 45, 0.02, 40);
       const altitude = coords.map(([, lat]) => {
@@ -174,7 +174,7 @@ describe('calculateTerrainCamera', () => {
       return Math.abs(((bearing - target + 540) % 360) - 180);
     }
 
-    it.each([-60, 0, 47, 60])(
+    vaultIt.each([-60, 0, 47, 60])(
       'a climb rising due north-east on the ground reads 45 degrees at latitude %d',
       (lat) => {
         const { coords, altitude } = groundTrack(2000, 2000, lat);
@@ -184,23 +184,26 @@ describe('calculateTerrainCamera', () => {
       }
     );
 
-    it('a climb rising due north-west on the ground reads 315 degrees at latitude 60', () => {
+    vaultIt('a climb rising due north-west on the ground reads 315 degrees at latitude 60', () => {
       const { coords, altitude } = groundTrack(-2000, 2000, 60);
       const result = calculateTerrainCamera(coords, altitude);
       expect(angularError(result.camera.bearing, 315)).toBeLessThan(3);
     });
 
-    it('the no-altitude fallback is perpendicular to the ground route direction at latitude 60', () => {
-      // North-east route, so the perpendicular is south-east
-      const { coords } = groundTrack(2000, 2000, 60);
-      const result = calculateTerrainCamera(coords);
-      expect(result.hasInterestingTerrain).toBe(false);
-      expect(angularError(result.camera.bearing, 135)).toBeLessThan(3);
-    });
+    vaultIt(
+      'the no-altitude fallback is perpendicular to the ground route direction at latitude 60',
+      () => {
+        // North-east route, so the perpendicular is south-east
+        const { coords } = groundTrack(2000, 2000, 60);
+        const result = calculateTerrainCamera(coords);
+        expect(result.hasInterestingTerrain).toBe(false);
+        expect(angularError(result.camera.bearing, 135)).toBeLessThan(3);
+      }
+    );
   });
 
   describe('center', () => {
-    it('stays on the bounds midpoint when the high ground lies north', () => {
+    vaultIt('stays on the bounds midpoint when the high ground lies north', () => {
       // Route goes north, altitude increases to the north
       const coords = line(10, 45, 10, 46, 20);
       const altitude = Array.from({ length: 20 }, (_, i) => 500 + (i / 19) * 1500);
@@ -213,7 +216,7 @@ describe('calculateTerrainCamera', () => {
   });
 
   describe('adaptive pitch', () => {
-    it('uses 62° pitch for moderate elevation (< 100m range)', () => {
+    vaultIt('uses 62° pitch for moderate elevation (< 100m range)', () => {
       const coords = line(10, 45, 10.1, 45.1, 20);
       // 80m range - above flat threshold, below medium
       const altitude = Array.from({ length: 20 }, (_, i) => 200 + (i / 19) * 80);
@@ -221,7 +224,7 @@ describe('calculateTerrainCamera', () => {
       expect(result.camera.pitch).toBe(62);
     });
 
-    it('uses 52° pitch for mountainous terrain (> 400m range)', () => {
+    vaultIt('uses 52° pitch for mountainous terrain (> 400m range)', () => {
       const coords = line(10, 45, 10.1, 45.1, 20);
       const altitude = Array.from({ length: 20 }, (_, i) => 200 + (i / 19) * 1000);
       const result = calculateTerrainCamera(coords, altitude);
@@ -230,7 +233,7 @@ describe('calculateTerrainCamera', () => {
   });
 
   describe('zoom', () => {
-    it('is the fitted seed zoom whatever the elevation range', () => {
+    vaultIt('is the fitted seed zoom whatever the elevation range', () => {
       const coords = line(10, 45, 10.1, 45.1, 20);
       const tall = calculateTerrainCamera(
         coords,
@@ -246,7 +249,7 @@ describe('calculateTerrainCamera', () => {
       expect(tall.camera.zoom).toBe(calculateFlatCamera(coords).zoom);
     });
 
-    it('never goes below minimum zoom of 8', () => {
+    vaultIt('never goes below minimum zoom of 8', () => {
       // Very large route already at low zoom
       const coords = line(-10, 30, 20, 60, 20);
       const altitude = Array.from({ length: 20 }, (_, i) => 100 + (i / 19) * 3000);
@@ -256,7 +259,7 @@ describe('calculateTerrainCamera', () => {
   });
 
   describe('bearing normalisation', () => {
-    it('returns bearing in 0-360 range', () => {
+    vaultIt('returns bearing in 0-360 range', () => {
       const coords = line(10, 45, 10.1, 45.1, 20);
       const altitude = Array.from({ length: 20 }, (_, i) => 200 + (i / 19) * 500);
       const result = calculateTerrainCamera(coords, altitude);
@@ -278,7 +281,7 @@ describe('calculateTerrainCamera', () => {
 });
 
 describe('isLikelyInterestingTerrain', () => {
-  it('classifies terrain by gain and gain-per-km', () => {
+  vaultIt('classifies terrain by gain and gain-per-km', () => {
     // [gain, distance, expected, why]
     const cases: [number, number, boolean, string][] = [
       [17, 4600, false, 'flat city walk'],
@@ -317,7 +320,7 @@ describe('calculateFlatCamera', () => {
     expect(camera.zoom).toBeLessThanOrEqual(15);
   });
 
-  it('matches the 3D camera zoom for the same route', () => {
+  vaultIt('matches the 3D camera zoom for the same route', () => {
     const coords: [number, number][] = [
       [7.0, 46.0],
       [7.05, 46.02],
@@ -344,7 +347,7 @@ describe('calculateFlatCamera', () => {
     ).toEqual({ center: [0, 0], zoom: 10, bearing: 0, pitch: 0 });
   });
 
-  it('uses close zoom for a zero-span route', () => {
+  vaultIt('uses close zoom for a zero-span route', () => {
     const camera = calculateFlatCamera([
       [7.0, 46.0],
       [7.0, 46.0],

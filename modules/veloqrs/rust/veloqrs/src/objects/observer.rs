@@ -607,6 +607,7 @@ mod tests {
     use crate::test_globals::serial_global_state;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unobserved_announcement_is_logged_once_until_the_registration_changes() {
         let _guard = serial_global_state();
         set_observer(None);
@@ -625,6 +626,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_registry_delivers_to_one_observer_at_a_time() {
         let _guard = serial_global_state();
         set_observer(None);
@@ -763,6 +765,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_emitter_returns_before_the_callback_runs() {
             let _guard = serial_global_state();
             let (gated, was_entered, release) = Slow::gated();
@@ -791,6 +794,7 @@ mod tests {
         /// Expected behaviour: both calls return while the delivery is still
         /// parked, so the thread that must release it is not the one waiting.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn replacing_the_observer_does_not_wait_for_a_parked_delivery() {
             let _guard = serial_global_state();
             let (gated, was_entered, release) = Slow::gated();
@@ -823,6 +827,7 @@ mod tests {
         /// What was announced under one observer reaches it and not its
         /// replacement, even though the swap no longer waits for the queue.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_queued_announcement_reaches_the_observer_it_was_pushed_under() {
             let _guard = serial_global_state();
             let (gated, was_entered, release) = Slow::gated();
@@ -854,6 +859,7 @@ mod tests {
         /// whichever runtime is installed by then, and the next registration
         /// hears what follows.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_torn_down_runtime_is_never_called_again() {
             let _guard = serial_global_state();
             let (gated, was_entered, release) = Slow::gated();
@@ -911,6 +917,7 @@ mod tests {
         /// the flush returns promptly, and when the parked call finally returns
         /// it neither delivers what it held nor clears the live thread's state.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_delivery_parked_at_teardown_does_not_silence_the_next_observer() {
             let _guard = serial_global_state();
             let (gated, was_entered, release) = Slow::gated();
@@ -962,6 +969,7 @@ mod tests {
         /// A teardown with nothing in flight replaces nothing, and two with a
         /// parked thread replace it once.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn only_a_teardown_inside_a_delivery_replaces_the_thread() {
             let _guard = serial_global_state();
             set_observer(None);
@@ -987,6 +995,7 @@ mod tests {
         /// A teardown with nothing registered, and a second one behind it, are
         /// both no-ops: a reload can follow a sign-out that already cleared it.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_teardown_with_no_observer_is_a_no_op() {
             let _guard = serial_global_state();
             set_observer(None);
@@ -1006,6 +1015,7 @@ mod tests {
         /// snapshot, so a store loop announcing per activity says the same thing
         /// each time. Whatever piles up behind one parked delivery is that loop.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn repeats_behind_one_parked_delivery_arrive_once() {
             let _guard = serial_global_state();
             let (gated, was_entered, release) = Slow::gated();
@@ -1033,6 +1043,7 @@ mod tests {
         /// Two announcements that differ in any field are two facts, so the
         /// collapse must not reach them.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn announcements_that_differ_are_both_delivered() {
             let _guard = serial_global_state();
             let recorder = Recorder::new();
@@ -1065,6 +1076,7 @@ mod tests {
     /// The sync service is the first caller, and it is the proof the path runs
     /// from a real emit site rather than only from `notify`.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_sync_service_announces_its_own_terminal_transition() {
         use crate::objects::sync::{SYNC_SERVICE, SyncState};
 
@@ -1085,6 +1097,7 @@ mod tests {
     /// A screen waiting on a `time` stream hears it land, so it never re-reads
     /// the gap on a timer.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stored_time_stream_is_announced_once_it_has_landed() {
         use crate::objects::sync::store_time_stream;
         use crate::test_globals::init_global_engine;
@@ -1132,6 +1145,7 @@ mod tests {
     /// A cold start has nowhere to put the stream. Announcing it anyway would
     /// tell the screen to stop waiting for something it will never read.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stream_with_nowhere_to_land_is_not_announced() {
         use crate::objects::sync::store_time_stream;
         use crate::persistence::PERSISTENT_ENGINE;
@@ -1160,6 +1174,7 @@ mod tests {
     /// Expected behaviour: each phase change is announced once, on the series
     /// event and never on the elevation one.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_stream_backfill_announces_every_phase_it_enters() {
         use crate::net::stream_backfill::{
             STREAM_PHASE_COMPLETE, STREAM_PHASE_FETCHING, STREAM_PHASE_IDLE, set_phase,
@@ -1186,6 +1201,7 @@ mod tests {
     /// The backfill sets its phase from a background thread, so the settings
     /// row hears the transition instead of re-reading the snapshot on a timer.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_elevation_backfill_announces_every_phase_it_enters() {
         use crate::net::elevation_backfill::{
             BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_IDLE, set_phase,
@@ -1288,6 +1304,7 @@ mod tests {
         /// the process, so a panic taking it would end every announcement after
         /// it rather than one.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn does_not_take_the_announce_thread_with_it() {
             let _guard = serial_global_state();
             set_observer(Some(Arc::new(Exploding::default())));
@@ -1310,6 +1327,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn is_counted_so_the_log_is_not_the_only_record() {
             let _guard = serial_global_state();
             let exploding = Arc::new(Exploding::default());
@@ -1340,6 +1358,7 @@ mod tests {
         /// which is what this reproduces: the two the test raises, and one from
         /// a thread standing in for that worker.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn counts_a_stray_panic_rather_than_a_fixed_number() {
             let _guard = serial_global_state();
             let exploding = Arc::new(Exploding::default());
@@ -1369,6 +1388,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn leaves_the_registry_usable_for_the_next_observer() {
             let _guard = serial_global_state();
             set_observer(Some(Arc::new(Exploding::default())));
@@ -1388,6 +1408,7 @@ mod tests {
 
         /// A real emit site, so this is not only a property of `notify`.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn does_not_stop_the_backfill_setting_its_phase() {
             use crate::net::elevation_backfill::{
                 BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, backfill_progress, set_phase,
@@ -1414,6 +1435,7 @@ mod tests {
     /// its own channel, so a screen re-reads the count without any activity
     /// having been stored.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_request_budget_change_reaches_the_observer_on_its_own_channel() {
         let _guard = serial_global_state();
         let recorder = Recorder::new();

@@ -143,7 +143,7 @@ it('cancels what is still grouping when the screen goes away', async () => {
   );
 });
 
-it('starts nothing while the value is still moving', async () => {
+vaultIt('starts nothing while the value is still moving', async () => {
   const c = client();
   const { result } = await renderHook(() => useRouteGroupingPreview(c));
 

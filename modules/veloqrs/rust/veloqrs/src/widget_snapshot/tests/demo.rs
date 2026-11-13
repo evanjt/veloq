@@ -111,6 +111,7 @@ fn context() -> FfiWidgetContext {
 /// the demo mark and its label, and has real numbers rather than the empty
 /// prompt.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sample_library_composes_a_marked_snapshot_with_numbers() {
     let json = sample_snapshot_json(&library(), &context(), CLOCK).expect("a snapshot");
     let snapshot: serde_json::Value = serde_json::from_str(&json).expect("JSON a widget can read");
@@ -125,6 +126,7 @@ fn a_sample_library_composes_a_marked_snapshot_with_numbers() {
 /// Expected behaviour: a context that says demo marks a snapshot composed from
 /// the stored library, which is how demo mode labels its widgets.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_demo_context_marks_a_snapshot_of_the_stored_library() {
     let engine = crate::persistence::PersistentEngine::in_memory().expect("an engine");
     let ctx = FfiWidgetContext {
@@ -140,6 +142,7 @@ fn a_demo_context_marks_a_snapshot_of_the_stored_library() {
 /// Expected behaviour: a snapshot of a stored library carries no mark and no
 /// label, so a signed-in athlete's widgets never wear the demo words.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_snapshot_of_a_stored_library_is_not_marked() {
     let engine = crate::persistence::PersistentEngine::in_memory().expect("an engine");
     let json = snapshot_json(&engine.db, &context(), CLOCK);
@@ -155,6 +158,7 @@ fn a_snapshot_of_a_stored_library_is_not_marked() {
 /// Expected behaviour: a native refresh composes nothing, so the sample file
 /// stands and the previous athlete's rides are not redrawn over it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_native_refresh_leaves_a_sample_file_standing() {
     let _guard = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("widget_sample.db");
@@ -177,6 +181,7 @@ fn a_native_refresh_leaves_a_sample_file_standing() {
 /// on the body, each muscle shaded as the strength tab shades the same sets,
 /// rather than an empty body under the demo label.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sample_library_draws_its_strength_sets_on_the_body() {
     let (body, sets) = gym_session();
     let mut library = library();

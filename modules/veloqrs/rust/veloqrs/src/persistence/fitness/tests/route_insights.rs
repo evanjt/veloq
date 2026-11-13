@@ -108,6 +108,7 @@ fn seven_attempts_with_a_faster_recent_median_give_a_faster_trend() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_slower_recent_median_gives_a_slower_trend() {
     let attempts = series(&[970, 970, 970, 1000, 1000, 1000], 1);
 
@@ -118,6 +119,7 @@ fn a_slower_recent_median_gives_a_slower_trend() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn five_attempts_are_no_trend() {
     let attempts = series(&[1000, 1000, 1000, 970, 970], 1);
 
@@ -136,6 +138,7 @@ fn a_trend_carries_its_change_in_seconds_recent_median_minus_previous() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_slower_trend_carries_a_positive_change() {
     let attempts = series(&[970, 970, 970, 1000, 1000, 1000], 1);
 
@@ -145,6 +148,7 @@ fn a_slower_trend_carries_a_positive_change() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_record_on_five_attempts_carries_no_change() {
     let attempts = series(&[3000, 3010, 3020, 2950, 2900], 1);
 
@@ -157,6 +161,7 @@ fn a_record_on_five_attempts_carries_no_change() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_record_inside_the_deadband_carries_no_change() {
     let attempts = series(&[1000, 1000, 1000, 1000, 995, 990], 1);
 
@@ -169,6 +174,7 @@ fn a_record_inside_the_deadband_carries_no_change() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_trend_is_withheld_when_the_newest_attempt_is_older_than_the_active_window() {
     let attempts = series(&[1000, 1000, 1000, 970, 970, 970], 29);
 
@@ -176,6 +182,7 @@ fn a_trend_is_withheld_when_the_newest_attempt_is_older_than_the_active_window()
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_newest_fastest_attempt_inside_the_window_is_a_recent_record() {
     let attempts = series(&[1010, 1020, 1000, 950], 3);
 
@@ -188,6 +195,7 @@ fn the_newest_fastest_attempt_inside_the_window_is_a_recent_record() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_record_set_before_the_window_is_not_recent() {
     let mut attempts = series(&[1010, 1020, 1000], 20);
     attempts.push(run("fast", 21, 950));
@@ -196,11 +204,13 @@ fn a_record_set_before_the_window_is_not_recent() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_single_attempt_holds_no_record() {
     assert!(read(&series(&[950], 1), &[], &window()).is_empty());
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_shortcut_is_in_neither_the_record_nor_the_trend_series() {
     let mut attempts = series(&[1000, 1000, 1020, 1030], 5);
     attempts.push(Attempt {
@@ -235,6 +245,7 @@ fn excluded_and_partial_attempts_are_in_neither() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn partial_match_does_not_displace_a_reverse_route_record() {
     let attempts = vec![
         Attempt {
@@ -293,6 +304,7 @@ fn each_sport_and_each_direction_is_its_own_bucket() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn records_come_before_trends_and_then_newest_first() {
     let mut a = series(&[1000, 1000, 1000, 970, 970, 970], 1);
     for x in &mut a {
@@ -313,6 +325,7 @@ fn records_come_before_trends_and_then_newest_first() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_bucket_record_is_the_one_the_route_page_names_best() {
     let attempts = series(&[1010, 1020, 1000, 950], 3);
     let ids: Vec<String> = attempts.iter().map(|a| a.id.clone()).collect();

@@ -281,6 +281,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_earliest_wake_asked_for_wins() {
         let mut due = Due::default();
         due.schedule(at("2026-03-04T10:30:00Z"));
@@ -292,6 +293,7 @@ mod tests {
     /// Expected behaviour: a resume that panics does not leave the sleeper
     /// claimed, so the next refusal starts one again.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_panicking_resume_releases_the_sleeper() {
         let sleeper = Sleeper::new();
         assert!(sleeper.ask(at("2026-03-04T10:00:00Z")));
@@ -315,6 +317,7 @@ mod tests {
     /// lost when that resume panics. It is handed to a new sleeper, which keeps
     /// the claim.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_wake_asked_during_a_panicking_resume_is_handed_on() {
         let sleeper = Sleeper::new();
         assert!(sleeper.ask(at("2026-03-04T10:00:00Z")));
@@ -344,6 +347,7 @@ mod tests {
     /// Expected behaviour: a resume that returns releases the claim once the
     /// schedule is empty, and hands nothing on.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_resume_that_returns_releases_the_sleeper() {
         let sleeper = Sleeper::new();
         assert!(sleeper.ask(at("2026-03-04T10:00:00Z")));
@@ -360,6 +364,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn nothing_resumes_before_the_wake() {
         let mut due = Due::default();
         due.schedule(at("2026-03-04T10:30:00Z"));
@@ -375,6 +380,7 @@ mod tests {
     /// Expected behaviour: a probe that ends the cooldown early resumes the
     /// work at once, and with nothing waiting it schedules nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cleared_cooldown_brings_the_wake_forward() {
         let now = at("2026-03-04T10:00:00Z");
         let mut idle = Due::default();
@@ -400,6 +406,7 @@ mod tests {
     /// Expected behaviour: with nothing holding the downloads, Retry now runs
     /// the restart and reports it started.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_retry_with_no_hold_restarts_the_downloads() {
         let mut restarted = 0;
         let outcome = retry_with(None, || restarted += 1);
@@ -410,6 +417,7 @@ mod tests {
     /// Expected behaviour: a Retry-After or cooldown in force refuses the
     /// restart, sends nothing and reports when it lifts and who asked.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_retry_inside_a_hold_restarts_nothing_and_reports_the_time() {
         let mut restarted = 0;
         let held = hold("2026-03-04T10:30:00Z", true);
@@ -422,6 +430,7 @@ mod tests {
     /// nothing holds them, with or without a library open, and starts nothing
     /// inside a hold.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn retrying_the_downloads_starts_them_once_unless_held() {
         let _serial = crate::test_globals::serial_global_state();
         let _dir = crate::test_globals::init_global_engine("resume_retry.db");
@@ -443,6 +452,7 @@ mod tests {
     /// Expected behaviour: the refusal's own cooldown names intervals.icu as
     /// the one that asked, and the install's request budget does not.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_cooldown_outranks_the_budget_in_naming_who_asked() {
         let now = at("2026-03-04T10:00:00Z");
         let cooldown = Some(at("2026-03-04T10:20:00Z"));

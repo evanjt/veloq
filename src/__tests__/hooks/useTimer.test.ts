@@ -42,7 +42,7 @@ describe('useTimer', () => {
   // Idle / stopped state
   // -------------------------------------------------------------------------
 
-  it('returns zeroed values for idle, stopped, and null-startTime states', async () => {
+  vaultIt('returns zeroed values for idle, stopped, and null-startTime states', async () => {
     // No active recording -> all times 0 and all formatted fields "00:00".
     const states: Record<string, unknown>[] = [
       {}, // default idle
@@ -75,7 +75,7 @@ describe('useTimer', () => {
   // Elapsed time tracking
   // -------------------------------------------------------------------------
 
-  it('tracks elapsed time while recording', async () => {
+  vaultIt('tracks elapsed time while recording', async () => {
     const now = Date.now();
     setStoreState({
       status: 'recording',
@@ -96,7 +96,7 @@ describe('useTimer', () => {
     expect(result.current.elapsedTime).toBeLessThanOrEqual(6);
   });
 
-  it('updates every second via setInterval', async () => {
+  vaultIt('updates every second via setInterval', async () => {
     const now = Date.now();
     setStoreState({
       status: 'recording',
@@ -171,7 +171,7 @@ describe('useTimer', () => {
   // Time formatting
   // -------------------------------------------------------------------------
 
-  it('formats elapsed as mm:ss under an hour and hh:mm:ss over an hour', async () => {
+  vaultIt('formats elapsed as mm:ss under an hour and hh:mm:ss over an hour', async () => {
     // Zero formatting ("00:00") is covered by the idle-states test above.
     const cases: { agoMs: number; pattern: RegExp }[] = [
       { agoMs: 125000, pattern: /^02:05$/ }, // 2:05
@@ -195,7 +195,7 @@ describe('useTimer', () => {
   // Interval lifecycle
   // -------------------------------------------------------------------------
 
-  it('starts interval when status changes to recording', async () => {
+  vaultIt('starts interval when status changes to recording', async () => {
     const now = Date.now();
     setStoreState({
       status: 'idle',
@@ -226,7 +226,7 @@ describe('useTimer', () => {
     expect(result.current.elapsedTime).toBeGreaterThanOrEqual(2);
   });
 
-  it('keeps elapsed time counting when status changes to paused', async () => {
+  vaultIt('keeps elapsed time counting when status changes to paused', async () => {
     const now = Date.now();
     setStoreState({
       status: 'recording',
@@ -257,7 +257,7 @@ describe('useTimer', () => {
     expect(result.current.elapsedTime).toBe(beforePause + 5);
   });
 
-  it('cleans up interval on unmount', async () => {
+  vaultIt('cleans up interval on unmount', async () => {
     const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
 
     const now = Date.now();
@@ -336,7 +336,7 @@ describe('useTimer', () => {
   // Edge cases
   // -------------------------------------------------------------------------
 
-  it('handles negative elapsed (startTime in the future) gracefully', async () => {
+  vaultIt('handles negative elapsed (startTime in the future) gracefully', async () => {
     const now = Date.now();
     setStoreState({
       status: 'recording',

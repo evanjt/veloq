@@ -92,7 +92,7 @@ describe('climbStatusOf', () => {
 });
 
 describe('the climbing status note', () => {
-  it('draws the excluded line only when the count is above zero', async () => {
+  vaultIt('draws the excluded line only when the count is above zero', async () => {
     const { rerender } = await render(
       <ClimbingStatusNote status={{ owed: 0, sourceExcluded: 2 }} />
     );
@@ -103,7 +103,7 @@ describe('the climbing status note', () => {
     expect(screen.queryByTestId('climbing-owed')).toBeNull();
   });
 
-  it('draws the still-computing line when rows are owed', async () => {
+  vaultIt('draws the still-computing line when rows are owed', async () => {
     await render(<ClimbingStatusNote status={{ owed: 3, sourceExcluded: 0 }} />);
     expect(screen.getByTestId('climbing-owed')).toBeTruthy();
   });

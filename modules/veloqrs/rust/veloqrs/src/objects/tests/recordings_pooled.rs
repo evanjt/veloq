@@ -31,6 +31,7 @@ fn entry(id: &str, created_at: i64, status: &str) -> FfiRecordingEntry {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_list_recordings_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("recordings_list_under_writer.db");
@@ -40,6 +41,7 @@ fn test_list_recordings_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_recording_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("recordings_get_under_writer.db");
@@ -49,6 +51,7 @@ fn test_get_recording_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_unuploaded_count_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("recordings_count_under_writer.db");
@@ -65,6 +68,7 @@ fn test_unuploaded_count_writer_held() {
 /// a row the add wrote a moment before, which is the read-after-write a save
 /// followed by a list makes.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_pooled_reads_match_the_engine() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("recordings_pooled_parity.db");

@@ -44,6 +44,7 @@ fn two_years_with_three_months_held() -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_figure_grows_with_each_month_the_start_moves_back() {
     let engine = two_years_with_three_months_held();
     let at = |from| history_range_estimate(&engine.db, from, "2026-08-01").unwrap();
@@ -54,6 +55,7 @@ fn the_figure_grows_with_each_month_the_start_moves_back() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_range_the_library_already_holds_costs_nothing() {
     let engine = two_years_with_three_months_held();
     assert_eq!(
@@ -65,6 +67,7 @@ fn a_range_the_library_already_holds_costs_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn without_a_census_the_year_counts_are_prorated_by_days_and_marked_approximate() {
     let engine = PersistentEngine::in_memory().expect("in-memory engine");
     engine
@@ -76,6 +79,7 @@ fn without_a_census_the_year_counts_are_prorated_by_days_and_marked_approximate(
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn nothing_is_known_reads_as_zero() {
     let engine = PersistentEngine::in_memory().expect("in-memory engine");
     let estimate = history_range_estimate(&engine.db, "2025-07-01", "2026-01-01").unwrap();

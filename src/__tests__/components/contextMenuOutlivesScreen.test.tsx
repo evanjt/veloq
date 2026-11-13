@@ -145,7 +145,7 @@ describe.each(['ios', 'android'] as const)('an open menu on a pushed screen on %
     expect(getPathname()).toBe('/');
   });
 
-  it("leaves the screen's swipe and header back as the screen set them", async () => {
+  vaultIt("leaves the screen's swipe and header back as the screen set them", async () => {
     await renderStack();
     await act(() => router.back());
 

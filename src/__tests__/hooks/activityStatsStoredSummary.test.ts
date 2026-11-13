@@ -58,7 +58,7 @@ describe('the stored summary on the activity stat cards', () => {
     expect(row(list, 'Speed', 'Max')).toBe(formatSportSpeed(15.4, 'Ride', true));
   });
 
-  it('reads speed in the athlete units', () => {
+  vaultIt('reads speed in the athlete units', () => {
     const list = stats(ride, rideSummary, false);
     expect(card(list, 'Speed').value).toBe(formatSportSpeed(8.2, 'Ride', false));
   });

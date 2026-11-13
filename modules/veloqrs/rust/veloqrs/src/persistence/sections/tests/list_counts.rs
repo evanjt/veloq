@@ -93,6 +93,7 @@ fn visible(engine: &PersistentEngine) -> u32 {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_stored_counts_follow_every_write_to_a_sections_kind() {
     let engine = PersistentEngine::in_memory().expect("engine");
     assert_eq!(engine.get_section_count(), 0);
@@ -135,6 +136,7 @@ fn the_stored_counts_follow_every_write_to_a_sections_kind() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_stored_sizes_follow_every_write_to_a_groups_count() {
     let engine = PersistentEngine::in_memory().expect("engine");
     for (id, count) in [

@@ -22,7 +22,7 @@ describe('C++ keyword parameter names', () => {
     expect(findCppKeywordParams(extractTraitMethods())).toEqual([]);
   });
 
-  it('refuses a with_foreign trait method taking a keyword argument', () => {
+  vaultIt('refuses a with_foreign trait method taking a keyword argument', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trait-'));
     fs.writeFileSync(
       path.join(dir, 'observer.rs'),
@@ -39,7 +39,7 @@ describe('C++ keyword parameter names', () => {
     expect(offenders[0]).toContain('template');
   });
 
-  it('names the export and the argument that will not compile', () => {
+  vaultIt('names the export and the argument that will not compile', () => {
     const offenders = findCppKeywordParams([
       {
         name: 'set_source_template',
@@ -55,7 +55,7 @@ describe('C++ keyword parameter names', () => {
     expect(offenders[0]).toContain('template');
   });
 
-  it('passes an export whose arguments are all safe', () => {
+  vaultIt('passes an export whose arguments are all safe', () => {
     expect(
       findCppKeywordParams([
         { name: 'set_source', file: 'basemap/store.rs', line: 42, params: ['source', 'url'] },
@@ -63,14 +63,14 @@ describe('C++ keyword parameter names', () => {
     ).toEqual([]);
   });
 
-  it('reports every offending argument of one export', () => {
+  vaultIt('reports every offending argument of one export', () => {
     const offenders = findCppKeywordParams([
       { name: 'render', file: 'a.rs', line: 1, params: ['class', 'ok', 'delete'] },
     ]);
     expect(offenders).toHaveLength(2);
   });
 
-  it('covers the keywords the codegen actually trips on', () => {
+  vaultIt('covers the keywords the codegen actually trips on', () => {
     for (const keyword of [
       'template',
       'class',
@@ -90,24 +90,24 @@ describe('C++ keyword parameter names', () => {
     }
   });
 
-  it('leaves ordinary Rust argument names alone', () => {
+  vaultIt('leaves ordinary Rust argument names alone', () => {
     for (const name of ['source', 'activity_id', 'zoom', 'bounds', 'path', 'template_id']) {
       expect(isCppKeyword(name)).toBe(false);
     }
   });
 
-  it('reads a name through `mut` and whitespace', () => {
+  vaultIt('reads a name through `mut` and whitespace', () => {
     expect(
       findCppKeywordParams([{ name: 'f', file: 'a.rs', line: 1, params: ['mut  template'] }])
     ).toHaveLength(1);
   });
 
-  it('has no empty entry in the keyword list', () => {
+  vaultIt('has no empty entry in the keyword list', () => {
     expect(CPP_KEYWORDS.size).toBeGreaterThan(60);
     for (const keyword of CPP_KEYWORDS) expect(keyword.trim()).toBe(keyword);
   });
 
-  it('is empty for an export with no arguments', () => {
+  vaultIt('is empty for an export with no arguments', () => {
     expect(findCppKeywordParams([{ name: 'f', file: 'a.rs', line: 1, params: [] }])).toEqual([]);
   });
 });

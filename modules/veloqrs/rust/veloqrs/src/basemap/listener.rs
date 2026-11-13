@@ -620,6 +620,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pan_of_misses_reaches_the_host_together_over_the_shards() {
         let store = LatchedStore::new();
         let listener =
@@ -654,6 +655,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_request_without_the_token_is_refused_before_the_store_is_asked() {
         let store = LatchedStore::new();
         let listener =
@@ -674,6 +676,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refusal_crosses_as_its_own_status_with_cors_for_the_page() {
         let store = LatchedStore::new();
         let listener =
@@ -692,6 +695,7 @@ mod tests {
     /// Chromium keeps a connection open across a pan, so a second tile on the
     /// same connection must be answered rather than left waiting.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn one_connection_answers_one_request_after_another() {
         let store = LatchedStore::new();
         let listener =
@@ -727,6 +731,7 @@ mod tests {
     /// A port that stops answering is bound again on the same port, so a page
     /// already holding the URLs keeps loading tiles.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_listener_that_stopped_answering_binds_again_on_its_ports() {
         let store = LatchedStore::new();
         let listener =
@@ -767,6 +772,7 @@ mod tests {
     /// answer, so it is answered at once, with the CORS a tile carries, and
     /// the store is not asked for anything.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_warm_is_answered_at_once_and_starts_one_warm_for_its_source() {
         let store = LatchedStore::new();
         let (listener, warmed) = bind_recording_warms(&store);
@@ -781,6 +787,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_warm_without_the_token_is_refused_and_starts_nothing() {
         let store = LatchedStore::new();
         let (listener, warmed) = bind_recording_warms(&store);
@@ -799,6 +806,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tile_path_reads_its_source_coordinates_and_extension() {
         assert_eq!(
             tile_path(&format!("/{TOKEN}/satellite-eox/9/268/180.jpg?v=2"), TOKEN),
@@ -823,6 +831,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_token_is_drawn_fresh_and_long_enough_not_to_be_guessed() {
         let (a, b) = (new_token().unwrap(), new_token().unwrap());
         assert_eq!(a.len(), 32);

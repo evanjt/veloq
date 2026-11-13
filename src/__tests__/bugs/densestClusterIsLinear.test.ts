@@ -74,13 +74,13 @@ describe('the densest cluster', () => {
     expect(Math.max(...cluster)).toBeLessThan(300);
   });
 
-  it('returns indices in input order, whichever cell won', () => {
+  vaultIt('returns indices in input order, whichever cell won', () => {
     const centres = [...near(-45.0, 168.7, 3), ...near(46.2, 7.35, 50)];
     const cluster = densestClusterIndices(centres);
     expect(cluster).toEqual([...cluster].sort((a, b) => a - b));
   });
 
-  it('frames the same region as the pairwise search it replaces', () => {
+  vaultIt('frames the same region as the pairwise search it replaces', () => {
     const cases: LatLngShort[][] = [
       [...near(46.2, 7.35, 120), ...near(-33.8, 151.2, 5)],
       [...near(51.5, -0.12, 80), ...near(35.6, 139.6, 3), ...near(-23.5, -46.6, 2)],
@@ -98,7 +98,7 @@ describe('the densest cluster', () => {
     expect(densestClusterIndices(centres)).not.toContain(60);
   });
 
-  it('answers for three thousand activities without the pairwise pass', () => {
+  vaultIt('answers for three thousand activities without the pairwise pass', () => {
     // 9M iterations was the figure on the item. This asserts the work done, not
     // a duration, because a timing here would measure the machine.
     const centres = [...near(46.2, 7.35, 2000), ...near(-45.0, 168.7, 1000)];

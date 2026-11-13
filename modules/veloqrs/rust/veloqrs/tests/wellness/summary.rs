@@ -71,6 +71,7 @@ fn summary(rows: Vec<WellnessRow>) -> veloqrs::WidgetWellnessSummary {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_single_day_gives_every_number_and_no_arrow() {
     let s = summary(vec![day(
         "2026-09-05",
@@ -94,6 +95,7 @@ fn a_single_day_gives_every_number_and_no_arrow() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_history_survives() {
     let s = summary(vec![]);
 
@@ -104,6 +106,7 @@ fn an_empty_history_survives() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_one_day_gap_reads_as_the_day_before() {
     let s = summary(vec![
         day(
@@ -133,6 +136,7 @@ fn a_one_day_gap_reads_as_the_day_before() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_gap_wider_than_the_day_it_stands_for_says_nothing() {
     let s = summary(vec![
         day("2026-09-05", Some(60.0), Some(40.0), None, None, None),
@@ -145,6 +149,7 @@ fn a_gap_wider_than_the_day_it_stands_for_says_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_weigh_in_older_than_a_fortnight_says_nothing() {
     let s = summary(vec![
         day("2026-09-05", None, None, None, None, Some(71.0)),
@@ -156,6 +161,7 @@ fn a_weigh_in_older_than_a_fortnight_says_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_weekly_weigh_in_is_compared_with_the_previous_one() {
     let s = summary(vec![
         day("2026-09-05", None, None, None, None, Some(71.0)),
@@ -167,6 +173,7 @@ fn a_weekly_weigh_in_is_compared_with_the_previous_one() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_deadband_holds_and_one_step_past_it_moves() {
     let inside = summary(vec![
         day(
@@ -251,6 +258,7 @@ fn each_metric_is_taken_from_its_own_nearest_row() {
 /// Weight and form have no better direction, so the glyph is the bare
 /// direction rather than a verdict.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_metric_with_no_polarity_draws_its_direction() {
     let s = summary(vec![
         day("2026-09-05", Some(60.0), Some(45.0), None, None, Some(72.0)),
@@ -269,6 +277,7 @@ fn a_metric_with_no_polarity_draws_its_direction() {
 /// A rising resting heart rate is a decline, and the glyph says so rather than
 /// following the number.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rising_resting_heart_rate_points_down() {
     let s = summary(vec![
         day("2026-09-05", Some(60.0), Some(40.0), None, Some(52.0), None),
@@ -356,6 +365,7 @@ fn fatigue_is_absent_when_the_newest_day_has_none_and_no_baseline_is_invented() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_single_day_has_no_previous_values() {
     let s = summary(vec![day(
         "2026-09-05",
@@ -377,6 +387,7 @@ fn a_single_day_has_no_previous_values() {
 /// One earlier reading is a single comparison, not a trend, so every arrow
 /// waits for a second reading inside its window.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn one_earlier_reading_draws_no_arrow() {
     let s = summary(vec![
         day(
@@ -511,6 +522,7 @@ fn a_metric_with_no_reading_carries_no_basis() {
 /// it was judged against, the day that value was read and the evidence behind
 /// it, so the card can state the method.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_card_read_states_what_each_arrow_was_judged_against() {
     let (_tmp, mut engine) = engine();
     engine
@@ -563,6 +575,7 @@ fn the_card_read_states_what_each_arrow_was_judged_against() {
 
 /// A metric with no baseline row names no earlier value and no day.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_card_read_names_no_baseline_it_did_not_find() {
     let (_tmp, mut engine) = engine();
     engine

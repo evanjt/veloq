@@ -56,6 +56,7 @@ fn library_of_three() -> (TempDir, PersistentEngine) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn library_coverage_counts_the_garmin_rows_with_no_credential() {
     let (_dir, engine) = library_of_three();
     let coverage = pooled::library_coverage(&engine.db, "");
@@ -71,6 +72,7 @@ fn library_coverage_counts_the_garmin_rows_with_no_credential() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_library_with_no_credential_still_reports_nothing() {
     let (_dir, engine) = engine();
     assert_eq!(
@@ -84,6 +86,7 @@ fn an_empty_library_with_no_credential_still_reports_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_range_is_loaded_or_empty_only_inside_what_the_backfill_reached() {
     let (_dir, engine) = library_of_three();
     let range = |from, to| pooled::range_coverage(&engine.db, "", from, to);
@@ -93,6 +96,7 @@ fn a_range_is_loaded_or_empty_only_inside_what_the_backfill_reached() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_finished_backfill_makes_every_older_range_empty() {
     let (_dir, engine) = library_of_three();
     engine.set_setting(BACKFILL_DONE, "1").unwrap();
@@ -103,6 +107,7 @@ fn a_finished_backfill_makes_every_older_range_empty() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_activity_window_reaches_back_to_the_backfill() {
     let (_dir, engine) = library_of_three();
     let today = chrono::NaiveDate::from_ymd_opt(2026, 11, 12).unwrap();
@@ -128,6 +133,7 @@ fn history_naming(ride_id: &str) -> String {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_record_naming_a_garmin_key_waits_for_the_backfill_to_store_it() {
     let (dir, mut engine) = engine();
     let key = garmin_source_key(7);
@@ -145,6 +151,7 @@ fn a_record_naming_a_garmin_key_waits_for_the_backfill_to_store_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_record_naming_a_garmin_key_is_given_up_once_the_backfill_is_done() {
     let (_dir, mut engine) = engine();
     engine.set_setting(BACKFILL_DONE, "1").unwrap();

@@ -119,7 +119,7 @@ afterEach(() => {
 });
 
 describe('widget refresh after a sync settles', () => {
-  it('reads nothing inside the settle and writes once the thread is idle', async () => {
+  vaultIt('reads nothing inside the settle and writes once the thread is idle', async () => {
     const { rerender } = await renderHook(() => useEngineSync());
 
     await runSync(rerender);
@@ -134,7 +134,7 @@ describe('widget refresh after a sync settles', () => {
     expect(mockWidget.writeSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it('writes once for two settles inside one idle window', async () => {
+  vaultIt('writes once for two settles inside one idle window', async () => {
     const { rerender } = await renderHook(() => useEngineSync());
 
     await runSync(rerender);

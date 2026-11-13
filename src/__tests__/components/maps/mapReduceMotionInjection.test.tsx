@@ -101,7 +101,7 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe.each(SURFACES)('%s follows the live reduce-motion setting', (_name, element) => {
-  it('builds the page with the setting it has at mount', async () => {
+  vaultIt('builds the page with the setting it has at mount', async () => {
     mockSetting.value = true;
     const view = await render(element());
     expect(pages).toHaveLength(1);

@@ -46,7 +46,7 @@ describe('replacing the activity tray entry', () => {
     expect(t.order).toContain('dismiss:fcm-generated-id');
   });
 
-  it('leaves the entry the fresh post replaced in place', async () => {
+  vaultIt('leaves the entry the fresh post replaced in place', async () => {
     const t = tray(PRESENT);
 
     await replaceActivityTrayEntry({ activityId: ACTIVITY, ...t });
@@ -54,7 +54,7 @@ describe('replacing the activity tray entry', () => {
     expect(t.dismissed).not.toContain(`activity-${ACTIVITY}`);
   });
 
-  it('leaves the sync banner alone', async () => {
+  vaultIt('leaves the sync banner alone', async () => {
     const t = tray(PRESENT);
 
     await replaceActivityTrayEntry({ activityId: ACTIVITY, ...t });

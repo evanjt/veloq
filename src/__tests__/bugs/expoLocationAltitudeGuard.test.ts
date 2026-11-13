@@ -102,7 +102,7 @@ describe('the expo-location altitude guard', () => {
     expect(guard(linkedTree(checkout('unpatched'))).status).toBe(1);
   });
 
-  it('is registered with the audit', () => {
+  vaultIt('is registered with the audit', () => {
     expect(
       run('node', ['scripts/run-guards.mjs', '--set', 'commit', '--json'], projectRoot).output
     ).toContain('lint-expo-location-altitude.mjs');
@@ -140,7 +140,7 @@ describe('the gate runner', () => {
 
 describe('the Android builds', () => {
   // A build started by hand runs no gate, and it is the build that ships.
-  it.each(['android', 'android:standalone', 'android:debug', 'android:prod'])(
+  vaultIt.each(['android', 'android:standalone', 'android:debug', 'android:prod'])(
     '%s refuses an unpatched expo-location before Gradle runs',
     (name) => {
       const { scripts } = require(join(projectRoot, 'package.json')) as {

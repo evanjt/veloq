@@ -143,7 +143,7 @@ describe('pairing a sensor outside a recording session', () => {
     expect(useSensorStore.getState().connections[METER.id]).toBeUndefined();
   });
 
-  it('is a no-op the second time and when nothing was paired', async () => {
+  vaultIt('is a no-op the second time and when nothing was paired', async () => {
     await releasePairingConnections();
     expect(mockCancelDeviceConnection).not.toHaveBeenCalled();
 

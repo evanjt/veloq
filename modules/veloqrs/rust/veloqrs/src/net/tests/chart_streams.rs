@@ -68,6 +68,7 @@ fn every_series_crosses_in_one_index_space() {
 /// Expected behaviour: a stopped sample reads pace 0 and a missing one NaN,
 /// the two cases the chart tells apart.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn stopped_pace_is_zero_and_missing_pace_is_nan() {
     let body = r#"[{"type":"ga_velocity","data":[0,null,2.5]}]"#;
     let streams = chart_streams_from_body(body, "Ride").unwrap();
@@ -75,6 +76,7 @@ fn stopped_pace_is_zero_and_missing_pace_is_nan() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_series_the_body_lacks_is_an_empty_buffer() {
     let body = r#"[{"type":"time","data":[0,1]},{"type":"watts","data":[100,110]}]"#;
     let streams = chart_streams_from_body(body, "Ride").unwrap();
@@ -88,6 +90,7 @@ fn a_series_the_body_lacks_is_an_empty_buffer() {
 /// Expected behaviour: an activity with no coordinates keeps every sample of
 /// every series, in the server's own index.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_trackless_body_keeps_its_own_index() {
     let body = r#"[
         {"type":"time","data":[0,1,2]},
@@ -125,6 +128,7 @@ fn corrected_altitude_wins_and_device_altitude_stands_in() {
 /// stored, so the caller refetches it, and an empty array is a body with no
 /// series rather than a failure.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_body_that_is_not_a_stream_array_is_nothing_stored() {
     assert!(chart_streams_from_body("not json", "Ride").is_none());
     assert!(chart_streams_from_body(r#"{"time":[0,1]}"#, "Ride").is_none());
@@ -164,6 +168,7 @@ fn coordinates(streams: &FfiActivityStreams) -> Vec<(f64, f64)> {
 /// Expected behaviour: a coordinate outside the globe drops its sample from
 /// every series, as a missing one does.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_out_of_range_coordinate_drops_its_sample_everywhere() {
     let body = r#"[
         {"type":"latlng","data":[46.0,200],"data2":[7.0,7.1]},
@@ -177,6 +182,7 @@ fn an_out_of_range_coordinate_drops_its_sample_everywhere() {
 /// Expected behaviour: a series shorter than the coordinates reads NaN past
 /// its end rather than shifting the samples that follow.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_short_series_reads_nan_past_its_end() {
     let body = r#"[
         {"type":"latlng","data":[46.0,46.1],"data2":[7.0,7.1]},
@@ -189,6 +195,7 @@ fn a_short_series_reads_nan_past_its_end() {
 /// Expected behaviour: coordinates are paired up to the shorter of the two
 /// halves, and a pair with no second half is no coordinates at all.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn unequal_coordinate_halves_pair_to_the_shorter() {
     let shorter_lng = r#"[{"type":"latlng","data":[40.7,34.0],"data2":[-74.0]}]"#;
     assert_eq!(
@@ -207,6 +214,7 @@ fn unequal_coordinate_halves_pair_to_the_shorter() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unknown_series_is_ignored() {
     let body = r#"[{"type":"moxie","data":[1,2]},{"type":"watts","data":[3]}]"#;
     let streams = chart_streams_from_body(body, "Ride").unwrap();
@@ -218,6 +226,7 @@ fn an_unknown_series_is_ignored() {
 /// intervals.icu sends it, crosses as steps a minute, the unit the summary
 /// gives, while a ride's revolutions cross as stored and a gap stays a gap.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_cadence_series_is_steps_a_minute() {
     let body = r#"[{"type":"time","data":[0,1,2]},{"type":"cadence","data":[75,null,103]}]"#;
     let run = chart_streams_from_body(body, "Run").unwrap();

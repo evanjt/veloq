@@ -21,7 +21,7 @@ function clock(start = 0) {
 }
 
 describe('a clock that does not count a suspension', () => {
-  it('passes ordinary ticks through', () => {
+  vaultIt('passes ordinary ticks through', () => {
     const time = clock(1_000);
     const awake = createAwakeClock(100, time.now);
 
@@ -42,7 +42,7 @@ describe('a clock that does not count a suspension', () => {
     expect(awake() - first).toBe(100);
   });
 
-  it('still counts a tick that is merely slow', () => {
+  vaultIt('still counts a tick that is merely slow', () => {
     const time = clock();
     const awake = createAwakeClock(100, time.now);
 
@@ -52,7 +52,7 @@ describe('a clock that does not count a suspension', () => {
     expect(awake() - first).toBe(900);
   });
 
-  it('keeps its budget across several suspensions', () => {
+  vaultIt('keeps its budget across several suspensions', () => {
     const time = clock();
     const awake = createAwakeClock(100, time.now);
 

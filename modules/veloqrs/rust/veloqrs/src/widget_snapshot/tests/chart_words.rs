@@ -13,6 +13,7 @@ use super::spoken::{clock, context, rising_fitness};
 use crate::FfiWellnessSparklines;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn each_drawn_chart_carries_the_days_it_spans() {
     let snapshot = compose(&rising_fitness(), &context(english()), clock());
     let spans = &snapshot.display.chart_spans;
@@ -22,6 +23,7 @@ fn each_drawn_chart_carries_the_days_it_spans() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_chart_with_too_few_days_to_draw_carries_no_span() {
     let mut data = rising_fitness();
     data.sparklines = Some(FfiWellnessSparklines {
@@ -40,6 +42,7 @@ fn a_chart_with_too_few_days_to_draw_carries_no_span() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_span_takes_the_plural_form_the_language_gives_the_count() {
     let strings: BTreeMap<String, String> = [
         ("time.daysCount_one", "{{count}} dzień"),
@@ -67,6 +70,7 @@ fn the_span_takes_the_plural_form_the_language_gives_the_count() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_context_stored_before_the_span_words_carries_no_span() {
     let mut strings = english();
     strings.retain(|key, _| !key.starts_with("time.daysCount"));
@@ -78,6 +82,7 @@ fn a_context_stored_before_the_span_words_carries_no_span() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_sample_library_names_its_series_span_and_zone() {
     let snapshot = demo();
     let display = &snapshot["display"];

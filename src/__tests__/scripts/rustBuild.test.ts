@@ -248,7 +248,7 @@ describe('the Android build', () => {
     expect(calls('cargo')).toEqual([]);
   });
 
-  it('reports the resolved compiler and cargo-ndk in the build output', () => {
+  vaultIt('reports the resolved compiler and cargo-ndk in the build output', () => {
     const lines: string[] = [];
     main(ARM, env, { moduleDir, log: (line: string) => lines.push(line) });
     const output = lines.join('\n');
@@ -289,23 +289,26 @@ describe('the Android build', () => {
     expect(calls('cargo')).toHaveLength(1);
   });
 
-  it('compiles each ABI in its own Cargo process, together, with its own target directory', () => {
-    const out = build(['android', '--abi', 'x86_64', '--abi', 'arm64-v8a'], {
-      FAKE_LOG_LIFECYCLE: '1',
-      FAKE_CARGO_DELAY_MS: '600',
-      CARGO_BUILD_JOBS: '8',
-    });
+  vaultIt(
+    'compiles each ABI in its own Cargo process, together, with its own target directory',
+    () => {
+      const out = build(['android', '--abi', 'x86_64', '--abi', 'arm64-v8a'], {
+        FAKE_LOG_LIFECYCLE: '1',
+        FAKE_CARGO_DELAY_MS: '600',
+        CARGO_BUILD_JOBS: '8',
+      });
 
-    const events = calls().filter((line) => /^(start|end) /.test(line));
-    expect(events.map((line) => line.split(' ')[0])).toEqual(['start', 'start', 'end', 'end']);
-    const targets = events.slice(0, 2).map((line) => /target=(\S+)/.exec(line)![1]);
-    expect(new Set(targets).size).toBe(2);
-    expect(targets.every((dir) => dir !== 'undefined')).toBe(true);
-    expect(events.slice(0, 2).map((line) => /jobs=(\S+)/.exec(line)![1])).toEqual(['4', '4']);
-    expect(out).toBe(androidOut('release-arm64-v8a_x86_64'));
-    expect(library('release-arm64-v8a_x86_64', 'arm64-v8a')).toContain('uniffi_veloqrs_');
-    expect(library('release-arm64-v8a_x86_64', 'x86_64')).toContain('uniffi_veloqrs_');
-  });
+      const events = calls().filter((line) => /^(start|end) /.test(line));
+      expect(events.map((line) => line.split(' ')[0])).toEqual(['start', 'start', 'end', 'end']);
+      const targets = events.slice(0, 2).map((line) => /target=(\S+)/.exec(line)![1]);
+      expect(new Set(targets).size).toBe(2);
+      expect(targets.every((dir) => dir !== 'undefined')).toBe(true);
+      expect(events.slice(0, 2).map((line) => /jobs=(\S+)/.exec(line)![1])).toEqual(['4', '4']);
+      expect(out).toBe(androidOut('release-arm64-v8a_x86_64'));
+      expect(library('release-arm64-v8a_x86_64', 'arm64-v8a')).toContain('uniffi_veloqrs_');
+      expect(library('release-arm64-v8a_x86_64', 'x86_64')).toContain('uniffi_veloqrs_');
+    }
+  );
 
   it('publishes neither ABI when one of the concurrent compiles fails', () => {
     expect(() =>
@@ -343,7 +346,7 @@ describe('the Android build', () => {
     expect(calls('cargo')).toEqual([]);
   });
 
-  it('takes the feature set from the environment when none is passed, in any order', () => {
+  vaultIt('takes the feature set from the environment when none is passed, in any order', () => {
     build(ARM, { VELOQRS_CARGO_FEATURES: 'lock-trace' });
     build([...ARM, '--features', 'lock-trace']);
     expect(calls('cargo')).toHaveLength(1);
@@ -366,7 +369,7 @@ describe('the Android build', () => {
     expect(calls('cargo')).toHaveLength(1);
   });
 
-  it('takes the profile from the environment and lets the flag override it', () => {
+  vaultIt('takes the profile from the environment and lets the flag override it', () => {
     build(ARM, { VELOQRS_RUST_PROFILE: 'release-dev' });
     build([...ARM, '--profile', 'release'], { VELOQRS_RUST_PROFILE: 'release-dev' });
 
@@ -433,7 +436,7 @@ describe('the Android build', () => {
     expect(readdirSync(join(moduleDir, 'build/rust/android'))).toEqual([]);
   });
 
-  it('removes an earlier output when Cargo cannot start', () => {
+  vaultIt('removes an earlier output when Cargo cannot start', () => {
     const out = build(ARM);
     write(join(moduleDir, 'rust/veloqrs/src/lib.rs'), 'pub fn changed() {}\n');
     const path = withoutCargo();
@@ -478,29 +481,35 @@ describe('the Android build', () => {
     expect(calls('cargo')).toHaveLength(1);
   });
 
-  it('treats a compile setting left empty as unset, which is how a Gradle daemon unsets one', () => {
-    build(ARM);
-    calls();
+  vaultIt(
+    'treats a compile setting left empty as unset, which is how a Gradle daemon unsets one',
+    () => {
+      build(ARM);
+      calls();
 
-    build(ARM, { CARGO_PROFILE_RELEASE_LTO: '', RUSTFLAGS: '' });
-    expect(calls('cargo')).toEqual([]);
+      build(ARM, { CARGO_PROFILE_RELEASE_LTO: '', RUSTFLAGS: '' });
+      expect(calls('cargo')).toEqual([]);
 
-    rmSync(androidOut('release-arm64-v8a'), { recursive: true });
-    build(ARM, { CARGO_PROFILE_RELEASE_LTO: '', FAKE_LOG_ENV: '1' });
-    expect(calls().filter((line) => line.startsWith('env '))).toEqual([
-      'env CC=undefined SDKROOT=undefined LTO=undefined',
-    ]);
-  });
+      rmSync(androidOut('release-arm64-v8a'), { recursive: true });
+      build(ARM, { CARGO_PROFILE_RELEASE_LTO: '', FAKE_LOG_ENV: '1' });
+      expect(calls().filter((line) => line.startsWith('env '))).toEqual([
+        'env CC=undefined SDKROOT=undefined LTO=undefined',
+      ]);
+    }
+  );
 
-  it('hands cargo no empty build setting, which is how a Gradle daemon unsets CARGO_BUILD_JOBS', () => {
-    build(ARM, { FAKE_LOG_LIFECYCLE: '1', CARGO_BUILD_JOBS: '' });
+  vaultIt(
+    'hands cargo no empty build setting, which is how a Gradle daemon unsets CARGO_BUILD_JOBS',
+    () => {
+      build(ARM, { FAKE_LOG_LIFECYCLE: '1', CARGO_BUILD_JOBS: '' });
 
-    const events = calls().filter((line) => /^(start|end) /.test(line));
-    expect(events).toHaveLength(2);
-    expect(events.every((line) => line.endsWith(' jobs=undefined'))).toBe(true);
-  });
+      const events = calls().filter((line) => /^(start|end) /.test(line));
+      expect(events).toHaveLength(2);
+      expect(events.every((line) => line.endsWith(' jobs=undefined'))).toBe(true);
+    }
+  );
 
-  it('keeps a job count set in the environment and hands it to cargo', () => {
+  vaultIt('keeps a job count set in the environment and hands it to cargo', () => {
     build(ARM, { FAKE_LOG_LIFECYCLE: '1', CARGO_BUILD_JOBS: '4' });
 
     const events = calls().filter((line) => /^(start|end) /.test(line));
@@ -508,7 +517,7 @@ describe('the Android build', () => {
     expect(events.every((line) => line.endsWith(' jobs=4'))).toBe(true);
   });
 
-  it('passes the NDK it fingerprinted to cargo-ndk', () => {
+  vaultIt('passes the NDK it fingerprinted to cargo-ndk', () => {
     const dir = ndk('27.1.12297006');
     write(
       join(root, 'bin/cargo'),
@@ -521,7 +530,7 @@ describe('the Android build', () => {
     expect(calls()).toContain(`ndk-home ${dir}`);
   });
 
-  it('refuses an unknown ABI or profile before compiling', () => {
+  vaultIt('refuses an unknown ABI or profile before compiling', () => {
     expect(() => build(['android', '--abi', 'mips'])).toThrow(/unknown ABI mips/);
     expect(() => build([...ARM, '--profile', 'fast'])).toThrow(/unknown profile fast/);
     expect(calls('cargo')).toEqual([]);
@@ -537,7 +546,7 @@ describe('the iOS build', () => {
     readFileSync(join(moduleDir, 'build/rust/ios', selection, 'libveloqrs_ffi.a'), 'latin1');
   const phase = (out: string) => ['ios', '--from-xcode', '--out', out];
 
-  it('takes a local profile from the Xcode phase environment', () => {
+  vaultIt('takes a local profile from the Xcode phase environment', () => {
     const linked = join(root, 'Build/Products/Debug-iphonesimulator/Veloqrs');
     build(phase(linked), { ...SIM_PHASE, VELOQRS_RUST_PROFILE: 'release-dev' });
 
@@ -604,7 +613,7 @@ describe('the iOS build', () => {
     expect(calls()).toEqual([]);
   });
 
-  it('reports the resolved compiler, Xcode and each SDK in the build output', () => {
+  vaultIt('reports the resolved compiler, Xcode and each SDK in the build output', () => {
     const lines: string[] = [];
     main(BOTH, env, { moduleDir, log: (line: string) => lines.push(line) });
     const output = lines.join('\n');
@@ -614,12 +623,12 @@ describe('the iOS build', () => {
     expect(output).toContain('"iphonesimulator":"26.1"');
   });
 
-  it('refuses to publish when Xcode cannot report its version', () => {
+  vaultIt('refuses to publish when Xcode cannot report its version', () => {
     expect(() => build(BOTH, { PATH: join(root, 'bin-without-xcode') })).toThrow();
     expect(existsSync(join(moduleDir, 'build/rust/ios/release-iphoneos-arm64'))).toBe(false);
   });
 
-  it('judges a restored output current with no toolchain installed', () => {
+  vaultIt('judges a restored output current with no toolchain installed', () => {
     build(BOTH);
     calls();
 
@@ -660,24 +669,27 @@ describe('the iOS build', () => {
     );
   });
 
-  it('reuses a terminal build from an Xcode phase, whose environment carries every build setting', () => {
-    const linked = join(root, 'Build/Products/Debug-iphonesimulator/Veloqrs');
-    build(SIM);
-    calls();
+  vaultIt(
+    'reuses a terminal build from an Xcode phase, whose environment carries every build setting',
+    () => {
+      const linked = join(root, 'Build/Products/Debug-iphonesimulator/Veloqrs');
+      build(SIM);
+      calls();
 
-    build(phase(linked), {
-      ...SIM_PHASE,
-      CC: '/Xcode/usr/bin/clang',
-      SDKROOT: '/Xcode/SDKs/iPhoneSimulator.sdk',
-      IPHONEOS_DEPLOYMENT_TARGET: '15.1',
-      CFLAGS: '-isysroot /Xcode/SDKs/iPhoneSimulator.sdk',
-    });
+      build(phase(linked), {
+        ...SIM_PHASE,
+        CC: '/Xcode/usr/bin/clang',
+        SDKROOT: '/Xcode/SDKs/iPhoneSimulator.sdk',
+        IPHONEOS_DEPLOYMENT_TARGET: '15.1',
+        CFLAGS: '-isysroot /Xcode/SDKs/iPhoneSimulator.sdk',
+      });
 
-    expect(calls('cargo')).toEqual([]);
-    expect(existsSync(join(linked, 'libveloqrs_ffi.a'))).toBe(true);
-  });
+      expect(calls('cargo')).toEqual([]);
+      expect(existsSync(join(linked, 'libveloqrs_ffi.a'))).toBe(true);
+    }
+  );
 
-  it('hands Cargo none of the Xcode build settings from a phase', () => {
+  vaultIt('hands Cargo none of the Xcode build settings from a phase', () => {
     build(phase(join(root, 'out')), {
       ...SIM_PHASE,
       CC: '/Xcode/usr/bin/clang',
@@ -690,48 +702,59 @@ describe('the iOS build', () => {
     ]);
   });
 
-  it('keeps the linked archive untouched when nothing changed, so Xcode does not relink', () => {
-    const linked = join(root, 'Build/Products/Debug-iphonesimulator/Veloqrs');
-    const file = join(linked, 'libveloqrs_ffi.a');
-    build(phase(linked), SIM_PHASE);
-    writeFileSync(join(root, 'marker'), '');
-    const before = statSync(file).mtimeMs;
-    const cpp = statSync(join(moduleDir, 'ios/cpp/generated/veloqrs.cpp')).mtimeMs;
+  vaultIt(
+    'keeps the linked archive untouched when nothing changed, so Xcode does not relink',
+    () => {
+      const linked = join(root, 'Build/Products/Debug-iphonesimulator/Veloqrs');
+      const file = join(linked, 'libveloqrs_ffi.a');
+      build(phase(linked), SIM_PHASE);
+      writeFileSync(join(root, 'marker'), '');
+      const before = statSync(file).mtimeMs;
+      const cpp = statSync(join(moduleDir, 'ios/cpp/generated/veloqrs.cpp')).mtimeMs;
 
-    build(phase(linked), SIM_PHASE);
+      build(phase(linked), SIM_PHASE);
 
-    expect(statSync(file).mtimeMs).toBe(before);
-    expect(statSync(join(moduleDir, 'ios/cpp/generated/veloqrs.cpp')).mtimeMs).toBe(cpp);
-  });
+      expect(statSync(file).mtimeMs).toBe(before);
+      expect(statSync(join(moduleDir, 'ios/cpp/generated/veloqrs.cpp')).mtimeMs).toBe(cpp);
+    }
+  );
 
-  it('leaves beside the linked archive the manifest of the selection it was copied from', () => {
-    const linked = join(root, 'Build/Products/Debug-iphoneos/Veloqrs');
-    build(phase(linked), DEVICE_PHASE);
+  vaultIt(
+    'leaves beside the linked archive the manifest of the selection it was copied from',
+    () => {
+      const linked = join(root, 'Build/Products/Debug-iphoneos/Veloqrs');
+      build(phase(linked), DEVICE_PHASE);
 
-    const record = JSON.parse(readFileSync(join(linked, 'libveloqrs_ffi.manifest.json'), 'utf8'));
-    expect(record).toEqual(
-      JSON.parse(
-        readFileSync(join(moduleDir, 'build/rust/ios/release-iphoneos-arm64/manifest.json'), 'utf8')
-      )
-    );
-    expect(record).toMatchObject({
-      platform: 'ios',
-      targets: ['iphoneos:arm64'],
-      sources: hashRustInputs(join(moduleDir, 'rust')),
-    });
-    expect(record.files['libveloqrs_ffi.a']).toBe(
-      createHash('sha256')
-        .update(readFileSync(join(linked, 'libveloqrs_ffi.a')))
-        .digest('hex')
-    );
+      const record = JSON.parse(readFileSync(join(linked, 'libveloqrs_ffi.manifest.json'), 'utf8'));
+      expect(record).toEqual(
+        JSON.parse(
+          readFileSync(
+            join(moduleDir, 'build/rust/ios/release-iphoneos-arm64/manifest.json'),
+            'utf8'
+          )
+        )
+      );
+      expect(record).toMatchObject({
+        platform: 'ios',
+        targets: ['iphoneos:arm64'],
+        sources: hashRustInputs(join(moduleDir, 'rust')),
+      });
+      expect(record.files['libveloqrs_ffi.a']).toBe(
+        createHash('sha256')
+          .update(readFileSync(join(linked, 'libveloqrs_ffi.a')))
+          .digest('hex')
+      );
 
-    write(join(moduleDir, 'rust/veloqrs/src/lib.rs'), 'pub fn changed() {}\n');
-    build(phase(linked), DEVICE_PHASE);
+      write(join(moduleDir, 'rust/veloqrs/src/lib.rs'), 'pub fn changed() {}\n');
+      build(phase(linked), DEVICE_PHASE);
 
-    const rebuilt = JSON.parse(readFileSync(join(linked, 'libveloqrs_ffi.manifest.json'), 'utf8'));
-    expect(rebuilt.sources).toBe(hashRustInputs(join(moduleDir, 'rust')));
-    expect(rebuilt.sources).not.toBe(record.sources);
-  });
+      const rebuilt = JSON.parse(
+        readFileSync(join(linked, 'libveloqrs_ffi.manifest.json'), 'utf8')
+      );
+      expect(rebuilt.sources).toBe(hashRustInputs(join(moduleDir, 'rust')));
+      expect(rebuilt.sources).not.toBe(record.sources);
+    }
+  );
 
   it('leaves nothing to link when the compile fails after an earlier success', () => {
     const linked = join(root, 'Build/Products/Debug-iphonesimulator/Veloqrs');
@@ -746,7 +769,7 @@ describe('the iOS build', () => {
     expect(existsSync(join(moduleDir, 'build/rust/ios/release-iphonesimulator-arm64'))).toBe(false);
   });
 
-  it('removes an earlier archive and linked manifest when Cargo cannot start', () => {
+  vaultIt('removes an earlier archive and linked manifest when Cargo cannot start', () => {
     const linked = join(root, 'Build/Products/Debug-iphonesimulator/Veloqrs');
     build(phase(linked), SIM_PHASE);
     write(join(moduleDir, 'rust/veloqrs/src/lib.rs'), 'pub fn changed() {}\n');
@@ -763,7 +786,7 @@ describe('the iOS build', () => {
     expect(readdirSync(join(moduleDir, 'build/rust/ios'))).toEqual([]);
   });
 
-  it('compiles only the SDK whose published library went missing', () => {
+  vaultIt('compiles only the SDK whose published library went missing', () => {
     build(BOTH);
     rmSync(join(moduleDir, 'build/rust/ios/release-iphoneos-arm64'), { recursive: true });
     calls();
@@ -772,7 +795,7 @@ describe('the iOS build', () => {
     expect(calls('cargo')).toEqual([expect.stringContaining('--target aarch64-apple-ios -p')]);
   });
 
-  it('rebuilds every SDK after an Android build of a changed tree', () => {
+  vaultIt('rebuilds every SDK after an Android build of a changed tree', () => {
     build(BOTH);
     write(join(moduleDir, 'rust/veloqrs/migrations/001_init.sql'), 'CREATE TABLE b (id);\n');
     build(['android', '--abi', 'arm64-v8a']);
@@ -782,20 +805,23 @@ describe('the iOS build', () => {
     expect(calls('cargo')).toEqual([expect.stringContaining('aarch64-apple-ios-sim')]);
   });
 
-  it('joins the architectures a phase names with lipo, and refuses a platform it does not build', () => {
-    build(phase(join(root, 'out')), { PLATFORM_NAME: 'iphonesimulator', ARCHS: 'arm64 x86_64' });
+  vaultIt(
+    'joins the architectures a phase names with lipo, and refuses a platform it does not build',
+    () => {
+      build(phase(join(root, 'out')), { PLATFORM_NAME: 'iphonesimulator', ARCHS: 'arm64 x86_64' });
 
-    expect(calls()).toEqual([
-      expect.stringContaining('cargo rustc --release --target aarch64-apple-ios-sim'),
-      expect.stringContaining('cargo rustc --release --target x86_64-apple-ios'),
-      expect.stringMatching(/^lipo -create /),
-    ]);
-    expect(() =>
-      build(['ios', '--from-xcode'], { PLATFORM_NAME: 'macosx', ARCHS: 'arm64' })
-    ).toThrow(/PLATFORM_NAME is macosx/);
-  });
+      expect(calls()).toEqual([
+        expect.stringContaining('cargo rustc --release --target aarch64-apple-ios-sim'),
+        expect.stringContaining('cargo rustc --release --target x86_64-apple-ios'),
+        expect.stringMatching(/^lipo -create /),
+      ]);
+      expect(() =>
+        build(['ios', '--from-xcode'], { PLATFORM_NAME: 'macosx', ARCHS: 'arm64' })
+      ).toThrow(/PLATFORM_NAME is macosx/);
+    }
+  );
 
-  it('refuses to put two SDKs archives in one linked directory', () => {
+  vaultIt('refuses to put two SDKs archives in one linked directory', () => {
     expect(() => build([...BOTH, '--out', join(root, 'out')])).toThrow(
       /--out takes one SDK's archive, not iphoneos and iphonesimulator/
     );
@@ -816,7 +842,7 @@ describe('the iOS build', () => {
 });
 
 describe('the environment of an Xcode phase', () => {
-  it('puts Cargo s own bin directory on PATH, which Xcode started from the Dock lacks', () => {
+  vaultIt('puts Cargo s own bin directory on PATH, which Xcode started from the Dock lacks', () => {
     const { terminalEnvironment } = require(BUILDER) as {
       terminalEnvironment: (env: Record<string, string>) => Record<string, string>;
     };
@@ -851,7 +877,7 @@ describe('the command line', () => {
     });
   }
 
-  it('exits nonzero naming the failed compile', () => {
+  vaultIt('exits nonzero naming the failed compile', () => {
     const builder = installBuilder();
 
     const result = spawnSync('node', [builder, 'android', '--abi', 'arm64-v8a'], {
@@ -864,7 +890,7 @@ describe('the command line', () => {
     expect(existsSync(androidOut('release-arm64-v8a'))).toBe(false);
   });
 
-  it('exits nonzero naming Cargo when it cannot start', () => {
+  vaultIt('exits nonzero naming Cargo when it cannot start', () => {
     const builder = installBuilder();
     const path = withoutCargo();
 
@@ -878,56 +904,62 @@ describe('the command line', () => {
     expect(existsSync(androidOut('release-arm64-v8a'))).toBe(false);
   });
 
-  it('compiles once when the pod and the extension phases ask for the same library at once', async () => {
-    const builder = installBuilder();
-    writeFileSync(join(root, 'fake-env.json'), JSON.stringify({ FAKE_CARGO_DELAY_MS: '1500' }));
-    const pod = join(root, 'Build/Products/Debug-iphonesimulator/Veloqrs');
-    const extension = join(root, 'Build/Intermediates/VeloqPushExtension.build/VeloqrsFFI');
+  vaultIt(
+    'compiles once when the pod and the extension phases ask for the same library at once',
+    async () => {
+      const builder = installBuilder();
+      writeFileSync(join(root, 'fake-env.json'), JSON.stringify({ FAKE_CARGO_DELAY_MS: '1500' }));
+      const pod = join(root, 'Build/Products/Debug-iphonesimulator/Veloqrs');
+      const extension = join(root, 'Build/Intermediates/VeloqPushExtension.build/VeloqrsFFI');
 
-    const codes = await Promise.all([runPhase(builder, pod), runPhase(builder, extension)]);
+      const codes = await Promise.all([runPhase(builder, pod), runPhase(builder, extension)]);
 
-    expect(codes).toEqual([0, 0]);
-    expect(calls('cargo')).toHaveLength(1);
-    expect(readFileSync(join(pod, 'libveloqrs_ffi.a'), 'latin1')).toContain(
-      'aarch64-apple-ios-sim'
-    );
-    expect(readFileSync(join(extension, 'libveloqrs_ffi.a'), 'latin1')).toContain(
-      'aarch64-apple-ios-sim'
-    );
-  });
+      expect(codes).toEqual([0, 0]);
+      expect(calls('cargo')).toHaveLength(1);
+      expect(readFileSync(join(pod, 'libveloqrs_ffi.a'), 'latin1')).toContain(
+        'aarch64-apple-ios-sim'
+      );
+      expect(readFileSync(join(extension, 'libveloqrs_ffi.a'), 'latin1')).toContain(
+        'aarch64-apple-ios-sim'
+      );
+    }
+  );
 
-  it('waits for another phase copying the C++ bridge rather than deleting its half-written file', async () => {
-    const builder = installBuilder();
-    const lock = join(moduleDir, 'build/rust/ios/cpp.lock');
-    write(join(lock, 'pid'), String(process.pid));
-    const partial = join(moduleDir, `ios/cpp/generated/veloqrs.hpp.partial-${process.pid}`);
-    write(partial, '// half written\n');
+  vaultIt(
+    'waits for another phase copying the C++ bridge rather than deleting its half-written file',
+    async () => {
+      const builder = installBuilder();
+      const lock = join(moduleDir, 'build/rust/ios/cpp.lock');
+      write(join(lock, 'pid'), String(process.pid));
+      const partial = join(moduleDir, `ios/cpp/generated/veloqrs.hpp.partial-${process.pid}`);
+      write(partial, '// half written\n');
 
-    const child = spawn('node', [builder, 'ios', '--sources-only'], {
-      env,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    const exited = new Promise<number | null>((done) => child.on('exit', done));
-    const blocked = await new Promise<boolean>((done) => {
-      child.stdout.on('data', (chunk: Buffer) => {
-        if (chunk.toString().includes('Waiting for another build')) done(true);
+      const child = spawn('node', [builder, 'ios', '--sources-only'], {
+        env,
+        stdio: ['ignore', 'pipe', 'ignore'],
       });
-      exited.then(() => done(false));
-    });
+      const exited = new Promise<number | null>((done) => child.on('exit', done));
+      const blocked = await new Promise<boolean>((done) => {
+        child.stdout.on('data', (chunk: Buffer) => {
+          if (chunk.toString().includes('Waiting for another build')) done(true);
+        });
+        exited.then(() => done(false));
+      });
 
-    expect(blocked).toBe(true);
-    expect(existsSync(partial)).toBe(true);
+      expect(blocked).toBe(true);
+      expect(existsSync(partial)).toBe(true);
 
-    rmSync(partial);
-    rmSync(lock, { recursive: true, force: true });
+      rmSync(partial);
+      rmSync(lock, { recursive: true, force: true });
 
-    expect(await exited).toBe(0);
-    expect(readFileSync(join(moduleDir, 'ios/cpp/generated/veloqrs.hpp'), 'utf8')).toBe(
-      '// bindings header\n'
-    );
-  });
+      expect(await exited).toBe(0);
+      expect(readFileSync(join(moduleDir, 'ios/cpp/generated/veloqrs.hpp'), 'utf8')).toBe(
+        '// bindings header\n'
+      );
+    }
+  );
 
-  it('takes over a lock its holder left when it died', async () => {
+  vaultIt('takes over a lock its holder left when it died', async () => {
     const builder = installBuilder();
     const dead = spawnSync('node', ['-e', 'process.stdout.write(String(process.pid))'], {
       encoding: 'utf8',

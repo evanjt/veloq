@@ -40,7 +40,7 @@ describe('the map cache total', () => {
     expect(total).toEqual({ bytes: 14, complete: true });
   });
 
-  it('names every store the row folds in, so the label can be checked against it', () => {
+  vaultIt('names every store the row folds in, so the label can be checked against it', () => {
     expect(MAP_CACHE_SOURCES).toEqual(['previews', 'heatmap', 'tiles']);
   });
 });
@@ -90,7 +90,7 @@ function renderPanel(over: Omit<PanelProps, keyof typeof baseProps>) {
 }
 
 describe('the map cache row against its legend', () => {
-  it('names a store holding only previews for what it holds, not for tiles', async () => {
+  vaultIt('names a store holding only previews for what it holds, not for tiles', async () => {
     const { getByTestId } = await renderPanel({
       terrainCacheSize: 15_400_000,
       heatmapCacheSize: 0,
@@ -119,7 +119,7 @@ describe('the map cache row against its legend', () => {
     expect(getByTestId('settings-map-cache-value').props.children).toBe('15.4 MB');
   });
 
-  it('keeps the row and the legend from being the same number twice', async () => {
+  vaultIt('keeps the row and the legend from being the same number twice', async () => {
     const { getByTestId } = await renderPanel({
       terrainCacheSize: 4_000_000,
       heatmapCacheSize: 2_000_000,

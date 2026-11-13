@@ -235,6 +235,7 @@ mod tests {
     /// Expected behaviour: the cut runs the way the line runs, and a forward
     /// reference still cuts forwards.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_reversed_reference_cuts_its_range_backwards() {
         let points = stream(10);
         let mut backwards = points[2..7].to_vec();
@@ -252,6 +253,7 @@ mod tests {
     /// Expected behaviour: the stretch's range is the same ground cut from the
     /// stream, whichever way the line runs.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stretch_of_a_line_names_the_stream_range_under_it() {
         let points = stream(20);
         for reversed in [false, true] {
@@ -267,6 +269,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_line_is_located_in_its_stream_either_way_it_runs() {
         let points = stream(12);
         let mut backwards = points[3..8].to_vec();

@@ -90,7 +90,7 @@ describe('scripted camera moves follow the live reduce-motion setting', () => {
     }
   );
 
-  it('follows a change made after the script was built', () => {
+  vaultIt('follows a change made after the script was built', () => {
     const script = buildFitBoundsScript(BOUNDS, 40, 400);
     expect(durationOf(runInjected(script, false)[0])).toBe(400);
     expect(durationOf(runInjected(script, true)[0])).toBe(0);

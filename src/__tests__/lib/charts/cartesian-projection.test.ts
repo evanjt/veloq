@@ -14,7 +14,7 @@ import {
 const bounds = { left: 10, right: 110, top: 4, bottom: 104 };
 
 describe('chartBoundsFor', () => {
-  it('insets the canvas by the padding', () => {
+  vaultIt('insets the canvas by the padding', () => {
     expect(chartBoundsFor(200, 100, { left: 5, right: 7, top: 2, bottom: 20 })).toEqual({
       left: 5,
       right: 193,
@@ -23,7 +23,7 @@ describe('chartBoundsFor', () => {
     });
   });
 
-  it('never lets the box invert on a canvas smaller than its padding', () => {
+  vaultIt('never lets the box invert on a canvas smaller than its padding', () => {
     const b = chartBoundsFor(4, 4, { left: 5, right: 7, top: 2, bottom: 20 });
     expect(b.right).toBeGreaterThanOrEqual(b.left);
     expect(b.bottom).toBeGreaterThanOrEqual(b.top);
@@ -31,7 +31,7 @@ describe('chartBoundsFor', () => {
 });
 
 describe('domainContains', () => {
-  it('reads an ascending domain', () => {
+  vaultIt('reads an ascending domain', () => {
     expect(domainContains([0, 400], 155)).toBe(true);
     expect(domainContains([0, 400], 401)).toBe(false);
   });
@@ -53,7 +53,7 @@ describe('domainContains', () => {
 });
 
 describe('scaleFor', () => {
-  it('maps the domain ends onto the range ends', () => {
+  vaultIt('maps the domain ends onto the range ends', () => {
     const s = scaleFor([0, 10], [100, 200]);
     expect(s(0)).toBe(100);
     expect(s(10)).toBe(200);
@@ -68,24 +68,24 @@ describe('scaleFor', () => {
 });
 
 describe('yForValue and xForValue', () => {
-  it('puts domain[1] on the top edge and domain[0] on the bottom edge', () => {
+  vaultIt('puts domain[1] on the top edge and domain[0] on the bottom edge', () => {
     expect(yForValue(400, [0, 400], bounds)).toBe(bounds.top);
     expect(yForValue(0, [0, 400], bounds)).toBe(bounds.bottom);
     expect(yForValue(200, [0, 400], bounds)).toBe(54);
   });
 
-  it('places a value in an inverted domain by its distance from the slow end', () => {
+  vaultIt('places a value in an inverted domain by its distance from the slow end', () => {
     // 314 s/km between 403 (bottom) and 134 (top): a third of the way up.
     const y = yForValue(314, [403, 134], bounds);
     expect(y).toBeCloseTo(bounds.bottom - 0.331 * (bounds.bottom - bounds.top), 1);
   });
 
-  it('respects a plot that does not start at zero', () => {
+  vaultIt('respects a plot that does not start at zero', () => {
     expect(yForValue(134, [403, 134], { ...bounds, top: 40, bottom: 340 })).toBe(40);
     expect(yForValue(403, [403, 134], { ...bounds, top: 40, bottom: 340 })).toBe(340);
   });
 
-  it('maps x across the box', () => {
+  vaultIt('maps x across the box', () => {
     expect(xForValue(0, [0, 1], bounds)).toBe(bounds.left);
     expect(xForValue(1, [0, 1], bounds)).toBe(bounds.right);
   });
@@ -125,7 +125,7 @@ describe('projectPoints', () => {
     ]);
   });
 
-  it('flips the axis when the domain is written high to low', () => {
+  vaultIt('flips the axis when the domain is written high to low', () => {
     const pts = projectPoints(
       data,
       (d) => d.x,
@@ -156,7 +156,7 @@ describe('projectPoints', () => {
     expect(pts.map((p) => p.xValue)).toEqual([0, 3]);
   });
 
-  it('projects nothing from an empty series', () => {
+  vaultIt('projects nothing from an empty series', () => {
     expect(
       projectPoints(
         [],
@@ -171,11 +171,11 @@ describe('projectPoints', () => {
 });
 
 describe('gridLineYs', () => {
-  it('spreads the rules from the top edge to the bottom edge', () => {
+  vaultIt('spreads the rules from the top edge to the bottom edge', () => {
     expect(gridLineYs(bounds, 5)).toEqual([4, 29, 54, 79, 104]);
   });
 
-  it('handles the degenerate counts', () => {
+  vaultIt('handles the degenerate counts', () => {
     expect(gridLineYs(bounds, 0)).toEqual([]);
     expect(gridLineYs(bounds, 1)).toEqual([54]);
   });
@@ -184,7 +184,7 @@ describe('gridLineYs', () => {
 describe('placeLabels', () => {
   const domain: [number, number] = [Math.log10(1), Math.log10(18000)];
 
-  it('puts each label at the pixel its value projects to', () => {
+  vaultIt('puts each label at the pixel its value projects to', () => {
     const labels = [
       { label: '1m', value: Math.log10(60) },
       { label: '1h', value: Math.log10(3600) },
@@ -209,7 +209,7 @@ describe('placeLabels', () => {
     expect(placed).toEqual([]);
   });
 
-  it('returns nothing before the width is known', () => {
+  vaultIt('returns nothing before the width is known', () => {
     expect(placeLabels([{ label: '1m', value: 1 }], [0, 2], 0, 15)).toEqual([]);
   });
 });
@@ -249,7 +249,7 @@ describe('projectRuns', () => {
     ]);
   });
 
-  it('projects the same pixels as projectPoints', () => {
+  vaultIt('projects the same pixels as projectPoints', () => {
     const data = [1, NaN, 5].map((y, i) => ({ x: i * 5, y }));
     const x = (d: { x: number }) => d.x;
     const y = (d: { y: number }) => d.y;

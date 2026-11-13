@@ -56,19 +56,19 @@ function makeInsight(overrides: Partial<Insight> = {}): Insight {
 }
 
 describe('rules.passesRecency (G1)', () => {
-  it('passes when sourceTimestamp is absent (opt-in gate)', () => {
+  vaultIt('passes when sourceTimestamp is absent (opt-in gate)', () => {
     const insight = makeInsight();
     expect(passesRecency(insight, NOW).passed).toBe(true);
   });
 
-  it('passes when event is fresh', () => {
+  vaultIt('passes when event is fresh', () => {
     const insight = makeInsight({
       meta: { sourceTimestamp: NOW - 3 * DAY_MS },
     });
     expect(passesRecency(insight, NOW).passed).toBe(true);
   });
 
-  it('rejects when event exceeds activeWindowDays', () => {
+  vaultIt('rejects when event exceeds activeWindowDays', () => {
     const insight = makeInsight({
       category: 'section_trend',
       meta: { sourceTimestamp: NOW - 45 * DAY_MS }, // 28-day window default
@@ -78,7 +78,7 @@ describe('rules.passesRecency (G1)', () => {
     expect(result.reason).toBe('recency_too_old');
   });
 
-  it('section_pr uses its tighter 14-day window', () => {
+  vaultIt('section_pr uses its tighter 14-day window', () => {
     const old = makeInsight({
       category: 'section_pr',
       meta: { sourceTimestamp: NOW - 20 * DAY_MS },
@@ -111,7 +111,7 @@ describe('rules.passesRecency (G1)', () => {
 });
 
 describe('rules.passesRepetition (G3)', () => {
-  it('passes when category has no repetition requirement', () => {
+  vaultIt('passes when category has no repetition requirement', () => {
     const insight = makeInsight({
       category: 'hrv_trend',
       meta: { repetitionCount: 0 },
@@ -119,7 +119,7 @@ describe('rules.passesRepetition (G3)', () => {
     expect(passesRepetition(insight).passed).toBe(true);
   });
 
-  it('accepts section_trend at or above min', () => {
+  vaultIt('accepts section_trend at or above min', () => {
     const insight = makeInsight({
       category: 'section_trend',
       meta: { repetitionCount: 3 },
@@ -129,7 +129,7 @@ describe('rules.passesRepetition (G3)', () => {
 });
 
 describe('rules.specificityScore (R5)', () => {
-  it('awards all3 bonus when the copy carries a number, a place and a past moment', () => {
+  vaultIt('awards all3 bonus when the copy carries a number, a place and a past moment', () => {
     const insight = makeInsight({
       title: 'Sunday Climb 6s faster',
       meta: { placeName: 'Sunday Climb', sourceTimestamp: NOW - 3 * DAY_MS },
@@ -137,7 +137,7 @@ describe('rules.specificityScore (R5)', () => {
     expect(specificityScore(insight)).toBe(10);
   });
 
-  it('awards any2 bonus for partial specificity', () => {
+  vaultIt('awards any2 bonus for partial specificity', () => {
     const insight = makeInsight({
       title: 'Sunday Climb 6s faster',
       meta: { placeName: 'Sunday Climb', sourceTimestamp: NOW },
@@ -150,13 +150,13 @@ describe('rules.specificityScore (R5)', () => {
     expect(specificityScore(insight)).toBe(0);
   });
 
-  it('returns 0 when meta missing', () => {
+  vaultIt('returns 0 when meta missing', () => {
     expect(specificityScore(makeInsight())).toBe(0);
   });
 });
 
 describe('rules.signalScore (R6)', () => {
-  it('peaks in the flow corridor', () => {
+  vaultIt('peaks in the flow corridor', () => {
     const insight = makeInsight({ meta: { signalDelta: 1.0 } });
     expect(signalScore(insight)).toBe(10);
   });
@@ -169,30 +169,30 @@ describe('rules.signalScore (R6)', () => {
     expect(signalScore(makeInsight())).toBe(signalScore(insight));
   });
 
-  it('gives small credit above ceiling', () => {
+  vaultIt('gives small credit above ceiling', () => {
     const insight = makeInsight({ meta: { signalDelta: 3.0 } });
     expect(signalScore(insight)).toBe(3);
   });
 
-  it('returns 0 when delta missing', () => {
+  vaultIt('returns 0 when delta missing', () => {
     expect(signalScore(makeInsight())).toBe(0);
   });
 });
 
 describe('rules.temporalSelfScore (R7)', () => {
-  it('bonuses self-comparison', () => {
+  vaultIt('bonuses self-comparison', () => {
     const insight = makeInsight({ meta: { comparisonKind: 'self' } });
     expect(temporalSelfScore(insight)).toBe(5);
   });
 
-  it('returns 0 for other comparisons', () => {
+  vaultIt('returns 0 for other comparisons', () => {
     const insight = makeInsight({ meta: { comparisonKind: 'other' } });
     expect(temporalSelfScore(insight)).toBe(0);
   });
 });
 
 describe('rules.scoreInsight', () => {
-  it('combines base, category, specificity, temporal-self, signal', () => {
+  vaultIt('combines base, category, specificity, temporal-self, signal', () => {
     const insight = makeInsight({
       category: 'section_pr',
       priority: 1,
@@ -221,7 +221,7 @@ describe('rules.scoreInsight', () => {
     expect(score).toBe(195);
   });
 
-  it('lets a typical computed spread carry an insight across one priority boundary', () => {
+  vaultIt('lets a typical computed spread carry an insight across one priority boundary', () => {
     const founded = scoreInsight(
       makeInsight({ category: 'efficiency_trend', priority: 2, confidence: 1 })
     );
@@ -229,7 +229,7 @@ describe('rules.scoreInsight', () => {
     expect(founded.score).toBeGreaterThan(bare.score);
   });
 
-  it('keeps priority deciding between insights whose computed terms match', () => {
+  vaultIt('keeps priority deciding between insights whose computed terms match', () => {
     const higher = scoreInsight(makeInsight({ priority: 1, confidence: 0.5 }));
     const lower = scoreInsight(makeInsight({ priority: 2, confidence: 0.5 }));
     expect(higher.score - lower.score).toBe(25);
@@ -251,7 +251,7 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
     },
   });
 
-  it('enforces per-category cap', () => {
+  vaultIt('enforces per-category cap', () => {
     const scored = [
       mk('a', 'section_trend', 100),
       mk('b', 'section_trend', 90),
@@ -264,7 +264,7 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
     expect(dropped[0].reason).toBe('category_cap');
   });
 
-  it('uses section_pr override (3) instead of default cap (2)', () => {
+  vaultIt('uses section_pr override (3) instead of default cap (2)', () => {
     const scored = [
       mk('a', 'section_pr', 100),
       mk('b', 'section_pr', 90),
@@ -276,7 +276,7 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
     expect(dropped).toHaveLength(1);
   });
 
-  it('enforces total surface cap when categories leave room', () => {
+  vaultIt('enforces total surface cap when categories leave room', () => {
     // Use many distinct categories so maxPerCategory doesn't dominate.
     const categories = [
       'section_pr',
@@ -299,7 +299,7 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
     );
   });
 
-  it('per-category cap bounds the total when few categories exist', () => {
+  vaultIt('per-category cap bounds the total when few categories exist', () => {
     // 3 categories × maxPerCategory=2 = 6 kept (below maxTotal=8).
     const scored = Array.from({ length: 20 }, (_, i) =>
       mk(
@@ -312,7 +312,7 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
     expect(kept).toHaveLength(3 * INSIGHTS_CONFIG.surface.maxPerCategory);
   });
 
-  it('sorts by score descending, ties broken by priority', () => {
+  vaultIt('sorts by score descending, ties broken by priority', () => {
     const scored = [
       mk('low', 'hrv_trend', 50),
       mk('high', 'fitness_milestone', 200),
@@ -344,26 +344,26 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
 });
 
 describe('section trend recency (G1 applied to section_trend)', () => {
-  it('drops sections with daysSinceLast outside activeWindowDays', () => {
+  vaultIt('drops sections with daysSinceLast outside activeWindowDays', () => {
     const stale = sectionTrend('stale', 90, 5, 1);
     const result = generateSectionTrendInsights([stale], new Set(), NOW, mockT);
     expect(result).toHaveLength(0);
   });
 
-  it('keeps a recently-visited old section (event recency, not section age)', () => {
+  vaultIt('keeps a recently-visited old section (event recency, not section age)', () => {
     const freshEffort = sectionTrend('recent', 1, 5, 1);
     const result = generateSectionTrendInsights([freshEffort], new Set(), NOW, mockT);
     expect(result).toHaveLength(1);
     expect(result[0].supportingData?.sections?.[0]?.sectionId).toBe('recent');
   });
 
-  it('keeps section when daysSinceLast is unknown (not filtered out)', () => {
+  vaultIt('keeps section when daysSinceLast is unknown (not filtered out)', () => {
     const unknown = sectionTrend('unknown', undefined, 5, 1);
     const result = generateSectionTrendInsights([unknown], new Set(), NOW, mockT);
     expect(result).toHaveLength(1);
   });
 
-  it('boundary: exactly at activeWindowDays passes, 1 day beyond rejects', () => {
+  vaultIt('boundary: exactly at activeWindowDays passes, 1 day beyond rejects', () => {
     const boundary = INSIGHTS_CONFIG.activeWindowDays;
     const atBoundary = sectionTrend('at', boundary, 5, 1);
     const justBeyond = sectionTrend('beyond', boundary + 1, 5, 1);
@@ -372,7 +372,7 @@ describe('section trend recency (G1 applied to section_trend)', () => {
     expect(generateSectionTrendInsights([justBeyond], new Set(), NOW, mockT)).toHaveLength(0);
   });
 
-  it('attaches meta.sourceTimestamp matching daysSinceLast', () => {
+  vaultIt('attaches meta.sourceTimestamp matching daysSinceLast', () => {
     const section = sectionTrend('s1', 7, 5, 1);
     const [insight] = generateSectionTrendInsights([section], new Set(), NOW, mockT);
     expect(insight.meta?.sourceTimestamp).toBe(NOW - 7 * 86_400_000);
@@ -394,7 +394,7 @@ describe('Ranking breakdown on section_trend insights', () => {
     return { ...sectionTrend(id, 3, traversalCount, 1), ranking };
   }
 
-  it('keeps section measurements on the drill-down row', () => {
+  vaultIt('keeps section measurements on the drill-down row', () => {
     const [insight] = generateSectionTrendInsights([ranked('s1', scores)], new Set(), NOW, mockT);
     expect(insight.supportingData?.sections?.[0]).toMatchObject({
       bestTime: 110,
@@ -402,12 +402,12 @@ describe('Ranking breakdown on section_trend insights', () => {
     });
   });
 
-  it('does not present one row ranking as the summary ranking', () => {
+  vaultIt('does not present one row ranking as the summary ranking', () => {
     const [insight] = generateSectionTrendInsights([ranked('s1', scores)], new Set(), NOW, mockT);
     expect(insight.meta?.ranking).toBeUndefined();
   });
 
-  it('carries the scores onto the supporting section', () => {
+  vaultIt('carries the scores onto the supporting section', () => {
     const [insight] = generateSectionTrendInsights([ranked('s1', scores)], new Set(), NOW, mockT);
     expect(insight.supportingData?.sections?.[0].ranking).toEqual(scores);
   });
@@ -428,7 +428,7 @@ describe('Ranking breakdown on section_trend insights', () => {
     expect(result[0].supportingData?.sections?.map((s) => s.sectionId)).toEqual(['many', 'few']);
   });
 
-  it('omits the breakdown when the engine supplied no scores', () => {
+  vaultIt('omits the breakdown when the engine supplied no scores', () => {
     const [insight] = generateSectionTrendInsights(
       [sectionTrend('bare', 3, 5, 1)],
       new Set(),
@@ -480,13 +480,13 @@ describe('rule gate boundaries', () => {
     expect(over.reason).toBe('recency_too_old');
   });
 
-  it('keeps a section_pr event at exactly its own window and drops it a day later', () => {
+  vaultIt('keeps a section_pr event at exactly its own window and drops it a day later', () => {
     const max = cfg.recency.section_pr?.max as number;
     expect(passesRecency(aged('section_pr', max), NOW).passed).toBe(true);
     expect(passesRecency(aged('section_pr', max + 1), NOW).passed).toBe(false);
   });
 
-  it('drops a stale_pr event a day under its minimum and keeps it at the minimum', () => {
+  vaultIt('drops a stale_pr event a day under its minimum and keeps it at the minimum', () => {
     const min = cfg.recency.stale_pr?.min as number;
     const under = passesRecency(aged('stale_pr', min - 1), NOW);
     expect(under.passed).toBe(false);
@@ -494,7 +494,7 @@ describe('rule gate boundaries', () => {
     expect(passesRecency(aged('stale_pr', min), NOW).passed).toBe(true);
   });
 
-  it('scores the signal corridor inclusively at both ends', () => {
+  vaultIt('scores the signal corridor inclusively at both ends', () => {
     const { signalFloorDelta: floor, signalCeilingDelta: ceiling } = cfg.thresholds;
     const at = (signalDelta: number) => signalScore(makeInsight({ meta: { signalDelta } }));
     expect(at(floor)).toBe(10);
@@ -504,7 +504,7 @@ describe('rule gate boundaries', () => {
     expect(at(ceiling + 0.01)).toBe(3);
   });
 
-  it.each([
+  vaultIt.each([
     ['efficiency_trend', cfg.repetition.efficiency_trend_min],
     ['stale_pr', cfg.repetition.stale_pr_min_lifetime],
   ] as const)('requires %s repetition of exactly the configured minimum', (category, min) => {

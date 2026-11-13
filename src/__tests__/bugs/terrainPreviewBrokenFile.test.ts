@@ -163,7 +163,7 @@ describe('dropping one broken render', () => {
     expect(hasTerrainPreview('a1', 'light', FLAT)).toBe(false);
   });
 
-  it('is a no-op for a render that is not cached', async () => {
+  vaultIt('is a no-op for a render that is not cached', async () => {
     await saveTerrainPreview('a1', 'light', FLAT, 'AAAA');
 
     await deleteTerrainPreview('a1', 'dark', FLAT);
@@ -173,7 +173,7 @@ describe('dropping one broken render', () => {
 });
 
 describe('a directory the cache makes again', () => {
-  it('is kept out of the backup when a save remakes it after a clear', async () => {
+  vaultIt('is kept out of the backup when a save remakes it after a clear', async () => {
     await clearTerrainPreviews();
     expect(mockDirStore.has(DIR)).toBe(false);
 
@@ -182,7 +182,7 @@ describe('a directory the cache makes again', () => {
     expect(excludeFromBackup).toHaveBeenCalledWith(DIR);
   });
 
-  it('is kept out of the backup when the first launch clears and remakes it', async () => {
+  vaultIt('is kept out of the backup when the first launch clears and remakes it', async () => {
     await clearTerrainPreviews();
 
     await initTerrainPreviewCache();

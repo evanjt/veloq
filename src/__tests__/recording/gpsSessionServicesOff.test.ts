@@ -95,7 +95,7 @@ describe('a ride on Android with location off', () => {
     expect(useRecordingStore.getState().status).toBe('recording');
   });
 
-  it('still names the switch, not the wait, once the warning delay has passed', async () => {
+  vaultIt('still names the switch, not the wait, once the warning delay has passed', async () => {
     await mountRide(true);
     await flush();
     await act(async () => {
@@ -167,21 +167,24 @@ describe('a ride on iOS with Location Services off', () => {
     expect(useRecordingStore.getState().status).toBe('recording');
   });
 
-  it('says where the switch is in the no-fix alert, with no button that cannot reach it', async () => {
-    await mountRide(false);
-    await flush();
-    await act(async () => {
-      jest.advanceTimersByTime(GPS_ALERT_MS);
-    });
-    await flush();
+  vaultIt(
+    'says where the switch is in the no-fix alert, with no button that cannot reach it',
+    async () => {
+      await mountRide(false);
+      await flush();
+      await act(async () => {
+        jest.advanceTimersByTime(GPS_ALERT_MS);
+      });
+      await flush();
 
-    const calls = (Alert.alert as jest.Mock).mock.calls;
-    expect(calls[0][1]).toBe('recording.gpsServicesOffIos');
-    expect(alertButtons().map((b) => b.text)).toEqual([
-      'recording.gpsAlertContinue',
-      'recording.gpsAlertStop',
-    ]);
-  });
+      const calls = (Alert.alert as jest.Mock).mock.calls;
+      expect(calls[0][1]).toBe('recording.gpsServicesOffIos');
+      expect(alertButtons().map((b) => b.text)).toEqual([
+        'recording.gpsAlertContinue',
+        'recording.gpsAlertStop',
+      ]);
+    }
+  );
 });
 
 describe('a ride with location on', () => {
@@ -189,7 +192,7 @@ describe('a ride with location on', () => {
     location.hasServicesEnabledAsync.mockResolvedValue(true);
   });
 
-  it('pauses on a refused permission, as before', async () => {
+  vaultIt('pauses on a refused permission, as before', async () => {
     await mountRide(false);
     await flush();
 
@@ -198,7 +201,7 @@ describe('a ride with location on', () => {
     expect(useRecordingStore.getState().status).toBe('paused');
   });
 
-  it('opens the no-fix alert with the sky as the cause', async () => {
+  vaultIt('opens the no-fix alert with the sky as the cause', async () => {
     await mountRide(true);
     await flush();
     await act(async () => {

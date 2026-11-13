@@ -64,7 +64,7 @@ describe('the one modal a launch may raise', () => {
     expect(surfaces.ask).toBeNull();
   });
 
-  it('offers the tour as the session’s ask once the quiet period is over', () => {
+  vaultIt('offers the tour as the session’s ask once the quiet period is over', () => {
     const surfaces = launchSurfaces({ ...quiet, lastSeenVersion: null, ...eligible('tourOffer') });
     expect(surfaces.modal).toBeNull();
     expect(surfaces.ask).toBe('tourOffer');
@@ -93,7 +93,7 @@ describe('the one modal a launch may raise', () => {
     expect(surfaces.whatsNewCard).toBeNull();
   });
 
-  it('raises no modal after an update with a slide missed', () => {
+  vaultIt('raises no modal after an update with a slide missed', () => {
     expect(
       launchSurfaces({
         ...quiet,
@@ -110,7 +110,7 @@ describe('the one modal a launch may raise', () => {
     expect(surfaces.whatsNewCard).toBeNull();
   });
 
-  it('keeps the slot with the modal that took it, whatever arrives after', () => {
+  vaultIt('keeps the slot with the modal that took it, whatever arrives after', () => {
     const notice = launchSurfaces({
       ...quiet,
       taken: 'libraryRebuilt',
@@ -231,7 +231,7 @@ describe('the one ask a session may raise', () => {
     );
   });
 
-  it('asks nothing in a later session with nothing eligible', () => {
+  vaultIt('asks nothing in a later session with nothing eligible', () => {
     expect(launchSurfaces(quiet).ask).toBeNull();
   });
 
@@ -296,15 +296,15 @@ describe('the What’s New card after an update', () => {
     expect(launchSurfaces(updated).whatsNewCard).toEqual({ version: '0.4.1', slideCount: 1 });
   });
 
-  it('shows nothing once the running version is seen', () => {
+  vaultIt('shows nothing once the running version is seen', () => {
     expect(launchSurfaces({ ...updated, lastSeenVersion: '0.4.1' }).whatsNewCard).toBeNull();
   });
 
-  it('shows nothing on a first load, which has no seen version', () => {
+  vaultIt('shows nothing on a first load, which has no seen version', () => {
     expect(launchSurfaces({ ...updated, lastSeenVersion: null }).whatsNewCard).toBeNull();
   });
 
-  it('shows nothing before the days of use are counted', () => {
+  vaultIt('shows nothing before the days of use are counted', () => {
     expect(launchSurfaces({ ...updated, useDays: null }).whatsNewCard).toBeNull();
   });
 
@@ -371,7 +371,7 @@ describe('the notification card', () => {
     expect(surfaces.ask).toBeNull();
   });
 
-  it('shows nothing under a modal or the tour', () => {
+  vaultIt('shows nothing under a modal or the tour', () => {
     expect(asked({ taken: 'libraryRebuilt' })).toBeNull();
     expect(asked({ tourOpen: true })).toBeNull();
   });
@@ -386,7 +386,7 @@ describe('the notification card', () => {
     expect(asked(eligible('support', 'notifications'))).toBe('notifications');
   });
 
-  it('is withdrawn once the card reports nothing to ask', () => {
+  vaultIt('is withdrawn once the card reports nothing to ask', () => {
     expect(asked({ ...eligible(), sessionAsk: 'notifications' })).toBeNull();
   });
 });
@@ -405,7 +405,7 @@ describe('the Garmin offer', () => {
     expect(asked(eligible('support', 'garmin'))).toBe('garmin');
   });
 
-  it('keeps the slot once taken, and gives it up when withdrawn', () => {
+  vaultIt('keeps the slot once taken, and gives it up when withdrawn', () => {
     expect(asked({ ...eligible('garmin', 'tourOffer'), sessionAsk: 'garmin' })).toBe('garmin');
     expect(asked({ ...eligible(), sessionAsk: 'garmin' })).toBeNull();
   });
@@ -414,7 +414,7 @@ describe('the Garmin offer', () => {
     expect(asked({ ...quietPeriod })).toBeNull();
   });
 
-  it('shows nothing under a modal or the tour', () => {
+  vaultIt('shows nothing under a modal or the tour', () => {
     expect(asked({ taken: 'libraryRebuilt' })).toBeNull();
     expect(asked({ tourOpen: true })).toBeNull();
   });
@@ -505,7 +505,7 @@ describe('the sections-changed ask', () => {
     expect(launchSurfaces({ ...quiet, ...asks }).ask).toBe('sectionsChanged');
   });
 
-  it('comes after the restore offer', () => {
+  vaultIt('comes after the restore offer', () => {
     const verdict = launchSurfaces({
       ...quiet,
       restoreOffered: true,
@@ -523,7 +523,7 @@ describe('the sections-changed ask', () => {
     expect(verdict.ask).toBe('sectionsChanged');
   });
 
-  it('is never picked when it is not eligible', () => {
+  vaultIt('is never picked when it is not eligible', () => {
     expect(launchSurfaces({ ...quiet, ...eligible('seriesConsent') }).ask).toBe('seriesConsent');
     expect(
       launchSurfaces({ ...quiet, ...quietPeriod, ...eligible('seriesConsent') }).ask

@@ -67,7 +67,7 @@ describe('the lock held on the handset', () => {
    *
    * Expected behaviour: the wrapped command reads the piped input unchanged.
    */
-  it('hands its piped input down to the wrapped command', () => {
+  vaultIt('hands its piped input down to the wrapped command', () => {
     const { host } = fakeHandset();
     const run = spawnSync(handsetLock, ['cat'], {
       encoding: 'utf8',
@@ -79,7 +79,7 @@ describe('the lock held on the handset', () => {
     expect(run.stdout).toBe('hi');
   });
 
-  it('runs the wrapped command when its own input is closed', () => {
+  vaultIt('runs the wrapped command when its own input is closed', () => {
     const { host } = fakeHandset();
     const run = spawnSync('sh', ['-c', `${handsetLock} echo ran <&-`], {
       encoding: 'utf8',
@@ -90,7 +90,7 @@ describe('the lock held on the handset', () => {
     expect(run.stdout).toBe('ran\n');
   });
 
-  it('runs a wrapped shell that reads its commands from the piped input', () => {
+  vaultIt('runs a wrapped shell that reads its commands from the piped input', () => {
     const { host } = fakeHandset();
     const run = spawnSync(handsetLock, ['sh'], {
       encoding: 'utf8',
@@ -127,7 +127,7 @@ describe('the lock held on the handset', () => {
     expect(second.stderr).toContain('item-alpha');
   });
 
-  it('refuses the hand-taken shell the same way', async () => {
+  vaultIt('refuses the hand-taken shell the same way', async () => {
     const { host, lockDir } = fakeHandset();
     const ready = path.join(path.dirname(lockDir), 'ready');
     const first = spawn(shell, ['sh', '-c', `touch ${ready}; sleep 3`], {
@@ -159,7 +159,7 @@ describe('the lock held on the handset', () => {
     expect(next.stdout).toContain('ran');
   });
 
-  it('takes it a second time for nobody underneath a hold', () => {
+  vaultIt('takes it a second time for nobody underneath a hold', () => {
     const { host, lockDir } = fakeHandset();
     const run = spawnSync(
       shell,
@@ -170,7 +170,7 @@ describe('the lock held on the handset', () => {
     expect(run.stdout).toContain('through');
   });
 
-  it('refuses a hold whose directory is fresh and has no holder line yet', () => {
+  vaultIt('refuses a hold whose directory is fresh and has no holder line yet', () => {
     const { host, lockDir } = fakeHandset();
     fs.mkdirSync(lockDir);
     const run = spawnSync(wrapper, ['echo', 'ran'], { encoding: 'utf8', env: host('beta') });
@@ -181,7 +181,7 @@ describe('the lock held on the handset', () => {
     expect(fs.existsSync(lockDir)).toBe(true);
   });
 
-  it('refuses a hold whose holder line is still empty while it is being written', () => {
+  vaultIt('refuses a hold whose holder line is still empty while it is being written', () => {
     const { host, lockDir } = fakeHandset();
     fs.mkdirSync(lockDir);
     fs.writeFileSync(path.join(lockDir, 'holder'), '');
@@ -192,7 +192,7 @@ describe('the lock held on the handset', () => {
     expect(fs.existsSync(lockDir)).toBe(true);
   });
 
-  it('takes over a hold with no holder line once its directory is past the grace', () => {
+  vaultIt('takes over a hold with no holder line once its directory is past the grace', () => {
     const { host, lockDir } = fakeHandset();
     fs.mkdirSync(lockDir);
     fs.utimesSync(lockDir, 1000, 1000);
@@ -202,7 +202,7 @@ describe('the lock held on the handset', () => {
     expect(run.stderr).toMatch(/taking over .* aged \d+s/);
   });
 
-  it('takes over a holder older than the stated limit', () => {
+  vaultIt('takes over a holder older than the stated limit', () => {
     const { host, lockDir } = fakeHandset();
     fs.mkdirSync(lockDir);
     fs.writeFileSync(
@@ -229,7 +229,7 @@ describe('the lock held on the handset', () => {
     expect(run.stdout).toContain('ran');
   });
 
-  it('refuses a recent holder on another host even when its pid means nothing here', () => {
+  vaultIt('refuses a recent holder on another host even when its pid means nothing here', () => {
     const { host, lockDir } = fakeHandset();
     fs.mkdirSync(lockDir);
     fs.writeFileSync(
@@ -241,7 +241,7 @@ describe('the lock held on the handset', () => {
     expect(run.stderr).toContain('busy');
   });
 
-  it('takes nothing on the handset when no handset is attached to name', () => {
+  vaultIt('takes nothing on the handset when no handset is attached to name', () => {
     const { host, root } = fakeHandset();
     const bin = path.join(root, 'empty');
     fs.mkdirSync(bin);

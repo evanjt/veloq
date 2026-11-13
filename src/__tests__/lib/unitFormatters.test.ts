@@ -19,12 +19,12 @@ import {
 import { ABSENT } from '@/shared/format/absent';
 
 describe('formatPowerRange', () => {
-  it('prints a closed zone with one symbol after the range', () => {
+  vaultIt('prints a closed zone with one symbol after the range', () => {
     expect(formatPowerRange(0, 150)).toBe('0-150 W');
     expect(formatPowerRange(200.4, 249.6)).toBe('200-250 W');
   });
 
-  it('prints the open top zone as its lower bound and up', () => {
+  vaultIt('prints the open top zone as its lower bound and up', () => {
     expect(formatPowerRange(300, null)).toBe('300+ W');
   });
 
@@ -35,7 +35,7 @@ describe('formatPowerRange', () => {
 });
 
 describe('formatHeartRateRange', () => {
-  it('prints a zone with one symbol after the range', () => {
+  vaultIt('prints a zone with one symbol after the range', () => {
     expect(formatHeartRateRange(120, 140)).toBe('120-140 bpm');
   });
 
@@ -43,18 +43,18 @@ describe('formatHeartRateRange', () => {
     expect(formatHeartRateRange(NaN, 140)).toBe('0-140 bpm');
   });
 
-  it('prints an open top zone as its lower bound and a plus', () => {
+  vaultIt('prints an open top zone as its lower bound and a plus', () => {
     expect(formatHeartRateRange(180, null)).toBe('180+ bpm');
   });
 });
 
 describe('formatEnergy', () => {
-  it('prints joules as kilojoules with a space', () => {
+  vaultIt('prints joules as kilojoules with a space', () => {
     expect(formatEnergy(12800)).toBe('12.8 kJ');
     expect(formatEnergy(19655)).toBe('19.7 kJ');
   });
 
-  it('leaves a whole number whole', () => {
+  vaultIt('leaves a whole number whole', () => {
     expect(formatEnergy(11000)).toBe('11 kJ');
     expect(formatEnergy(0)).toBe('0 kJ');
   });
@@ -65,18 +65,18 @@ describe('formatEnergy', () => {
 });
 
 describe('formatCalories', () => {
-  it('reads kcal, the unit the stat tile and the recording grid read', () => {
+  vaultIt('reads kcal, the unit the stat tile and the recording grid read', () => {
     expect(formatCalories(350)).toBe('350 kcal');
     expect(formatCalories(820.4)).toBe('820 kcal');
   });
 
-  it('keeps a value of a thousand or more in kcal rather than a thousands suffix', () => {
+  vaultIt('keeps a value of a thousand or more in kcal rather than a thousands suffix', () => {
     expect(formatCalories(1234)).toMatch(/^1[,.\u00a0\u202f]?234 kcal$/);
   });
 });
 
 describe('formatCalorieRate', () => {
-  it('prints kcal per hour with the SI hour symbol', () => {
+  vaultIt('prints kcal per hour with the SI hour symbol', () => {
     expect(formatCalorieRate(546.2)).toBe('546 kcal/h');
   });
 
@@ -86,7 +86,7 @@ describe('formatCalorieRate', () => {
 });
 
 describe('formatHrv', () => {
-  it('prints milliseconds with a space', () => {
+  vaultIt('prints milliseconds with a space', () => {
     expect(formatHrv(52.4)).toBe('52 ms');
   });
 
@@ -96,7 +96,7 @@ describe('formatHrv', () => {
 });
 
 describe('formatCadence', () => {
-  it('prints revolutions per minute with a space', () => {
+  vaultIt('prints revolutions per minute with a space', () => {
     expect(formatCadence(89.6)).toBe('90 rpm');
   });
 

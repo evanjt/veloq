@@ -73,7 +73,7 @@ function chart(props: Partial<React.ComponentProps<typeof SectionScatterChart>> 
 describe('section scatter trend paths', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('shows only one direction, opening on the linked activity direction', async () => {
+  vaultIt('shows only one direction, opening on the linked activity direction', async () => {
     const rendered: Record<string, unknown>[] = [];
     const circleComponent = Circle as unknown as {
       render: (props: Record<string, unknown>, ref: unknown) => React.ReactNode;
@@ -95,7 +95,7 @@ describe('section scatter trend paths', () => {
     expect(rendered.filter((dot) => dot.color === directionPair.light.reverse)).toHaveLength(0);
   });
 
-  it('draws no direction switch of its own, the panel holding the one', async () => {
+  vaultIt('draws no direction switch of its own, the panel holding the one', async () => {
     const tree = await render(chart());
 
     expect(tree.UNSAFE_queryAllByType(DirectionSwitch)).toHaveLength(0);
@@ -103,7 +103,7 @@ describe('section scatter trend paths', () => {
 
   // Built from the box the chart is given rather than from the canvas's own
   // measurement, so they survive a re-render that changes nothing.
-  it('does not rebuild the trend paths on a render that changes nothing', async () => {
+  vaultIt('does not rebuild the trend paths on a render that changes nothing', async () => {
     const svg = jest.spyOn(Skia.Path, 'MakeFromSVGString');
     const tree = await render(chart());
     await layoutViews(tree, 400, 300);
@@ -115,7 +115,7 @@ describe('section scatter trend paths', () => {
     expect(svg.mock.calls.length).toBe(atRest);
   });
 
-  it('rebuilds them when the drawn axis changes', async () => {
+  vaultIt('rebuilds them when the drawn axis changes', async () => {
     const svg = jest.spyOn(Skia.Path, 'MakeFromSVGString');
     const tree = await render(chart());
     await layoutViews(tree, 400, 300);

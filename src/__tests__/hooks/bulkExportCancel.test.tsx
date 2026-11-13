@@ -133,7 +133,7 @@ it('stops an export whose wait lapsed and clears the still-running line', async 
   await unmount();
 });
 
-it('asks nothing of the engine with no export running', async () => {
+vaultIt('asks nothing of the engine with no export running', async () => {
   mockProgress = { running: false, visited: 0, total: 0 };
   const { result, unmount } = await renderHook(() => useBulkExport());
 

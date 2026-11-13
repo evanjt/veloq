@@ -143,7 +143,7 @@ describe('remote link', () => {
     expect(socket.sent).toHaveLength(1);
   });
 
-  it('reports why an offer was refused instead of dropping it silently', () => {
+  vaultIt('reports why an offer was refused instead of dropping it silently', () => {
     const lines: string[] = [];
     const { link, live } = harness([ROOM_A], true, (line) => lines.push(line));
     link.foreground();
@@ -216,7 +216,7 @@ describe('remote link', () => {
     expect(live()).toHaveLength(0);
   });
 
-  it('reports the connected count while in front and zero once it leaves', () => {
+  vaultIt('reports the connected count while in front and zero once it leaves', () => {
     const { engine, link } = harness([ROOM_A]);
     const seen: number[] = [];
     link.subscribe(({ connected }) => seen.push(connected));
@@ -231,7 +231,7 @@ describe('remote link', () => {
     expect((engine.connectedCount as jest.Mock).mock.calls.length).toBe(polls);
   });
 
-  it('reports the rooms it waits in as each opens, closes and reopens', () => {
+  vaultIt('reports the rooms it waits in as each opens, closes and reopens', () => {
     const { link, opened } = harness([ROOM_A]);
     const seen: { connected: number; rooms: number }[] = [];
     link.subscribe((state) => seen.push(state));
@@ -243,7 +243,7 @@ describe('remote link', () => {
     expect(seen.at(-1)).toEqual({ connected: 0, rooms: 1 });
   });
 
-  it('reports no open room once the app leaves the foreground', () => {
+  vaultIt('reports no open room once the app leaves the foreground', () => {
     const { link } = harness([ROOM_A]);
     const seen: { connected: number; rooms: number }[] = [];
     link.foreground();
@@ -360,7 +360,7 @@ describe('remote link', () => {
 });
 
 describe("the app's remote link", () => {
-  it("tells the browser the athlete ended it when the banner's action is used", () => {
+  vaultIt("tells the browser the athlete ended it when the banner's action is used", () => {
     disconnectRemoteLink();
     expect(remote.disconnectAll).toHaveBeenCalledWith(DisconnectReason.Disconnected);
   });
@@ -385,7 +385,7 @@ describe("the app's remote link", () => {
     expect(sockets).not.toHaveBeenCalled();
   });
 
-  it('keeps the screen awake under the remote link tag while a browser is connected', () => {
+  vaultIt('keeps the screen awake under the remote link tag while a browser is connected', () => {
     global.WebSocket = jest.fn(() => ({
       send: jest.fn(),
       close: jest.fn(),

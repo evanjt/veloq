@@ -45,6 +45,7 @@ fn test_recompute_saves_numbers_before_reload() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_background_save_mints_numbers_in_member_count_order() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = crate::PersistentEngine::in_memory().unwrap();
@@ -126,6 +127,7 @@ fn test_background_save_mints_numbers_in_member_count_order() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_background_save_rebuilds_the_route_line_layer() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = crate::PersistentEngine::in_memory().unwrap();

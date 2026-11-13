@@ -64,7 +64,7 @@ it('keeps an activity listed when the engine did not store the choice', async ()
   expect(screen.getByText('Night flight')).toBeTruthy();
 });
 
-it('draws nothing when no activity is hidden', async () => {
+vaultIt('draws nothing when no activity is hidden', async () => {
   mockHidden.mockReturnValue([]);
   await render(<HeatmapHiddenList />);
 

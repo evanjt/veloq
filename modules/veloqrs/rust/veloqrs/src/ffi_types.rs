@@ -2285,7 +2285,9 @@ pub struct FfiActivityRecord {
 }
 
 /// The rows of a sample library, in the shapes the stores take them, for the
-/// widgets to draw while no account is signed in.
+/// widgets to draw while no account is signed in. The strength sets are not
+/// carried: the engine holds the demo corpus that a sample's strength
+/// activities settle from.
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiSampleLibrary {
@@ -2293,8 +2295,6 @@ pub struct FfiSampleLibrary {
     pub sport_settings_json: String,
     pub wellness: Vec<crate::persistence::wellness::WellnessRow>,
     pub activities: Vec<FfiActivityBody>,
-    /// The sets of the library's strength sessions, each naming its activity.
-    pub exercise_sets: Vec<FfiExerciseSet>,
 }
 
 /// The family a sport is drawn and filtered in, in stack order. The feed's
@@ -4120,6 +4120,7 @@ mod tests {
     // engine and stop at the boundary, so the screen read carries the domain
     // value as it is and this only compiles while that holds.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn section_performance_data_carries_the_domain_calendar_summary() {
         fn calendar_of(data: &FfiSectionPerformanceData) -> Option<&crate::CalendarSummary> {
             data.calendar_summary.as_ref()
@@ -4339,6 +4340,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activity_metrics_round_trips_back_without_drift() {
         let original = activity_metrics();
         let back = crate::ActivityMetrics::from(FfiActivityMetrics::from(original.clone()));
@@ -4355,6 +4357,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activity_metrics_from_the_ffi_carry_no_zone_seconds() {
         let ffi = FfiActivityMetrics {
             activity_id: "act_1".to_string(),
@@ -4650,6 +4653,7 @@ mod tests {
 
     /// `created_at` is optional in the catalogue and required on the record.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_catalogue_section_without_a_created_at_reaches_ffi_empty() {
         let ffi = FfiSection::from(&tracematch::FrequentSection {
             created_at: None,
@@ -4661,6 +4665,7 @@ mod tests {
     /// A database section has no portions, and an empty list is the answer
     /// rather than a missing field.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_database_section_reaches_ffi_with_no_portions() {
         let ffi = FfiSection::from(section_fixture(crate::sections::SectionType::Auto));
         assert!(ffi.activity_portions.is_empty());

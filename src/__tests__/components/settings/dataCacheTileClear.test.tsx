@@ -173,7 +173,7 @@ describe('clearing the cache with the heatmap tiles', () => {
     );
   });
 
-  it('says the cache was cleared when the tiles went', async () => {
+  vaultIt('says the cache was cleared when the tiles went', async () => {
     mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
     await render(<DataCacheSection />);
 
@@ -183,7 +183,7 @@ describe('clearing the cache with the heatmap tiles', () => {
     await waitFor(() => expect(notice).toHaveBeenCalledWith({ message: 'alerts.cacheCleared' }));
   });
 
-  it('reports a map cache clear that left heatmap tiles on disk', async () => {
+  vaultIt('reports a map cache clear that left heatmap tiles on disk', async () => {
     const engine = engineWhoseTileClear('fails');
     mockedGetEngine.mockReturnValue(engine as never);
     await render(<DataCacheSection />);
@@ -199,7 +199,7 @@ describe('clearing the cache with the heatmap tiles', () => {
     );
   });
 
-  it('reports nothing when the map cache clear went', async () => {
+  vaultIt('reports nothing when the map cache clear went', async () => {
     mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
     await render(<DataCacheSection />);
 
@@ -245,21 +245,24 @@ describe('clearing the cache with the heatmap tiles', () => {
 });
 
 describe('clear cache haptic', () => {
-  it('fires one medium impact when the confirm is accepted and none when it is cancelled', async () => {
-    jest.clearAllMocks();
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
-    await render(<DataCacheSection />);
+  vaultIt(
+    'fires one medium impact when the confirm is accepted and none when it is cancelled',
+    async () => {
+      jest.clearAllMocks();
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
+      await render(<DataCacheSection />);
 
-    mockPanels.onClearCache?.();
-    const buttons = alert.mock.calls[0][2] as AlertButton[];
-    buttons.find((button) => button.style === 'cancel')?.onPress?.();
-    expect(haptics.medium).not.toHaveBeenCalled();
+      mockPanels.onClearCache?.();
+      const buttons = alert.mock.calls[0][2] as AlertButton[];
+      buttons.find((button) => button.style === 'cancel')?.onPress?.();
+      expect(haptics.medium).not.toHaveBeenCalled();
 
-    await buttons.find((button) => button.style === 'destructive')?.onPress?.();
-    expect(haptics.medium).toHaveBeenCalledTimes(1);
-    alert.mockRestore();
-  });
+      await buttons.find((button) => button.style === 'destructive')?.onPress?.();
+      expect(haptics.medium).toHaveBeenCalledTimes(1);
+      alert.mockRestore();
+    }
+  );
 });
 
 describe('the clear cache confirm', () => {
@@ -285,7 +288,7 @@ describe('the clear cache confirm', () => {
     expect(buttons.some((button) => button.style === 'destructive')).toBe(true);
   });
 
-  it('reads as before while online', async () => {
+  vaultIt('reads as before while online', async () => {
     await render(<DataCacheSection />);
 
     mockPanels.onClearCache?.();

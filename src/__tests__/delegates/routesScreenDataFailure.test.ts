@@ -33,7 +33,7 @@ describe('getRoutesScreenData', () => {
     expect(getRoutesScreenData(host(false, jest.fn()), QUERY)).toBeUndefined();
   });
 
-  it('returns the page when the read succeeds', () => {
+  vaultIt('returns the page when the read succeeds', () => {
     const page = { groups: [] };
     expect(
       getRoutesScreenData(

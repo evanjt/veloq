@@ -91,7 +91,7 @@ async function chooseRange(tree: Tree, id: SectionTimeRange) {
 }
 
 describe('SectionPerformanceSection time range', () => {
-  it('explains that section times include stops beside the performance chart', async () => {
+  vaultIt('explains that section times include stops beside the performance chart', async () => {
     const { getByTestId } = await render(<Harness efforts={[effort(1)]} />);
 
     expect(getByTestId('section-time-method').props.children).toBe('sections.timeMethod');
@@ -113,21 +113,24 @@ describe('SectionPerformanceSection time range', () => {
     onTimeRangeChange: jest.fn(),
   };
 
-  it('adds the projection rule to a section method line when a pass is estimated', async () => {
-    const { getByTestId } = await render(
-      <SectionPerformanceSection
-        {...sectionProps}
-        chartData={[{ ...effort(1), estimated: true }, effort(2)]}
-      />
-    );
+  vaultIt(
+    'adds the projection rule to a section method line when a pass is estimated',
+    async () => {
+      const { getByTestId } = await render(
+        <SectionPerformanceSection
+          {...sectionProps}
+          chartData={[{ ...effort(1), estimated: true }, effort(2)]}
+        />
+      );
 
-    expect(getByTestId('section-time-method').props.children).toBe(
-      'sections.methodEstimated:sections.timeMethod'
-    );
-    expect(enGB.sections.methodEstimated).toMatch(/\{\{method\}\}/);
-  });
+      expect(getByTestId('section-time-method').props.children).toBe(
+        'sections.methodEstimated:sections.timeMethod'
+      );
+      expect(enGB.sections.methodEstimated).toMatch(/\{\{method\}\}/);
+    }
+  );
 
-  it('leaves the method line as it was when every pass is gate-timed', async () => {
+  vaultIt('leaves the method line as it was when every pass is gate-timed', async () => {
     const { getByTestId } = await render(
       <SectionPerformanceSection {...sectionProps} chartData={[effort(1), effort(2)]} />
     );
@@ -135,7 +138,7 @@ describe('SectionPerformanceSection time range', () => {
     expect(getByTestId('section-time-method').props.children).toBe('sections.timeMethod');
   });
 
-  it('says faster is up for a pace sport, whose axis reads lower as faster', async () => {
+  vaultIt('says faster is up for a pace sport, whose axis reads lower as faster', async () => {
     const { getByTestId } = await render(
       <SectionPerformanceSection
         isDark={false}
@@ -172,7 +175,7 @@ describe('SectionPerformanceSection time range', () => {
     expect(tree.queryByTestId('section-performance-empty')).toBeNull();
   });
 
-  it('survives a second pass through the same empty range', async () => {
+  vaultIt('survives a second pass through the same empty range', async () => {
     const tree = await render(<Harness efforts={[effort(200)]} />);
 
     for (const _pass of [0, 1]) {
@@ -183,7 +186,7 @@ describe('SectionPerformanceSection time range', () => {
     }
   });
 
-  it('offers the control when the section has no efforts in any range', async () => {
+  vaultIt('offers the control when the section has no efforts in any range', async () => {
     const tree = await render(<Harness efforts={[]} />);
 
     expect(tree.queryByTestId('section-performance-empty')).toBeTruthy();
@@ -196,7 +199,7 @@ describe('SectionPerformanceSection time range', () => {
     ]);
   });
 
-  it('plots a single effort rather than treating one point as empty', async () => {
+  vaultIt('plots a single effort rather than treating one point as empty', async () => {
     const tree = await render(<Harness efforts={[effort(1)]} />);
 
     expect(tree.queryByTestId('section-performance-empty')).toBeNull();
@@ -319,7 +322,7 @@ describe('SectionPerformanceSection with time streams still missing', () => {
     expect(queryByTestId('section-performance-empty')).toBeNull();
   });
 
-  it('says nothing about missing streams once every one is stored', async () => {
+  vaultIt('says nothing about missing streams once every one is stored', async () => {
     const { queryByTestId } = await render(
       <SectionPerformanceSection
         {...base}
@@ -344,11 +347,11 @@ describe('sectionStreamsState', () => {
     });
   });
 
-  it('is ready when nothing is missing', () => {
+  vaultIt('is ready when nothing is missing', () => {
     expect(sectionStreamsState(sync)).toEqual({ status: 'ready', onRetry: refetch });
   });
 
-  it('is loading until the wait ends', () => {
+  vaultIt('is loading until the wait ends', () => {
     expect(sectionStreamsState({ ...sync, ready: false }).status).toBe('loading');
   });
 
@@ -378,7 +381,7 @@ describe('SectionPerformanceSection for a route', () => {
     onTimeRangeChange: jest.fn(),
   };
 
-  it('explains that route times use moving time beside the performance chart', async () => {
+  vaultIt('explains that route times use moving time beside the performance chart', async () => {
     const { getByTestId, queryByTestId } = await render(
       <SectionPerformanceSection {...base} chartData={[effort(1)]} />
     );
@@ -408,7 +411,7 @@ describe('SectionPerformanceSection for a route', () => {
     expect(onToggleShowExcluded).toHaveBeenCalledTimes(1);
   });
 
-  it('offers no excluded attempts link in an empty range with nothing excluded', async () => {
+  vaultIt('offers no excluded attempts link in an empty range with nothing excluded', async () => {
     const { queryByTestId } = await render(
       <SectionPerformanceSection
         {...base}

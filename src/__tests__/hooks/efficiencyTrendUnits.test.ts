@@ -40,7 +40,7 @@ function insight() {
 }
 
 describe('the aerobic efficiency sheet', () => {
-  it('gives the slope the unit of heart rate times pace per day', () => {
+  vaultIt('gives the slope the unit of heart rate times pace per day', () => {
     const slope = insight().supportingData?.dataPoints?.find(
       (point) => point.label === 'insights.data.trendSlope'
     );
@@ -48,7 +48,7 @@ describe('the aerobic efficiency sheet', () => {
     expect(slope).toMatchObject({ value: '-12.3', unit: 'bpm·s/km/d' });
   });
 
-  it('names the unit of the series it draws', () => {
+  vaultIt('names the unit of the series it draws', () => {
     const history = insight().supportingData?.history;
     const series = history && 'series' in history ? history.series[0] : undefined;
 
@@ -57,11 +57,11 @@ describe('the aerobic efficiency sheet', () => {
 });
 
 describe('a supporting series value', () => {
-  it('carries the series unit when it has one', () => {
+  vaultIt('carries the series unit when it has one', () => {
     expect(formatSeriesValue(44100, 0, 'bpm·s/km')).toBe('44,100 bpm·s/km');
   });
 
-  it('prints bare when the series has none', () => {
+  vaultIt('prints bare when the series has none', () => {
     expect(formatSeriesValue(3.5, 1, undefined)).toBe('3.5');
   });
 });

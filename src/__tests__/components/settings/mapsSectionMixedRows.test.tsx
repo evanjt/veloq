@@ -151,7 +151,7 @@ describe('map style rows over split saved values', () => {
     expect(view.getByTestId('map-style-pill-Strength')).not.toHaveTextContent('settings.mixed');
   });
 
-  it('shows the translated terrain mode in the badge and group rows', async () => {
+  vaultIt('shows the translated terrain mode in the badge and group rows', async () => {
     seed({});
     const view = await render(screen());
     await waitFor(() => expect(view.getByTestId('map-terrain-pill-Foot')).toBeTruthy());
@@ -166,7 +166,7 @@ describe('map style rows over split saved values', () => {
 });
 
 describe('what a screen reader hears on a terrain pill', () => {
-  it('names the sport beside the mode it draws, and says a tap changes it', async () => {
+  vaultIt('names the sport beside the mode it draws, and says a tap changes it', async () => {
     seed({ terrain3DModeByType: { Walk: 'off', Hike: 'always' } });
     const view = render(screen());
     await waitFor(() => expect(view.getByTestId('map-terrain-pill-Foot')).toBeTruthy());

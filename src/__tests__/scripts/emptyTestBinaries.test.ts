@@ -39,7 +39,7 @@ describe('empty test binary guard', () => {
     expect(empty).toEqual(['veloqrs::evidence_cache_encode_off_lock']);
   });
 
-  it('names a target whose every test is ignored, and keeps one with a live test', () => {
+  vaultIt('names a target whose every test is ignored, and keeps one with a live test', () => {
     const ignored = (kind: string, ...names: string[]) => ({
       kind,
       testcases: Object.fromEntries(names.map((n) => [n, { ignored: true }])),
@@ -58,7 +58,7 @@ describe('empty test binary guard', () => {
     expect(empty).toEqual(['veloqrs::only_ignored']);
   });
 
-  it('leaves a bin target alone, which carries no tests by design', () => {
+  vaultIt('leaves a bin target alone, which carries no tests by design', () => {
     const empty = emptySuites(
       list({
         'veloqrs::bin/uniffi-bindgen': suite('bin'),
@@ -69,17 +69,17 @@ describe('empty test binary guard', () => {
     expect(empty).toEqual([]);
   });
 
-  it('catches the crate lib itself reporting nothing', () => {
+  vaultIt('catches the crate lib itself reporting nothing', () => {
     const empty = emptySuites(list({ veloqrs: suite('lib') }));
 
     expect(empty).toEqual(['veloqrs']);
   });
 
-  it('answers nothing for a list with no suites rather than passing it', () => {
+  vaultIt('answers nothing for a list with no suites rather than passing it', () => {
     expect(() => emptySuites(list({}))).toThrow(/no test targets/);
   });
 
-  it('runs in CI under the same feature set as the suite it guards', () => {
+  vaultIt('runs in CI under the same feature set as the suite it guards', () => {
     const workflow = fs.readFileSync(path.join(REPO, '.github/workflows/test.yml'), 'utf8');
     const invocation = workflow
       .split('\n')

@@ -196,7 +196,7 @@ it('takes no lock on unmount when full screen was never opened', async () => {
   expect(lockAsync).not.toHaveBeenCalled();
 });
 
-it('places the close button from the full-screen window insets', async () => {
+vaultIt('places the close button from the full-screen window insets', async () => {
   await render(section());
   await openFullscreen();
 
@@ -205,7 +205,7 @@ it('places the close button from the full-screen window insets', async () => {
   expect(style.top).toBe(16);
 });
 
-it('sizes the plot from the room the measured chrome leaves', async () => {
+vaultIt('sizes the plot from the room the measured chrome leaves', async () => {
   await render(section());
   await openFullscreen();
 

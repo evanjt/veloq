@@ -176,7 +176,7 @@ describe('the page hit-tests a tap against a box', () => {
     ]);
   });
 
-  it('uses a radius a finger can miss by, not a pixel', () => {
+  vaultIt('uses a radius a finger can miss by, not a pixel', () => {
     expect(SURFACE_HIT_TEST_RADIUS_PX).toBeGreaterThanOrEqual(8);
     expect(SURFACE_HIT_TEST_RADIUS_PX).toBeLessThanOrEqual(20);
   });
@@ -248,7 +248,7 @@ describe('the page reports every hit in the layer that won the tap', () => {
 describe('a held touch on the map offers no gesture', () => {
   afterEach(() => jest.useRealTimers());
 
-  it('posts nothing however long the finger stays down', () => {
+  vaultIt('posts nothing however long the finger stays down', () => {
     jest.useFakeTimers();
     const { posted, touch } = runPage([SECTION_HIT], ['sections-line']);
 

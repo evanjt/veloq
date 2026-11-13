@@ -17,6 +17,7 @@ fn ids(filter: FfiSectionFilter) -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn combined_filters_use_outings_sport_membership_and_pins() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("temp dir");

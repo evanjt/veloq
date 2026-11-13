@@ -103,20 +103,20 @@ describe('NotificationsCard', () => {
     expect(relaunched.queryByTestId('notifications-card')).toBeNull();
   });
 
-  it('is absent while notifications are on', async () => {
+  vaultIt('is absent while notifications are on', async () => {
     useNotificationPreferences.setState({ enabled: true });
     const tree = await render(<NotificationsCard />);
     expect(tree.queryByTestId('notifications-card')).toBeNull();
   });
 
-  it('is absent in demo mode and signed out', async () => {
+  vaultIt('is absent in demo mode and signed out', async () => {
     useAuthStore.setState({ isDemoMode: true });
     expect((await render(<NotificationsCard />)).queryByTestId('notifications-card')).toBeNull();
     useAuthStore.setState({ isDemoMode: false, isAuthenticated: false });
     expect((await render(<NotificationsCard />)).queryByTestId('notifications-card')).toBeNull();
   });
 
-  it('is absent once the tour’s slide was answered Never', async () => {
+  vaultIt('is absent once the tour’s slide was answered Never', async () => {
     useWhatsNewStore.setState({
       tourOffer: { declines: 0, leftover: null, answers: { notifications: 'never' } },
     });
@@ -124,7 +124,7 @@ describe('NotificationsCard', () => {
     expect(tree.queryByTestId('notifications-card')).toBeNull();
   });
 
-  it('is absent on the first launch', async () => {
+  vaultIt('is absent on the first launch', async () => {
     useWhatsNewStore.setState({ launches: 1 });
     const tree = await render(<NotificationsCard />);
     expect(tree.queryByTestId('notifications-card')).toBeNull();

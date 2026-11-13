@@ -68,6 +68,7 @@ fn disable_then_delete_keeps_both_intents() {
 /// Re-disabling the same section updates its own row rather than stacking a
 /// second one: the key still enforces one intent per kind.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn repeat_disable_updates_in_place() {
     let (_dir, mut engine, db_path) = open();
     let id = create(&mut engine);

@@ -149,7 +149,7 @@ beforeEach(() => {
 });
 
 describe('ActivityHeatmap legend', () => {
-  it('names the longest session and its four bins', async () => {
+  vaultIt('names the longest session and its four bins', async () => {
     const view = await renderHeatmap();
 
     expect(view.getByText('Longest session')).toBeTruthy();
@@ -163,26 +163,29 @@ describe('ActivityHeatmap legend', () => {
 });
 
 describe('ActivityHeatmap labels', () => {
-  it('sets the month, weekday and legend labels at the chart label size or above', async () => {
-    const view = await renderHeatmap();
+  vaultIt(
+    'sets the month, weekday and legend labels at the chart label size or above',
+    async () => {
+      const view = await renderHeatmap();
 
-    for (const part of [
-      'activity-heatmap-months',
-      'activity-heatmap-gutter',
-      'activity-heatmap-legend',
-    ]) {
-      const labels = view.getByTestId(part).findAll((node) => node.type === Text);
-      expect(labels.length).toBeGreaterThan(0);
-      for (const label of labels) {
-        const style = StyleSheet.flatten(label.props.style) as { fontSize?: number };
-        expect(style.fontSize).toBeGreaterThanOrEqual(chartStyles.chartLabel.fontSize);
+      for (const part of [
+        'activity-heatmap-months',
+        'activity-heatmap-gutter',
+        'activity-heatmap-legend',
+      ]) {
+        const labels = view.getByTestId(part).findAll((node) => node.type === Text);
+        expect(labels.length).toBeGreaterThan(0);
+        for (const label of labels) {
+          const style = StyleSheet.flatten(label.props.style) as { fontSize?: number };
+          expect(style.fontSize).toBeGreaterThanOrEqual(chartStyles.chartLabel.fontSize);
+        }
       }
     }
-  });
+  );
 });
 
 describe('ActivityHeatmap days', () => {
-  it('leaves a day with no activity out of the cells', async () => {
+  vaultIt('leaves a day with no activity out of the cells', async () => {
     const view = await renderHeatmap();
 
     expect(
@@ -190,7 +193,7 @@ describe('ActivityHeatmap days', () => {
     ).toBeNull();
   });
 
-  it('reads no activity, whatever is pressed', async () => {
+  vaultIt('reads no activity, whatever is pressed', async () => {
     const view = await renderHeatmap();
 
     await fireEvent.press(dayCell(view, ONE_RIDE));
@@ -226,7 +229,7 @@ describe('ActivityHeatmap days', () => {
     ).toBeNull();
   });
 
-  it('mounts no day controls while the grid is held undrawn', async () => {
+  vaultIt('mounts no day controls while the grid is held undrawn', async () => {
     const view = await renderHeatmap({ drawn: false });
 
     expect(
@@ -237,20 +240,23 @@ describe('ActivityHeatmap days', () => {
 });
 
 describe('ActivityHeatmap days for a screen reader', () => {
-  it('is one adjustable element over twenty active days, with no day cell of its own', async () => {
-    heatmapDays.mockReturnValueOnce(TWENTY_DAYS);
-    const view = await renderHeatmap();
+  vaultIt(
+    'is one adjustable element over twenty active days, with no day cell of its own',
+    async () => {
+      heatmapDays.mockReturnValueOnce(TWENTY_DAYS);
+      const view = await renderHeatmap();
 
-    expect(view.queryAllByRole('button', { name: /activity/ })).toHaveLength(0);
-    for (const day of TWENTY_DAYS) {
-      expect(isHiddenFromAccessibility(dayCell(view, day.date))).toBe(true);
+      expect(view.queryAllByRole('button', { name: /activity/ })).toHaveLength(0);
+      for (const day of TWENTY_DAYS) {
+        expect(isHiddenFromAccessibility(dayCell(view, day.date))).toBe(true);
+      }
+      const calendar = view.getAllByRole('adjustable');
+      expect(calendar).toHaveLength(1);
+      expect(calendar[0].props.accessibilityActions.map((a: { name: string }) => a.name)).toEqual(
+        expect.arrayContaining(['increment', 'decrement'])
+      );
     }
-    const calendar = view.getAllByRole('adjustable');
-    expect(calendar).toHaveLength(1);
-    expect(calendar[0].props.accessibilityActions.map((a: { name: string }) => a.name)).toEqual(
-      expect.arrayContaining(['increment', 'decrement'])
-    );
-  });
+  );
 
   it('holds the latest active day and reads its date, count and longest session', async () => {
     const view = await renderHeatmap();
@@ -262,7 +268,7 @@ describe('ActivityHeatmap days for a screen reader', () => {
     });
   });
 
-  it('steps back and forward through the active days and stops at either end', async () => {
+  vaultIt('steps back and forward through the active days and stops at either end', async () => {
     const view = await renderHeatmap();
     const value = () => view.getByRole('adjustable').props.accessibilityValue.text;
 
@@ -279,7 +285,7 @@ describe('ActivityHeatmap days for a screen reader', () => {
     expect(value()).toBe('Jun 16, 2026, 1 activity, longest 1 h 5 min');
   });
 
-  it('marks the day it holds on the grid', async () => {
+  vaultIt('marks the day it holds on the grid', async () => {
     const view = await renderHeatmap();
 
     await step(view.getByRole('adjustable'), 'decrement');
@@ -296,7 +302,7 @@ describe('ActivityHeatmap days for a screen reader', () => {
     expect(Math.abs(mark.left - cell.left)).toBeLessThan(4);
   });
 
-  it('selects the day it holds when activated, and opens nothing', async () => {
+  vaultIt('selects the day it holds when activated, and opens nothing', async () => {
     const onDaySelect = jest.fn();
     const view = await renderHeatmap({ onDaySelect });
 
@@ -328,7 +334,7 @@ describe('ActivityHeatmap read without seeing it', () => {
     expect(table.getAllByTestId(/^chart-data-row-/)).toHaveLength(2);
   });
 
-  it('keeps the day cells and the stepped days beside the plot', async () => {
+  vaultIt('keeps the day cells and the stepped days beside the plot', async () => {
     const view = await renderHeatmap();
 
     const plot = view.getByTestId('activity-heatmap-plot');

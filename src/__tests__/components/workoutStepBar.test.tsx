@@ -37,7 +37,7 @@ describe('WorkoutStepBar', () => {
     mockDark = false;
   });
 
-  it('fills a work block with its zone and mutes rest and an unzoned step', async () => {
+  vaultIt('fills a work block with its zone and mutes rest and an unzoned step', async () => {
     const styles = await drawn(BLOCKS);
     expect(styles.map((s) => s.backgroundColor)).toEqual([
       zoneColour(5, false),
@@ -47,7 +47,7 @@ describe('WorkoutStepBar', () => {
     ]);
   });
 
-  it('draws rest at half height and every other block at full height', async () => {
+  vaultIt('draws rest at half height and every other block at full height', async () => {
     const styles = await drawn(BLOCKS);
     expect(styles.map((s) => s.height)).toEqual(['100%', '50%', '100%', '100%']);
   });
@@ -60,7 +60,7 @@ describe('WorkoutStepBar', () => {
     );
   });
 
-  it('takes the dark ladder in the dark theme', async () => {
+  vaultIt('takes the dark ladder in the dark theme', async () => {
     mockDark = true;
     const styles = await drawn(BLOCKS);
     expect(styles[0].backgroundColor).toBe(zoneColour(5, true));

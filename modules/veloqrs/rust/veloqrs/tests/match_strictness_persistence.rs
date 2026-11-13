@@ -42,6 +42,7 @@ fn match_strictness_persists_across_engine_restart() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn match_strictness_falls_back_to_default_when_unset() {
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("strictness_default.db");
@@ -61,6 +62,7 @@ fn match_strictness_falls_back_to_default_when_unset() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn unparseable_persisted_values_keep_existing_match_config() {
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("strictness_garbage.db");
@@ -85,6 +87,7 @@ fn unparseable_persisted_values_keep_existing_match_config() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clear_resets_match_strictness_in_memory_and_on_disk() {
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("strictness_clear.db");

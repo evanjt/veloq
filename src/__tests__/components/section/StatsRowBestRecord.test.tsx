@@ -66,7 +66,7 @@ describe('StatsRow best', () => {
     }
   });
 
-  it('leaves a gate-timed best unmarked', async () => {
+  vaultIt('leaves a gate-timed best unmarked', async () => {
     const { queryByTestId } = await row(true);
     expect(queryByTestId('stats-row-best-estimated-forward')).toBeNull();
   });

@@ -71,7 +71,7 @@ describe.each([
     mockIsDark = isDark;
   });
 
-  it('draws one untrained swatch and then one swatch per volume step', async () => {
+  vaultIt('draws one untrained swatch and then one swatch per volume step', async () => {
     const swatches = await draw();
 
     expect(swatches).toEqual([bodyDiagram[theme].untrained, ...bodyDiagram[theme].steps]);
@@ -80,7 +80,7 @@ describe.each([
     );
   });
 
-  it('draws no gradient', async () => {
+  vaultIt('draws no gradient', async () => {
     await draw();
 
     expect(screen.queryByTestId('legend-gradient')).toBeNull();

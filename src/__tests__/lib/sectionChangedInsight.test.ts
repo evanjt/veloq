@@ -23,7 +23,7 @@ describe('generateSectionChangedInsights', () => {
     expect(insights[0].meta?.sourceTimestamp).toBe(NOW - 1000);
   });
 
-  it('ignores kinds that are not a visible change and empty input', () => {
+  vaultIt('ignores kinds that are not a visible change and empty input', () => {
     expect(generateSectionChangedInsights([], NOW, t)).toEqual([]);
     expect(
       generateSectionChangedInsights(

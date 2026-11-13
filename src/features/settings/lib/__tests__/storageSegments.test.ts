@@ -27,7 +27,7 @@ describe('storageSegments', () => {
     ]);
   });
 
-  it('keeps four categories as four segments on the top four steps', () => {
+  vaultIt('keeps four categories as four segments on the top four steps', () => {
     const segments = storageSegments([
       category('settings.storageDatabase', 10),
       category('settings.storageHeatmap', 40),
@@ -42,7 +42,7 @@ describe('storageSegments', () => {
     ]);
   });
 
-  it('draws exactly five categories without an Other', () => {
+  vaultIt('draws exactly five categories without an Other', () => {
     const segments = storageSegments([
       category('settings.storageDatabase', 5),
       category('settings.storageHeatmap', 4),
@@ -72,7 +72,7 @@ describe('storageSegments', () => {
     ]);
   });
 
-  it('keeps the order the stores were given when two are the same size', () => {
+  vaultIt('keeps the order the stores were given when two are the same size', () => {
     const segments = storageSegments([
       category('settings.storageDatabase', 7),
       category('settings.storageHeatmap', 7),
@@ -83,7 +83,7 @@ describe('storageSegments', () => {
     ]);
   });
 
-  it('returns nothing when every store is empty', () => {
+  vaultIt('returns nothing when every store is empty', () => {
     expect(storageSegments([])).toEqual([]);
     expect(storageSegments([category('settings.storageDatabase', 0)])).toEqual([]);
   });

@@ -22,7 +22,7 @@ describe('paceChartSeries', () => {
     expect(series.yDomain[0]).toBeGreaterThanOrEqual(630);
   });
 
-  it('keeps the 1500 m swim best and closely spaced points', () => {
+  vaultIt('keeps the 1500 m swim best and closely spaced points', () => {
     const series = paceChartSeries(
       {
         distances: [100, 400, 1450, 1500],
@@ -37,7 +37,7 @@ describe('paceChartSeries', () => {
     expect(series.yDomain[0]).toBeGreaterThanOrEqual(250);
   });
 
-  it('keeps samples closer together than any thinning gap, in distance order', () => {
+  vaultIt('keeps samples closer together than any thinning gap, in distance order', () => {
     const distances = [60, 20, 40, 5000, 5050];
     const series = paceChartSeries(
       { distances, times: distances.map((d) => d / 3), pace: distances.map(() => 3) },
@@ -46,14 +46,14 @@ describe('paceChartSeries', () => {
     expect(series.points.map((p) => p.distance)).toEqual([20, 40, 60, 5000, 5050]);
   });
 
-  it('is null with no usable sample', () => {
+  vaultIt('is null with no usable sample', () => {
     expect(paceChartSeries({ distances: [], times: [], pace: [] }, perKm)).toBeNull();
     expect(paceChartSeries(null, perKm)).toBeNull();
   });
 });
 
 describe('powerChartSeries', () => {
-  it('keeps all 100 stored durations', () => {
+  vaultIt('keeps all 100 stored durations', () => {
     const secs = Array.from({ length: 100 }, (_, i) => i + 1);
     const watts = secs.map((s) => 1000 - s);
     const series = powerChartSeries(secs, watts)!;
@@ -71,7 +71,7 @@ describe('powerChartSeries', () => {
     expect(series.yDomain[1]).toBeGreaterThanOrEqual(900);
   });
 
-  it('is null when nothing is plottable', () => {
+  vaultIt('is null when nothing is plottable', () => {
     expect(powerChartSeries([], [])).toBeNull();
     expect(powerChartSeries(null, [1])).toBeNull();
   });

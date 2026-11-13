@@ -123,7 +123,7 @@ beforeEach(() => useAuthStore.setState({ authMethod: 'oauth' }));
 afterEach(() => useAuthStore.setState({ authMethod: null }));
 
 describe('a Garmin source, which has no intervals.icu pages', () => {
-  it('offers no share row even for an activity that carries a web id', async () => {
+  vaultIt('offers no share row even for an activity that carries a web id', async () => {
     useAuthStore.setState({ authMethod: 'garmin' });
     await renderMenu(false);
 
@@ -137,7 +137,7 @@ describe('a Garmin source, which has no intervals.icu pages', () => {
 });
 
 describe('the card menu on iOS', () => {
-  it('is the shared context menu around the card, with no react-native Modal', async () => {
+  vaultIt('is the shared context menu around the card, with no react-native Modal', async () => {
     await renderMenu(false);
 
     expect(screen.UNSAFE_getByType(ContextMenu)).toBeTruthy();
@@ -145,17 +145,20 @@ describe('the card menu on iOS', () => {
     expect(screen.UNSAFE_queryByType(Modal)).toBeNull();
   });
 
-  it('offers the map styles as a checkable submenu and 3D terrain as a checkable item', async () => {
-    await renderMenu(false);
+  vaultIt(
+    'offers the map styles as a checkable submenu and 3D terrain as a checkable item',
+    async () => {
+      await renderMenu(false);
 
-    expect(screen.getByTestId('native-menu-activity.mapStyle')).toBeTruthy();
-    expect(nativeChecked('settings.dark')).toBe(true);
-    expect(nativeChecked('settings.light')).toBe(false);
-    expect(nativeChecked('settings.satellite')).toBe(false);
-    expect(nativeChecked('Relief')).toBe(true);
-    expect(nativeChecked('activity.share')).toBeUndefined();
-    expect(nativeChecked('activity.resetToDefault')).toBeUndefined();
-  });
+      expect(screen.getByTestId('native-menu-activity.mapStyle')).toBeTruthy();
+      expect(nativeChecked('settings.dark')).toBe(true);
+      expect(nativeChecked('settings.light')).toBe(false);
+      expect(nativeChecked('settings.satellite')).toBe(false);
+      expect(nativeChecked('Relief')).toBe(true);
+      expect(nativeChecked('activity.share')).toBeUndefined();
+      expect(nativeChecked('activity.resetToDefault')).toBeUndefined();
+    }
+  );
 });
 
 const nativeAction = (label: string) =>
@@ -167,7 +170,7 @@ describe('sharing from the card menu', () => {
   beforeEach(() => warn.mockClear());
   afterEach(() => jest.restoreAllMocks());
 
-  it('sends the activity name as the email subject on iOS', async () => {
+  vaultIt('sends the activity name as the email subject on iOS', async () => {
     const share = jest
       .spyOn(Share, 'share')
       .mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
@@ -183,7 +186,7 @@ describe('sharing from the card menu', () => {
     expect(share.mock.calls[0][1]).toEqual({ subject: 'Morning ride' });
   });
 
-  it('keeps the subject on Android, where the title carries it', async () => {
+  vaultIt('keeps the subject on Android, where the title carries it', async () => {
     jest.replaceProperty(Platform, 'OS', 'android');
     const share = jest
       .spyOn(Share, 'share')
@@ -212,7 +215,7 @@ describe('sharing from the card menu', () => {
     );
   });
 
-  it('stays quiet when the athlete closes the sheet without sharing', async () => {
+  vaultIt('stays quiet when the athlete closes the sheet without sharing', async () => {
     jest
       .spyOn(Share, 'share')
       .mockResolvedValue({ action: Share.dismissedAction, activityType: undefined });
@@ -232,7 +235,7 @@ describe.each(['ios', 'android'] as const)('sharing on %s with no intervals.icu 
     screen.queryAllByText('activity.share').length > 0 ||
     screen.queryByLabelText('activity.share') !== null;
 
-  it('offers no Share for a recording intervals.icu has not named', async () => {
+  vaultIt('offers no Share for a recording intervals.icu has not named', async () => {
     const { intervalsWebId: _unnamed, ...recording } = activity;
     await renderMenu(os === 'android', { ...recording, id: 'local-ride-7' });
 
@@ -267,7 +270,7 @@ describe('the card menu on Android', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
-  it('scrolls its items inside the window on a small phone at 200 per cent text', async () => {
+  vaultIt('scrolls its items inside the window on a small phone at 200 per cent text', async () => {
     await renderMenu(true);
 
     const scroll = screen.getByTestId('context-menu-scroll');
@@ -278,7 +281,7 @@ describe('the card menu on Android', () => {
     expect(screen.UNSAFE_queryByType(Modal)).toBeNull();
   });
 
-  it('is no wider than the window and carries no fixed width', async () => {
+  vaultIt('is no wider than the window and carries no fixed width', async () => {
     await renderMenu(true);
 
     const widths = screen
@@ -290,7 +293,7 @@ describe('the card menu on Android', () => {
     expect(surface.maxWidth).toBeLessThanOrEqual(320);
   });
 
-  it('marks the map styles and 3D terrain checked by their state', async () => {
+  vaultIt('marks the map styles and 3D terrain checked by their state', async () => {
     await renderMenu(true);
 
     expect(screen.getByLabelText('settings.dark').props.accessibilityState).toEqual({
@@ -302,7 +305,7 @@ describe('the card menu on Android', () => {
     expect(screen.getByLabelText('Relief').props.accessibilityState).toEqual({ checked: true });
   });
 
-  it('keeps screen-reader focus inside the open menu', async () => {
+  vaultIt('keeps screen-reader focus inside the open menu', async () => {
     await renderMenu(true);
 
     expect(screen.getByTestId('context-menu-view').props.accessibilityViewIsModal).toBe(true);
@@ -334,7 +337,7 @@ describe.each([
   beforeEach(() => jest.replaceProperty(Platform, 'OS', os));
   afterEach(() => jest.restoreAllMocks());
 
-  it('offers no map style, 3D terrain or reset, only details and share', async () => {
+  vaultIt('offers no map style, 3D terrain or reset, only details and share', async () => {
     await renderMenu(true, shown, false);
 
     for (const label of [
@@ -369,7 +372,7 @@ describe.each(['ios', 'android'] as const)('opening the card menu on %s', (os) =
     </PaperProvider>
   );
 
-  it('fires one light haptic per open, none while closed, open or closing', async () => {
+  vaultIt('fires one light haptic per open, none while closed, open or closing', async () => {
     const view = await render(menu(false));
     expect(haptics.light).not.toHaveBeenCalled();
 
@@ -387,7 +390,7 @@ describe.each(['ios', 'android'] as const)('opening the card menu on %s', (os) =
     expect(haptics.medium).not.toHaveBeenCalled();
   });
 
-  it('fires once for a menu mounted open', async () => {
+  vaultIt('fires once for a menu mounted open', async () => {
     await render(menu(true));
 
     expect(haptics.light).toHaveBeenCalledTimes(1);

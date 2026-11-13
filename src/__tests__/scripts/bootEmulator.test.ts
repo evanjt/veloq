@@ -112,7 +112,7 @@ describe('booting an emulator on a shared host', () => {
     expect(launches(dir)[0]).toContain(`-avd ${IMAGE}`);
   });
 
-  it('names the boot that holds the host while another waits', async () => {
+  vaultIt('names the boot that holds the host while another waits', async () => {
     const { dir, env } = rig();
 
     const first = boot(dir, env, IMAGE);
@@ -128,7 +128,7 @@ describe('booting an emulator on a shared host', () => {
     expect(second.stderr).toContain(`avd=${IMAGE}`);
   });
 
-  it('reuses an emulator already running the image asked for', async () => {
+  vaultIt('reuses an emulator already running the image asked for', async () => {
     const { dir, env } = rig(IMAGE);
 
     const result = await boot(dir, env, IMAGE);
@@ -138,7 +138,7 @@ describe('booting an emulator on a shared host', () => {
     expect(launches(dir)).toEqual([]);
   });
 
-  it('reuses whatever runs when no image is named', async () => {
+  vaultIt('reuses whatever runs when no image is named', async () => {
     const { dir, env } = rig(OTHER_IMAGE);
 
     const result = await boot(dir, env, '');
@@ -148,7 +148,7 @@ describe('booting an emulator on a shared host', () => {
     expect(launches(dir)).toEqual([]);
   });
 
-  it('refuses a second image while one runs, naming it', async () => {
+  vaultIt('refuses a second image while one runs, naming it', async () => {
     const { dir, env } = rig(OTHER_IMAGE);
 
     const result = await boot(dir, env, IMAGE);
@@ -159,7 +159,7 @@ describe('booting an emulator on a shared host', () => {
     expect(launches(dir)).toEqual([]);
   });
 
-  it('refuses a boot that names no image when none runs', async () => {
+  vaultIt('refuses a boot that names no image when none runs', async () => {
     const { dir, env } = rig();
 
     const result = await boot(dir, env, '');

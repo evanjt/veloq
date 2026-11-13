@@ -81,13 +81,13 @@ describe('textFieldErrors', () => {
     expect(textFieldErrors('android', 'xx', 'title.txt', `${'x'.repeat(30)}\n`)).toEqual([]);
   });
 
-  it('leaves a field with no published limit unbounded', () => {
+  vaultIt('leaves a field with no published limit unbounded', () => {
     expect(textFieldErrors('ios', 'xx', 'support_url.txt', 'x'.repeat(5000))).toEqual([]);
   });
 });
 
 describe('keywordWarnings', () => {
-  it('warns about a keyword that repeats the name, subtitle or category', () => {
+  vaultIt('warns about a keyword that repeats the name, subtitle or category', () => {
     expect(
       keywordWarnings('xx', 'kayak,paddle,river', 'Paddlelog', 'River trips', 'SPORTS')
     ).toEqual([expect.stringContaining("'river'")]);
@@ -96,7 +96,7 @@ describe('keywordWarnings', () => {
     ]);
   });
 
-  it('warns about a word placed twice and a space after a comma', () => {
+  vaultIt('warns about a word placed twice and a space after a comma', () => {
     expect(keywordWarnings('xx', 'canoe trip,trip', 'Paddlelog', 'Logs', '')).toEqual([
       expect.stringContaining("'trip' appears twice"),
     ]);
@@ -105,14 +105,14 @@ describe('keywordWarnings', () => {
     ]);
   });
 
-  it('warns when the field fits in characters but not in bytes', () => {
+  vaultIt('warns when the field fits in characters but not in bytes', () => {
     const kana = 'カヌー'.repeat(33);
     expect(keywordWarnings('xx', kana, 'Paddlelog', 'Logs', '')).toEqual([
       expect.stringContaining('bytes'),
     ]);
   });
 
-  it('passes a keyword set with no wasted word', () => {
+  vaultIt('passes a keyword set with no wasted word', () => {
     expect(
       keywordWarnings('xx', 'canoe,kayak,portage', 'Paddlelog', 'Lake trips', 'SPORTS')
     ).toEqual([]);
@@ -134,7 +134,7 @@ describe('readImageInfo', () => {
     expect(readImageInfo(jpeg(1080, 1920))).toEqual({ width: 1080, height: 1920, hasAlpha: false });
   });
 
-  it('reads nothing from a file that is neither', () => {
+  vaultIt('reads nothing from a file that is neither', () => {
     expect(readImageInfo(Buffer.from('not an image'))).toBeNull();
   });
 });
@@ -176,7 +176,7 @@ describe('screenshotErrors', () => {
     fs.writeFileSync(path.join(root, rel), data);
   }
 
-  it('is quiet about an absent tree unless screenshots are required', () => {
+  vaultIt('is quiet about an absent tree unless screenshots are required', () => {
     const dirs = { metadataDir: path.join(root, 'metadata'), screenshotsDir: path.join(root, 's') };
     expect(screenshotErrors('ios', 'xx', dirs, false)).toEqual([]);
     expect(screenshotErrors('ios', 'xx', dirs, true).map((e) => e.type)).toEqual([
@@ -228,21 +228,21 @@ describe('listingBudgetErrors', () => {
       'Closing line.',
     ].join('\n\n');
 
-  it('passes a listing of short feature lines', () => {
+  vaultIt('passes a listing of short feature lines', () => {
     expect(listingBudgetErrors('en-AU', listing([]))).toEqual([]);
   });
 
-  it('refuses one feature section that has grown into a paragraph', () => {
+  vaultIt('refuses one feature section that has grown into a paragraph', () => {
     const errors = listingBudgetErrors('en-AU', listing(['x'.repeat(121)]));
     expect(errors.map((e) => e.type)).toEqual(['over_budget']);
     expect(errors[0]?.message).toContain('Record');
   });
 
-  it('accepts a feature line at the ceiling', () => {
+  vaultIt('accepts a feature line at the ceiling', () => {
     expect(listingBudgetErrors('en-AU', listing(['x'.repeat(120)]))).toEqual([]);
   });
 
-  it('refuses a description that has grown back toward the store limit', () => {
+  vaultIt('refuses a description that has grown back toward the store limit', () => {
     const long = Array.from({ length: 8 }, () => 'x'.repeat(120));
     const text = `${listing(long)}\n\n${'y'.repeat(500)}`;
     expect(listingBudgetErrors('en-AU', text).map((e) => e.message)).toEqual([
@@ -250,14 +250,17 @@ describe('listingBudgetErrors', () => {
     ]);
   });
 
-  it('gives a longer language a larger ceiling than English and a denser one a smaller', () => {
-    const line = 'x'.repeat(150);
-    expect(listingBudgetErrors('en-AU', listing([line])).length).toBe(1);
-    expect(listingBudgetErrors('de-DE', listing([line]))).toEqual([]);
-    expect(listingBudgetErrors('zh-Hans', listing(['x'.repeat(80)])).length).toBe(1);
-  });
+  vaultIt(
+    'gives a longer language a larger ceiling than English and a denser one a smaller',
+    () => {
+      const line = 'x'.repeat(150);
+      expect(listingBudgetErrors('en-AU', listing([line])).length).toBe(1);
+      expect(listingBudgetErrors('de-DE', listing([line]))).toEqual([]);
+      expect(listingBudgetErrors('zh-Hans', listing(['x'.repeat(80)])).length).toBe(1);
+    }
+  );
 
-  it('reads a Play description whose section titles are bold', () => {
+  vaultIt('reads a Play description whose section titles are bold', () => {
     const bold = listing(['x'.repeat(121)]).replace(/^(Record)$/m, '<b>$1</b>');
     expect(listingBudgetErrors('en-AU', bold).map((e) => e.type)).toEqual(['over_budget']);
   });
@@ -281,15 +284,18 @@ describe('listingFloorErrors', () => {
 
   const floors = { ios: '16.4', android: '7.0' };
 
-  it('refuses an iOS description that leaves out the floor and passes one that names it', () => {
-    write('ios/en-AU/description.txt', 'Closing line.\n\nRequires iOS 16.4 or later.');
-    write('ios/de-DE/description.txt', 'Schlusszeile.\n\nNennt keine Version.');
-    expect(listingFloorErrors(root, floors).map((e) => [e.platform, e.locale, e.type])).toEqual([
-      ['ios', 'de-DE', 'floor_not_stated'],
-    ]);
-  });
+  vaultIt(
+    'refuses an iOS description that leaves out the floor and passes one that names it',
+    () => {
+      write('ios/en-AU/description.txt', 'Closing line.\n\nRequires iOS 16.4 or later.');
+      write('ios/de-DE/description.txt', 'Schlusszeile.\n\nNennt keine Version.');
+      expect(listingFloorErrors(root, floors).map((e) => [e.platform, e.locale, e.type])).toEqual([
+        ['ios', 'de-DE', 'floor_not_stated'],
+      ]);
+    }
+  );
 
-  it('holds each Play full description to the Android floor the same way', () => {
+  vaultIt('holds each Play full description to the Android floor the same way', () => {
     write('android/en-AU/full_description.txt', 'Requires Android 7.0 or later.');
     write('android/de-DE/full_description.txt', 'Nennt keine Version.');
     expect(listingFloorErrors(root, floors).map((e) => [e.platform, e.locale, e.type])).toEqual([
@@ -297,11 +303,14 @@ describe('listingFloorErrors', () => {
     ]);
   });
 
-  it('is quiet about a locale with no description on disk, which the field check reports', () => {
-    expect(listingFloorErrors(root, floors)).toEqual([]);
-  });
+  vaultIt(
+    'is quiet about a locale with no description on disk, which the field check reports',
+    () => {
+      expect(listingFloorErrors(root, floors)).toEqual([]);
+    }
+  );
 
-  it('reads both floors from the expo-build-properties plugin in app.json', () => {
+  vaultIt('reads both floors from the expo-build-properties plugin in app.json', () => {
     expect(
       storeFloors({
         expo: {
@@ -317,29 +326,32 @@ describe('listingFloorErrors', () => {
     ).toEqual({ ios: '16.4', android: '7.0' });
   });
 
-  it('refuses an app.json that states no iOS deployment target or an unnamed Android level', () => {
-    expect(() => storeFloors({ expo: { plugins: [] } })).toThrow('deploymentTarget');
-    expect(() =>
-      storeFloors({
-        expo: {
-          plugins: [
-            [
-              'expo-build-properties',
-              { android: { minSdkVersion: 99 }, ios: { deploymentTarget: '16.4' } },
+  vaultIt(
+    'refuses an app.json that states no iOS deployment target or an unnamed Android level',
+    () => {
+      expect(() => storeFloors({ expo: { plugins: [] } })).toThrow('deploymentTarget');
+      expect(() =>
+        storeFloors({
+          expo: {
+            plugins: [
+              [
+                'expo-build-properties',
+                { android: { minSdkVersion: 99 }, ios: { deploymentTarget: '16.4' } },
+              ],
             ],
-          ],
-        },
-      })
-    ).toThrow('99');
-  });
+          },
+        })
+      ).toThrow('99');
+    }
+  );
 });
 
 describe('the repository listings', () => {
-  it('pass every field limit and deliver file check', () => {
+  vaultIt('pass every field limit and deliver file check', () => {
     expect(validateMetadata().map((e) => e.message)).toEqual([]);
   });
 
-  it('carry an App Store listing for every store locale, en-CA included', () => {
+  vaultIt('carry an App Store listing for every store locale, en-CA included', () => {
     expect(uniqueStoreLocales('ios')).toContain('en-CA');
   });
 });

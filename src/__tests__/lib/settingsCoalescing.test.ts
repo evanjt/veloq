@@ -43,7 +43,7 @@ beforeEach(() => {
 });
 
 describe('settings written in one tick', () => {
-  it('reach the engine as a single batch', async () => {
+  vaultIt('reach the engine as a single batch', async () => {
     await Promise.all([
       setSetting('theme', 'dark'),
       setSetting('units', 'metric'),
@@ -65,7 +65,7 @@ describe('settings written in one tick', () => {
     expect(mockSetSettings).toHaveBeenCalledWith([{ key: 'theme', value: 'light' }]);
   });
 
-  it('do not leak into the next tick', async () => {
+  vaultIt('do not leak into the next tick', async () => {
     await setSetting('theme', 'dark');
     await setSetting('units', 'metric');
 

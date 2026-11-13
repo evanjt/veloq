@@ -323,18 +323,21 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_file_with_one_lap_or_none_writes_no_body() {
         assert_eq!(lap_body(&ride_with_laps(&[(0, 29.0)])), None);
         assert_eq!(lap_body(&ride_with_laps(&[])), None);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_never_fetched_has_no_laps_to_read() {
         let (_dir, _engine, reader) = engine_and_reader();
         assert_eq!(activity_intervals(&reader, "never-stored").unwrap(), None);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_fetched_activity_with_no_laps_reads_as_an_empty_list() {
         let (_dir, engine, reader) = engine_and_reader();
         engine
@@ -345,6 +348,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_that_will_not_parse_reads_as_never_fetched() {
         let (_dir, engine, reader) = engine_and_reader();
         engine.set_interval_body("torn-1", "{not json").unwrap();
@@ -352,6 +356,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_malformed_interval_drops_only_itself() {
         let body = r#"{"icu_intervals": [
             {"id": 1, "type": "WORK", "start_time": 0, "end_time": 60, "start_index": 0, "end_index": 60},

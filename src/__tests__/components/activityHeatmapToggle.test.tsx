@@ -110,7 +110,7 @@ it('offers to hide an activity that is on the heatmap, and passes the press on',
   expect(onToggle).toHaveBeenCalledTimes(1);
 });
 
-it('offers to show an activity that is hidden', async () => {
+vaultIt('offers to show an activity that is hidden', async () => {
   await mountBelowFold(section({ hidden: true }));
 
   expect(screen.getByText('activityDetail.showOnHeatmap')).toBeTruthy();

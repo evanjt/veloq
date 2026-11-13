@@ -28,7 +28,7 @@ jest.mock('expo-file-system/legacy', () => ({
 }));
 
 describe('where the terrain previews live', () => {
-  it('is the documents directory, which the OS does not purge', () => {
+  vaultIt('is the documents directory, which the OS does not purge', () => {
     expect(TERRAIN_PREVIEW_DIR).toBe('/mock/docs/terrain_previews/');
   });
 
@@ -43,7 +43,7 @@ describe('where the terrain previews live', () => {
     });
   });
 
-  it('leaves a device that never held them alone', async () => {
+  vaultIt('leaves a device that never held them alone', async () => {
     const fs = jest.requireMock('expo-file-system/legacy');
     fs.deleteAsync.mockClear();
 

@@ -1549,6 +1549,7 @@ mod tests {
     /// one more request than a day's cap is two days, and an allowance without
     /// a daily cap, or a zero cap, has no day to count in.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_queue_past_one_days_cap_reports_the_whole_days_it_takes() {
         let daily = Allowance {
             per_fifteen_minutes: Some(225),
@@ -1577,6 +1578,7 @@ mod tests {
     /// Expected behaviour: the backfill's share is 800 requests in a budget
     /// day with no window, and a queue past it reports the whole days it takes.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_backfill_share_is_eight_hundred_a_day_with_no_window() {
         assert_eq!(BACKFILL_ALLOWANCE.per_day, Some(800));
         assert_eq!(BACKFILL_ALLOWANCE.per_fifteen_minutes, None);
@@ -1588,6 +1590,7 @@ mod tests {
     /// Expected behaviour: on the upgrade day the first day counts at 1,500,
     /// and the days after it at 800.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_upgrade_day_counts_at_its_own_share_in_the_days_to_draw() {
         let first = UPGRADE_DAY_BACKFILL_SHARE;
         assert_eq!(days_to_draw(1_500, BACKFILL_ALLOWANCE, first), None);
@@ -1601,6 +1604,7 @@ mod tests {
     /// Expected behaviour: 800 backfill requests go, the 801st waits for the
     /// reset, and no fifteen-minute window holds any of them.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_fresh_budget_admits_eight_hundred_backfill_requests_at_one_instant() {
         let mut budget = Budget::new(0);
         let now = at("2026-03-04T10:00:00Z");
@@ -1619,6 +1623,7 @@ mod tests {
     /// Expected behaviour: 1,500 go at one instant, the 1,501st waits for the
     /// reset, and the next budget day admits 800.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_upgrade_day_admits_fifteen_hundred_and_the_next_day_eight_hundred() {
         let mut budget = Budget::new(0);
         let now = at("2026-03-04T10:00:00Z");
@@ -1644,6 +1649,7 @@ mod tests {
     /// Expected behaviour: only the first mark counts, so the share applies to
     /// one day and a later cutover start never gives another.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_upgrade_share_applies_to_one_day_only() {
         let mut budget = Budget::new(0);
         let first = at("2026-03-04T10:00:00Z");
@@ -1661,6 +1667,7 @@ mod tests {
     /// relaunch the same day keeps the share, another process sees it, and a
     /// relaunch cannot mark a second day.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_upgrade_day_survives_a_stored_round_trip() {
         let store = Arc::new(MemoryStore::default());
         let start = at("2026-03-04T10:00:00Z");
@@ -1705,6 +1712,7 @@ mod tests {
     /// Expected behaviour: a refusal inside a big run still sets the cooldown
     /// and holds the next backfill request.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refusal_inside_a_backfill_run_holds_the_next_request() {
         let mut budget = Budget::new(0);
         let now = at("2026-03-04T10:00:00Z");
@@ -1723,6 +1731,7 @@ mod tests {
     /// Expected behaviour: a low budget figure on a response holds the
     /// backfill with no window to hold it otherwise.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_low_figure_holds_the_backfill() {
         let mut budget = Budget::new(0);
         let now = at("2026-03-04T10:00:00Z");
@@ -1747,6 +1756,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn retry_after_always_wins() {
         // Even on a 429 where the exponential base would be 1s, the server hint wins.
         assert_eq!(
@@ -1760,12 +1770,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn retry_after_is_capped() {
         // A pathological / pool-reset-sized hint is capped inline.
         assert_eq!(decide_backoff(Some(3600), 1, true, 0.0), MAX_RETRY_AFTER);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn exponential_fallback_matches_prior_schedule() {
         // 429: 1s, 2s, 4s for attempts 1..3 (was 500ms * 2^n).
         assert_eq!(
@@ -1796,11 +1808,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn backoff_is_capped() {
         assert_eq!(decide_backoff(None, 10, true, 0.0), MAX_BACKOFF);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn bearer_header_is_passthrough() {
         assert_eq!(
             format_auth_header(AuthMethod::Bearer("abc123")),
@@ -1809,6 +1823,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn api_key_header_is_basic_api_key_prefixed() {
         use base64::Engine;
         let header = format_auth_header(AuthMethod::ApiKey("secret"));
@@ -1822,6 +1837,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn parses_retry_after() {
         let retry = |v| parse_rate_headers(v, None, None).retry_after_secs;
         assert_eq!(retry(Some("370")), Some(370));
@@ -1832,6 +1848,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn parses_the_budget_pair_as_fifteen_minutes_then_daily() {
         let budget = parse_rate_headers(None, Some("2500,8000"), Some("1200,5400"));
         assert_eq!(
@@ -1854,6 +1871,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_budget_header_that_is_not_two_integers_is_none() {
         let remaining = |v| parse_rate_headers(None, None, Some(v)).remaining;
         for bad in [
@@ -1886,6 +1904,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_short_empty_refusal_from_the_edge_is_a_burst() {
         assert_eq!(
             classify_refusal(&retry_after(1), None, b"", 1),
@@ -1898,6 +1917,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refusal_through_the_application_is_its_quota() {
         assert_eq!(
             classify_refusal(&retry_after(370), Some("1.1 Caddy"), b"", 1),
@@ -1933,6 +1953,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_refusal_in_a_row_is_the_quota_whatever_it_carries() {
         assert_eq!(
             classify_refusal(&retry_after(1), None, b"", 2),
@@ -1955,6 +1976,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_absent_or_healthy_budget_holds_nothing() {
         let now = at("2026-03-04T10:00:00Z");
         assert_eq!(budget_hold_until(&RateBudget::default(), now), None);
@@ -1965,6 +1987,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_low_daily_figure_holds_the_backfill_until_midnight_utc() {
         let now = at("2026-03-04T22:15:00Z");
         assert_eq!(
@@ -1978,6 +2001,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_low_fifteen_minute_figure_holds_the_backfill_for_the_window() {
         let now = at("2026-03-04T10:00:00Z");
         assert_eq!(
@@ -1992,6 +2016,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_reported_limit_is_the_denominator_when_it_arrives() {
         let now = at("2026-03-04T10:00:00Z");
         let budget = RateBudget {
@@ -2022,6 +2047,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn jitter_only_ever_lengthens_a_backoff_and_at_most_doubles_it() {
         assert_eq!(
             decide_backoff(Some(1), 1, true, 0.5),
@@ -2068,6 +2094,7 @@ mod tests {
     /// Expected behaviour: asking when a request would be deferred answers
     /// what `admit` would, and counts and sends nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_deferral_read_counts_nothing() {
         let one = Allowance {
             per_fifteen_minutes: Some(1),
@@ -2091,6 +2118,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_sync_has_a_small_allowance_and_the_user_none() {
         let mut budget = Budget::new(0);
         let now = at("2026-03-04T10:00:00Z");
@@ -2117,6 +2145,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_daily_limit_reads_the_backfill_count_and_this_installs_reset() {
         let mut budget = Budget::new(10 * 60);
         let now = at("2026-03-04T10:00:00Z");
@@ -2135,6 +2164,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_uncapped_backfill_has_no_daily_limit() {
         let mut budget = Budget::with_allowances(
             Allowance {
@@ -2149,6 +2179,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn budget_resets_daily_count_at_utc_midnight_with_jitter() {
         let mut budget = Budget::new(10 * 60);
         let per_day = BACKFILL_ALLOWANCE.per_day.expect("a daily allowance");
@@ -2178,6 +2209,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_day_offset_is_held_to_thirty_minutes() {
         assert_eq!(day_offset_secs(0.0), 0);
         assert!(day_offset_secs(0.999_999) <= 1_800);
@@ -2190,6 +2222,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_edge_burst_is_retried_inline_and_a_second_refusal_cools_down() {
         let mut budget = Budget::new(0);
         let now = at("2026-03-04T10:00:00Z");
@@ -2219,6 +2252,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn refused_backfill_defers_until_retry_after_and_persists() {
         let store = Arc::new(MemoryStore::default());
         let now = at("2026-03-04T10:00:00Z");
@@ -2256,6 +2290,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cooldown_climbs_the_ladder_with_jitter_on_top() {
         let mut budget = Budget::new(0);
         let now = at("2026-03-04T10:00:00Z");
@@ -2279,6 +2314,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn budget_admits_user_intent_as_one_probe_inside_a_cooldown() {
         let mut budget = Budget::new(0);
         let now = at("2026-03-04T10:00:00Z");
@@ -2314,6 +2350,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refused_probe_holds_until_the_next_midnight() {
         let mut budget = Budget::new(20 * 60);
         let now = at("2026-03-04T10:00:00Z");
@@ -2330,6 +2367,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn two_headerless_refusals_hold_until_the_next_midnight() {
         let mut budget = Budget::new(0);
         let now = at("2026-03-04T10:00:00Z");
@@ -2348,6 +2386,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_shorter_cooldown_never_shortens_a_longer_one() {
         let mut budget = Budget::new(0);
         let now = at("2026-03-04T10:00:00Z");
@@ -2363,6 +2402,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn stored_cooldown_is_clamped_on_read() {
         let now = at("2026-03-04T10:00:00Z");
         let stored = StoredBudget {
@@ -2403,6 +2443,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stored_count_is_taken_for_its_own_day_only() {
         let now = at("2026-03-04T10:00:00Z");
         let stored = StoredBudget {
@@ -2451,6 +2492,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_store_is_written_only_when_what_it_holds_changes() {
         let store = Arc::new(MemoryStore::default());
         let gov = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
@@ -2474,6 +2516,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_low_figure_holds_the_backfill_and_nothing_else() {
         let mut budget = Budget::new(0);
         let now = at("2026-03-04T22:00:00Z");
@@ -2499,6 +2542,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn two_garmin_slots_are_never_closer_than_the_gap() {
         let t0 = Instant::now();
         let gap = GARMIN_MIN_GAP;
@@ -2512,6 +2556,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_garmin_refusal_without_retry_after_holds_fifteen_minutes_then_doubles() {
         let minutes = |m: u64| Duration::from_secs(m * 60);
         assert_eq!(garmin_hold(1, None), minutes(15));
@@ -2524,6 +2569,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_garmin_refusal_holds_only_the_garmin_lane() {
         let gov = Governor::new(1000, Box::new(NoopPolicy)).with_garmin_gap(Duration::ZERO);
         let now = at("2026-10-25T10:00:00Z");
@@ -2542,6 +2588,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_held_garmin_lane_sends_nothing_and_other_lanes_go() {
         let _clock = crate::test_globals::real_clock();
         crate::runtime::block_on(async {
@@ -2556,6 +2603,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn garmin_acquires_wait_out_the_gap_and_count_requests() {
         let _clock = crate::test_globals::real_clock();
         crate::runtime::block_on(async {
@@ -2573,6 +2621,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pacing_only_governor_admits_everything_and_retries_every_refusal() {
         let gov = Governor::new(1000, Box::new(NoopPolicy));
         let now = at("2026-03-04T10:00:00Z");
@@ -2587,6 +2636,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_deferred_acquire_sends_nothing_and_takes_no_slot() {
         let now = chrono::Utc::now();
         let gov =
@@ -2643,6 +2693,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn paces_concurrent_acquires_under_target_rate() {
         let _clock = crate::test_globals::real_clock();
         crate::runtime::block_on(async {
@@ -2668,6 +2719,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn policy_pace_adds_to_interval() {
         let _clock = crate::test_globals::real_clock();
         struct FixedPace(Duration);
@@ -2694,6 +2746,7 @@ mod tests {
     /// behind the schedule however long it already is, and never parks for it
     /// to drain.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn interactive_never_yields() {
         let _clock = crate::test_globals::real_clock();
         crate::runtime::block_on(async {
@@ -2715,6 +2768,7 @@ mod tests {
     /// Expected behaviour: a backfill request behind a long queue parks until
     /// the queue has drained, rather than taking the slot at the back of it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn backfill_parks_behind_a_busy_schedule() {
         let _clock = crate::test_globals::real_clock();
         crate::runtime::block_on(async {
@@ -2752,6 +2806,7 @@ mod tests {
     /// lib target its failure aborted the workspace run before any integration
     /// binary started.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn backfill_alone_pays_no_yield() {
         let _clock = crate::test_globals::real_clock();
         crate::runtime::block_on(async {
@@ -2770,6 +2825,7 @@ mod tests {
     /// A counter wired to nothing also reads zero, so the same counter has to
     /// move when the backfill really does park.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_busy_schedule_records_the_yield_it_costs() {
         let _clock = crate::test_globals::real_clock();
         crate::runtime::block_on(async {
@@ -2797,6 +2853,7 @@ mod tests {
     // through the queue limit, so there is one queue limit for the backfill
     // lane and none for interactive work, whatever has been seen.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_backfill_limit_is_one_value_and_interactive_never_waits() {
         let policy = YieldBackfillPolicy::new();
         assert_eq!(
@@ -2823,6 +2880,7 @@ mod tests {
         const WINDOW: Duration = Duration::from_secs(1);
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_change_is_announced_at_once_and_the_changes_behind_it_are_held() {
             let t0 = Instant::now();
             let mut state = NoticeState::default();
@@ -2854,6 +2912,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn spends_inside_one_window_reach_the_observer_once_until_it_closes() {
             let heard = Arc::new(AtomicUsize::new(0));
             let counted = Arc::clone(&heard);
@@ -2880,6 +2939,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_read_that_moves_no_count_announces_nothing() {
             let heard = Arc::new(AtomicUsize::new(0));
             let counted = Arc::clone(&heard);
@@ -2896,6 +2956,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_window_close_announces_the_changes_it_held() {
             let (tx, rx) = channel();
             let gov = Governor::new(1000, Box::new(NoopPolicy))

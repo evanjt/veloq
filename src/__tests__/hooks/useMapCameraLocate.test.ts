@@ -60,7 +60,7 @@ describe('useMapCamera locate', () => {
     expect(rendered.result.current.locationLoading).toBe(false);
   });
 
-  it('reuses a fix 29 s old and asks again at 30 s', async () => {
+  vaultIt('reuses a fix 29 s old and asks again at 30 s', async () => {
     const { rendered } = await mount();
     await act(async () => {
       await rendered.result.current.handleGetLocation();
@@ -77,7 +77,7 @@ describe('useMapCamera locate', () => {
     expect(getPosition).toHaveBeenCalledTimes(2);
   });
 
-  it('leaves the map and the dot alone when permission is refused', async () => {
+  vaultIt('leaves the map and the dot alone when permission is refused', async () => {
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue({
       status: 'denied',
     });

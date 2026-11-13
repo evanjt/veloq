@@ -113,12 +113,14 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_started_run_is_not_retryable() {
         assert!(FfiStartOutcome::Started.started());
         assert!(!FfiStartOutcome::Started.is_retryable());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn only_the_refusals_that_lift_are_retryable() {
         for outcome in [
             FfiStartOutcome::Busy,

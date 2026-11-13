@@ -152,7 +152,7 @@ describe('useBackgroundJobs', () => {
     jest.useRealTimers();
   });
 
-  it('lists every job on an engine where nothing has ever run', async () => {
+  vaultIt('lists every job on an engine where nothing has ever run', async () => {
     const { result } = await jobs();
 
     // No sync row. Every other row rests on a count of what it still owes, and
@@ -167,7 +167,7 @@ describe('useBackgroundJobs', () => {
     expect(result.current.every((job) => job.state === 'idle')).toBe(true);
   });
 
-  it('reads one routes snapshot for all jobs when the bar mounts', async () => {
+  vaultIt('reads one routes snapshot for all jobs when the bar mounts', async () => {
     let reads = 0;
     mockGetEngine.mockImplementation(() => {
       const base = engine() as unknown as Record<string, unknown>;
@@ -188,7 +188,7 @@ describe('useBackgroundJobs', () => {
     expect(reads).toBe(4);
   });
 
-  it('keeps every row when there is no engine at all', async () => {
+  vaultIt('keeps every row when there is no engine at all', async () => {
     mockGetEngine.mockReturnValue(null);
 
     const { result } = await jobs();
@@ -270,7 +270,7 @@ describe('useBackgroundJobs', () => {
     expect(polls).toBe(0);
   });
 
-  it('stops reading detection once the screen is gone', async () => {
+  vaultIt('stops reading detection once the screen is gone', async () => {
     let reads = 0;
     mockGetEngine.mockImplementation(() => {
       const real = engine() as unknown as Record<string, unknown>;
@@ -301,7 +301,7 @@ describe('useBackgroundJobs', () => {
     expect(reads).toBe(whileMounted);
   });
 
-  it('carries no sync row at all, whatever the sync service says', async () => {
+  vaultIt('carries no sync row at all, whatever the sync service says', async () => {
     state.sync = { state: SyncState.Syncing, inFlight: 2, completed: 5, total: 20 };
 
     const { result } = await jobs();
@@ -344,7 +344,7 @@ describe('useBackgroundJobs', () => {
     ).toBe(true);
   });
 
-  it('reads no staged history when the engine reports none', async () => {
+  vaultIt('reads no staged history when the engine reports none', async () => {
     const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'cutover')?.stagedHistory).toBeNull();
@@ -399,7 +399,7 @@ describe('useBackgroundJobs', () => {
     expect(result.current.find((job) => job.id === 'cutover')?.state).toBe('failed');
   });
 
-  it('reads a cutover that failed after its apply as failed', async () => {
+  vaultIt('reads a cutover that failed after its apply as failed', async () => {
     state.cutover = { phase: 'failed_after_apply', running: false };
 
     const { result } = await jobs();
@@ -442,7 +442,7 @@ describe('useBackgroundJobs', () => {
     expect(cutover?.remaining).toBe(1);
   });
 
-  it('rests with nothing owed when the token is clear', async () => {
+  vaultIt('rests with nothing owed when the token is clear', async () => {
     const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'cutover')?.remaining).toBe(0);
@@ -492,7 +492,7 @@ describe('useBackgroundJobs', () => {
     expect(detection?.remaining).toBe(12);
   });
 
-  it('rests with nothing owed once every activity has been through a detect', async () => {
+  vaultIt('rests with nothing owed once every activity has been through a detect', async () => {
     const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'detection')?.remaining).toBe(0);

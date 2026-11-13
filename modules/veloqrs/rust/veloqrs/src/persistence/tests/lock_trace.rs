@@ -1,6 +1,7 @@
 use super::*;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_bucket_splits_on_edges() {
     assert_eq!(bucket(Duration::from_micros(999)), 0);
     assert_eq!(bucket(Duration::from_millis(1)), 1);
@@ -12,6 +13,7 @@ fn test_bucket_splits_on_edges() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_lock_take_records_calling_site() {
     let _serial = crate::test_globals::serial_global_state();
     let line = line!() + 1;
@@ -29,6 +31,7 @@ fn test_lock_take_records_calling_site() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_install_pinned_lock_take_records_calling_site() {
     let _serial = crate::test_globals::serial_global_state();
     let line = line!() + 1;

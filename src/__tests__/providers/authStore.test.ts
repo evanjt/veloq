@@ -251,7 +251,7 @@ describe('AuthStore', () => {
       await useAuthStore.getState().setCredentials('key', 'i12345');
       expect(useNotificationPreferences.getState().enabled).toBe(false);
     });
-    it('deletes a queued offline key after API-key sign-in', async () => {
+    vaultIt('deletes a queued offline key after API-key sign-in', async () => {
       await useAuthStore.getState().setCredentials('key', 'i12345');
       expect(mockDeleteItemAsync).toHaveBeenCalledWith(
         'intervals_pending_api_key',
@@ -273,7 +273,7 @@ describe('AuthStore', () => {
   });
 
   describe('setOAuthCredentials()', () => {
-    it('deletes a queued offline key after OAuth sign-in', async () => {
+    vaultIt('deletes a queued offline key after OAuth sign-in', async () => {
       await useAuthStore.getState().setOAuthCredentials('token', 'i12345');
       expect(mockDeleteItemAsync).toHaveBeenCalledWith(
         'intervals_pending_api_key',
@@ -292,7 +292,7 @@ describe('AuthStore', () => {
       expect(useAuthStore.getState().apiKey).toBeNull();
     });
 
-    it('sets athlete info when name provided', async () => {
+    vaultIt('sets athlete info when name provided', async () => {
       await useAuthStore.getState().setOAuthCredentials('token', 'i77777', 'John Doe');
 
       const state = useAuthStore.getState();
@@ -301,7 +301,7 @@ describe('AuthStore', () => {
       expect(state.athlete?.name).toBe('John Doe');
     });
 
-    it('updates state correctly after OAuth login', async () => {
+    vaultIt('updates state correctly after OAuth login', async () => {
       await useAuthStore.getState().setOAuthCredentials('oauth-xyz', 'i99999');
 
       const state = useAuthStore.getState();
@@ -354,7 +354,7 @@ describe('AuthStore', () => {
       expect(unregisterPushToken).not.toHaveBeenCalled();
       jest.mocked(unregisterPushToken).mockResolvedValue(true);
     });
-    it('deletes a queued offline key at sign-out', async () => {
+    vaultIt('deletes a queued offline key at sign-out', async () => {
       await useAuthStore.getState().clearCredentials();
       expect(mockDeleteItemAsync).toHaveBeenCalledWith(
         'intervals_pending_api_key',
@@ -644,7 +644,7 @@ describe('AuthStore', () => {
       );
     });
 
-    it('goes when an OAuth sign-in takes the key', async () => {
+    vaultIt('goes when an OAuth sign-in takes the key', async () => {
       await useAuthStore.getState().setOAuthCredentials('token', 'i12345');
 
       expect(mockDeleteItemAsync).toHaveBeenCalledWith(
@@ -655,7 +655,7 @@ describe('AuthStore', () => {
   });
 
   describe('getStoredCredentials()', () => {
-    it('returns current credentials synchronously', () => {
+    vaultIt('returns current credentials synchronously', () => {
       useAuthStore.setState({
         apiKey: 'sync-test-key',
         accessToken: 'sync-test-token',

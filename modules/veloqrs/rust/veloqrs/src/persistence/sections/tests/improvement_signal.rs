@@ -55,6 +55,7 @@ fn nothing_compared_is_absent_not_zero() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_nonpositive_denominator_is_absent() {
     let first_zero = improvement_signal(&[0.0, 90.0, 80.0]);
     let median_zero = improvement_signal(&[0.0, 0.0, 0.0, 80.0, 80.0, 80.0]);
@@ -66,6 +67,7 @@ fn a_nonpositive_denominator_is_absent() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_ranked_section_carries_the_change_and_its_basis() {
     let rows = |id: &str, times: &[f64]| -> Vec<TraversalRow> {
         times

@@ -84,7 +84,7 @@ describe('custom section names', () => {
     });
   });
 
-  it('rejects a rename to a taken name with the name-taken reason', async () => {
+  vaultIt('rejects a rename to a taken name with the name-taken reason', async () => {
     const mockEngine = engine();
     mockEngine.setSectionName.mockReturnValue('nameTaken');
     mockedGetEngine.mockReturnValue(mockEngine as never);
@@ -95,7 +95,7 @@ describe('custom section names', () => {
     });
   });
 
-  it('keeps create and delete supersession inside each engine mutation', async () => {
+  vaultIt('keeps create and delete supersession inside each engine mutation', async () => {
     const mockEngine = engine();
     mockedGetEngine.mockReturnValue(mockEngine as never);
     const { result } = await renderHook(() => useCustomSections());

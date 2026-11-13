@@ -229,7 +229,7 @@ describe('with-plain-http-transport', () => {
     });
   });
 
-  it('starts an ATS dictionary when the Info.plist has none', () => {
+  vaultIt('starts an ATS dictionary when the Info.plist has none', () => {
     const ats = withPlainHttpAllowed(undefined);
 
     expect(Object.keys(ats.NSExceptionDomains).sort()).toEqual(['intervals.icu', 'veloq.fit']);

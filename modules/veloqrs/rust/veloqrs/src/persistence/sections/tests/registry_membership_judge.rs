@@ -189,6 +189,7 @@ fn a_member_the_cut_leaves_out_is_not_grafted_back_once_the_re_cut_fires() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_arrival_outside_the_cuts_sport_is_judged_by_the_held_line() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir, false);

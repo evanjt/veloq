@@ -156,7 +156,7 @@ describe('My Recordings', () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
-  it('draws placeholder rows while the load is under way', () => {
+  vaultIt('draws placeholder rows while the load is under way', () => {
     mockLibrary.mockReturnValue(library({ isLoading: true }));
 
     render(<RecordingsLibraryScreen />);
@@ -170,7 +170,7 @@ describe('My Recordings', () => {
 });
 
 describe('one recording', () => {
-  it('draws the stats card as a placeholder while the read is pending', () => {
+  vaultIt('draws the stats card as a placeholder while the read is pending', () => {
     mockGetVisible.mockReturnValue(new Promise(() => {}));
 
     renderDetail();
@@ -212,7 +212,7 @@ describe('one recording', () => {
     expect(takesTopInset()).toBe(false);
   });
 
-  it('sits under the native header once loaded, as it did while loading', async () => {
+  vaultIt('sits under the native header once loaded, as it did while loading', async () => {
     mockGetVisible.mockResolvedValue(TEMPO);
 
     renderDetail();

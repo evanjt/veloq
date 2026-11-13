@@ -41,6 +41,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_display_name_is_read_from_the_top_level() {
         let settings = json!({"displayName": "Invented Athlete", "locale": "en-GB"});
         assert_eq!(
@@ -50,6 +51,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_display_name_is_found_under_a_nested_object_or_list() {
         let nested = json!({"userData": {"unitSystem": "metric"}, "profile": {"displayName": "Invented Athlete"}});
         assert_eq!(
@@ -64,6 +66,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_blank_or_non_text_display_name_names_nothing() {
         assert_eq!(display_name_in(&json!({"displayName": "  "})), None);
         assert_eq!(display_name_in(&json!({"displayName": 12})), None);
@@ -72,6 +75,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_display_name_is_trimmed() {
         assert_eq!(
             display_name_in(&json!({"displayName": "  Invented Athlete \n"})).as_deref(),
@@ -80,6 +84,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_account_id_is_the_token_subject_before_any_other_key() {
         let claims = json!({"sub": " 8f2c-invented ", "userId": 41, "exp": 1});
         assert_eq!(account_id_in(&claims).as_deref(), Some("8f2c-invented"));
@@ -91,6 +96,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_blank_zero_or_non_scalar_account_id_names_nobody() {
         assert_eq!(account_id_in(&json!({"sub": "  "})), None);
         assert_eq!(account_id_in(&json!({"userId": 0})), None);

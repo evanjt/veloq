@@ -69,7 +69,7 @@ async function panTheMap() {
 }
 
 describe('RecordingMap', () => {
-  it('mounts with a live track and a current position', async () => {
+  vaultIt('mounts with a live track and a current position', async () => {
     await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
 
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
@@ -105,7 +105,7 @@ describe('RecordingMap', () => {
     expect(onOpenRoutePicker).toHaveBeenCalledTimes(1);
   });
 
-  it('names each control and says when the route overlay is on', async () => {
+  vaultIt('names each control and says when the route overlay is on', async () => {
     const props = { coordinates: TRACK, currentLocation: HERE, onOpenRoutePicker: jest.fn() };
     const { rerender } = await render(<RecordingMap {...props} />);
     await panTheMap();
@@ -139,7 +139,7 @@ describe('RecordingMap', () => {
     expect(onStopFollowing).toHaveBeenCalledTimes(1);
   });
 
-  it('shows no chip while nothing is followed', async () => {
+  vaultIt('shows no chip while nothing is followed', async () => {
     await render(
       <RecordingMap coordinates={TRACK} currentLocation={HERE} nearbyRoutes={[FOLLOWED]} />
     );
@@ -147,7 +147,7 @@ describe('RecordingMap', () => {
     expect(screen.queryByTestId('followed-route')).toBeNull();
   });
 
-  it('hides the controls in review mode', async () => {
+  vaultIt('hides the controls in review mode', async () => {
     await render(
       <RecordingMap
         coordinates={TRACK}
@@ -204,7 +204,7 @@ describe('RecordingMap', () => {
     });
   });
 
-  it.each([
+  vaultIt.each([
     ['the live map', {}],
     ['the review map', { fitBounds: true }],
   ])('credits the basemap on %s', async (_label, props) => {
@@ -213,7 +213,7 @@ describe('RecordingMap', () => {
     expect(screen.getByTestId('map-attribution-text').props.children).toBe(MAP_ATTRIBUTIONS.light);
   });
 
-  it("sits the credit above whatever covers the map's foot", async () => {
+  vaultIt("sits the credit above whatever covers the map's foot", async () => {
     await render(
       <RecordingMap coordinates={TRACK} currentLocation={null} fitBounds coveredBottom={72} />
     );

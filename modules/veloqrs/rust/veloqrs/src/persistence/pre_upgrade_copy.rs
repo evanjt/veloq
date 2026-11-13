@@ -494,6 +494,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_full_volume_reports_the_bytes_needed_and_free() {
         let dir = TempDir::new().unwrap();
         let (path, _conn) = library_beside(&dir);

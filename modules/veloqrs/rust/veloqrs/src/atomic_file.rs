@@ -90,6 +90,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn failed_write_removes_partial_temp_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("5.png");
@@ -108,6 +109,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn sweep_removes_stranded_temp_files_and_keeps_tiles() {
         let dir = tempfile::tempdir().unwrap();
         let column = dir.path().join("12").join("345");
@@ -126,6 +128,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn sweep_keeps_a_temp_file_younger_than_the_age() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("5.png.1.tmp"), b"in flight").unwrap();
@@ -135,6 +138,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn sweep_of_a_missing_directory_removes_nothing() {
         let dir = tempfile::tempdir().unwrap();
         assert_eq!(
@@ -144,6 +148,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn successive_writes_replace_the_file_and_leave_no_temp_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("index.bin");

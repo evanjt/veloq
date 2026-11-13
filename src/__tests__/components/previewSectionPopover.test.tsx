@@ -39,7 +39,7 @@ describe('the preview section card header', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('heads a nameless proposal by its number', async () => {
+  vaultIt('heads a nameless proposal by its number', async () => {
     const { getByText, queryByText } = await render(
       <PreviewSectionPopover section={row({})} newNumber={2} onClose={() => {}} />
     );
@@ -47,7 +47,7 @@ describe('the preview section card header', () => {
     expect(queryByText(/\{\{/)).toBeNull();
   });
 
-  it('keeps the name of a matched row', async () => {
+  vaultIt('keeps the name of a matched row', async () => {
     const { getByText } = await render(
       <PreviewSectionPopover
         section={row({ status: 'changed', name: 'Section 7', liveId: 'l7' })}
@@ -58,7 +58,7 @@ describe('the preview section card header', () => {
     expect(getByText('Section 7')).toBeTruthy();
   });
 
-  it('counts the proposal in traversals', async () => {
+  vaultIt('counts the proposal in traversals', async () => {
     const { getByText } = await render(
       <PreviewSectionPopover section={row({ visits: 3 })} newNumber={1} onClose={() => {}} />
     );

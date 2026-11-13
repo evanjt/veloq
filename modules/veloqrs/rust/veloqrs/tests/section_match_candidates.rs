@@ -49,6 +49,7 @@ fn a_ride_on_the_line_is_a_candidate() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_in_another_valley_is_not_read_at_all() {
     let mut s = setup();
     add(&mut s, "on_it", ride_at(46.0, 7.0));
@@ -69,6 +70,7 @@ fn a_ride_in_another_valley_is_not_read_at_all() {
 /// the matcher's own bound is the proximity threshold, so anything inside it
 /// is the matcher's call to make, not the prefilter's.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_just_off_the_line_is_still_a_candidate() {
     let mut s = setup();
     let pad = 50.0;
@@ -83,6 +85,7 @@ fn a_ride_just_off_the_line_is_still_a_candidate() {
 /// The pad is what separates the two. The same ride is a candidate against a
 /// generous threshold and not against a mean one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_pad_is_what_decides_the_edge() {
     let mut s = setup();
     let offset = 400.0 / (111_320.0 * 46.0_f64.to_radians().cos());
@@ -94,6 +97,7 @@ fn the_pad_is_what_decides_the_edge() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_line_has_no_candidates() {
     let mut s = setup();
     add(&mut s, "on_it", ride_at(46.0, 7.0));

@@ -100,7 +100,7 @@ describe('the preview area envelope', () => {
     expect(source['preview-area'].data.features).toEqual([]);
   });
 
-  it('draws it as a dashed white line under the section layers', () => {
+  vaultIt('draws it as a dashed white line under the section layers', () => {
     const layers = buildPreviewLayers(mapPalette('light'));
     const envelope = layers.find((l) => l.id === 'preview-area-line');
 

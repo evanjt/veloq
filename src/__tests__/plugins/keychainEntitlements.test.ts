@@ -70,7 +70,7 @@ describe('keychain entitlements', () => {
     expect(groups.filter((g) => !teamPrefixed(g))).toEqual([]);
   });
 
-  it.each(trackedEntitlementFiles())('%s declares no bare keychain access group', (file) => {
+  vaultIt.each(trackedEntitlementFiles())('%s declares no bare keychain access group', (file) => {
     const xml = fs.readFileSync(file, 'utf8');
     const block = xml.match(/<key>keychain-access-groups<\/key>\s*<array>([\s\S]*?)<\/array>/);
     const groups = block ? [...block[1].matchAll(/<string>(.*?)<\/string>/g)].map((m) => m[1]) : [];

@@ -27,7 +27,7 @@ const request = (overrides: Partial<SnapshotRequest> = {}): SnapshotRequest => (
 });
 
 describe('a downgraded preview asks again, within a cap', () => {
-  it('lets an ordinary request through and spends nothing', () => {
+  vaultIt('lets an ordinary request through and spends nothing', () => {
     const attempts = new Map<string, number>();
 
     expect(allowUpgradeAttempt(attempts, request())).toBe(true);

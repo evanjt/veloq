@@ -40,7 +40,7 @@ const point = (insight: Insight, label: string) =>
   insight.supportingData?.dataPoints?.find((p) => p.label === label);
 
 describe('pace unit labels', () => {
-  it('names the unit the preference reads', () => {
+  vaultIt('names the unit the preference reads', () => {
     expect(paceUnitLabel(true)).toBe('/km');
     expect(paceUnitLabel(false)).toBe('/mi');
     expect(swimPaceUnitLabel(true)).toBe('/100m');

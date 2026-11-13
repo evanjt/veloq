@@ -60,7 +60,7 @@ function fakeModule(initial: boolean) {
 }
 
 describe('useButtonShapes', () => {
-  it('reads the setting from the accessibility module', async () => {
+  vaultIt('reads the setting from the accessibility module', async () => {
     const { readShapes } = loadWith(fakeModule(true).module);
     const { result } = await readShapes();
     expect(result.current).toBe(true);
@@ -91,7 +91,7 @@ describe('useButtonShapes', () => {
     expect(result.current).toBe(false);
   });
 
-  it('reads the setting from a module with no change event', async () => {
+  vaultIt('reads the setting from a module with no change event', async () => {
     const { result } = await loadWith({ buttonShapes: () => true }).readShapes();
     expect(result.current).toBe(true);
   });

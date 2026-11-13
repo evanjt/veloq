@@ -280,7 +280,7 @@ describe('Expo push refusals', () => {
       expect(receiptKeys(env)).toHaveLength(4);
     });
 
-    it('asks Expo nothing when no ticket is waiting', async () => {
+    vaultIt('asks Expo nothing when no ticket is waiting', async () => {
       const env = environment([device(TOKEN, 'ios')]);
       global.fetch = jest.fn() as unknown as typeof fetch;
 

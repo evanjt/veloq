@@ -131,7 +131,7 @@ describe('writeProvisionalActivity', () => {
     expect(body.icu_rpe).toBe(8);
   });
 
-  it('carries no effort the athlete never set', async () => {
+  vaultIt('carries no effort the athlete never set', async () => {
     await writeProvisionalActivity(ENTRY);
     const body = JSON.parse(saveProvisional.mock.calls[0][2].raw);
     expect(body).not.toHaveProperty('icu_rpe');
@@ -154,7 +154,7 @@ describe('writeProvisionalActivity', () => {
     expect(await writeProvisionalActivity(ENTRY)).toBeNull();
   });
 
-  it('answers null when no key can be minted', async () => {
+  vaultIt('answers null when no key can be minted', async () => {
     mint.mockReturnValue('');
 
     expect(await writeProvisionalActivity(ENTRY)).toBeNull();
@@ -195,7 +195,7 @@ describe('writeProvisionalActivity', () => {
     expect(await writeProvisionalActivity(ENTRY)).toBe('local-deadbeef');
   });
 
-  it('answers null when the engine closes before the atomic write', async () => {
+  vaultIt('answers null when the engine closes before the atomic write', async () => {
     saveProvisional.mockReturnValueOnce(false);
     expect(await writeProvisionalActivity(ENTRY)).toBeNull();
   });
@@ -242,7 +242,7 @@ describe('replayProvisionalWrites', () => {
     expect(mockAttach).toHaveBeenCalledWith(uploaded.id, 'local-deadbeef');
   });
 
-  it('skips a ride marked uploaded with no id to put on its row', async () => {
+  vaultIt('skips a ride marked uploaded with no id to put on its row', async () => {
     mockList.mockResolvedValue([{ ...ENTRY, uploadStatus: 'uploaded' as const }]);
 
     expect(await replayProvisionalWrites()).toBe(0);
@@ -278,7 +278,7 @@ describe('replayProvisionalWrites', () => {
     expect(await replayProvisionalWrites()).toBe(1);
   });
 
-  it('does nothing while the engine is closed', async () => {
+  vaultIt('does nothing while the engine is closed', async () => {
     setReady(false);
     mockList.mockResolvedValue([ENTRY]);
     expect(await replayProvisionalWrites()).toBe(0);

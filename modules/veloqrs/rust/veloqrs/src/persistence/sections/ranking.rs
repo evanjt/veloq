@@ -617,6 +617,7 @@ mod recency_decay_tests {
     use super::recency_score;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn separates_sections_across_a_year() {
         let year = recency_score(365);
         assert!(
@@ -633,6 +634,7 @@ mod recency_decay_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn decays_monotonically_from_one() {
         assert!((recency_score(0) - 1.0).abs() < f64::EPSILON);
         let mut previous = f64::INFINITY;
@@ -709,6 +711,7 @@ mod workout_trend_encoding_tests {
     /// Expected behaviour: each lap's point carries that lap's mean watts, and
     /// the lap-less record's point carries none.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_point_carries_its_laps_stored_mean_power() {
         let lap = |id: &str, avg_power: Option<f64>| crate::SectionLap {
             id: id.to_string(),
@@ -895,6 +898,7 @@ mod workout_trend_encoding_tests {
     /// Expected behaviour: the chart plots no reverse point, so it does not
     /// ask for the reverse legend either; a full reverse pass does.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_reverse_fragment_does_not_raise_the_reverse_flag() {
         let mut perf = out_and_back(&[
             (1_700_000_000, 300.0, "same"),
@@ -1025,6 +1029,7 @@ mod workout_trend_encoding_tests {
     ///
     /// Expected behaviour: the fallback reads the same improving verdict.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn nine_efforts_have_a_trend_on_the_fallback() {
         let records: Vec<_> = (0..9)
             .map(|i| record(1_700_000 + i * 86_400, if i < 6 { 400.0 } else { 380.0 }))
@@ -1040,6 +1045,7 @@ mod workout_trend_encoding_tests {
     ///
     /// Expected behaviour: zero days since, as the fallback says.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_section_ridden_today_is_zero_days_since_on_the_ranked_path() {
         let mut rs = ranked(0);
         rs.days_since_last = 0;
@@ -1053,6 +1059,7 @@ mod workout_trend_encoding_tests {
     /// Expected behaviour: one day since on both paths, the count of UTC days
     /// the rest of the ranking reads, not the hours elapsed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ride_on_the_previous_utc_day_is_one_day_since_on_both_paths() {
         let ride = 1_699_992_000; // 2023-11-14 20:00 UTC
         let view = 1_700_038_800; // 2023-11-15 09:00 UTC
@@ -1072,6 +1079,7 @@ mod workout_trend_encoding_tests {
     ///
     /// Expected behaviour: zero days since on both paths.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ride_earlier_the_same_utc_day_is_zero_days_since_on_both_paths() {
         let ride = 1_700_008_200; // 2023-11-15 00:30 UTC
         let view = 1_700_038_800; // 2023-11-15 09:00 UTC
@@ -1088,6 +1096,7 @@ mod workout_trend_encoding_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ranked_verdict_reaches_the_wire_unchanged() {
         for verdict in [-1i8, 0, 1] {
             let row = enrich_from_ranked(ranked(verdict), empty_performances(), NOW);
@@ -1096,6 +1105,7 @@ mod workout_trend_encoding_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn too_little_history_reads_stable_as_the_ranked_path_does() {
         let records: Vec<_> = (0..4)
             .map(|i| record(1_700_000 + i * 86_400, 300.0))
@@ -1109,6 +1119,7 @@ mod workout_trend_encoding_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn ten_traversals_getting_faster_read_as_improving() {
         // The last three at 300s against the three before at 400s: a 25% move,
         // well outside the deadband.
@@ -1195,6 +1206,7 @@ mod workout_trend_encoding_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn marks_the_shortest_time_and_not_the_fastest_speed() {
             let chart = chart_from_cutoff(
                 &perf(vec![
@@ -1207,6 +1219,7 @@ mod workout_trend_encoding_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn leaves_a_tie_unmarked() {
             let chart = chart_from_cutoff(
                 &perf(vec![
@@ -1219,6 +1232,7 @@ mod workout_trend_encoding_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn leaves_a_lone_reverse_lap_unmarked_and_marks_one_per_direction() {
             let chart = chart_from_cutoff(
                 &perf(vec![
@@ -1267,6 +1281,7 @@ mod workout_trend_encoding_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_direction_of_only_estimated_laps_shows_its_quickest_marked_estimated() {
             let chart = chart_from_cutoff(
                 &perf(vec![
@@ -1300,6 +1315,7 @@ mod workout_trend_encoding_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn ten_traversals_getting_slower_read_as_declining() {
         let mut records = Vec::new();
         for i in 0..7 {
@@ -2241,18 +2257,21 @@ mod wall_clock_cutoff_tests {
     const EVENING_BEFORE: i64 = 1_699_992_000;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_range_edge_is_the_wall_clock_now_less_the_span() {
         assert_eq!(range_cutoff(30, WALL_NOW), WALL_NOW - 30 * 86_400);
         assert_eq!(range_cutoff(0, WALL_NOW), i64::MIN);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_stale_edge_is_the_wall_clock_now_less_the_threshold() {
         assert_eq!(stale_cutoff(WALL_NOW, 14), WALL_NOW - 14 * 86_400);
         assert_eq!(stale_cutoff(WALL_NOW, 0), WALL_NOW);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_evening_ride_is_one_day_old_the_next_morning() {
         assert_eq!(crate::calendar_days_between(EVENING_BEFORE, WALL_NOW), 1);
     }

@@ -160,6 +160,7 @@ impl Setup {
 /// Expected behaviour: the detect still runs, and the reduced pool is a
 /// durable record naming the activity, not an anonymous empty track.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn one_unreadable_track_is_named_in_the_pool_record() {
     let _serial_state = crate::serial_state();
     let mut s = setup(12);
@@ -297,6 +298,7 @@ fn a_narrowed_unreadable_track_uses_the_whole_library_for_integrity() {
 /// Expected behaviour: detection runs. One bad row is isolated rot, and a
 /// small library must not lose its catalogue to it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_single_bad_row_on_a_small_library_still_detects() {
     let _serial_state = crate::serial_state();
     let mut s = setup(9);
@@ -350,6 +352,7 @@ fn an_unreadable_pool_abandons_the_detect() {
 /// sync. The integrity record, written only by a run that got as far as
 /// loading, stays absent.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_abandoned_pool_is_not_reloaded_until_it_changes() {
     let _serial_state = crate::serial_state();
     let mut s = setup(12);
@@ -382,6 +385,7 @@ fn an_abandoned_pool_is_not_reloaded_until_it_changes() {
 /// Expected behaviour: the record describes the live catalogue, so a clean
 /// pool clears it rather than leaving a stale warning behind.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_clean_pool_clears_the_record() {
     let _serial_state = crate::serial_state();
     let mut s = setup(4);
@@ -410,6 +414,7 @@ fn a_clean_pool_clears_the_record() {
 /// permanently bad row does not cost a full tile pass at every launch. The
 /// activity is named on disk instead, which is what buys the redraw.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_incomplete_tile_set_names_the_activity_and_clears_the_marker() {
     let _serial_state = crate::serial_state();
     let _serialise = TILE_TEST.lock().unwrap_or_else(|e| e.into_inner());
@@ -436,6 +441,7 @@ fn an_incomplete_tile_set_names_the_activity_and_clears_the_marker() {
 /// Expected behaviour: those tiles are redrawn. Left to `tile_exists` they
 /// would be served forever and the repaired ride would never reach the map.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_repaired_track_redraws_the_tiles_it_reaches() {
     let _serial_state = crate::serial_state();
     let _serialise = TILE_TEST.lock().unwrap_or_else(|e| e.into_inner());
@@ -463,6 +469,7 @@ fn a_repaired_track_redraws_the_tiles_it_reaches() {
 /// The control for the redraw: with nothing unreadable, a second pass over an
 /// unchanged library draws nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_readable_library_redraws_nothing() {
     let _serial_state = crate::serial_state();
     let _serialise = TILE_TEST.lock().unwrap_or_else(|e| e.into_inner());
@@ -483,6 +490,7 @@ fn a_readable_library_redraws_nothing() {
 // ------------------------------------------------------------ exports
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_gpx_archive_names_the_activity_it_could_not_read() {
     let _serial_state = crate::serial_state();
     let s = setup(4);
@@ -518,6 +526,7 @@ fn the_gpx_archive_names_the_activity_it_could_not_read() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_geojson_export_carries_its_omissions() {
     let _serial_state = crate::serial_state();
     let s = setup(4);

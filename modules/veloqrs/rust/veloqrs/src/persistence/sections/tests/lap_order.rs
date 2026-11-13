@@ -21,6 +21,7 @@ fn track() -> Vec<GpsPoint> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_outings_laps_are_read_in_the_order_they_were_ridden() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     engine

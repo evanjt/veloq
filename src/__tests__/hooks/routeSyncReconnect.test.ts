@@ -86,7 +86,7 @@ describe('the route sync on reconnect', () => {
     expect(mockStartGpsPass.mock.calls.length).toBe(handed);
   });
 
-  it('hands nothing to the engine when no track is owed', async () => {
+  vaultIt('hands nothing to the engine when no track is owed', async () => {
     const { engine } = (getNativeModule as jest.Mock)();
     (getNativeModule as jest.Mock).mockReturnValue({
       engine: { ...engine, getGpsFetchCandidates: () => [] },

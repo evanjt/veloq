@@ -108,7 +108,7 @@ it('shows the translated failure line, not the thrown message', async () => {
   expect(screen.queryByText(/SQLITE_BUSY/)).toBeNull();
 });
 
-it('draws the shared empty state for a search that matches nothing', async () => {
+vaultIt('draws the shared empty state for a search that matches nothing', async () => {
   mockFeedRead.isError = false;
   await renderFeed();
   await fireEvent.changeText(screen.getByTestId('native-header-search'), 'nowhere');
@@ -118,7 +118,7 @@ it('draws the shared empty state for a search that matches nothing', async () =>
   );
 });
 
-it("stacks the search field under the title, clear of the app's own tab bar", async () => {
+vaultIt("stacks the search field under the title, clear of the app's own tab bar", async () => {
   mockFeedRead.isError = false;
   await renderFeed();
   expect(screen.getByTestId('native-header-search').props.accessibilityHint).toBe('stacked');

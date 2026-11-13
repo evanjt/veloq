@@ -80,7 +80,7 @@ describe('DetailFallback', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('draws the skeleton for a closed read while the engine is still opening', async () => {
+  vaultIt('draws the skeleton for a closed read while the engine is still opening', async () => {
     mockReady.open = false;
     const screen = await renderFallback({ kind: 'closed' });
     expect(screen.getByTestId('detail-fallback-skeleton')).toBeTruthy();
@@ -88,7 +88,7 @@ describe('DetailFallback', () => {
     expect(screen.queryByText('common.retry')).toBeNull();
   });
 
-  it('stands a route or section card at Peek while the engine is still opening', async () => {
+  vaultIt('stands a route or section card at Peek while the engine is still opening', async () => {
     mockReady.open = false;
     const screen = await render(
       <DetailFallback
@@ -145,7 +145,7 @@ describe('DetailFallback', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('shows no link for a retired record with no survivor', async () => {
+  vaultIt('shows no link for a retired record with no survivor', async () => {
     const screen = await renderFallback({ kind: 'missing' }, jest.fn(), {
       title: 'dissolved-title',
     });
@@ -153,16 +153,19 @@ describe('DetailFallback', () => {
     expect(screen.queryByText('common.retry')).toBeNull();
   });
 
-  it('starts the empty state directly under an opaque, themed header, with no spacer', async () => {
-    mockStackScreen.mockClear();
-    const screen = await renderFallback({ kind: 'missing' });
-    const options = (mockStackScreen.mock.calls.at(-1)?.[0] as { options?: object })?.options;
-    expect(options).toMatchObject({
-      headerTransparent: false,
-      headerStyle: { backgroundColor: colors.surface },
-      headerTintColor: colors.textPrimary,
-    });
-    const root = screen.toJSON() as { children: unknown[] };
-    expect(root.children).toHaveLength(1);
-  });
+  vaultIt(
+    'starts the empty state directly under an opaque, themed header, with no spacer',
+    async () => {
+      mockStackScreen.mockClear();
+      const screen = await renderFallback({ kind: 'missing' });
+      const options = (mockStackScreen.mock.calls.at(-1)?.[0] as { options?: object })?.options;
+      expect(options).toMatchObject({
+        headerTransparent: false,
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.textPrimary,
+      });
+      const root = screen.toJSON() as { children: unknown[] };
+      expect(root.children).toHaveLength(1);
+    }
+  );
 });

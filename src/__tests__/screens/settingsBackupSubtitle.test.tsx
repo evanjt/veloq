@@ -98,13 +98,13 @@ function backupSubtitle(screen: Awaited<ReturnType<typeof render>>): string {
 }
 
 describe('Settings auto-backup subtitle', () => {
-  it('says never when no backup has been taken', async () => {
+  vaultIt('says never when no backup has been taken', async () => {
     readTimestamp.mockReturnValue(null);
     const screen = await render(<SettingsScreen />);
     expect(backupSubtitle(screen)).toBe('backup.lastBackupNever');
   });
 
-  it('shows the date a backup was last taken', async () => {
+  vaultIt('shows the date a backup was last taken', async () => {
     const taken = Date.UTC(2026, 0, 15, 12);
     readTimestamp.mockReturnValue(taken);
     const screen = await render(<SettingsScreen />);
@@ -123,7 +123,7 @@ describe('Settings auto-backup subtitle', () => {
     expect(backupSubtitle(screen)).toBe(new Date(second).toLocaleDateString('ja'));
   });
 
-  it('goes back to never if the backup record is cleared', async () => {
+  vaultIt('goes back to never if the backup record is cleared', async () => {
     readTimestamp.mockReturnValue(Date.UTC(2026, 0, 15, 12));
     const screen = await render(<SettingsScreen />);
 
@@ -139,7 +139,7 @@ describe('Settings auto-backup subtitle', () => {
     expect(backupSubtitle(screen)).toBe('common.off');
   });
 
-  it('says off when auto backup is off and nothing was ever backed up', async () => {
+  vaultIt('says off when auto backup is off and nothing was ever backed up', async () => {
     readEnabled.mockReturnValue(false);
     readTimestamp.mockReturnValue(null);
     const screen = await render(<SettingsScreen />);

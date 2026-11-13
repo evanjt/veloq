@@ -41,6 +41,6 @@ it('leaves an unnamed group unnamed rather than naming it by its id', async () =
   expect(await namesFor(undefined)).toEqual(['']);
 });
 
-it('keeps the name the engine minted or the athlete set', async () => {
+vaultIt('keeps the name the engine minted or the athlete set', async () => {
   expect(await namesFor('Route 3')).toEqual(['Route 3']);
 });

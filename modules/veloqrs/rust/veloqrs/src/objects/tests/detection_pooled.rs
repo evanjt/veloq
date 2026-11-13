@@ -8,6 +8,7 @@ use crate::test_globals::{
 };
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_awaiting_count_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("awaiting_count_under_writer.db");
@@ -19,6 +20,7 @@ fn test_awaiting_count_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_awaiting_count_matches_the_engine() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();
@@ -65,6 +67,7 @@ fn engine_strictness() -> (f64, f64) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_config_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("config_under_writer.db");
@@ -76,6 +79,7 @@ fn test_get_config_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_match_strictness_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strictness_under_writer.db");
@@ -87,6 +91,7 @@ fn test_get_match_strictness_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_change_card_support_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("change_card_under_writer.db");
@@ -106,6 +111,7 @@ fn test_get_change_card_support_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_config_reads_match_the_engine_after_each_write() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("config_parity.db");
@@ -131,6 +137,7 @@ fn test_config_reads_match_the_engine_after_each_write() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_config_reads_a_slider_only_install_like_the_loader() {
     use crate::persistence::settings_keys as keys;
     let _guard = serial_global_state();
@@ -156,6 +163,7 @@ fn test_config_reads_a_slider_only_install_like_the_loader() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_config_reads_fall_back_to_the_slider_keys_when_the_blob_is_unparseable() {
     use crate::persistence::settings_keys as keys;
     let _guard = serial_global_state();

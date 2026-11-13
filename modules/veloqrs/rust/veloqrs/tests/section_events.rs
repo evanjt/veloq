@@ -108,6 +108,7 @@ fn kinds(engine: &veloqrs::PersistentEngine, id: &str) -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn cold_ingest_writes_one_formed_event_with_birth_geometry() {
     let (mut engine, _dir) = fresh_engine();
     let rides = corridor_rides("ca", 0.0, 9, 0);
@@ -127,6 +128,7 @@ fn cold_ingest_writes_one_formed_event_with_birth_geometry() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn unchanged_pool_applies_write_no_events() {
     let (mut engine, _dir) = fresh_engine();
     let rides = corridor_rides("ca", 0.0, 9, 0);
@@ -150,6 +152,7 @@ fn unchanged_pool_applies_write_no_events() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn sustained_dissolve_writes_one_event_with_an_era_snapshot() {
     let (mut engine, _dir) = fresh_engine();
     let rides_a = corridor_rides("ca", 0.0, 9, 0);
@@ -196,6 +199,7 @@ fn sustained_dissolve_writes_one_event_with_an_era_snapshot() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn re_emerged_ground_writes_a_restored_event_on_the_same_id() {
     let (mut engine, _dir) = fresh_engine();
     let rides_a = corridor_rides("ca", 0.0, 9, 0);
@@ -279,6 +283,7 @@ fn details_of(event: &veloqrs::persistence::sections::SectionHistoryEvent) -> se
 /// sibling's birth names the parent it was carved from, with a
 /// discriminator a read side can render in-locale.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_late_fork_splits_the_trunk_and_records_lineage() {
     let (mut engine, _dir) = fresh_engine();
     let straight = corridor_rides("ca", 0.0, 9, 0);
@@ -570,6 +575,7 @@ fn a_revert_to_a_missing_version_is_refused() {
 /// A re-cut re-bases the record on the new extent; when that moves the
 /// record, the ledger says so beside the re-cut, against the current extent.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_recut_that_changes_the_pr_writes_a_ledger_row() {
     use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
     let corpus = LifecycleCorpus::generate(&LifecycleConfig {
@@ -656,6 +662,7 @@ fn a_recut_that_changes_the_pr_writes_a_ledger_row() {
 /// A section the catalogue dropped stays in the ledger as retired, with how
 /// it left and the versions that still draw it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_dissolved_section_is_listed_as_retired() {
     let (mut engine, _dir) = fresh_engine();
     let rides_a = corridor_rides("ca", 0.0, 9, 0);

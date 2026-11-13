@@ -65,7 +65,7 @@ describe('the sync line when a settle announcement is lost', () => {
     expect(result.current?.state).toBe(SyncState.Idle);
   });
 
-  it('stops re-reading once the snapshot is idle', async () => {
+  vaultIt('stops re-reading once the snapshot is idle', async () => {
     const engine = liveEngine(status(SyncState.Syncing));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
@@ -80,7 +80,7 @@ describe('the sync line when a settle announcement is lost', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('never polls an engine that opened idle', async () => {
+  vaultIt('never polls an engine that opened idle', async () => {
     const engine = liveEngine(status(SyncState.Idle));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 

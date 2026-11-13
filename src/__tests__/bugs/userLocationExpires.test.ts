@@ -46,7 +46,7 @@ beforeEach(() => {
 describe('fixIsStale', () => {
   const now = 1_000_000;
 
-  it('treats a missing fix as stale', () => {
+  vaultIt('treats a missing fix as stale', () => {
     expect(fixIsStale(null, now)).toBe(true);
   });
 
@@ -74,7 +74,7 @@ it('asks again when the app foregrounds with a stale fix', async () => {
   jest.spyOn(Date, 'now').mockRestore();
 });
 
-it('does not ask again when the fix is still fresh', async () => {
+vaultIt('does not ask again when the fix is still fresh', async () => {
   (Location.getLastKnownPositionAsync as jest.Mock).mockResolvedValue(fixAt(46.5, 6.6));
   const { result } = await renderHook(() => useUserLocation());
   await waitFor(() => expect(result.current.location).toEqual({ lat: 46.5, lng: 6.6 }));
@@ -143,7 +143,7 @@ describe('OS last-known position', () => {
     now.mockRestore();
   });
 
-  it('applies the same rule when permission is requested', async () => {
+  vaultIt('applies the same rule when permission is requested', async () => {
     const yesterday = Date.now() - 24 * 60 * 60 * 1000;
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue(granted);
     (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({

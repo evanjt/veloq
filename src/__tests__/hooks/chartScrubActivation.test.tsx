@@ -76,7 +76,7 @@ describe('chart scrub activation', () => {
     expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
   });
 
-  it('starts a leftward scrub the same way', async () => {
+  vaultIt('starts a leftward scrub the same way', async () => {
     const { pan } = await renderChart();
 
     const mgr = await touchAndMove(pan, touchAt(60), [touchAt(60, -travel)]);
@@ -103,7 +103,7 @@ describe('chart scrub activation', () => {
     expect(onSelect).toHaveBeenLastCalledWith(three[1], 1);
   });
 
-  it('waits while the finger is still inside the slop', async () => {
+  vaultIt('waits while the finger is still inside the slop', async () => {
     const { pan, onSelect } = await renderChart();
 
     const mgr = await touchAndMove(pan, touchAt(30), [touchAt(30, SCRUB_SLOP, SCRUB_SLOP)]);
@@ -123,7 +123,7 @@ describe('chart scrub activation', () => {
     expect(onInteractionChange).not.toHaveBeenCalled();
   });
 
-  it('fails on a diagonal move that is more vertical than horizontal', async () => {
+  vaultIt('fails on a diagonal move that is more vertical than horizontal', async () => {
     const { pan } = await renderChart();
 
     const mgr = await touchAndMove(pan, touchAt(30), [touchAt(30, travel, travel + 1)]);
@@ -162,7 +162,7 @@ describe('chart scrub activation', () => {
 });
 
 describe('drag-activated chart scrub haptic', () => {
-  it('fires one light impact when a drag scrub activates', async () => {
+  vaultIt('fires one light impact when a drag scrub activates', async () => {
     const pan = await renderDragChart();
 
     await start(pan, 30);
@@ -170,7 +170,7 @@ describe('drag-activated chart scrub haptic', () => {
     expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light);
   });
 
-  it('fires no further impact for later moves in the same drag', async () => {
+  vaultIt('fires no further impact for later moves in the same drag', async () => {
     const pan = await renderDragChart();
 
     await start(pan, 30);
@@ -182,7 +182,7 @@ describe('drag-activated chart scrub haptic', () => {
     expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
   });
 
-  it('fires no impact for a press that never travels past the slop', async () => {
+  vaultIt('fires no impact for a press that never travels past the slop', async () => {
     const pan = await renderDragChart();
 
     await act(async () => {
@@ -191,7 +191,7 @@ describe('drag-activated chart scrub haptic', () => {
     expect(Haptics.impactAsync).not.toHaveBeenCalled();
   });
 
-  it('fires no impact when haptics are off', async () => {
+  vaultIt('fires no impact when haptics are off', async () => {
     const pan = await renderDragChart(false);
 
     await start(pan, 30);

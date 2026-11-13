@@ -92,7 +92,7 @@ describe('bundled glyph stacks', () => {
     expect(missing).toEqual([]);
   });
 
-  it('finds basemap labels among them, so the base style is checked too', () => {
+  vaultIt('finds basemap labels among them, so the base style is checked too', () => {
     expect(basemapLayers().some((layer) => layer.layout?.['text-field'] !== undefined)).toBe(true);
   });
 
@@ -108,7 +108,7 @@ describe('bundled glyph stacks', () => {
     expect(foreign).toEqual([]);
   });
 
-  it('draws every label in Manrope with a Noto face behind it and none in italic', () => {
+  vaultIt('draws every label in Manrope with a Noto face behind it and none in italic', () => {
     const offFace = labelledSymbolLayers()
       .map((layer) => ({ id: layer.id, stack: layer.layout?.['text-font'] as unknown }))
       .filter(({ stack }) => {

@@ -32,7 +32,7 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
 }));
 
 describe('the WebDAV form', () => {
-  it('declares the server, username and password to autofill on both platforms', async () => {
+  vaultIt('declares the server, username and password to autofill on both platforms', async () => {
     await render(<WebdavConfigForm onConfigChange={jest.fn()} onRemoved={jest.fn()} />);
 
     const url = screen.getByTestId('backup-webdav-url');
@@ -48,7 +48,7 @@ describe('the WebDAV form', () => {
     expect(password.props.autoComplete).toBe('current-password');
   });
 
-  it('reveals the password and hides it again', async () => {
+  vaultIt('reveals the password and hides it again', async () => {
     await render(<WebdavConfigForm onConfigChange={jest.fn()} onRemoved={jest.fn()} />);
     expect(screen.getByTestId('backup-webdav-password').props.secureTextEntry).toBe(true);
 
@@ -82,14 +82,14 @@ describe('the API key form', () => {
     return onLogin;
   }
 
-  it('declares the key as a password so a manager can store and refill it', async () => {
+  vaultIt('declares the key as a password so a manager can store and refill it', async () => {
     await renderOpen();
     const input = screen.getByTestId('login-apikey-input');
     expect(input.props.textContentType).toBe('password');
     expect(input.props.autoComplete).toBe('password');
   });
 
-  it('reveals the key so a paste can be checked before connecting', async () => {
+  vaultIt('reveals the key so a paste can be checked before connecting', async () => {
     await renderOpen();
     expect(screen.getByTestId('login-apikey-input').props.secureTextEntry).toBe(true);
 

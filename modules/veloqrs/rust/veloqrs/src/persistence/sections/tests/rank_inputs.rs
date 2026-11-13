@@ -187,6 +187,7 @@ fn test_page_trends_match_insights_ranker_and_omit_ineligible_sections() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_nothing_has_refreshed_ranks_as_the_scan_does() {
     let engine = library(6, 9);
     assert!(dirty(&engine) > 0);
@@ -194,6 +195,7 @@ fn a_section_nothing_has_refreshed_ranks_as_the_scan_does() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refresh_clears_the_marks_and_ranks_as_the_scan_does() {
     let engine = library(6, 9);
     refresh_rank_inputs(&engine.db).unwrap();
@@ -299,6 +301,7 @@ fn rank_across_a_commit(path: &std::path::Path, write: fn(&rusqlite::Connection)
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_write_that_marks_a_section_mid_read_does_not_rank_it_twice() {
     let dir = tempfile::tempdir().expect("dir");
     let path = dir.path().join("rank.db");
@@ -345,6 +348,7 @@ fn a_refresh_that_clears_a_mark_mid_read_does_not_drop_the_section() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_traversal_whose_metrics_arrive_later_is_ranked_once_they_do() {
     let engine = library(2, 5);
     engine
@@ -368,6 +372,7 @@ fn a_traversal_whose_metrics_arrive_later_is_ranked_once_they_do() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_read_after_a_refresh_costs_what_it_keeps_not_what_the_library_holds() {
     let steps = |sections: usize| {
         let engine = library(sections, 12);
@@ -391,6 +396,7 @@ fn a_read_after_a_refresh_costs_what_it_keeps_not_what_the_library_holds() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_replacing_write_to_an_already_marked_section_still_lands() {
     let engine = library(2, 4);
     for _ in 0..2 {

@@ -44,6 +44,7 @@ fn null_coordinates_drop_from_every_series() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clean_coordinates_leave_every_series_untouched() {
     let raw = dtos(json!([
         {"type": "time", "data": [0, 1, 2]},
@@ -104,6 +105,7 @@ fn a_short_series_is_reported_rather_than_padded_in_silence() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_long_series_reports_the_tail_it_drops() {
     let raw = dtos(json!([
         {"type": "latlng", "data": [10.0, 10.1], "data2": [20.0, 20.1]},
@@ -143,6 +145,7 @@ fn lat_and_lng_of_different_lengths_are_reported() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn aligned_series_report_nothing() {
     let raw = dtos(json!([
         {"type": "time", "data": [0, 1, 2]},
@@ -154,6 +157,7 @@ fn aligned_series_report_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn without_latlng_each_series_keeps_its_own_length() {
     let raw = dtos(json!([
         {"type": "time", "data": [0, 1, 2, 3]},
@@ -290,6 +294,7 @@ fn the_time_stream_lands_in_the_stored_point_index_space() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_time_only_request_has_no_mask_and_clamps_negatives() {
     let server = MockServer::start();
     let _mock = streams_mock(&server, json!([{"type": "time", "data": [0, 1, -3, 4]}]));

@@ -15,12 +15,12 @@ import { tileProtocolsScript } from '@/features/maps/lib/htmlBuilders/shared';
 import { offlineMapStyle } from '@/features/maps/lib/offlineStyleFallback';
 
 describe('the satellite cache', () => {
-  it('is not one of the caches the pages keep', () => {
+  vaultIt('is not one of the caches the pages keep', () => {
     expect(TILE_CACHE_NAMES).not.toContain(LEGACY_SATELLITE_CACHE);
     expect(TILE_CACHE_NAMES.some((name) => name.includes('satellite'))).toBe(false);
   });
 
-  it('is dropped on any install that still holds one', () => {
+  vaultIt('is dropped on any install that still holds one', () => {
     expect(dropRetiredTileCachesScript()).toContain(`caches.delete('${LEGACY_SATELLITE_CACHE}')`);
     expect(tileProtocolsScript()).toContain(`caches.delete('${LEGACY_SATELLITE_CACHE}')`);
   });

@@ -52,7 +52,7 @@ it('registers the first time, when the server has been told nothing', async () =
   expect(global.fetch).toHaveBeenCalledTimes(1);
 });
 
-it('makes no call on the next open with the same token', async () => {
+vaultIt('makes no call on the next open with the same token', async () => {
   await ensurePushTokenRegistered(ATHLETE);
   (global.fetch as jest.Mock).mockClear();
 
@@ -92,7 +92,7 @@ it('writes nothing down when the registration is refused', async () => {
   expect(global.fetch).toHaveBeenCalledTimes(1);
 });
 
-it('does nothing at all when the device has no token to offer', async () => {
+vaultIt('does nothing at all when the device has no token to offer', async () => {
   (Notifications.getExpoPushTokenAsync as jest.Mock).mockRejectedValue(new Error('no token'));
   await ensurePushTokenRegistered(ATHLETE);
   expect(global.fetch).not.toHaveBeenCalled();

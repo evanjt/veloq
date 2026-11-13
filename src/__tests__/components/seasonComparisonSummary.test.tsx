@@ -119,7 +119,7 @@ afterEach(() => {
 });
 
 describe('SeasonComparison series', () => {
-  it('names each series once, beside its colour, with no separate legend row', async () => {
+  vaultIt('names each series once, beside its colour, with no separate legend row', async () => {
     await renderCard();
 
     await waitFor(() => expect(screen.getByText('4h')).toBeTruthy());
@@ -135,7 +135,7 @@ describe('SeasonComparison series', () => {
 });
 
 describe('SeasonComparison month letters', () => {
-  it('caps the twelve letters, which share the chart width in one row', async () => {
+  vaultIt('caps the twelve letters, which share the chart width in one row', async () => {
     await renderCard();
 
     await waitFor(() => expect(screen.getByText('4h')).toBeTruthy());
@@ -195,7 +195,7 @@ describe('SeasonComparison change between years', () => {
     expect(screen.queryByText(/%/)).toBeNull();
   });
 
-  it('names both years beside their values in the tooltip', async () => {
+  vaultIt('names both years beside their values in the tooltip', async () => {
     await renderCard();
     await waitFor(() => expect(screen.getByText('4h')).toBeTruthy());
     await scrubJanuary();
@@ -251,7 +251,7 @@ describe('SeasonComparison over a range never downloaded', () => {
     expect(screen.queryByText('stats.rangeNotDownloaded')).toBeNull();
   });
 
-  it('adds a quiet line when part of the two years is not downloaded', async () => {
+  vaultIt('adds a quiet line when part of the two years is not downloaded', async () => {
     engine.rangeCoverage.mockReturnValueOnce(RangeCoverage.NotFetched);
 
     await renderCard();
@@ -259,7 +259,7 @@ describe('SeasonComparison over a range never downloaded', () => {
     await waitFor(() => expect(screen.getByTestId('season-comparison-partial')).toBeTruthy());
   });
 
-  it('asks the census about 1 January last year through today', async () => {
+  vaultIt('asks the census about 1 January last year through today', async () => {
     await renderCard();
 
     await waitFor(() => expect(engine.rangeCoverage).toHaveBeenCalled());
@@ -276,7 +276,7 @@ describe('SeasonComparison in the app language', () => {
     await changeLanguage('en-US');
   });
 
-  it('names the months in that language', async () => {
+  vaultIt('names the months in that language', async () => {
     await renderCard();
     await waitFor(() => expect(screen.getByText('1月')).toBeTruthy());
     await scrubJanuary();
@@ -291,7 +291,7 @@ describe('SeasonComparison read without seeing it', () => {
     await changeLanguage('en-GB');
   });
 
-  it('speaks both years month by month, this year only up to its current month', async () => {
+  vaultIt('speaks both years month by month, this year only up to its current month', async () => {
     setRows([month(YEAR - 1, 1, 2), month(YEAR - 1, 12, 6), month(YEAR, 1, 4), month(YEAR, 6, 3)]);
     await renderCard();
     await waitFor(() => expect(screen.getByText('7h')).toBeTruthy());

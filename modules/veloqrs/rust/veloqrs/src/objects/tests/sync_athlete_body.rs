@@ -61,6 +61,7 @@ fn an_html_athlete_body_keeps_the_stored_profile_and_sport_settings() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_object_athlete_body_keeps_the_stored_profile_and_sport_settings() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("sync_athlete_empty.db");
@@ -96,6 +97,7 @@ fn a_sport_settings_answer_that_is_not_a_list_keeps_the_stored_settings_and_prof
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_valid_answer_after_a_refused_one_stores_the_profile_and_settings() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("sync_athlete_recovers.db");

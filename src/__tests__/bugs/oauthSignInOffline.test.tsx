@@ -134,7 +134,7 @@ it('shows translated text when the proxy fetch runs out its deadline', async () 
   expect(mockBrowser).not.toHaveBeenCalled();
 });
 
-it('shows translated text when the proxy refuses to register the state', async () => {
+vaultIt('shows translated text when the proxy refuses to register the state', async () => {
   global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
   const handleOAuthLogin = await signIn();
 
@@ -146,7 +146,7 @@ it('shows translated text when the proxy refuses to register the state', async (
   expect(mockBrowser).not.toHaveBeenCalled();
 });
 
-it('shows translated text when the proxy refuses to redeem the code', async () => {
+vaultIt('shows translated text when the proxy refuses to redeem the code', async () => {
   mockBrowser.mockImplementation(async () => ({
     type: 'success',
     url: `veloq://oauth/callback?success=true&code=fake&state=${lastState()}`,
@@ -164,7 +164,7 @@ it('shows translated text when the proxy refuses to redeem the code', async () =
   expect(shown()).toBe('login.oauthProxyRefused');
 });
 
-it('does not name the API key for a failure with no message', async () => {
+vaultIt('does not name the API key for a failure with no message', async () => {
   global.fetch = jest.fn().mockRejectedValue('dropped');
   const handleOAuthLogin = await signIn();
 
@@ -175,7 +175,7 @@ it('does not name the API key for a failure with no message', async () => {
   expect(shown()).toBe('login.oauthFailed');
 });
 
-it.each([
+vaultIt.each([
   ['access is denied', 'success=false&error=access_denied', 'login.oauthAccessDenied'],
   ['the proxy reports another error', 'success=false&error=invalid_request', 'login.oauthFailed'],
   ['the callback has no token or code', 'success=true', 'login.oauthInvalidCallback'],
@@ -199,7 +199,7 @@ it.each([
   expect(shown()).toBe(key);
 });
 
-it('shows translated text when the code exchange returns no token', async () => {
+vaultIt('shows translated text when the code exchange returns no token', async () => {
   mockBrowser.mockImplementation(async () => ({
     type: 'success',
     url: `veloq://oauth/callback?success=true&code=fake&state=${lastState()}`,

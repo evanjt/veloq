@@ -78,6 +78,7 @@ fn fingerprint(engine: &mut PersistentEngine) -> BTreeMap<String, (u32, usize, S
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn apply_sections_remaps_duplicate_input_ids() {
     let (mut engine, _tmp) = engine_with_b_state();
 

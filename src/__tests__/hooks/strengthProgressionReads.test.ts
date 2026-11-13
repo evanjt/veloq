@@ -125,7 +125,7 @@ describe('useStrengthScreenData', () => {
     client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   });
 
-  it('reads once for a drag across five muscles', async () => {
+  vaultIt('reads once for a drag across five muscles', async () => {
     const wrapper = wrapperWith(client);
     const { result } = await renderHook(() => useStrengthScreenData('1m'), { wrapper });
     await waitForData(() => result.current.data);
@@ -164,7 +164,7 @@ describe('useStrengthScreenData', () => {
     expect(result.current.data?.summary.muscleVolumes.map((v) => v.slug)).toEqual(MUSCLES);
   });
 
-  it('reads nothing at all from an engine that has no such call', async () => {
+  vaultIt('reads nothing at all from an engine that has no such call', async () => {
     for (const key of Object.keys(mockEngine)) delete mockEngine[key];
     mockEngine.subscribe = () => () => {};
     const wrapper = wrapperWith(client);

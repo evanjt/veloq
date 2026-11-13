@@ -11,17 +11,17 @@ import { locationGrant } from '@/shared/app/permissions/locationGrant';
 import type { LocationPermissionResponse } from 'expo-location';
 
 describe('the sport Start begins', () => {
-  it('is the last one recorded', () => {
+  vaultIt('is the last one recorded', () => {
     expect(defaultEntrySport(['Run', 'Ride'])).toBe('Run');
   });
 
-  it('is a ride before anything has been recorded', () => {
+  vaultIt('is a ride before anything has been recorded', () => {
     expect(defaultEntrySport([])).toBe('Ride');
   });
 });
 
 describe('the chip row', () => {
-  it('holds the recent sports, most recent first, up to the count', () => {
+  vaultIt('holds the recent sports, most recent first, up to the count', () => {
     expect(entrySportChips(['Run', 'Ride', 'Walk', 'Hike', 'Swim'], 'Run', [], 4)).toEqual([
       'Run',
       'Ride',
@@ -30,11 +30,11 @@ describe('the chip row', () => {
     ]);
   });
 
-  it('offers the defaults before anything has been recorded', () => {
+  vaultIt('offers the defaults before anything has been recorded', () => {
     expect(entrySportChips([], 'Ride')).toEqual([...DEFAULT_ENTRY_SPORTS]);
   });
 
-  it('follows one recent sport with the library sports before the defaults', () => {
+  vaultIt('follows one recent sport with the library sports before the defaults', () => {
     expect(entrySportChips(['Swim'], 'Swim', ['Run', 'Swim', 'Rowing'])).toEqual([
       'Swim',
       'Run',
@@ -43,7 +43,7 @@ describe('the chip row', () => {
     ]);
   });
 
-  it('keeps the chosen sport and the count when the library fills the row', () => {
+  vaultIt('keeps the chosen sport and the count when the library fills the row', () => {
     expect(entrySportChips(['Run'], 'Yoga', ['Swim', 'Rowing', 'Ride'])).toEqual([
       'Yoga',
       'Run',
@@ -52,11 +52,11 @@ describe('the chip row', () => {
     ]);
   });
 
-  it('keeps the fixed defaults for a library with no activity', () => {
+  vaultIt('keeps the fixed defaults for a library with no activity', () => {
     expect(entrySportChips(['Run'], 'Run', [])).toEqual(['Run', 'Ride', 'Walk', 'Hike']);
   });
 
-  it('leads with a sport picked from More, and keeps the count', () => {
+  vaultIt('leads with a sport picked from More, and keeps the count', () => {
     expect(entrySportChips(['Run', 'Ride', 'Walk', 'Hike'], 'Rowing', [], 4)).toEqual([
       'Rowing',
       'Run',
@@ -65,15 +65,15 @@ describe('the chip row', () => {
     ]);
   });
 
-  it('fills the row to the count with the defaults after one recent sport', () => {
+  vaultIt('fills the row to the count with the defaults after one recent sport', () => {
     expect(entrySportChips(['Walk'], 'Walk', [], 4)).toEqual(['Walk', 'Ride', 'Run', 'Hike']);
   });
 
-  it('keeps a sport picked from More inside the count when the recents are short', () => {
+  vaultIt('keeps a sport picked from More inside the count when the recents are short', () => {
     expect(entrySportChips(['Walk'], 'Rowing', [], 4)).toEqual(['Rowing', 'Walk', 'Ride', 'Run']);
   });
 
-  it('lists no sport twice when the recents overlap the defaults', () => {
+  vaultIt('lists no sport twice when the recents overlap the defaults', () => {
     const chips = entrySportChips(['Hike', 'Walk'], 'Ride', [], 4);
     expect(chips).toEqual(['Hike', 'Walk', 'Ride', 'Run']);
     expect(new Set(chips).size).toBe(chips.length);
@@ -94,12 +94,12 @@ describe('the route a Start takes', () => {
 });
 
 describe('GPS readiness from a fix', () => {
-  it('is ready at the discard threshold or tighter', () => {
+  vaultIt('is ready at the discard threshold or tighter', () => {
     expect(entryGpsState(5, 20)).toBe('ready');
     expect(entryGpsState(20, 20)).toBe('ready');
   });
 
-  it('is weak past the discard threshold, and when the fix carries no accuracy', () => {
+  vaultIt('is weak past the discard threshold, and when the fix carries no accuracy', () => {
     expect(entryGpsState(20.1, 20)).toBe('weak');
     expect(entryGpsState(null, 20)).toBe('weak');
     expect(entryGpsState(undefined, 20)).toBe('weak');
@@ -120,13 +120,13 @@ describe('GPS state before a ride', () => {
     expect(resolveEntryGps({ ...granted, servicesEnabled: false })).toBe('servicesOff');
   });
 
-  it('names the switch rather than a denial, since the switch is what denies', () => {
+  vaultIt('names the switch rather than a denial, since the switch is what denies', () => {
     expect(resolveEntryGps({ ...granted, servicesEnabled: false, permission: 'denied' })).toBe(
       'servicesOff'
     );
   });
 
-  it('names the switch over a stale fix and over a timed-out wait', () => {
+  vaultIt('names the switch over a stale fix and over a timed-out wait', () => {
     expect(resolveEntryGps({ ...granted, servicesEnabled: false, fix: { accuracy: 5 } })).toBe(
       'servicesOff'
     );
@@ -143,12 +143,12 @@ describe('GPS state before a ride', () => {
     expect(resolveEntryGps({ ...granted, permission: 'denied' })).toBe('none');
   });
 
-  it('reads a fix by its accuracy', () => {
+  vaultIt('reads a fix by its accuracy', () => {
     expect(resolveEntryGps({ ...granted, fix: { accuracy: 8 } })).toBe('ready');
     expect(resolveEntryGps({ ...granted, fix: { accuracy: 60 } })).toBe('weak');
   });
 
-  it('is checking until the wait for a first fix runs out, then weak', () => {
+  vaultIt('is checking until the wait for a first fix runs out, then weak', () => {
     expect(resolveEntryGps(granted)).toBe('checking');
     expect(resolveEntryGps({ ...granted, timedOut: true })).toBe('weak');
   });

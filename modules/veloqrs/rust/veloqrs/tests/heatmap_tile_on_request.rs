@@ -151,6 +151,7 @@ fn a_deep_tile_on_a_track_is_drawn_as_the_pass_draws_it_and_kept() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_deep_tile_off_every_track_reads_as_nothing_and_is_marked_empty() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -166,6 +167,7 @@ fn a_deep_tile_off_every_track_reads_as_nothing_and_is_marked_empty() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn with_the_heatmap_off_a_deep_tile_is_neither_drawn_nor_written() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -179,6 +181,7 @@ fn with_the_heatmap_off_a_deep_tile_is_neither_drawn_nor_written() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_missing_tile_below_the_deep_zooms_is_left_to_the_pass() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -195,6 +198,7 @@ fn a_missing_tile_below_the_deep_zooms_is_left_to_the_pass() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_deep_zoom_is_drawn_on_request() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -208,6 +212,7 @@ fn every_deep_zoom_is_drawn_on_request() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn only_the_tracks_whose_bounds_reach_the_tile_are_read() {
     use veloqrs::persistence::tiles::take_on_request_counts;
     let _serial_state = super::serial_state();
@@ -234,6 +239,7 @@ fn only_the_tracks_whose_bounds_reach_the_tile_are_read() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn two_asks_for_one_tile_draw_it_once() {
     use std::time::{Duration, Instant};
     use veloqrs::persistence::tiles::{hold_next_tile_draw, take_on_request_counts};
@@ -329,6 +335,7 @@ fn held(base: &std::path::Path, (z, x, y): (u8, u32, u32)) -> bool {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_deep_tiles_held_stay_under_the_budget_with_the_least_recently_read_removed() {
     const BUDGET: u64 = 64 * 1024;
     let _serial_state = super::serial_state();

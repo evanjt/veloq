@@ -223,7 +223,7 @@ describe('useRecordingMetrics', () => {
     }
   });
 
-  it('exposes speeds only, with no pace in seconds per km', async () => {
+  vaultIt('exposes speeds only, with no pace in seconds per km', async () => {
     const { result } = await renderHook(() => useRecordingMetrics());
     expect(result.current).not.toHaveProperty('pace');
     expect(result.current).not.toHaveProperty('avgPace');
@@ -674,7 +674,7 @@ describe("useRecordingMetrics reads the store's running totals", () => {
   ///
   /// Expected behaviour: it reads the accumulator the store keeps per sample.
   /// A total that disagrees with the stream proves which one is being read.
-  it('reports the accumulated elevation gain rather than rescanning the stream', async () => {
+  vaultIt('reports the accumulated elevation gain rather than rescanning the stream', async () => {
     setStoreState({
       streams: makeStreams({
         time: [0, 1, 2],
@@ -738,7 +738,7 @@ describe("useRecordingMetrics reads the store's running totals", () => {
     expect(result.current.cadence).toBe(0);
   });
 
-  it('reads 0 for a sensor that has gone stale', async () => {
+  vaultIt('reads 0 for a sensor that has gone stale', async () => {
     setStoreState({
       status: 'recording',
       activityType: 'Ride',

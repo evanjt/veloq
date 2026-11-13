@@ -70,13 +70,16 @@ describe('openLibrary', () => {
     expect(order).toEqual(['open', 'mark', 'mark', 'mark', 'mark', 'mark']);
   });
 
-  it('leaves an empty panic log in place before marking it, so the hook keeps the marked file', () => {
-    expect(openLibrary({ initWithPath: () => true }, DB)).toBe(true);
+  vaultIt(
+    'leaves an empty panic log in place before marking it, so the hook keeps the marked file',
+    () => {
+      expect(openLibrary({ initWithPath: () => true }, DB)).toBe(true);
 
-    expect(mockCreated).toEqual([`file://${PANIC}`]);
-  });
+      expect(mockCreated).toEqual([`file://${PANIC}`]);
+    }
+  );
 
-  it('keeps a panic log already there rather than recreating it', () => {
+  vaultIt('keeps a panic log already there rather than recreating it', () => {
     mockExisting.add(`file://${PANIC}`);
 
     expect(openLibrary({ initWithPath: () => true }, DB)).toBe(true);
@@ -94,7 +97,7 @@ describe('openLibrary', () => {
     expect(mockCreated).toEqual([]);
   });
 
-  it('warns on a mark that did not take and still returns the open result', () => {
+  vaultIt('warns on a mark that did not take and still returns the open result', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     mark.mockImplementation((path: string) => path !== `${DB}-wal`);
 
@@ -105,7 +108,7 @@ describe('openLibrary', () => {
     warn.mockRestore();
   });
 
-  it('leaves a file the platform has nothing to mark, without a warning', () => {
+  vaultIt('leaves a file the platform has nothing to mark, without a warning', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     mark.mockReturnValue(null);
 
@@ -117,7 +120,7 @@ describe('openLibrary', () => {
 });
 
 describe('openLibraryAsync', () => {
-  it('marks the same files as openLibrary once the open has resolved', async () => {
+  vaultIt('marks the same files as openLibrary once the open has resolved', async () => {
     const order: string[] = [];
     const engine = {
       openWithPath: jest.fn(async () => {
@@ -143,7 +146,7 @@ describe('openLibraryAsync', () => {
     expect(order[0]).toBe('open');
   });
 
-  it('marks nothing when the open failed', async () => {
+  vaultIt('marks nothing when the open failed', async () => {
     const engine = { openWithPath: jest.fn(async () => false) };
 
     await expect(openLibraryAsync(engine, DB)).resolves.toBe(false);

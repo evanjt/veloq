@@ -57,6 +57,7 @@ fn names(engine: &PersistentEngine) -> Vec<(String, String)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn minted_route_names_carry_no_sport_and_survive_a_reload() {
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("test.db");
@@ -91,6 +92,7 @@ fn minted_route_names_carry_no_sport_and_survive_a_reload() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn minted_numbers_are_global_not_per_sport() {
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("test.db");
@@ -119,6 +121,7 @@ fn minted_numbers_are_global_not_per_sport() {
 /// Expected behaviour: a name lands in `route_names` once and is skipped on
 /// every later pass, so the order decides only which number a new group takes.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_group_that_is_already_named_keeps_its_name_when_a_bigger_one_arrives() {
     let dir = TempDir::new().unwrap();
     let db_path = dir.path().join("test.db");

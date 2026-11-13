@@ -55,7 +55,7 @@ function lookup(bundle: unknown, key: string): unknown {
 }
 
 describe('the tour fitness slide', () => {
-  it('shows the four cut-outs of the Fitness tab under the titles the tab uses', async () => {
+  vaultIt('shows the four cut-outs of the Fitness tab under the titles the tab uses', async () => {
     const tree = await render(<FitnessHeroSlide />);
 
     for (const [testID, titleKey] of CUTOUTS) {
@@ -64,13 +64,16 @@ describe('the tour fitness slide', () => {
     }
   });
 
-  it('says what fitness, fatigue and form are, in the words the Fitness tab uses', async () => {
-    const drawn = drawnKeys(await render(<FitnessHeroSlide />));
+  vaultIt(
+    'says what fitness, fatigue and form are, in the words the Fitness tab uses',
+    async () => {
+      const drawn = drawnKeys(await render(<FitnessHeroSlide />));
 
-    for (const key of EXPLANATIONS) expect(drawn).toContain(key);
-  });
+      for (const key of EXPLANATIONS) expect(drawn).toContain(key);
+    }
+  );
 
-  it('draws only keys that have a value in every locale', async () => {
+  vaultIt('draws only keys that have a value in every locale', async () => {
     const keys = drawnKeys(await render(<FitnessHeroSlide />));
     expect(keys.length).toBeGreaterThan(0);
 

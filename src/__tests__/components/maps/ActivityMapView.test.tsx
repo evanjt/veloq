@@ -103,35 +103,38 @@ beforeEach(() => {
 });
 
 describe('ActivityMapView', () => {
-  it('mounts a map from a coordinate array', async () => {
+  vaultIt('mounts a map from a coordinate array', async () => {
     await renderActivityMap();
 
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     expect(screen.getByTestId('activity-map-style-toggle')).toBeTruthy();
   });
 
-  it("sits the credit above the sheet covering the map's foot", async () => {
+  vaultIt("sits the credit above the sheet covering the map's foot", async () => {
     await renderActivityMap({ coveredBottom: 240 });
 
     expect(StyleSheet.flatten(screen.getByTestId('map-attribution').props.style).bottom).toBe(240);
   });
 
-  it("stands the credit clear of the rounded corners of the sheet on the map's foot", async () => {
-    await renderActivityMap({ coveredBottom: 240, coveredBottomRadius: 28 });
+  vaultIt(
+    "stands the credit clear of the rounded corners of the sheet on the map's foot",
+    async () => {
+      await renderActivityMap({ coveredBottom: 240, coveredBottomRadius: 28 });
 
-    const credit = StyleSheet.flatten(screen.getByTestId('map-attribution').props.style);
-    expect(credit.bottom).toBe(240);
-    expect(credit.left).toBe(28);
-    expect(credit.right).toBe(28);
-  });
+      const credit = StyleSheet.flatten(screen.getByTestId('map-attribution').props.style);
+      expect(credit.bottom).toBe(240);
+      expect(credit.left).toBe(28);
+      expect(credit.right).toBe(28);
+    }
+  );
 
-  it("keeps the credit on the map's foot when nothing covers it", async () => {
+  vaultIt("keeps the credit on the map's foot when nothing covers it", async () => {
     await renderActivityMap();
 
     expect(StyleSheet.flatten(screen.getByTestId('map-attribution').props.style).bottom).toBe(0);
   });
 
-  it('hides the control stack when the caller turns it off', async () => {
+  vaultIt('hides the control stack when the caller turns it off', async () => {
     await renderActivityMap({ showStyleToggle: false });
 
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
@@ -150,7 +153,7 @@ describe('ActivityMapView', () => {
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
   });
 
-  it('unmounts the inline surface while fullscreen holds its own', async () => {
+  vaultIt('unmounts the inline surface while fullscreen holds its own', async () => {
     await renderActivityMap({ enableFullscreen: true });
     expect(screen.getAllByTestId('maplibre-map', MAP_PAGE)).toHaveLength(1);
 
@@ -170,7 +173,7 @@ describe('ActivityMapView', () => {
     expect(onStyleChange).toHaveBeenCalled();
   });
 
-  it('renders section overlays for the sections tab', async () => {
+  vaultIt('renders section overlays for the sections tab', async () => {
     await renderActivityMap({
       activeTab: 'sections',
       sectionOverlays: [
@@ -188,13 +191,13 @@ describe('ActivityMapView', () => {
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
-  it('renders a route overlay alongside the activity trace', async () => {
+  vaultIt('renders a route overlay alongside the activity trace', async () => {
     await renderActivityMap({ routeOverlay: COORDINATES });
 
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
-  it('accepts a scrub highlight index', async () => {
+  vaultIt('accepts a scrub highlight index', async () => {
     const { rerender } = await renderActivityMap({ highlightIndex: 0 });
 
     await expect(
@@ -214,13 +217,13 @@ describe('ActivityMapView', () => {
   });
 
   describe('degenerate input', () => {
-    it('falls back to a placeholder with no geometry at all', async () => {
+    vaultIt('falls back to a placeholder with no geometry at all', async () => {
       await renderActivityMap({ coordinates: [] });
 
       expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
     });
 
-    it('falls back to a placeholder with no coordinates at all', async () => {
+    vaultIt('falls back to a placeholder with no coordinates at all', async () => {
       await renderActivityMap({ coordinates: undefined });
 
       expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
@@ -270,30 +273,33 @@ describe('ActivityMapView', () => {
     }
     const TICKS = ['-10', '-5', '-2', '+2', '+5', '+10', 'Downhill', 'Uphill', 'Grade (%)'];
 
-    it('shows no gradient key while the line is in the sport colour', async () => {
+    vaultIt('shows no gradient key while the line is in the sport colour', async () => {
       await renderActivityMap({ streams: GRADED });
 
       expect(screen.getByTestId('activity-map-layers')).toBeTruthy();
       expect(screen.queryByTestId('activity-map-key')).toBeNull();
     });
 
-    it('labels the scale with its gradient ticks while the line is coloured by gradient', async () => {
-      await renderActivityMap({ streams: GRADED });
+    vaultIt(
+      'labels the scale with its gradient ticks while the line is coloured by gradient',
+      async () => {
+        await renderActivityMap({ streams: GRADED });
 
-      await toggleGradient();
+        await toggleGradient();
 
-      const key = screen.getByTestId('activity-map-key');
-      for (const tick of TICKS) {
-        expect(within(key).getByText(tick)).toBeTruthy();
+        const key = screen.getByTestId('activity-map-key');
+        for (const tick of TICKS) {
+          expect(within(key).getByText(tick)).toBeTruthy();
+        }
+        const steps = within(key).getAllByTestId('map-key-ramp-step');
+        expect(steps.map((step) => StyleSheet.flatten(step.props.style).backgroundColor)).toEqual(
+          DIVERGING_BANDS.grade.map((band) => gradeStepTokenColour(band.step, 'light'))
+        );
+
+        await toggleGradient();
+        expect(screen.queryByTestId('activity-map-key')).toBeNull();
       }
-      const steps = within(key).getAllByTestId('map-key-ramp-step');
-      expect(steps.map((step) => StyleSheet.flatten(step.props.style).backgroundColor)).toEqual(
-        DIVERGING_BANDS.grade.map((band) => gradeStepTokenColour(band.step, 'light'))
-      );
-
-      await toggleGradient();
-      expect(screen.queryByTestId('activity-map-key')).toBeNull();
-    });
+    );
 
     it('keeps the key on the 3D map, which draws the gradient too', async () => {
       await renderActivityMap({
@@ -400,15 +406,18 @@ describe('ActivityMapView', () => {
       expect(lastTerrain()).toBeNull();
     });
 
-    it('marks the 3D control busy, not the map, while the surface is still loading', async () => {
-      await renderActivityMap({ initial3DCamera: CAMERA_3D });
+    vaultIt(
+      'marks the 3D control busy, not the map, while the surface is still loading',
+      async () => {
+        await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
-      expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
-      expect(toggleState()).toEqual(expect.objectContaining({ busy: true, disabled: true }));
-      expect(
-        within(screen.getByTestId('activity-map-3d-toggle')).getByTestId('activity-map-3d-busy')
-      ).toBeTruthy();
-    });
+        expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
+        expect(toggleState()).toEqual(expect.objectContaining({ busy: true, disabled: true }));
+        expect(
+          within(screen.getByTestId('activity-map-3d-toggle')).getByTestId('activity-map-3d-busy')
+        ).toBeTruthy();
+      }
+    );
 
     it('ignores a press on the 3D control while the surface is still loading', async () => {
       const on3DModeChange = jest.fn();
@@ -617,7 +626,7 @@ describe('ActivityMapView', () => {
       });
     });
 
-    it('tolerates unmounting while the page is still loading', async () => {
+    vaultIt('tolerates unmounting while the page is still loading', async () => {
       const view = await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
       expect(screen.getByTestId('activity-map-3d-busy')).toBeTruthy();

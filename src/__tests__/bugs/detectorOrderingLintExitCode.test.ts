@@ -55,14 +55,14 @@ it('passes when the submodule is not checked out, so the checks after it still r
   expect(status).toBe(0);
 });
 
-it('says the submodule is absent rather than claiming the ordering was checked', () => {
+vaultIt('says the submodule is absent rather than claiming the ordering was checked', () => {
   const { output } = runGuard(fixture());
 
   expect(output).toContain('tracematch not checked out');
   expect(output).not.toContain('no public function returns a hash container');
 });
 
-it('does not throw a raw ENOENT stack, which reads as a broken repository', () => {
+vaultIt('does not throw a raw ENOENT stack, which reads as a broken repository', () => {
   const { output } = runGuard(fixture());
 
   expect(output).not.toContain('ENOENT');
@@ -79,7 +79,7 @@ it('still fails a populated submodule that returns a hash container', () => {
   expect(output).toContain(`${SECTIONS}/identity.rs:1`);
 });
 
-it('passes a populated submodule whose public functions return ordered containers', () => {
+vaultIt('passes a populated submodule whose public functions return ordered containers', () => {
   const root = fixture({
     [`${SECTIONS}/identity.rs`]: 'pub fn carriers(&self) -> BTreeMap<String, usize> { todo!() }\n',
   });

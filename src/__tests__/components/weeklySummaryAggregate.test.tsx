@@ -89,25 +89,28 @@ describe('WeeklySummary', () => {
     });
   });
 
-  it('asks the engine for the moment it reads, so last week ends at the same hour', async () => {
-    await render(
-      <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
-      { wrapper }
-    );
+  vaultIt(
+    'asks the engine for the moment it reads, so last week ends at the same hour',
+    async () => {
+      await render(
+        <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+        { wrapper }
+      );
 
-    await waitFor(() => expect(engine.getFitnessScreenData).toHaveBeenCalled());
-    const [, windows] = engine.getFitnessScreenData.mock.calls[0];
-    const now = new Date();
-    const wall = Date.UTC(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      now.getMinutes(),
-      now.getSeconds()
-    );
-    expect(Math.abs(windows.nowWallSeconds * 1000 - wall)).toBeLessThan(5_000);
-  });
+      await waitFor(() => expect(engine.getFitnessScreenData).toHaveBeenCalled());
+      const [, windows] = engine.getFitnessScreenData.mock.calls[0];
+      const now = new Date();
+      const wall = Date.UTC(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        now.getHours(),
+        now.getMinutes(),
+        now.getSeconds()
+      );
+      expect(Math.abs(windows.nowWallSeconds * 1000 - wall)).toBeLessThan(5_000);
+    }
+  );
 
   it('switches range from the one read rather than reading per range', async () => {
     const view = await render(

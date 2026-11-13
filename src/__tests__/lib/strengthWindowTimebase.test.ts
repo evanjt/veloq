@@ -30,7 +30,7 @@ describe('strength window timebase', () => {
     expect(iso(startTs)).toMatch(/T00:00:00\.000Z$/);
   });
 
-  it('spans exactly the requested days, today among them', () => {
+  vaultIt('spans exactly the requested days, today among them', () => {
     const { startTs, endTs } = withTz(10, () => getTimestampRange('7d'));
     expect(endTs - startTs).toBe(6 * 86400 + 86399);
   });

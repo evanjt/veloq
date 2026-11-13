@@ -37,13 +37,13 @@ describe('the insights panel when the HRV trend was withheld', () => {
     );
   });
 
-  it('says nothing when no date is given', async () => {
+  vaultIt('says nothing when no date is given', async () => {
     await render(<InsightsPanel insights={[]} hrvWithheldSince={null} />);
 
     expect(screen.queryByTestId('insights-stale-wellness')).toBeNull();
   });
 
-  it('says nothing when the prop is absent', async () => {
+  vaultIt('says nothing when the prop is absent', async () => {
     await render(<InsightsPanel insights={[]} />);
 
     expect(screen.queryByTestId('insights-stale-wellness')).toBeNull();

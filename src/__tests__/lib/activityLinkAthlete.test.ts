@@ -72,21 +72,24 @@ describe('openableSystemPath', () => {
     expect(openableSystemPath('veloq://activity/i999', null)).toBe('veloq://activity/i999');
   });
 
-  it('sends a link from the retired summary route to the activity, under the same check', () => {
-    expect(openableSystemPath(`veloq://summary/i999?athlete=${ATHLETE}`, ATHLETE)).toBe(
-      '/activity/i999'
-    );
-    expect(openableSystemPath('veloq://summary/i999?athlete=i777', ATHLETE)).toBeNull();
-    expect(openableSystemPath('veloq://summary/i999', ATHLETE)).toBeNull();
-  });
+  vaultIt(
+    'sends a link from the retired summary route to the activity, under the same check',
+    () => {
+      expect(openableSystemPath(`veloq://summary/i999?athlete=${ATHLETE}`, ATHLETE)).toBe(
+        '/activity/i999'
+      );
+      expect(openableSystemPath('veloq://summary/i999?athlete=i777', ATHLETE)).toBeNull();
+      expect(openableSystemPath('veloq://summary/i999', ATHLETE)).toBeNull();
+    }
+  );
 
-  it('reads an athlete id the poster encoded', () => {
+  vaultIt('reads an athlete id the poster encoded', () => {
     expect(openableSystemPath('veloq://activity/i999?athlete=i%31%32', 'i12')).toBe(
       'veloq://activity/i999?athlete=i%31%32'
     );
   });
 
-  it.each([
+  vaultIt.each([
     ['veloq://training', '/fitness?tab=calendar'],
     ['veloq:///training/', '/fitness?tab=calendar'],
     ['veloq://training?chart=week', '/fitness?chart=week&tab=calendar'],
@@ -98,7 +101,7 @@ describe('openableSystemPath', () => {
     expect(openableSystemPath(link, null)).toBe(opened);
   });
 
-  it('lands a bare retired health link on the calendar place', () => {
+  vaultIt('lands a bare retired health link on the calendar place', () => {
     const opened = openableSystemPath('veloq://training', ATHLETE) ?? '';
     const entry = fitnessEntryFromParams(
       Object.fromEntries(new URLSearchParams(opened.split('?')[1] ?? ''))
@@ -108,7 +111,7 @@ describe('openableSystemPath', () => {
     expect(fitnessPlaceOf(entry)).toBe('calendar');
   });
 
-  it('lands a retired health link to a wellness chart on the place that draws it', () => {
+  vaultIt('lands a retired health link to a wellness chart on the place that draws it', () => {
     const opened = openableSystemPath('veloq://training?chart=hrv', ATHLETE) ?? '';
     const entry = fitnessEntryFromParams(
       Object.fromEntries(new URLSearchParams(opened.split('?')[1] ?? ''))
@@ -118,11 +121,11 @@ describe('openableSystemPath', () => {
     expect(fitnessPlaceOf(entry)).toBe('fitness');
   });
 
-  it('keeps a place the retired link already named', () => {
+  vaultIt('keeps a place the retired link already named', () => {
     expect(openableSystemPath('veloq://training?tab=trends', ATHLETE)).toBe('/fitness?tab=trends');
   });
 
-  it('opens nothing below the retired health tab', () => {
+  vaultIt('opens nothing below the retired health tab', () => {
     expect(openableSystemPath('veloq://training/extra', ATHLETE)).toBeNull();
   });
 
@@ -162,12 +165,12 @@ describe('openableSystemPath', () => {
     'exp://192.0.2.1:8081/--/activity/demo-test-0',
   ];
 
-  it.each(PUBLISHED)('passes %s through untouched, signed in or not', (link) => {
+  vaultIt.each(PUBLISHED)('passes %s through untouched, signed in or not', (link) => {
     expect(openableSystemPath(link, ATHLETE)).toBe(link);
     expect(openableSystemPath(link, null)).toBe(link);
   });
 
-  it.each([
+  vaultIt.each([
     'veloq://sheets/param-editor',
     'veloq://sheets/smoothing?x=1',
     'veloq:///sheets/insight',
@@ -189,7 +192,7 @@ describe('openableSystemPath', () => {
     expect(openableSystemPath(link, null)).toBeNull();
   });
 
-  it.each(['veloq://debug', 'veloq://detection-preview', 'veloq://route-grouping-preview'])(
+  vaultIt.each(['veloq://debug', 'veloq://detection-preview', 'veloq://route-grouping-preview'])(
     'opens the developer screen %s only for a developer',
     (link) => {
       expect(openableSystemPath(link, ATHLETE, false)).toBeNull();
@@ -198,7 +201,7 @@ describe('openableSystemPath', () => {
     }
   );
 
-  it('refuses a sheet and the recording review to a developer too', () => {
+  vaultIt('refuses a sheet and the recording review to a developer too', () => {
     expect(openableSystemPath('veloq://sheets/param-editor', ATHLETE, true)).toBeNull();
     expect(openableSystemPath('veloq://recording/review', ATHLETE, true)).toBeNull();
   });
@@ -248,21 +251,21 @@ describe('redirectSystemPath', () => {
     await expect(redirectSystemPath({ path: link, initial: false })).resolves.toBeNull();
   });
 
-  it('leaves every other published deep link alone', async () => {
+  vaultIt('leaves every other published deep link alone', async () => {
     signIn(null);
     await expect(
       redirectSystemPath({ path: 'veloq://activity/demo-test-0', initial: true })
     ).resolves.toBe('veloq://activity/demo-test-0');
   });
 
-  it('opens nothing from a link to a sheet, cold or warm', async () => {
+  vaultIt('opens nothing from a link to a sheet, cold or warm', async () => {
     signIn(ATHLETE);
     const link = 'veloq://sheets/param-editor';
     await expect(redirectSystemPath({ path: link, initial: true })).resolves.toBeNull();
     await expect(redirectSystemPath({ path: link, initial: false })).resolves.toBeNull();
   });
 
-  it('opens the developer screen once the athlete unlocked it', async () => {
+  vaultIt('opens the developer screen once the athlete unlocked it', async () => {
     signIn(ATHLETE);
     useDebugStore.setState({ unlocked: false });
     await expect(redirectSystemPath({ path: 'veloq://debug', initial: false })).resolves.toBeNull();

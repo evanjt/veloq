@@ -381,6 +381,7 @@ mod tests {
     /// Expected behaviour: an excluded section is not offered, whatever its
     /// staleness, and one that is not excluded still is.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_excluded_section_is_not_offered_and_the_rest_are() {
         let ftp = ftp(Some(285), Some(250));
         let pace = flat_pace();
@@ -415,6 +416,7 @@ mod tests {
     /// answered: the bound is on whole days back and `days_since_last` is a
     /// calendar count.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_section_visited_inside_the_window_is_not_offered() {
         let ftp = ftp(Some(285), Some(250));
         let pace = flat_pace();
@@ -449,6 +451,7 @@ mod tests {
     ///
     /// Expected behaviour: only the section at or above the floor is offered.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_section_under_the_traversal_floor_is_not_offered() {
         let ftp = ftp(Some(285), Some(250));
         let pace = flat_pace();
@@ -480,6 +483,7 @@ mod tests {
     /// No gain in any sport is no reads at all: the per-sport query is the
     /// expensive half and there is nothing for it to qualify.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn no_fitness_gain_reads_no_sections() {
         let flat_ftp = ftp(None, None);
         let pace = flat_pace();
@@ -544,6 +548,7 @@ mod tests {
     ///
     /// Expected behaviour: only the Ride is suppressed; the Run is still offered.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_record_in_one_sport_does_not_exclude_the_same_section_in_another() {
         let none = std::collections::HashSet::new();
         let exclude: std::collections::HashSet<(String, String)> =
@@ -552,6 +557,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_exclusion_for_another_section_suppresses_neither_sport() {
         let none = std::collections::HashSet::new();
         let exclude: std::collections::HashSet<(String, String)> =
@@ -567,6 +573,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_section_wide_exclusion_suppresses_every_sport() {
         let whole: std::collections::HashSet<String> =
             ["cedar_hill".to_string()].into_iter().collect();
@@ -623,6 +630,7 @@ mod tests {
     /// however stale the section is. Under the window rule it was offered
     /// whenever the last thirty days had moved.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_record_set_at_todays_fitness_is_not_offered() {
         let ftp = ftp(Some(262), Some(250));
         let pace = flat_pace();
@@ -648,6 +656,7 @@ mod tests {
     /// Nothing recorded by the record's day, or no date at all, is no card:
     /// there is no honest number to put after "PR set at".
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_record_with_no_fitness_behind_it_is_not_offered() {
         let ftp = ftp(Some(262), Some(250));
         let pace = flat_pace();
@@ -762,6 +771,7 @@ mod tests {
     /// A record ridden with no power meter has no power to state, and the
     /// section is still worth offering on the fitness gain alone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_record_with_no_power_stream_carries_none_and_is_still_offered() {
         let ftp = ftp(Some(262), Some(250));
         let pace = flat_pace();
@@ -828,6 +838,7 @@ mod tests {
     /// fitness line is read from that day, with a point on it at the value
     /// the gain was measured from.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_record_leads_the_efforts_and_the_fitness_line_marks_its_day() {
         let ftp = ftp(Some(262), Some(250));
         let pace = flat_pace();
@@ -909,6 +920,7 @@ mod tests {
     // the fitness gain the chart was meant to explain, because the two lists
     // disagreed on whether it was cycling.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_cycling_sport_takes_the_cycling_gain() {
         let cycling = gain("W");
         let running = gain("/km");

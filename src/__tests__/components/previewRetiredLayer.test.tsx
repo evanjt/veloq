@@ -120,18 +120,21 @@ describe('the retired layer on the preview map', () => {
     expect(count(last.sources, 'retired-selection')).toBe(0);
   });
 
-  it('draws the retired lines, the hidden current ones and the selection when shown', async () => {
-    const { last } = await renderMap({
-      lines: LINES,
-      show: true,
-      onToggle: jest.fn(),
-      onSelect: jest.fn(),
-    });
+  vaultIt(
+    'draws the retired lines, the hidden current ones and the selection when shown',
+    async () => {
+      const { last } = await renderMap({
+        lines: LINES,
+        show: true,
+        onToggle: jest.fn(),
+        onSelect: jest.fn(),
+      });
 
-    expect(count(last.sources, 'retired-sections')).toBe(1);
-    expect(count(last.sources, 'retired-current-sections')).toBe(1);
-    expect(count(last.sources, 'retired-selection')).toBe(1);
-  });
+      expect(count(last.sources, 'retired-sections')).toBe(1);
+      expect(count(last.sources, 'retired-current-sections')).toBe(1);
+      expect(count(last.sources, 'retired-selection')).toBe(1);
+    }
+  );
 
   it('selects a tapped retired line through the layer and not as a preview section', async () => {
     const onSelectRetired = jest.fn();

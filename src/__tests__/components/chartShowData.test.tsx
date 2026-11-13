@@ -154,7 +154,7 @@ async function openedSheet() {
 }
 
 describe('a chart can be read without seeing it', () => {
-  it('speaks the fitness chart and opens one row per plotted day', async () => {
+  vaultIt('speaks the fitness chart and opens one row per plotted day', async () => {
     await render(<FitnessChart data={FITNESS_DAYS} />);
     expect((await plot()).props.accessibilityLabel).toMatch(
       /Fitness.*latest 43.*Fatigue.*latest 55/
@@ -163,13 +163,13 @@ describe('a chart can be read without seeing it', () => {
     expect(rows).toHaveLength(FITNESS_DAYS.length);
   });
 
-  it('keeps the fitness sheet behind its action once the visible button is gone', async () => {
+  vaultIt('keeps the fitness sheet behind its action once the visible button is gone', async () => {
     await render(<FitnessChart data={FITNESS_DAYS} />);
     expect(screen.queryByRole('button', { name: 'Show data' })).toBeNull();
     expect(await openThroughAction()).toHaveLength(FITNESS_DAYS.length);
   });
 
-  it('speaks a curve chart and opens one row per plotted point', async () => {
+  vaultIt('speaks a curve chart and opens one row per plotted point', async () => {
     await render(
       <CurveChart
         data={CURVE}
@@ -194,7 +194,7 @@ describe('a chart can be read without seeing it', () => {
     expect(screen.getByText('Kiln output (W)')).toBeTruthy();
   });
 
-  it('speaks every wellness lane and opens one row per day with a reading', async () => {
+  vaultIt('speaks every wellness lane and opens one row per day with a reading', async () => {
     await render(
       <WellnessTrendsChart data={WELLNESS_DAYS} timeRange="7d" smoothingWindow="none" />
     );
@@ -222,25 +222,28 @@ describe('a chart can be read without seeing it', () => {
     expect(rows[1]).not.toHaveTextContent(/53 ms/);
   });
 
-  it('speaks each drawn activity stream in its unit and opens one row per plotted point', async () => {
-    await render(
-      <ActivityStreams
-        streams={KILN_RIDE}
-        elevationGain={0}
-        selectedCharts={['power']}
-        chartConfigs={CHART_CONFIGS}
-      />
-    );
-    await layOut();
-    expect((await plot()).props.accessibilityLabel).toBe(
-      'Activity chart. Power, 0.00 km to 9.00 km: latest 290 W, range 200 W to 290 W, average 245 W'
-    );
-    const rows = await openThroughAction();
-    expect(rows).toHaveLength(10);
-    expect(screen.getByText('Power (W)')).toBeTruthy();
-  });
+  vaultIt(
+    'speaks each drawn activity stream in its unit and opens one row per plotted point',
+    async () => {
+      await render(
+        <ActivityStreams
+          streams={KILN_RIDE}
+          elevationGain={0}
+          selectedCharts={['power']}
+          chartConfigs={CHART_CONFIGS}
+        />
+      );
+      await layOut();
+      expect((await plot()).props.accessibilityLabel).toBe(
+        'Activity chart. Power, 0.00 km to 9.00 km: latest 290 W, range 200 W to 290 W, average 245 W'
+      );
+      const rows = await openThroughAction();
+      expect(rows).toHaveLength(10);
+      expect(screen.getByText('Power (W)')).toBeTruthy();
+    }
+  );
 
-  it('keeps the activity chart axis values from a screen reader', async () => {
+  vaultIt('keeps the activity chart axis values from a screen reader', async () => {
     await render(
       <ActivityStreams
         streams={KILN_RIDE}
@@ -257,17 +260,20 @@ describe('a chart can be read without seeing it', () => {
     expect(screen.queryByText('245')).toBeNull();
   });
 
-  it('speaks the days trained with its longest break and draws no Show data link', async () => {
-    await render(
-      <ActivityDotsChart data={STRIP_DAYS} activities={STRIP_ACTIVITIES.map(dayActivityRow)} />
-    );
-    expect((await plot()).props.accessibilityLabel).toBe(
-      'Days trained, May 1 to May 5: active on 2 of 5 days. Longest break 2 days'
-    );
-    expect(screen.queryByTestId('activity-dots-plot-show-data')).toBeNull();
-  });
+  vaultIt(
+    'speaks the days trained with its longest break and draws no Show data link',
+    async () => {
+      await render(
+        <ActivityDotsChart data={STRIP_DAYS} activities={STRIP_ACTIVITIES.map(dayActivityRow)} />
+      );
+      expect((await plot()).props.accessibilityLabel).toBe(
+        'Days trained, May 1 to May 5: active on 2 of 5 days. Longest break 2 days'
+      );
+      expect(screen.queryByTestId('activity-dots-plot-show-data')).toBeNull();
+    }
+  );
 
-  it('speaks each trained muscle and opens one row per muscle', async () => {
+  vaultIt('speaks each trained muscle and opens one row per muscle', async () => {
     await render(
       <StrengthBodyDiagram
         bodyData={[]}
@@ -289,7 +295,7 @@ describe('a chart can be read without seeing it', () => {
     expect(rows).toHaveLength(2);
   });
 
-  it('offers no table when the chart has nothing to plot', async () => {
+  vaultIt('offers no table when the chart has nothing to plot', async () => {
     await render(<FitnessChart data={[]} />);
     expect(screen.queryByRole('button', { name: 'Show data' })).toBeNull();
   });

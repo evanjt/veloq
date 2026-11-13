@@ -165,18 +165,21 @@ it('offers nothing in demo', async () => {
   expect(screen.queryByTestId('tour-offer-card')).toBeNull();
 });
 
-it('offers the tour after the quiet period and opens the whole tour on Take the tour', async () => {
-  mockAthlete.data = { garminSyncsActivities: true };
-  await render(<TourOfferCard />);
-  expect(screen.getByText('whatsNew.tourOfferTitle')).toBeTruthy();
-  await press('tour-offer-open');
-  expect(useWhatsNewStore.getState().tourState).toMatchObject({
-    mode: 'tutorial',
-    only: null,
-    held: [],
-  });
-  expect(screen.queryByTestId('tour-offer-card')).toBeNull();
-});
+vaultIt(
+  'offers the tour after the quiet period and opens the whole tour on Take the tour',
+  async () => {
+    mockAthlete.data = { garminSyncsActivities: true };
+    await render(<TourOfferCard />);
+    expect(screen.getByText('whatsNew.tourOfferTitle')).toBeTruthy();
+    await press('tour-offer-open');
+    expect(useWhatsNewStore.getState().tourState).toMatchObject({
+      mode: 'tutorial',
+      only: null,
+      held: [],
+    });
+    expect(screen.queryByTestId('tour-offer-card')).toBeNull();
+  }
+);
 
 it('waits a session after Not now, and the second Not now ends the offer', async () => {
   await render(<TourOfferCard />);

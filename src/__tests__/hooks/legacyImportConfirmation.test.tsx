@@ -111,7 +111,7 @@ it('checks the file first, and restores nothing until the confirmation is accept
   expect(restoreBackup).toHaveBeenCalledTimes(1);
 });
 
-it('names what the backup holds in the confirmation', async () => {
+vaultIt('names what the backup holds in the confirmation', async () => {
   jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
   const { result } = await renderHook(() => useImportDatabaseBackup());
 

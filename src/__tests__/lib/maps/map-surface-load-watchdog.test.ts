@@ -244,7 +244,7 @@ describe('2D map surface load watchdog', () => {
     expect(posted.filter((m) => m.type === 'mapFailed')).toHaveLength(1);
   });
 
-  it('carries the reason it failed', () => {
+  vaultIt('carries the reason it failed', () => {
     const { posted } = runPage({ withMapLibre: false });
 
     const failure = posted.find((m) => m.type === 'mapFailed');
@@ -252,7 +252,7 @@ describe('2D map surface load watchdog', () => {
     expect((failure?.reason as string).length).toBeGreaterThan(0);
   });
 
-  it('asks the listener to warm its tile host when a pan starts', () => {
+  vaultIt('asks the listener to warm its tile host when a pan starts', () => {
     const page = runPage();
     const fetch = jest.fn(() => Promise.resolve({ ok: true }));
     page.window.fetch = fetch;

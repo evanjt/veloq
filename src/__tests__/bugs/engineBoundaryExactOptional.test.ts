@@ -29,13 +29,13 @@ describe('present', () => {
     expect('raw' in record).toBe(true);
   });
 
-  it('leaves a nested record alone, absent fields and all', () => {
+  vaultIt('leaves a nested record alone, absent fields and all', () => {
     const nested = { inner: { ctl: undefined } };
 
     expect(present(nested).inner).toEqual({ ctl: undefined });
   });
 
-  it('reads an empty record as an empty record', () => {
+  vaultIt('reads an empty record as an empty record', () => {
     expect(present({})).toEqual({});
   });
 });

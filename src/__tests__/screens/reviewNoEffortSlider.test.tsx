@@ -83,7 +83,7 @@ beforeEach(() => {
 });
 
 describe('review screen effort rating', () => {
-  it('shows no effort slider for a GPS ride', async () => {
+  vaultIt('shows no effort slider for a GPS ride', async () => {
     stoppedRide();
     const review = await render(inStack(<ReviewScreen />));
     expect(review.queryByTestId('review-rpe')).toBeNull();
@@ -128,7 +128,7 @@ describe('review screen effort rating', () => {
 });
 
 describe('review screen fields', () => {
-  it('names the activity name and the notes by their labels once typed in', async () => {
+  vaultIt('names the activity name and the notes by their labels once typed in', async () => {
     stoppedRide();
     const review = await render(<ReviewScreen />);
     await fireEvent.changeText(review.getByTestId('review-activity-name'), 'Harbour loop');

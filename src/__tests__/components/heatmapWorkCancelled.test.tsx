@@ -62,7 +62,7 @@ describe('turning the heatmap off', () => {
     mockPreference.enabled = true;
   });
 
-  it('turns generation off and stops the work before it clears the tiles', async () => {
+  vaultIt('turns generation off and stops the work before it clears the tiles', async () => {
     const mock = engine();
     mockedGetEngine.mockReturnValue(mock as never);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
@@ -95,7 +95,7 @@ describe('turning the heatmap off', () => {
   });
 
   /** Turning it on must not cancel: the pass it starts is the point. */
-  it('cancels nothing when the heatmap is turned on', async () => {
+  vaultIt('cancels nothing when the heatmap is turned on', async () => {
     const mock = engine();
     mockedGetEngine.mockReturnValue(mock as never);
     mockPreference.enabled = false;

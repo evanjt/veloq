@@ -247,6 +247,7 @@ fn a_trackless_closest_member_does_not_stop_the_re_anchor() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_closest_member_with_a_slice_past_its_track_does_not_stop_the_re_anchor() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine_with(&dir, &["gone", "a_short", "kept"]);
@@ -548,6 +549,7 @@ fn a_trackless_activity_after_the_census_newest_is_kept() {
 
 /// A body with no metrics row is still stored, and still departs.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_trackless_body_with_no_metrics_is_a_candidate() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine_with(&dir, &["kept"]);
@@ -636,6 +638,7 @@ fn an_imported_row_with_no_track_is_never_a_candidate() {
 /// A trackless activity sits in no section, so removing one costs the library
 /// no re-detection.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_trackless_departure_keeps_the_processed_set() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine_with(&dir, &["kept"]);
@@ -675,6 +678,7 @@ fn set_removal_stamp(dir: &TempDir, sport: &str, at: i64) {
 /// later ones do not, and the removal once the section can do without it does
 /// not stamp a second time, since the curves were refetched without it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_departure_kept_for_its_section_stamps_its_sport_once() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine_with(&dir, &["gone", "other"]);
@@ -723,6 +727,7 @@ fn a_departure_kept_for_its_section_stamps_its_sport_once() {
 /// The marker lives only while the activity is gone: one the census names
 /// again and later loses again has left a second time, and is stamped again.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_kept_departure_the_census_names_again_is_stamped_when_it_leaves_again() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine_with(&dir, &["gone", "other"]);

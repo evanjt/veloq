@@ -149,7 +149,7 @@ it('mounts the snapshot pool only after its defer, with a stale pending list sto
  * Expected behaviour: the pool is held from the drag until the fling settles,
  * so no map render starts under the scroll.
  */
-it('holds the snapshot pool from a drag until its fling settles', async () => {
+vaultIt('holds the snapshot pool from a drag until its fling settles', async () => {
   await renderFeed();
   await act(async () => {
     await jest.advanceTimersByTimeAsync(500);

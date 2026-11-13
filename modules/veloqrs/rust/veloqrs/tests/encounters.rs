@@ -101,6 +101,7 @@ fn insert_traversal(
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn returns_empty_for_unknown_activity() {
     let setup = setup();
     let result = setup
@@ -131,6 +132,7 @@ fn one_section_one_traversal_yields_one_encounter() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn encounter_carries_custom_type_without_an_id_prefix() {
     let setup = setup();
     insert_activity(&setup.raw, "a1", 1_700_000_000, 1000.0, 300);
@@ -172,6 +174,7 @@ fn forward_and_reverse_yield_two_independent_encounters() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn history_arrays_are_aligned_in_length() {
     let setup = setup();
     insert_section(&setup.raw, "s1", "Repeated", 500.0);
@@ -195,6 +198,7 @@ fn history_arrays_are_aligned_in_length() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn history_carries_each_outing_start_date_beside_its_time() {
     let setup = setup();
     insert_section(&setup.raw, "s1", "Repeated", 500.0);
@@ -253,6 +257,7 @@ fn disabled_sections_are_filtered_out() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_short_section_near_miss_is_not_a_record() {
     // 5s sprint section. Best is 4.99s, this attempt 5.00s. The retired band
     // called 0.2 % off a record.
@@ -269,6 +274,7 @@ fn a_short_section_near_miss_is_not_a_record() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_long_section_near_miss_is_not_a_record_either() {
     // 30 minute climb. Best 1799s, this attempt 1800s. The retired band scaled
     // with the effort, so a whole second off half an hour read as a record.
@@ -341,6 +347,7 @@ fn two_tied_laps_of_one_session_hold_the_record_against_another_outing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn not_pr_when_outside_relative_tolerance() {
     // 100s section. Best 90s, this 100s = 11% slower → not PR.
     let setup = setup();
@@ -428,6 +435,7 @@ fn a_lapped_section_is_one_encounter_carrying_the_fastest_lap() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn opposite_directions_stay_separate_encounters() {
     let s = setup();
     insert_activity(&s.raw, "act_out_and_back", 1_700_000_000, 10_000.0, 3_000);
@@ -646,6 +654,7 @@ fn a_full_lap_represents_an_activity_over_a_partial_direction_row() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn encounters_come_back_in_start_index_order_not_id_order() {
     let setup = setup();
     insert_activity(&setup.raw, "a1", 1_700_000_000, 5000.0, 1200);
@@ -662,6 +671,7 @@ fn encounters_come_back_in_start_index_order_not_id_order() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn out_and_back_orders_by_first_crossing_not_the_longer_pass() {
     let setup = setup();
     insert_activity(&setup.raw, "a1", 1_700_000_000, 9000.0, 2400);
@@ -684,6 +694,7 @@ fn out_and_back_orders_by_first_crossing_not_the_longer_pass() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_lapped_pair_is_placed_at_its_first_lap() {
     let setup = setup();
     insert_activity(&setup.raw, "a1", 1_700_000_000, 9000.0, 2400);

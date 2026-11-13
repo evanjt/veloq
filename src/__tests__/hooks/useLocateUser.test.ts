@@ -53,13 +53,13 @@ describe('fixIsFresh', () => {
     expect(fixIsFresh(fix, 1000 + LOCATION_CACHE_MAX_AGE_MS)).toBe(false);
   });
 
-  it('is false with no fix held', () => {
+  vaultIt('is false with no fix held', () => {
     expect(fixIsFresh(null, 1000)).toBe(false);
   });
 });
 
 describe('useLocateUser', () => {
-  it('starts with no location and not loading', async () => {
+  vaultIt('starts with no location and not loading', async () => {
     const { result } = await renderHook(() => useLocateUser());
     expect(result.current.userLocation).toBeNull();
     expect(result.current.locationLoading).toBe(false);
@@ -92,7 +92,7 @@ describe('useLocateUser', () => {
     expect(target.setCamera).toHaveBeenLastCalledWith({ center: [7.5, 46.5], zoom: 13 }, 500);
   });
 
-  it('asks again at 30 s', async () => {
+  vaultIt('asks again at 30 s', async () => {
     const target = fakeTarget();
     const { result } = await renderHook(() => useLocateUser());
     await act(async () => {
@@ -183,7 +183,7 @@ describe('useLocateUser', () => {
     expect(result.current.userLocation).toEqual([7.5, 46.5]);
   });
 
-  it('reports loading while the fix is pending', async () => {
+  vaultIt('reports loading while the fix is pending', async () => {
     let resolveFix: (value: unknown) => void = () => {};
     getPosition.mockReturnValue(new Promise((resolve) => (resolveFix = resolve)));
     const { result } = await renderHook(() => useLocateUser());

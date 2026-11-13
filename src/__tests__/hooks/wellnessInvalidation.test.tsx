@@ -71,7 +71,7 @@ async function openWellness() {
 }
 
 describe('what wakes a wellness read', () => {
-  it('does not re-read on an activities event, which fires per synced page', async () => {
+  vaultIt('does not re-read on an activities event, which fires per synced page', async () => {
     await openWellness();
     const readsAtOpen = engine.reads;
 
@@ -93,7 +93,7 @@ describe('what wakes a wellness read', () => {
     await waitFor(() => expect(engine.reads).toBeGreaterThan(readsAtOpen));
   });
 
-  it('ignores a body of some other kind', async () => {
+  vaultIt('ignores a body of some other kind', async () => {
     await openWellness();
     const readsAtOpen = engine.reads;
 

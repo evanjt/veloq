@@ -13,6 +13,7 @@ fn filter() -> crate::FfiSectionFilter {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_sections_unfiltered_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("all_sections_under_writer.db");
@@ -21,6 +22,7 @@ fn test_get_sections_unfiltered_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_by_id_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_by_id_under_writer.db");
@@ -29,6 +31,7 @@ fn test_get_by_id_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_count_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_count_under_writer.db");
@@ -37,6 +40,7 @@ fn test_get_count_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_summaries_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_summaries_under_writer.db");
@@ -46,6 +50,7 @@ fn test_get_summaries_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_pooled_section_reads_match_catalogue_pin_and_identity() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();
@@ -138,6 +143,7 @@ fn test_pooled_section_reads_match_catalogue_pin_and_identity() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_summaries_pooled_keeps_sports_without_metrics() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();
@@ -175,6 +181,7 @@ fn test_get_summaries_pooled_keeps_sports_without_metrics() {
 /// Expected behaviour: the summaries and the map floor on the filtered sport's
 /// outings and let a pin through, the rule `get_sections` keeps.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_summaries_and_map_floor_on_sport_outings_and_pins() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();

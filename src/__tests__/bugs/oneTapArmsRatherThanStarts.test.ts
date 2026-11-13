@@ -57,7 +57,7 @@ describe('the entry screen Start', () => {
 });
 
 describe('the picker path', () => {
-  it('begins on arrival', async () => {
+  vaultIt('begins on arrival', async () => {
     await renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, true, undefined));
     expect(started()).toHaveBeenCalledWith('Ride', 'gps', undefined);
   });

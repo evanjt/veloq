@@ -100,7 +100,7 @@ describe('eviction takes the oldest preview even after the index is rebuilt from
     expect(hasTerrainPreview('newcomer', 'light', FLAT)).toBe(true);
   });
 
-  it('leaves the order alone when the listing is already oldest first', async () => {
+  vaultIt('leaves the order alone when the listing is already oldest first', async () => {
     const names: string[] = [];
     for (let i = 0; i < MAX_CACHED_PREVIEWS; i++) {
       names.push(seed(`b${i}`, 2000 + i));

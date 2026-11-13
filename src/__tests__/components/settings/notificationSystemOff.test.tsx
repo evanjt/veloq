@@ -70,7 +70,7 @@ it('keeps the switch on and names the system setting while it is off', async () 
   expect(getByTestId('settings-notifications-blocked-settings')).toBeTruthy();
 });
 
-it('offers the dialog while the system will still show it', async () => {
+vaultIt('offers the dialog while the system will still show it', async () => {
   mockGetPermissions.mockResolvedValue({ status: 'denied', canAskAgain: true });
   const { getByTestId } = await render(<NotificationSection />);
   await flush();
@@ -94,7 +94,7 @@ it('drops the notice on the return after a re-grant', async () => {
   expect(useNotificationPreferences.getState().enabled).toBe(true);
 });
 
-it('shows no notice while both are on', async () => {
+vaultIt('shows no notice while both are on', async () => {
   mockGetPermissions.mockResolvedValue({ status: 'granted', canAskAgain: true });
   const { queryByTestId } = await render(<NotificationSection />);
   await flush();
@@ -102,7 +102,7 @@ it('shows no notice while both are on', async () => {
   expect(queryByTestId('settings-notifications-blocked')).toBeNull();
 });
 
-it('shows no notice before the athlete has asked when notifications are off', async () => {
+vaultIt('shows no notice before the athlete has asked when notifications are off', async () => {
   useNotificationPreferences.setState({ enabled: false });
   mockGetPermissions.mockResolvedValue({ status: 'denied', canAskAgain: false });
   const { queryByTestId } = await render(<NotificationSection />);

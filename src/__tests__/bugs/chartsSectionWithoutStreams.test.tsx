@@ -185,7 +185,7 @@ it('shows neither when the activity carries neither', async () => {
   expect(queryByTestId('activity-zone-chart')).toBeNull();
 });
 
-it('still shows the chart and the HR zones when the streams are there', async () => {
+vaultIt('still shows the chart and the HR zones when the streams are there', async () => {
   const { getByTestId } = await renderSection({
     streams: {
       heartrate: [120, 130],
@@ -218,7 +218,7 @@ it('keeps independent sections while a stream download waits and offers retry af
   expect(retry).toHaveBeenCalledTimes(1);
 });
 
-it('does not offer retry while streams are still downloading', async () => {
+vaultIt('does not offer retry while streams are still downloading', async () => {
   const view = await renderSection({
     streamsDownloaded: false,
     streamsStatus: 'waiting',

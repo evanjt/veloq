@@ -118,14 +118,17 @@ describe('the rows read from the screen read', () => {
     expect(engine.getPowerCurve).not.toHaveBeenCalled();
   });
 
-  it('asks for the cycling curve only when cycling is shown and it was never fetched', async () => {
-    await renderHook(() => useBestEfforts(42, ['Ride']), { wrapper });
+  vaultIt(
+    'asks for the cycling curve only when cycling is shown and it was never fetched',
+    async () => {
+      await renderHook(() => useBestEfforts(42, ['Ride']), { wrapper });
 
-    await waitFor(() => expect(engine.syncPowerCurve).toHaveBeenCalledWith('Ride', 42));
-    expect(engine.syncPaceCurve).not.toHaveBeenCalled();
-  });
+      await waitFor(() => expect(engine.syncPowerCurve).toHaveBeenCalledWith('Ride', 42));
+      expect(engine.syncPaceCurve).not.toHaveBeenCalled();
+    }
+  );
 
-  it('asks for nothing when the shown curve is already stored', async () => {
+  vaultIt('asks for nothing when the shown curve is already stored', async () => {
     const { result } = await renderHook(() => useBestEfforts(42, ['Run']), { wrapper });
 
     await waitFor(() => expect(result.current.data).toBeDefined());
@@ -157,7 +160,7 @@ describe('the rows read from the screen read', () => {
 });
 
 describe('the Best Efforts screen read', () => {
-  it('reads every sport in one call and asks only for the curves never fetched', async () => {
+  vaultIt('reads every sport in one call and asks only for the curves never fetched', async () => {
     const { result } = await renderHook(() => useBestEfforts(0, ['Ride', 'Run', 'Swim']), {
       wrapper,
     });

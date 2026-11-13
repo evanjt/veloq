@@ -49,7 +49,7 @@ describe('a tap on bare terrain', () => {
     expect(setSpider).toHaveBeenCalledWith(null);
   });
 
-  it('is what a surface press with no feature runs', async () => {
+  vaultIt('is what a surface press with no feature runs', async () => {
     const { rendered, setSelectedSectionId } = await mount();
     await act(async () => {
       rendered.result.current.handleSurfacePress({

@@ -232,7 +232,7 @@ describe('an empty period whose workouts are owed their files', () => {
 });
 
 describe('a period with no parsed sets', () => {
-  it('says the workouts are not downloaded when the period still owes some', async () => {
+  vaultIt('says the workouts are not downloaded when the period still owes some', async () => {
     owesFiles(StartOutcome.Offline);
     engine.getStrengthScreenData.mockReturnValue(
       screenRead({
@@ -296,7 +296,7 @@ describe('a populated period that still owes some workouts', () => {
     expect(screen.getByText('strength.periodOwed:2')).toBeTruthy();
   });
 
-  it('passes a count of one through the same key', async () => {
+  vaultIt('passes a count of one through the same key', async () => {
     engine.getStrengthScreenData.mockReturnValue(screenRead({ owedCount: 1 }));
 
     await renderTab();
@@ -304,14 +304,14 @@ describe('a populated period that still owes some workouts', () => {
     await waitFor(() => expect(screen.getByText('strength.periodOwed:1')).toBeTruthy());
   });
 
-  it('shows no line when the period owes none', async () => {
+  vaultIt('shows no line when the period owes none', async () => {
     await renderTab();
 
     await waitFor(() => expect(screen.getByTestId('strength-tab')).toBeTruthy());
     expect(screen.queryByTestId('strength-period-owed')).toBeNull();
   });
 
-  it('does not repeat the count in an empty period', async () => {
+  vaultIt('does not repeat the count in an empty period', async () => {
     owesFiles(StartOutcome.Offline);
     engine.getStrengthScreenData.mockReturnValue(
       screenRead({
@@ -367,7 +367,7 @@ describe('a selected muscle', () => {
     expect(screen.queryByText('strength.recentAvg')).toBeNull();
   });
 
-  it('shows the four-week figures beside the totals when the weeks reached it', async () => {
+  vaultIt('shows the four-week figures beside the totals when the weeks reached it', async () => {
     await renderTab();
     await fireEvent.press(await screen.findByTestId('tap-quadriceps'));
 
@@ -469,7 +469,7 @@ describe('a period named by a link', () => {
 });
 
 describe('the body diagram', () => {
-  it('draws the shades and the scale top the engine read carries', async () => {
+  vaultIt('draws the shades and the scale top the engine read carries', async () => {
     engine.getStrengthScreenData.mockReturnValue(
       screenRead({
         summary: {
@@ -491,12 +491,15 @@ describe('the body diagram', () => {
 });
 
 describe('the explanation card', () => {
-  it('closes a period with workouts, saying how sets count and where they come from', async () => {
-    await renderTab();
+  vaultIt(
+    'closes a period with workouts, saying how sets count and where they come from',
+    async () => {
+      await renderTab();
 
-    const card = await screen.findByTestId('strength-explanation');
-    expect(within(card).getByText('insights.explanation.strengthTitle')).toBeTruthy();
-    expect(within(card).getByText('strength.infoWeighting')).toBeTruthy();
-    expect(within(card).getByText(/strength\.disclaimer$/)).toBeTruthy();
-  });
+      const card = await screen.findByTestId('strength-explanation');
+      expect(within(card).getByText('insights.explanation.strengthTitle')).toBeTruthy();
+      expect(within(card).getByText('strength.infoWeighting')).toBeTruthy();
+      expect(within(card).getByText(/strength\.disclaimer$/)).toBeTruthy();
+    }
+  );
 });

@@ -7,7 +7,7 @@
 import { queryKeys } from '@/shared/query/queryKeys';
 
 describe('activity query keys', () => {
-  it('keys the window on the athlete and the range alone', () => {
+  vaultIt('keys the window on the athlete and the range alone', () => {
     expect(queryKeys.activities.list('i1', '2026-01-01', '2026-03-31')).toEqual([
       'activities',
       'i1',
@@ -16,7 +16,7 @@ describe('activity query keys', () => {
     ]);
   });
 
-  it('gives the same key to two readers of one window', () => {
+  vaultIt('gives the same key to two readers of one window', () => {
     expect(queryKeys.activities.list('i1', '2026-01-01', '2026-03-31')).toEqual(
       queryKeys.activities.list('i1', '2026-01-01', '2026-03-31')
     );

@@ -85,6 +85,7 @@ fn profile_answers(server: &MockServer, status: u16) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_run_parks_on_a_401_only_when_the_profile_confirms_it() {
     let _serial = crate::test_globals::serial_global_state();
     for (status, expected) in [(401, SyncState::AuthExpired), (200, SyncState::Idle)] {
@@ -118,6 +119,7 @@ fn a_track_run_parks_on_a_401_only_when_the_profile_confirms_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_single_activity_fetch_parks_on_a_401_only_when_the_profile_confirms_it() {
     let _serial = crate::test_globals::serial_global_state();
     for (status, expected) in [(401, SyncState::AuthExpired), (200, SyncState::Idle)] {
@@ -243,6 +245,7 @@ fn a_sign_out_stops_the_time_stream_tail() {
 /// Expected behaviour: the first 401 ends the tail, and a profile that
 /// confirms it parks the service while one that does not leaves it standing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_401_on_the_time_stream_tail_parks_and_asks_nothing_more() {
     let _serial = crate::test_globals::serial_global_state();
     for (status, expected) in [(401, SyncState::AuthExpired), (200, SyncState::Idle)] {

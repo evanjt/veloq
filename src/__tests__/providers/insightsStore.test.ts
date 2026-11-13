@@ -52,13 +52,13 @@ describe('InsightsStore', () => {
   });
 
   describe('initialise()', () => {
-    it('sets isLoaded when no stored data', async () => {
+    vaultIt('sets isLoaded when no stored data', async () => {
       await initialiseInsightsStore();
       expect(useInsightsStore.getState().isLoaded).toBe(true);
       expect(useInsightsStore.getState().lastSeenFingerprint).toBe('');
     });
 
-    it('restores fingerprint from storage', async () => {
+    vaultIt('restores fingerprint from storage', async () => {
       const fp = 'section_pr-s1|hrv_trend-position';
       await AsyncStorage.setItem(STORAGE_KEY, fp);
       await initialiseInsightsStore();
@@ -66,7 +66,7 @@ describe('InsightsStore', () => {
       expect(useInsightsStore.getState().isLoaded).toBe(true);
     });
 
-    it('handles corrupt data gracefully', async () => {
+    vaultIt('handles corrupt data gracefully', async () => {
       await AsyncStorage.setItem(STORAGE_KEY, '');
       await initialiseInsightsStore();
       expect(useInsightsStore.getState().isLoaded).toBe(true);
@@ -75,7 +75,7 @@ describe('InsightsStore', () => {
   });
 
   describe('markSeen()', () => {
-    it('stores fingerprint and clears hasNewInsights', () => {
+    vaultIt('stores fingerprint and clears hasNewInsights', () => {
       useInsightsStore.setState({ hasNewInsights: true });
       const insights = [makeInsight('a', 'Title A'), makeInsight('b', 'Title B')];
       useInsightsStore.getState().markSeen(insights);
@@ -84,7 +84,7 @@ describe('InsightsStore', () => {
       expect(state.hasNewInsights).toBe(false);
     });
 
-    it('persists fingerprint to AsyncStorage', async () => {
+    vaultIt('persists fingerprint to AsyncStorage', async () => {
       const insights = [makeInsight('a', 'Title A')];
       useInsightsStore.getState().markSeen(insights);
       await new Promise((r) => setTimeout(r, 10));
@@ -94,12 +94,12 @@ describe('InsightsStore', () => {
   });
 
   describe('setNewInsights()', () => {
-    it('sets hasNewInsights true when told there are new insights', () => {
+    vaultIt('sets hasNewInsights true when told there are new insights', () => {
       useInsightsStore.getState().setNewInsights(true);
       expect(useInsightsStore.getState().hasNewInsights).toBe(true);
     });
 
-    it('sets hasNewInsights false when told there are none', () => {
+    vaultIt('sets hasNewInsights false when told there are none', () => {
       useInsightsStore.setState({ hasNewInsights: true });
       useInsightsStore.getState().setNewInsights(false);
       expect(useInsightsStore.getState().hasNewInsights).toBe(false);
@@ -107,7 +107,7 @@ describe('InsightsStore', () => {
   });
 
   describe('idempotency', () => {
-    it('initialise is idempotent', async () => {
+    vaultIt('initialise is idempotent', async () => {
       const fp = 'test-insight-id';
       await AsyncStorage.setItem(STORAGE_KEY, fp);
       await initialiseInsightsStore();
@@ -121,23 +121,23 @@ describe('InsightsStore', () => {
 });
 
 describe('computeInsightFingerprint', () => {
-  it('returns empty string for empty array', () => {
+  vaultIt('returns empty string for empty array', () => {
     expect(computeInsightFingerprint([])).toBe('');
   });
 
-  it('produces deterministic fingerprint regardless of input order', () => {
+  vaultIt('produces deterministic fingerprint regardless of input order', () => {
     const a = makeInsight('a', 'Title A');
     const b = makeInsight('b', 'Title B');
     expect(computeInsightFingerprint([a, b])).toBe(computeInsightFingerprint([b, a]));
   });
 
-  it('is stable when only title changes', () => {
+  vaultIt('is stable when only title changes', () => {
     const v1 = [makeInsight('a', 'Old Title')];
     const v2 = [makeInsight('a', 'New Title')];
     expect(computeInsightFingerprint(v1)).toBe(computeInsightFingerprint(v2));
   });
 
-  it('changes when insight added', () => {
+  vaultIt('changes when insight added', () => {
     const v1 = [makeInsight('a', 'Title A')];
     const v2 = [makeInsight('a', 'Title A'), makeInsight('b', 'Title B')];
     expect(computeInsightFingerprint(v1)).not.toBe(computeInsightFingerprint(v2));
@@ -145,7 +145,7 @@ describe('computeInsightFingerprint', () => {
 });
 
 describe('diffInsights', () => {
-  it('returns all IDs when previous fingerprint is empty', () => {
+  vaultIt('returns all IDs when previous fingerprint is empty', () => {
     const insights = [makeInsight('a', 'A'), makeInsight('b', 'B')];
     const changed = diffInsights(insights, '');
     expect(changed.size).toBe(2);
@@ -153,14 +153,14 @@ describe('diffInsights', () => {
     expect(changed.has('b')).toBe(true);
   });
 
-  it('returns empty set when fingerprints match', () => {
+  vaultIt('returns empty set when fingerprints match', () => {
     const insights = [makeInsight('a', 'A'), makeInsight('b', 'B')];
     const fp = computeInsightFingerprint(insights);
     const changed = diffInsights(insights, fp);
     expect(changed.size).toBe(0);
   });
 
-  it('detects new insight added', () => {
+  vaultIt('detects new insight added', () => {
     const original = [makeInsight('a', 'A')];
     const fp = computeInsightFingerprint(original);
     const updated = [makeInsight('a', 'A'), makeInsight('b', 'B')];
@@ -169,7 +169,7 @@ describe('diffInsights', () => {
     expect(changed.has('b')).toBe(true);
   });
 
-  it('does not flag title-only change as new', () => {
+  vaultIt('does not flag title-only change as new', () => {
     const original = [makeInsight('a', 'Old')];
     const fp = computeInsightFingerprint(original);
     const updated = [makeInsight('a', 'New')];
@@ -178,7 +178,7 @@ describe('diffInsights', () => {
   });
 
   describe('seen fingerprint persistence', () => {
-    it('initialises from the last persisted seen fingerprint', async () => {
+    vaultIt('initialises from the last persisted seen fingerprint', async () => {
       useInsightsStore.getState().markSeen([makeInsight('a', 'A')]);
       await Promise.resolve();
 

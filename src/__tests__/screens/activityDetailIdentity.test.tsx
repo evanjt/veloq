@@ -377,54 +377,60 @@ describe('activity detail screen', () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
-  it("titles its navigation item with the activity's name once the read has it", async () => {
+  vaultIt("titles its navigation item with the activity's name once the read has it", async () => {
     await render(<ActivityDetailScreen />);
     await act(async () => {});
     expect(mockScreenOptions.title).toBe('Morning Ride');
   });
 
-  it('clamps a long description to three lines and opens it in full on Show more', async () => {
-    const description = Array.from(
-      { length: 12 },
-      (_, line) => `Line ${line + 1} of the harbour loop notes.`
-    ).join('\n');
-    mockActivity.description = description;
+  vaultIt(
+    'clamps a long description to three lines and opens it in full on Show more',
+    async () => {
+      const description = Array.from(
+        { length: 12 },
+        (_, line) => `Line ${line + 1} of the harbour loop notes.`
+      ).join('\n');
+      mockActivity.description = description;
 
-    const view = await render(<ActivityDetailScreen />);
-    await act(async () => {});
-    await fireEvent(
-      view.getByTestId('activity-description-measure', { includeHiddenElements: true }),
-      'textLayout',
-      { nativeEvent: { lines: description.split('\n').map((text) => ({ text })) } }
-    );
+      const view = await render(<ActivityDetailScreen />);
+      await act(async () => {});
+      await fireEvent(
+        view.getByTestId('activity-description-measure', { includeHiddenElements: true }),
+        'textLayout',
+        { nativeEvent: { lines: description.split('\n').map((text) => ({ text })) } }
+      );
 
-    expect(view.getByText(description).props.numberOfLines).toBe(EXPANDABLE_TEXT_LINES);
-    expect(view.getByText(description).props.accessibilityLabel).toBe(description);
+      expect(view.getByText(description).props.numberOfLines).toBe(EXPANDABLE_TEXT_LINES);
+      expect(view.getByText(description).props.accessibilityLabel).toBe(description);
 
-    await fireEvent.press(view.getByTestId('activity-description-toggle'));
+      await fireEvent.press(view.getByTestId('activity-description-toggle'));
 
-    expect(view.getByText(description).props.numberOfLines).toBeUndefined();
-  });
+      expect(view.getByText(description).props.numberOfLines).toBeUndefined();
+    }
+  );
 
-  it('past the dense cap scrolls the text above the tabs in a block that leaves them room', async () => {
-    const description = Array.from(
-      { length: 40 },
-      (_, line) => `Line ${line + 1} of the harbour loop notes.`
-    ).join('\n');
-    mockActivity.description = description;
-    mockWindow.fontScale = 2;
+  vaultIt(
+    'past the dense cap scrolls the text above the tabs in a block that leaves them room',
+    async () => {
+      const description = Array.from(
+        { length: 40 },
+        (_, line) => `Line ${line + 1} of the harbour loop notes.`
+      ).join('\n');
+      mockActivity.description = description;
+      mockWindow.fontScale = 2;
 
-    const view = await render(<ActivityDetailScreen />);
-    await act(async () => {});
+      const view = await render(<ActivityDetailScreen />);
+      await act(async () => {});
 
-    const block = view.getByTestId('activity-detail-pinned-scroll');
-    expect(within(block).getByText(description)).toBeTruthy();
-    const { maxHeight } = StyleSheet.flatten(block.props.style);
-    expect(typeof maxHeight).toBe('number');
-    expect(maxHeight as number).toBeLessThan(mockWindow.height * 0.75);
-  });
+      const block = view.getByTestId('activity-detail-pinned-scroll');
+      expect(within(block).getByText(description)).toBeTruthy();
+      const { maxHeight } = StyleSheet.flatten(block.props.style);
+      expect(typeof maxHeight).toBe('number');
+      expect(maxHeight as number).toBeLessThan(mockWindow.height * 0.75);
+    }
+  );
 
-  it('below the dense cap keeps the description pinned above the tabs', async () => {
+  vaultIt('below the dense cap keeps the description pinned above the tabs', async () => {
     mockActivity.description = 'Harbour loop, light wind.';
 
     const view = await render(<ActivityDetailScreen />);
@@ -476,13 +482,16 @@ describe('activity detail screen', () => {
     expect(overlay?.[1].longitude).toBeCloseTo(6.604, 6);
   });
 
-  it('hands the charts a settled transition in the sheet, which opens once the push has ended', async () => {
-    await render(<ActivityDetailScreen />);
-    await act(async () => {});
-    expect(capturedTransitionSettled).toBe(true);
-  });
+  vaultIt(
+    'hands the charts a settled transition in the sheet, which opens once the push has ended',
+    async () => {
+      await render(<ActivityDetailScreen />);
+      await act(async () => {});
+      expect(capturedTransitionSettled).toBe(true);
+    }
+  );
 
-  it('keeps the pre-computed bundles it hands its hooks stable across a scrub', async () => {
+  vaultIt('keeps the pre-computed bundles it hands its hooks stable across a scrub', async () => {
     await render(<ActivityDetailScreen />);
     await act(async () => {});
     const matchesBefore = mockUseSectionMatches.mock.calls.at(-1)?.[1];

@@ -86,12 +86,12 @@ describe('a power curve on its way to the chart', () => {
     expect(curve.activities?.i2).toEqual(ACTIVITY);
   });
 
-  it('says whether the phone or the server worked the curve out', () => {
+  vaultIt('says whether the phone or the server worked the curve out', () => {
     expect(curve.source).toBe('veloq');
     expect(paceCurveOf(PACE).source).toBe('veloq');
   });
 
-  it('keeps the window and says which sport it is', () => {
+  vaultIt('keeps the window and says which sport it is', () => {
     expect(curve.startDate).toBe('2026-06-08T00:00:00');
     expect(curve.endDate).toBe('2026-09-06T00:00:00');
     expect(curve.days).toBe(91);

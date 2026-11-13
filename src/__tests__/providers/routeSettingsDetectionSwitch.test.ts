@@ -49,7 +49,7 @@ describe('the detection switch reaches the engine', () => {
     expect(mockEngine.setSetting).toHaveBeenCalledWith(DETECTION_KEY, '0');
   });
 
-  it('writes the switch back on', async () => {
+  vaultIt('writes the switch back on', async () => {
     await useRouteSettings.getState().setEnabled(true);
 
     expect(mockEngine.setSetting).toHaveBeenCalledWith(DETECTION_KEY, '1');
@@ -97,7 +97,7 @@ describe('loading the saved detection switch', () => {
     expect(mockEngine.triggerRefresh).not.toHaveBeenCalled();
   });
 
-  it('does not rewrite an engine value already in agreement on repeated loads', async () => {
+  vaultIt('does not rewrite an engine value already in agreement on repeated loads', async () => {
     jest.mocked(getSetting).mockResolvedValue(JSON.stringify({ enabled: false }));
     mockEngine.getSetting.mockReturnValue('0');
 

@@ -59,43 +59,49 @@ beforeAll(async () => {
 });
 
 describe('map popups', () => {
-  it('render the activity through the shared card, its time labelled as moving time', async () => {
-    await render(
-      <ActivityPopup
-        selected={SELECTED}
-        bottom={0}
-        onZoom={jest.fn()}
-        onClose={jest.fn()}
-        onViewDetails={jest.fn()}
-      />
-    );
-    const card = within(screen.getByTestId('activity-popup'));
-    expect(card.getByTestId('map-popup-stats')).toBeTruthy();
-    expect(card.getByText('Moving time: 30:00')).toBeTruthy();
-    expect(card.getByText('View details')).toBeTruthy();
-  });
+  vaultIt(
+    'render the activity through the shared card, its time labelled as moving time',
+    async () => {
+      await render(
+        <ActivityPopup
+          selected={SELECTED}
+          bottom={0}
+          onZoom={jest.fn()}
+          onClose={jest.fn()}
+          onViewDetails={jest.fn()}
+        />
+      );
+      const card = within(screen.getByTestId('activity-popup'));
+      expect(card.getByTestId('map-popup-stats')).toBeTruthy();
+      expect(card.getByText('Moving time: 30:00')).toBeTruthy();
+      expect(card.getByText('View details')).toBeTruthy();
+    }
+  );
 
-  it('keep half the header for the title and date, and wrap the actions below rather than break a word', async () => {
-    await render(
-      <ActivityPopup
-        selected={SELECTED}
-        bottom={0}
-        onZoom={jest.fn()}
-        onClose={jest.fn()}
-        onViewDetails={jest.fn()}
-      />
-    );
-    const info = screen.getByTestId('map-popup-title-block');
-    expect(info).toHaveStyle({ flex: 1, minWidth: '50%' });
-    expect(screen.getByTestId('map-popup-header')).toHaveStyle({ flexWrap: 'wrap' });
-    const action = StyleSheet.flatten(
-      screen.getByTestId('activity-popup-view-details').props.style
-    );
-    expect(action.maxWidth).toBe('100%');
-    expect(action.flexShrink).toBeUndefined();
-  });
+  vaultIt(
+    'keep half the header for the title and date, and wrap the actions below rather than break a word',
+    async () => {
+      await render(
+        <ActivityPopup
+          selected={SELECTED}
+          bottom={0}
+          onZoom={jest.fn()}
+          onClose={jest.fn()}
+          onViewDetails={jest.fn()}
+        />
+      );
+      const info = screen.getByTestId('map-popup-title-block');
+      expect(info).toHaveStyle({ flex: 1, minWidth: '50%' });
+      expect(screen.getByTestId('map-popup-header')).toHaveStyle({ flexWrap: 'wrap' });
+      const action = StyleSheet.flatten(
+        screen.getByTestId('activity-popup-view-details').props.style
+      );
+      expect(action.maxWidth).toBe('100%');
+      expect(action.flexShrink).toBeUndefined();
+    }
+  );
 
-  it('render the section through the shared card', async () => {
+  vaultIt('render the section through the shared card', async () => {
     await render(
       <SectionPopup section={SECTION} bottom={0} onClose={jest.fn()} onViewDetails={jest.fn()} />
     );

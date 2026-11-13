@@ -633,6 +633,7 @@ mod tests {
     use FfiPlanLineKind::{Rest, Work};
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn lines_keep_their_order_text_and_duration() {
         let lines = expand(json!({"steps":[{"text":" Squats ","duration":60},{"text":"Press"}]}));
         assert_eq!(texts(&lines), vec![(Work, "Squats"), (Work, "Press")]);
@@ -642,6 +643,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_repeat_expands_in_order_and_is_never_a_line_of_its_own() {
         let lines = expand(json!({"steps":[
             {"text":"Warm up","duration":600,"warmup":true},
@@ -665,6 +667,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn nested_repeats_multiply() {
         let lines =
             expand(json!({"steps":[{"reps":2,"steps":[{"reps":3,"steps":[{"text":"Curl"}]}]}]}));
@@ -672,6 +675,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn rest_is_named_by_intensity_or_by_the_word_and_never_invented() {
         let lines = expand(json!({"steps":[
             {"text":"A","duration":10},{"text":"B","duration":10},
@@ -685,6 +689,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_step_a_zero_repeat_and_a_step_that_is_not_an_object_are_no_lines() {
         let lines =
             expand(json!({"steps":[{},{"reps":0,"steps":[{"text":"X"}]},null,3,"x",{"text":"Y"}]}));
@@ -695,6 +700,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_repeat_without_a_count_runs_once_and_one_with_no_children_is_dropped() {
         assert_eq!(expand(json!({"steps":[{"steps":[{"text":"X"}]}]})).len(), 1);
         assert_eq!(
@@ -704,6 +710,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_plan_stops_at_its_line_cap_and_a_huge_repeat_of_nothing_ends() {
         let lines =
             expand(json!({"steps":[{"reps":1_000_000,"steps":[{"text":"A"},{"text":"B"}]}]}));
@@ -712,6 +719,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_step_with_only_a_distance_or_only_a_target_is_a_line() {
         let lines = expand(
             json!({"steps":[{"distance":1000},{"pace":{"start":90,"end":95,"units":"%pace"}}]}),
@@ -857,6 +865,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn rest_pace_and_an_untargeted_step_take_no_zone_and_an_untimed_step_still_shows() {
         let blocks = bar(
             json!({"ftp":200,"steps":[
@@ -896,6 +905,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn categories_and_targets_read_from_the_wire_and_a_body_without_id_or_day_is_skipped() {
         let settings = SportSettings::default();
         let event = |category: &str, target: Value| {
@@ -952,6 +962,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cancelled_event_is_gone_after_the_window_is_replaced() {
         let (_dir, mut engine, reader) = engine_and_reader();
         store(&mut engine, &day_events());

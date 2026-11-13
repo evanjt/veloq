@@ -400,6 +400,7 @@ fn a_legacy_json_backup_still_resets() {
 /// suppression intent. An empty footprint would let the corridor re-emerge on
 /// the next detect.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn suppression_intent_captures_geometry_from_the_blob() {
     let mut s = setup();
     let polyline = sample_polyline();

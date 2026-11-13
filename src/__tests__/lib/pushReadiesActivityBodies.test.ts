@@ -125,13 +125,16 @@ describe('the push task readying the pushed activity', () => {
     ]);
   });
 
-  it('readies on Android too, where the engine answers at once when nothing is owed', async () => {
-    jest.replaceProperty(Platform, 'OS', 'android');
+  vaultIt(
+    'readies on Android too, where the engine answers at once when nothing is owed',
+    async () => {
+      jest.replaceProperty(Platform, 'OS', 'android');
 
-    await deliver();
+      await deliver();
 
-    expect(mockReadyActivityBodies).toHaveBeenCalledWith('i77');
-  });
+      expect(mockReadyActivityBodies).toHaveBeenCalledWith('i77');
+    }
+  );
 
   it('does not ready an activity whose detail never landed', async () => {
     mockAwaitActivityBody.mockResolvedValue(null);

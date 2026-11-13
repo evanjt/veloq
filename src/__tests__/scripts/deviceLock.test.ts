@@ -100,7 +100,7 @@ afterAll(() => {
 // Which scripts drive the handset, and that each takes this lock, is
 // `scripts/lint-device-drivers.mjs`, which finds them rather than listing them.
 describe('the handset takes a lock of its own', () => {
-  it('is not the build lock, which a build holds for a quarter of an hour', () => {
+  vaultIt('is not the build lock, which a build holds for a quarter of an hour', () => {
     const source = fs.readFileSync(lockPath, 'utf8');
     expect(source).toContain('veloq-device-');
     expect(source).not.toContain('veloq-android-build.lock');
@@ -108,7 +108,7 @@ describe('the handset takes a lock of its own', () => {
     expect(source).not.toContain('TMPDIR');
   });
 
-  it('keys the lock on the serial, so a phone and an emulator do not queue', () => {
+  vaultIt('keys the lock on the serial, so a phone and an emulator do not queue', () => {
     const env: NodeJS.ProcessEnv = { ...isolated(), ANDROID_SERIAL: PINNED };
     const shown = spawnSync(script, ['sh', '-c', 'printf %s "$VELOQ_DEVICE_LOCK_PATH"'], {
       encoding: 'utf8',
@@ -123,7 +123,7 @@ describe('the handset takes a lock of its own', () => {
     expect(source).toMatch(/tr -c '[^']+'/);
   });
 
-  it('passes the command through and keeps its exit code', () => {
+  vaultIt('passes the command through and keeps its exit code', () => {
     const env = privateLock();
     const ok = spawnSync(script, ['echo', 'measured'], { encoding: 'utf8', env });
     expect(ok.status).toBe(0);
@@ -171,7 +171,7 @@ describe('the handset takes a lock of its own', () => {
     }
   });
 
-  it('locks the pinned handset when several are attached and one is named', () => {
+  vaultIt('locks the pinned handset when several are attached and one is named', () => {
     const env: NodeJS.ProcessEnv = { ...isolated([OTHER, PINNED]), ANDROID_SERIAL: PINNED };
 
     const run = spawnSync(
@@ -251,7 +251,7 @@ describe('a handset that is not a test handset', () => {
     expectRefused(take(unlisted()));
   });
 
-  it('refuses through the hand-taken lock too', () => {
+  vaultIt('refuses through the hand-taken lock too', () => {
     expectRefused(take(unlisted(), 'scripts/device-lock-shell.sh'));
   });
 
@@ -267,13 +267,13 @@ describe('a handset that is not a test handset', () => {
     expect(fs.readFileSync(calls, 'utf8').trim().split('\n')).toEqual(['devices']);
   });
 
-  it('runs on an emulator', () => {
+  vaultIt('runs on an emulator', () => {
     const run = take(unlisted([EMULATOR]));
     expect(run.status).toBe(0);
     expect(run.stdout).toContain('ran');
   });
 
-  it('runs on an iOS simulator, whose UDID is a UUID, and not on a phone-shaped UDID', () => {
+  vaultIt('runs on an iOS simulator, whose UDID is a UUID, and not on a phone-shaped UDID', () => {
     const simulator = take({
       ...unlisted(),
       ANDROID_SERIAL: '00000000-0000-4000-8000-0000000000aa',
@@ -286,13 +286,13 @@ describe('a handset that is not a test handset', () => {
     );
   });
 
-  it('runs on a serial listed in VELOQ_TEST_HANDSETS', () => {
+  vaultIt('runs on a serial listed in VELOQ_TEST_HANDSETS', () => {
     const run = take({ ...unlisted(), VELOQ_TEST_HANDSETS: `${LISTED} ${UNLISTED}` });
     expect(run.status).toBe(0);
     expect(run.stdout).toContain('ran');
   });
 
-  it('runs on a serial listed in the allowlist file, ignoring comment lines', () => {
+  vaultIt('runs on a serial listed in the allowlist file, ignoring comment lines', () => {
     const env = unlisted();
     delete env.VELOQ_TEST_HANDSETS;
     const file = path.join(env.XDG_CONFIG_HOME!, 'veloq/test-handsets');
@@ -306,21 +306,21 @@ describe('a handset that is not a test handset', () => {
     expectRefused(take(env));
   });
 
-  it('runs when the run names the serial in VELOQ_ALLOW_HANDSET', () => {
+  vaultIt('runs when the run names the serial in VELOQ_ALLOW_HANDSET', () => {
     const run = take({ ...unlisted(), VELOQ_ALLOW_HANDSET: UNLISTED });
     expect(run.status).toBe(0);
     expect(run.stdout).toContain('ran');
   });
 
-  it('still refuses when VELOQ_ALLOW_HANDSET names another serial', () => {
+  vaultIt('still refuses when VELOQ_ALLOW_HANDSET names another serial', () => {
     expectRefused(take({ ...unlisted(), VELOQ_ALLOW_HANDSET: LISTED }));
   });
 
-  it('refuses an unlisted ANDROID_SERIAL even with an emulator attached', () => {
+  vaultIt('refuses an unlisted ANDROID_SERIAL even with an emulator attached', () => {
     expectRefused(take({ ...unlisted([EMULATOR, UNLISTED]), ANDROID_SERIAL: UNLISTED }));
   });
 
-  it('runs as before with nothing attached', () => {
+  vaultIt('runs as before with nothing attached', () => {
     const run = take(unlisted([]));
     expect(run.status).toBe(0);
     expect(run.stdout).toContain('ran');
@@ -358,7 +358,7 @@ describe('every npm script that reaches the handset', () => {
   /** The two wrappers that take the lock: directly, or through the Maestro one. */
   const TAKES_THE_LOCK = /with-device-lock\.sh|with-maestro\.sh/;
 
-  it('runs through the device lock', () => {
+  vaultIt('runs through the device lock', () => {
     const unlocked = Object.entries(scripts)
       .filter(([, command]) => REACHES_HANDSET.test(command))
       .filter(([, command]) => !TAKES_THE_LOCK.test(command))
@@ -370,7 +370,7 @@ describe('every npm script that reaches the handset', () => {
 describe('a hand-taken lock', () => {
   const shell = path.join(projectRoot, 'scripts/device-lock-shell.sh');
 
-  it('marks itself taken, so a helper underneath runs rather than waiting', () => {
+  vaultIt('marks itself taken, so a helper underneath runs rather than waiting', () => {
     const env = privateLock();
     const run = spawnSync(shell, ['sh', '-c', `${script} echo through`], {
       encoding: 'utf8',
@@ -381,7 +381,7 @@ describe('a hand-taken lock', () => {
     expect(run.stdout).toContain('through');
   });
 
-  it('derives the same lock path the wrapper does', () => {
+  vaultIt('derives the same lock path the wrapper does', () => {
     const env: NodeJS.ProcessEnv = { ...isolated(), ANDROID_SERIAL: PINNED };
     const show = (target: string) =>
       spawnSync(target, ['sh', '-c', 'printf %s "$VELOQ_DEVICE_LOCK_PATH"'], {
@@ -395,7 +395,7 @@ describe('a hand-taken lock', () => {
     expect(show(script).stdout).toBe(held.stdout);
   });
 
-  it('serialises against the wrapper, so two sessions still queue', async () => {
+  vaultIt('serialises against the wrapper, so two sessions still queue', async () => {
     const marker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-device-')), 'order');
     const run = (target: string, tag: string) =>
       new Promise<void>((resolve) => {
@@ -417,7 +417,7 @@ describe('a hand-taken lock', () => {
     expect(order[1]).toBe(`${order[0].split('-')[0]}-out`);
   });
 
-  it('is what the wrapper header and CLAUDE.md tell an agent to take', () => {
+  vaultIt('is what the wrapper header and CLAUDE.md tell an agent to take', () => {
     expect(fs.readFileSync(script, 'utf8')).toContain('device-lock-shell.sh');
     // The waiting line has to admit the caller may be its own blocker.
     expect(fs.readFileSync(script, 'utf8')).toMatch(/holds.*including you|you may be holding/i);
@@ -466,7 +466,7 @@ describe('the Maestro wrapper', () => {
   const HEALTHY = 'List of devices attached\n203.0.113.11:5555\tdevice';
   const WITH_OFFLINE = `${HEALTHY}\n203.0.113.12:5555\toffline`;
 
-  it('refuses while a transport is offline, and names it', () => {
+  vaultIt('refuses while a transport is offline, and names it', () => {
     const { env, ran } = stubbed(WITH_OFFLINE);
 
     const run = spawnSync(wrapper, ['test', '.maestro/'], { encoding: 'utf8', env });
@@ -476,7 +476,7 @@ describe('the Maestro wrapper', () => {
     expect(fs.existsSync(ran)).toBe(false);
   });
 
-  it('says Maestro refuses every device, not the one that dropped', () => {
+  vaultIt('says Maestro refuses every device, not the one that dropped', () => {
     const { env } = stubbed(WITH_OFFLINE);
 
     const run = spawnSync(wrapper, ['test', '.maestro/'], { encoding: 'utf8', env });
@@ -485,7 +485,7 @@ describe('the Maestro wrapper', () => {
     expect(run.stderr).toContain('adb disconnect');
   });
 
-  it('runs Maestro with its arguments when every transport is healthy', () => {
+  vaultIt('runs Maestro with its arguments when every transport is healthy', () => {
     const { env, ran } = stubbed(HEALTHY);
 
     const run = spawnSync(wrapper, ['test', '.maestro/', '--include-tags=tier0'], {
@@ -499,7 +499,7 @@ describe('the Maestro wrapper', () => {
     );
   });
 
-  it('takes the device lock, so a flow does not reset another run', () => {
+  vaultIt('takes the device lock, so a flow does not reset another run', () => {
     const source = fs.readFileSync(wrapper, 'utf8');
     expect(source).toContain('with-device-lock.sh');
     expect(source).toContain('VELOQ_DEVICE_LOCK_HELD');

@@ -21,11 +21,11 @@ const EM_DASH_REFERENCE = new RegExp('&' + '(?:mdash|#0*8212|#[xX]0*2014);', 'g'
 // Paths that may keep an em dash, each with the reason. Prefixes, not globs.
 const ALLOWED = [
   // The guard's own fixtures have to hold the character it looks for.
-  'src/__tests__/bugs/emDashLintExitCode.test.ts',
-  'src/__tests__/bugs/guardsReadTheIndex.test.ts',
+  'src/__tests__/bugs/emDashLintExitCode.vault.test.ts',
+  'src/__tests__/bugs/guardsReadTheIndex.vault.test.ts',
   // The fixer's own fixture, whose assertion is that it turns this into a
   // comma. Without the character there is nothing for the fixer to fix.
-  'src/__tests__/scripts/bundleFixesGenerated.test.ts',
+  'src/__tests__/scripts/bundleFixesGenerated.vault.test.ts',
   // Migration bytes are checksummed, not prose. Editing a comment inside one
   // changes its sha and splits the installed base, which is what
   // `migration_checksums.rs` refuses. Style never outranks that.

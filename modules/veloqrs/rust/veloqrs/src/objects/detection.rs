@@ -1187,6 +1187,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_empty_slot_answers_at_once_and_sleeps_none() {
             let fake = Fake::new(vec![], Ok(DetectionPoll::Idle));
             assert_eq!(fake.run(false), SlotWait::Idle);
@@ -1194,6 +1195,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_run_that_finishes_is_waited_out() {
             let fake = Fake::new(
                 vec![
@@ -1213,6 +1215,7 @@ mod tests {
 
         /// The defect itself: this used to never return.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_run_that_hangs_costs_the_limit_and_no_more() {
             let fake = Fake::new(vec![], Ok(DetectionPoll::Running));
             assert_eq!(fake.run(false), SlotWait::TimedOut);
@@ -1228,6 +1231,7 @@ mod tests {
         /// and one that succeeded are not the same thing to everything
         /// downstream.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_wait_that_ran_out_of_time_is_counted() {
             let hung = Fake::new(vec![], Ok(DetectionPoll::Running));
             assert_eq!(hung.run(false), SlotWait::TimedOut);
@@ -1236,6 +1240,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_wait_that_ended_is_not_counted() {
             let empty = Fake::new(vec![], Ok(DetectionPoll::Idle));
             assert_eq!(empty.run(false), SlotWait::Idle);
@@ -1250,6 +1255,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_follower_stops_at_the_end_of_its_own_run() {
             let fake = Fake::new(
                 vec![Ok(DetectionPoll::Running), Ok(DetectionPoll::Applied)],
@@ -1259,6 +1265,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_follower_stops_on_a_worker_that_died() {
             let fake = Fake::new(vec![Ok(DetectionPoll::Died)], Ok(DetectionPoll::Idle));
             assert_eq!(fake.run(true), SlotWait::Died);
@@ -1267,6 +1274,7 @@ mod tests {
         /// A drain wants the slot empty, not this run's end, so it reads again
         /// past a run that has just finished and past a worker that died.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_drain_walks_past_an_end_to_the_empty_slot() {
             let fake = Fake::new(
                 vec![Ok(DetectionPoll::Died), Ok(DetectionPoll::Applied)],
@@ -1280,6 +1288,7 @@ mod tests {
         /// shape. The deadline holds it, and every read sleeps, so it costs no
         /// core while it waits.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_drain_that_never_empties_still_ends_without_spinning() {
             let fake = Fake::new(vec![], Ok(DetectionPoll::Applied));
             assert_eq!(fake.run(false), SlotWait::TimedOut);
@@ -1287,6 +1296,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_failed_poll_ends_the_wait_and_carries_the_reason() {
             let fake = Fake::new(vec![Err("locked".to_string())], Ok(DetectionPoll::Idle));
             match fake.run(false) {
@@ -1296,6 +1306,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_limit_of_zero_gives_up_before_it_polls_at_all() {
             let answered = wait_on_slot_with(
                 Duration::ZERO,
@@ -1353,6 +1364,7 @@ mod tests {
 
         /// The taxonomy, read rather than exercised through a worker.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         pub fn a_claim_maps_to_one_start_outcome_each() {
             assert!(outcome_for_claim(Claim::Taken).is_ok());
             assert_eq!(
@@ -1388,6 +1400,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         pub fn a_failed_run_holds_the_next_start_back() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -1441,6 +1454,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         pub fn a_started_run_holds_the_key_until_it_settles() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -1478,6 +1492,7 @@ mod tests {
         /// hold detection back after the backfill that took it has finished,
         /// which is the opposite of what the suspension is for.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         pub fn a_suspension_refuses_without_taking_the_key() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -1610,11 +1625,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_start_busy_unclaimed_recut_keeps_failure() {
         busy_ffi_refusal_keeps_an_aged_failure(false);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_force_redetect_busy_unclaimed_recut_keeps_failure() {
         busy_ffi_refusal_keeps_an_aged_failure(true);
     }
@@ -1688,11 +1705,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_start_suspended_after_claim_frees_key() {
         a_suspension_after_the_claim_leaves_the_key_free(false);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_force_redetect_suspended_after_claim_frees_key() {
         a_suspension_after_the_claim_leaves_the_key_free(true);
     }
@@ -1739,16 +1758,19 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_poll_followed_complete_survives_failing_successor() {
         followed_run_keeps_its_verdict_after_a_successor(true);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_poll_followed_error_survives_successful_successor() {
         followed_run_keeps_its_verdict_after_a_successor(false);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_poll_followed_running_binds_before_successor() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -1786,6 +1808,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_poll_followed_handoff_keeps_completed_verdict() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -1822,6 +1845,7 @@ mod tests {
     /// refused without paying for a worker, which is the non-racing shape of
     /// the same guarantee.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     pub fn a_second_start_while_running_costs_nothing() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -1864,6 +1888,7 @@ mod tests {
     /// never lifts until the athlete moves it, so a caller that reads the two
     /// as one verdict either waits for ever or says nothing at all.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     pub fn a_start_with_detection_switched_off_says_so() {
         let _serial = serial_global_state();
         let tmp = seeded_global_engine();
@@ -1967,6 +1992,7 @@ mod tests {
     /// Expected behaviour: a suspension refuses every arm, and a refusal must
     /// leave the slot empty so the backfill's own re-cut can take it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     pub fn a_suspended_start_installs_nothing() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2067,6 +2093,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     pub fn a_finished_run_releases_its_slot_without_a_poll() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2093,6 +2120,7 @@ mod tests {
     /// anything, so a status surface can show it and the follower still gets
     /// the completion.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     pub fn the_last_outcome_is_readable_without_taking_the_completion() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2157,6 +2185,7 @@ mod tests {
     /// outcome with it. They are one state, "no run has happened here", and a
     /// fixture that resets half of it hands the next test the other half.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn clearing_the_handle_clears_the_outcome_that_belongs_to_it() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2187,6 +2216,7 @@ mod tests {
     /// test that needs to be the only poller can wait for the count to reach
     /// zero instead of hoping.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_driver_on_the_slot_is_counted_while_it_runs() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2225,6 +2255,7 @@ mod tests {
     /// Expected behaviour: both start paths leave a follower behind that writes
     /// the checkpoints.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rescan_started_from_typescript_leaves_a_checkpoint_follower() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2247,6 +2278,7 @@ mod tests {
     /// A checkpoint follower keeps watching only its own live slot. Once the
     /// worker has settled, the follower leaves its outcome and slot alone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_checkpoint_follower_leaves_a_finished_run_settled() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2311,6 +2343,7 @@ mod tests {
     /// nobody: the follower holds its own run's slot and stops when the shared
     /// handle is somebody else's.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_follower_stops_when_its_own_run_leaves_the_slot() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2394,6 +2427,7 @@ mod tests {
         /// Expected behaviour: the driver gives up once the slot has been quiet
         /// for longer than the limit, and persists nothing.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_checkpoint_driver_gives_up_on_a_run_that_writes_nothing() {
             let slot = crate::persistence::CheckpointSlot::default();
             let clock = Cell::new(Duration::ZERO);
@@ -2422,6 +2456,7 @@ mod tests {
         /// Expected behaviour: the driver gives up 420 s after the last
         /// checkpoint, at 820 s, and not at 420 s.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_checkpoint_restarts_the_quiet_bound() {
             let slot = crate::persistence::CheckpointSlot::default();
             let clock = Cell::new(Duration::ZERO);
@@ -2461,6 +2496,7 @@ mod tests {
         /// Expected behaviour: the driver returns on the next poll whatever the
         /// clock reads, and persists nothing further.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_checkpoint_driver_leaves_when_its_run_has_left_whatever_the_clock_says() {
             let slot = crate::persistence::CheckpointSlot::default();
             let clock = Cell::new(SLOT_WAIT_LIMIT * 2);
@@ -2484,6 +2520,7 @@ mod tests {
     /// A driver that panics still leaves the count where it found it, or the
     /// next test waits forever on a thread that is already dead.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_driver_that_panics_is_still_uncounted() {
         let _serial = serial_global_state();
         wait_for_slot_drivers();
@@ -2507,6 +2544,7 @@ mod tests {
     /// worker, and the slot it held is free afterwards so the next detection
     /// can start. A cancel is not an error: the run did what it was told.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_running_detection_can_be_cancelled_and_frees_its_slot() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2536,6 +2574,7 @@ mod tests {
     /// Cancelling when nothing is running says so, rather than arming a flag
     /// the next run would read.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn cancelling_an_idle_detection_says_there_was_nothing_to_stop() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2613,6 +2652,7 @@ mod tests {
     /// Expected behaviour: the reads answer at once and say a run is under way,
     /// whether the starter is the FFI start or the conditioner.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn status_reads_do_not_wait_behind_a_start_building_its_run() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2631,6 +2671,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn status_reads_do_not_wait_behind_a_conditioner_start() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2655,6 +2696,7 @@ mod tests {
     /// Scenario: a second start lands while the first is still building.
     /// Expected behaviour: it is refused, and one worker is started.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_start_during_the_build_is_busy_and_starts_no_second_worker() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2681,6 +2723,7 @@ mod tests {
     /// switched off.
     /// Expected behaviour: the slot is left empty, so the next start runs.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_start_refused_under_the_engine_lock_leaves_the_slot_empty() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2712,6 +2755,7 @@ mod tests {
     /// Expected behaviour: the cancel is not lost; the run ends cancelled once
     /// it is installed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cancel_during_the_build_ends_the_run_once_it_installs() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2808,6 +2852,7 @@ mod tests {
     /// processed ids. It settles on a thread of its own too, so the poll
     /// behind it is as cheap as the first.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     pub fn a_run_with_nothing_new_applies_off_the_poller_as_well() {
         let _serial = serial_global_state();
         let _tmp = engine_with_a_catalogue();
@@ -2837,6 +2882,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_new_ride_settles_a_warm_worker_without_replacing_its_catalogue() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -2924,6 +2970,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn polling_an_old_handle_does_not_release_the_replacements_lease() {
         let _serial = serial_global_state();
         let tmp = seeded_global_engine();
@@ -2969,6 +3016,7 @@ mod tests {
     /// `mark_installed` stores its install, and a worker over a small pool can
     /// finish inside that gap. A poll there has no install to settle against.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_poll_before_mark_installed_leaves_the_lease_to_the_install() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -3065,16 +3113,19 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ready_success_cannot_overwrite_a_new_runs_idle() {
         ready_verdict_precedes_the_next_runs_idle(true);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ready_failure_cannot_overwrite_a_new_runs_idle() {
         ready_verdict_precedes_the_next_runs_idle(false);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     pub fn a_failed_worker_releases_its_slot_without_a_poll() {
         let _serial = serial_global_state();
         let _tmp = engine_with_a_catalogue();
@@ -3099,6 +3150,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failed_claimed_worker_keeps_its_detect_key_in_backoff() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -3126,6 +3178,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_follower_reads_the_recorded_outcome_after_the_worker_frees_its_slot() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -3175,6 +3228,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_indoor_library_completes_detection_without_backoff() {
         let _serial = serial_global_state();
         let _tmp = init_global_engine();
@@ -3198,6 +3252,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_library_completes_detection_without_backoff() {
         let _serial = serial_global_state();
         let _tmp = init_global_engine();
@@ -3260,6 +3315,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failed_forced_run_backs_off_without_clearing_a_refused_retry() {
         let _serial = serial_global_state();
         let tmp = seeded_global_engine();
@@ -3324,6 +3380,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     pub fn a_caller_applied_handle_in_the_shared_slot_is_rejected() {
         let _serial = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -3409,6 +3466,7 @@ mod tests {
         use crate::persistence::sections::conditioning::try_start_conditioning;
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         pub fn does_not_outlive_the_reset() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();
@@ -3428,6 +3486,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         pub fn cannot_take_the_next_run_s_completion() {
             let _serial = serial_global_state();
             let _tmp = seeded_global_engine();

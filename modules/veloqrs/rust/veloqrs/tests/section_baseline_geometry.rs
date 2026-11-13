@@ -135,6 +135,7 @@ fn upgrade_seeds_one_backdated_consensus_version_per_section() {
 /// Expected behaviour: the event is dated to the section's first ride, carries
 /// the geometry it describes, and says which upgrade wrote it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_baseline_event_is_backdated_and_linked_to_version_one() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
@@ -182,6 +183,7 @@ fn schema_info(conn: &Connection, key: &str) -> Option<String> {
 /// Expected behaviour: the seed names the detector that cut it, so the first
 /// detect under a different one has something to have changed from.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn seeding_stamps_the_pre_ledger_generation() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
@@ -203,6 +205,7 @@ fn seeding_stamps_the_pre_ledger_generation() {
 /// Expected behaviour: a marker a save already wrote is authoritative, so the
 /// seed never rewrites a live generation as corridor.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn seeding_leaves_an_existing_generation_alone() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
@@ -256,6 +259,7 @@ fn a_second_open_seeds_nothing_further() {
 /// sections it detects later get real `formed` events instead of a fabricated
 /// birth.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fresh_install_seeds_no_baseline() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("fresh.db");
@@ -345,6 +349,7 @@ fn a_geometry_table_without_source_is_altered_on_open() {
 /// Expected behaviour: it still gets a birth geometry, stamped now rather than
 /// dropped.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_with_no_member_rides_falls_back_to_now() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");

@@ -68,7 +68,7 @@ describe('withScreenBoundary', () => {
     expect(getByText('loaded')).toBeTruthy();
   });
 
-  it('passes props through', async () => {
+  vaultIt('passes props through', async () => {
     const Echo = ({ label }: { label: string }) => {
       const { Text } = require('react-native');
       return <Text>{label}</Text>;

@@ -32,6 +32,7 @@ fn row(date: &str, hrv: Option<f64>, resting_hr: Option<f64>) -> WellnessRow {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_forward_filled_day_is_marked_as_having_no_reading() {
     let dir = TempDir::new().unwrap();
     let mut engine =
@@ -57,6 +58,7 @@ fn a_forward_filled_day_is_marked_as_having_no_reading() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_series_with_no_reading_at_all_has_no_flags() {
     let dir = TempDir::new().unwrap();
     let mut engine =

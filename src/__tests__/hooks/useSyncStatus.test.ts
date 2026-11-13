@@ -64,7 +64,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('reads once at mount and never on a timer while idle', async () => {
+vaultIt('reads once at mount and never on a timer while idle', async () => {
   const engine = fakeEngine(status(SyncState.Idle, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
@@ -104,7 +104,7 @@ it('re-reads when the engine announces the settle', async () => {
   expect(result.current?.state).toBe(SyncState.Idle);
 });
 
-it('drops its subscriptions on unmount', async () => {
+vaultIt('drops its subscriptions on unmount', async () => {
   const engine = fakeEngine(status(SyncState.Idle, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
@@ -115,7 +115,7 @@ it('drops its subscriptions on unmount', async () => {
   expect(live).toBe(0);
 });
 
-it('does not re-render a state consumer for progress within the same state', async () => {
+vaultIt('does not re-render a state consumer for progress within the same state', async () => {
   const engine = fakeEngine(status(SyncState.Syncing, 0));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   let renders = 0;
@@ -136,26 +136,29 @@ it('does not re-render a state consumer for progress within the same state', asy
   expect(renders).toBe(first + 1);
 });
 
-it('does not re-render a last-error consumer for progress while the error is unchanged', async () => {
-  const engine = fakeEngine(status(SyncState.Syncing, 0));
-  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  let renders = 0;
-  const { result } = await renderHook(() => {
-    renders += 1;
-    return useSyncLastError();
-  });
-  const first = renders;
+vaultIt(
+  'does not re-render a last-error consumer for progress while the error is unchanged',
+  async () => {
+    const engine = fakeEngine(status(SyncState.Syncing, 0));
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+    let renders = 0;
+    const { result } = await renderHook(() => {
+      renders += 1;
+      return useSyncLastError();
+    });
+    const first = renders;
 
-  engine.setSnapshot(status(SyncState.Syncing, 2));
-  await act(() => engine.announce('syncProgress'));
-  expect(renders).toBe(first);
-  expect(result.current).toBeUndefined();
+    engine.setSnapshot(status(SyncState.Syncing, 2));
+    await act(() => engine.announce('syncProgress'));
+    expect(renders).toBe(first);
+    expect(result.current).toBeUndefined();
 
-  engine.setSnapshot({ ...status(SyncState.Idle, 2), lastError: 'offline' } as SyncStatus);
-  await act(() => engine.announce('syncSettled'));
-  expect(result.current).toBe('offline');
-  expect(renders).toBe(first + 1);
-});
+    engine.setSnapshot({ ...status(SyncState.Idle, 2), lastError: 'offline' } as SyncStatus);
+    await act(() => engine.announce('syncSettled'));
+    expect(result.current).toBe('offline');
+    expect(renders).toBe(first + 1);
+  }
+);
 
 function downloading(completed: number, total: number): TrackStage {
   return {
@@ -171,37 +174,40 @@ function settledWith(tracks: TrackStage | undefined): SyncStatus {
   return { ...status(SyncState.Idle, 3), tracks } as SyncStatus;
 }
 
-it('follows a GPS pass the engine started after the sync settled, and stops with it', async () => {
-  const engine = fakeEngine(settledWith(undefined));
-  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  const { result } = await renderHook(() => useTrackStage());
-  expect(result.current).toBeNull();
+vaultIt(
+  'follows a GPS pass the engine started after the sync settled, and stops with it',
+  async () => {
+    const engine = fakeEngine(settledWith(undefined));
+    mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+    const { result } = await renderHook(() => useTrackStage());
+    expect(result.current).toBeNull();
 
-  engine.setSnapshot(settledWith(downloading(0, 12)));
-  await act(() => engine.announce('syncProgress'));
-  expect(result.current).toEqual(downloading(0, 12));
+    engine.setSnapshot(settledWith(downloading(0, 12)));
+    await act(() => engine.announce('syncProgress'));
+    expect(result.current).toEqual(downloading(0, 12));
 
-  // The pass announces only that it started, so its progress is read on the timer.
-  engine.setSnapshot(settledWith(downloading(6, 12)));
-  await act(() => {
-    jest.advanceTimersByTime(TRACK_STAGE_REREAD_MS);
-  });
-  expect(result.current).toEqual(downloading(6, 12));
+    // The pass announces only that it started, so its progress is read on the timer.
+    engine.setSnapshot(settledWith(downloading(6, 12)));
+    await act(() => {
+      jest.advanceTimersByTime(TRACK_STAGE_REREAD_MS);
+    });
+    expect(result.current).toEqual(downloading(6, 12));
 
-  engine.setSnapshot(settledWith(undefined));
-  await act(() => {
-    jest.advanceTimersByTime(TRACK_STAGE_REREAD_MS);
-  });
-  expect(result.current).toBeNull();
+    engine.setSnapshot(settledWith(undefined));
+    await act(() => {
+      jest.advanceTimersByTime(TRACK_STAGE_REREAD_MS);
+    });
+    expect(result.current).toBeNull();
 
-  const reads = engine.getSyncStatus.mock.calls.length;
-  await act(() => {
-    jest.advanceTimersByTime(30_000);
-  });
-  expect(engine.getSyncStatus).toHaveBeenCalledTimes(reads);
-});
+    const reads = engine.getSyncStatus.mock.calls.length;
+    await act(() => {
+      jest.advanceTimersByTime(30_000);
+    });
+    expect(engine.getSyncStatus).toHaveBeenCalledTimes(reads);
+  }
+);
 
-it('wakes no reader for a timed read that found the stage where it was', async () => {
+vaultIt('wakes no reader for a timed read that found the stage where it was', async () => {
   const engine = fakeEngine(settledWith(downloading(2, 12)));
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   let renders = 0;

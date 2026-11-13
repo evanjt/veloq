@@ -94,7 +94,7 @@ describe('the sport a section map draws', () => {
     expect(await styleAskedFor([sportType])).toBe(sportType);
   });
 
-  it('is unchanged for the sports that always worked', async () => {
+  vaultIt('is unchanged for the sports that always worked', async () => {
     expect(await styleAskedFor(['Ride'])).toBe('Ride');
     expect(await styleAskedFor(['Hike'])).toBe('Hike');
     expect(await styleAskedFor(['OpenWaterSwim'])).toBe('OpenWaterSwim');

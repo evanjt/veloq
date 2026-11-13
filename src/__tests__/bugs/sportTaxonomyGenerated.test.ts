@@ -27,7 +27,7 @@ import {
 const RUST = resolve('modules/veloqrs/rust/veloqrs/src/sport.rs');
 
 describe('the sport taxonomy', () => {
-  it('is what the Rust module says it is', () => {
+  vaultIt('is what the Rust module says it is', () => {
     const source = readFileSync(RUST, 'utf-8');
     expect(SPORT_FAMILIES).toEqual(readRustSportFamilies(source));
     expect(SPORT_FAMILY_MEMBERS).toEqual(readRustSportFamilyMembers(source));
@@ -63,7 +63,7 @@ describe('the sport taxonomy', () => {
     }
   });
 
-  it('reads a list whether it is on one line or many', () => {
+  vaultIt('reads a list whether it is on one line or many', () => {
     const source = `
 pub const CYCLING: &[&str] = &["Ride", "VirtualRide"];
 pub const RUNNING: &[&str] = &[
@@ -85,22 +85,25 @@ const NOT_PUB: &[&str] = &["Ignored"];
     });
   });
 
-  it('refuses a source missing a family or declaring an empty one', () => {
+  vaultIt('refuses a source missing a family or declaring an empty one', () => {
     expect(() => readRustSportFamilies('pub const CYCLING: &[&str] = &["Ride"];')).toThrow(
       /running/
     );
     expect(() => readRustSportFamilies('pub const CYCLING: &[&str] = &[];')).toThrow(/CYCLING/);
   });
 
-  it('derives the activity type list from the drawn families, every counting sport included', () => {
-    const families = readRustSportFamilyMembers(readFileSync(RUST, 'utf-8'));
-    expect(ACTIVITY_TYPES).toEqual([...new Set(Object.values(families).flat())]);
-    for (const sports of Object.values(SPORT_FAMILIES)) {
-      for (const sport of sports) expect(ACTIVITY_TYPES).toContain(sport);
+  vaultIt(
+    'derives the activity type list from the drawn families, every counting sport included',
+    () => {
+      const families = readRustSportFamilyMembers(readFileSync(RUST, 'utf-8'));
+      expect(ACTIVITY_TYPES).toEqual([...new Set(Object.values(families).flat())]);
+      for (const sports of Object.values(SPORT_FAMILIES)) {
+        for (const sport of sports) expect(ACTIVITY_TYPES).toContain(sport);
+      }
     }
-  });
+  );
 
-  it('renders a sport added to a family into the activity type list once', () => {
+  vaultIt('renders a sport added to a family into the activity type list once', () => {
     const source = readFileSync(RUST, 'utf-8');
     const families = readRustSportFamilyMembers(source);
     const rendered = renderSportTaxonomy(
@@ -113,7 +116,7 @@ const NOT_PUB: &[&str] = &["Ignored"];
     expect(rendered).toContain('export type ActivityType = (typeof ACTIVITY_TYPES)[number];');
   });
 
-  it('accepts every generated activity type at runtime and nothing outside the list', () => {
+  vaultIt('accepts every generated activity type at runtime and nothing outside the list', () => {
     for (const sport of ACTIVITY_TYPES) expect(isActivityType(sport)).toBe(true);
     expect(isActivityType('Floorball')).toBe(false);
     expect(isActivityType('')).toBe(false);

@@ -11,7 +11,7 @@ import { resolveLocaleChain } from '@/i18n/resolveLocale';
 import { SUPPORTED_LOCALES } from '@/i18n/types';
 
 describe('resolveLocaleChain', () => {
-  it.each([
+  vaultIt.each([
     [['de-CH', 'fr'], 'de-CH'],
     [['en-NZ'], 'en-AU'],
     [['pt-PT'], 'pt'],
@@ -31,7 +31,7 @@ describe('resolveLocaleChain', () => {
     }
   });
 
-  it('gives a supported tag its own chain', () => {
+  vaultIt('gives a supported tag its own chain', () => {
     expect(resolveLocaleChain(['de-CH'])).toEqual(['de-CH', 'de-DE', 'en-GB']);
   });
 });

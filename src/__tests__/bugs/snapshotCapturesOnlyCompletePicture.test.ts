@@ -136,17 +136,20 @@ describe('a render with a failed tile', () => {
     ]);
   });
 
-  it.each(['terrain', 'openmaptiles', 'satellite-global'])('fails on a 404 from %s', (sourceId) => {
-    const page = bootWorkerPage();
+  vaultIt.each(['terrain', 'openmaptiles', 'satellite-global'])(
+    'fails on a 404 from %s',
+    (sourceId) => {
+      const page = bootWorkerPage();
 
-    page.render(request(), 1);
-    page.map.emit('error', tileError(sourceId, 404));
-    jest.advanceTimersByTime(400);
+      page.render(request(), 1);
+      page.map.emit('error', tileError(sourceId, 404));
+      jest.advanceTimersByTime(400);
 
-    expect(results(page)).toEqual([
-      expect.objectContaining({ type: 'snapshotError', gen: 1, tileErrors: 1 }),
-    ]);
-  });
+      expect(results(page)).toEqual([
+        expect.objectContaining({ type: 'snapshotError', gen: 1, tileErrors: 1 }),
+      ]);
+    }
+  );
 
   it.each(['satellite-regions'])(
     'is captured over a 404 from the regional source %s, which is out of coverage',

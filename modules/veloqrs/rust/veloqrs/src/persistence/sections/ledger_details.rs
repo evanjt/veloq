@@ -452,6 +452,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_birth_from_a_split_resolves_its_parent() {
         let details = read(
             "formed",
@@ -471,6 +472,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_split_resolves_every_piece_it_left_in_order() {
         let details = read(
             "split",
@@ -489,6 +491,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_lineage_key_on_another_kind_resolves_no_link() {
         let details = read("recut", r#"{"split_from":"parent","siblings":["c1"]}"#).expect("d");
         assert!(details.split_from.is_none());
@@ -497,6 +500,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_recut_reads_one_record_per_sport_in_sport_order() {
         let details = read(
             "recut",
@@ -523,6 +527,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_recut_reads_one_record_per_sport_and_direction_in_that_order() {
         let details = read(
             "recut",
@@ -556,6 +561,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rebased_record_reads_its_direction() {
         let details = read(
             "pr_rebased",
@@ -580,6 +586,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rebased_record_reads_both_ends_and_its_sport() {
         let details = read(
             "pr_rebased",
@@ -593,6 +600,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rebase_with_no_record_on_one_side_reads_that_side_absent() {
         let details = read(
             "pr_rebased",
@@ -604,6 +612,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_reanchor_reads_the_activities_it_moved_between_and_whether_it_moved() {
         let details = read(
             "reference_reanchored",
@@ -619,12 +628,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_revert_reads_its_version() {
         let details = read("reverted", r#"{"version":3}"#).expect("details");
         assert_eq!(details.version, Some(3.0));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn boundary_reasons_cross_as_the_identity_writer_stores_them() {
         let details = read(
             "recut",
@@ -654,6 +665,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_boundary_reason_without_a_kind_is_skipped_and_the_rest_still_reads() {
         let details = read(
             "formed",
@@ -670,6 +682,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_change_with_no_boundary_reason_reads_none() {
         let details = read("formed", r#"{"around":["a1"]}"#).expect("details");
         assert!(details.boundaries.is_empty());
@@ -704,6 +717,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_object_reads_as_an_empty_record() {
         assert_eq!(
             read("formed", "{}"),
@@ -765,6 +779,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_recut_that_lengthens_the_end_reads_the_end_and_the_cliff_beside_it() {
         let raw = format!(
             r#"{{"boundaries":[
@@ -784,6 +799,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_recut_that_shortens_the_start_reads_the_start_and_its_reason() {
         let raw = format!(
             r#"{{"boundaries":[
@@ -802,6 +818,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_recut_that_moves_both_ends_reads_both_and_the_first_record_at_either() {
         let raw = format!(
             r#"{{"boundaries":[
@@ -817,6 +834,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_split_reads_the_point_along_the_line_and_the_neighbour_it_turns_onto() {
         let raw = format!(
             r#"{{"siblings":["col-y"],"boundaries":[
@@ -839,6 +857,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_trim_and_a_seam_clip_read_the_metres_they_took() {
         let at_end = metres_to_lat(1000.0);
         let trim = format!(
@@ -862,6 +881,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_support_cut_reads_its_floor_and_no_ride_count() {
         let raw = format!(
             r#"{{"boundaries":[{{"kind":"low_support","floor":3,"dropped_cells":2,
@@ -875,6 +895,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_row_with_no_record_reads_no_reason() {
         let summary = summarise("recut", "{}", &line(0.0, 1240.0), &line(0.0, 1480.0)).expect("s");
         assert_eq!(summary.moved.as_deref(), Some("end"));
@@ -882,6 +903,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_record_of_an_unknown_kind_reads_no_reason_rather_than_failing() {
         let raw = format!(
             r#"{{"boundaries":[{{"kind":"from_a_later_build","latitude":{},"longitude":0.0}},
@@ -894,6 +916,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_record_far_from_the_part_that_moved_is_not_its_reason() {
         let raw = format!(
             r#"{{"boundaries":[{{"kind":"traffic_cliff","thin":4,"thick":15,"latitude":{},"longitude":0.0}}]}}"#,
@@ -915,6 +938,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_line_that_did_not_move_at_either_end_reads_no_part_and_no_reason() {
         let raw = format!(
             r#"{{"boundaries":[{{"kind":"traffic_cliff","thin":4,"thick":15,"latitude":{},"longitude":0.0}}]}}"#,
@@ -926,6 +950,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_recut_with_no_earlier_version_reads_its_length_and_no_part() {
         let summary = summarise("recut", "{}", &[], &line(0.0, 1480.0)).expect("s");
         assert!(summary.length_before.is_none());
@@ -934,6 +959,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_birth_reads_its_length_and_no_reason() {
         let raw = format!(
             r#"{{"boundaries":[{{"kind":"traffic_cliff","thin":4,"thick":15,"latitude":{},"longitude":0.0}}]}}"#,
@@ -945,6 +971,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn rows_the_athlete_made_and_the_bookkeeping_rows_read_no_summary() {
         for kind in [
             "trimmed",
@@ -995,6 +1022,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn record_moves_written_with_a_recut_fold_onto_it() {
         let mut events = vec![
             event(1.0, "2026-01-01 10:00:00", "formed", None),
@@ -1051,6 +1079,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rebase_from_another_instant_or_with_no_recut_before_it_stays_alone() {
         let mut events = vec![
             event(

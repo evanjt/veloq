@@ -152,7 +152,7 @@ function over(color: string, ground: string): string {
 }
 
 describe('Button', () => {
-  it('draws the primary variant from tokens, with no literal of its own', async () => {
+  vaultIt('draws the primary variant from tokens, with no literal of its own', async () => {
     const { getByTestId } = await render(<Button label="Save" onPress={() => {}} testID="b" />);
 
     const style = styleOf(getByTestId('b'));
@@ -161,7 +161,7 @@ describe('Button', () => {
     expect(style.paddingHorizontal).toBe(spacing.md);
   });
 
-  it('gives each variant its own ground and border', async () => {
+  vaultIt('gives each variant its own ground and border', async () => {
     const grounds = [];
     for (const variant of ['primary', 'secondary', 'ghost', 'destructive'] as const) {
       const { getByTestId } = await render(
@@ -177,7 +177,7 @@ describe('Button', () => {
     expect(new Set(grounds).size).toBe(4);
   });
 
-  it('sizes sm and md apart, and both from the type scale', async () => {
+  vaultIt('sizes sm and md apart, and both from the type scale', async () => {
     const { getByTestId: sm } = await render(
       <Button label="x" size="sm" onPress={() => {}} testID="b" />
     );
@@ -190,20 +190,23 @@ describe('Button', () => {
     expect(styleOf(md('b-label')).fontSize).toBe(typography.body.fontSize);
   });
 
-  it('draws a small button as a smaller copy of the medium one: semibold, padded 12 a side', async () => {
-    const { getByTestId: sm } = await render(
-      <Button label="x" size="sm" onPress={() => {}} testID="b" />
-    );
-    const { getByTestId: md } = await render(<Button label="x" onPress={() => {}} testID="b" />);
+  vaultIt(
+    'draws a small button as a smaller copy of the medium one: semibold, padded 12 a side',
+    async () => {
+      const { getByTestId: sm } = await render(
+        <Button label="x" size="sm" onPress={() => {}} testID="b" />
+      );
+      const { getByTestId: md } = await render(<Button label="x" onPress={() => {}} testID="b" />);
 
-    expect(styleOf(sm('b')).paddingHorizontal).toBe(spacing.smPlus);
-    expect(styleOf(sm('b-label')).fontWeight).toBe('600');
-    expect(styleOf(sm('b-label')).fontWeight).toBe(styleOf(md('b-label')).fontWeight);
-    expect(styleOf(md('b')).paddingHorizontal).toBe(spacing.md);
-    expect(styleOf(md('b-label')).fontWeight).toBe(typography.bodyBold.fontWeight);
-  });
+      expect(styleOf(sm('b')).paddingHorizontal).toBe(spacing.smPlus);
+      expect(styleOf(sm('b-label')).fontWeight).toBe('600');
+      expect(styleOf(sm('b-label')).fontWeight).toBe(styleOf(md('b-label')).fontWeight);
+      expect(styleOf(md('b')).paddingHorizontal).toBe(spacing.md);
+      expect(styleOf(md('b-label')).fontWeight).toBe(typography.bodyBold.fontWeight);
+    }
+  );
 
-  it('reaches the platform tap-target minimum through hit slop, at either size', async () => {
+  vaultIt('reaches the platform tap-target minimum through hit slop, at either size', async () => {
     for (const size of ['sm', 'md'] as const) {
       const { getByTestId } = await render(
         <Button label="x" size={size} onPress={() => {}} testID="b" />
@@ -212,7 +215,7 @@ describe('Button', () => {
     }
   });
 
-  it('takes the platform minimum, 44 on iOS against 48 on Android', () => {
+  vaultIt('takes the platform minimum, 44 on iOS against 48 on Android', () => {
     expect(MIN_TAP_TARGET).toEqual({ ios: 44, android: 48 });
     expect(layout.minTapTarget).toBe(MIN_TAP_TARGET[Platform.OS === 'android' ? 'android' : 'ios']);
   });
@@ -243,22 +246,25 @@ describe('Button', () => {
     expect(queryByText('Save')).not.toBeNull();
   });
 
-  it('keeps its label in the layout while loading, hidden, with the spinner laid over it', async () => {
-    const { getByTestId } = await render(
-      <Button label="Upload" icon="cloud-upload-outline" loading onPress={() => {}} testID="b" />
-    );
-    const idle = await render(
-      <Button label="Upload" icon="cloud-upload-outline" onPress={() => {}} testID="i" />
-    );
+  vaultIt(
+    'keeps its label in the layout while loading, hidden, with the spinner laid over it',
+    async () => {
+      const { getByTestId } = await render(
+        <Button label="Upload" icon="cloud-upload-outline" loading onPress={() => {}} testID="b" />
+      );
+      const idle = await render(
+        <Button label="Upload" icon="cloud-upload-outline" onPress={() => {}} testID="i" />
+      );
 
-    // The label row is laid out the same way loading or not, so the button keeps its width.
-    expect(styleOf(getByTestId('b-content'))).toEqual({
-      ...styleOf(idle.getByTestId('i-content')),
-      opacity: 0,
-    });
-    expect(styleOf(getByTestId('b-spinner-frame')).position).toBe('absolute');
-    expect(getByTestId('b-spinner').props.color).toBe(styleOf(getByTestId('b-label')).color);
-  });
+      // The label row is laid out the same way loading or not, so the button keeps its width.
+      expect(styleOf(getByTestId('b-content'))).toEqual({
+        ...styleOf(idle.getByTestId('i-content')),
+        opacity: 0,
+      });
+      expect(styleOf(getByTestId('b-spinner-frame')).position).toBe('absolute');
+      expect(getByTestId('b-spinner').props.color).toBe(styleOf(getByTestId('b-label')).color);
+    }
+  );
 
   it.each([
     ['sm', iconSize.sm],
@@ -286,24 +292,27 @@ describe('Button', () => {
     mockIsDark = false;
   });
 
-  it('draws a ToggleButton glyph at the small rung in its label ink, chosen or not', async () => {
-    for (const selected of [false, true]) {
-      const { getByTestId, UNSAFE_getByType } = await render(
-        <ToggleButton
-          label="Heart rate"
-          icon="heart-pulse"
-          selected={selected}
-          onPress={() => {}}
-          testID="t"
-        />
-      );
-      const glyph = UNSAFE_getByType(MaterialCommunityIcons);
-      expect(glyph.props.size).toBe(iconSize.sm);
-      expect(glyph.props.color).toBe(styleOf(getByTestId('t-label')).color);
+  vaultIt(
+    'draws a ToggleButton glyph at the small rung in its label ink, chosen or not',
+    async () => {
+      for (const selected of [false, true]) {
+        const { getByTestId, UNSAFE_getByType } = await render(
+          <ToggleButton
+            label="Heart rate"
+            icon="heart-pulse"
+            selected={selected}
+            onPress={() => {}}
+            testID="t"
+          />
+        );
+        const glyph = UNSAFE_getByType(MaterialCommunityIcons);
+        expect(glyph.props.size).toBe(iconSize.sm);
+        expect(glyph.props.color).toBe(styleOf(getByTestId('t-label')).color);
+      }
     }
-  });
+  );
 
-  it('draws a chosen ink only when the glyph asks for one', async () => {
+  vaultIt('draws a chosen ink only when the glyph asks for one', async () => {
     const { UNSAFE_getByType } = await render(
       <Button
         label="Trend"
@@ -324,29 +333,32 @@ describe('Button', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('is a button to a screen reader, labelled by its own text', async () => {
+  vaultIt('is a button to a screen reader, labelled by its own text', async () => {
     const { getByTestId } = await render(<Button label="Save" onPress={() => {}} testID="b" />);
 
     expect(getByTestId('b').props.accessibilityRole).toBe('button');
     expect(getByTestId('b').props.accessibilityLabel).toBe('Save');
   });
 
-  it('wraps a long label inside its row and grows, rather than cutting it at large text', async () => {
-    const label = 'Wiederherstellen aus einer gespeicherten Sicherungskopie jetzt';
-    for (const size of ['sm', 'md'] as const) {
-      const { getByTestId } = await render(
-        <Button label={label} size={size} onPress={() => {}} testID="b" />
-      );
-      const text = getByTestId('b-label');
+  vaultIt(
+    'wraps a long label inside its row and grows, rather than cutting it at large text',
+    async () => {
+      const label = 'Wiederherstellen aus einer gespeicherten Sicherungskopie jetzt';
+      for (const size of ['sm', 'md'] as const) {
+        const { getByTestId } = await render(
+          <Button label={label} size={size} onPress={() => {}} testID="b" />
+        );
+        const text = getByTestId('b-label');
 
-      expect(text.props.numberOfLines).toBeUndefined();
-      expect(styleOf(text).flexShrink).toBe(1);
-      expect(styleOf(text).textAlign).toBe('center');
-      expect(styleOf(getByTestId('b')).height).toBeUndefined();
+        expect(text.props.numberOfLines).toBeUndefined();
+        expect(styleOf(text).flexShrink).toBe(1);
+        expect(styleOf(text).textAlign).toBe('center');
+        expect(styleOf(getByTestId('b')).height).toBeUndefined();
+      }
     }
-  });
+  );
 
-  it('carries an expanded state when it opens something, and none otherwise', async () => {
+  vaultIt('carries an expanded state when it opens something, and none otherwise', async () => {
     const closed = await render(
       <Button label="x" expanded={false} onPress={() => {}} testID="b" />
     );
@@ -361,7 +373,7 @@ describe('Button', () => {
 });
 
 describe('ToggleButton', () => {
-  it('marks the selected state to a screen reader, not only in colour', async () => {
+  vaultIt('marks the selected state to a screen reader, not only in colour', async () => {
     const { getByTestId } = await render(
       <ToggleButton label="Distance" selected onPress={() => {}} testID="t" />
     );
@@ -444,7 +456,7 @@ describe('ToggleButton', () => {
     });
   }
 
-  it('draws no mark when none is given', async () => {
+  vaultIt('draws no mark when none is given', async () => {
     const { queryByTestId } = await render(
       <ToggleButton label="x" selected onPress={() => {}} testID="t" />
     );
@@ -452,22 +464,25 @@ describe('ToggleButton', () => {
     expect(queryByTestId('t-mark')).toBeNull();
   });
 
-  it('fills a chosen accent chip with the fill and sets its label in the ink given with it', async () => {
-    const { getByTestId } = await render(
-      <ToggleButton
-        label="x"
-        selected
-        accent={{ fill: '#F2D16B', ink: '#1A1A1A' }}
-        onPress={() => {}}
-        testID="t"
-      />
-    );
+  vaultIt(
+    'fills a chosen accent chip with the fill and sets its label in the ink given with it',
+    async () => {
+      const { getByTestId } = await render(
+        <ToggleButton
+          label="x"
+          selected
+          accent={{ fill: '#F2D16B', ink: '#1A1A1A' }}
+          onPress={() => {}}
+          testID="t"
+        />
+      );
 
-    expect(styleOf(getByTestId('t')).backgroundColor).toBe('#F2D16B');
-    expect(styleOf(getByTestId('t-label')).color).toBe('#1A1A1A');
-  });
+      expect(styleOf(getByTestId('t')).backgroundColor).toBe('#F2D16B');
+      expect(styleOf(getByTestId('t-label')).color).toBe('#1A1A1A');
+    }
+  );
 
-  it('refuses an accent fill without its ink at compile time', () => {
+  vaultIt('refuses an accent fill without its ink at compile time', () => {
     const fillAlone = (
       // @ts-expect-error a fill without its ink falls back to an ink chosen for another ground
       <ToggleButton label="x" accent={{ fill: '#F2D16B' }} onPress={() => {}} />
@@ -480,7 +495,7 @@ describe('ToggleButton', () => {
     expect([fillAlone, looseFill]).toHaveLength(2);
   });
 
-  it('keeps 8 pt between the drawn edges of adjacent chips in a row', async () => {
+  vaultIt('keeps 8 pt between the drawn edges of adjacent chips in a row', async () => {
     const { toJSON } = await render(
       <ToggleButtonRow
         options={[
@@ -496,7 +511,7 @@ describe('ToggleButton', () => {
     expect(styleOf(row).gap).toBe(spacing.sm);
   });
 
-  it('keeps a chip label on one line, since chips sit in a horizontal row', async () => {
+  vaultIt('keeps a chip label on one line, since chips sit in a horizontal row', async () => {
     const { getByTestId } = await render(
       <ToggleButton label="A long option label" count={3} onPress={() => {}} testID="t" />
     );
@@ -504,7 +519,7 @@ describe('ToggleButton', () => {
     expect(getByTestId('t-label').props.numberOfLines).toBe(1);
   });
 
-  it('reaches the tap target through hit slop like every other button', async () => {
+  vaultIt('reaches the tap target through hit slop like every other button', async () => {
     const { getByTestId } = await render(<ToggleButton label="x" onPress={() => {}} testID="t" />);
 
     expect(reachHeight(getByTestId('t'))).toBeGreaterThanOrEqual(layout.minTapTarget);

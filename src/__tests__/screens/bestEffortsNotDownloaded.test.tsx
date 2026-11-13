@@ -106,10 +106,13 @@ describe('a Best Efforts curve that was never fetched', () => {
     expect(screen.queryByTestId('best-efforts-not-downloaded-Running')).toBeNull();
   });
 
-  it('titles every sport card as a heading, so a screen reader can skim between them', async () => {
-    await renderScreen();
+  vaultIt(
+    'titles every sport card as a heading, so a screen reader can skim between them',
+    async () => {
+      await renderScreen();
 
-    expect(screen.getByRole('header', { name: 'bestEffortsScreen.powerBests' })).toBeTruthy();
-    expect(screen.getByRole('header', { name: 'bestEffortsScreen.paceBests' })).toBeTruthy();
-  });
+      expect(screen.getByRole('header', { name: 'bestEffortsScreen.powerBests' })).toBeTruthy();
+      expect(screen.getByRole('header', { name: 'bestEffortsScreen.paceBests' })).toBeTruthy();
+    }
+  );
 });

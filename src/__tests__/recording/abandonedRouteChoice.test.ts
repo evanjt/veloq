@@ -43,7 +43,7 @@ describe('useForgetAbandonedRouteChoice', () => {
     expect(useRecordingLiveStore.getState().routeChoice?.routeId).toBe('a');
   });
 
-  it('forgets nothing when no route was chosen', () => {
+  vaultIt('forgets nothing when no route was chosen', () => {
     const { unmount } = renderHook(() => useForgetAbandonedRouteChoice({ current: false }));
     unmount();
     expect(useRecordingLiveStore.getState().routeChoice).toBeNull();

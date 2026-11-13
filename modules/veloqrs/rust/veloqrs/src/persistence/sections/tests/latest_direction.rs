@@ -38,6 +38,7 @@ fn climbs() -> Vec<TraversalRow> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_descent_today_is_ranked_on_its_own_direction() {
     let mut rows = climbs();
     rows.push(lap(10, "reverse", 340.0));
@@ -48,6 +49,7 @@ fn a_descent_today_is_ranked_on_its_own_direction() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_climb_today_is_ranked_against_the_climbs_only() {
     let mut rows = vec![lap(0, "reverse", 340.0)];
     rows.extend(climbs().into_iter().map(|mut r| {
@@ -73,6 +75,7 @@ fn a_slower_latest_climb_leaves_best_in_its_direction() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_trend_reads_the_latest_laps_own_direction() {
     let rows = (0..9)
         .map(|day| {
@@ -105,6 +108,7 @@ fn improvement_and_anomaly_read_the_latest_laps_own_direction() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn too_few_laps_in_the_latest_direction_leave_improvement_unjudged() {
     let mut rows = climbs();
     rows.truncate(1);

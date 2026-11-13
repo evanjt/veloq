@@ -38,27 +38,27 @@ function privateLock(): NodeJS.ProcessEnv {
 }
 
 describe('the Android build takes a lock of its own', () => {
-  it('is what the build scripts run through', () => {
+  vaultIt('is what the build scripts run through', () => {
     expect(packageJson.scripts['android:debug']).toContain('with-android-build-lock.sh');
     expect(packageJson.scripts.android).toContain('run-android.sh dev metro');
     expect(packageJson.scripts['android:standalone']).toContain('run-android.sh dev standalone');
     expect(packageJson.scripts['android:prod']).toContain('run-android.sh production standalone');
   });
 
-  it('leaves no rebuild alias beside the build commands', () => {
+  vaultIt('leaves no rebuild alias beside the build commands', () => {
     const justfile = fs.readFileSync(path.join(projectRoot, 'justfile'), 'utf8');
     expect(Object.keys(packageJson.scripts).filter((n) => n.startsWith('rebuild:'))).toEqual([]);
     expect(justfile).not.toMatch(/^rebuild-/m);
     expect(justfile).not.toMatch(/npm run rebuild:/);
   });
 
-  it('is the only path the justfile takes to Gradle', () => {
+  vaultIt('is the only path the justfile takes to Gradle', () => {
     const justfile = fs.readFileSync(path.join(projectRoot, 'justfile'), 'utf8');
     expect(justfile).not.toMatch(/expo run:android/);
     expect(justfile).toMatch(/^android:\n\s+npm run android$/m);
   });
 
-  it('does not call the justfile check the pre-commit hook', () => {
+  vaultIt('does not call the justfile check the pre-commit hook', () => {
     const justfile = fs.readFileSync(path.join(projectRoot, 'justfile'), 'utf8');
     const hook = fs.readFileSync(path.join(projectRoot, '.husky/pre-commit'), 'utf8');
     const check = justfile.match(/^# (.*)\ncheck:\n\s+(.*)$/m);
@@ -69,7 +69,7 @@ describe('the Android build takes a lock of its own', () => {
     }
   });
 
-  it('takes a lock of its own, so a hand-wrapped build cannot wait on itself', () => {
+  vaultIt('takes a lock of its own, so a hand-wrapped build cannot wait on itself', () => {
     const source = fs.readFileSync(script, 'utf8');
     expect(source).toContain('veloq-android-build.lock');
     expect(source).not.toContain('veloq-merge.lock');
@@ -80,7 +80,7 @@ describe('the Android build takes a lock of its own', () => {
     expect(source).not.toContain('TMPDIR');
   });
 
-  it('never runs the script on the lock a real build holds', () => {
+  vaultIt('never runs the script on the lock a real build holds', () => {
     // The script's default is the fleet's own lock, which a build holds for a
     // quarter of an hour. A case here that takes it fails on a machine that is
     // merely busy, and says nothing about the script.
@@ -176,40 +176,43 @@ describe('the Android build takes a lock of its own', () => {
       return env;
     }
 
-    it('sets both launchers when ccache is on the PATH', () => {
+    vaultIt('sets both launchers when ccache is on the PATH', () => {
       const env = clean({ ...privateLock(), PATH: pathWith(true) });
       expect(launchers(env)).toBe('ccache|ccache');
     });
 
-    it('sets neither when ccache is not installed', () => {
+    vaultIt('sets neither when ccache is not installed', () => {
       const env = clean({ ...privateLock(), PATH: pathWith(false) });
       expect(launchers(env)).toBe('|');
     });
 
-    it('keeps a launcher the caller already chose', () => {
+    vaultIt('keeps a launcher the caller already chose', () => {
       const env = clean({ ...privateLock(), PATH: pathWith(true) });
       env.CMAKE_C_COMPILER_LAUNCHER = 'sccache';
       env.CMAKE_CXX_COMPILER_LAUNCHER = 'sccache';
       expect(launchers(env)).toBe('sccache|sccache');
     });
 
-    it('bases the cache on the checkout root, so a worktree hits the main checkout objects', () => {
-      const env = clean({ ...privateLock(), PATH: pathWith(true) });
-      expect(cacheBase(env)).toBe(`${checkoutRoot}|1`);
-    });
+    vaultIt(
+      'bases the cache on the checkout root, so a worktree hits the main checkout objects',
+      () => {
+        const env = clean({ ...privateLock(), PATH: pathWith(true) });
+        expect(cacheBase(env)).toBe(`${checkoutRoot}|1`);
+      }
+    );
 
-    it('finds the root from the script, not from the directory the build starts in', () => {
+    vaultIt('finds the root from the script, not from the directory the build starts in', () => {
       const env = clean({ ...privateLock(), PATH: pathWith(true) });
       expect(cacheBase(env, os.tmpdir())).toBe(`${checkoutRoot}|1`);
     });
 
-    it('keeps a cache base the caller already chose', () => {
+    vaultIt('keeps a cache base the caller already chose', () => {
       const env = clean({ ...privateLock(), PATH: pathWith(true) });
       env.CCACHE_BASEDIR = '/elsewhere';
       expect(cacheBase(env)).toBe('/elsewhere|1');
     });
 
-    it('sets no cache base when ccache is not installed', () => {
+    vaultIt('sets no cache base when ccache is not installed', () => {
       const env = clean({ ...privateLock(), PATH: pathWith(false) });
       expect(cacheBase(env)).toBe('unset|unset');
     });

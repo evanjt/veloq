@@ -76,7 +76,7 @@ beforeEach(async () => {
 });
 
 describe('wellness trends card controls', () => {
-  it('puts the smoothing chip in the header and draws no range pills of its own', async () => {
+  vaultIt('puts the smoothing chip in the header and draws no range pills of its own', async () => {
     await renderCard();
     await screen.findByTestId('wellness-smoothing-button');
     const header = within(screen.getByTestId('wellness-trends-header'));
@@ -132,7 +132,7 @@ describe('wellness trends card after a restore', () => {
     ).toBeTruthy();
   });
 
-  it('stops listening once unmounted', async () => {
+  vaultIt('stops listening once unmounted', async () => {
     const view = await renderCard();
     await screen.findByTestId('wellness-smoothing-button');
     await view.unmount();
@@ -154,7 +154,7 @@ describe('wellness trends card smoothing chip', () => {
     ).toBeTruthy();
   });
 
-  it('names no smoothing for a range Auto leaves raw', async () => {
+  vaultIt('names no smoothing for a range Auto leaves raw', async () => {
     await renderCard({ timeRange: '7d' });
     expect(
       within(await screen.findByTestId('wellness-smoothing-button')).getByText(
@@ -174,7 +174,7 @@ describe('wellness trends card smoothing chip', () => {
     expect(chartWindow()).toBe(14);
   });
 
-  it('is a menu button, not a selected toggle, whatever the window', async () => {
+  vaultIt('is a menu button, not a selected toggle, whatever the window', async () => {
     await AsyncStorage.setItem(WELLNESS_SMOOTHING_KEY, 'none');
     await renderCard();
     expect(
@@ -182,7 +182,7 @@ describe('wellness trends card smoothing chip', () => {
     ).toBeFalsy();
   });
 
-  it('draws neither the chip nor the chart before the stored choice is read', async () => {
+  vaultIt('draws neither the chip nor the chart before the stored choice is read', async () => {
     await renderCard();
     expect(screen.queryByTestId('wellness-smoothing-button')).toBeNull();
     expect(screen.queryByTestId('wellness-chart-canvas')).toBeNull();
@@ -191,7 +191,7 @@ describe('wellness trends card smoothing chip', () => {
 });
 
 describe('wellness trends card placeholder', () => {
-  it.each([
+  vaultIt.each([
     ['before its frame', { drawn: false }],
     ['on a cold read', { wellness: undefined, isLoading: true }],
   ])('holds a 200 px shimmer and no spinner %s', async (_name, props) => {
@@ -202,14 +202,14 @@ describe('wellness trends card placeholder', () => {
     expect(screen.queryByTestId('wellness-chart-canvas')).toBeNull();
   });
 
-  it('keeps the chart on screen while a held range refetches', async () => {
+  vaultIt('keeps the chart on screen while a held range refetches', async () => {
     await renderCard({ isLoading: true });
     expect(await screen.findByTestId('wellness-chart-canvas')).toBeTruthy();
   });
 });
 
 describe('wellness trends card with its read failing', () => {
-  it('names the failure inside the card, keeps the header and draws no chart', async () => {
+  vaultIt('names the failure inside the card, keeps the header and draws no chart', async () => {
     await renderCard({ wellness: undefined, readError: { tag: 'Database' } });
 
     expect(screen.getByRole('header', { name: 'wellnessScreen.trends' })).toBeTruthy();

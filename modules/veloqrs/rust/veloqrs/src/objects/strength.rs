@@ -260,10 +260,12 @@ fn demo_pool_swim(activity_id: &str) -> fit::FitPoolSwim {
     }
 }
 
-/// Settle a demo pool swim from the corpus, since no upstream holds a file for
-/// a demo key and demo mode holds no credential to ask with. None for any
-/// other activity, which is downloaded as usual.
-fn settle_demo_pool_swim(activity_id: &str) -> Option<crate::objects::start::FfiStartResult> {
+/// Settle a demo activity's FIT file from the corpus, since no upstream holds a
+/// file for a demo key and demo mode holds no credential to ask with. A pool
+/// swim settles from its lengths, a strength session from its sets, and a
+/// strength session the corpus does not hold is left to the download, as is any
+/// activity that is not a demo one.
+fn settle_demo_fit(activity_id: &str) -> Option<crate::objects::start::FfiStartResult> {
     if crate::persistence::origin::origin_of(activity_id)
         != crate::persistence::origin::ActivityOrigin::Demo
     {
@@ -273,12 +275,19 @@ fn settle_demo_pool_swim(activity_id: &str) -> Option<crate::objects::start::Ffi
         let to_db = |err: rusqlite::Error| VeloqError::Database {
             msg: format!("{}", err),
         };
-        if e.fit_intake(activity_id).map_err(to_db)? != FitIntake::PoolSwim {
-            return Ok(false);
+        match e.fit_intake(activity_id).map_err(to_db)? {
+            FitIntake::PoolSwim => e
+                .settle_pool_swim(activity_id, &demo_pool_swim(activity_id))
+                .map_err(to_db)
+                .map(|()| true),
+            FitIntake::Strength => match crate::strength::demo::demo_sets(activity_id) {
+                Some(sets) => e
+                    .settle_exercise_sets(activity_id, &sets)
+                    .map_err(to_db)
+                    .map(|()| true),
+                None => Ok(false),
+            },
         }
-        e.settle_pool_swim(activity_id, &demo_pool_swim(activity_id))
-            .map_err(to_db)?;
-        Ok(true)
     });
     match settled {
         Ok(Ok(true)) => {
@@ -288,7 +297,11 @@ fn settle_demo_pool_swim(activity_id: &str) -> Option<crate::objects::start::Ffi
         Ok(Ok(false)) => None,
         // Nothing was stored, so the ordinary path answers for it.
         Ok(Err(e)) | Err(e) => {
-            log::error!("[FIT] Failed to settle demo swim {}: {}", activity_id, e);
+            log::error!(
+                "[FIT] Failed to settle demo activity {}: {}",
+                activity_id,
+                e
+            );
             None
         }
     }
@@ -427,7 +440,7 @@ impl StrengthManager {
         &self,
         activity_id: String,
     ) -> crate::objects::start::FfiStartResult {
-        if let Some(started) = settle_demo_pool_swim(&activity_id) {
+        if let Some(started) = settle_demo_fit(&activity_id) {
             return started;
         }
         info!("[Strength] Fetching FIT file for {}", activity_id);
@@ -1552,6 +1565,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_session_of_only_rest_sets_has_no_groups() {
         let session = summarise_session(vec![ffi_set(0, "Squat", 1, None, None)]);
         assert_eq!(session.active_set_count, 0);
@@ -1601,6 +1615,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_set_without_reps_adds_no_volume() {
         let mut set = a_set(0, 0);
         set.1.repetitions = None;
@@ -1621,6 +1636,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_set_without_reps_has_the_same_volume_in_the_session_and_the_muscle_reads() {
         let mut set = a_set(0, 0);
         set.1.repetitions = None;
@@ -1661,6 +1677,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pair_trained_on_one_side_alone_is_one_sided_and_carries_no_ratio() {
         let sets: Vec<_> = (0..6).map(|i| a_set(i, 7)).collect();
 
@@ -1673,6 +1690,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pair_with_too_few_sets_behind_it_says_so_rather_than_judging() {
         let sets = vec![a_set(0, 7), a_set(1, 30)];
 
@@ -1687,6 +1705,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn two_sides_within_a_third_of_each_other_are_balanced() {
         let mut sets: Vec<_> = (0..4).map(|i| a_set(i, 7)).collect();
         sets.extend((4..8).map(|i| a_set(i, 30)));
@@ -1846,6 +1865,7 @@ mod tests {
     /// none, each announced; a demo strength session and a real swim are left
     /// to the download.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_demo_pool_swim_settles_from_the_corpus_without_a_download() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("fit_demo_pool_swim.db");
@@ -1897,8 +1917,46 @@ mod tests {
         assert!(swim.stroke_totals.iter().all(|t| t.lengths == 4));
     }
 
+    /// A demo strength session the corpus holds settles from it, as a real one
+    /// settles from its file, and one it does not hold is left to the download.
+    #[test]
+    fn a_demo_strength_session_settles_from_the_corpus_without_a_download() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("fit_demo_strength.db");
+        add_activity("demo-strength-push-0", "WeightTraining");
+        add_activity("demo-strength-swim-0", "WeightTraining");
+        let recorder = Recorder::new();
+        set_observer(Some(recorder.clone()));
+
+        let manager = StrengthManager::new();
+        for id in ["demo-strength-push-0", "demo-strength-swim-0"] {
+            manager.fetch_and_parse_exercise_sets(id.to_string());
+        }
+        crate::objects::observer::flush();
+        set_observer(None);
+
+        assert_eq!(
+            recorder.events(),
+            vec!["fit_parsed:demo-strength-push-0".to_string()]
+        );
+        assert_eq!(
+            fit_outcome("demo-strength-push-0").as_deref(),
+            Some("parsed")
+        );
+        assert_eq!(fit_outcome("demo-strength-swim-0"), None);
+
+        let sets = with_reader(|conn| pooled::exercise_sets(conn, "demo-strength-push-0").unwrap())
+            .unwrap();
+        assert_eq!(
+            sets.len(),
+            9,
+            "bench, shoulder press and plank, three sets each"
+        );
+    }
+
     /// A file with no lengths is a swim with nothing to read, not a failure.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_swim_whose_file_has_no_lengths_settles_empty() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("fit_swim_no_lengths.db");
@@ -1939,6 +1997,7 @@ mod tests {
     /// The batch reads the engine's own queue, so a pool swim owed its file is
     /// work and an empty queue is none.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_batch_fetch_reads_the_owed_queue_itself() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("fit_batch_owed.db");
@@ -1958,6 +2017,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_a_file_absent_upstream_announces_its_settle() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("fit_absent.db");
@@ -1983,6 +2043,7 @@ mod tests {
     /// A retryable failure records nothing, so announcing one would send the
     /// reader back for a fetch that is already queued for the next visit.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_a_retryable_failure_announces_nothing() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("fit_retry.db");
@@ -2008,6 +2069,7 @@ mod tests {
     /// card on it, the demo seed's own reader among them, hears nothing
     /// without the announcement.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_importing_fit_bytes_announces_the_verdict() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("fit_import.db");
@@ -2071,6 +2133,7 @@ mod tests {
     /// Expected behaviour: either way the activity is settled and a second
     /// subscriber on it hears the verdict once.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_importing_a_valid_fit_file_announces_the_verdict() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("fit_import_valid.db");
@@ -2200,6 +2263,7 @@ mod tests {
     /// A week the muscle was not trained at all is a zero in the series, not a
     /// gap: the TypeScript built the points from the monthly muscle list.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_a_muscle_missing_from_a_week_counts_as_zero_that_week() {
         let weekly = vec![
             summary(vec![volume("chest", 4.0)]),
@@ -2222,6 +2286,7 @@ mod tests {
     /// A baseline of zero has no percentage to report, and any recent volume
     /// at all is a rise rather than a flat month.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_a_zero_baseline_reports_no_change_pct_and_still_rises() {
         let weekly = vec![
             summary(Vec::new()),
@@ -2241,6 +2306,7 @@ mod tests {
 
     /// A zero baseline with nothing recent either is flat, not a rise.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_a_month_with_no_volume_at_all_is_flat() {
         let weekly = vec![summary(Vec::new()), summary(Vec::new())];
         let monthly = summary(vec![volume("calves", 0.0)]);
@@ -2255,6 +2321,7 @@ mod tests {
     /// Fewer than four weeks overlaps the two halves, which is what the
     /// TypeScript slices did, so the averages are equal rather than absent.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_a_single_week_compares_against_itself() {
         let weekly = vec![summary(vec![volume("hamstring", 3.0)])];
         let monthly = summary(vec![volume("hamstring", 3.0)]);
@@ -2272,6 +2339,7 @@ mod tests {
     /// The rounding order is part of the contract: each week is rounded to one
     /// decimal before the averages, so rounding after would disagree.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_each_week_is_rounded_before_the_averages() {
         let weekly = vec![
             summary(vec![volume("quadriceps", 1.25)]),
@@ -2297,6 +2365,7 @@ mod tests {
     /// Expected behaviour: the progression carries the engine's reading, taken
     /// over the rounded weeks and the rounded averages it already reports.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_a_progression_carries_the_engine_signal_delta() {
         let weekly = vec![
             summary(vec![volume("biceps", 2.0)]),
@@ -2330,6 +2399,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_a_flat_or_single_week_series_carries_no_signal_delta() {
         let flat = vec![
             summary(vec![volume("chest", 4.0)]),
@@ -2351,6 +2421,7 @@ mod tests {
     /// The rounded weeks are the samples, so an unrounded week does not move
     /// the reading off the figures the card shows.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_the_signal_delta_reads_the_rounded_weeks() {
         let weekly = vec![
             summary(vec![volume("quadriceps", 1.25)]),
@@ -2371,6 +2442,7 @@ mod tests {
     /// One entry per muscle in the monthly aggregate, in its order, so the
     /// caller does not re-find anything.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_one_progression_per_muscle_in_the_monthly_order() {
         let weekly = vec![summary(vec![volume("chest", 2.0), volume("biceps", 1.0)])];
         let monthly = summary(vec![volume("chest", 2.0), volume("biceps", 1.0)]);
@@ -2389,6 +2461,7 @@ mod tests {
     /// Expected behaviour: one progression per muscle seen in any week, most
     /// trained first, with the weeks it was absent from counted as zero.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_every_muscle_across_the_ranges_is_ranked() {
         let weekly = vec![
             summary(vec![volume("chest", 2.0)]),
@@ -2420,6 +2493,7 @@ mod tests {
     /// A muscle trained in no week at all is not a row: the screen would draw
     /// an empty chart for it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_ranges_with_no_sets_rank_nothing() {
         let progressions =
             strength_progressions_across(&[summary(Vec::new()), summary(Vec::new())]);
@@ -2430,6 +2504,7 @@ mod tests {
     /// muscles, the union ranking is the monthly ranking, so the insights
     /// series and the volume screen never disagree about one muscle's trend.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_the_union_ranking_matches_the_monthly_ranking() {
         let weekly = vec![
             summary(vec![volume("chest", 1.0)]),
@@ -2454,6 +2529,7 @@ mod tests {
     /// Averages that differ by less than the threshold are flat, even when the
     /// weeks themselves move about. Under 15 per cent either way is noise.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_similar_averages_are_flat_not_a_trend() {
         let weekly = vec![
             summary(vec![volume("upper-back", 4.0)]),
@@ -2477,6 +2553,7 @@ mod tests {
     /// Expected behaviour: one pass answers for every muscle, and a set counts
     /// under each muscle its exercise reaches.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_every_muscle_s_exercises_come_out_of_one_pass() {
         // Curl is biceps primary and forearm secondary; Triceps Extension is
         // triceps, so no muscle here reads both exercises.
@@ -2507,6 +2584,7 @@ mod tests {
 
     /// The most frequent exercise reads first, and sets break a tie.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_a_muscle_s_exercises_read_most_frequent_first() {
         let mut sets = vec![a_set(0, 7)];
         sets.push(other_activity(a_set(1, 7)));
@@ -2528,6 +2606,7 @@ mod tests {
     /// The screen reads once, so the four things it draws are four aggregates
     /// of the one set of rows rather than four trips through the engine.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_the_screen_read_carries_the_period_the_weeks_and_the_ranking() {
         let period: Vec<_> = (0..4).map(|i| a_set(i, 7)).collect();
         let weekly = vec![

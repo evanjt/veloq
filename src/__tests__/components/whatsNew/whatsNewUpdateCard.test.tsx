@@ -83,7 +83,7 @@ it('shows nothing in a first session', async () => {
   expect(screen.queryByTestId('whats-new-update-card')).toBeNull();
 });
 
-it('sets Dismiss and Open as a button row that measures each label word', async () => {
+vaultIt('sets Dismiss and Open as a button row that measures each label word', async () => {
   await render(<WhatsNewCard />);
   expect(screen.getByTestId('whats-new-update-actions')).toBeTruthy();
   const probe = { hidden: true };

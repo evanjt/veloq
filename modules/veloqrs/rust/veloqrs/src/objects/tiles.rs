@@ -278,6 +278,7 @@ mod tests {
     use crate::test_globals::{init_global_engine, serial_global_state};
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn cache_size_walks_the_zxy_tree_and_a_missing_tree_is_zero() {
         let tmp = tempfile::TempDir::new().unwrap();
         let base = tmp.path().join("tiles");
@@ -298,6 +299,7 @@ mod tests {
     /// Expected behaviour: the mount starts the walk and follows it, and the
     /// figure it takes is the same figure the blocking walk gives, once.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_walk_runs_off_the_calling_thread_and_gives_the_same_figure() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
@@ -326,6 +328,7 @@ mod tests {
     /// Expected behaviour: every later read still says complete, and the
     /// figure is there for the take that follows.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_read_that_collected_the_figure_leaves_it_for_the_take() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
@@ -348,6 +351,7 @@ mod tests {
     /// Expected behaviour: the take collects the finished walk itself rather
     /// than answering nothing for a figure that is already there.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_take_collects_a_walk_no_read_has_seen_end() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
@@ -366,6 +370,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_mount_joins_the_walk_already_running_rather_than_starting_another() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
@@ -387,6 +392,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tree_that_is_not_there_walks_to_zero_off_the_thread_too() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
@@ -409,6 +415,7 @@ mod tests {
     /// Expected behaviour: the cancel says there was a walk, the slot is free,
     /// and the abandoned walk's figure reaches nobody.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cancelled_walk_frees_the_slot_and_leaves_no_figure() {
         let _guard = serial_global_state();
         let tmp = tempfile::TempDir::new().unwrap();
@@ -428,6 +435,7 @@ mod tests {
     /// Expected behaviour: a clear forgets it, so the row reads nothing
     /// rather than a size for a tree that is gone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn clearing_the_tiles_forgets_the_remembered_figure() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("tiles-forget.db");
@@ -457,6 +465,7 @@ mod tests {
     /// Expected behaviour: the clear finishes while another thread still
     /// holds the engine lock.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_clear_does_not_wait_for_the_engine_lock() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("tiles-unlocked.db");
@@ -525,6 +534,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_path_is_set_and_cleared_on_the_engine_and_a_clear_empties_the_set() {
         let _guard = serial_global_state();
         let tmp = init_global_engine("tiles.db");
@@ -580,6 +590,7 @@ mod tests {
     /// Expected behaviour: a cancel reaches both. One slot holds one token, so
     /// the second spawn overwrote the first and the first swept on unstoppably.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cancel_reaches_every_running_sweep_and_not_only_the_last() {
         let _guard = serial_global_state();
         let heatmap = HeatmapManager::new();
@@ -602,6 +613,7 @@ mod tests {
     /// Expected behaviour: a sweep ending takes its own registration and leaves
     /// its sibling's, and a cancel with none left is a no-op rather than a lie.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sweep_ending_leaves_its_siblings_cancellable() {
         let _guard = serial_global_state();
         let heatmap = HeatmapManager::new();
@@ -628,6 +640,7 @@ mod tests {
     /// Expected behaviour: a cancel from this test neither reports nor stops
     /// that sweep, so a test's answer depends on its own sweeps alone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cancel_does_not_reach_a_sweep_registered_by_another_test() {
         let _guard = serial_global_state();
         let heatmap = HeatmapManager::new();
@@ -653,6 +666,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn generation_reads_idle_with_no_worker() {
         let _guard = serial_global_state();
         let heatmap = HeatmapManager::new();

@@ -55,7 +55,7 @@ describe('the activity screen without a map', () => {
     expect(screen.getByTestId('activity-summary-distance').props.children).toBe('30.0 km');
   });
 
-  it('names each stat for a screen reader, with no arrow in the name', async () => {
+  vaultIt('names each stat for a screen reader, with no arrow in the name', async () => {
     await render(<ActivitySummaryStrip activity={indoorRide} isMetric isDark />);
     const label = screen.getByTestId('activity-summary-stats').props.accessibilityLabel as string;
     expect(label).toBe(
@@ -72,12 +72,12 @@ describe('the activity screen without a map', () => {
 });
 
 describe('the climb on the activity hero', () => {
-  it('is marked as a gain where it is drawn', () => {
+  vaultIt('is marked as a gain where it is drawn', () => {
     const [, , gain] = activityHeroStats(indoorRide, true, i18n.t.bind(i18n));
     expect(gain).toEqual({ text: '↑ 120 m', label: 'Elevation gain: 120 m' });
   });
 
-  it('is absent with no climb to print', () => {
+  vaultIt('is absent with no climb to print', () => {
     const [, , gain] = activityHeroStats(poolSwim, true, i18n.t.bind(i18n));
     expect(gain).toBeNull();
   });

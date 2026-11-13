@@ -128,14 +128,14 @@ describe('check-retired-history.sh', () => {
     expect(check(fx, 'new-work').status).toBe(0);
   });
 
-  it('passes everything when no retired tag exists', () => {
+  vaultIt('passes everything when no retired tag exists', () => {
     const fx = rewrittenRepository();
     runGit(['tag', '-d', 'pre-squash-fixture'], fx.root);
 
     expect(check(fx, 'old-work').status).toBe(0);
   });
 
-  it('also reads pre-consolidation tags', () => {
+  vaultIt('also reads pre-consolidation tags', () => {
     const fx = rewrittenRepository('pre-consolidation-fixture');
 
     const { status, output } = check(fx, 'old-work');
@@ -144,7 +144,7 @@ describe('check-retired-history.sh', () => {
     expect(output).toContain('pre-consolidation-fixture');
   });
 
-  it('passes a branch the target already contains', () => {
+  vaultIt('passes a branch the target already contains', () => {
     const fx = rewrittenRepository();
 
     expect(check(fx, 'main').status).toBe(0);
@@ -172,7 +172,7 @@ describe('landing a branch cut from retired history', () => {
     expect(readFileSync(join(fx.root, 'new.txt'), 'utf8')).toContain('after the rewrite');
   });
 
-  it('lands the retired-line branch once the tag is gone', () => {
+  vaultIt('lands the retired-line branch once the tag is gone', () => {
     const fx = rewrittenRepository();
     runGit(['tag', '-d', 'pre-squash-fixture'], fx.root);
 
@@ -192,7 +192,7 @@ describe('a plain merge of a branch cut from retired history', () => {
     expect(runGit(['rev-parse', 'HEAD'], fx.root).trim()).toBe(before);
   });
 
-  it('commits a branch cut from the rewritten target', () => {
+  vaultIt('commits a branch cut from the rewritten target', () => {
     const fx = rewrittenRepository();
     commit(fx.root, 'main-moves.txt', 'main moves so the merge is not a fast-forward');
 

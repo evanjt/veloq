@@ -83,7 +83,7 @@ describe('the section merge flow', () => {
     expect(mockReplace).toHaveBeenCalledWith('/section/sec-c');
   });
 
-  it('stays on the section when it survives the merge', async () => {
+  vaultIt('stays on the section when it survives the merge', async () => {
     mockMerge.mockReturnValue('sec-a');
     const flow = await mount([TWO[0]]);
     await act(() => void flow.result.current());
@@ -120,13 +120,13 @@ describe('the section merge flow', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('opens nothing when there is no candidate', async () => {
+  vaultIt('opens nothing when there is no candidate', async () => {
     const flow = await mount([]);
     await act(() => void flow.result.current());
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it('hands the confirmation both sections', async () => {
+  vaultIt('hands the confirmation both sections', async () => {
     const flow = await mount(TWO);
     await act(() => void flow.result.current());
     await answerSheet(mockPush, mockParams, TWO[1]);

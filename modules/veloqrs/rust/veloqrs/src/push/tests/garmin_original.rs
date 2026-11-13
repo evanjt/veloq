@@ -331,6 +331,7 @@ fn a_push_leaves_neither_the_key_nor_the_token_on_disk() {
 /// Expected behaviour: Garmin is not asked anything, and the push stores the
 /// stub as it always did.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stub_with_no_key_held_asks_garmin_nothing() {
     let _guard = serial_global_state();
     let held = library();
@@ -353,6 +354,7 @@ fn a_stub_with_no_key_held_asks_garmin_nothing() {
 ///
 /// Expected behaviour: Garmin is not asked anything.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_served_ride_asks_garmin_nothing() {
     let _guard = serial_global_state();
     let held = library();
@@ -406,6 +408,7 @@ fn a_refused_download_leaves_the_push_as_it_was_without_a_key() {
 /// Expected behaviour: the push gives up on Garmin at the limit and ends without
 /// the original, which Garmin would have delivered had the push waited for it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_slow_download_is_given_up_at_the_limit() {
     let _guard = serial_global_state();
     let held = library();
@@ -437,6 +440,7 @@ fn a_slow_download_is_given_up_at_the_limit() {
 ///
 /// Expected behaviour: the key is exchanged once and the token is reused.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_push_reuses_the_token_the_first_one_got() {
     let _guard = serial_global_state();
     let held = library();
@@ -469,6 +473,7 @@ fn a_second_push_reuses_the_token_the_first_one_got() {
 /// stub does not replace the row's body, and no body is kept under the
 /// intervals.icu id.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_repeated_stub_push_leaves_the_linked_row_alone() {
     let _guard = serial_global_state();
     let held = library();
@@ -531,6 +536,7 @@ fn a_served_push_for_a_linked_row_is_stored_on_that_row() {
 /// Expected behaviour: it is held for the push; an absent or blank item holds
 /// nothing; a key the app already holds is kept, token and all.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_session_setup_holds_the_keychains_garmin_key_unless_one_is_held() {
     let _guard = serial_global_state();
     let held = library();
@@ -559,6 +565,7 @@ fn the_session_setup_holds_the_keychains_garmin_key_unless_one_is_held() {
 ///
 /// Expected behaviour: a key is held for the push; null holds nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_c_entry_holds_the_key_it_is_handed() {
     let _guard = serial_global_state();
     let held = library();

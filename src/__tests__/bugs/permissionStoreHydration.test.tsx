@@ -143,14 +143,14 @@ describe('an answer that has not arrived is not an answer of no', () => {
 });
 
 describe('the store says when it has an answer', () => {
-  it('is loaded once initialise has run, with nothing stored', async () => {
+  vaultIt('is loaded once initialise has run, with nothing stored', async () => {
     mockGetSetting.mockResolvedValue(null);
     await useUploadPermissionStore.getState().initialise();
     expect(useUploadPermissionStore.getState().isLoaded).toBe(true);
     expect(useUploadPermissionStore.getState().hasWritePermission).toBeNull();
   });
 
-  it('is loaded once initialise has run, with something stored', async () => {
+  vaultIt('is loaded once initialise has run, with something stored', async () => {
     mockGetSetting.mockResolvedValue(JSON.stringify({ hasWritePermission: true }));
     await useUploadPermissionStore.getState().initialise();
     expect(useUploadPermissionStore.getState().isLoaded).toBe(true);
@@ -163,7 +163,7 @@ describe('the store says when it has an answer', () => {
     expect(useUploadPermissionStore.getState().isLoaded).toBe(true);
   });
 
-  it('is unloaded again on reset, because a sign-out has no answer either', () => {
+  vaultIt('is unloaded again on reset, because a sign-out has no answer either', () => {
     useUploadPermissionStore.setState({ isLoaded: true, hasWritePermission: true });
     useUploadPermissionStore.getState().reset();
     expect(useUploadPermissionStore.getState().isLoaded).toBe(false);
@@ -191,7 +191,7 @@ describe('the screens act on the difference', () => {
     expect(useRecordingStore.getState().status).toBe('idle');
   });
 
-  it('the recording screen offers a way off beside the gate', async () => {
+  vaultIt('the recording screen offers a way off beside the gate', async () => {
     mockCanRecord.mockReturnValue({ canRecord: false, reason: 'no_permission' as const });
     await render(<RecordingScreen />);
 
@@ -207,7 +207,7 @@ describe('the screens act on the difference', () => {
     expect(useRecordingStore.getState().status).not.toBe('idle');
   });
 
-  it('the picker keeps gating, where an athlete is still choosing a sport', async () => {
+  vaultIt('the picker keeps gating, where an athlete is still choosing a sport', async () => {
     await render(<RecordScreen />);
 
     expect(mockGate).toHaveBeenCalled();

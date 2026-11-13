@@ -102,7 +102,7 @@ it('rejects a dependency install script missing from allowScripts', () => {
   expect(result.stderr).toContain('glaze-native@1.0.0');
 });
 
-it('accepts an install script approved by a pinned, a name-only or a denying entry', () => {
+vaultIt('accepts an install script approved by a pinned, a name-only or a denying entry', () => {
   const packages = {
     'node_modules/glaze-native': registryEntry('glaze-native', '1.0.0', { hasInstallScript: true }),
     'node_modules/@kiln/firing': registryEntry('@kiln/firing', '2.3.4', { hasInstallScript: true }),
@@ -120,7 +120,7 @@ it('accepts an install script approved by a pinned, a name-only or a denying ent
   expect(result.status).toBe(0);
 });
 
-it('rejects a pinned approval for another version of the package', () => {
+vaultIt('rejects a pinned approval for another version of the package', () => {
   writeProject(
     fixture,
     {
@@ -137,7 +137,7 @@ it('rejects a pinned approval for another version of the package', () => {
   expect(result.stderr).toContain('glaze-native@1.1.0');
 });
 
-it('judges a nested copy by its own version', () => {
+vaultIt('judges a nested copy by its own version', () => {
   writeProject(
     fixture,
     {
@@ -158,42 +158,48 @@ it('judges a nested copy by its own version', () => {
   expect(result.stderr).not.toContain('glaze-native@1.0.0');
 });
 
-it('skips an optional package that cannot install on this platform, and bundled packages', () => {
-  const elsewhere = process.platform === 'win32' ? 'linux' : 'win32';
-  writeProject(fixture, {
-    'node_modules/kiln-watcher': registryEntry('kiln-watcher', '2.0.0', {
-      hasInstallScript: true,
-      optional: true,
-      os: [elsewhere],
-    }),
-    'node_modules/kiln-shelf/node_modules/clay-bundled': {
-      version: '1.0.0',
-      hasInstallScript: true,
-      inBundle: true,
-    },
-  });
+vaultIt(
+  'skips an optional package that cannot install on this platform, and bundled packages',
+  () => {
+    const elsewhere = process.platform === 'win32' ? 'linux' : 'win32';
+    writeProject(fixture, {
+      'node_modules/kiln-watcher': registryEntry('kiln-watcher', '2.0.0', {
+        hasInstallScript: true,
+        optional: true,
+        os: [elsewhere],
+      }),
+      'node_modules/kiln-shelf/node_modules/clay-bundled': {
+        version: '1.0.0',
+        hasInstallScript: true,
+        inBundle: true,
+      },
+    });
 
-  const result = runGuard(fixture);
+    const result = runGuard(fixture);
 
-  expect(result.status).toBe(0);
-});
+    expect(result.status).toBe(0);
+  }
+);
 
-it('rejects an optional package with an install script that does install on this platform', () => {
-  writeProject(fixture, {
-    'node_modules/kiln-watcher': registryEntry('kiln-watcher', '2.0.0', {
-      hasInstallScript: true,
-      optional: true,
-      os: [process.platform],
-    }),
-  });
+vaultIt(
+  'rejects an optional package with an install script that does install on this platform',
+  () => {
+    writeProject(fixture, {
+      'node_modules/kiln-watcher': registryEntry('kiln-watcher', '2.0.0', {
+        hasInstallScript: true,
+        optional: true,
+        os: [process.platform],
+      }),
+    });
 
-  const result = runGuard(fixture);
+    const result = runGuard(fixture);
 
-  expect(result.status).toBe(1);
-  expect(result.stderr).toContain('kiln-watcher@2.0.0');
-});
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('kiln-watcher@2.0.0');
+  }
+);
 
-it('judges a package the lockfile adds before any install has it', () => {
+vaultIt('judges a package the lockfile adds before any install has it', () => {
   writeProject(
     fixture,
     {
@@ -212,7 +218,7 @@ it('judges a package the lockfile adds before any install has it', () => {
   expect(result.stderr).toContain('clay-gyp@0.5.0');
 });
 
-it('passes in a tree whose node_modules links each entry into another checkout', () => {
+vaultIt('passes in a tree whose node_modules links each entry into another checkout', () => {
   const packages = {
     'node_modules/glaze-native': registryEntry('glaze-native', '1.0.0', { hasInstallScript: true }),
   };
@@ -244,7 +250,7 @@ it('passes in a tree whose node_modules links each entry into another checkout',
   expect(result.status).toBe(0);
 });
 
-it('refuses a tree with no lockfile rather than passing it', () => {
+vaultIt('refuses a tree with no lockfile rather than passing it', () => {
   writeFileSync(join(fixture, 'package.json'), JSON.stringify({ name: 'kiln-fixture' }));
 
   const result = runGuard(fixture);

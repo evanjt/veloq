@@ -22,6 +22,7 @@ fn bounds() -> Bounds {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_box_is_a_camel_case_record() {
     let carrier = Carrier {
         held: Some(bounds()),
@@ -33,6 +34,7 @@ fn a_box_is_a_camel_case_record() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_absent_box_is_null_and_every_box_reads_back() {
     let carrier = Carrier { held: None };
     let json = serde_json::to_value(&carrier).unwrap();
@@ -53,6 +55,7 @@ struct Always {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_box_that_is_always_there_is_a_camel_case_record_and_reads_back() {
     let carrier = Always { held: bounds() };
     let json = serde_json::to_value(&carrier).unwrap();

@@ -127,35 +127,41 @@ describe('prepare-native', () => {
     expect(fs.existsSync(path.join(tree, '.native-keep'))).toBe(false);
   });
 
-  it('leaves a project generated from the current configuration for the selected identity alone', () => {
-    write('app.json', '{"expo":{"plugins":["./src/plugins/with-orchard"]}}\n');
-    write('src/plugins/with-orchard.js', 'module.exports = (config) => config;\n');
-    generated();
-    signing();
-    const gradle = read('android/app/build.gradle');
-    const { result, calls } = prepare('android');
-    expect(result.status).toBe(0);
-    expect(calls).toEqual([]);
-    expect(result.stderr).toBe('');
-    expect(read('android/app/build.gradle')).toBe(gradle);
-  });
+  vaultIt(
+    'leaves a project generated from the current configuration for the selected identity alone',
+    () => {
+      write('app.json', '{"expo":{"plugins":["./src/plugins/with-orchard"]}}\n');
+      write('src/plugins/with-orchard.js', 'module.exports = (config) => config;\n');
+      generated();
+      signing();
+      const gradle = read('android/app/build.gradle');
+      const { result, calls } = prepare('android');
+      expect(result.status).toBe(0);
+      expect(calls).toEqual([]);
+      expect(result.stderr).toBe('');
+      expect(read('android/app/build.gradle')).toBe(gradle);
+    }
+  );
 
-  it('regenerates a project of the selected identity when a config plugin changed since', () => {
-    write('src/plugins/with-orchard.js', 'module.exports = (config) => config;\n');
-    generated();
-    signing();
-    write(
-      'src/plugins/with-orchard.js',
-      'module.exports = (config) => ({ ...config, signed: 1 });\n'
-    );
-    const { result, calls } = prepare('android');
-    expect(result.status).toBe(0);
-    expect(calls).toEqual([GENERATE_ANDROID]);
-    expect(result.stderr).toContain('native configuration changed since it was generated');
-    expect(kept()).toEqual(SIGNING);
-  });
+  vaultIt(
+    'regenerates a project of the selected identity when a config plugin changed since',
+    () => {
+      write('src/plugins/with-orchard.js', 'module.exports = (config) => config;\n');
+      generated();
+      signing();
+      write(
+        'src/plugins/with-orchard.js',
+        'module.exports = (config) => ({ ...config, signed: 1 });\n'
+      );
+      const { result, calls } = prepare('android');
+      expect(result.status).toBe(0);
+      expect(calls).toEqual([GENERATE_ANDROID]);
+      expect(result.stderr).toContain('native configuration changed since it was generated');
+      expect(kept()).toEqual(SIGNING);
+    }
+  );
 
-  it.each([
+  vaultIt.each([
     ['the app config', 'app.json', '{"expo":{"name":"Orchard","version":"2.0.0"}}\n'],
     ['the identity module', 'scripts/lib/app-identity.js', null],
     ['a plugin package version', 'node_modules/expo-orchard/package.json', '{"version":"2.0.0"}\n'],
@@ -174,7 +180,7 @@ describe('prepare-native', () => {
     expect(calls).toEqual([GENERATE_ANDROID]);
   });
 
-  it('regenerates iOS when a source its extensions copy changed, and Android not', () => {
+  vaultIt('regenerates iOS when a source its extensions copy changed, and Android not', () => {
     write('push/ios/Orchard/Service.swift', 'let a = 1\n');
     generated('ios');
     generated('android');
@@ -183,19 +189,22 @@ describe('prepare-native', () => {
     expect(prepare('ios').calls).toEqual(['npx expo prebuild --platform ios --clean CI=1']);
   });
 
-  it('regenerates a project of the selected identity with no record of what generated it, once', () => {
-    write('android/app/build.gradle', devGradle);
-    signing();
-    const first = prepare('android');
-    expect(first.result.status).toBe(0);
-    expect(first.calls).toEqual([GENERATE_ANDROID]);
-    expect(first.result.stderr).toContain('no record of the configuration it was generated from');
-    expect(kept()).toEqual(SIGNING);
-    fs.rmSync(path.join(tree, 'calls'));
-    expect(prepare('android').calls).toEqual([]);
-  });
+  vaultIt(
+    'regenerates a project of the selected identity with no record of what generated it, once',
+    () => {
+      write('android/app/build.gradle', devGradle);
+      signing();
+      const first = prepare('android');
+      expect(first.result.status).toBe(0);
+      expect(first.calls).toEqual([GENERATE_ANDROID]);
+      expect(first.result.stderr).toContain('no record of the configuration it was generated from');
+      expect(kept()).toEqual(SIGNING);
+      fs.rmSync(path.join(tree, 'calls'));
+      expect(prepare('android').calls).toEqual([]);
+    }
+  );
 
-  it('keeps no record of a generation that failed, so the next build generates again', () => {
+  vaultIt('keeps no record of a generation that failed, so the next build generates again', () => {
     generated();
     write('src/plugins/with-orchard.js', 'module.exports = (config) => config;\n');
     expect(prepare('android', undefined, { TEST_FAIL_GENERATE: '1' }).result.status).toBe(9);
@@ -205,7 +214,7 @@ describe('prepare-native', () => {
     expect(calls).toEqual([GENERATE_ANDROID, GENERATE_ANDROID]);
   });
 
-  it('generates a missing Android project', () => {
+  vaultIt('generates a missing Android project', () => {
     const { result, calls } = prepare('android', 'dev');
     expect(result.status).toBe(0);
     expect(calls).toEqual(['npx expo prebuild --platform android --clean --no-install CI=1']);
@@ -221,13 +230,13 @@ describe('prepare-native', () => {
     expect(read('android/app/build.gradle')).toBe(devGradle);
   });
 
-  it('refuses an unknown platform', () => {
+  vaultIt('refuses an unknown platform', () => {
     const { result, calls } = prepare('windows');
     expect(result.status).toBe(2);
     expect(calls).toEqual([]);
   });
 
-  it('generates iOS with its Pods installed', () => {
+  vaultIt('generates iOS with its Pods installed', () => {
     const { result, calls } = prepare('ios', 'production');
     expect(result.status).toBe(0);
     expect(calls).toEqual(['npx expo prebuild --platform ios --clean CI=1']);

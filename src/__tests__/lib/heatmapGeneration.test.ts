@@ -66,7 +66,7 @@ it('versions the template once a pass has announced itself', () => {
   expect(heatmapTileTemplate('light', 3).split('?')[0]).toBe(heatmapTileTemplate('light', 0));
 });
 
-it('counts the announcements, which is what the source reads', () => {
+vaultIt('counts the announcements, which is what the source reads', () => {
   const before = heatmapGeneration();
   const stop = subscribeHeatmapGeneration(() => {});
 
@@ -101,7 +101,7 @@ it('asks the raster source for the base map it is drawn over', () => {
   expect(raster.tiles[0]).toBe(heatmapTileTemplate('satellite', 4));
 });
 
-it('clears the engine priority view when the map leaves', () => {
+vaultIt('clears the engine priority view when the map leaves', () => {
   clearHeatmapView();
 
   expect(mockClearPriorityView).toHaveBeenCalledTimes(1);

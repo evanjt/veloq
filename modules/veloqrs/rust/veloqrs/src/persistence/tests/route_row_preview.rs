@@ -70,6 +70,7 @@ fn row_line(engine: &PersistentEngine, sort: FfiGroupSort, group_id: &str) -> Ve
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unsigned_representative_rows_with_its_track_strided_to_the_preview() {
     let engine = library();
     let track = long_track();
@@ -90,6 +91,7 @@ fn an_unsigned_representative_rows_with_its_track_strided_to_the_preview() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_representative_with_no_track_rows_with_no_line() {
     let engine = library();
     for sort in [FfiGroupSort::Activities, FfiGroupSort::Name] {

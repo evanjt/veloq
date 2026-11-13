@@ -13,16 +13,19 @@ import {
 } from '@/features/routes/lib/paramUnits';
 
 describe('distanceEditorUnit', () => {
-  it('edits short distances in metres and feet and the long ceiling in kilometres and miles', () => {
-    expect(distanceEditorUnit(true, false)?.label).toBe('m');
-    expect(distanceEditorUnit(false, false)?.label).toBe('ft');
-    expect(distanceEditorUnit(true, true)?.label).toBe('km');
-    expect(distanceEditorUnit(false, true)?.label).toBe('mi');
-  });
+  vaultIt(
+    'edits short distances in metres and feet and the long ceiling in kilometres and miles',
+    () => {
+      expect(distanceEditorUnit(true, false)?.label).toBe('m');
+      expect(distanceEditorUnit(false, false)?.label).toBe('ft');
+      expect(distanceEditorUnit(true, true)?.label).toBe('km');
+      expect(distanceEditorUnit(false, true)?.label).toBe('mi');
+    }
+  );
 });
 
 describe('toEditorText', () => {
-  it('shows metres unchanged for a metric athlete', () => {
+  vaultIt('shows metres unchanged for a metric athlete', () => {
     expect(toEditorText(200, distanceEditorUnit(true, false))).toBe('200');
   });
 
@@ -35,7 +38,7 @@ describe('toEditorText', () => {
     expect(toEditorText(200000, distanceEditorUnit(false, true))).toBe('124.27');
   });
 
-  it('shows a plain number when the parameter has no distance unit', () => {
+  vaultIt('shows a plain number when the parameter has no distance unit', () => {
     expect(toEditorText(0.15, null)).toBe('0.15');
   });
 });
@@ -53,7 +56,7 @@ describe('fromEditorValue', () => {
     expect(fromEditorValue(500, distanceEditorUnit(true, true))).toBe(500000);
   });
 
-  it('leaves a value with no distance unit alone', () => {
+  vaultIt('leaves a value with no distance unit alone', () => {
     expect(fromEditorValue(0.8, null)).toBe(0.8);
   });
 });

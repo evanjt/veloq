@@ -137,6 +137,7 @@ fn an_hour_at_ftp_stored_without_an_account_gets_a_hundred_load_marked_as_veloqs
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_with_heart_rate_only_gets_a_heart_rate_load_and_no_intensity() {
     let (_dir, mut engine) = engine();
     let mut ride = hour(true, None, Some(170));
@@ -154,6 +155,7 @@ fn a_ride_with_heart_rate_only_gets_a_heart_rate_load_and_no_intensity() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_with_neither_power_nor_heart_rate_gets_no_figures_and_no_mark() {
     let (_dir, mut engine) = engine();
     let mut ride = hour(true, None, None);
@@ -200,6 +202,7 @@ fn a_ride_with_an_intervals_body_keeps_its_numbers_and_gets_the_intervals_mark()
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn settling_a_scored_ride_again_changes_nothing() {
     let (_dir, mut engine) = engine();
     let mut ride = hour(true, Some(250), Some(150));
@@ -249,6 +252,7 @@ fn the_backfill_scores_a_stored_ride_once_the_athlete_has_set_the_threshold() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_backfill_leaves_a_ride_without_streams_alone() {
     let (_dir, mut engine) = engine();
     let mut empty = hour(true, None, None);
@@ -376,6 +380,7 @@ fn each_lap_of_a_ride_with_an_ftp_carries_a_load_and_intensity_that_sum_to_the_r
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn laps_of_a_ride_with_no_thresholds_carry_no_load() {
     let (_dir, mut engine) = engine();
     let mut ride = hour(true, Some(250), Some(150));
@@ -391,6 +396,7 @@ fn laps_of_a_ride_with_no_thresholds_carry_no_load() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_lap_with_heart_rate_only_carries_a_load_and_no_intensity() {
     let (_dir, mut engine) = engine();
     let mut ride = hour(true, None, Some(170));

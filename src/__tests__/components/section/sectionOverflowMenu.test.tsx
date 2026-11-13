@@ -62,7 +62,7 @@ describe('SectionOverflowMenu', () => {
     return StyleSheet.flatten(label.props.style).color;
   }
 
-  it('holds rematch and remove on an auto section, remove last and destructive', async () => {
+  vaultIt('holds rematch and remove on an auto section, remove last and destructive', async () => {
     const handlers = await openMenu();
     expect(rows()).toEqual(['sections.rematchActivities', 'sections.removeSection']);
     expect(labelColour('sections.removeSection')).toBe(colors.errorText);
@@ -87,7 +87,7 @@ describe('SectionOverflowMenu', () => {
     expect(handlers.onToggleDisable).not.toHaveBeenCalled();
   });
 
-  it('lists Edit bounds first and enters the tool from it', async () => {
+  vaultIt('lists Edit bounds first and enters the tool from it', async () => {
     const onEditBounds = jest.fn();
     await openMenu({ onEditBounds });
     expect(rows()).toEqual([
@@ -101,12 +101,12 @@ describe('SectionOverflowMenu', () => {
     expect(onEditBounds).toHaveBeenCalledTimes(1);
   });
 
-  it('lists no Edit bounds with no handler, as for a section with no line', async () => {
+  vaultIt('lists no Edit bounds with no handler, as for a section with no line', async () => {
     await openMenu({ onEditBounds: undefined });
     expect(rows()).not.toContain('sections.editBounds');
   });
 
-  it('lists Show on map first and opens the map from it', async () => {
+  vaultIt('lists Show on map first and opens the map from it', async () => {
     const onShowOnMap = jest.fn();
     await openMenu({ onShowOnMap, onEditBounds: jest.fn() });
     expect(rows()).toEqual([
@@ -121,27 +121,30 @@ describe('SectionOverflowMenu', () => {
     expect(onShowOnMap).toHaveBeenCalledTimes(1);
   });
 
-  it('lists no Show on map with no handler', async () => {
+  vaultIt('lists no Show on map with no handler', async () => {
     await openMenu({ onShowOnMap: undefined });
     expect(rows()).not.toContain('sections.showOnMap');
   });
 
-  it('restores a removed section, which is not destructive', async () => {
+  vaultIt('restores a removed section, which is not destructive', async () => {
     await openMenu({ isSectionDisabled: true });
     expect(rows()).toContain('sections.restoreSection');
     expect(labelColour('sections.restoreSection')).toBe(colors.textPrimary);
   });
 
-  it('leaves rematch out while one runs, while detection is held, or with no handler', async () => {
-    await openMenu({ isRematching: true });
-    expect(rows()).toEqual(['sections.removeSection']);
-    await screen.unmount();
+  vaultIt(
+    'leaves rematch out while one runs, while detection is held, or with no handler',
+    async () => {
+      await openMenu({ isRematching: true });
+      expect(rows()).toEqual(['sections.removeSection']);
+      await screen.unmount();
 
-    await openMenu({ isRematchHeld: true });
-    expect(rows()).toEqual(['sections.removeSection']);
-    await screen.unmount();
+      await openMenu({ isRematchHeld: true });
+      expect(rows()).toEqual(['sections.removeSection']);
+      await screen.unmount();
 
-    await openMenu({ onRematch: undefined });
-    expect(rows()).toEqual(['sections.removeSection']);
-  });
+      await openMenu({ onRematch: undefined });
+      expect(rows()).toEqual(['sections.removeSection']);
+    }
+  );
 });

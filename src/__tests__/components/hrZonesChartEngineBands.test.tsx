@@ -41,12 +41,12 @@ it('renders the engine bands and times as given', async () => {
   expect(queryByText('Z6')).toBeNull();
 });
 
-it('shows the placeholder when the engine has no zone time', async () => {
+vaultIt('shows the placeholder when the engine has no zone time', async () => {
   const { getByText } = await render(<HRZonesChart hrZones={[]} maxHR={200} movingTime={120} />);
   expect(getByText('activity.noHeartRateData')).toBeTruthy();
 });
 
-it('shows zone time with heart rate beside a different moving time', async () => {
+vaultIt('shows zone time with heart rate beside a different moving time', async () => {
   const differingBands = [
     { ...bands[0], seconds: 3000 },
     { ...bands[1], seconds: 985 },
@@ -62,7 +62,7 @@ it('shows zone time with heart rate beside a different moving time', async () =>
   expect(getByText('50 min')).toBeTruthy();
 });
 
-it('titles the card as a header in the card title role, with the max HR beside it', () => {
+vaultIt('titles the card as a header in the card title role, with the max HR beside it', () => {
   const { getByRole, getByText } = render(
     <HRZonesChart
       hrZones={bands}

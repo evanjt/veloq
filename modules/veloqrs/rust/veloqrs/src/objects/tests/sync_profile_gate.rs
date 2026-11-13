@@ -210,6 +210,7 @@ const MINUTE: i64 = 60;
 const HOUR: i64 = 60 * MINUTE;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_inside_the_gate_asks_only_the_fortnight_of_wellness() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_inside.db");
@@ -243,6 +244,7 @@ fn a_run_inside_the_gate_asks_only_the_fortnight_of_wellness() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_profile_is_asked_again_once_older_than_the_gate() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_aged.db");
@@ -258,6 +260,7 @@ fn the_profile_is_asked_again_once_older_than_the_gate() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_forced_run_asks_the_profile_inside_the_gate() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_forced.db");
@@ -297,6 +300,7 @@ fn a_profile_stored_for_another_athlete_is_not_current() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_sport_settings_are_stored_from_the_athlete_body() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_embedded.db");
@@ -313,6 +317,7 @@ fn the_sport_settings_are_stored_from_the_athlete_body() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_athlete_body_without_sport_settings_falls_back_to_their_endpoint() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_fallback.db");
@@ -336,6 +341,7 @@ fn an_athlete_body_without_sport_settings_falls_back_to_their_endpoint() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_wellness_store_asks_the_whole_year_ahead_of_the_census() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_empty_wellness.db");
@@ -366,6 +372,7 @@ fn a_gap_in_the_stored_year_asks_back_to_the_gap() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_year_short_at_its_oldest_end_asks_the_whole_year() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_short.db");
@@ -424,6 +431,7 @@ fn upstream_keeping_holes(oldest_row: i64, holes: &[i64], failing: bool) -> Mock
 /// Expected behaviour: the day was asked and answered, so the next run asks
 /// only the fortnight rather than back to the day for ever.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_day_upstream_has_no_row_for_is_asked_once() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_upstream_hole.db");
@@ -449,6 +457,7 @@ fn a_day_upstream_has_no_row_for_is_asked_once() {
 /// Expected behaviour: after the first run asks the year, later runs ask the
 /// fortnight, and do it behind the census.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_young_account_asks_the_year_once() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_young.db");
@@ -475,6 +484,7 @@ fn a_young_account_asks_the_year_once() {
 ///
 /// Expected behaviour: an empty answer is an answer, and the year is asked once.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_account_with_no_wellness_asks_the_year_once() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_no_wellness.db");
@@ -550,6 +560,7 @@ fn census_entry(id: &str, day: &str, version: &str) -> serde_json::Value {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_owed_thirty_days_back_widens_wellness_to_its_day() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_owed.db");
@@ -603,6 +614,7 @@ fn an_edit_upstream_two_hundred_days_back_widens_wellness_to_its_day() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_change_older_than_the_year_asks_no_further_than_the_year() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_ancient_edit.db");
@@ -649,6 +661,7 @@ fn wellness_day(back: i64, ctl: f64) -> serde_json::Value {
 /// Expected behaviour: the fortnight's rows are exactly what a year's pull of
 /// the same upstream would have stored, the edited day included.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_fortnight_stores_what_the_year_would_have() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_parity.db");
@@ -706,6 +719,7 @@ fn the_fortnight_stores_what_the_year_would_have() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_profile_gate_holds_six_hours_and_yields_to_force() {
     let now = 1_800_000_000;
     assert!(profile_owed(None, now, false), "nothing stored");
@@ -724,6 +738,7 @@ fn the_profile_gate_holds_six_hours_and_yields_to_force() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_wellness_window_starts_at_the_first_missing_day_or_the_oldest_owed() {
     let today = chrono::NaiveDate::from_ymd_opt(2026, 3, 1).expect("date");
     let back = |days: i64| today - chrono::Duration::days(days);
@@ -791,6 +806,7 @@ fn the_wellness_window_starts_at_the_first_missing_day_or_the_oldest_owed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_answered_run_holds_its_days_and_nothing_older() {
     let today = chrono::NaiveDate::from_ymd_opt(2026, 3, 1).expect("date");
     let back = |days: i64| today - chrono::Duration::days(days);
@@ -830,6 +846,7 @@ fn an_answered_run_holds_its_days_and_nothing_older() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_answered_run_extends_only_across_stored_rows() {
     let today = chrono::NaiveDate::from_ymd_opt(2026, 3, 1).expect("date");
     let back = |days: i64| today - chrono::Duration::days(days);
@@ -898,6 +915,7 @@ fn an_answered_run_extends_only_across_stored_rows() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_answered_run_reads_back_only_for_its_athlete() {
     let run = AnsweredDays {
         from: chrono::NaiveDate::from_ymd_opt(2025, 3, 1).expect("date"),
@@ -984,6 +1002,7 @@ fn derived_from_stored() -> Vec<String> {
 /// the two entries the athlete body fills it in for, which no reader uses: a
 /// new difference fails here rather than reaching a screen unnoticed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_athlete_body_stores_what_the_sport_settings_endpoint_did() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("profile_gate_parity_settings.db");

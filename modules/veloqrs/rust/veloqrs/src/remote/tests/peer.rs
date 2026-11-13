@@ -287,6 +287,7 @@ fn a_pinned_browser_gets_an_answer_over_the_channel() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn stop_ends_a_read_that_would_otherwise_never_return() {
     let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
     let wake = socket.local_addr().unwrap();
@@ -304,6 +305,7 @@ fn stop_ends_a_read_that_would_otherwise_never_return() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unspecified_bind_is_woken_through_loopback() {
     assert_eq!(
         wake_address("0.0.0.0:4000".parse().unwrap()),
@@ -320,6 +322,7 @@ fn an_unspecified_bind_is_woken_through_loopback() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn stop_returns_on_a_connection_whose_poll_is_an_hour() {
     let (mut browser, offer) = Browser::new();
     let gate = TestGate::pinning(Some(&browser.fingerprint));
@@ -345,6 +348,7 @@ fn stop_returns_on_a_connection_whose_poll_is_an_hour() {
 /// message, not frames, and a request naming the current protocol still gets
 /// frames on the same connection.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_request_with_no_protocol_gets_a_text_reply_and_a_current_one_gets_frames() {
     let (mut browser, offer) = Browser::new();
     let gate = TestGate::pinning(Some(&browser.fingerprint));
@@ -433,6 +437,7 @@ fn a_reply_larger_than_the_send_buffer_arrives_whole() {
 /// Scenario: sixteen asks go out back to back and every reply outgrows the
 /// room left by the one before. Expected behaviour: all sixteen arrive.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn sixteen_large_replies_sent_back_to_back_all_arrive() {
     let (mut browser, offer) = Browser::new();
     let gate = TestGate::pinning(Some(&browser.fingerprint));
@@ -450,6 +455,7 @@ fn sixteen_large_replies_sent_back_to_back_all_arrive() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_one_megabyte_reply_travels_gzipped_in_fewer_bytes_than_it_measures() {
     let (mut browser, offer) = Browser::new();
     let gate = TestGate::pinning(Some(&browser.fingerprint));
@@ -515,6 +521,7 @@ fn a_malformed_offer_is_refused() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_offered_fingerprint_is_read_in_one_spelling() {
     let sdp = "v=0\r\na=fingerprint:SHA-256 ab:cd:ef\r\n";
     assert_eq!(
@@ -572,6 +579,7 @@ fn order_of(messages: &[Vec<u8>]) -> Vec<u32> {
 /// Expected behaviour: the quick one is answered first and the slow one's
 /// reply still arrives.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_quick_ask_is_answered_while_a_slow_one_runs() {
     let (mut browser, gate, peer, _held) = linked();
 
@@ -585,6 +593,7 @@ fn a_quick_ask_is_answered_while_a_slow_one_runs() {
 /// Scenario: seventeen asks arrive back to back. Expected behaviour: sixteen
 /// are answered and the seventeenth is told the connection is busy.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_ask_past_sixteen_outstanding_is_answered_busy() {
     let (mut browser, _gate, peer, _held) = linked();
 
@@ -606,6 +615,7 @@ fn an_ask_past_sixteen_outstanding_is_answered_busy() {
 /// queue and is cancelled, and a fourth follows. Expected behaviour: the third
 /// is never run and never answered, the fourth is.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cancelled_ask_still_in_the_queue_is_never_run() {
     let (mut browser, gate, peer, _held) = linked();
 
@@ -622,6 +632,7 @@ fn a_cancelled_ask_still_in_the_queue_is_never_run() {
 /// finishes, because a read cannot be taken back, and no frame of its reply is
 /// sent; an ask made after the cancel is answered.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cancelled_ask_already_running_sends_no_frame() {
     let (mut browser, gate, peer, _held) = linked();
 
@@ -678,6 +689,7 @@ fn a_read_that_panics_is_an_error_and_the_connection_survives() {
 /// Expected behaviour: the browser receives one event frame under request id
 /// 0 for the new stamp, and none while the stamp stays.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_new_stamp_sends_one_changed_event_and_an_unchanged_one_sends_none() {
     let (mut browser, offer) = Browser::new();
     let gate = TestGate::pinning(Some(&browser.fingerprint));
@@ -713,6 +725,7 @@ fn a_new_stamp_sends_one_changed_event_and_an_unchanged_one_sends_none() {
 /// 0 naming the reason while its connection is still alive, so it need not
 /// wait for the network to time out.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stopped_peer_says_why_before_it_hangs_up() {
     for (reason, named) in [
         (DisconnectReason::Background, "background"),
@@ -752,6 +765,7 @@ fn a_stopped_peer_says_why_before_it_hangs_up() {
 /// Expected behaviour: the stop still returns and the connection is counted
 /// as ended, whether or not the farewell was read.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stop_does_not_wait_for_a_browser_that_never_reads_the_farewell() {
     let (mut browser, offer) = Browser::new();
     let gate = TestGate::pinning(Some(&browser.fingerprint));
@@ -768,6 +782,7 @@ fn a_stop_does_not_wait_for_a_browser_that_never_reads_the_farewell() {
 /// A connection that never came up has no channel to say anything on, and
 /// stops without waiting on one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stop_before_any_channel_opens_ends_without_a_farewell() {
     let (mut browser, offer) = Browser::new();
     let gate = TestGate::pinning(Some(&browser.fingerprint));

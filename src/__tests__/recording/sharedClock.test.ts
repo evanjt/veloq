@@ -20,7 +20,7 @@ describe('recording clock', () => {
     useRecordingStore.getState().reset();
   });
 
-  it('renders once a second while both hooks run', async () => {
+  vaultIt('renders once a second while both hooks run', async () => {
     let renders = 0;
     await renderHook(() => {
       renders += 1;

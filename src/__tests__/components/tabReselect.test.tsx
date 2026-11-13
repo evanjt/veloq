@@ -73,24 +73,27 @@ describe('tab reselect', () => {
     jest.clearAllMocks();
   });
 
-  it('pressing the Feed tab on the Feed scrolls its list back to the opening offset', async () => {
-    const feed = { scrollToOffset: jest.fn() };
-    const { getByLabelText } = await render(
-      <>
-        <FakeList tab="/" list={feed} offset={() => 120} />
-        <BottomTabBar />
-      </>
-    );
+  vaultIt(
+    'pressing the Feed tab on the Feed scrolls its list back to the opening offset',
+    async () => {
+      const feed = { scrollToOffset: jest.fn() };
+      const { getByLabelText } = await render(
+        <>
+          <FakeList tab="/" list={feed} offset={() => 120} />
+          <BottomTabBar />
+        </>
+      );
 
-    await fireEvent.press(getByLabelText('navigation.feed'));
+      await fireEvent.press(getByLabelText('navigation.feed'));
 
-    expect(feed.scrollToOffset).toHaveBeenCalledTimes(1);
-    expect(feed.scrollToOffset).toHaveBeenCalledWith({ offset: 120, animated: true });
-    expect(navigateTab).not.toHaveBeenCalled();
-    expect(Haptics.selectionAsync).not.toHaveBeenCalled();
-  });
+      expect(feed.scrollToOffset).toHaveBeenCalledTimes(1);
+      expect(feed.scrollToOffset).toHaveBeenCalledWith({ offset: 120, animated: true });
+      expect(navigateTab).not.toHaveBeenCalled();
+      expect(Haptics.selectionAsync).not.toHaveBeenCalled();
+    }
+  );
 
-  it('reads the offset at each press, so a measured offset is current', async () => {
+  vaultIt('reads the offset at each press, so a measured offset is current', async () => {
     const feed = { scrollToOffset: jest.fn() };
     let measured = 96;
     const { getByLabelText } = await render(
@@ -128,24 +131,27 @@ describe('tab reselect', () => {
     expect(fitness.scrollTo).not.toHaveBeenCalled();
   });
 
-  it('a scroll view on the reselected tab goes back to the top, and other tabs stay put', async () => {
-    mockPathname = '/fitness';
-    const feed = { scrollToOffset: jest.fn() };
-    const fitness = { scrollTo: jest.fn() };
-    const { getByLabelText } = await render(
-      <>
-        <FakeList tab="/" list={feed} />
-        <FakeScrollView tab="/fitness" view={fitness} />
-        <BottomTabBar />
-      </>
-    );
+  vaultIt(
+    'a scroll view on the reselected tab goes back to the top, and other tabs stay put',
+    async () => {
+      mockPathname = '/fitness';
+      const feed = { scrollToOffset: jest.fn() };
+      const fitness = { scrollTo: jest.fn() };
+      const { getByLabelText } = await render(
+        <>
+          <FakeList tab="/" list={feed} />
+          <FakeScrollView tab="/fitness" view={fitness} />
+          <BottomTabBar />
+        </>
+      );
 
-    await fireEvent.press(getByLabelText('navigation.fitness'));
+      await fireEvent.press(getByLabelText('navigation.fitness'));
 
-    expect(fitness.scrollTo).toHaveBeenCalledWith({ y: 0, animated: true });
-    expect(feed.scrollToOffset).not.toHaveBeenCalled();
-    expect(navigateTab).not.toHaveBeenCalled();
-  });
+      expect(fitness.scrollTo).toHaveBeenCalledWith({ y: 0, animated: true });
+      expect(feed.scrollToOffset).not.toHaveBeenCalled();
+      expect(navigateTab).not.toHaveBeenCalled();
+    }
+  );
 
   it('a list that has unmounted is not scrolled', async () => {
     const feed = { scrollToOffset: jest.fn() };
@@ -162,7 +168,7 @@ describe('tab reselect', () => {
     expect(feed.scrollToOffset).not.toHaveBeenCalled();
   });
 
-  it('reselecting the map, which has no list, does nothing', async () => {
+  vaultIt('reselecting the map, which has no list, does nothing', async () => {
     mockPathname = '/map';
     const feed = { scrollToOffset: jest.fn() };
     const { getByLabelText } = await render(

@@ -119,7 +119,7 @@ describe('the running sync row', () => {
     ).toBeTruthy();
   });
 
-  it('carries no library line when the library is fully downloaded', async () => {
+  vaultIt('carries no library line when the library is fully downloaded', async () => {
     mockCoverage = coverage({
       upstream: 100,
       fetched: 100,

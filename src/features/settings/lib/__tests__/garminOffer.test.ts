@@ -12,19 +12,19 @@ import { afterGarminOfferDeclined, garminOffer, parseGarminOfferRecord } from '.
 const base = { connected: false, heldBack: 14, declinedAt: null as number | null };
 
 describe('the Garmin offer', () => {
-  it('names the held-back rides while the connector is off', () => {
+  vaultIt('names the held-back rides while the connector is off', () => {
     expect(garminOffer(base)).toEqual({ count: 14 });
   });
 
-  it('is ineligible with the connector on', () => {
+  vaultIt('is ineligible with the connector on', () => {
     expect(garminOffer({ ...base, connected: true })).toBeNull();
   });
 
-  it('is ineligible when no ride was held back', () => {
+  vaultIt('is ineligible when no ride was held back', () => {
     expect(garminOffer({ ...base, heldBack: 0 })).toBeNull();
   });
 
-  it('is ineligible while the connection is unread', () => {
+  vaultIt('is ineligible while the connection is unread', () => {
     expect(garminOffer({ ...base, connected: null })).toBeNull();
   });
 
@@ -40,7 +40,7 @@ describe('the Garmin offer', () => {
     expect(afterGarminOfferDeclined(20, 14)).toBe(20);
   });
 
-  it('reads a stored record leniently', () => {
+  vaultIt('reads a stored record leniently', () => {
     expect(parseGarminOfferRecord('14')).toBe(14);
     expect(parseGarminOfferRecord(null)).toBeNull();
     expect(parseGarminOfferRecord('x')).toBeNull();

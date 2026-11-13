@@ -61,7 +61,7 @@ describe('whether Rust can announce anything', () => {
     jest.restoreAllMocks();
   });
 
-  it('is not live before the engine opens', () => {
+  vaultIt('is not live before the engine opens', () => {
     expect(closedClient().eventsAreLive()).toBe(false);
   });
 

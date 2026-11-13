@@ -61,7 +61,7 @@ afterEach(async () => {
 });
 
 describe('a part of a screen that could not render', () => {
-  it('names the part in German and offers a retry rather than a restart', async () => {
+  vaultIt('names the part in German and offers a retry rather than a restart', async () => {
     await changeLanguage('de-DE');
     const tree = await render(
       <ComponentErrorBoundary part="map3d" debugName="3D Map">
@@ -124,7 +124,7 @@ describe('the launch banner', () => {
 });
 
 describe('interval type words', () => {
-  it('reads a warm up in the athlete language, not the raw type', async () => {
+  vaultIt('reads a warm up in the athlete language, not the raw type', async () => {
     await changeLanguage('de-DE');
     const shown = intervalTypeLabel({ kind: IntervalKind.Warmup, zone: null, zoneColoured: false });
 
@@ -133,7 +133,7 @@ describe('interval type words', () => {
     expect(shown).not.toBe('intervalTypes.warmup.short');
   });
 
-  it('gives a screen reader the long form', async () => {
+  vaultIt('gives a screen reader the long form', async () => {
     await changeLanguage('de-DE');
     const spoken = intervalTypeLabel(
       { kind: IntervalKind.Recovery, zone: null, zoneColoured: false },
@@ -144,7 +144,7 @@ describe('interval type words', () => {
     expect(spoken).not.toBe('Rec');
   });
 
-  it('calls a type it does not know other, rather than showing the raw type', async () => {
+  vaultIt('calls a type it does not know other, rather than showing the raw type', async () => {
     const shown = intervalTypeLabel({ kind: IntervalKind.Other, zone: null, zoneColoured: false });
 
     expect(shown).toBe(i18n.t('intervalTypes.other.short'));
@@ -152,7 +152,7 @@ describe('interval type words', () => {
 });
 
 describe('the route PR badge', () => {
-  it('reads the record in the French abbreviation and the gap in French units', async () => {
+  vaultIt('reads the record in the French abbreviation and the gap in French units', async () => {
     await changeLanguage('fr');
 
     expect(i18n.t('activity.prBadge')).toBe('RP');

@@ -112,6 +112,7 @@ fn test_ready_newest_activities_cancellation_releases_bulk() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_ready_newest_activities_success_releases_bulk() {
     let _guard = serial_global_state();
     let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
@@ -172,6 +173,7 @@ fn ready_one(server: &MockServer, id: &str) -> Result<bool, NetError> {
 /// Expected behaviour: afterwards the activity owes nothing, so its screen
 /// opens with no network, and the answer says so.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_ready_owed_activity_leaves_nothing_owed() {
     let _guard = serial_global_state();
     let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
@@ -190,6 +192,7 @@ fn test_ready_owed_activity_leaves_nothing_owed() {
 ///
 /// Expected behaviour: no request is made and the answer is ready.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_ready_owed_activity_asks_nothing_when_nothing_is_owed() {
     let _guard = serial_global_state();
     let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
@@ -212,6 +215,7 @@ fn test_ready_owed_activity_asks_nothing_when_nothing_is_owed() {
 /// Expected behaviour: the activity still owes them, and the answer is not
 /// ready, so the caller records that the next sync has work left.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_ready_owed_activity_reports_what_is_still_owed() {
     let _guard = serial_global_state();
     let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
@@ -231,6 +235,7 @@ fn test_ready_owed_activity_reports_what_is_still_owed() {
 /// Expected behaviour: the refusal is the answer, so the caller can park the
 /// session rather than record a body failure.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_ready_owed_activity_returns_a_refused_credential() {
     let _guard = serial_global_state();
     let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
@@ -429,6 +434,7 @@ fn test_a_fault_one_activity_causes_does_not_fail_the_step() {
 /// Expected behaviour: it owes nothing, and its mark is gone from the store,
 /// the feed card and the detail read.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_a_retry_that_succeeds_clears_the_mark() {
     let _guard = serial_global_state();
     let _dir = crate::test_globals::init_global_engine("first-use-queue.db");
@@ -452,6 +458,7 @@ fn test_a_retry_that_succeeds_clears_the_mark() {
 ///
 /// Expected behaviour: the mark stays, as one row with the later time.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_a_retry_that_fails_again_keeps_one_mark() {
     let _guard = serial_global_state();
     let _dir = crate::test_globals::init_global_engine("first-use-queue.db");

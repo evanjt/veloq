@@ -86,7 +86,7 @@ beforeEach(() => {
 });
 
 describe('the activity chart scrub after the chart closes', () => {
-  it('reports a scrub index while mounted', async () => {
+  vaultIt('reports a scrub index while mounted', async () => {
     const onPointSelect = jest.fn();
     await mountChart(onPointSelect);
     onPointSelect.mockClear();
@@ -108,7 +108,7 @@ describe('the activity chart scrub after the chart closes', () => {
     expect(onPointSelect).not.toHaveBeenCalled();
   });
 
-  it('lets the closed chart streams be collected', async () => {
+  vaultIt('lets the closed chart streams be collected', async () => {
     const chart = await mountChart(jest.fn());
     scrubTo(10);
 

@@ -239,6 +239,7 @@ mod tests {
     /// Expected behaviour: the export resolves with an empty result, not an
     /// error, so the page opens nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tap_with_the_heatmap_off_answers_an_empty_result() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("under_point_off.db");
@@ -261,6 +262,7 @@ mod tests {
     /// because it goes to the read pool and never asks for the engine lock the
     /// writer is holding. A wait would cost the athlete frames on a drag.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_map_screen_read_does_not_wait_for_a_writer() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("maps_under_a_writer.db");
@@ -297,6 +299,7 @@ mod tests {
     /// Expected behaviour: the viewport query goes to the read pool, so it
     /// does not wait out the writer.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_viewport_query_does_not_wait_for_a_writer() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("viewport_under_a_writer.db");
@@ -315,6 +318,7 @@ mod tests {
     /// engine's in-memory index for empty, edge-touching, inverted and
     /// all-covering windows.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_viewport_query_matches_the_in_memory_index() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("viewport_parity.db");
@@ -369,6 +373,7 @@ mod tests {
     /// Expected behaviour: the bounds query is answered from the bounds index
     /// rather than a scan of the activities table.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_viewport_query_plan_uses_the_bounds_index() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("viewport_plan.db");
@@ -387,6 +392,7 @@ mod tests {
     /// does not wait out the writer, and they are the lines the engine's own
     /// read gives.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_signature_reads_without_waiting_for_a_writer() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("map_signatures_under_a_writer.db");
@@ -500,6 +506,7 @@ mod tests {
     /// layer again, while its counts and the route generation stay as they
     /// were. A stamp that is not current ships the layer.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_filter_change_ships_no_layer_the_caller_holds() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("map_layers_held.db");
@@ -609,6 +616,7 @@ mod tests {
     /// the layer again carrying the new name rather than leaving the old one
     /// on the map.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rename_ships_the_layer_it_names_again() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("map_layers_renamed.db");
@@ -659,6 +667,7 @@ mod tests {
     /// Expected behaviour: the overlay's lines are decoded and re-encoded once
     /// per database state, not once per read, and a commit builds them again.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_overlay_is_built_once_per_database_state() {
         use crate::persistence::sections::pooled::MAP_SECTION_BUILDS;
         let _guard = serial_global_state();

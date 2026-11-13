@@ -26,7 +26,7 @@ describe('getEffectiveWindow', () => {
 });
 
 describe('smoothDataPoints', () => {
-  it('returns input unchanged when windowSize <= 1', () => {
+  vaultIt('returns input unchanged when windowSize <= 1', () => {
     const data = [{ x: 0, value: 10, rawValue: 10 }];
     const result = smoothDataPoints(data, 1);
     expect(result).toBe(data); // reference equality
@@ -55,7 +55,7 @@ describe('smoothDataPoints', () => {
     expect(result[4].value).toBe(45);
   });
 
-  it('preserves rawValue in output', () => {
+  vaultIt('preserves rawValue in output', () => {
     const data = [
       { x: 0, value: 10, rawValue: 10 },
       { x: 1, value: 20, rawValue: 20 },
@@ -67,7 +67,7 @@ describe('smoothDataPoints', () => {
     expect(result[2].rawValue).toBe(30);
   });
 
-  it('all-same values remain unchanged after smoothing', () => {
+  vaultIt('all-same values remain unchanged after smoothing', () => {
     const data = [
       { x: 0, value: 42, rawValue: 42 },
       { x: 1, value: 42, rawValue: 42 },
@@ -112,19 +112,19 @@ describe('getSmoothingDescription', () => {
   const t = (key: string, opts?: Record<string, unknown>) =>
     `${key}${opts ? JSON.stringify(opts) : ''}`;
 
-  it('"none" names the raw-data key', () => {
+  vaultIt('"none" names the raw-data key', () => {
     expect(getSmoothingDescription('none', '3m', t)).toBe('wellness.smoothingRaw');
   });
 
-  it('"auto" + "7d" names the raw-data key (window=0)', () => {
+  vaultIt('"auto" + "7d" names the raw-data key (window=0)', () => {
     expect(getSmoothingDescription('auto', '7d', t)).toBe('wellness.smoothingRaw');
   });
 
-  it('"auto" + "3m" counts a 7-day average', () => {
+  vaultIt('"auto" + "3m" counts a 7-day average', () => {
     expect(getSmoothingDescription('auto', '3m', t)).toBe('wellness.smoothingAverage{"count":7}');
   });
 
-  it('numeric 14 counts a 14-day average', () => {
+  vaultIt('numeric 14 counts a 14-day average', () => {
     expect(getSmoothingDescription(14, '7d', t)).toBe('wellness.smoothingAverage{"count":14}');
   });
 });
@@ -133,7 +133,7 @@ describe('getSmoothingPresetLabel', () => {
   const t = (key: string, opts?: Record<string, unknown>) =>
     `${key}${opts ? JSON.stringify(opts) : ''}`;
 
-  it('names a key for the word presets and passes the day count for the rest', () => {
+  vaultIt('names a key for the word presets and passes the day count for the rest', () => {
     expect(getSmoothingPresetLabel('auto', t)).toBe('wellness.smoothingAuto');
     expect(getSmoothingPresetLabel('none', t)).toBe('wellness.smoothingNone');
     expect(getSmoothingPresetLabel(21, t)).toBe('units.daysShort{"days":21}');
@@ -144,17 +144,17 @@ describe('getSmoothingChipLabel', () => {
   const t = (key: string, opts?: Record<string, unknown>) =>
     `${key}${opts ? JSON.stringify(opts) : ''}`;
 
-  it('names the window in force for Auto, resolved through the range', () => {
+  vaultIt('names the window in force for Auto, resolved through the range', () => {
     expect(getSmoothingChipLabel('auto', '1m', t)).toBe('wellness.smoothingChip{"count":3}');
     expect(getSmoothingChipLabel('auto', '6m', t)).toBe('wellness.smoothingChip{"count":14}');
   });
 
-  it('names no smoothing when Auto or the athlete resolves to none', () => {
+  vaultIt('names no smoothing when Auto or the athlete resolves to none', () => {
     expect(getSmoothingChipLabel('auto', '7d', t)).toBe('wellness.smoothingChipNone');
     expect(getSmoothingChipLabel('none', '1y', t)).toBe('wellness.smoothingChipNone');
   });
 
-  it('names an explicit window whatever the range', () => {
+  vaultIt('names an explicit window whatever the range', () => {
     expect(getSmoothingChipLabel(14, '7d', t)).toBe('wellness.smoothingChip{"count":14}');
   });
 });
@@ -163,12 +163,12 @@ describe('getSmoothingPresetLabel with the range', () => {
   const t = (key: string, opts?: Record<string, unknown>) =>
     `${key}${opts ? JSON.stringify(opts) : ''}`;
 
-  it('names the window Auto resolves to for the range it is shown on', () => {
+  vaultIt('names the window Auto resolves to for the range it is shown on', () => {
     expect(getSmoothingPresetLabel('auto', t, '6m')).toBe('wellness.smoothingAutoDays{"count":14}');
     expect(getSmoothingPresetLabel('auto', t, '7d')).toBe('wellness.smoothingAutoNone');
   });
 
-  it('keeps the plain Auto label when no range is given', () => {
+  vaultIt('keeps the plain Auto label when no range is given', () => {
     expect(getSmoothingPresetLabel('auto', t)).toBe('wellness.smoothingAuto');
   });
 });

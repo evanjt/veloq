@@ -14,6 +14,7 @@ fn upstream() -> HashMap<String, String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn each_ask_is_one_call_by_the_upstream_id_on_the_sweep_lane() {
     for (ask, expected) in [
         (Ask::Elevation, asked("altitude", &["u1"], Lane::Backfill)),
@@ -42,6 +43,7 @@ fn each_ask_is_one_call_by_the_upstream_id_on_the_sweep_lane() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_key_with_no_stored_upstream_id_is_asked_by_its_key() {
     let source = RecordingSource::new();
 

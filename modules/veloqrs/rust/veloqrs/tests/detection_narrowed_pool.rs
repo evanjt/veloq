@@ -179,6 +179,7 @@ fn a_new_ride_without_a_track_completes_without_clearing_a_warm_catalogue() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn multi_cluster_detect_advances_progress_during_the_fold() {
     let _serial_state = super::serial_state();
     let library = three_places();

@@ -70,7 +70,7 @@ it('refuses a cleared form over a stored server, and leaves the server stored', 
   expect(mockClear).not.toHaveBeenCalled();
 });
 
-it('answers empty for a cleared form when nothing is stored', async () => {
+vaultIt('answers empty for a cleared form when nothing is stored', async () => {
   const ref = await renderWithFieldsCleared(null);
 
   expect(await act(() => ref.current!.commit())).toEqual({ kind: 'empty' });

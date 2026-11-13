@@ -37,7 +37,7 @@ function busyElements() {
 }
 
 describe('MapDetailSkeleton', () => {
-  it('draws the cached picture under the Peek blocks, at once', async () => {
+  vaultIt('draws the cached picture under the Peek blocks, at once', async () => {
     await render(<MapDetailSkeleton kind="activity" previewUri={PREVIEW} />);
 
     const preview = screen.getByTestId('map-detail-skeleton-preview');
@@ -49,7 +49,7 @@ describe('MapDetailSkeleton', () => {
     expect(screen.getAllByTestId(/^map-detail-skeleton-stat-/)).toHaveLength(3);
   });
 
-  it('draws the bare land ground of the theme without a picture', async () => {
+  vaultIt('draws the bare land ground of the theme without a picture', async () => {
     await render(<MapDetailSkeleton kind="route" />);
 
     expect(screen.queryByTestId('map-detail-skeleton-preview')).toBeNull();
@@ -72,7 +72,7 @@ describe('MapDetailSkeleton', () => {
     expect(bare).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
+  vaultIt.each([
     ['activity', 'maps.detailLoading.activity'],
     ['route', 'maps.detailLoading.route'],
     ['section', 'maps.detailLoading.section'],
@@ -95,13 +95,16 @@ describe('MapDetailSkeleton', () => {
 });
 
 describe('MapDetailPeekSkeleton', () => {
-  it('is the same Peek blocks behind one busy element, inside a sheet already shown', async () => {
-    await render(<MapDetailPeekSkeleton kind="section" />);
+  vaultIt(
+    'is the same Peek blocks behind one busy element, inside a sheet already shown',
+    async () => {
+      await render(<MapDetailPeekSkeleton kind="section" />);
 
-    const busy = busyElements();
-    expect(busy).toHaveLength(1);
-    expect(busy[0]!.props.accessibilityLabel).toBe('maps.detailLoading.section');
-    expect(screen.getAllByTestId(/^map-detail-skeleton-stat-/)).toHaveLength(3);
-    expect(screen.queryByTestId('map-detail-skeleton-ground')).toBeNull();
-  });
+      const busy = busyElements();
+      expect(busy).toHaveLength(1);
+      expect(busy[0]!.props.accessibilityLabel).toBe('maps.detailLoading.section');
+      expect(screen.getAllByTestId(/^map-detail-skeleton-stat-/)).toHaveLength(3);
+      expect(screen.queryByTestId('map-detail-skeleton-ground')).toBeNull();
+    }
+  );
 });

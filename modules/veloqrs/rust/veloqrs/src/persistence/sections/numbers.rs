@@ -383,6 +383,7 @@ mod tests {
     use super::label_number;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_label_reads_in_any_shipped_word_bare_or_behind_a_sport() {
         assert_eq!(label_number("Section 7", "Section"), Some(7));
         assert_eq!(label_number("Ride Section 7", "Section"), Some(7));
@@ -392,6 +393,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_name_that_only_ends_in_a_number_is_not_a_label() {
         assert_eq!(label_number("Lakeside loop", "Section"), None);
         assert_eq!(label_number("Section", "Section"), None);

@@ -51,7 +51,7 @@ describe('StreamBackfillRow', () => {
     mockStop.mockClear();
   });
 
-  it('says why an offline tap started nothing', async () => {
+  vaultIt('says why an offline tap started nothing', async () => {
     mockUseStreamBackfill.mockReturnValue(
       state({ remaining: 412, phase: 'stopped', refusal: StartOutcome.Offline })
     );
@@ -62,7 +62,7 @@ describe('StreamBackfillRow', () => {
     );
   });
 
-  it('shows no refusal line when nothing was refused', async () => {
+  vaultIt('shows no refusal line when nothing was refused', async () => {
     mockUseStreamBackfill.mockReturnValue(state({ remaining: 412, phase: 'stopped' }));
     expect((await row()).queryByTestId('settings-stream-backfill-refusal')).toBeNull();
   });
@@ -83,7 +83,7 @@ describe('StreamBackfillRow', () => {
    * Expected behaviour: the row states the owed queue's size there too, not
    * only after a stop.
    */
-  it('states the size at rest, where no stop has happened', async () => {
+  vaultIt('states the size at rest, where no stop has happened', async () => {
     mockUseStreamBackfill.mockReturnValue(
       state({ remaining: 412, phase: 'idle', remainingBytes: 12_000_000 })
     );
@@ -93,7 +93,7 @@ describe('StreamBackfillRow', () => {
     );
   });
 
-  it('shows the count alone when the queue has no known moving time', async () => {
+  vaultIt('shows the count alone when the queue has no known moving time', async () => {
     mockUseStreamBackfill.mockReturnValue(
       state({ remaining: 412, phase: 'stopped', remainingBytes: 0 })
     );
@@ -102,7 +102,7 @@ describe('StreamBackfillRow', () => {
     );
   });
 
-  it('shows progress, not a size, while the pass runs', async () => {
+  vaultIt('shows progress, not a size, while the pass runs', async () => {
     mockUseStreamBackfill.mockReturnValue(
       state({
         remaining: null,
@@ -124,12 +124,12 @@ describe('StreamBackfillRow', () => {
    * stopped. Expected behaviour: the engine starts the pass itself, so the row
    * offers no Download and shows the running pass.
    */
-  it('offers no download before any stop', async () => {
+  vaultIt('offers no download before any stop', async () => {
     mockUseStreamBackfill.mockReturnValue(state({ remaining: 412, phase: 'idle' }));
     expect((await row()).queryByTestId('settings-stream-backfill-action')).toBeNull();
   });
 
-  it('shows the running pass with Stop and no Download after a widening', async () => {
+  vaultIt('shows the running pass with Stop and no Download after a widening', async () => {
     mockUseStreamBackfill.mockReturnValue(
       state({ remaining: 412, isRunning: true, phase: 'fetching', completed: 3, total: 412 })
     );
@@ -178,7 +178,7 @@ describe('StreamBackfillRow', () => {
     );
   });
 
-  it('states a queue under a megabyte in kilobytes', async () => {
+  vaultIt('states a queue under a megabyte in kilobytes', async () => {
     mockUseStreamBackfill.mockReturnValue(
       state({ remaining: 3, remainingBytes: 400_000, phase: 'stopped' })
     );
@@ -187,7 +187,7 @@ describe('StreamBackfillRow', () => {
     );
   });
 
-  it('states the size beside the count while the engine waits for consent', async () => {
+  vaultIt('states the size beside the count while the engine waits for consent', async () => {
     mockUseStreamBackfill.mockReturnValue(
       state({
         remaining: 900,
@@ -201,7 +201,7 @@ describe('StreamBackfillRow', () => {
     );
   });
 
-  it('shows the count alone when the engine cannot price the queue', async () => {
+  vaultIt('shows the count alone when the engine cannot price the queue', async () => {
     mockUseStreamBackfill.mockReturnValue(
       state({ remaining: 412, remainingBytes: null, phase: 'stopped' })
     );
@@ -210,7 +210,7 @@ describe('StreamBackfillRow', () => {
     );
   });
 
-  it('reads as a singular when one activity is owed', async () => {
+  vaultIt('reads as a singular when one activity is owed', async () => {
     mockUseStreamBackfill.mockReturnValue(state({ remaining: 1 }));
 
     expect((await row()).getByTestId('settings-stream-backfill-count').props.children).toBe(
@@ -234,7 +234,7 @@ describe('StreamBackfillRow', () => {
     expect(mockStart).not.toHaveBeenCalled();
   });
 
-  it('stays away once the library is stocked', async () => {
+  vaultIt('stays away once the library is stocked', async () => {
     mockUseStreamBackfill.mockReturnValue(state({ remaining: 0 }));
 
     expect((await row()).queryByTestId('settings-stream-backfill')).toBeNull();

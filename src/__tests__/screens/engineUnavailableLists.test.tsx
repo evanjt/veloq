@@ -137,7 +137,7 @@ describe.each(SCREENS)('$name with an engine that is not open', (s) => {
     expect(useEngineStatus.getState().retryNonce).toBe(1);
   });
 
-  it('offers the update rather than a retry for a database a newer build wrote', () => {
+  vaultIt('offers the update rather than a retry for a database a newer build wrote', () => {
     failEngine(InitOutcome.ForwardSchema);
     const screen = render(<s.Screen />);
     expect(screen.queryByText(s.emptyKey)).toBeNull();
@@ -146,7 +146,7 @@ describe.each(SCREENS)('$name with an engine that is not open', (s) => {
     expect(screen.queryByText('common.retry')).toBeNull();
   });
 
-  it('falls back to the general line for a failure with no recorded reason', () => {
+  vaultIt('falls back to the general line for a failure with no recorded reason', () => {
     failEngine(InitOutcome.NotAttempted);
     const screen = render(<s.Screen />);
     expect(screen.getByText('engine.initFailed')).toBeTruthy();

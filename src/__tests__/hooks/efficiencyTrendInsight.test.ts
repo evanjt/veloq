@@ -48,13 +48,13 @@ it('carries the HR/pace series onto the insight', () => {
   });
 });
 
-it('omits the series when the engine sent no points', () => {
+vaultIt('omits the series when the engine sent no points', () => {
   const [insight] = generateEfficiencyTrendInsights([trend({ points: [] })], NOW, t);
 
   expect(insight.supportingData?.history).toBeUndefined();
 });
 
-it('omits a one-point series, which plots nothing', () => {
+vaultIt('omits a one-point series, which plots nothing', () => {
   const [insight] = generateEfficiencyTrendInsights([trend({ points: [point(0.6)] })], NOW, t);
 
   expect(insight.supportingData?.history).toBeUndefined();
@@ -74,7 +74,7 @@ it('keeps one insight per sport on the same section, each naming its own sport',
   expect(insights.map((i) => i.supportingData?.sections?.[0]?.sportType)).toEqual(['Ride', 'Run']);
 });
 
-it('draws the methodology formula through the translator', () => {
+vaultIt('draws the methodology formula through the translator', () => {
   const translate = (key: string) => `<${key}>`;
   const [insight] = generateEfficiencyTrendInsights([trend()], NOW, translate);
 

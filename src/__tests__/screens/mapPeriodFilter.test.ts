@@ -24,7 +24,7 @@ function labelFor(key: string): unknown {
 }
 
 describe('the map period picker', () => {
-  it('names every option through i18n, the spans from the shared period set', () => {
+  vaultIt('names every option through i18n, the spans from the shared period set', () => {
     expect(PERIOD_OPTIONS).toHaveLength(6);
     for (const option of PERIOD_OPTIONS) {
       expect(option.labelKey).toMatch(option.id === 'year' ? /^maps\./ : /^period\.short\./);
@@ -32,7 +32,7 @@ describe('the map period picker', () => {
     }
   });
 
-  it('counts a month the way the rest of the app counts one', () => {
+  vaultIt('counts a month the way the rest of the app counts one', () => {
     expect(PERIOD_DAYS['1m']).toBe(RANGE_DAYS['1m']);
     expect(PERIOD_DAYS['3m']).toBe(RANGE_DAYS['3m']);
     expect(PERIOD_DAYS['6m']).toBe(RANGE_DAYS['6m']);
@@ -72,7 +72,7 @@ describe('the map period picker', () => {
     expect(PERIOD_DAYS).not.toHaveProperty('year');
   });
 
-  it('reaches back past any library for `all`', () => {
+  vaultIt('reaches back past any library for `all`', () => {
     const start = getPeriodStart('all', new Date('2026-05-15T12:00:00Z'));
 
     expect(start.getFullYear()).toBeLessThanOrEqual(2000);

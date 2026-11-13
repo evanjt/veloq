@@ -77,7 +77,7 @@ describe('a camera written before the store was loaded', () => {
     expect(store.getCameraOverride('a1')).toBeUndefined();
   });
 
-  it('saving over a stored camera replaces it and moves it to the newest', async () => {
+  vaultIt('saving over a stored camera replaces it and moves it to the newest', async () => {
     const store = freshStore();
 
     await store.setCameraOverride('a1', camera(15));
@@ -123,7 +123,7 @@ describe('a camera written before the store was loaded', () => {
     expect(store.getCameraOverride('a1')).toBeUndefined();
   });
 
-  it('with nothing stored, the first save is the only camera', async () => {
+  vaultIt('with nothing stored, the first save is the only camera', async () => {
     mockSettings.clear();
     const store = freshStore();
 

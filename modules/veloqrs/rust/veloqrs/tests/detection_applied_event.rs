@@ -152,6 +152,7 @@ fn wait_for_notice(counter: &Counter, nth: usize) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_completed_detection_announces_once_and_the_outcome_is_readable() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -183,6 +184,7 @@ fn a_completed_detection_announces_once_and_the_outcome_is_readable() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_run_announces_again() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -210,6 +212,7 @@ fn a_second_run_announces_again() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_with_no_observer_registered_still_finishes() {
     let _serial_state = super::serial_state();
     let _serial = serial();

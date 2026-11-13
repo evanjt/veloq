@@ -312,6 +312,7 @@ fn naming_roundtrip_and_unname() {
 /// from `get_section_summaries`. Both must resolve the corridor name, or the
 /// hidden-sections sheet shows the generated "Section N" for a named corridor.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn restore_list_shows_the_corridor_name() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine();
@@ -348,6 +349,7 @@ fn restore_list_shows_the_corridor_name() {
 /// corridor must keep its name there: the overlay resolves only against
 /// visible rows, and a disabled row is exactly the row that list shows.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn restore_list_names_a_disabled_corridor() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine();
@@ -375,6 +377,7 @@ fn restore_list_names_a_disabled_corridor() {
 /// corridor would never re-emerge. Green today because naming writes no
 /// intent; must stay green forever.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn naming_never_suppresses_corridor() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine();
@@ -398,6 +401,7 @@ fn naming_never_suppresses_corridor() {
 /// section also carries a name. Mirrors `disabled_corridor_stays_hidden` with
 /// one inert rename added.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn disable_still_suppresses_a_named_corridor() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine();
@@ -447,6 +451,7 @@ fn accepted_section_name_stays_row_local_across_restart() {
 /// the auto section first (a corridor name after D1), accept the row, rename
 /// it. The row name must win, today and after D1's resolution overlay exists.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn row_name_beats_corridor_name_on_same_section() {
     let corpus = corpus();
     let (mut engine, dir) = fresh_engine();
@@ -477,6 +482,7 @@ fn row_name_beats_corridor_name_on_same_section() {
 /// today (the row is read from the DB); after D1 this catches a resolution
 /// cache that only fills on detection apply.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn name_readable_after_restart_without_sync() {
     let corpus = corpus();
     let (mut engine, dir) = fresh_engine();
@@ -501,6 +507,7 @@ fn name_readable_after_restart_without_sync() {
 /// name must not wander onto surviving foreign ground. Green today; after D1
 /// this is the no-migration half of the resolution offset ceiling.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn dissolved_named_corridor_leaves_other_ground_unnamed() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine();
@@ -616,6 +623,7 @@ fn name_survives_restart_and_resync() {
 /// 32 threads. The bound leaves room for a two-core runner and turns a run
 /// that never returns into a failure rather than a wait.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn name_follows_ground_through_recut() {
     within(RECUT_BOUND, "name_follows_ground_through_recut", || {
         let corpus = corpus();
@@ -642,6 +650,7 @@ fn name_follows_ground_through_recut() {
 /// name, and no other piece carries it. The junction geometry puts the trunk
 /// midpoint inside the smallest piece, so a midpoint rule fails here.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn split_gives_name_to_largest_share_piece() {
     let (engine, _dir, snap, trunk) = run_junction_scenario(false);
 
@@ -670,6 +679,7 @@ fn split_gives_name_to_largest_share_piece() {
 /// Naming pins the section: the junction that would split an unpinned trunk
 /// leaves the named one whole, under its own id and name.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_named_trunk_is_not_split_by_a_junction() {
     let (engine, _dir, snap, trunk) = run_junction_scenario(true);
 
@@ -687,6 +697,7 @@ fn a_named_trunk_is_not_split_by_a_junction() {
 /// Frozen for every section on current main because the registry keeps its
 /// prior polyline on every carry and never adopts the re-cut.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn naming_does_not_freeze_geometry() {
     let (engine, _dir, snap, trunk) = run_junction_scenario(false);
 
@@ -722,6 +733,7 @@ fn naming_does_not_freeze_geometry() {
 /// A named corridor whose evidence is deleted goes dormant, stays listed, and
 /// resurfaces with no user action once its ground re-emerges.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn dormancy_roundtrip_resurfaces_name() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine();
@@ -811,6 +823,7 @@ fn dormancy_roundtrip_resurfaces_name() {
 /// Unnaming deletes the intent outright, and so does the explicit corridor
 /// removal API.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn unname_and_remove_delete_the_intent() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine();
@@ -835,6 +848,7 @@ fn unname_and_remove_delete_the_intent() {
 /// intent (the referent stays the originally named ground), rather than
 /// stacking a second one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn renaming_updates_the_existing_intent() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine();
@@ -925,6 +939,7 @@ fn legacy_named_row_promotes_once_with_current_intent_schema() {
 /// intent planted directly in the table must not stop its corridor from
 /// being detected, while flipping the same row to 'disabled' must.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn raw_named_row_never_suppresses_but_disabled_does() {
     let corpus = corpus();
     let (mut engine, dir) = fresh_engine();
@@ -1000,6 +1015,7 @@ fn raw_named_row_never_suppresses_but_disabled_does() {
 /// Two intents resolving to one section: the better-covering one displays,
 /// both persist in the listing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn two_names_one_section_keeps_both() {
     let corpus = corpus();
     let (mut engine, dir) = fresh_engine();
@@ -1052,6 +1068,7 @@ fn two_names_one_section_keeps_both() {
 /// in-memory copy: with the row flipped user-defined behind the engine's
 /// back, a rename must write the row, not an intent.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn set_name_routes_by_the_db_row_not_memory() {
     let corpus = corpus();
     let (mut engine, dir) = fresh_engine();
@@ -1088,6 +1105,7 @@ fn set_name_routes_by_the_db_row_not_memory() {
 /// name onto the row (its permanent home) and retires the intent, so the
 /// name survives the accept and every later restart.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn accepting_a_named_section_keeps_the_name() {
     let corpus = corpus();
     let (mut engine, dir) = fresh_engine();
@@ -1115,6 +1133,7 @@ fn accepting_a_named_section_keeps_the_name() {
 /// user data: typing one for a number the section does not hold is refused as
 /// taken, mints no durable intent and leaves the name as it was.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn generated_shaped_names_are_refused_and_change_nothing() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine();
@@ -1137,6 +1156,7 @@ fn generated_shaped_names_are_refused_and_change_nothing() {
 /// when a list read consumed the overlay refresh first: the section LRU
 /// stores raw rows and overlays on the way out.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn rename_shows_fresh_name_after_list_and_detail_reads() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine();

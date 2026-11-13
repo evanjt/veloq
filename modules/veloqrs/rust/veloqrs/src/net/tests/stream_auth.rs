@@ -2,6 +2,7 @@ use super::*;
 use std::cell::Cell;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_stream_walk_sign_out_stops_before_next_batch() {
     let signed_in = Cell::new(true);
     let asked = Cell::new(0usize);

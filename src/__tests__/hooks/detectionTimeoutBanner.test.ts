@@ -124,7 +124,7 @@ describe('a detection that finished inside the budget', () => {
     mockOutcome.value = 'complete';
   });
 
-  it('says what it always said', async () => {
+  vaultIt('says what it always said', async () => {
     const { last } = await sync();
 
     expect(last.message).toBe('cache.syncedActivities:2');

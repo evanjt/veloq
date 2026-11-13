@@ -359,6 +359,11 @@ impl FitnessManager {
         // A sample library is composed in a scratch database of its own, so the
         // athlete's database is neither read nor written and need not be open.
         if let Some(sample) = sample {
+            // A sample's strength sessions carry the demo corpus's sets, the ones
+            // the demo library settles its own strength sessions from.
+            let exercise_sets = crate::strength::demo::sample_sets(
+                sample.activities.iter().map(|r| r.activity_id.as_str()),
+            );
             let library = crate::widget_snapshot::SampleLibrary {
                 athlete_json: sample.athlete_json,
                 sport_settings_json: sample.sport_settings_json,
@@ -368,16 +373,7 @@ impl FitnessManager {
                     .into_iter()
                     .map(|r| (r.activity_id, r.date as i64, r.raw))
                     .collect(),
-                exercise_sets: sample
-                    .exercise_sets
-                    .iter()
-                    .map(|set| {
-                        (
-                            set.activity_id.clone(),
-                            crate::fit::FitExerciseSet::from(set),
-                        )
-                    })
-                    .collect(),
+                exercise_sets,
             };
             return crate::widget_snapshot::sample_snapshot_json(&library, &ctx, clock).map_err(
                 |e| VeloqError::Database {
@@ -444,6 +440,7 @@ mod tests {
     /// without waiting for the writer, because the feed reads through the pool
     /// and never asks for the engine lock the writer is holding.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_feed_first_paint_does_not_wait_for_a_writer() {
         use crate::test_globals::{init_global_engine, serial_global_state};
         let _guard = serial_global_state();
@@ -527,6 +524,7 @@ mod tests {
     /// Expected behaviour: the read goes through the pool, so it does not
     /// wait for the writer however long it holds.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_insights_tab_does_not_wait_for_a_writer() {
         use crate::test_globals::{init_global_engine, serial_global_state};
         let _guard = serial_global_state();

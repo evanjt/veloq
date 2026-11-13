@@ -78,7 +78,7 @@ afterEach(() => {
 });
 
 describe('season comparison scrub', () => {
-  it('fires one light impact when the scrub starts', async () => {
+  vaultIt('fires one light impact when the scrub starts', async () => {
     await renderChart();
 
     await scrub(scrubPan(pans), 10);
@@ -87,7 +87,7 @@ describe('season comparison scrub', () => {
     expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
   });
 
-  it('fires no impact for a touch lifted without moving', async () => {
+  vaultIt('fires no impact for a touch lifted without moving', async () => {
     await renderChart();
 
     await pressAndLift(scrubPan(pans), 10, 50);

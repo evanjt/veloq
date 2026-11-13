@@ -74,6 +74,7 @@ fn an_owed_cutover_keeps_the_old_catalogue_and_names_the_hold_on_the_regroup() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_regroup_in_flight_names_no_hold() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup_hold_in_flight.db");
@@ -90,6 +91,7 @@ fn a_regroup_in_flight_names_no_hold() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_regroup_no_cutover_holds_names_no_hold() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup_hold_no_cutover.db");
@@ -102,6 +104,7 @@ fn a_regroup_no_cutover_holds_names_no_hold() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_that_owes_no_regroup_names_no_hold() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup_hold_settled.db");
@@ -118,6 +121,7 @@ fn a_library_that_owes_no_regroup_names_no_hold() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cutover_behind_owed_elevation_names_the_elevation_wait() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup_hold_elevation_owed.db");

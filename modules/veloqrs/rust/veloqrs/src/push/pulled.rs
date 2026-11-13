@@ -130,6 +130,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pulled_ride_no_push_announced_posts_one_entry() {
         let _guard = serial_global_state();
         let _tmp = engine_with(r#"{"enabled":true}"#);
@@ -165,6 +166,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_webhook_first_leaves_the_pull_nothing_to_announce() {
         let _guard = serial_global_state();
         let _tmp = engine_with(r#"{"enabled":true}"#);
@@ -179,6 +181,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn another_garmin_ride_is_announced_on_its_own() {
         let _guard = serial_global_state();
         let _tmp = engine_with(r#"{"enabled":true}"#);
@@ -194,6 +197,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn notifications_off_announces_nothing() {
         let _guard = serial_global_state();
         let _tmp = engine_with(r#"{"enabled":false}"#);
@@ -204,6 +208,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn only_a_ride_from_the_last_two_days_is_news() {
         let now = DateTime::parse_from_rfc3339("2026-10-25T12:00:00Z")
             .expect("a time")

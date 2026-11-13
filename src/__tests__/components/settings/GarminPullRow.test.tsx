@@ -48,21 +48,21 @@ describe('GarminPullRow', () => {
     });
   });
 
-  it("stays away while Garmin's experimental switch is off", () => {
+  vaultIt("stays away while Garmin's experimental switch is off", () => {
     useDebugStore.setState({ experimentalFeatures: {} });
     const tree = pull({ phase: FfiGarminPullPhase.Running });
 
     expect(tree.queryByTestId('settings-garmin-pull')).toBeNull();
   });
 
-  it('stays away while no Garmin key is held', () => {
+  vaultIt('stays away while no Garmin key is held', () => {
     mockUseGarminPull.mockReturnValue({ pull: undefined, pullNow: mockPullNow });
     const tree = render(<GarminPullRow isDark={false} />);
 
     expect(tree.queryByTestId('settings-garmin-pull')).toBeNull();
   });
 
-  it('shows a running pass with its count and month and offers no tap', () => {
+  vaultIt('shows a running pass with its count and month and offers no tap', () => {
     const tree = pull({ phase: FfiGarminPullPhase.Running });
 
     expect(tree.getByTestId('settings-garmin-pull-status').props.children).toBe('Running');
@@ -84,14 +84,14 @@ describe('GarminPullRow', () => {
     expect(mockPullNow).toHaveBeenCalledTimes(1);
   });
 
-  it('shows a finished pass with no tap', () => {
+  vaultIt('shows a finished pass with no tap', () => {
     const tree = pull({ phase: FfiGarminPullPhase.Done, backfillDone: true });
 
     expect(tree.getByTestId('settings-garmin-pull-status').props.children).toBe('Up to date');
     expect(tree.queryByTestId('settings-garmin-pull-now')).toBeNull();
   });
 
-  it.each([
+  vaultIt.each([
     [FfiGarminHalt.KeyRejected, /key/i],
     [FfiGarminHalt.Unreachable, /reach/i],
     [FfiGarminHalt.Unstorable, /keep|store/i],

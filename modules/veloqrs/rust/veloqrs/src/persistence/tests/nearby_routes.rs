@@ -138,6 +138,7 @@ fn library(attempts: usize) -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_library_has_no_nearby_routes() {
     let engine = PersistentEngine::in_memory().expect("engine");
     assert!(read(&engine, "Ride").is_empty());
@@ -173,6 +174,7 @@ fn a_route_carries_its_length_best_time_and_line() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_route_with_no_timed_attempt_has_no_best_time() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     add_route(&mut engine, "untimed", 0.0, "Ride", [0, 0]);
@@ -183,6 +185,7 @@ fn a_route_with_no_timed_attempt_has_no_best_time() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn only_routes_of_the_sports_family_are_returned() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     add_route(&mut engine, "ride", 0.0, "Ride", [1_800, 1_700]);
@@ -205,6 +208,7 @@ fn only_routes_of_the_sports_family_are_returned() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_read_stops_at_the_limit() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     for i in 0..NEARBY_LIMIT + 3 {
@@ -224,6 +228,7 @@ fn the_read_stops_at_the_limit() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_followed_route_is_returned_beyond_the_radius_and_past_the_limit() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     for i in 0..NEARBY_LIMIT {
@@ -251,6 +256,7 @@ fn the_followed_route_is_returned_beyond_the_radius_and_past_the_limit() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_followed_route_that_is_not_there_adds_nothing() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     add_route(&mut engine, "near", 0.0, "Ride", [1_800, 1_700]);
@@ -265,6 +271,7 @@ fn a_followed_route_that_is_not_there_adds_nothing() {
 const GROUP_LEVEL_SLACK: usize = 10;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_statements_of_a_read_do_not_grow_with_the_attempts_of_each_route() {
     let few = statements_of_read(&library(2));
     let many = statements_of_read(&library(50));

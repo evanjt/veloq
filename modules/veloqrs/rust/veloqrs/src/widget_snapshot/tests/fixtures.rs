@@ -626,6 +626,7 @@ fn check(name: &str, composed: serde_json::Value) {
 /// Expected behaviour: the fixtures are exactly what the engine composes, so a
 /// capture never passes on a snapshot the app no longer writes.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_widget_fixtures_are_what_the_engine_composes() {
     check("demo", demo());
     check("long-text", long_text());
@@ -639,6 +640,7 @@ fn the_widget_fixtures_are_what_the_engine_composes() {
 /// Expected behaviour: the empty fixture marks an empty library, and the
 /// no-wellness fixture has a ride and a dash for every wellness metric.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_sparse_fixtures_carry_the_empty_library_and_the_dashes() {
     assert_eq!(empty()["emptyLibrary"], serde_json::json!(true));
     let bare = no_wellness();
@@ -658,6 +660,7 @@ fn the_sparse_fixtures_carry_the_empty_library_and_the_dashes() {
 /// Expected behaviour: the activity name is 60 characters, the values run to
 /// five digits, and every word is the longest the locales have.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_long_text_fixture_carries_the_longest_words() {
     let snapshot = long_text();
     let latest = &snapshot["latest"];
@@ -687,6 +690,7 @@ fn the_long_text_fixture_carries_the_longest_words() {
 /// longest of them in the long-text fixture, and not the words of a control
 /// that refreshes in place.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_snapshot_carries_the_words_of_a_control_that_opens_the_app() {
     let english = english();
     let longest = longest_strings();

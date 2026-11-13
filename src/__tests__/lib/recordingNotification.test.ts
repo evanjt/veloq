@@ -67,7 +67,7 @@ function contrastRatio(a: string, b: string): number {
 }
 
 describe('decimateTrace', () => {
-  it('flattens lat,lng pairs in order', () => {
+  vaultIt('flattens lat,lng pairs in order', () => {
     expect(
       decimateTrace([
         [1, 2],
@@ -84,7 +84,7 @@ describe('decimateTrace', () => {
     expect(flat.slice(-2)).toEqual([4000, -4000]);
   });
 
-  it('gives an empty trace back unchanged', () => {
+  vaultIt('gives an empty trace back unchanged', () => {
     expect(decimateTrace([])).toEqual([]);
   });
 
@@ -141,7 +141,7 @@ describe('buildRecordingNotificationPayload', () => {
     });
   });
 
-  it('draws the trace in a colour that differs from the card it is drawn on', () => {
+  vaultIt('draws the trace in a colour that differs from the card it is drawn on', () => {
     const payload = buildRecordingNotificationPayload(stateWith(), {
       translate,
       isMetric: true,
@@ -151,7 +151,7 @@ describe('buildRecordingNotificationPayload', () => {
     expect(payload!.traceColor.toLowerCase()).not.toBe(payload!.accentColor.toLowerCase());
   });
 
-  it('colourises the card in the recording tone, with the trace readable on it', () => {
+  vaultIt('colourises the card in the recording tone, with the trace readable on it', () => {
     const payload = buildRecordingNotificationPayload(stateWith(), {
       translate,
       isMetric: true,

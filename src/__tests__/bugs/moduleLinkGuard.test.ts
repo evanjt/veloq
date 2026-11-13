@@ -51,11 +51,11 @@ afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-it('passes when the link resolves to this checkout', () => {
+vaultIt('passes when the link resolves to this checkout', () => {
   expect(runGuard(checkout((root) => join(root, 'modules/veloqrs'))).status).toBe(0);
 });
 
-it('fails when the link points at another checkout, and names both paths', () => {
+vaultIt('fails when the link points at another checkout, and names both paths', () => {
   const other = checkout((root) => join(root, 'modules/veloqrs'));
   const { status, output } = runGuard(checkout(() => join(other, 'modules/veloqrs')));
 
@@ -64,11 +64,11 @@ it('fails when the link points at another checkout, and names both paths', () =>
   expect(output).toContain('modules/veloqrs');
 });
 
-it('says nothing when there is no link at all, which is an install', () => {
+vaultIt('says nothing when there is no link at all, which is an install', () => {
   expect(runGuard(checkout()).status).toBe(0);
 });
 
-it('accepts a real directory rather than a link, which a per-tree copy is', () => {
+vaultIt('accepts a real directory rather than a link, which a per-tree copy is', () => {
   const root = mkdtempSync(join(tmpdir(), 'module-link-'));
   roots.push(root);
   mkdirSync(join(root, 'modules/veloqrs'), { recursive: true });
@@ -99,14 +99,14 @@ function mainWithWorktree(): { main: string; tree: string } {
   return { main, tree };
 }
 
-it('lets a worktree rest on the main checkout, which is where it reads from', () => {
+vaultIt('lets a worktree rest on the main checkout, which is where it reads from', () => {
   const { main, tree } = mainWithWorktree();
   symlinkSync(join(main, 'modules/veloqrs'), join(tree, 'node_modules/veloqrs'));
 
   expect(runGuard(tree).status).toBe(0);
 });
 
-it('lets a worktree point at itself, which a native build there needs', () => {
+vaultIt('lets a worktree point at itself, which a native build there needs', () => {
   const { tree } = mainWithWorktree();
   symlinkSync(join(tree, 'modules/veloqrs'), join(tree, 'node_modules/veloqrs'));
 

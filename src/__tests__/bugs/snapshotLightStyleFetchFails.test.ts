@@ -44,7 +44,7 @@ it('mounts the bundled style without touching the network', async () => {
   expect(page.posted.some((m) => m.type === 'snapshotError')).toBe(false);
 });
 
-it('mounts the style in full again on the next light render', async () => {
+vaultIt('mounts the style in full again on the next light render', async () => {
   const page = bootWorkerPage({ fetch: jest.fn() });
 
   page.render(request('ride-1'), 1);

@@ -44,7 +44,7 @@ function switchOf(props: Partial<React.ComponentProps<typeof DirectionSwitch>> =
 describe('DirectionSwitch', () => {
   afterEach(() => jest.clearAllMocks());
 
-  it('draws each direction with its count, the chosen one selected', async () => {
+  vaultIt('draws each direction with its count, the chosen one selected', async () => {
     const tree = await render(switchOf());
 
     const forward = tree.getByTestId('dir-forward');
@@ -58,7 +58,7 @@ describe('DirectionSwitch', () => {
     expect(['tab', 'radio']).toContain(forward.props.accessibilityRole);
   });
 
-  it('keys each segment with its direction colour', async () => {
+  vaultIt('keys each segment with its direction colour', async () => {
     const tree = await render(switchOf());
 
     expect(StyleSheet.flatten(tree.getByTestId('dir-forward-mark').props.style)).toMatchObject({
@@ -69,7 +69,7 @@ describe('DirectionSwitch', () => {
     });
   });
 
-  it('draws a grey track, not a blue chip', async () => {
+  vaultIt('draws a grey track, not a blue chip', async () => {
     const tree = await render(switchOf());
 
     const track = StyleSheet.flatten(tree.getByTestId('dir').props.style);
@@ -80,7 +80,7 @@ describe('DirectionSwitch', () => {
     }
   });
 
-  it('keeps each segment as wide as its word in a row parent', async () => {
+  vaultIt('keeps each segment as wide as its word in a row parent', async () => {
     const tree = await render(<View style={{ flexDirection: 'row' }}>{switchOf()}</View>);
 
     // In a row the track sizes to its content, so a segment with a zero basis
@@ -113,7 +113,7 @@ describe('DirectionSwitch', () => {
     expect(haptics.selection).not.toHaveBeenCalled();
   });
 
-  it.each([
+  vaultIt.each([
     ['reverse', { forward: 12, reverse: 0 }],
     ['forward', { forward: 0, reverse: 4 }],
     ['both', { forward: 0, reverse: 0 }],

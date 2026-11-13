@@ -98,7 +98,7 @@ describe('typing a parameter', () => {
     );
   });
 
-  it('says when the detector stops telling the value apart', async () => {
+  vaultIt('says when the detector stops telling the value apart', async () => {
     const { getByTestId, queryByTestId } = await panel();
 
     void fireEvent.press(getByTestId('param-edit-divergenceThreshold'));
@@ -130,7 +130,7 @@ describe('typing a parameter', () => {
     expect(queryByTestId('param-editor')).toBeNull();
   });
 
-  it('grows the slider to reach a value typed past its end', async () => {
+  vaultIt('grows the slider to reach a value typed past its end', async () => {
     const { UNSAFE_getAllByType } = await renderWithSheet(
       <PreviewParamPanel params={{ ...params, maxSectionLength: 500000 }} onChange={jest.fn()} />
     );
@@ -150,7 +150,7 @@ describe('the presets', () => {
     expect(onChange).toHaveBeenCalledWith(DETECTION_PRESETS.strict);
   });
 
-  it('offer the way back to the configuration the detector is validated at', async () => {
+  vaultIt('offer the way back to the configuration the detector is validated at', async () => {
     const { getByTestId, onChange } = await panel({ minActivities: 9 });
 
     await fireEvent.press(getByTestId('preset-default'));

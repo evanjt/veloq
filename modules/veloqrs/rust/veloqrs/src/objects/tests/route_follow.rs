@@ -28,6 +28,7 @@ fn one_route() -> String {
 /// Expected behaviour: a fix beside the line's midpoint is on the route near
 /// half way, and a route that is not saved is refused as not found.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_saved_route_is_followed_and_an_unknown_one_is_refused() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("routes.db");

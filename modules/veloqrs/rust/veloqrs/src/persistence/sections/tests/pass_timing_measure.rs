@@ -871,11 +871,13 @@ fn assert_no_reaching_pass_lost(tally: &Tally, label: &str) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn geolife_leaves_no_pass_that_reaches_its_gates_untimed() {
     assert_no_reaching_pass_lost(&measure(&load_geolife()), "geolife");
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_private_corpus_leaves_no_pass_that_reaches_its_gates_untimed() {
     if !corpus_root().join("fullcorpus").is_dir() {
         return;

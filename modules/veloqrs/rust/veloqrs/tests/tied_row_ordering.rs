@@ -44,6 +44,7 @@ fn insert_twin_sections(db: &Connection) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn merge_candidates_tied_on_overlap_come_back_in_id_order() {
     let s = setup("merge.db");
     insert_twin_sections(&s.raw);
@@ -85,6 +86,7 @@ fn merge_candidates_tied_on_overlap_come_back_in_id_order() {
 /// Expected behaviour: the bin centre is the id-ordered sum over the count,
 /// because float addition of three terms depends on the order of the terms.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn preview_centre_sums_members_in_id_order() {
     let s = setup("preview.db");
     let lats = [

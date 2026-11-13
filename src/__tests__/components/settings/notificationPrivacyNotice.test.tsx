@@ -68,7 +68,7 @@ beforeEach(() => {
 afterEach(() => alertSpy.mockRestore());
 
 describe('the notification privacy notice', () => {
-  it('is an alert with the privacy strings and the decline button first', async () => {
+  vaultIt('is an alert with the privacy strings and the decline button first', async () => {
     await turnOn(await render(<NotificationSection />));
 
     expect(alertSpy).toHaveBeenCalledTimes(1);

@@ -47,7 +47,7 @@ beforeEach(() => {
 });
 
 describe('revealing a chart from the route', () => {
-  it('does nothing without a chart', async () => {
+  vaultIt('does nothing without a chart', async () => {
     const { result, scrollTo, prepare } = await setup(null);
 
     await act(() => result.current.onAnchorLayout('trends', layoutAt(400)));
@@ -65,7 +65,7 @@ describe('revealing a chart from the route', () => {
     expect(router.setParams).toHaveBeenCalledWith({ chart: undefined });
   });
 
-  it('scrolls to the anchor when it lays out after the chart arrived', async () => {
+  vaultIt('scrolls to the anchor when it lays out after the chart arrived', async () => {
     const { result, scrollTo } = await setup('week');
 
     await act(() => result.current.onAnchorLayout('trends', layoutAt(200)));
@@ -75,7 +75,7 @@ describe('revealing a chart from the route', () => {
     expect(scrollTo).toHaveBeenCalledWith({ y: 900, animated: true });
   });
 
-  it('scrolls at once to an anchor already laid out', async () => {
+  vaultIt('scrolls at once to an anchor already laid out', async () => {
     const { result, rerender, scrollTo } = await setup(null);
     await act(() => result.current.onAnchorLayout('trends', layoutAt(640)));
 
@@ -84,18 +84,21 @@ describe('revealing a chart from the route', () => {
     expect(scrollTo).toHaveBeenCalledWith({ y: 640, animated: true });
   });
 
-  it('follows the anchor while the layout above it settles, until the athlete scrolls', async () => {
-    const { result, scrollTo } = await setup('ftp');
-    await act(() => result.current.onAnchorLayout('trends', layoutAt(500)));
-    await act(() => result.current.onAnchorLayout('trends', layoutAt(720)));
+  vaultIt(
+    'follows the anchor while the layout above it settles, until the athlete scrolls',
+    async () => {
+      const { result, scrollTo } = await setup('ftp');
+      await act(() => result.current.onAnchorLayout('trends', layoutAt(500)));
+      await act(() => result.current.onAnchorLayout('trends', layoutAt(720)));
 
-    expect(scrollTo).toHaveBeenLastCalledWith({ y: 720, animated: true });
+      expect(scrollTo).toHaveBeenLastCalledWith({ y: 720, animated: true });
 
-    await act(() => result.current.onScrollBeginDrag());
-    await act(() => result.current.onAnchorLayout('trends', layoutAt(800)));
+      await act(() => result.current.onScrollBeginDrag());
+      await act(() => result.current.onAnchorLayout('trends', layoutAt(800)));
 
-    expect(scrollTo).toHaveBeenCalledTimes(2);
-  });
+      expect(scrollTo).toHaveBeenCalledTimes(2);
+    }
+  );
 
   it('reveals again when a second link arrives on the mounted tab', async () => {
     const { result, rerender, scrollTo, prepare } = await setup('ftp');
@@ -109,7 +112,7 @@ describe('revealing a chart from the route', () => {
     expect(scrollTo).toHaveBeenCalledTimes(2);
   });
 
-  it('jumps to the anchor without animating with reduce motion on', async () => {
+  vaultIt('jumps to the anchor without animating with reduce motion on', async () => {
     mockReduceMotion = true;
     const { result, scrollTo } = await setup('week');
 
@@ -129,7 +132,7 @@ describe('revealing a chart below a pinned header', () => {
     expect(scrollTo).toHaveBeenCalledWith({ y: 258, animated: true });
   });
 
-  it('never scrolls above the top for an anchor inside the pinned height', async () => {
+  vaultIt('never scrolls above the top for an anchor inside the pinned height', async () => {
     const { result, scrollTo } = await setup('week');
     await act(() => result.current.onHeaderLayout(layoutAt(0, 42)));
 
@@ -138,7 +141,7 @@ describe('revealing a chart below a pinned header', () => {
     expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: true });
   });
 
-  it('scrolls to the anchor itself when no header reported', async () => {
+  vaultIt('scrolls to the anchor itself when no header reported', async () => {
     const { result, scrollTo } = await setup('week');
 
     await act(() => result.current.onAnchorLayout('weekly', layoutAt(300)));
@@ -146,7 +149,7 @@ describe('revealing a chart below a pinned header', () => {
     expect(scrollTo).toHaveBeenCalledWith({ y: 300, animated: true });
   });
 
-  it('follows the header when it lays out after the anchor', async () => {
+  vaultIt('follows the header when it lays out after the anchor', async () => {
     const { result, scrollTo } = await setup('week');
     await act(() => result.current.onAnchorLayout('weekly', layoutAt(300)));
 

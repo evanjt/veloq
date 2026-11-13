@@ -81,7 +81,7 @@ describe('the sync range panel daily limit', () => {
     ).toBeTruthy();
   });
 
-  it('prints no limit lines where the engine reports none', async () => {
+  vaultIt('prints no limit lines where the engine reports none', async () => {
     const view = await render(<SyncRangePanel />);
 
     expect(view.queryByText('settings.dailyLimitShared')).toBeNull();

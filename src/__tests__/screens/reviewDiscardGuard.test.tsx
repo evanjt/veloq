@@ -125,7 +125,7 @@ describe('a manual entry review with unsaved edits', () => {
     expect(route()).toBe('root');
   });
 
-  it('asks before typed notes go', async () => {
+  vaultIt('asks before typed notes go', async () => {
     const { view, route, back } = await openReview();
     await fireEvent.changeText(view.getByTestId('review-notes'), 'Headwind the whole way out');
 

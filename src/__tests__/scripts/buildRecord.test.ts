@@ -55,17 +55,20 @@ describe('the build record', () => {
     expect(verify(root).problems).toEqual([]);
   });
 
-  it('verifies a debug APK against the local profile its recipe builds, unless the install selects another', () => {
-    const apk = build(root, { profile: 'release-dev' });
-    record.writeRecord(root, apk, { variant: 'debug' });
+  vaultIt(
+    'verifies a debug APK against the local profile its recipe builds, unless the install selects another',
+    () => {
+      const apk = build(root, { profile: 'release-dev' });
+      record.writeRecord(root, apk, { variant: 'debug' });
 
-    const defaulted = parse(['verify', 'debug'], {});
-    const selected = parse(['verify', 'debug'], { VELOQRS_RUST_PROFILE: 'release' });
-    expect(verify(root, defaulted.expect).problems).toEqual([]);
-    expect(verify(root, selected.expect).problems.join('\n')).toMatch(/profile/);
-  });
+      const defaulted = parse(['verify', 'debug'], {});
+      const selected = parse(['verify', 'debug'], { VELOQRS_RUST_PROFILE: 'release' });
+      expect(verify(root, defaulted.expect).problems).toEqual([]);
+      expect(verify(root, selected.expect).problems.join('\n')).toMatch(/profile/);
+    }
+  );
 
-  it('refuses a debug APK built with release when the install selects nothing', () => {
+  vaultIt('refuses a debug APK built with release when the install selects nothing', () => {
     record.writeRecord(root, build(root), { variant: 'debug' });
 
     expect(verify(root, parse(['verify', 'debug'], {}).expect).problems.join('\n')).toMatch(
@@ -73,20 +76,23 @@ describe('the build record', () => {
     );
   });
 
-  it('expects release for a release APK even with a local profile selected', () => {
+  vaultIt('expects release for a release APK even with a local profile selected', () => {
     const options = parse(['verify', 'release'], { VELOQRS_RUST_PROFILE: 'release-dev' });
     expect(options.expect.profile).toBe('release');
   });
 
-  it('expects the selected profile of a release APK only when the build is marked non-shipping', () => {
-    const marked = parse(['verify', 'release'], {
-      VELOQRS_RUST_PROFILE: 'release-dev',
-      VELOQRS_NON_SHIPPING: '1',
-    });
-    expect(marked.expect.profile).toBe('release-dev');
-    const lane = parse(['verify', 'release'], { VELOQRS_RUST_PROFILE: 'release-dev' });
-    expect(lane.expect.profile).toBe('release');
-  });
+  vaultIt(
+    'expects the selected profile of a release APK only when the build is marked non-shipping',
+    () => {
+      const marked = parse(['verify', 'release'], {
+        VELOQRS_RUST_PROFILE: 'release-dev',
+        VELOQRS_NON_SHIPPING: '1',
+      });
+      expect(marked.expect.profile).toBe('release-dev');
+      const lane = parse(['verify', 'release'], { VELOQRS_RUST_PROFILE: 'release-dev' });
+      expect(lane.expect.profile).toBe('release');
+    }
+  );
 
   it('refuses a release-dev APK in a lane that sets no marker', () => {
     record.writeRecord(root, build(root, { profile: 'release-dev' }), { variant: 'release' });
@@ -96,29 +102,32 @@ describe('the build record', () => {
     );
   });
 
-  it('verifies a build off a dirty tree while the tree is unchanged', () => {
+  vaultIt('verifies a build off a dirty tree while the tree is unchanged', () => {
     write(root, 'src/app.ts', 'export const greeting = "edited";\n');
     record.writeRecord(root, build(root), { variant: 'debug' });
 
     expect(verify(root).problems).toEqual([]);
   });
 
-  it('refuses after a dirty source changes again, though the commit and dirty flag are the same', () => {
-    write(root, 'src/app.ts', 'export const greeting = "edited";\n');
-    record.writeRecord(root, build(root), { variant: 'debug' });
-    write(root, 'src/app.ts', 'export const greeting = "edited twice";\n');
+  vaultIt(
+    'refuses after a dirty source changes again, though the commit and dirty flag are the same',
+    () => {
+      write(root, 'src/app.ts', 'export const greeting = "edited";\n');
+      record.writeRecord(root, build(root), { variant: 'debug' });
+      write(root, 'src/app.ts', 'export const greeting = "edited twice";\n');
 
-    expect(verify(root).problems.join('\n')).toMatch(/inputs/);
-  });
+      expect(verify(root).problems.join('\n')).toMatch(/inputs/);
+    }
+  );
 
-  it('refuses after an untracked source appears', () => {
+  vaultIt('refuses after an untracked source appears', () => {
     record.writeRecord(root, build(root), { variant: 'debug' });
     write(root, 'src/added.ts', 'export const added = 1;\n');
 
     expect(verify(root).problems.join('\n')).toMatch(/inputs/);
   });
 
-  it('refuses after a submodule source is edited', () => {
+  vaultIt('refuses after a submodule source is edited', () => {
     record.writeRecord(root, build(root), { variant: 'debug' });
     write(root, 'modules/veloqrs/rust/matcher/src/lib.rs', 'pub fn matches() -> bool { false }\n');
 
@@ -165,7 +174,7 @@ describe('the build record', () => {
     expect(() => record.writeRecord(root, apk, { variant: 'debug' })).toThrow(/changed/);
   });
 
-  it('refuses a build with other features or another profile than asked for', () => {
+  vaultIt('refuses a build with other features or another profile than asked for', () => {
     record.writeRecord(root, build(root, { features: ['synthetic'] }), { variant: 'debug' });
 
     expect(verify(root).problems.join('\n')).toMatch(/features/);
@@ -215,7 +224,7 @@ describe('the build record', () => {
     expect(verify(root, production.expect).problems).toEqual([]);
   });
 
-  it('refuses an identity it does not know', () => {
+  vaultIt('refuses an identity it does not know', () => {
     expect(() => parse(['verify', 'release', '--identity', 'staging'], {})).toThrow(/staging/);
   });
 
@@ -236,7 +245,7 @@ describe('the build record', () => {
     );
   });
 
-  it('records the package the embedded configuration names beside the manifest', () => {
+  vaultIt('records the package the embedded configuration names beside the manifest', () => {
     const written = record.writeRecord(root, build(root, { applicationId: 'com.veloq.app' }), {
       variant: 'debug',
     });
@@ -257,23 +266,26 @@ describe('the build record', () => {
     expect(verify(root).problems.join('\n')).toMatch(/embedded Expo configuration/);
   });
 
-  it('refuses an APK with no record', () => {
+  vaultIt('refuses an APK with no record', () => {
     build(root);
 
     expect(verify(root).problems.join('\n')).toMatch(/no build record/);
   });
 
-  it('keeps the commit that produced a build when the tree moves on with the same inputs', () => {
-    const written = record.writeRecord(root, build(root), { variant: 'debug' });
-    write(root, 'docs/notes.md', 'notes\n');
-    runGit(['add', 'docs/notes.md'], root);
-    runGit(['commit', '-qm', 'notes'], root);
+  vaultIt(
+    'keeps the commit that produced a build when the tree moves on with the same inputs',
+    () => {
+      const written = record.writeRecord(root, build(root), { variant: 'debug' });
+      write(root, 'docs/notes.md', 'notes\n');
+      runGit(['add', 'docs/notes.md'], root);
+      runGit(['commit', '-qm', 'notes'], root);
 
-    const result = verify(root);
-    expect(result.problems).toEqual([]);
-    expect(result.record.source.commit).toBe(written.source.commit);
-    expect(result.summary).toContain(written.source.commit);
-  });
+      const result = verify(root);
+      expect(result.problems).toEqual([]);
+      expect(result.record.source.commit).toBe(written.source.commit);
+      expect(result.summary).toContain(written.source.commit);
+    }
+  );
 });
 
 describe('the build record of a release APK', () => {
@@ -296,7 +308,7 @@ describe('the build record of a release APK', () => {
     expect(verifyRelease().problems).toEqual([]);
   });
 
-  it('refuses to record a Gradle-bundled build without a snapshot of its inputs', () => {
+  vaultIt('refuses to record a Gradle-bundled build without a snapshot of its inputs', () => {
     build(root, { gradleBundle: true });
 
     expect(() => record.writeRecord(root, apk(), { variant: 'release' })).toThrow(/bundle/);
@@ -351,7 +363,7 @@ describe('the embedded bundle record', () => {
 });
 
 describe('the build stamp', () => {
-  it('tells two different dirty trees apart', () => {
+  vaultIt('tells two different dirty trees apart', () => {
     const root = checkout();
     write(root, 'src/app.ts', 'export const greeting = "one";\n');
     const first = buildStamp(root);
@@ -365,11 +377,11 @@ describe('the build stamp', () => {
 });
 
 describe('reading an APK', () => {
-  it('names the package a compiled manifest declares', () => {
+  vaultIt('names the package a compiled manifest declares', () => {
     expect(record.manifestPackage(compiledManifest('com.veloq.app.dev'))).toBe('com.veloq.app.dev');
   });
 
-  it('identifies a library by the image the loader maps, which a strip leaves alone', () => {
+  vaultIt('identifies a library by the image the loader maps, which a strip leaves alone', () => {
     const built = elf('arm64-v8a', 'engine');
     const stripped = elf('arm64-v8a', 'engine', true);
 

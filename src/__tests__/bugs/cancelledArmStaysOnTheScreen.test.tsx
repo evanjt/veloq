@@ -59,7 +59,7 @@ describe('the bar of an idle recording screen', () => {
     expect(queryByTestId('control-resume')).toBeNull();
   });
 
-  it('keeps the recording bar for a ride that is under way', async () => {
+  vaultIt('keeps the recording bar for a ride that is under way', async () => {
     const { getByTestId, queryByTestId } = await render(
       <ControlBar {...barProps} status="recording" onStart={jest.fn()} />
     );
@@ -70,7 +70,7 @@ describe('the bar of an idle recording screen', () => {
 });
 
 describe('the header of a screen that is not recording', () => {
-  it('shows no REC or PAUSED badge while idle', async () => {
+  vaultIt('shows no REC or PAUSED badge while idle', async () => {
     const { queryByTestId } = await render(
       <TimerHeader {...headerProps} status={'idle' as never} />
     );
@@ -78,7 +78,7 @@ describe('the header of a screen that is not recording', () => {
     expect(queryByTestId('recording-status')).toBeNull();
   });
 
-  it('still badges a paused ride', async () => {
+  vaultIt('still badges a paused ride', async () => {
     const { getByTestId } = await render(
       <TimerHeader {...headerProps} status={'paused' as never} />
     );

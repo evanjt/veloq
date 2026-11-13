@@ -87,19 +87,19 @@ describe('a training load figure', () => {
     expect(formatLoad(-3)).toBe(ABSENT);
   });
 
-  it('has no TSS formatter left to reach for', () => {
+  vaultIt('has no TSS formatter left to reach for', () => {
     expect((format as Record<string, unknown>).formatTSS).toBeUndefined();
   });
 });
 
 describe('the locales', () => {
-  it.each(locales())('%s carries no TSS label key', (_name, bundle) => {
+  vaultIt.each(locales())('%s carries no TSS label key', (_name, bundle) => {
     const stats = (bundle.stats ?? {}) as Record<string, unknown>;
     expect(stats.tss).toBeUndefined();
     expect(stats.loadTss).toBeUndefined();
   });
 
-  it.each(locales())('%s never names the Training Stress Score or TSS', (_name, bundle) => {
+  vaultIt.each(locales())('%s never names the Training Stress Score or TSS', (_name, bundle) => {
     for (const text of strings(bundle)) {
       expect(text).not.toMatch(/Training Stress Score|\bTSS\b/);
     }
@@ -113,7 +113,7 @@ describe('the Today banner', () => {
   });
   afterEach(() => useFormPreference.setState({ formAsPercent: null }));
 
-  it('names Form beside the balance', async () => {
+  vaultIt('names Form beside the balance', async () => {
     const { getByText, queryByText } = await render(<TodayBanner form={{ ctl: 50, atl: 62 }} />);
 
     expect(getByText(/Form \(TSB\) -12/)).toBeTruthy();
@@ -128,7 +128,7 @@ describe('the Today banner', () => {
     expect(queryByText(/TSB/)).toBeNull();
   });
 
-  it('prints a planned workout load as training load, not TSS', async () => {
+  vaultIt('prints a planned workout load as training load, not TSS', async () => {
     mockWorkout.todayWorkout = {
       id: 1,
       name: 'Lantern climb',

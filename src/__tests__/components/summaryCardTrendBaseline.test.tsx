@@ -95,7 +95,7 @@ beforeAll(async () => {
 afterEach(() => useDashboardPreferences.setState({ summaryCard: DEFAULTS }));
 
 describe('a supporting metric label', () => {
-  it('names the earlier HRV reading and the day it was read', async () => {
+  vaultIt('names the earlier HRV reading and the day it was read', async () => {
     showing('fitness', ['hrv']);
 
     const tree = await renderCard(await cardData(CARD));
@@ -105,7 +105,7 @@ describe('a supporting metric label', () => {
     );
   });
 
-  it('says improved for a resting heart rate that fell', async () => {
+  vaultIt('says improved for a resting heart rate that fell', async () => {
     showing('fitness', ['rhr']);
 
     expect((await cardData(CARD)).supportingMetrics[0].accessibilityLabel).toBe(
@@ -113,7 +113,7 @@ describe('a supporting metric label', () => {
     );
   });
 
-  it('says which way weight went, in the athlete units, against the week before', async () => {
+  vaultIt('says which way weight went, in the athlete units, against the week before', async () => {
     showing('fitness', ['weight']);
 
     expect((await cardData(CARD)).supportingMetrics[0].accessibilityLabel).toBe(
@@ -121,7 +121,7 @@ describe('a supporting metric label', () => {
     );
   });
 
-  it('compares the week with the same part of the week before', async () => {
+  vaultIt('compares the week with the same part of the week before', async () => {
     showing('fitness', ['weekHours', 'weekCount']);
 
     const [hours, count] = (await cardData(CARD)).supportingMetrics;
@@ -134,7 +134,7 @@ describe('a supporting metric label', () => {
     );
   });
 
-  it('names the eFTP estimate the step was measured from', async () => {
+  vaultIt('names the eFTP estimate the step was measured from', async () => {
     showing('fitness', ['ftp']);
 
     expect((await cardData(CARD)).supportingMetrics[0].accessibilityLabel).toBe(
@@ -142,7 +142,7 @@ describe('a supporting metric label', () => {
     );
   });
 
-  it('states only the value when the engine named no baseline', async () => {
+  vaultIt('states only the value when the engine named no baseline', async () => {
     showing('fitness', ['hrv']);
     const card = {
       ...CARD,
@@ -154,7 +154,7 @@ describe('a supporting metric label', () => {
     );
   });
 
-  it('states only the value when there is no arrow to explain', async () => {
+  vaultIt('states only the value when there is no arrow to explain', async () => {
     showing('fitness', ['hrv']);
     const card = {
       ...CARD,
@@ -166,7 +166,7 @@ describe('a supporting metric label', () => {
     );
   });
 
-  it('speaks the name alone, never the dash, for a metric with no reading', async () => {
+  vaultIt('speaks the name alone, never the dash, for a metric with no reading', async () => {
     showing('fitness', ['ftp']);
     const card = { ...CARD, ftpTrend: {} } as unknown as Card;
 
@@ -177,7 +177,7 @@ describe('a supporting metric label', () => {
 });
 
 describe('the hero label', () => {
-  it('names the earlier reading when the hero is a number and its arrow', async () => {
+  vaultIt('names the earlier reading when the hero is a number and its arrow', async () => {
     showing('form', []);
 
     const tree = await renderCard(await cardData(CARD));

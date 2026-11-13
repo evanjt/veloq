@@ -29,7 +29,7 @@ describe('what an empty feed shows', () => {
     expect(feedEmptyState({ ...base, syncState: SyncState.Syncing })).toBe('standby');
   });
 
-  it('stands by even after the first query has resolved empty', () => {
+  vaultIt('stands by even after the first query has resolved empty', () => {
     // `isLoading` is false by then, which is why the screen said "No
     // activities" while the sync was still running.
     expect(feedEmptyState({ ...base, syncState: SyncState.Syncing, isLoading: false })).toBe(
@@ -69,7 +69,7 @@ describe('what an empty feed shows', () => {
     expect(feedEmptyState(base)).toBe('empty');
   });
 
-  it('says the library is empty when the sync settled and brought nothing', () => {
+  vaultIt('says the library is empty when the sync settled and brought nothing', () => {
     expect(feedEmptyState({ ...base, syncState: SyncState.Idle })).toBe('empty');
   });
 

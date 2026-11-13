@@ -76,7 +76,7 @@ const cases = DESTRUCTIVE_MESSAGES.flatMap((message) =>
 );
 
 describe('destructive confirmations name what they delete', () => {
-  it('lists only locales that exist as pending', () => {
+  vaultIt('lists only locales that exist as pending', () => {
     const pending = DESTRUCTIVE_MESSAGES.flatMap((m) => Object.keys(m.pending ?? {}));
     expect(pending.filter((locale) => !locales.includes(locale))).toEqual([]);
   });

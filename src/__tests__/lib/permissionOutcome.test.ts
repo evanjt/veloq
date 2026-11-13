@@ -1,12 +1,12 @@
 import { askPermission, permissionOutcome } from '@/shared/app/permissions';
 
 describe('permissionOutcome', () => {
-  it('reads a grant as granted whatever the system would still ask', () => {
+  vaultIt('reads a grant as granted whatever the system would still ask', () => {
     expect(permissionOutcome({ status: 'granted', canAskAgain: false })).toBe('granted');
     expect(permissionOutcome({ status: 'granted', canAskAgain: true })).toBe('granted');
   });
 
-  it('reads a refusal the system will still ask about as askable', () => {
+  vaultIt('reads a refusal the system will still ask about as askable', () => {
     expect(permissionOutcome({ status: 'denied', canAskAgain: true })).toBe('askable');
     expect(permissionOutcome({ status: 'undetermined', canAskAgain: true })).toBe('askable');
   });
@@ -23,7 +23,7 @@ describe('permissionOutcome', () => {
 describe('askPermission', () => {
   const reading = (status: string, canAskAgain: boolean) => async () => ({ status, canAskAgain });
 
-  it('does not request a permission already granted', async () => {
+  vaultIt('does not request a permission already granted', async () => {
     const request = jest.fn();
     await expect(askPermission(reading('granted', true), request)).resolves.toEqual({
       outcome: 'granted',

@@ -95,7 +95,7 @@ describe('the activity card form band', () => {
  * athlete in words.
  */
 describe('the form card names its zone', () => {
-  it.each([-35, -20, 0, 10, 30])('names the form zone at a TSB of %d', async (tsb) => {
+  vaultIt.each([-35, -20, 0, 10, 30])('names the form zone at a TSB of %d', async (tsb) => {
     const stat = await formStat({ ctl: 50, atl: 50 - tsb } as WellnessData);
     expect(stat?.context).toBe(formZoneLabel(getFormZone(tsb) as FormZone));
   });
@@ -132,7 +132,7 @@ describe('a card grades nothing the data source does not', () => {
     ).toBeUndefined();
   });
 
-  it('tints training load at no intensity', async () => {
+  vaultIt('tints training load at no intensity', async () => {
     for (const intensity of [undefined, 0, 60, 78, 92, 100, 105, 140]) {
       const stat = await titled('metrics.trainingLoad', {
         trainingLoad: 60,
@@ -143,7 +143,7 @@ describe('a card grades nothing the data source does not', () => {
     }
   });
 
-  it.each([0, 60, 70, 78, 85, 92, 100, 105])(
+  vaultIt.each([0, 60, 70, 78, 85, 92, 100, 105])(
     'states an IF of %d with no band word',
     async (intensity) => {
       const stat = await titled('metrics.trainingLoad', {
@@ -156,7 +156,7 @@ describe('a card grades nothing the data source does not', () => {
     }
   );
 
-  it('keys heart rate to its stream alone at every share of max', async () => {
+  vaultIt('keys heart rate to its stream alone at every share of max', async () => {
     for (const share of [0.5, 0.6, 0.8, 0.81, 0.9, 0.95, 1.05]) {
       const stat = await titled('activity.heartRate', {
         avgHr: Math.round(settings.maxHR * share),
@@ -165,7 +165,7 @@ describe('a card grades nothing the data source does not', () => {
     }
   });
 
-  it('tints conditions at no temperature', async () => {
+  vaultIt('tints conditions at no temperature', async () => {
     for (const temp of [-10, 0, 9, 10, 20, 28, 29, 40]) {
       const stat = await titled('activity.stats.conditions', { sensorTemp: temp });
       expect(stat).toBeDefined();

@@ -12,7 +12,7 @@ describe('buildMonotoneSvg', () => {
   const plotTop = 2;
   const plotHeight = 40;
 
-  it('matches d3-shape line().curve(curveMonotoneX) with Victory scales', () => {
+  vaultIt('matches d3-shape line().curve(curveMonotoneX) with Victory scales', () => {
     const step = width / (values.length - 1);
     const range = max - min;
     const expected = line<number>()
@@ -22,7 +22,7 @@ describe('buildMonotoneSvg', () => {
     expect(buildMonotoneSvg(values, min, max, width, plotTop, plotHeight)).toBe(expected);
   });
 
-  it('maps the domain endpoints to the plot box (max→top, min→bottom)', () => {
+  vaultIt('maps the domain endpoints to the plot box (max→top, min→bottom)', () => {
     // First point value 10 (=min) → y = plotTop + plotHeight = 42; x = 0.
     const svg = buildMonotoneSvg(values, min, max, width, plotTop, plotHeight)!;
     expect(svg.startsWith('M0,42')).toBe(true);
@@ -37,7 +37,7 @@ describe('buildMonotoneSvg', () => {
     expect(svg).not.toContain('NaN');
   });
 
-  it.each([
+  vaultIt.each([
     ['single point', [5], 0, 10, width],
     ['empty', [], 0, 10, width],
     ['zero width', [1, 2, 3], 1, 3, 0],

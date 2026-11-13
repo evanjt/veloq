@@ -69,7 +69,7 @@ describe('the activity stream lanes', () => {
     await layOut();
   }
 
-  it('draws one lane per selected stream, titled with its full name and unit', async () => {
+  vaultIt('draws one lane per selected stream, titled with its full name and unit', async () => {
     await drawLanes();
 
     for (const id of ['power', 'heartrate', 'elevation']) {
@@ -93,7 +93,7 @@ describe('the activity stream lanes', () => {
     expect(tick('activity-lane-elevation-min')).toBe('500');
   });
 
-  it('keeps the lane values from a screen reader, which hears the summary', async () => {
+  vaultIt('keeps the lane values from a screen reader, which hears the summary', async () => {
     await drawLanes();
     expect(screen.queryByTestId('activity-lane-power-max')).toBeNull();
   });
@@ -133,7 +133,7 @@ describe('each lane title readout', () => {
     expect(screen.queryByTestId('activity-lane-elevation-average')).toBeNull();
   });
 
-  it('speaks the mark, the value and the unit', async () => {
+  vaultIt('speaks the mark, the value and the unit', async () => {
     await drawLanes();
     expect(screen.getByTestId('activity-lane-power-value').props.accessibilityLabel).toBe(
       'Average 245 W'
@@ -143,7 +143,7 @@ describe('each lane title readout', () => {
     );
   });
 
-  it('keeps the name and the value on the one title line', async () => {
+  vaultIt('keeps the name and the value on the one title line', async () => {
     await drawLanes();
     const lane = screen.getByTestId('activity-lane-power');
     const value = screen.getByTestId('activity-lane-power-value');
@@ -193,7 +193,7 @@ describe('the stream toggles', () => {
     );
   }
 
-  it('lays the chips on one horizontally scrolling row', async () => {
+  vaultIt('lays the chips on one horizontally scrolling row', async () => {
     await drawToggles(['power'], eight);
     const row = screen.getByTestId('chart-type-selector');
     expect(row.props.horizontal).toBe(true);
@@ -204,7 +204,7 @@ describe('the stream toggles', () => {
     expect(content.flexWrap).toBeUndefined();
   });
 
-  it('draws each chip as one line at the chip height, with no value or mark', async () => {
+  vaultIt('draws each chip as one line at the chip height, with no value or mark', async () => {
     await drawToggles(['power', 'heartrate', 'elevation'], eight);
     for (const config of eight) {
       const chip = screen.getByTestId(`chart-type-${config.id}`);
@@ -217,7 +217,7 @@ describe('the stream toggles', () => {
     }
   });
 
-  it('names each chip by its stream and gives its selected state', async () => {
+  vaultIt('names each chip by its stream and gives its selected state', async () => {
     await drawToggles(['power']);
     const power = screen.getByTestId('chart-type-power');
     expect(power.props.accessibilityLabel).toBe('Power');
@@ -227,7 +227,7 @@ describe('the stream toggles', () => {
     });
   });
 
-  it('keys each stream with a short line in its colour', async () => {
+  vaultIt('keys each stream with a short line in its colour', async () => {
     await drawToggles([]);
     for (const config of available) {
       const key = StyleSheet.flatten(screen.getByTestId(`chart-type-${config.id}-key`).props.style);
@@ -236,7 +236,7 @@ describe('the stream toggles', () => {
     }
   });
 
-  it('sets an unselected chip on a neutral ground, not the stream colour', async () => {
+  vaultIt('sets an unselected chip on a neutral ground, not the stream colour', async () => {
     await drawToggles([]);
     const ground = StyleSheet.flatten(
       screen.getByTestId('chart-type-power').props.style

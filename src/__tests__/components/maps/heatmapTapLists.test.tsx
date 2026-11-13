@@ -198,7 +198,7 @@ describe('the group chosen in the sheet', () => {
     return { ...mounted, sheet: opened[0]! };
   }
 
-  it('draws no line until a group is chosen', async () => {
+  vaultIt('draws no line until a group is chosen', async () => {
     const { rendered } = await openSheet();
     expect(rendered.result.current.traceUrl).toBeNull();
   });
@@ -270,18 +270,18 @@ describe('the under-point source', () => {
       ...(underPointGeoJSON ? { underPointGeoJSON } : {}),
     });
 
-  it('stays declared with the empty collection when nothing is drawn', () => {
+  vaultIt('stays declared with the empty collection when nothing is drawn', () => {
     expect(sources()['under-point']).toEqual({ kind: 'geojson', data: empty });
   });
 
-  it('names the engine URL when a group is drawn', () => {
+  vaultIt('names the engine URL when a group is drawn', () => {
     expect(sources('https://page/veloq-geo/under-point/k?v=1')['under-point']).toEqual({
       kind: 'geojson',
       data: 'https://page/veloq-geo/under-point/k?v=1',
     });
   });
 
-  it('is drawn by layers under the activity markers', () => {
+  vaultIt('is drawn by layers under the activity markers', () => {
     const layers = buildRegionalLayers({
       palette: mapPalette('light'),
       showActivities: true,

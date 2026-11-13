@@ -20,7 +20,7 @@ import {
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 describe('routesScreenQuery', () => {
-  it('maps every routes order the screen offers', () => {
+  vaultIt('maps every routes order the screen offers', () => {
     const expected: Record<RoutesSortOption, GroupSort> = {
       nearby: GroupSort.Nearby,
       activities: GroupSort.Activities,
@@ -33,7 +33,7 @@ describe('routesScreenQuery', () => {
     }
   });
 
-  it('maps every sections order the screen offers', () => {
+  vaultIt('maps every sections order the screen offers', () => {
     const expected: Record<SectionsSortOption, SectionSort> = {
       nearby: SectionSort.Nearby,
       signature: SectionSort.Signature,

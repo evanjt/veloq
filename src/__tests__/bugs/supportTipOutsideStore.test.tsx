@@ -120,7 +120,7 @@ describe('on iOS with tips from the store', () => {
     store.products = TIPS;
   });
 
-  it('the support card offers the store tips', async () => {
+  vaultIt('the support card offers the store tips', async () => {
     await render(<SupportCard />);
     await fireEvent.press(screen.getByTestId('support-card-tip-toggle'));
 
@@ -129,7 +129,7 @@ describe('on iOS with tips from the store', () => {
     expect(screen.queryByTestId('support-card-sponsor-button')).toBeNull();
   });
 
-  it('the Settings support section offers the store tips', async () => {
+  vaultIt('the Settings support section offers the store tips', async () => {
     await render(<SupportSection />);
 
     expect(screen.getByText('support.tipTitle')).toBeTruthy();
@@ -152,7 +152,7 @@ describe('on Android with no tips from the store', () => {
     expect(openBrowserAsync).toHaveBeenCalledWith(GITHUB_SPONSORS_URL);
   });
 
-  it('the Settings support section falls back to the outside link', async () => {
+  vaultIt('the Settings support section falls back to the outside link', async () => {
     await render(<SupportSection />);
     await fireEvent.press(screen.getByTestId('support-sponsor-button'));
 

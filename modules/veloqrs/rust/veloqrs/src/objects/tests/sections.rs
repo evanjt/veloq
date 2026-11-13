@@ -107,6 +107,7 @@ fn test_get_sections_empty_filter_skips_unreadable_stored_custom_row() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_sections_empty_filter_ignores_unstored_catalogue_entry() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();

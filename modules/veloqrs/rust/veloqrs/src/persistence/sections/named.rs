@@ -454,6 +454,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn generated_shapes_are_recognised() {
         assert!(is_section_handle("Section 7"));
         assert!(is_section_handle("Ride Section 12"));
@@ -502,6 +503,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn naming_a_section_whose_line_cannot_be_read_is_refused() {
         let mut engine = engine_with_an_unreadable_auto_section();
 
@@ -541,6 +543,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn naming_a_section_with_no_stored_version_writes_the_first_and_pins_it() {
         let mut engine = engine_with_a_stored_line_and_no_geometry_version();
 
@@ -553,6 +556,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn renaming_again_keeps_the_one_pin_and_its_version() {
         let mut engine = engine_with_a_stored_line_and_no_geometry_version();
         engine
@@ -569,6 +573,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refused_name_writes_no_pin() {
         let mut engine = engine_with_an_unreadable_auto_section();
 
@@ -594,6 +599,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rename_to_the_handle_another_section_shows_is_refused() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         insert_section(&engine, "s12", "auto", "Section 12");
@@ -617,6 +623,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rename_to_the_name_of_a_dormant_corridor_is_refused() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         insert_section(&engine, "mine", "custom", "Evening loop");
@@ -639,6 +646,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_handle_stays_refused_once_the_section_holding_it_is_renamed() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         insert_section(&engine, "first", "custom", "Section 1");
@@ -657,6 +665,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_section_typing_its_own_handle_clears_its_name() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         insert_section(&engine, "first", "custom", "Evening loop");
@@ -673,6 +682,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_legacy_backfill_keeps_a_name_whose_line_cannot_be_read() {
         let engine = engine_with_an_unreadable_auto_section();
 
@@ -753,6 +763,7 @@ mod tests {
     /// Expected behaviour: the name now shows on the new section, and both
     /// sections carry a history row saying so.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_name_that_changes_holder_on_a_detect_is_written_to_both_histories() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let line = quay_line();
@@ -790,6 +801,7 @@ mod tests {
     /// Scenario: a detect re-cuts a named section and it keeps its id.
     /// Expected behaviour: no row, because the name did not move.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_name_that_keeps_its_holder_on_a_detect_writes_nothing() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let line = quay_line();

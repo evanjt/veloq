@@ -81,7 +81,7 @@ it('tells two subjects of a route named across a directory apart, and keeps one 
   expect(unpatchSource(patchSource(shipped))).toBe(shipped);
 });
 
-it('patches the installed package once and a second install changes nothing', () => {
+vaultIt('patches the installed package once and a second install changes nothing', () => {
   const root = fixture();
   try {
     expect(() => applyPatch(root, true)).toThrow('route match patch is missing');
@@ -98,26 +98,29 @@ it('patches the installed package once and a second install changes nothing', ()
   }
 });
 
-it('copies a linked package into the tree before patching, leaving the linked one as it ships', () => {
-  const shared = mkdtempSync(join(tmpdir(), 'router-route-match-shared-'));
-  const root = mkdtempSync(join(tmpdir(), 'router-route-match-tree-'));
-  try {
-    packageAt(shared, VERSION, shipped);
-    mkdirSync(join(root, 'node_modules'));
-    symlinkSync(shared, join(root, 'node_modules/expo-router'));
+vaultIt(
+  'copies a linked package into the tree before patching, leaving the linked one as it ships',
+  () => {
+    const shared = mkdtempSync(join(tmpdir(), 'router-route-match-shared-'));
+    const root = mkdtempSync(join(tmpdir(), 'router-route-match-tree-'));
+    try {
+      packageAt(shared, VERSION, shipped);
+      mkdirSync(join(root, 'node_modules'));
+      symlinkSync(shared, join(root, 'node_modules/expo-router'));
 
-    applyPatch(root);
+      applyPatch(root);
 
-    expect(lstatSync(join(root, 'node_modules/expo-router')).isSymbolicLink()).toBe(false);
-    expect(read(root)).toBe(patchSource(shipped));
-    expect(readFileSync(join(shared, FILE), 'utf8')).toBe(shipped);
-  } finally {
-    rmSync(shared, { recursive: true, force: true });
-    rmSync(root, { recursive: true, force: true });
+      expect(lstatSync(join(root, 'node_modules/expo-router')).isSymbolicLink()).toBe(false);
+      expect(read(root)).toBe(patchSource(shipped));
+      expect(readFileSync(join(shared, FILE), 'utf8')).toBe(shipped);
+    } finally {
+      rmSync(shared, { recursive: true, force: true });
+      rmSync(root, { recursive: true, force: true });
+    }
   }
-});
+);
 
-it('refuses a version or a source it was not written against', () => {
+vaultIt('refuses a version or a source it was not written against', () => {
   for (const root of [fixture('58.1.0'), fixture(VERSION, `${shipped}\n// changed\n`)]) {
     try {
       expect(() => applyPatch(root)).toThrow(/requires version|source changed/);

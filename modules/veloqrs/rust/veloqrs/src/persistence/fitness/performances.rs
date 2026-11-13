@@ -1848,6 +1848,7 @@ mod tests {
     /// A section nobody has ridden, and one that is not there at all, answer
     /// the same emptiness on both paths rather than a shape with zeroes in it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn pooled_section_performances_are_empty_for_a_section_with_no_laps() {
         let mut engine = engine_with_null_laps(0);
 
@@ -1862,6 +1863,7 @@ mod tests {
     /// The sport filter is part of the question, so a filter that excludes the
     /// only activity empties both answers.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn pooled_section_performances_honour_the_sport_filter() {
         let mut engine = engine_with_null_laps(1);
         seed_metrics(&mut engine, "a1");
@@ -1922,6 +1924,7 @@ mod tests {
     /// lap, heart rate and measured coverage, the fields the included read
     /// carries, so the dimmed dot and its record rules match the included ones.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_excluded_attempt_carries_its_stored_lap_heart_rate_and_coverage() {
         let mut engine = engine_with_null_laps(1);
         seed_metrics(&mut engine, "a1");
@@ -1937,6 +1940,7 @@ mod tests {
     /// any other: between the section's gates, whatever indices the detector
     /// cut it at, including a cut that runs to the last point of the track.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_excluded_attempt_with_no_cached_lap_is_timed_between_the_gates() {
         for (start_index, end_index) in [(1, 8), (0, 8)] {
             let mut engine = engine_with_null_laps(1);
@@ -1957,6 +1961,7 @@ mod tests {
     /// A stream longer than its track is not in the track's index space, so
     /// it gives no lap rather than one read at the shifted window.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_excluded_attempt_on_a_stream_longer_than_its_track_has_no_lap() {
         let mut engine = engine_with_null_laps(1);
         seed_metrics(&mut engine, "a1");
@@ -1972,6 +1977,7 @@ mod tests {
     /// An activity outside the synced window has no row in the memory tier,
     /// and its name and date are still in SQLite.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_excluded_attempt_outside_the_memory_tier_is_still_listed() {
         let mut engine = engine_with_null_laps(1);
         seed_metrics(&mut engine, "a1");
@@ -2217,6 +2223,7 @@ mod tests {
     /// sync paid 490 whole-table scans under the write lock, each finding
     /// nothing, because the attach fills `lap_time` at insert anyway.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn storing_a_stream_leaves_the_lap_scan_to_the_batch_tail() {
         let mut engine = engine_with_null_laps(1);
         crate::test_trace::trace_statements!(engine.db, traced::record);
@@ -2235,6 +2242,7 @@ mod tests {
     /// The lazy populate the section screen triggers had the same one-commit-
     /// per-lap shape as the indicator backfill.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn populating_many_laps_is_one_commit() {
         let engine = engine_with_null_laps(12);
         let commits = commit_counter::watch(&engine);
@@ -2254,6 +2262,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn populating_nothing_commits_nothing() {
         let engine = engine_with_null_laps(2);
         engine.backfill_section_performance_cache();
@@ -2300,45 +2309,53 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_attempt_standing_slowest_of_four() {
         assert_eq!(attempt_standing(&four(), Some("d")), (4, Some(0.0)));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_attempt_standing_lone_attempt() {
         assert_eq!(attempt_standing(&[perf("a", 300)], Some("a")), (1, None));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_attempt_standing_ignores_zero_moving_time() {
         let attempts = vec![perf("a", 300), perf("b", 0), perf("c", 340)];
         assert_eq!(attempt_standing(&attempts, Some("a")), (2, Some(50.0)));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_attempt_standing_current_without_moving_time() {
         let attempts = vec![perf("a", 300), perf("b", 0)];
         assert_eq!(attempt_standing(&attempts, Some("b")), (1, None));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_attempt_standing_current_off_the_route() {
         let attempts = vec![perf("a", 300), perf("b", 320)];
         assert_eq!(attempt_standing(&attempts, Some("z")), (2, None));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_attempt_standing_without_a_current_activity() {
         let attempts = vec![perf("a", 300), perf("b", 320)];
         assert_eq!(attempt_standing(&attempts, None), (2, None));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_attempt_standing_empty_route() {
         assert_eq!(attempt_standing(&[], Some("a")), (0, None));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_attempt_standing_ties_are_not_slower() {
         let attempts = vec![perf("a", 300), perf("b", 300), perf("c", 400)];
         let (count, percentile) = attempt_standing(&attempts, Some("a"));
@@ -2384,6 +2401,7 @@ mod portion_coverage_tests {
     /// Expected behaviour: the whole lap reads as covering the loop however
     /// the first and last fixes snap to the closing vertex.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_whole_lap_of_a_closed_loop_covers_it() {
         let line = square(0, 161);
         for (start, len) in [(0, 161), (0, 160), (37, 161), (37, 160), (101, 162)] {
@@ -2394,6 +2412,7 @@ mod portion_coverage_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn half_a_closed_loop_covers_about_half() {
         let line = square(0, 161);
         let track = square(37, 81);
@@ -2411,6 +2430,7 @@ mod portion_coverage_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_open_line_still_reads_end_to_end() {
         let line = square(0, 81);
         let c = portion_coverage(&line, &line, 0, 81).unwrap();

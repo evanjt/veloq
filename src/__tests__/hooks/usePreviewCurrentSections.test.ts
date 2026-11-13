@@ -140,7 +140,7 @@ describe('usePreviewCurrentSections', () => {
     expect(result.current.sections.map((s) => s.id)).toEqual(['a']);
   });
 
-  it('reads again when the screen is opened a second time', async () => {
+  vaultIt('reads again when the screen is opened a second time', async () => {
     const getPreviewCurrentSections = jest.fn(() => [section('a')]);
     const client = { getPreviewCurrentSections } as never;
 

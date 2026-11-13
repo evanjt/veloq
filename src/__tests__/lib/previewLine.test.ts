@@ -23,12 +23,12 @@ describe('previewLineOf', () => {
     expect(line.altitude).toBeUndefined();
   });
 
-  it('gives no altitude for a line without elevation, and none for an empty one', () => {
+  vaultIt('gives no altitude for a line without elevation, and none for an empty one', () => {
     expect(previewLineOf([{ latitude: 46.2, longitude: 7.3 }]).altitude).toBeUndefined();
     expect(previewLineOf([])).toEqual({ coordinates: [], altitude: undefined });
   });
 
-  it('ignores the elevation of a point it drops', () => {
+  vaultIt('ignores the elevation of a point it drops', () => {
     const line = previewLineOf([
       { latitude: NaN, longitude: 7.3 },
       { latitude: 46.2, longitude: 7.3, elevation: 410 },

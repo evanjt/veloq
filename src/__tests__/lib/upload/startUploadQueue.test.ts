@@ -67,7 +67,7 @@ it('adopts the old queue and index, then writes the rows a save missed', async (
   expect(order).toEqual(['queue', 'index', 'replay']);
 });
 
-it('repeats the adoption and wakes the schedule on every engine open', async () => {
+vaultIt('repeats the adoption and wakes the schedule on every engine open', async () => {
   await startUploadQueue();
   await startUploadQueue();
 
@@ -76,7 +76,7 @@ it('repeats the adoption and wakes the schedule on every engine open', async () 
   expect(wakeUploadSchedule).toHaveBeenCalledTimes(2);
 });
 
-it('hears a refused write permission once, however many times the engine opens', async () => {
+vaultIt('hears a refused write permission once, however many times the engine opens', async () => {
   await startUploadQueue();
   await startUploadQueue();
 
@@ -106,7 +106,7 @@ it('does not throw when the engine refuses the wake', async () => {
   expect(replayProvisionalWrites).toHaveBeenCalledTimes(1);
 });
 
-it('reads no recording itself: the engine sweeps what has landed', async () => {
+vaultIt('reads no recording itself: the engine sweeps what has landed', async () => {
   await startUploadQueue();
 
   expect(listRecordings).not.toHaveBeenCalled();

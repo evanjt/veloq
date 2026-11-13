@@ -69,7 +69,7 @@ describe('the activity stream lanes', () => {
     expect(lanes(['grade']).seriesInfo[0].kind).toBe('signed');
   });
 
-  it('draw elevation and temperature as context and every other stream as a line', () => {
+  vaultIt('draw elevation and temperature as context and every other stream as a line', () => {
     const { seriesInfo } = lanes(['elevation', 'power', 'heartrate']);
     expect(seriesInfo.map((s) => s.kind)).toEqual(['context', 'line', 'line']);
   });
@@ -96,25 +96,25 @@ describe('the activity stream lanes', () => {
 });
 
 describe('the lane stack', () => {
-  it('draws each lane at the lane height under its title when the page scrolls', () => {
+  vaultIt('draws each lane at the lane height under its title when the page scrolls', () => {
     expect(laneStack(3)).toEqual({
       plotHeight: LANE_PLOT_HEIGHT,
       height: 3 * (LANE_TITLE_HEIGHT + LANE_PLOT_HEIGHT) + LANE_AXIS_HEIGHT,
     });
   });
 
-  it('shares a given height between three lanes and fits inside it', () => {
+  vaultIt('shares a given height between three lanes and fits inside it', () => {
     const { plotHeight, height } = laneStack(3, 360);
 
     expect(plotHeight).toBe(Math.floor((360 - LANE_AXIS_HEIGHT - 3 * LANE_TITLE_HEIGHT) / 3));
     expect(height).toBeLessThanOrEqual(360);
   });
 
-  it('gives one lane the whole height it is given', () => {
+  vaultIt('gives one lane the whole height it is given', () => {
     expect(laneStack(1, 200).plotHeight).toBe(200 - LANE_AXIS_HEIGHT - LANE_TITLE_HEIGHT);
   });
 
-  it('takes a title grown by the text size out of the shared height', () => {
+  vaultIt('takes a title grown by the text size out of the shared height', () => {
     expect(laneStack(2, 300, 24).plotHeight).toBe(Math.floor((300 - LANE_AXIS_HEIGHT - 48) / 2));
   });
 });

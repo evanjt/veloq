@@ -55,23 +55,26 @@ beforeEach(() => {
 });
 
 describe('recording settings steppers', () => {
-  it('exposes the accuracy filter at its ceiling as one adjustable element with plus disabled', async () => {
-    useRecordingPreferences.setState({ accuracyRejectThreshold: 100 });
-    const view = await render(<RecordingSettingsScreen />);
-    const stepper = view.getByTestId('settings-accuracy-filter-value');
-    expect(stepper.props.accessibilityRole).toBe('adjustable');
-    expect(stepper.props.accessibilityLabel).toBe('Accuracy filter');
-    expect(stepper.props.accessibilityValue).toEqual({ text: '100 m' });
-    expect(disabled(view.getByTestId('settings-accuracy-filter-plus'))).toBe(true);
-    expect(disabled(view.getByTestId('settings-accuracy-filter-minus'))).toBe(false);
-  });
+  vaultIt(
+    'exposes the accuracy filter at its ceiling as one adjustable element with plus disabled',
+    async () => {
+      useRecordingPreferences.setState({ accuracyRejectThreshold: 100 });
+      const view = await render(<RecordingSettingsScreen />);
+      const stepper = view.getByTestId('settings-accuracy-filter-value');
+      expect(stepper.props.accessibilityRole).toBe('adjustable');
+      expect(stepper.props.accessibilityLabel).toBe('Accuracy filter');
+      expect(stepper.props.accessibilityValue).toEqual({ text: '100 m' });
+      expect(disabled(view.getByTestId('settings-accuracy-filter-plus'))).toBe(true);
+      expect(disabled(view.getByTestId('settings-accuracy-filter-minus'))).toBe(false);
+    }
+  );
 
-  it('gives every stepper row exactly one adjustable element', async () => {
+  vaultIt('gives every stepper row exactly one adjustable element', async () => {
     const view = await render(<RecordingSettingsScreen />);
     expect(view.getAllByRole('adjustable')).toHaveLength(5);
   });
 
-  it('disables minus on the accuracy filter at its floor', async () => {
+  vaultIt('disables minus on the accuracy filter at its floor', async () => {
     useRecordingPreferences.setState({ accuracyRejectThreshold: 10 });
     const view = await render(<RecordingSettingsScreen />);
     expect(disabled(view.getByTestId('settings-accuracy-filter-minus'))).toBe(true);
@@ -79,7 +82,7 @@ describe('recording settings steppers', () => {
     expect(useRecordingPreferences.getState().accuracyRejectThreshold).toBe(10);
   });
 
-  it('disables the auto-pause delay at both ends', async () => {
+  vaultIt('disables the auto-pause delay at both ends', async () => {
     useRecordingPreferences.setState({ autoPauseDurationMs: 10_000 });
     const top = await render(<RecordingSettingsScreen />);
     expect(disabled(top.getByTestId('settings-auto-pause-delay-plus'))).toBe(true);
@@ -90,7 +93,7 @@ describe('recording settings steppers', () => {
     expect(disabled(bottom.getByTestId('settings-auto-pause-delay-minus'))).toBe(true);
   });
 
-  it('disables a sport threshold at its ceiling', async () => {
+  vaultIt('disables a sport threshold at its ceiling', async () => {
     useRecordingPreferences.setState({
       autoPauseThresholds: { cycling: 10, running: 1, walking: 0.5 },
     });

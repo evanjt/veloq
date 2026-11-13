@@ -60,13 +60,13 @@ describe('backfillTimeStreams', () => {
     expect(syncTimeStreams).not.toHaveBeenCalled();
   });
 
-  it('asks for nothing when every activity has its stream', async () => {
+  vaultIt('asks for nothing when every activity has its stream', async () => {
     await expect(backfillTimeStreams(jest.fn())).resolves.toEqual({ total: 0, remaining: 0 });
 
     expect(syncTimeStreams).not.toHaveBeenCalled();
   });
 
-  it('waits on the announcement rather than re-reading the gap', async () => {
+  vaultIt('waits on the announcement rather than re-reading the gap', async () => {
     needing.mockReturnValue(['a1', 'a2']);
 
     const backfill = backfillTimeStreams(jest.fn());
@@ -134,7 +134,7 @@ describe('backfillTimeStreams', () => {
     await expect(backfill).resolves.toEqual({ total: 1, remaining: 0 });
   });
 
-  it('ends the wait when the screen goes away', async () => {
+  vaultIt('ends the wait when the screen goes away', async () => {
     needing.mockReturnValue(['a1']);
     const controller = new AbortController();
 
@@ -148,7 +148,7 @@ describe('backfillTimeStreams', () => {
 });
 
 describe('timeStreamsProgress', () => {
-  it('names the time-stream stage with the counts', () => {
+  vaultIt('names the time-stream stage with the counts', () => {
     const t = jest.fn((key: string) => key) as unknown as TFunction;
     const row = timeStreamsProgress(3, 7, t);
     expect(row).toMatchObject({ status: 'fetching', completed: 3, total: 7, percent: 50 });

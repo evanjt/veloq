@@ -119,7 +119,7 @@ describe('setting and resetting a section reference', () => {
     expect(engine.runSectionBoundsEdit).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses a second confirm from a prompt opened before the first edit began', async () => {
+  vaultIt('refuses a second confirm from a prompt opened before the first edit began', async () => {
     const { hook, engine } = await mountWith(() => new Promise(() => {}));
     const first = confirmOf(() => hook.result.current.handleSetAsReference('a2'));
     const second = confirmOf(() => hook.result.current.handleSetAsReference('a1'));
@@ -188,7 +188,7 @@ describe('setting and resetting a section reference', () => {
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  it('shows the failure when a reset fails', async () => {
+  vaultIt('shows the failure when a reset fails', async () => {
     const { hook, onSectionRefresh } = await mountWith(() => Promise.resolve(null), true);
     const confirm = confirmOf(() => hook.result.current.handleSetAsReference('a1'));
 
@@ -273,7 +273,7 @@ describe('setting and resetting a section reference', () => {
       expect(hook.result.current.effectiveReferenceId).toBe('b1');
     });
 
-    it('stops showing excluded rides on the survivor', async () => {
+    vaultIt('stops showing excluded rides on the survivor', async () => {
       const { hook, survivor } = await mountSwitchable(() => Promise.resolve([]));
       await act(() => hook.result.current.handleToggleShowExcluded());
       expect(hook.result.current.showExcluded).toBe(true);

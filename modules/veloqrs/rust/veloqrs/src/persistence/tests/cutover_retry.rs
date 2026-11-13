@@ -214,6 +214,7 @@ impl super::CutoverDetect for LateAnswer {
 /// Expected behaviour: the update is the answer's, not a checkpoint: it is not
 /// persisted as one, and the apply receives it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_a_final_update_read_mid_wait_travels_with_the_answer() {
     let worker = LateAnswer {
         polls: Cell::new(0),
@@ -257,6 +258,7 @@ impl super::OrphanedDetect for FoldingOrphan {
 /// settled, so two track pools are never resident at once, and the refusal
 /// leaves the run slot free.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_a_retry_is_refused_while_the_timed_out_detect_still_folds() {
     let _serial = crate::test_globals::serial_global_state();
     crate::persistence::clear_persistent_engine();
@@ -283,6 +285,7 @@ fn test_a_retry_is_refused_while_the_timed_out_detect_still_folds() {
 /// Scenario: a caller asks for the cutover before the engine is open.
 /// Expected behaviour: not ready, and no run is started.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_start_without_an_engine_is_not_ready() {
     let _serial = crate::test_globals::serial_global_state();
     crate::persistence::clear_persistent_engine();
@@ -436,6 +439,7 @@ impl super::CutoverDetect for StoppableFold {
 /// a poll, and returns the cancelled error when the worker settles, instead of
 /// waiting out the limit.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_a_cancel_during_the_detect_is_forwarded_to_the_worker() {
     let _serial = crate::test_globals::serial_global_state();
     let worker = StoppableFold {
@@ -644,6 +648,7 @@ fn cutover_job_outcome() -> Option<crate::persistence::job_runs::RunOutcome> {
 /// completed run is taken at its word, so this pins the decision rather than a
 /// defect.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_an_empty_detect_that_completes_is_applied_and_promoted() {
     let _serial = crate::test_globals::serial_global_state();
     let dir = tempfile::TempDir::new().expect("tempdir");

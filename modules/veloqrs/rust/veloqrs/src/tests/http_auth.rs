@@ -3,6 +3,7 @@ use crate::governor::{AuthMethod, Governor, NoopPolicy};
 use httpmock::prelude::*;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_track_unauthorized_stops_batch_dispatch() {
     let server = MockServer::start();
     let ids: Vec<String> = (0..MAX_CONCURRENCY + 10)
@@ -45,6 +46,7 @@ fn test_track_unauthorized_stops_batch_dispatch() {
 /// Expected behaviour: requests already in flight finish, no further request
 /// goes out, and the run's counter stops where the cancel landed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cancelled_run_stops_dispatching_and_counting() {
     let _serial = crate::test_globals::serial_global_state();
     let run = u64::MAX - 2_000;

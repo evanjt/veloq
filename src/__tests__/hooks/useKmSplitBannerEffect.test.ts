@@ -122,7 +122,7 @@ describe('useKmSplitBannerEffect', () => {
     expect(banners[0].text).toContain('"pace":"5:00 /km"');
   });
 
-  it('gives the split in words for a screen reader, beside the line on screen', () => {
+  vaultIt('gives the split in words for a screen reader, beside the line on screen', () => {
     const setSplitBanner = jest.fn();
     const { rerender } = mount(setSplitBanner);
     runTo([0, 500, 1000], [0, 150, 312]);

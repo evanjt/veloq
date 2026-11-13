@@ -153,14 +153,17 @@ describe('useBackDismiss on a stack screen', () => {
     expect(screen.getByTestId('editing')).toHaveTextContent('viewing');
   });
 
-  it("leaves the screen's swipe and header back as the screen set them, before and after", async () => {
-    await renderStack();
-    expect(stackOptions).toEqual([]);
+  vaultIt(
+    "leaves the screen's swipe and header back as the screen set them, before and after",
+    async () => {
+      await renderStack();
+      expect(stackOptions).toEqual([]);
 
-    await act(() => router.back());
+      await act(() => router.back());
 
-    expect(stackOptions).toEqual([]);
-  });
+      expect(stackOptions).toEqual([]);
+    }
+  );
 
   it('ends the state on Android back without leaving the screen', async () => {
     await renderStack();

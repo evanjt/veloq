@@ -25,7 +25,7 @@ describe('the markers on one day', () => {
     expect(eftpChangesOn(markers, undefined)).toEqual([]);
   });
 
-  it('formats a rise with its plus and a fall with its minus', () => {
+  vaultIt('formats a rise with its plus and a fall with its minus', () => {
     expect(formatEftpChange({ ...markers[0], eftp: 406.4 }, 'W')).toBe('eFTP 406 W (+20)');
     expect(formatEftpChange(markers[2], 'W')).toBe('eFTP 155 W (-13)');
   });

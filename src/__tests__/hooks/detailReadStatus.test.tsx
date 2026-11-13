@@ -96,31 +96,34 @@ describe('section detail read status', () => {
     expect(result.current.data?.activityCount).toBe(3);
   });
 
-  it('passes activity rows through with the engine speed and start time unchanged', async () => {
-    const row = {
-      activityId: 'ride-1',
-      name: 'Morning ride',
-      sportType: 'Ride',
-      startTime: 1_700_000_000,
-      distance: 1000,
-      movingTime: 300,
-      averageSpeed: 1000 / 300,
-    };
-    mockGetEngine.mockReturnValue({
-      subscribe: () => () => {},
-      getSectionDetailData: () => ({
-        activityCount: 1,
-        section: { id: 's1' },
-        activityRows: [row],
-        mapSignatures: [],
-      }),
-    });
+  vaultIt(
+    'passes activity rows through with the engine speed and start time unchanged',
+    async () => {
+      const row = {
+        activityId: 'ride-1',
+        name: 'Morning ride',
+        sportType: 'Ride',
+        startTime: 1_700_000_000,
+        distance: 1000,
+        movingTime: 300,
+        averageSpeed: 1000 / 300,
+      };
+      mockGetEngine.mockReturnValue({
+        subscribe: () => () => {},
+        getSectionDetailData: () => ({
+          activityCount: 1,
+          section: { id: 's1' },
+          activityRows: [row],
+          mapSignatures: [],
+        }),
+      });
 
-    const { result } = await renderHook(() => useSectionDetailData('s1', 0));
-    expect(result.current.data?.activityRows?.[0]).toBe(row);
-  });
+      const { result } = await renderHook(() => useSectionDetailData('s1', 0));
+      expect(result.current.data?.activityRows?.[0]).toBe(row);
+    }
+  );
 
-  it('does not read an unused nearby bundle', async () => {
+  vaultIt('does not read an unused nearby bundle', async () => {
     const shapeHasNoNearby: 'nearby' extends keyof SectionDetailData ? false : true = true;
     const nearby = jest.fn(() => {
       throw new Error('nearby geometry was decoded');

@@ -38,11 +38,11 @@ const rendererUrl = `${mapPageBaseUrl()}veloq-asset/${MAPLIBRE_GL_JS_FILE}`;
 const stylesheetUrl = `${mapPageBaseUrl()}veloq-asset/${MAPLIBRE_GL_CSS_FILE}`;
 
 describe('the bundled renderer', () => {
-  it('is pinned, so a bump is a deliberate commit', () => {
+  vaultIt('is pinned, so a bump is a deliberate commit', () => {
     expect(MAPLIBRE_GL_VERSION).toBe('5.19.0');
   });
 
-  it('is named by its version, so an immutable answer never outlives a bump', () => {
+  vaultIt('is named by its version, so an immutable answer never outlives a bump', () => {
     expect(MAPLIBRE_GL_JS_FILE).toBe(`renderer/maplibre-gl-${MAPLIBRE_GL_VERSION}.js`);
     expect(MAPLIBRE_GL_CSS_FILE).toBe(`renderer/maplibre-gl-${MAPLIBRE_GL_VERSION}.css`);
   });
@@ -63,7 +63,7 @@ describe.each(pages)('%s', (_name, html) => {
     expect(links).toEqual([stylesheetUrl]);
   });
 
-  it('asks the page origin for the renderer and its stylesheet', () => {
+  vaultIt('asks the page origin for the renderer and its stylesheet', () => {
     expect(html).toContain(`<script id="maplibre-gl" src="${rendererUrl}"></script>`);
     expect(html).toContain(`<link rel="stylesheet" href="${stylesheetUrl}">`);
   });
@@ -86,7 +86,7 @@ describe('mapLibreHead', () => {
     }
   });
 
-  it('takes the page out of the tab order, including canvases the renderer adds later', () => {
+  vaultIt('takes the page out of the tab order, including canvases the renderer adds later', () => {
     const head = mapLibreHead();
     expect(head).toContain('tabindex');
     expect(head).toContain('MutationObserver');

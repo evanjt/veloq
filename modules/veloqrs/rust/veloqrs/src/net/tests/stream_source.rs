@@ -10,6 +10,7 @@ use crate::persistence::streams::StreamGap;
 use std::collections::HashMap;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn each_gap_is_one_call_for_the_series_set_by_the_upstream_id() {
     let source = RecordingSource::new();
     let upstream = HashMap::from([("k1".to_string(), "u1".to_string())]);

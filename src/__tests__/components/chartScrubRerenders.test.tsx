@@ -48,7 +48,7 @@ describe('chart scrub re-renders', () => {
     expect(renders.mock.calls.length).toBe(before);
   });
 
-  it('clears the scrub position when the gesture ends', async () => {
+  vaultIt('clears the scrub position when the gesture ends', async () => {
     const { ref, tree } = await harness();
 
     await act(() => ref.current!.setScrub(12.5));

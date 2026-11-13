@@ -228,12 +228,12 @@ describe.each(loadableLocales())('the row sentence in %s', (locale) => {
     cards = [...oneOfEach(t, [easedOff]), ...otherShapes(t)];
   });
 
-  it('is built for a card in every category', () => {
+  vaultIt('is built for a card in every category', () => {
     const built = new Set(cards.map((card) => card.category));
     expect([...built].sort()).toEqual([...insightCategories()].sort());
   });
 
-  it('is one translated line on every card', () => {
+  vaultIt('is one translated line on every card', () => {
     for (const card of cards) {
       expect({ id: card.id, line: card.line }).toEqual({ id: card.id, line: expect.any(String) });
       expect(card.line.trim()).not.toBe('');
@@ -260,14 +260,14 @@ describe.each(loadableLocales())('the row sentence in %s', (locale) => {
 });
 
 describe('the row sentence in en-GB', () => {
-  it('fits one line of a narrow phone', async () => {
+  vaultIt('fits one line of a narrow phone', async () => {
     const t = await translatorFor('en-GB');
     const cards = [...oneOfEach(t, [easedOff]), ...otherShapes(t)];
     const long = cards.filter((card) => card.line.length > EN_GB_LINE_CAP);
     expect(long.map((card) => `${card.id}: ${card.line}`)).toEqual([]);
   });
 
-  it('leads a record with its place, then its time and the margin', async () => {
+  vaultIt('leads a record with its place, then its time and the margin', async () => {
     const t = await translatorFor('en-GB');
     const record = otherShapes(t).find(
       (card) => card.category === 'section_pr' && card.supportingData?.sections?.[0]?.deltaSeconds

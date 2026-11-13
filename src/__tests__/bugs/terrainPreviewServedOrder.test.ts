@@ -95,7 +95,7 @@ afterEach(() => {
 });
 
 describe('eviction takes the least recently served preview', () => {
-  it('holds a scroll of serves back to one write rather than one per card', async () => {
+  vaultIt('holds a scroll of serves back to one write rather than one per card', async () => {
     await fill(4, 'z');
     const before = await storedOrder();
 
@@ -127,7 +127,7 @@ describe('eviction takes the least recently served preview', () => {
     expect(hasTerrainPreview('a1', 'light', FLAT)).toBe(false);
   });
 
-  it('serving moves one entry to the back, not every entry it passed', async () => {
+  vaultIt('serving moves one entry to the back, not every entry it passed', async () => {
     await fill(3, 'b');
 
     getTerrainPreviewUri('b0', 'light', FLAT);
@@ -144,7 +144,7 @@ describe('eviction takes the least recently served preview', () => {
     expect(await storedOrder()).toEqual(before);
   });
 
-  it('moves nothing for a preview that is not cached', async () => {
+  vaultIt('moves nothing for a preview that is not cached', async () => {
     await fill(2, 'd');
     const before = await storedOrder();
 
@@ -169,7 +169,7 @@ describe('eviction takes the least recently served preview', () => {
     expect(hasTerrainPreview('e0', 'light', FLAT)).toBe(true);
   });
 
-  it('moves the stand-in it actually serves, not the key that was asked for', async () => {
+  vaultIt('moves the stand-in it actually serves, not the key that was asked for', async () => {
     await fill(3, 'g');
     await saveTerrainPreview('h0', 'light', true, 'bytes', { downgradedTo: 'flat' });
 

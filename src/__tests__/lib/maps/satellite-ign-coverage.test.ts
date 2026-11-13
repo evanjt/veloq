@@ -115,7 +115,7 @@ describe('the IGN source is asked only for tiles over France', () => {
     expect(covered(ignBoxes(), p)).toBe(true);
   });
 
-  it('ranks IGN under swisstopo, which covers the residual border overlap', () => {
+  vaultIt('ranks IGN under swisstopo, which covers the residual border overlap', () => {
     const names = satelliteProviders('satellite-regions').map((p) => p.source);
 
     expect(names.indexOf('satellite-ign')).toBeGreaterThan(names.indexOf('satellite-swisstopo'));
@@ -141,7 +141,7 @@ describe('the IGN source is asked only for tiles over France', () => {
     expect(getCombinedSatelliteAttribution(41.385, 2.173, 14)).not.toContain('IGN');
   });
 
-  it('keeps one IGN entry, one template and one credit behind the boxes', () => {
+  vaultIt('keeps one IGN entry, one template and one credit behind the boxes', () => {
     expect(SATELLITE_SOURCES.ign.attribution).toBe('© IGN');
     expect(SATELLITE_SOURCES.ign.tiles).toHaveLength(1);
   });

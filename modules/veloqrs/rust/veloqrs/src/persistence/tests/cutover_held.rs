@@ -26,6 +26,7 @@ fn insert_uncut_auto_section() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_owed_cutover_holds_detection() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("cutover_held_owed.db");
@@ -35,6 +36,7 @@ fn an_owed_cutover_holds_detection() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_running_cutover_holds_detection_once_nothing_is_owed() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("cutover_held_running.db");
@@ -48,6 +50,7 @@ fn a_running_cutover_holds_detection_once_nothing_is_owed() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_settled_cutover_on_an_empty_catalogue_holds_nothing() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("cutover_held_settled.db");

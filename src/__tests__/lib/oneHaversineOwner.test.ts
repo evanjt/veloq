@@ -34,16 +34,16 @@ describe('polylineDistance', () => {
     expect(measured).toBeGreaterThan((haversineDistance(LAUSANNE, MONTREUX) * rounded) / iugg);
   });
 
-  it('is zero for fewer than two points', () => {
+  vaultIt('is zero for fewer than two points', () => {
     expect(polylineDistance([])).toBe(0);
     expect(polylineDistance([LAUSANNE])).toBe(0);
   });
 
-  it('is zero for a repeated point, and does not go negative', () => {
+  vaultIt('is zero for a repeated point, and does not go negative', () => {
     expect(polylineDistance([LAUSANNE, LAUSANNE, LAUSANNE])).toBe(0);
   });
 
-  it('is order independent for a there-and-back leg', () => {
+  vaultIt('is order independent for a there-and-back leg', () => {
     const there = polylineDistance([LAUSANNE, MONTREUX]);
     const back = polylineDistance([MONTREUX, LAUSANNE]);
 

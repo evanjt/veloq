@@ -101,6 +101,7 @@ fn feels_like_falls_back_through_the_older_names_in_order() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_list_body_is_not_the_detail_and_lacks_what_it_never_carried() {
     let list = r#"{"id":"i77","name":"Harbour loop","type":"Run","moving_time":3600}"#;
     let record = activity_record("a1", list).expect("record");
@@ -131,12 +132,14 @@ fn a_key_in_an_unmodelled_shape_costs_that_key_and_not_the_record() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_typeless_body_keeps_its_sport_absent() {
     let record = activity_record("a1", r#"{"id":"a1"}"#).expect("record");
     assert_eq!(record.sport_type, None);
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_body_that_is_not_json_has_no_record() {
     assert!(activity_record("a1", "not json").is_none());
 }

@@ -82,13 +82,16 @@ describe.each([
   ['a map card', {}],
   ['a compact card', { hasGps: false }],
 ])('the mark on %s', (_name, shape) => {
-  it('is drawn for an activity the sync could not ready, and not for one it could', async () => {
-    await render(<ActivityCard activity={activity({ ...shape, syncFailure: failure })} />);
-    expect(screen.getByTestId('activity-card-a1-sync-failed')).toBeTruthy();
-    expect(screen.getByText('activity.syncFailed.chip')).toBeTruthy();
-  });
+  vaultIt(
+    'is drawn for an activity the sync could not ready, and not for one it could',
+    async () => {
+      await render(<ActivityCard activity={activity({ ...shape, syncFailure: failure })} />);
+      expect(screen.getByTestId('activity-card-a1-sync-failed')).toBeTruthy();
+      expect(screen.getByText('activity.syncFailed.chip')).toBeTruthy();
+    }
+  );
 
-  it('is absent when the engine reports no fault', async () => {
+  vaultIt('is absent when the engine reports no fault', async () => {
     await render(<ActivityCard activity={activity(shape)} />);
     expect(screen.queryByTestId('activity-card-a1-sync-failed')).toBeNull();
   });
@@ -132,7 +135,7 @@ describe.each([
 });
 
 describe('the notice on the activity screen', () => {
-  it('names the fault the engine reported and retries through the same press', async () => {
+  vaultIt('names the fault the engine reported and retries through the same press', async () => {
     const onRetry = jest.fn();
     await render(<ActivitySyncFailureNotice activityId="a1" failure={failure} onRetry={onRetry} />);
 

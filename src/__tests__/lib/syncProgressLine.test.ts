@@ -31,13 +31,13 @@ function status(partial: Partial<SyncStatus>): SyncStatus {
 }
 
 describe('the sync progress line', () => {
-  it('names the step the engine is on, with the step count beside it', () => {
+  vaultIt('names the step the engine is on, with the step count beside it', () => {
     expect(formatSyncProgress(status({ step: SyncStep.Athlete, completed: 0 }), t)).toBe(
       'settings.syncStepProgress:{"label":"settings.syncStep.athlete","completed":0,"total":9}'
     );
   });
 
-  it('names every step the engine can report', () => {
+  vaultIt('names every step the engine can report', () => {
     const named = Object.values(SyncStep)
       .filter((step): step is SyncStep => typeof step === 'number')
       .map((step) => formatSyncProgress(status({ step }), t));
@@ -58,7 +58,7 @@ describe('the sync progress line', () => {
   });
 
   /** A window sync declares one step, and "1 of 1" is noise, not progress. */
-  it('drops the fraction from a single-step run', () => {
+  vaultIt('drops the fraction from a single-step run', () => {
     expect(formatSyncProgress(status({ step: SyncStep.Activities, total: 1 }), t)).toBe(
       'settings.syncStep.activities'
     );
@@ -81,7 +81,7 @@ describe('the sync progress line', () => {
     );
   });
 
-  it('keeps the step line when the step owes no activities', () => {
+  vaultIt('keeps the step line when the step owes no activities', () => {
     expect(
       formatSyncProgress(
         status({
@@ -97,7 +97,7 @@ describe('the sync progress line', () => {
     );
   });
 
-  it('says a sync is running before the first step begins', () => {
+  vaultIt('says a sync is running before the first step begins', () => {
     expect(formatSyncProgress(status({ total: 0 }), t)).toBe('settings.syncActivities');
     expect(formatSyncProgress(null, t)).toBe('settings.syncActivities');
   });

@@ -117,14 +117,14 @@ describe('SectionsList footer links', () => {
     expect(router.push).toHaveBeenCalledWith('/named-corridors');
   });
 
-  it('offers no retired link while the library retired nothing', async () => {
+  vaultIt('offers no retired link while the library retired nothing', async () => {
     const tree = await renderList({ retiredSectionCount: 0 });
 
     expect(tree.queryByTestId('sections-retired-link')).toBeNull();
     expect(tree.queryByRole('button', { name: i18n.t('sectionHistory.seeRetired') })).toBeNull();
   });
 
-  it('keeps the retired link on an empty list when sections retired', async () => {
+  vaultIt('keeps the retired link on an empty list when sections retired', async () => {
     const tree = await renderList({ batchSections: [], retiredSectionCount: 2 });
 
     const link = tree.getByRole('button', { name: i18n.t('sectionHistory.seeRetired') });
@@ -134,13 +134,13 @@ describe('SectionsList footer links', () => {
     expect(router.push).toHaveBeenCalledWith('/detection-preview?layer=retired');
   });
 
-  it('shows no retired link on an empty list when nothing retired', async () => {
+  vaultIt('shows no retired link on an empty list when nothing retired', async () => {
     const tree = await renderList({ batchSections: [], retiredSectionCount: 0 });
 
     expect(tree.queryByTestId('sections-retired-link')).toBeNull();
   });
 
-  it('closes on the card that explains sections', async () => {
+  vaultIt('closes on the card that explains sections', async () => {
     const tree = await renderList();
 
     const card = tree.getByTestId('sections-explanation');

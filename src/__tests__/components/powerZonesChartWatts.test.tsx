@@ -60,12 +60,12 @@ it('leaves the FTP label out when the activity has none', async () => {
   expect(view.queryByText(/activity\.ftp/)).toBeNull();
 });
 
-it('renders nothing with no bands', async () => {
+vaultIt('renders nothing with no bands', async () => {
   const view = await render(<PowerZonesChart powerZones={[]} ftp={155} movingTime={1200} />);
   expect(view.toJSON()).toBeNull();
 });
 
-it('titles the card as a header in the card title role', () => {
+vaultIt('titles the card as a header in the card title role', () => {
   const view = render(<PowerZonesChart powerZones={bands} ftp={155} movingTime={1200} />);
 
   const title = view.getByRole('header', { name: 'activity.timeInPowerZones' });

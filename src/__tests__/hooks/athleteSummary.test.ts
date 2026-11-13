@@ -42,7 +42,7 @@ describe('getISOWeekNumber', () => {
     expect(getISOWeekNumber(new Date(2025, 11, 31))).toBe(1);
   });
 
-  it('returns consistent results for all days in same week', () => {
+  vaultIt('returns consistent results for all days in same week', () => {
     // Week of 2025-03-03 (Monday) to 2025-03-09 (Sunday)
     const weekNum = getISOWeekNumber(new Date(2025, 2, 3));
     for (let d = 3; d <= 9; d++) {
@@ -56,7 +56,7 @@ describe('getISOWeekNumber', () => {
 // ---------------------------------------------------------------------------
 
 describe('formatWeekRange', () => {
-  it('formats same-month, cross-month, and cross-year week ranges', () => {
+  vaultIt('formats same-month, cross-month, and cross-year week ranges', () => {
     const cases: [Date, string][] = [
       [new Date(2025, 0, 20), 'Jan 20-26'], // same month
       [new Date(2025, 0, 27), 'Jan 27 - Feb 2'], // cross month

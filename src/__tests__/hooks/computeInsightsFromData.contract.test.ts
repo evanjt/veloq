@@ -434,7 +434,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
     expect(insights.some((i) => i.id === 'fitness_milestone-swim-pace')).toBe(true);
   });
 
-  it('does not crash when wellness is empty (rest-day framing path)', () => {
+  vaultIt('does not crash when wellness is empty (rest-day framing path)', () => {
     const { insights } = computeInsightsFromData(buildFfiData(), t);
     // Should still produce at least the section-pattern insights derived
     // from FFI data alone.
@@ -482,7 +482,7 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
     expect(without?.ranking).not.toHaveProperty('improvementBasis');
   });
 
-  it('feeds only trend verdicts the wire can carry', () => {
+  vaultIt('feeds only trend verdicts the wire can carry', () => {
     // `FfiRankedSection.trend` is an i8: -1 declining, 0 stable, 1 improving.
     // A fraction is not a weaker version of that, it is a value no engine
     // build can emit, and the generator reads anything but 1 as declining.

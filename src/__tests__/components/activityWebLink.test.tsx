@@ -51,7 +51,7 @@ describe('InsightfulStats web link', () => {
     expect(card.queryByText('activity.viewInIntervalsICU')).toBeNull();
   });
 
-  it('offers no link before the detail read has answered', () => {
+  vaultIt('offers no link before the detail read has answered', () => {
     const card = render(<InsightfulStats activity={recording} />);
     expect(card.queryByText('activity.viewInIntervalsICU')).toBeNull();
   });

@@ -125,7 +125,7 @@ describe('removing a detected section from its page', () => {
     expect((Alert.alert as jest.Mock).mock.calls[0][0]).toBe('sections.restoreFailedTitle');
   });
 
-  it('removes nothing and closes nothing when the engine is not up', async () => {
+  vaultIt('removes nothing and closes nothing when the engine is not up', async () => {
     const hook = await mountWith(null);
 
     await act(() => hook.result.current.handleToggleDisable());

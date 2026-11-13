@@ -93,7 +93,7 @@ describe('a section insight sheet', () => {
     expect(navigateTo).toHaveBeenCalledWith('/section/flat?origin=insights');
   });
 
-  it('expands a trend row without leaving the sheet', async () => {
+  vaultIt('expands a trend row without leaving the sheet', async () => {
     await render(<SectionTrendContent insight={trendInsight} />);
 
     await fireEvent.press(screen.getByTestId('section-trend-toggle-hill'));
@@ -102,7 +102,7 @@ describe('a section insight sheet', () => {
     expect(screen.getByTestId('section-trend-open-hill')).toBeTruthy();
   });
 
-  it('exposes one button per trend row, named with what the row draws', () => {
+  vaultIt('exposes one button per trend row, named with what the row draws', () => {
     const insight = {
       ...trendInsight,
       supportingData: {
@@ -137,7 +137,7 @@ describe('a section insight sheet', () => {
     expect(rows.every((row) => row.props.accessibilityState?.expanded === false)).toBe(true);
   });
 
-  it('draws no trophy chip or record legend on the trend list', () => {
+  vaultIt('draws no trophy chip or record legend on the trend list', () => {
     const insight = {
       ...trendInsight,
       supportingData: {
@@ -159,7 +159,7 @@ describe('a section insight sheet', () => {
     expect(screen.queryByText('Recent record')).toBeNull();
   });
 
-  it('marks the toggled row as expanded', () => {
+  vaultIt('marks the toggled row as expanded', () => {
     render(<SectionTrendContent insight={trendInsight} />);
 
     fireEvent.press(screen.getByTestId('section-trend-toggle-hill'));

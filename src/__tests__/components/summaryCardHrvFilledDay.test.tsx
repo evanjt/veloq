@@ -67,12 +67,12 @@ async function mount() {
 }
 
 describe('scrubbing the HRV sparkline', () => {
-  it('uses the shared raised surface', async () => {
+  vaultIt('uses the shared raised surface', async () => {
     const { tree } = await mount();
     expect(tree.UNSAFE_getByType(Card).props.variant).toBe('raised');
   });
 
-  it('leaves horizontal spacing to the home stack', async () => {
+  vaultIt('leaves horizontal spacing to the home stack', async () => {
     const { tree } = await mount();
     const frame = tree.UNSAFE_getByType(Card).parent;
     const style = StyleSheet.flatten(frame?.props.style) ?? {};

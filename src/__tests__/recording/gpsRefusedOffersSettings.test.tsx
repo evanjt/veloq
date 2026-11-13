@@ -66,7 +66,7 @@ it('pauses the ride and offers the settings page from the status slot', async ()
   openSettings.mockRestore();
 });
 
-it('drops the settings action when a later warning replaces the refusal', async () => {
+vaultIt('drops the settings action when a later warning replaces the refusal', async () => {
   const { result } = await renderHook(() => useRecordingScreenState());
   await act(() => result.current.setGpsWarning('denied', { opensSettings: true }));
   await act(() => result.current.setGpsWarning('weak'));

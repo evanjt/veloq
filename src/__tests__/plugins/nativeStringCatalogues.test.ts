@@ -92,23 +92,26 @@ describe('every supported locale has a home on both platforms', () => {
 describe('the iOS string catalogue', () => {
   const catalogue: Catalogue = strings.localizableCatalogue(strings.loadLocaleBundles());
 
-  it.each([...SUPPORTED_LOCALES])('%s carries every widget, Control and intent key', (locale) => {
-    const source = bundle(locale);
-    const { apple } = strings.PLATFORM_LOCALES[locale];
-    const missing: string[] = [];
-    for (const { key, path: dotted } of strings.APPLE_STRINGS) {
-      const expected = at(source, dotted);
-      for (const language of apple) {
-        const unit = catalogue.strings[key]?.localizations[language]?.stringUnit;
-        if (typeof expected !== 'string' || !expected.trim() || unit?.value !== expected) {
-          missing.push(`${language}: ${key}`);
-        } else if (unit.state !== 'translated') {
-          missing.push(`${language}: ${key} (${unit.state})`);
+  vaultIt.each([...SUPPORTED_LOCALES])(
+    '%s carries every widget, Control and intent key',
+    (locale) => {
+      const source = bundle(locale);
+      const { apple } = strings.PLATFORM_LOCALES[locale];
+      const missing: string[] = [];
+      for (const { key, path: dotted } of strings.APPLE_STRINGS) {
+        const expected = at(source, dotted);
+        for (const language of apple) {
+          const unit = catalogue.strings[key]?.localizations[language]?.stringUnit;
+          if (typeof expected !== 'string' || !expected.trim() || unit?.value !== expected) {
+            missing.push(`${language}: ${key}`);
+          } else if (unit.state !== 'translated') {
+            missing.push(`${language}: ${key} (${unit.state})`);
+          }
         }
       }
+      expect(missing).toEqual([]);
     }
-    expect(missing).toEqual([]);
-  });
+  );
 
   it('declares English as its source, the language the Swift keys are written in', () => {
     expect(catalogue.sourceLanguage).toBe('en');
@@ -141,7 +144,7 @@ describe('the App Shortcuts strings tables', () => {
   const table = (language: string) =>
     stringsEntries(files[path.join(`${language}.lproj`, 'AppShortcuts.strings')] ?? '');
 
-  it('writes one table per Apple language and nothing else', () => {
+  vaultIt('writes one table per Apple language and nothing else', () => {
     expect(Object.keys(files).sort()).toEqual(
       strings
         .appleLanguages()
@@ -171,7 +174,7 @@ describe('the App Shortcuts strings tables', () => {
     expect(problems).toEqual([]);
   });
 
-  it.each([...SUPPORTED_LOCALES])('%s gives each phrase different words', (locale) => {
+  vaultIt.each([...SUPPORTED_LOCALES])('%s gives each phrase different words', (locale) => {
     const [language] = strings.PLATFORM_LOCALES[locale].apple;
     const phrases = table(language);
     const values = strings.APP_SHORTCUT_PHRASES.map(({ key }: { key: string }) => phrases[key]);
@@ -255,7 +258,7 @@ describe('the iOS permission prompts', () => {
     expect(translated).toEqual(purposeKeys());
   });
 
-  it('writes one table per Apple language and nothing else', () => {
+  vaultIt('writes one table per Apple language and nothing else', () => {
     expect(Object.keys(files()).sort()).toEqual(
       strings
         .appleLanguages()
@@ -264,31 +267,37 @@ describe('the iOS permission prompts', () => {
     );
   });
 
-  it.each(bundleLocalizations)('%s reads every purpose string from its own bundle', (language) => {
-    const source = bundle(localeOf(language));
-    const entries = table(language);
-    expect(Object.keys(entries).sort()).toEqual(purposeKeys());
-    const problems: string[] = [];
-    for (const { key, path: dotted } of strings.INFO_PLIST_STRINGS) {
-      const expected = at(source, dotted);
-      if (typeof expected !== 'string' || !expected.trim() || entries[key] !== expected) {
-        problems.push(`${key}: ${entries[key]}`);
-      } else if (!language.startsWith('en') && expected === at(english, dotted)) {
-        problems.push(`${key} is English: ${expected}`);
+  vaultIt.each(bundleLocalizations)(
+    '%s reads every purpose string from its own bundle',
+    (language) => {
+      const source = bundle(localeOf(language));
+      const entries = table(language);
+      expect(Object.keys(entries).sort()).toEqual(purposeKeys());
+      const problems: string[] = [];
+      for (const { key, path: dotted } of strings.INFO_PLIST_STRINGS) {
+        const expected = at(source, dotted);
+        if (typeof expected !== 'string' || !expected.trim() || entries[key] !== expected) {
+          problems.push(`${key}: ${entries[key]}`);
+        } else if (!language.startsWith('en') && expected === at(english, dotted)) {
+          problems.push(`${key} is English: ${expected}`);
+        }
       }
+      expect(problems).toEqual([]);
     }
-    expect(problems).toEqual([]);
-  });
+  );
 
-  it("keeps the development region's own text in Info.plist, for a language with no table", () => {
-    const region = String(infoPlist.CFBundleDevelopmentRegion);
-    expect(bundleLocalizations).toContain(region);
-    const entries = table(region);
-    const drifted = purposeKeys().filter((key) => infoPlist[key] !== entries[key]);
-    expect(drifted).toEqual([]);
-  });
+  vaultIt(
+    "keeps the development region's own text in Info.plist, for a language with no table",
+    () => {
+      const region = String(infoPlist.CFBundleDevelopmentRegion);
+      expect(bundleLocalizations).toContain(region);
+      const entries = table(region);
+      const drifted = purposeKeys().filter((key) => infoPlist[key] !== entries[key]);
+      expect(drifted).toEqual([]);
+    }
+  );
 
-  it('names the uses that read the position, and no use that reads none', () => {
+  vaultIt('names the uses that read the position, and no use that reads none', () => {
     const whenInUse = String(infoPlist.NSLocationWhenInUseUsageDescription);
     expect(whenInUse).not.toMatch(/activity maps/i);
     expect(whenInUse).toMatch(/record/i);
@@ -297,17 +306,20 @@ describe('the iOS permission prompts', () => {
     expect(whenInUse).toMatch(/stays on this phone/i);
   });
 
-  it('asks for Always with the reason the prompt appears, a ride started away from the app', () => {
-    for (const key of [
-      'NSLocationAlwaysAndWhenInUseUsageDescription',
-      'NSLocationAlwaysUsageDescription',
-    ]) {
-      const always = String(infoPlist[key]);
-      expect(always).toMatch(/Siri/);
-      expect(always).toMatch(/Control Centre/);
-      expect(always).toMatch(/widget/i);
+  vaultIt(
+    'asks for Always with the reason the prompt appears, a ride started away from the app',
+    () => {
+      for (const key of [
+        'NSLocationAlwaysAndWhenInUseUsageDescription',
+        'NSLocationAlwaysUsageDescription',
+      ]) {
+        const always = String(infoPlist[key]);
+        expect(always).toMatch(/Siri/);
+        expect(always).toMatch(/Control Centre/);
+        expect(always).toMatch(/widget/i);
+      }
     }
-  });
+  );
 
   it('reads back a purpose string carrying a quote, a backslash and a newline unchanged', () => {
     const bundles = strings.loadLocaleBundles();
@@ -326,7 +338,7 @@ describe('the iOS permission prompts', () => {
 describe('the Android string resources', () => {
   const files: Record<string, string> = strings.androidStringFiles(strings.loadLocaleBundles());
 
-  it.each([...SUPPORTED_LOCALES])('%s yields every widget and channel string', (locale) => {
+  vaultIt.each([...SUPPORTED_LOCALES])('%s yields every widget and channel string', (locale) => {
     const source = bundle(locale);
     for (const qualifier of strings.PLATFORM_LOCALES[locale].android) {
       const dir = qualifier ? `values-${qualifier}` : 'values';

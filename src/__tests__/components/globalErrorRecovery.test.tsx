@@ -82,7 +82,7 @@ describe('the app crash screen in a release build', () => {
     expect(tree.queryByText('Retry')).toBeNull();
   });
 
-  it('says the library is unaffected and never asks the athlete to quit', async () => {
+  vaultIt('says the library is unaffected and never asks the athlete to quit', async () => {
     const tree = await renderCrash();
 
     expect(tree.getByText('Your activities on this device are unaffected.')).toBeTruthy();
@@ -101,7 +101,7 @@ describe('the app crash screen in a release build', () => {
     );
   });
 
-  it('says so when the share sheet cannot open, and stays on the screen', async () => {
+  vaultIt('says so when the share sheet cannot open, and stays on the screen', async () => {
     (shareFile as jest.Mock).mockRejectedValueOnce(new Error('no sharing'));
     const tree = await renderCrash();
 
@@ -113,7 +113,7 @@ describe('the app crash screen in a release build', () => {
     expect(tree.getByText('Retry')).toBeTruthy();
   });
 
-  it('offers no ride action when nothing is recording', async () => {
+  vaultIt('offers no ride action when nothing is recording', async () => {
     const tree = await renderCrash();
 
     expect(tree.queryByText('Your ride is still recording.')).toBeNull();
@@ -138,7 +138,7 @@ describe('the app crash screen in a release build', () => {
     }
   );
 
-  it.each([
+  vaultIt.each([
     ['light', colors],
     ['dark', darkColors],
   ] as const)('draws the %s appearance from the theme roles', async (scheme, roles) => {

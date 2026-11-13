@@ -802,6 +802,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_slack_grows_with_the_sample_spacing() {
         // 10 m/s sampled every 5 s: 50 m between samples.
         let near = recording(120.0, SECTION_M + 100.0, 10.0, 5, 0);
@@ -1000,6 +1001,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_reverse_direction_swaps_the_gates() {
         let run = recording(SECTION_M + 40.0, -40.0, SPEED, 5, 3);
         let time = lap(&run, "reverse", SECTION_M, 0.0).unwrap();
@@ -1008,6 +1010,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stream_of_another_length_than_the_track_times_nothing() {
         let mut run = recording(-40.0, SECTION_M + 40.0, SPEED, 1, 0);
         run.times.pop();
@@ -1035,6 +1038,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_section_with_no_usable_line_has_no_gates() {
         assert_eq!(SectionTiming::from_line(&[at(0.0), at(2.0)], 306.0), None);
         assert_eq!(SectionTiming::from_line(&[at(0.0), at(60.0)], 0.0), None);

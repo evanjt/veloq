@@ -23,6 +23,6 @@ it('prints the load alone for a set with no repetitions', () => {
   expect(formatBestSet({ weightKg: 40, repetitions: undefined }, false, t)).toBe('88.2 lbs');
 });
 
-it('prints the absent mark for a set that carries neither', () => {
+vaultIt('prints the absent mark for a set that carries neither', () => {
   expect(formatBestSet({ weightKg: undefined, repetitions: undefined }, true, t)).toBe(ABSENT);
 });

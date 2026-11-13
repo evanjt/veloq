@@ -57,7 +57,7 @@ describe('SyncDateRangeStore', () => {
       expect(useSyncDateRange.getState().extendedFetch).toBe(IDLE_EXTENDED_FETCH);
     });
 
-    it('expands newest date when requested is later', () => {
+    vaultIt('expands newest date when requested is later', () => {
       const currentNewest = useSyncDateRange.getState().newest;
       const laterDate = daysFromToday(30);
 
@@ -122,7 +122,7 @@ describe('SyncDateRangeStore', () => {
   });
 
   describe('Expansion Locking', () => {
-    it('delayedUnlockExpansion() unlocks after 500ms', () => {
+    vaultIt('delayedUnlockExpansion() unlocks after 500ms', () => {
       useSyncDateRange.setState({ isExpansionLocked: true });
 
       useSyncDateRange.getState().delayedUnlockExpansion();
@@ -157,13 +157,13 @@ describe('SyncDateRangeStore', () => {
       );
     });
 
-    it('reports an expansion that widened the range', () => {
+    vaultIt('reports an expansion that widened the range', () => {
       expect(useSyncDateRange.getState().expandRange(daysFromToday(-365), daysFromToday(0))).toBe(
         'expanded'
       );
     });
 
-    it('reports a request already inside the range', () => {
+    vaultIt('reports a request already inside the range', () => {
       expect(useSyncDateRange.getState().expandRange(daysFromToday(-30), daysFromToday(0))).toBe(
         'unchanged'
       );
@@ -171,13 +171,13 @@ describe('SyncDateRangeStore', () => {
   });
 
   describe('Generation Counter', () => {
-    it('getSyncGeneration() returns current generation', () => {
+    vaultIt('getSyncGeneration() returns current generation', () => {
       useSyncDateRange.setState({ syncGeneration: 42 });
 
       expect(getSyncGeneration()).toBe(42);
     });
 
-    it('generation persists through expansion', () => {
+    vaultIt('generation persists through expansion', () => {
       useSyncDateRange.setState({ syncGeneration: 5 });
 
       useSyncDateRange.getState().expandRange(daysFromToday(-365), daysFromToday(0));
@@ -188,7 +188,7 @@ describe('SyncDateRangeStore', () => {
   });
 
   describe('markExpansionProcessed()', () => {
-    it('clears hasExpanded flag', () => {
+    vaultIt('clears hasExpanded flag', () => {
       useSyncDateRange.setState({ hasExpanded: true });
 
       useSyncDateRange.getState().markExpansionProcessed();

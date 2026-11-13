@@ -37,7 +37,7 @@ describe('reading a failure the engine reported', () => {
     );
   });
 
-  it('names a refused rename off the tag, so no caller reads the message text', () => {
+  vaultIt('names a refused rename off the tag, so no caller reads the message text', () => {
     expect(engineErrorTag({ tag: 'NameTaken', inner: { name: 'Col' } })).toBe('NameTaken');
   });
 

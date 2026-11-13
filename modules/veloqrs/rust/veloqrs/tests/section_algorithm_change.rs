@@ -97,6 +97,7 @@ fn kinds_of(engine: &PersistentEngine, sid: &str) -> Vec<String> {
 /// Expected behaviour: no change, and the marker is genuinely absent rather
 /// than agreeing by accident with whatever the live config happens to be.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unsaved_catalogue_reports_no_generation_change() {
     let (mut engine, dir) = fresh();
     engine
@@ -121,6 +122,7 @@ fn an_unsaved_catalogue_reports_no_generation_change() {
 /// Expected behaviour: the upgrade names the detector that cut it, so the
 /// first detect under Unified explains the sections it replaces.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_migrated_catalogue_explains_its_first_detect() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
@@ -204,6 +206,7 @@ fn handed_over(id: &str, line: Vec<GpsPoint>, rides: &[&str]) -> tracematch::Fre
 /// Expected behaviour: the write stores a slice of one ride's track with its
 /// range, and refuses a section no ride's track covers.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_detect_write_anchors_a_rangeless_section_or_refuses_it() {
     let (mut engine, dir) = fresh();
     let track = ride_track();
@@ -265,6 +268,7 @@ fn a_detect_write_anchors_a_rangeless_section_or_refuses_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_matching_marker_reports_no_generation_change() {
     let (mut engine, dir) = fresh();
     engine
@@ -280,6 +284,7 @@ fn a_matching_marker_reports_no_generation_change() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_different_method_in_the_marker_is_a_generation_change() {
     let (mut engine, dir) = fresh();
     let cfg = engine.get_section_config();
@@ -302,6 +307,7 @@ fn a_different_method_in_the_marker_is_a_generation_change() {
 /// Expected behaviour: the shape the outgoing detector left is milestoned and
 /// the event points at it, so a prior-versus-current overlay has a prior.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_event_milestones_the_shape_already_stored() {
     let (mut engine, _dir) = fresh();
     engine
@@ -351,6 +357,7 @@ fn the_event_milestones_the_shape_already_stored() {
 /// Expected behaviour: the line handed in becomes the milestone, so the event
 /// still has a before.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_with_no_versions_stores_the_line_it_is_given() {
     let (mut engine, _dir) = fresh();
     let prior = poly(3);
@@ -404,6 +411,7 @@ fn a_stale_newest_version_does_not_stand_in_for_the_current_line() {
 /// Expected behaviour: a prior that the newest version already holds needs no
 /// duplicate, so the stored row is simply flagged.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_current_line_already_stored_is_milestoned_in_place() {
     let (mut engine, _dir) = fresh();
     engine
@@ -449,6 +457,7 @@ fn the_milestoned_shape_survives_retention() {
 /// Expected behaviour: the save that replaces those lines explains itself
 /// first, once, and the next save under the same detector adds nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_detect_under_a_new_generation_explains_the_catalogue_it_replaces() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("routes.db");
@@ -491,6 +500,7 @@ fn a_detect_under_a_new_generation_explains_the_catalogue_it_replaces() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn superseded_is_written_on_both_ids() {
     let (mut engine, _dir) = fresh();
     engine

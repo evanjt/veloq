@@ -61,7 +61,7 @@ function renderControls(handlers: Partial<React.ComponentProps<typeof ActivityMa
 }
 
 describe('the activity map control column', () => {
-  it('starts below the measured header, not a guessed row height', async () => {
+  vaultIt('starts below the measured header, not a guessed row height', async () => {
     await renderControls();
 
     const column = screen.getByTestId('activity-map-controls');
@@ -69,18 +69,21 @@ describe('the activity map control column', () => {
     expect(top).toBeGreaterThanOrEqual(HEADER_BOTTOM);
   });
 
-  it('is as wide as every column it wraps into, so no button is laid out off the map', async () => {
-    await renderControls({ mapHeight: HEADER_BOTTOM + 200 });
+  vaultIt(
+    'is as wide as every column it wraps into, so no button is laid out off the map',
+    async () => {
+      await renderControls({ mapHeight: HEADER_BOTTOM + 200 });
 
-    const style = StyleSheet.flatten(screen.getByTestId('activity-map-controls').props.style);
-    const step = MAP_CONTROL_SIZE + MAP_CONTROL_GAP;
-    const perColumn = Math.floor((style.maxHeight + MAP_CONTROL_GAP) / step);
-    expect(perColumn).toBeLessThan(6);
-    const columns = Math.ceil(6 / perColumn);
-    expect(style.width).toBe(columns * step - MAP_CONTROL_GAP);
-  });
+      const style = StyleSheet.flatten(screen.getByTestId('activity-map-controls').props.style);
+      const step = MAP_CONTROL_SIZE + MAP_CONTROL_GAP;
+      const perColumn = Math.floor((style.maxHeight + MAP_CONTROL_GAP) / step);
+      expect(perColumn).toBeLessThan(6);
+      const columns = Math.ceil(6 / perColumn);
+      expect(style.width).toBe(columns * step - MAP_CONTROL_GAP);
+    }
+  );
 
-  it('holds one column when every button fits', async () => {
+  vaultIt('holds one column when every button fits', async () => {
     await renderControls({ mapHeight: 2000 });
 
     const style = StyleSheet.flatten(screen.getByTestId('activity-map-controls').props.style);
@@ -102,7 +105,7 @@ describe('the activity map control column', () => {
     expect(screen.queryByTestId('activity-map-layers-menu')).toBeNull();
   });
 
-  it('shows the gradient key under the row while the colouring is on', async () => {
+  vaultIt('shows the gradient key under the row while the colouring is on', async () => {
     await renderControls({ gradientActive: true });
 
     await fireEvent.press(screen.getByTestId('activity-map-layers'));
@@ -111,14 +114,17 @@ describe('the activity map control column', () => {
     ).toHaveLength(7);
   });
 
-  it('draws no layers button without gradient data, and keeps 3D, compass and locate as buttons', async () => {
-    await renderControls({ hasGradientData: false });
+  vaultIt(
+    'draws no layers button without gradient data, and keeps 3D, compass and locate as buttons',
+    async () => {
+      await renderControls({ hasGradientData: false });
 
-    expect(screen.queryByTestId('activity-map-layers')).toBeNull();
-    expect(screen.getByTestId('activity-map-3d-toggle')).toBeTruthy();
-    expect(screen.getByLabelText('maps.resetOrientation')).toBeTruthy();
-    expect(screen.getByTestId('activity-map-location')).toBeTruthy();
-  });
+      expect(screen.queryByTestId('activity-map-layers')).toBeNull();
+      expect(screen.getByTestId('activity-map-3d-toggle')).toBeTruthy();
+      expect(screen.getByLabelText('maps.resetOrientation')).toBeTruthy();
+      expect(screen.getByTestId('activity-map-location')).toBeTruthy();
+    }
+  );
 
   it('closes the menu from its scrim', async () => {
     await renderControls();

@@ -52,7 +52,7 @@ it.each([
   expect(page.posted[0]).toMatchObject({ type: 'snapshotError', gen: 1, ...counts });
 });
 
-it('skips a 404 from a regional satellite source as out of coverage', () => {
+vaultIt('skips a 404 from a regional satellite source as out of coverage', () => {
   const page = bootWorkerPage();
 
   page.render(request, 1);

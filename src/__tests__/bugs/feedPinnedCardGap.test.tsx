@@ -139,12 +139,15 @@ async function renderFeed(fontScale = 1) {
 }
 
 describe('feed gap under the head cards', () => {
-  it('leaves the card spacing above the first card when the filter section is hidden', async () => {
-    const { cardsBottom } = await renderFeed();
-    expect(cardsBottom).toBe(CARD_MARGIN);
-  });
+  vaultIt(
+    'leaves the card spacing above the first card when the filter section is hidden',
+    async () => {
+      const { cardsBottom } = await renderFeed();
+      expect(cardsBottom).toBe(CARD_MARGIN);
+    }
+  );
 
-  it('leaves the card spacing between a shown filter section and the head cards', async () => {
+  vaultIt('leaves the card spacing between a shown filter section and the head cards', async () => {
     const { cardsBottom, searchTop, searchBottom } = await renderFeed();
     expect(searchTop).toBe(0);
     expect(searchBottom).toBe(CARD_MARGIN);
@@ -153,7 +156,7 @@ describe('feed gap under the head cards', () => {
 });
 
 describe('feed head card column', () => {
-  it('insets every head card by the activity card margin', async () => {
+  vaultIt('insets every head card by the activity card margin', async () => {
     await renderFeed();
     const cards = screen.getByTestId('home-head-cards');
     expect(StyleSheet.flatten(cards.props.style).paddingHorizontal).toBe(CARD_MARGIN);
@@ -183,13 +186,13 @@ function drawOrder(): string[] {
 describe.each([1, 2])('feed head cards at font scale %s', (fontScale) => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('scrolls the cards with the list', async () => {
+  vaultIt('scrolls the cards with the list', async () => {
     await renderFeed(fontScale);
     const list = screen.getByTestId('home-activity-list');
     expect(within(list).getByTestId('home-head-cards')).toBeTruthy();
   });
 
-  it('draws the cards below the filter section', async () => {
+  vaultIt('draws the cards below the filter section', async () => {
     await renderFeed(fontScale);
     const order = drawOrder();
     expect(order.indexOf('home-filter-section')).toBeGreaterThanOrEqual(0);
@@ -220,7 +223,7 @@ describe('feed settings control', () => {
   const initial = useDashboardPreferences.getState().summaryCard;
   afterEach(() => useDashboardPreferences.setState({ summaryCard: initial }));
 
-  it.each([false, true])(
+  vaultIt.each([false, true])(
     'draws no way into Settings with the summary card %s, since Settings is a tab',
     async (enabled) => {
       useDashboardPreferences.setState({ summaryCard: { ...initial, enabled } });

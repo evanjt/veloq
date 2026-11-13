@@ -99,7 +99,7 @@ describe('tapTargetFromPushData', () => {
     });
   });
 
-  it('finds a wrapped route with no id', () => {
+  vaultIt('finds a wrapped route with no id', () => {
     expect(tapTargetFromPushData({ dataString: JSON.stringify({ route: '/insights' }) })).toEqual({
       path: '/insights',
       mode: 'navigate',
@@ -206,7 +206,7 @@ describe('routeFromNotificationData', () => {
     expect(router.navigate).not.toHaveBeenCalled();
   });
 
-  it('opens nothing while signed out from an entry that names no athlete', () => {
+  vaultIt('opens nothing while signed out from an entry that names no athlete', () => {
     signIn(null);
     const { athlete_id: _athlete, ...unnamed } = TAP;
     routeFromNotificationData(unnamed);
@@ -216,7 +216,7 @@ describe('routeFromNotificationData', () => {
     expect(router.replace).not.toHaveBeenCalled();
   });
 
-  it.each(SHAPES)('navigates on the %s shape', (_name, data) => {
+  vaultIt.each(SHAPES)('navigates on the %s shape', (_name, data) => {
     routeFromNotificationData(data);
     expect(router.push).toHaveBeenCalledWith('/activity/i999');
   });
@@ -245,7 +245,7 @@ describe('the two tap entry points', () => {
     notification: { date, request: { identifier, content: { data } } },
   });
 
-  it('agree on a wrapped payload, whichever one sees it first', async () => {
+  vaultIt('agree on a wrapped payload, whichever one sees it first', async () => {
     (Notifications.getLastNotificationResponseAsync as jest.Mock).mockResolvedValue(
       response('n1', { dataString: JSON.stringify(TAP) })
     );

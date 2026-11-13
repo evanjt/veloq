@@ -92,7 +92,7 @@ beforeEach(() => {
 });
 
 describe('the routes screen mount', () => {
-  it('reads the first page once', async () => {
+  vaultIt('reads the first page once', async () => {
     const read = library(3, 3);
     mockedGetEngine.mockReturnValue({ getRoutesScreenData: read } as never);
 
@@ -116,7 +116,7 @@ describe('the routes screen mount', () => {
     expect(result.current.data?.groups).toHaveLength(3);
   });
 
-  it('reads again on focus after an engine event it missed', async () => {
+  vaultIt('reads again on focus after an engine event it missed', async () => {
     const read = library(3, 3);
     mockedGetEngine.mockReturnValue({ getRoutesScreenData: read } as never);
 
@@ -173,22 +173,25 @@ describe('a load-more', () => {
     expect(result.current.hasMoreGroups).toBe(false);
   });
 
-  it('stops asking for groups once a finished group list stays finished across section pages', async () => {
-    const read = library(1, 7);
-    mockedGetEngine.mockReturnValue({ getRoutesScreenData: read } as never);
+  vaultIt(
+    'stops asking for groups once a finished group list stays finished across section pages',
+    async () => {
+      const read = library(1, 7);
+      mockedGetEngine.mockReturnValue({ getRoutesScreenData: read } as never);
 
-    const { result } = await renderHook(() =>
-      useRoutesScreenData({ groupLimit: 5, sectionLimit: 2 })
-    );
-    await flushIdle();
-    await act(() => result.current.loadMoreSections());
-    await flushIdle();
-    const calls = read.mock.calls.length;
-    await act(() => result.current.loadMoreGroups());
-    await flushIdle();
+      const { result } = await renderHook(() =>
+        useRoutesScreenData({ groupLimit: 5, sectionLimit: 2 })
+      );
+      await flushIdle();
+      await act(() => result.current.loadMoreSections());
+      await flushIdle();
+      const calls = read.mock.calls.length;
+      await act(() => result.current.loadMoreGroups());
+      await flushIdle();
 
-    expect(read.mock.calls.length).toBe(calls);
-  });
+      expect(read.mock.calls.length).toBe(calls);
+    }
+  );
 });
 
 describe('a load-more of each list before the read lands', () => {

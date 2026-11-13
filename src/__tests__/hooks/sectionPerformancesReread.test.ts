@@ -97,7 +97,7 @@ it('reads the records again when the engine announces the sections moved', async
   expect(getSectionPerformances).toHaveBeenLastCalledWith('sec-1', 'Ride');
 });
 
-it('does not read again on a render that moved nothing', async () => {
+vaultIt('does not read again on a render that moved nothing', async () => {
   const { result, rerender } = await renderHook(() => useSectionPerformances(section, 'Ride'));
   await waitFor(() => expect(result.current.records).toHaveLength(1));
   const reads = getSectionPerformances.mock.calls.length;
@@ -172,7 +172,7 @@ describe('withoutRecordMarks', () => {
     expect(read[0]?.laps[0]?.isRecord).toBe(true);
   });
 
-  it('leaves an empty set empty', () => {
+  vaultIt('leaves an empty set empty', () => {
     expect(withoutRecordMarks([])).toEqual([]);
   });
 });

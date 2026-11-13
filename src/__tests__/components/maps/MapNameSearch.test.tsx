@@ -84,7 +84,7 @@ describe('MapNameSearch', () => {
     expect(onChangeNeedle).toHaveBeenCalledWith('');
   });
 
-  it('offers no clear control for an empty field', async () => {
+  vaultIt('offers no clear control for an empty field', async () => {
     await render(
       <MapNameSearch
         needle=""
@@ -99,7 +99,7 @@ describe('MapNameSearch', () => {
     expect(screen.queryByLabelText('common.clearSearch')).toBeNull();
   });
 
-  it('draws the shared search bar, so input handling follows the app theme', async () => {
+  vaultIt('draws the shared search bar, so input handling follows the app theme', async () => {
     mockIsDark = true;
     await render(
       <MapNameSearch
@@ -118,7 +118,7 @@ describe('MapNameSearch', () => {
     expect(screen.UNSAFE_getByType(SearchBar)).toBeTruthy();
   });
 
-  it('shows a localised date with year in each result', async () => {
+  vaultIt('shows a localised date with year in each result', async () => {
     await initialiseI18n('en-GB');
     const activity = { ...ride('a1', 'Morning ride'), date: Date.UTC(2026, 9, 5, 7) / 1000 };
     await render(
@@ -136,7 +136,7 @@ describe('MapNameSearch', () => {
     expect(screen.queryByText('2026-10-05')).toBeNull();
   });
 
-  it('names each result with the date it draws beside the name', async () => {
+  vaultIt('names each result with the date it draws beside the name', async () => {
     await initialiseI18n('en-GB');
     const activity = { ...ride('a3', 'Orchard spin'), date: Date.UTC(2026, 5, 14, 9) / 1000 };
     await render(
@@ -188,25 +188,28 @@ describe('MapNameSearch count and rows', () => {
     distance: 42_300 + i * 1_000,
   }));
 
-  it('states how many of the matches it shows and names the filters that narrowed them', async () => {
-    await initialiseI18n('en-GB');
-    await render(
-      <MapNameSearch
-        needle="harbour"
-        onChangeNeedle={jest.fn()}
-        results={six.slice(0, 5)}
-        total={six.length}
-        filters={['Ride', '10–50km']}
-        onChoose={jest.fn()}
-      />
-    );
+  vaultIt(
+    'states how many of the matches it shows and names the filters that narrowed them',
+    async () => {
+      await initialiseI18n('en-GB');
+      await render(
+        <MapNameSearch
+          needle="harbour"
+          onChangeNeedle={jest.fn()}
+          results={six.slice(0, 5)}
+          total={six.length}
+          filters={['Ride', '10–50km']}
+          onChoose={jest.fn()}
+        />
+      );
 
-    const count = screen.getByTestId('map-search-count');
-    expect(count).toHaveTextContent('5 of 6 · filtered by Ride, 10–50km');
-    expect(screen.queryByTestId('map-search-result-m5')).toBeNull();
-  });
+      const count = screen.getByTestId('map-search-count');
+      expect(count).toHaveTextContent('5 of 6 · filtered by Ride, 10–50km');
+      expect(screen.queryByTestId('map-search-result-m5')).toBeNull();
+    }
+  );
 
-  it('names no filter when none narrowed the matches', async () => {
+  vaultIt('names no filter when none narrowed the matches', async () => {
     await initialiseI18n('en-GB');
     await render(
       <MapNameSearch
@@ -222,7 +225,7 @@ describe('MapNameSearch count and rows', () => {
     expect(screen.getByTestId('map-search-count')).toHaveTextContent('2 of 2', { exact: true });
   });
 
-  it('draws sport, distance and date on each row and says all of them', async () => {
+  vaultIt('draws sport, distance and date on each row and says all of them', async () => {
     await initialiseI18n('en-GB');
     await render(
       <MapNameSearch

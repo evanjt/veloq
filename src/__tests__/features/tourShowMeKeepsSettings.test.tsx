@@ -149,7 +149,7 @@ const TOURS = [
 ] as const;
 
 describe.each(TOURS)('Show Me on each $mode slide', ({ mode, lastSeenVersion, shows }) => {
-  it('offers Show Me on more than the map slide', () => {
+  vaultIt('offers Show Me on more than the map slide', () => {
     expect(shows.length).toBeGreaterThan(1);
   });
 
@@ -259,11 +259,11 @@ describe("Garmin slide in the What's New update set", () => {
     mockUsesGarmin = true;
   });
 
-  it('is registered for upgraders from 0.3.8', () => {
+  vaultIt('is registered for upgraders from 0.3.8', () => {
     expect(garminSlides('0.3.8')).toHaveLength(1);
   });
 
-  it('is left out while the Garmin experimental switch is off', async () => {
+  vaultIt('is left out while the Garmin experimental switch is off', async () => {
     useDebugStore.setState({ experimentalFeatures: {} });
     await openUpdate();
     await act(async () => {
@@ -272,7 +272,7 @@ describe("Garmin slide in the What's New update set", () => {
     expect(screen.queryByText('whatsNew.tutorial.garminTitle')).toBeNull();
   });
 
-  it('is shown to a Garmin athlete and left out otherwise', async () => {
+  vaultIt('is shown to a Garmin athlete and left out otherwise', async () => {
     mockUsesGarmin = true;
     await openUpdate();
     await act(async () => {

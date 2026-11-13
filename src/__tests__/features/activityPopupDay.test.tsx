@@ -63,7 +63,7 @@ describe('activity popup day', () => {
     expect(screen.getByText(formatFullDateWithWeekday(new Date(2026, 10, 5)))).toBeTruthy();
   });
 
-  it('names the early ride on the day it was ridden', async () => {
+  vaultIt('names the early ride on the day it was ridden', async () => {
     await showPopupAt(Date.UTC(2026, 10, 5, 7) / 1000);
     expect(screen.getByText(formatFullDateWithWeekday(new Date(2026, 10, 5)))).toBeTruthy();
   });

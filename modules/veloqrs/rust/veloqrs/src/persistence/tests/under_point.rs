@@ -102,6 +102,7 @@ fn ids(hits: &[crate::persistence::under_point::Hit]) -> Vec<&str> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_buffer_is_a_fingertip_at_the_zoom_clamped_to_fifteen_and_a_hundred_and_fifty_metres() {
     let at_14 = buffer_metres(TAP.0, 14);
     assert!(
@@ -138,6 +139,7 @@ fn a_track_counts_by_its_nearest_segment_and_a_hidden_one_is_absent() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_sixty_metres_off_hits_at_zoom_twelve_and_not_at_zoom_sixteen() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     store(&mut engine, "off", 1_700_000_000, passing(60.0, 40));
@@ -148,6 +150,7 @@ fn a_track_sixty_metres_off_hits_at_zoom_twelve_and_not_at_zoom_sixteen() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_segment_between_two_far_points_hits_when_no_point_is_near() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     // Two points a kilometre either side of the tap: the line between them
@@ -187,6 +190,7 @@ fn an_unreadable_stored_track_is_left_out_and_the_rest_answer() {
 /// Expected behaviour: the most points held decoded at once is the longest
 /// single track, not a chunk of the candidates.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_decode_holds_one_track_at_a_time() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     let batch: Vec<(String, Vec<GpsPoint>, String)> = (0..1_200)
@@ -242,6 +246,7 @@ fn add_route(engine: &PersistentEngine, id: &str, members: &[String]) {
 /// activities in all and they are the newest 500; `truncated` is set and
 /// `total` is 600; each group lists its own newest first.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn six_hundred_hits_answer_two_routes_then_the_one_offs_capped_to_the_newest_five_hundred() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     let mut members: [Vec<String>; 3] = [Vec::new(), Vec::new(), Vec::new()];
@@ -320,6 +325,7 @@ fn six_hundred_hits_answer_two_routes_then_the_one_offs_capped_to_the_newest_fiv
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tap_with_nothing_under_it_answers_an_empty_result() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     store(&mut engine, "far", 1_700_000_000, passing(900.0, 40));
@@ -330,6 +336,7 @@ fn a_tap_with_nothing_under_it_answers_an_empty_result() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_with_no_route_and_no_metrics_row_is_not_listed() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     engine
@@ -357,6 +364,7 @@ mod published_source {
     use crate::test_globals::{init_global_engine, read_while_writer_holds, serial_global_state};
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_closed_heatmap_answers_an_empty_result() {
         let _serial = serial_global_state();
         let _tmp = init_global_engine("under-point-closed.db");
@@ -370,6 +378,7 @@ mod published_source {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_open_heatmap_answers_the_activities_under_the_tap_without_the_engine_lock() {
         let _serial = serial_global_state();
         let _tmp = init_global_engine("under-point-open.db");
@@ -389,6 +398,7 @@ mod published_source {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tap_that_is_not_a_coordinate_answers_nothing() {
         let found = activities_under_point(f64::NAN, TAP.1, 14).expect("an empty answer");
 
@@ -416,6 +426,7 @@ fn at(north: f64, east: f64) -> GpsPoint {
 /// group answers the two one-offs; a group that is not there answers nothing;
 /// a hidden member is absent.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_group_answers_its_newest_traces_clipped_to_the_circle_and_simplified() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     let mut members = Vec::new();
@@ -460,6 +471,7 @@ fn a_group_answers_its_newest_traces_clipped_to_the_circle_and_simplified() {
 /// Expected behaviour: two lines, each ending on the circle where the track
 /// crossed it, and a track that never comes inside gives none.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_that_leaves_and_re_enters_the_circle_is_two_lines() {
     let radius = clip_radius_metres(TAP.0, 14);
     let track = [
@@ -487,6 +499,7 @@ fn a_track_that_leaves_and_re_enters_the_circle_is_two_lines() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn simplifying_drops_vertices_within_the_tolerance_and_keeps_a_corner() {
     let radius = clip_radius_metres(TAP.0, 14);
     let wobble = [

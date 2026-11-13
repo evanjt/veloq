@@ -1945,6 +1945,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_two_point_track_is_usable() {
             let r = result(Some(vec![[-37.81, 144.96], [-37.82, 144.97]]), true);
             assert_eq!(usable_track(&r).unwrap().len(), 2);
@@ -1967,6 +1968,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_failed_fetch_is_reported_and_retried() {
             assert!(counts_as_failure(&TrackRefusal::Fetch(
                 "timeout".to_string()
@@ -2008,6 +2010,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_empty_series_is_too_short_rather_than_absent() {
             assert_eq!(
                 usable_track(&result(Some(vec![]), true)),
@@ -2361,6 +2364,7 @@ mod tests {
     /// for a moment is not that. Reading it as one is why the merge gate failed
     /// twice on branches that touch none of this.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_foreign_thread_holding_the_lock_is_not_an_announcement_under_it() {
         let _serial = serial_global_state();
         let _tmp = init_global_engine("gps_announce_busy.db");
@@ -2549,6 +2553,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_track_left_flat_reads_as_unavailable() {
         let points = track_points(&[[46.0, 7.0], [46.1, 7.1]], None);
         assert_eq!(elevation_state_of(&points), ELEVATION_STATE_UNAVAILABLE);
@@ -2710,6 +2715,7 @@ mod fetch_and_store_results {
     /// A caller that unmounts before reading leaves its result behind. The
     /// map is bounded so those cannot pile up for the life of the process.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn abandoned_results_are_evicted_oldest_first() {
         let _serial = serial_global_state();
         let mut runs = Vec::new();
@@ -2768,6 +2774,7 @@ mod cutover_diff {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_null_reset_is_a_diff_with_no_reset() {
         let diff = parse_cutover_diff(&diff_with(r#","settings_reset":null"#)).expect("a diff");
         assert!(diff.settings_reset.is_none());

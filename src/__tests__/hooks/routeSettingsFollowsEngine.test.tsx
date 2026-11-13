@@ -57,7 +57,7 @@ it('re-reads the stored settings when a browser changed them', async () => {
   expect(useRouteSettings.getState().settings.enabled).toBe(false);
 });
 
-it('does not re-read on a sections announcement', async () => {
+vaultIt('does not re-read on a sections announcement', async () => {
   await render(<Probe />);
   mockedGet.mockClear();
 
@@ -68,7 +68,7 @@ it('does not re-read on a sections announcement', async () => {
   expect(mockedGet).not.toHaveBeenCalled();
 });
 
-it('reload falls back to the default when nothing is stored', async () => {
+vaultIt('reload falls back to the default when nothing is stored', async () => {
   useRouteSettings.setState({ settings: { enabled: false }, isLoaded: true });
   await useRouteSettings.getState().reload();
   expect(useRouteSettings.getState().settings.enabled).toBe(true);

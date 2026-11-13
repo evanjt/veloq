@@ -63,6 +63,7 @@ fn stored_numbers(engine: &PersistentEngine) -> HashMap<String, u32> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn routes_minted_under_two_route_words_never_show_one_number() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -95,6 +96,7 @@ fn routes_minted_under_two_route_words_never_show_one_number() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_in_memory_names_follow_a_change_of_language() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -124,6 +126,7 @@ fn the_store_refuses_two_routes_on_one_number() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_typed_name_replaces_the_number_on_screen_and_clearing_it_brings_the_number_back() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -158,6 +161,7 @@ fn a_typed_name_replaces_the_number_on_screen_and_clearing_it_brings_the_number_
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_name_another_route_shows_is_refused_and_changes_nothing() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -243,6 +247,7 @@ fn a_regroup_that_splits_and_merges_leaves_no_two_routes_on_one_number() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_kept_label_holds_its_number_and_a_new_route_takes_the_lowest_free_one() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -295,6 +300,7 @@ fn a_kept_label_holds_its_number_and_a_new_route_takes_the_lowest_free_one() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_number_freed_when_its_group_leaves_is_never_given_to_another_route() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -320,6 +326,7 @@ fn a_number_freed_when_its_group_leaves_is_never_given_to_another_route() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_group_that_returns_keeps_the_number_it_left_with() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();
@@ -363,6 +370,7 @@ fn the_record_backup_carries_the_numbers_of_retired_routes() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_new_route_never_takes_a_number_a_name_already_shows() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();

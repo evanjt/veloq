@@ -32,7 +32,7 @@ describe('useRetiredSectionCount', () => {
     expect(result.current).toBe(2);
   });
 
-  it('asks for no rows, since an entry point needs only the number', () => {
+  vaultIt('asks for no rows, since an entry point needs only the number', () => {
     mockedRead.mockReturnValue({ ledgerRetiredCount: 2 });
     renderHook(() => useRetiredSectionCount());
     expect(mockedRead).toHaveBeenCalledWith(
@@ -40,7 +40,7 @@ describe('useRetiredSectionCount', () => {
     );
   });
 
-  it('is zero for a library that retired nothing', () => {
+  vaultIt('is zero for a library that retired nothing', () => {
     mockedRead.mockReturnValue({ ledgerRetiredCount: 0, removedCount: 3 });
     const { result } = renderHook(() => useRetiredSectionCount());
     expect(result.current).toBe(0);

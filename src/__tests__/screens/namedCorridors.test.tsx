@@ -79,14 +79,14 @@ describe('NamedCorridorsScreen', () => {
     remove.mockReturnValue(true);
   });
 
-  it('says so when the user has named nothing', async () => {
+  vaultIt('says so when the user has named nothing', async () => {
     withCorridors([]);
     const { getByTestId, queryByTestId } = await render(<NamedCorridorsScreen />);
     expect(getByTestId('named-corridors-empty')).toBeTruthy();
     expect(queryByTestId('named-corridor-intent-1')).toBeNull();
   });
 
-  it('lists one name with the section carrying it', async () => {
+  vaultIt('lists one name with the section carrying it', async () => {
     withCorridors([RESOLVED]);
     const { getByTestId, getByText } = await render(<NamedCorridorsScreen />);
     expect(getByTestId('named-corridor-intent-1')).toBeTruthy();
@@ -95,14 +95,14 @@ describe('NamedCorridorsScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/section/sec-1');
   });
 
-  it('marks a dormant name and gives it nothing to open', async () => {
+  vaultIt('marks a dormant name and gives it nothing to open', async () => {
     withCorridors([DORMANT]);
     const { getByTestId, queryByTestId } = await render(<NamedCorridorsScreen />);
     expect(getByTestId('named-corridor-intent-2-dormant')).toBeTruthy();
     expect(queryByTestId('named-corridor-intent-2-open')).toBeNull();
   });
 
-  it('keeps two names that landed on the same ground apart', async () => {
+  vaultIt('keeps two names that landed on the same ground apart', async () => {
     withCorridors([RESOLVED, { ...DORMANT, sectionId: 'sec-1', dormant: false }]);
     const { getByTestId } = await render(<NamedCorridorsScreen />);
     expect(getByTestId('named-corridor-intent-1')).toBeTruthy();

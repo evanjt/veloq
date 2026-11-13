@@ -127,6 +127,7 @@ fn drawn_tile(z: u8, x: u32, y: u32) -> Vec<u8> {
 ///
 /// Expected behaviour: each answer is the stored tile in that base's palette.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_drawn_heatmap_tile_crosses_the_boundary_in_the_asking_base_palette() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -146,6 +147,7 @@ fn a_drawn_heatmap_tile_crosses_the_boundary_in_the_asking_base_palette() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_heatmap_source_naming_no_base_is_a_404() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -163,6 +165,7 @@ fn a_heatmap_source_naming_no_base_is_a_404() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stored_heatmap_tile_that_is_not_a_png_is_a_404() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -174,6 +177,7 @@ fn a_stored_heatmap_tile_that_is_not_a_png_is_a_404() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tile_the_pass_has_not_drawn_yet_is_null() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -184,6 +188,7 @@ fn a_tile_the_pass_has_not_drawn_yet_is_null() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_marker_file_is_null_rather_than_an_empty_slice() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -195,6 +200,7 @@ fn an_empty_marker_file_is_null_rather_than_an_empty_slice() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_source_the_store_never_admitted_is_null() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -203,6 +209,7 @@ fn a_source_the_store_never_admitted_is_null() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_null_source_is_null() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -211,6 +218,7 @@ fn a_null_source_is_null() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_zoom_beyond_a_byte_is_null_before_anything_is_read() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -221,6 +229,7 @@ fn a_zoom_beyond_a_byte_is_null_before_anything_is_read() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn freeing_a_null_answer_is_a_no_op() {
     let _serial_state = super::serial_state();
     unsafe { veloq_tile_free(std::ptr::null_mut(), 0) };
@@ -228,6 +237,7 @@ fn freeing_a_null_answer_is_a_no_op() {
 
 /// A handler that wants no answer must not have a null pointer called.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_null_callback_is_never_called() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -266,6 +276,7 @@ fn host_answering(status: u16) -> MockServer {
 /// Expected behaviour: the page sees the 429, which is what its throttle
 /// backoff counts, rather than a 404 it skips as out of coverage.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rate_limited_tile_reaches_the_page_as_429() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -276,6 +287,7 @@ fn a_rate_limited_tile_reaches_the_page_as_429() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unavailable_host_reaches_the_page_as_503() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -287,6 +299,7 @@ fn an_unavailable_host_reaches_the_page_as_503() {
 
 /// Any other upstream failure is ours to report and not a hole in coverage.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn any_other_upstream_error_reaches_the_page_as_a_bad_gateway() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -297,6 +310,7 @@ fn any_other_upstream_error_reaches_the_page_as_a_bad_gateway() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_host_that_cannot_be_reached_reaches_the_page_as_a_bad_gateway() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -318,6 +332,7 @@ fn a_host_that_cannot_be_reached_reaches_the_page_as_a_bad_gateway() {
 
 /// A real refusal stays a 404, which the page skips as out of coverage.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_tile_the_host_refuses_still_reaches_the_page_as_404() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -351,6 +366,7 @@ fn a_fetched_tile_reaches_the_page_as_200() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_source_the_store_never_admitted_is_a_404() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -359,6 +375,7 @@ fn a_source_the_store_never_admitted_is_a_404() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_heatmap_tile_not_drawn_yet_is_a_404() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -369,6 +386,7 @@ fn a_heatmap_tile_not_drawn_yet_is_a_404() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_glyph_stack_the_host_does_not_serve_is_a_404_through_the_symbol() {
     let stack = CString::new("../outside").unwrap();
     let range = CString::new("19968-20223").unwrap();

@@ -99,6 +99,7 @@ fn db_sha256(path: &std::path::Path) -> [u8; 32] {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_current_catalogue_is_what_the_engine_holds_for_the_area() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -136,6 +137,7 @@ fn the_current_catalogue_is_what_the_engine_holds_for_the_area() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_named_corridor_reads_its_name_on_the_preview_and_diff() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -191,6 +193,7 @@ fn a_named_corridor_reads_its_name_on_the_preview_and_diff() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_current_catalogue_is_the_one_a_run_diffs_against() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -244,6 +247,7 @@ fn the_current_catalogue_is_the_one_a_run_diffs_against() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_area_with_no_catalogue_yet_reads_empty_not_missing() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -262,6 +266,7 @@ fn an_area_with_no_catalogue_yet_reads_empty_not_missing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_point_no_activity_covers_reports_nothing() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -281,6 +286,7 @@ fn a_point_no_activity_covers_reports_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn reading_the_current_catalogue_writes_nothing() {
     let _serial_state = super::serial_state();
     let _serial = serial();

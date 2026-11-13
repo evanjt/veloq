@@ -9,13 +9,13 @@ const newest = { date: '2026-03-04', fitness: 60 };
 const scrubbed = { date: '2026-03-02', fitness: 41 };
 
 describe('displayedDay', () => {
-  it('shows the newest day when nothing is pinned or scrubbed', () => {
+  vaultIt('shows the newest day when nothing is pinned or scrubbed', () => {
     expect(displayedDay({ selectedDate: null, isActive: false, selected: null, newest })).toBe(
       newest
     );
   });
 
-  it('shows the pinned day when it has a row', () => {
+  vaultIt('shows the pinned day when it has a row', () => {
     expect(
       displayedDay({ selectedDate: scrubbed.date, isActive: false, selected: scrubbed, newest })
     ).toBe(scrubbed);

@@ -246,7 +246,7 @@ describe('useEngineSync', () => {
     jest.useRealTimers();
   });
 
-  it('costs no timer at all while the engine can announce', async () => {
+  vaultIt('costs no timer at all while the engine can announce', async () => {
     jest.useFakeTimers();
     const engine = engineWith(jest.fn().mockReturnValue(StartOutcome.Started));
     mockGetEngine.mockReturnValue(engine);
@@ -271,7 +271,7 @@ describe('useEngineSync', () => {
     jest.useRealTimers();
   });
 
-  it('starts once when the engine is already up', async () => {
+  vaultIt('starts once when the engine is already up', async () => {
     const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
@@ -330,7 +330,7 @@ describe('useEngineSync', () => {
     expect(syncNow).toHaveBeenCalledTimes(2);
   });
 
-  it('holds one listener, not one per return', async () => {
+  vaultIt('holds one listener, not one per return', async () => {
     const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
@@ -557,7 +557,7 @@ describe('useEngineSync', () => {
     expect(mockScheduleWidgetSnapshot).not.toHaveBeenCalled();
   });
 
-  it('refreshes the widget once per sync, not once per settled render', async () => {
+  vaultIt('refreshes the widget once per sync, not once per settled render', async () => {
     const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
@@ -663,7 +663,7 @@ describe('useEngineSync', () => {
     expect(engine?.triggerRefresh).toHaveBeenCalledWith('activities');
   });
 
-  it('asks nothing on the settle of a sync that failed', async () => {
+  vaultIt('asks nothing on the settle of a sync that failed', async () => {
     // The credential may be the thing that failed, and asking again straight
     // away hammers a 401 on every settle.
     const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);

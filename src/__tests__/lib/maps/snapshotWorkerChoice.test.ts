@@ -19,7 +19,7 @@ function worker(id: number, lastRender: { mapStyle: string; flat: boolean } | nu
 }
 
 describe('which worker takes the next render', () => {
-  it('prefers the one that last drew the same thing', () => {
+  vaultIt('prefers the one that last drew the same thing', () => {
     const free = [worker(0, drape), worker(1, flat)];
 
     expect(pickSnapshotWorker(free, flat)).toBe(1);
@@ -33,7 +33,7 @@ describe('which worker takes the next render', () => {
     expect(pickSnapshotWorker(free, flat)).toBe(0);
   });
 
-  it('holds nothing back when every free worker holds the wrong style', () => {
+  vaultIt('holds nothing back when every free worker holds the wrong style', () => {
     // A priority render is the card the athlete is looking at, and an idle
     // worker is worth more than a fast path either way.
     const free = [worker(0, drape), worker(1, drape)];
@@ -41,14 +41,14 @@ describe('which worker takes the next render', () => {
     expect(pickSnapshotWorker(free, flat)).toBe(0);
   });
 
-  it('tells two modes of the same style apart', () => {
+  vaultIt('tells two modes of the same style apart', () => {
     const free = [worker(0, { mapStyle: 'light', flat: false })];
 
     expect(pickSnapshotWorker(free, { mapStyle: 'light', flat: true })).toBe(0);
     expect(pickSnapshotWorker([worker(0, { mapStyle: 'light', flat: true })], flat)).toBe(0);
   });
 
-  it('tells two styles of the same mode apart', () => {
+  vaultIt('tells two styles of the same mode apart', () => {
     const free = [
       worker(0, { mapStyle: 'dark', flat: true }),
       worker(1, { mapStyle: 'light', flat: true }),
@@ -57,13 +57,13 @@ describe('which worker takes the next render', () => {
     expect(pickSnapshotWorker(free, { mapStyle: 'light', flat: true })).toBe(1);
   });
 
-  it('treats an absent flat as a drape, which is what the page does', () => {
+  vaultIt('treats an absent flat as a drape, which is what the page does', () => {
     const free = [worker(0, { mapStyle: 'light', flat: true }), worker(1, drape)];
 
     expect(pickSnapshotWorker(free, { mapStyle: 'light' })).toBe(1);
   });
 
-  it('takes the first free worker when none has drawn anything yet', () => {
+  vaultIt('takes the first free worker when none has drawn anything yet', () => {
     expect(pickSnapshotWorker([worker(0, null), worker(1, null)], flat)).toBe(0);
   });
 

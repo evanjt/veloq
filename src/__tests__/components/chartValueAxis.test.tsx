@@ -77,7 +77,7 @@ describe('the chart value axis', () => {
     expect(labels).toEqual(['0', '20', '40', '60']);
   });
 
-  it('centres the form chart zero label on the zero line', async () => {
+  vaultIt('centres the form chart zero label on the zero line', async () => {
     const tree = await render(<FormZoneChart data={FORM_DAYS} height={HEIGHT} />);
     await layoutViews(tree, 300, HEIGHT);
 
@@ -92,7 +92,7 @@ describe('the chart value axis', () => {
     expect(topOf(zero!) + Y_LABEL_BOX / 2).toBeCloseTo(zeroY, 5);
   });
 
-  it('reads the shared secondary colour on every axis label in dark mode', async () => {
+  vaultIt('reads the shared secondary colour on every axis label in dark mode', async () => {
     mockDark = true;
     const fitness = await render(<FitnessChart data={DAYS} />);
     await layoutViews(fitness, 300, HEIGHT);

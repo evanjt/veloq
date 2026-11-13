@@ -103,6 +103,7 @@ fn recuts(engine: &PersistentEngine) -> Vec<(Option<i64>, Option<String>)> {
 /// Expected behaviour: the new line is a geometry version and a `recut` history
 /// row links it and names the extents and references.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_adopted_line_that_grows_is_versioned_and_narrated() {
     let mut engine = engine_with_rides();
     apply(&mut engine, section_on("short", 200));
@@ -134,6 +135,7 @@ fn an_adopted_line_that_grows_is_versioned_and_narrated() {
 /// Scenario: the same line and reference are applied again.
 /// Expected behaviour: nothing is written.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unchanged_adoption_writes_no_version_or_row() {
     let mut engine = engine_with_rides();
     apply(&mut engine, section_on("short", 200));
@@ -149,6 +151,7 @@ fn an_unchanged_adoption_writes_no_version_or_row() {
 /// Expected behaviour: the change of reference is a version and a row, because
 /// the ledger names the reference a section is measured against.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_adopted_reference_change_on_the_same_ground_is_narrated() {
     let mut engine = engine_with_rides();
     apply(&mut engine, section_on("long", 250));
@@ -165,6 +168,7 @@ fn an_adopted_reference_change_on_the_same_ground_is_narrated() {
 /// Scenario: a sub-percent wobble in the line from the same reference.
 /// Expected behaviour: no row, so consensus noise does not fill the ledger.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_small_extent_change_from_the_same_reference_is_not_narrated() {
     let mut engine = engine_with_rides();
     apply(&mut engine, section_on("long", 250));

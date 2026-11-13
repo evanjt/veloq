@@ -17,12 +17,14 @@ fn context(decimal: &str, group: &str, minimum_grouping_digits: u32) -> FfiWidge
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_weight_takes_the_locale_decimal() {
     assert_eq!(weight_text(72.5, &context(",", ".", 1)), "72,5 kg");
     assert_eq!(weight_text(72.0, &context(",", ".", 1)), "72 kg");
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_distance_takes_the_locale_decimal_and_grouping() {
     let ctx = context(",", ".", 1);
     assert_eq!(format_distance(12_500.0, &ctx), "12,5 km");
@@ -31,6 +33,7 @@ fn a_distance_takes_the_locale_decimal_and_grouping() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn grouping_waits_for_the_locale_minimum() {
     let ctx = context(",", "\u{a0}", 2);
     assert_eq!(number_text("1234", &ctx), "1234");
@@ -39,6 +42,7 @@ fn grouping_waits_for_the_locale_minimum() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_context_stored_before_the_separators_writes_a_point_and_no_grouping() {
     let ctx = FfiWidgetContext {
         is_metric: true,

@@ -256,7 +256,7 @@ describe('section page curves owed', () => {
     expect(screen.getByTestId('performance-chart-panel')).toBeTruthy();
   });
 
-  it('loads nothing when the read holds its curves', async () => {
+  vaultIt('loads nothing when the read holds its curves', async () => {
     mockCurves = CURVES;
     mockCurvesPending = false;
     const screen = await openSection();

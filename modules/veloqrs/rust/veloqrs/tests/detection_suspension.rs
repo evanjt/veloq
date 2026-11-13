@@ -49,6 +49,7 @@ fn engine_with(ids: &[&str]) -> (TempDir, PersistentEngine) {
 /// A fresh engine detects. Suspension is process-lifetime state and is never
 /// persisted, so a crash mid-backfill comes back able to detect.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fresh_engine_is_never_suspended() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -66,6 +67,7 @@ fn a_fresh_engine_is_never_suspended() {
 /// gating it gates `DetectionManager::start`, `force_redetect` and the
 /// conditioning driver alike.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_background_detect_arm_refuses_while_suspended() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -87,6 +89,7 @@ fn the_background_detect_arm_refuses_while_suspended() {
 /// The conditioning arm fires from inside the Rust ingest loop with no FFI
 /// round trip, so it needs the same gate.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_conditioning_arm_refuses_while_suspended() {
     let _serial_state = super::serial_state();
     let _serial = serial();
@@ -107,6 +110,7 @@ fn the_conditioning_arm_refuses_while_suspended() {
 /// A run that finished having changed nothing reports Ready and renders
 /// "complete", so the caller can tell the two apart.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refusal_is_distinguishable_from_a_run_that_changed_nothing() {
     let _serial_state = super::serial_state();
     let _serial = serial();

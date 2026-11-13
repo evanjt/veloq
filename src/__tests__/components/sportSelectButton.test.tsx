@@ -43,31 +43,34 @@ afterEach(() => {
 });
 
 describe('SportSelectButton', () => {
-  it('labels one dropdown with the sport on screen and lists every sport in order', async () => {
-    await render(
-      <PaperProvider>
-        <SportSelectButton options={THREE} selectedType="Ride" onSelect={jest.fn()} />
-      </PaperProvider>
-    );
+  vaultIt(
+    'labels one dropdown with the sport on screen and lists every sport in order',
+    async () => {
+      await render(
+        <PaperProvider>
+          <SportSelectButton options={THREE} selectedType="Ride" onSelect={jest.fn()} />
+        </PaperProvider>
+      );
 
-    expect(screen.getAllByTestId('section-sport')).toHaveLength(1);
-    expect(screen.getByTestId('section-sport')).toHaveTextContent(
-      'activityTypes.Ride · 6 traversals'
-    );
-    expect(screen.queryAllByRole('menuitem')).toHaveLength(0);
+      expect(screen.getAllByTestId('section-sport')).toHaveLength(1);
+      expect(screen.getByTestId('section-sport')).toHaveTextContent(
+        'activityTypes.Ride · 6 traversals'
+      );
+      expect(screen.queryAllByRole('menuitem')).toHaveLength(0);
 
-    await act(async () => {
-      await fireEvent.press(screen.getByTestId('section-sport'));
-    });
-    const rows = await screen.findAllByRole('menuitem');
-    expect(rows.map((row) => row.props.accessibilityLabel)).toEqual([
-      'activityTypes.Ride · 6 traversals',
-      'activityTypes.Run · 3 traversals',
-      'activityTypes.Hike · 2 traversals',
-    ]);
-  });
+      await act(async () => {
+        await fireEvent.press(screen.getByTestId('section-sport'));
+      });
+      const rows = await screen.findAllByRole('menuitem');
+      expect(rows.map((row) => row.props.accessibilityLabel)).toEqual([
+        'activityTypes.Ride · 6 traversals',
+        'activityTypes.Run · 3 traversals',
+        'activityTypes.Hike · 2 traversals',
+      ]);
+    }
+  );
 
-  it('draws the activity-type icon of each sport beside its name in the menu', async () => {
+  vaultIt('draws the activity-type icon of each sport beside its name in the menu', async () => {
     await render(
       <PaperProvider>
         <SportSelectButton options={THREE} selectedType="Ride" onSelect={jest.fn()} />
@@ -110,7 +113,7 @@ describe('SportSelectButton', () => {
     expect(onSelect).toHaveBeenCalledWith('Hike');
   });
 
-  it('states a single sport as text with no menu', async () => {
+  vaultIt('states a single sport as text with no menu', async () => {
     await render(
       <SportSelectButton
         options={[{ type: 'Run', count: 4 }]}
@@ -125,7 +128,7 @@ describe('SportSelectButton', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('draws nothing when no sport is offered', async () => {
+  vaultIt('draws nothing when no sport is offered', async () => {
     await render(<SportSelectButton options={[]} selectedType={undefined} onSelect={jest.fn()} />);
 
     expect(screen.queryByTestId('section-sport')).toBeNull();

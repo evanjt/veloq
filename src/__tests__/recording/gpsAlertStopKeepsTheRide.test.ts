@@ -102,7 +102,7 @@ async function openNoFixAlert() {
 }
 
 describe('the no-GPS alert', () => {
-  it('opens after the alert delay while no fix has arrived', async () => {
+  vaultIt('opens after the alert delay while no fix has arrived', async () => {
     await openNoFixAlert();
 
     expect(Alert.alert).toHaveBeenCalledTimes(1);

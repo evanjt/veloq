@@ -65,13 +65,13 @@ describe('the banner palette', () => {
     expect(contrast(p.icon, p.bg)).toBeGreaterThanOrEqual(AA_MARK);
   });
 
-  it.each([false, true])('gives each tone its own ground, dark mode %s', (dark) => {
+  vaultIt.each([false, true])('gives each tone its own ground, dark mode %s', (dark) => {
     const grounds = TONES.map((tone) => noticePalette(tone, dark).bg.toLowerCase());
 
     expect(new Set(grounds).size).toBe(TONES.length);
   });
 
-  it.each([false, true])('draws every tone in the body ink, dark mode %s', (dark) => {
+  vaultIt.each([false, true])('draws every tone in the body ink, dark mode %s', (dark) => {
     const neutral = noticePalette('neutral', dark);
 
     for (const tone of TONES) {
@@ -79,7 +79,7 @@ describe('the banner palette', () => {
     }
   });
 
-  it('edges only the neutral ground, which is the page colour', () => {
+  vaultIt('edges only the neutral ground, which is the page colour', () => {
     expect(noticePalette('neutral', false).border).toBeDefined();
     expect(noticePalette('error', false).border).toBeUndefined();
   });
@@ -107,7 +107,7 @@ describe('the banner layout', () => {
     mockFontScale = 1;
   });
 
-  it('draws one action on the title row, not on a row of its own', async () => {
+  vaultIt('draws one action on the title row, not on a row of its own', async () => {
     await render(
       <NoticeBanner
         slot="syncError"
@@ -124,7 +124,7 @@ describe('the banner layout', () => {
     );
   });
 
-  it('closes through an icon button labelled close, on the same row', async () => {
+  vaultIt('closes through an icon button labelled close, on the same row', async () => {
     await render(
       <NoticeBanner
         slot="syncError"
@@ -142,7 +142,7 @@ describe('the banner layout', () => {
     expect(sharesRowWith(dismiss, 'Two ferries missing')).toBe(true);
   });
 
-  it('stacks the controls under the text past the large-text cap', async () => {
+  vaultIt('stacks the controls under the text past the large-text cap', async () => {
     mockFontScale = 2;
     await render(
       <NoticeBanner
@@ -160,7 +160,7 @@ describe('the banner layout', () => {
     );
   });
 
-  it('keeps the title its height once the row stacks past the large-text cap', async () => {
+  vaultIt('keeps the title its height once the row stacks past the large-text cap', async () => {
     mockFontScale = 2;
     await render(
       <NoticeBanner
@@ -194,7 +194,7 @@ describe('the banner layout', () => {
     }
   });
 
-  it('paints the ground from the tone palette', async () => {
+  vaultIt('paints the ground from the tone palette', async () => {
     await render(
       <NoticeBanner slot="syncError" tone="info" icon="information" title="Demo" testID="demo-x" />
     );

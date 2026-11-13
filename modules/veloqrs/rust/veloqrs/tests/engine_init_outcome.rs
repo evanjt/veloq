@@ -38,6 +38,7 @@ fn seeded(db_str: &str) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_database_that_opens_records_opened() {
     let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
@@ -80,6 +81,7 @@ fn a_locked_database_records_busy_and_opens_on_the_retry() {
 /// The one failure the athlete can fix, and the one that must never read as
 /// corruption: the file is healthy and this build is behind it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_forward_schema_records_its_own_reason() {
     let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
@@ -106,6 +108,7 @@ fn a_forward_schema_records_its_own_reason() {
 /// process runs as. That is the same answer a full disk or a denied permission
 /// gives: nothing can be written where the database belongs.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_directory_that_cannot_be_created_records_storage_unavailable() {
     let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());

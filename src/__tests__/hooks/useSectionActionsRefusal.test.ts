@@ -92,7 +92,7 @@ describe('a section write the engine refuses', () => {
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   });
 
-  it('keeps the page open and says so when the remove is refused', async () => {
+  vaultIt('keeps the page open and says so when the remove is refused', async () => {
     const disableSection = jest.fn(() => false);
     const { hook } = await mountWith({ disableSection }, { preComputed: EXCLUDED_A2 });
 
@@ -104,7 +104,7 @@ describe('a section write the engine refuses', () => {
     expect(lastAlertTitle()).toBe('sections.removeFailedTitle');
   });
 
-  it('leaves the page when the remove is written', async () => {
+  vaultIt('leaves the page when the remove is written', async () => {
     const disableSection = jest.fn(() => true);
     const { hook } = await mountWith({ disableSection }, { preComputed: EXCLUDED_A2 });
 
@@ -143,7 +143,7 @@ describe('a section write the engine refuses', () => {
     expect(onSectionRefresh).not.toHaveBeenCalled();
   });
 
-  it('adds the ride to the excluded set when the exclude is written', async () => {
+  vaultIt('adds the ride to the excluded set when the exclude is written', async () => {
     const excludeActivityFromSection = jest.fn(() => true);
     const { hook, onSectionRefresh } = await mountWith(
       { excludeActivityFromSection },
@@ -212,7 +212,7 @@ describe('a section write the engine refuses', () => {
     expect(hook.result.current.excludedActivityIds.size).toBe(0);
   });
 
-  it('takes the engine read when there is nothing precomputed and it answers', async () => {
+  vaultIt('takes the engine read when there is nothing precomputed and it answers', async () => {
     const getExcludedActivityIds = jest.fn(() => ['a1']);
 
     const { hook } = await mountWith({ getExcludedActivityIds });

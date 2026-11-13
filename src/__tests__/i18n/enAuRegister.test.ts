@@ -156,18 +156,21 @@ const gb = new Map(flatten(enGB));
 const voiced = [...au.entries()].filter(([key, value]) => gb.has(key) && gb.get(key) !== value);
 
 describe('en-AU register', () => {
-  it.each(DESTRUCTIVE_LABELS)('%s reads the same as en-GB', (key) => {
+  vaultIt.each(DESTRUCTIVE_LABELS)('%s reads the same as en-GB', (key) => {
     expect(gb.get(key)).toBeDefined();
     expect(au.get(key)).toBe(gb.get(key));
   });
 
-  it.each(Object.entries(CONFIRMATION_NAMES))('%s still names what it deletes', (key, names) => {
-    for (const name of names) expect(gb.get(key)).toMatch(name);
-    const message = au.get(key) ?? '';
-    expect(names.filter((name) => !name.test(message))).toEqual([]);
-  });
+  vaultIt.each(Object.entries(CONFIRMATION_NAMES))(
+    '%s still names what it deletes',
+    (key, names) => {
+      for (const name of names) expect(gb.get(key)).toMatch(name);
+      const message = au.get(key) ?? '';
+      expect(names.filter((name) => !name.test(message))).toEqual([]);
+    }
+  );
 
-  it('keeps every label as en-GB, bar the listed short voice and vocabulary', () => {
+  vaultIt('keeps every label as en-GB, bar the listed short voice and vocabulary', () => {
     const allowed = new Set([...SHORT_VOICE, ...AUSTRALIAN_VOCABULARY]);
     const offenders = voiced
       .filter(([key]) => !allowed.has(key) && isLabel(gb.get(key) ?? ''))
@@ -175,12 +178,12 @@ describe('en-AU register', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('reads Australian on the surfaces an athlete sees most', () => {
+  vaultIt('reads Australian on the surfaces an athlete sees most', () => {
     const plain = MOST_SEEN.filter((key) => au.get(key) === gb.get(key));
     expect(plain).toEqual([]);
   });
 
-  it('keeps the short voice and the vocabulary', () => {
+  vaultIt('keeps the short voice and the vocabulary', () => {
     const plain = [...SHORT_VOICE, ...AUSTRALIAN_VOCABULARY].filter(
       (key) => au.get(key) === gb.get(key)
     );
@@ -197,28 +200,28 @@ describe('en-AU register', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('keeps a warning of permanent loss as strong as en-GB', () => {
+  vaultIt('keeps a warning of permanent loss as strong as en-GB', () => {
     const offenders = voiced
       .filter(([key, value]) => PERMANENT_GB.test(gb.get(key) ?? '') && !PERMANENT_AU.test(value))
       .map(([key, value]) => `${key}: ${value}`);
     expect(offenders).toEqual([]);
   });
 
-  it('fits the layout en-GB fits', () => {
+  vaultIt('fits the layout en-GB fits', () => {
     const offenders = voiced
       .filter(([key, value]) => value.length > (gb.get(key) ?? '').length * 1.25 + 8)
       .map(([key, value]) => `${key}: ${gb.get(key)} -> ${value}`);
     expect(offenders).toEqual([]);
   });
 
-  it('keeps the line breaks en-GB has', () => {
+  vaultIt('keeps the line breaks en-GB has', () => {
     const offenders = voiced
       .filter(([key, value]) => value.split('\n').length !== (gb.get(key) ?? '').split('\n').length)
       .map(([key]) => key);
     expect(offenders).toEqual([]);
   });
 
-  it('drops every retired slang term', () => {
+  vaultIt('drops every retired slang term', () => {
     const offenders = [...au.entries()]
       .filter(([, value]) => RETIRED.test(value))
       .map(([key, value]) => `${key}: ${value}`);

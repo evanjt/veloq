@@ -52,7 +52,7 @@ async function onPlatform(os: string, run: () => Promise<void>) {
 describe('the activity notification names its own channel', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('sends an activity notification on the activity channel', async () => {
+  vaultIt('sends an activity notification on the activity channel', async () => {
     await onPlatform('android', () => presentActivityNotification('a1', 'Ride', 'Done'));
 
     expect(lastCall().trigger).toEqual({ channelId: 'veloq-activity' });
@@ -72,7 +72,7 @@ describe('the activity notification names its own channel', () => {
     expect(lastCall().trigger).toEqual({ type: 'timeInterval', seconds: 20 });
   });
 
-  it('leaves the trigger null on iOS', async () => {
+  vaultIt('leaves the trigger null on iOS', async () => {
     await onPlatform('ios', () => presentActivityNotification('a1', 'Ride', 'Done'));
 
     const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls;
@@ -81,7 +81,7 @@ describe('the activity notification names its own channel', () => {
 });
 
 describe('notification handler differentiation', () => {
-  it('shows banner and list for insight notifications', () => {
+  vaultIt('shows banner and list for insight notifications', () => {
     initialiseNotifications();
 
     const handlerCall = (Notifications.setNotificationHandler as jest.Mock).mock.calls[0][0];
@@ -207,7 +207,7 @@ describe('notification tap handler', () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it('registers exactly one response listener per call', () => {
+  vaultIt('registers exactly one response listener per call', () => {
     setupNotificationResponseHandler();
     expect(addListenerMock).toHaveBeenCalledTimes(1);
   });

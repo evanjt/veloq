@@ -93,7 +93,7 @@ describe('formatSigned', () => {
     expect(formatSigned(value, digits)).toBe(text);
   });
 
-  it('writes one minus glyph, the one a negative decimal carries', () => {
+  vaultIt('writes one minus glyph, the one a negative decimal carries', () => {
     expect(formatSigned(-2, 1)).toBe(formatDecimal(-2, 1));
   });
 

@@ -29,7 +29,7 @@ describe('snapshotQueueTrace', () => {
     expect(trace.events().map((event) => event.activityId)).toEqual(['a2', 'a3', 'a1']);
   });
 
-  it('times every line from the oldest event it still holds', () => {
+  vaultIt('times every line from the oldest event it still holds', () => {
     const trace = createSnapshotQueueTrace();
 
     trace.record({ kind: 'enqueue', activityId: 'a1' }, 5_000);
@@ -42,13 +42,13 @@ describe('snapshotQueueTrace', () => {
     expect(report).toContain('+15000ms watchdogHeld (w0 rendering)');
   });
 
-  it('says so rather than reporting an empty buffer as a healthy queue', () => {
+  vaultIt('says so rather than reporting an empty buffer as a healthy queue', () => {
     expect(createSnapshotQueueTrace().report(1_000, 7, 0, 'stalled')).toContain(
       'no events recorded'
     );
   });
 
-  it('names the worker and the reason when there is one', () => {
+  vaultIt('names the worker and the reason when there is one', () => {
     const line = formatTraceEvent(
       { at: 1_200, kind: 'fail', activityId: 'a9', workerId: 2, detail: 'timeout' },
       1_000
@@ -71,7 +71,7 @@ describe('snapshotQueueTrace', () => {
     expect(holdShouldReport(HOLDS_BEFORE_REPORT - 1)).toBe(false);
   });
 
-  it('clears to empty, so a drained queue does not report the last stall again', () => {
+  vaultIt('clears to empty, so a drained queue does not report the last stall again', () => {
     const trace = createSnapshotQueueTrace();
     trace.record({ kind: 'enqueue', activityId: 'a1' }, 1_000);
 
@@ -80,7 +80,7 @@ describe('snapshotQueueTrace', () => {
     expect(trace.events()).toHaveLength(0);
   });
 
-  it('holds two worker passes over a feed page by default', () => {
+  vaultIt('holds two worker passes over a feed page by default', () => {
     expect(TRACE_CAPACITY).toBeGreaterThanOrEqual(32);
   });
 });
@@ -88,11 +88,11 @@ describe('snapshotQueueTrace', () => {
 describe('the published queue trace', () => {
   beforeEach(() => publishSnapshotQueueTrace(null));
 
-  it('reads nothing until a pool has published its trace', () => {
+  vaultIt('reads nothing until a pool has published its trace', () => {
     expect(readSnapshotQueueReport()).toBeNull();
   });
 
-  it('reads the live trace with the queue shape at the moment of the read', () => {
+  vaultIt('reads the live trace with the queue shape at the moment of the read', () => {
     const trace = createSnapshotQueueTrace();
     trace.record({ kind: 'enqueue', activityId: 'a1' }, 1_000);
     let shape = { queued: 3, inFlight: 1 };
@@ -107,7 +107,7 @@ describe('the published queue trace', () => {
     expect(report).toContain('drain');
   });
 
-  it('does not call a drained queue stalled', () => {
+  vaultIt('does not call a drained queue stalled', () => {
     const trace = createSnapshotQueueTrace();
     trace.record({ kind: 'drain' }, 1_000);
     publishSnapshotQueueTrace(trace, () => ({ queued: 0, inFlight: 0 }));
@@ -117,7 +117,7 @@ describe('the published queue trace', () => {
     expect(report).toContain('idle: 0 queued, 0 in flight');
   });
 
-  it('names the counts of a queue with work without calling it stalled', () => {
+  vaultIt('names the counts of a queue with work without calling it stalled', () => {
     const trace = createSnapshotQueueTrace();
     trace.record({ kind: 'enqueue', activityId: 'a1' }, 1_000);
     publishSnapshotQueueTrace(trace, () => ({ queued: 3, inFlight: 1 }));
@@ -127,7 +127,7 @@ describe('the published queue trace', () => {
     expect(report).toContain('[SnapshotQueue] queue: 3 queued, 1 in flight');
   });
 
-  it('keeps the stalled word for a report asked for as a stall', () => {
+  vaultIt('keeps the stalled word for a report asked for as a stall', () => {
     const trace = createSnapshotQueueTrace();
     trace.record({ kind: 'enqueue', activityId: 'a1' }, 1_000);
     expect(trace.report(2_000, 3, 1, 'stalled')).toContain('stalled: 3 queued, 1 in flight');

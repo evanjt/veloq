@@ -1051,6 +1051,7 @@ mod sidecar_tests {
     /// A refresh that is killed mid-write must leave the previous sidecar whole,
     /// and a reader that opened it before the refresh keeps the bytes it opened.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refresh_replaces_the_sidecar_so_an_open_reader_keeps_the_old_bytes() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("tile-templates.json");
@@ -1083,12 +1084,14 @@ mod template_tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ground_tile_at_z0_is_answered_from_the_app_with_nothing_fetched() {
         let bytes = fetch_tile("openmaptiles", 0, 0, 0).expect("bundled floor");
         assert!(!bytes.is_empty());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rate_limited_tilejson_with_nothing_held_reaches_the_page_as_429() {
         set_template(
             "limited-source".to_string(),
@@ -1102,6 +1105,7 @@ mod template_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unreachable_tilejson_with_nothing_held_reaches_the_page_as_502() {
         set_template(
             "down-source".to_string(),
@@ -1116,6 +1120,7 @@ mod template_tests {
     /// Offline on a fresh install every tile the map asks for is a miss, and
     /// with nothing held each one used to ask for the TileJSON again.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tilejson_that_never_resolved_is_asked_once_inside_the_retry() {
         const AT: u64 = 1_790_000_000;
         set_template(
@@ -1143,6 +1148,7 @@ mod template_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_template_fills_placeholders_in_whatever_order_the_host_uses() {
         set_template(
             "eox".to_string(),
@@ -1158,6 +1164,7 @@ mod template_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_extension_ignores_a_query_string_and_falls_back_when_there_is_none() {
         assert_eq!(extension_of("https://h/1/2/3.jpg"), "jpg");
         assert_eq!(extension_of("https://h/1/2/3.PNG?v=2"), "png");

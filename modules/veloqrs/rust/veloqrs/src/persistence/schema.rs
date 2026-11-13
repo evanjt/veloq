@@ -10,7 +10,7 @@ use super::{PersistentEngine, codec, sections};
 /// pass and read by the post-migration hooks. `PRAGMA user_version` is the
 /// other record, the one `rusqlite_migration` skips on, and it ends one for
 /// one with the migration list. Hooks <= 7 are dead code for any user on 0.2.2+.
-pub const SUPPORTED_SCHEMA_VERSION: i32 = 92;
+pub const SUPPORTED_SCHEMA_VERSION: i32 = 94;
 
 /// The migration that drops the cutover archive tables, counted from one. The
 /// open carries their rows into the ledger before it runs.
@@ -19,6 +19,10 @@ const ARCHIVE_DROP_MIGRATION: usize = 54;
 /// The schema version that added the exercise usage tables. A library from
 /// before it holds sets they were never built from.
 const EXERCISE_USAGE_VERSION: i32 = 91;
+
+/// The schema version that added the strength session signatures. A library
+/// from before it holds sets no signature was built from.
+const STRENGTH_SIGNATURE_VERSION: i32 = 93;
 
 const HEATMAP_INTENSITY: &str = "CASE
     WHEN MAX(moving_time) > 7200 THEN 4
@@ -330,6 +334,8 @@ impl PersistentEngine {
             include_str!("../migrations/m20261112_110839_wellness_source.sql"),
             include_str!("../migrations/m20261112_194207_exercise_usage.sql"),
             include_str!("../migrations/m20261112_200000_strength_sessions.sql"),
+            include_str!("../migrations/m20261112_202117_strength_signatures.sql"),
+            include_str!("../migrations/m20261112_203000_strength_live_position.sql"),
         ]
     }
 
@@ -590,6 +596,9 @@ impl PersistentEngine {
         Self::ensure_route_list_counts(conn)?;
         if current_version < EXERCISE_USAGE_VERSION {
             super::exercise_usage::rebuild(conn)?;
+        }
+        if current_version < STRENGTH_SIGNATURE_VERSION {
+            super::strength_signature::rebuild(conn)?;
         }
 
         // Migration 042 rebuilds the heatmap for files that run it. A file

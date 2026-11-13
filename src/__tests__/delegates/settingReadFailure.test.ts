@@ -41,7 +41,7 @@ describe('getSetting', () => {
     expect(read).not.toHaveBeenCalled();
   });
 
-  it('returns a stored value', () => {
+  vaultIt('returns a stored value', () => {
     expect(
       getSetting(
         host(true, () => '42'),

@@ -122,7 +122,7 @@ describe('the cache screen measures the Rust tile store', () => {
     );
   });
 
-  it('breaks the store down into vector and ground', async () => {
+  vaultIt('breaks the store down into vector and ground', async () => {
     storeHolding(40 * MB, 30 * MB);
     const view = await render(<DataCacheSection />);
 

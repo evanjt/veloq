@@ -277,17 +277,20 @@ describe('detection preview bottom buffer', () => {
     mockScreenEdges = [];
   });
 
-  it('reserves nothing for the tab bar, only a margin, when the device has no inset', async () => {
-    mockInsets.bottom = 0;
-    expect(await panelPaddingBottom()).toBe(spacing.md);
-  });
+  vaultIt(
+    'reserves nothing for the tab bar, only a margin, when the device has no inset',
+    async () => {
+      mockInsets.bottom = 0;
+      expect(await panelPaddingBottom()).toBe(spacing.md);
+    }
+  );
 
-  it('keeps the gesture inset whole', async () => {
+  vaultIt('keeps the gesture inset whole', async () => {
     mockInsets.bottom = 34;
     expect(await panelPaddingBottom()).toBe(34);
   });
 
-  it('clears the inset once whatever its size', async () => {
+  vaultIt('clears the inset once whatever its size', async () => {
     for (const bottom of [0, 16, 34, 48]) {
       mockInsets.bottom = bottom;
       expect(await panelPaddingBottom()).toBe(Math.max(bottom, spacing.md));
@@ -535,21 +538,21 @@ describe('detection preview screen', () => {
     expect(mockStart).not.toHaveBeenCalled();
   });
 
-  it('renders no Preview button, since a changed value re-runs on its own', async () => {
+  vaultIt('renders no Preview button, since a changed value re-runs on its own', async () => {
     const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.queryByTestId('preview-run-button')).toBeNull();
     expect(tree.queryByRole('button', { name: 'settings.previewRun' })).toBeNull();
   });
 
-  it('lets a finished proposal supersede the catalogue on the map', async () => {
+  vaultIt('lets a finished proposal supersede the catalogue on the map', async () => {
     mockResult = RESULT;
     const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.getByTestId('preview-map-result').props.children).toBe('proposed-a');
   });
 
-  it('says so when the catalogue read fails, rather than drawing a blank map', async () => {
+  vaultIt('says so when the catalogue read fails, rather than drawing a blank map', async () => {
     mockGetPreviewCurrentSections.mockImplementationOnce(() => {
       throw new Error('engine gone');
     });
@@ -561,7 +564,7 @@ describe('detection preview screen', () => {
     );
   });
 
-  it('stays quiet when the area honestly holds nothing', async () => {
+  vaultIt('stays quiet when the area honestly holds nothing', async () => {
     mockGetPreviewCurrentSections.mockImplementationOnce(() => []);
 
     const tree = await render(<DetectionPreviewScreen />);
@@ -617,14 +620,14 @@ describe('the preview during the detector cutover', () => {
     mockCutover.mockReturnValue(false);
   });
 
-  it('says the library is still migrating while the cutover is owed', async () => {
+  vaultIt('says the library is still migrating while the cutover is owed', async () => {
     mockCutover.mockReturnValue(true);
     const { getByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(getByTestId('preview-migrating')).toBeTruthy();
   });
 
-  it('says nothing on a database that owes no cutover', async () => {
+  vaultIt('says nothing on a database that owes no cutover', async () => {
     const { queryByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(queryByTestId('preview-migrating')).toBeNull();
@@ -633,7 +636,7 @@ describe('the preview during the detector cutover', () => {
   /// The upgrade path owes the cutover and the elevation queue together, and
   /// the hold the hook ranks first is the backfill's. The notice follows the
   /// cutover, not that ranking.
-  it('says the library is migrating while elevation is also owed', async () => {
+  vaultIt('says the library is migrating while elevation is also owed', async () => {
     mockEnv.hold = () => 'elevation-waiting';
     mockCutover.mockReturnValue(true);
     const { getByTestId } = await render(<DetectionPreviewScreen />);
@@ -641,7 +644,7 @@ describe('the preview during the detector cutover', () => {
     expect(getByTestId('preview-migrating')).toBeTruthy();
   });
 
-  it('says nothing when only the elevation backfill is owed', async () => {
+  vaultIt('says nothing when only the elevation backfill is owed', async () => {
     mockEnv.hold = () => 'elevation-waiting';
     const { queryByTestId } = await render(<DetectionPreviewScreen />);
 
@@ -665,7 +668,7 @@ describe('the preview during the detector cutover', () => {
       return render(<DetectionPreviewScreen />);
     }
 
-    it.each([
+    vaultIt.each([
       [StartOutcome.Busy, null, 'settings.previewRefusedBusy'],
       [StartOutcome.Held, 'elevation-running', 'settings.previewSuspended'],
       [StartOutcome.Held, null, 'settings.previewRefusedRecentFailure'],
@@ -678,7 +681,7 @@ describe('the preview during the detector cutover', () => {
       expect(getByTestId('preview-refusal').props.children).toBe(key);
     });
 
-    it('shows nothing when the start was not refused', async () => {
+    vaultIt('shows nothing when the start was not refused', async () => {
       const { queryByTestId } = await refusedWith(null, 'elevation-running');
 
       expect(queryByTestId('preview-refusal')).toBeNull();
@@ -884,7 +887,7 @@ describe('keeping a preview starts an observable re-cut', () => {
       mockEnv.cutover = () => false;
     });
 
-    it('disables Keep and says it can be kept once the upgrade finishes', async () => {
+    vaultIt('disables Keep and says it can be kept once the upgrade finishes', async () => {
       const tree = await render(<DetectionPreviewScreen />);
 
       expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBe(true);
@@ -899,14 +902,14 @@ describe('keeping a preview starts an observable re-cut', () => {
     });
   });
 
-  it('shows no upgrade notice and an enabled Keep once the cutover has run', async () => {
+  vaultIt('shows no upgrade notice and an enabled Keep once the cutover has run', async () => {
     const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.queryByTestId('preview-keep-after-upgrade')).toBeNull();
     expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBeFalsy();
   });
 
-  it('exposes discard and keep as named buttons beside their test ids', async () => {
+  vaultIt('exposes discard and keep as named buttons beside their test ids', async () => {
     const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.getByRole('button', { name: 'settings.previewDiscard' })).toBe(
@@ -1034,20 +1037,23 @@ describe('preview screen layout', () => {
     mockResult.value = null;
   });
 
-  it('scrolls the slider card and nothing else, so the map cannot leave the screen', async () => {
-    const tree = await render(<DetectionPreviewScreen />);
-    await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
+  vaultIt(
+    'scrolls the slider card and nothing else, so the map cannot leave the screen',
+    async () => {
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
 
-    expect(onlyVerticalScrollView(tree)).toEqual(['preview-param-panel']);
-  });
+      expect(onlyVerticalScrollView(tree)).toEqual(['preview-param-panel']);
+    }
+  );
 
-  it('keeps the area picker horizontal rather than making the column scroll', async () => {
+  vaultIt('keeps the area picker horizontal rather than making the column scroll', async () => {
     const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.getByTestId('preview-centre-picker').props.horizontal).toBe(true);
   });
 
-  it('holds the map and all five sliders in the tree at once', async () => {
+  vaultIt('holds the map and all five sliders in the tree at once', async () => {
     const tree = await render(<DetectionPreviewScreen />);
     await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
 
@@ -1059,43 +1065,51 @@ describe('preview screen layout', () => {
     expect(panel.findAllByType(ScrollView)).toHaveLength(0);
   });
 
-  it('lets the slider card absorb the leftover height rather than fixing its own', async () => {
-    const tree = await render(<DetectionPreviewScreen />);
+  vaultIt(
+    'lets the slider card absorb the leftover height rather than fixing its own',
+    async () => {
+      const tree = await render(<DetectionPreviewScreen />);
 
-    const panel = tree
-      .UNSAFE_getAllByType(ScrollView)
-      .filter((node) => node.props.testID === 'preview-param-panel')[0];
-    const flat = flatten(panel.props.style);
-    expect(flat.flex).toBe(1);
-    expect(flat.height).toBeUndefined();
-    // Without flexGrow on the content the rows cannot expand past the viewport
-    // box, and the row floor below does nothing.
-    expect(flatten(panel.props.contentContainerStyle).flexGrow).toBe(1);
-    for (const slider of panel.findAllByType(Slider)) {
-      expect(flatten(slider.parent?.props.style).minHeight).toBe(layout.minTapTarget);
+      const panel = tree
+        .UNSAFE_getAllByType(ScrollView)
+        .filter((node) => node.props.testID === 'preview-param-panel')[0];
+      const flat = flatten(panel.props.style);
+      expect(flat.flex).toBe(1);
+      expect(flat.height).toBeUndefined();
+      // Without flexGrow on the content the rows cannot expand past the viewport
+      // box, and the row floor below does nothing.
+      expect(flatten(panel.props.contentContainerStyle).flexGrow).toBe(1);
+      for (const slider of panel.findAllByType(Slider)) {
+        expect(flatten(slider.parent?.props.style).minHeight).toBe(layout.minTapTarget);
+      }
     }
-  });
+  );
 
-  it('shows no Preview button once a result has arrived', async () => {
+  vaultIt('shows no Preview button once a result has arrived', async () => {
     mockResult.value = RESULT_WITH_COUNTS;
     const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.queryByTestId('preview-run-button')).toBeNull();
   });
 
-  it('seats the sliders, the diff and the decision inside the sheet over the map', async () => {
-    mockResult.value = RESULT_WITH_COUNTS;
-    const tree = await render(<DetectionPreviewScreen />);
-    const sheet = tree.getByTestId('preview-control-panel');
-    await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
+  vaultIt(
+    'seats the sliders, the diff and the decision inside the sheet over the map',
+    async () => {
+      mockResult.value = RESULT_WITH_COUNTS;
+      const tree = await render(<DetectionPreviewScreen />);
+      const sheet = tree.getByTestId('preview-control-panel');
+      await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
 
-    expect(within(sheet).getByTestId('preview-param-panel')).toBeTruthy();
-    expect(within(sheet).getByTestId('preview-keep-button')).toBeTruthy();
-    expect(within(sheet).getByTestId('preview-discard-button')).toBeTruthy();
-    expect(within(tree.getByTestId('preview-map')).queryByTestId('preview-keep-button')).toBeNull();
-  });
+      expect(within(sheet).getByTestId('preview-param-panel')).toBeTruthy();
+      expect(within(sheet).getByTestId('preview-keep-button')).toBeTruthy();
+      expect(within(sheet).getByTestId('preview-discard-button')).toBeTruthy();
+      expect(
+        within(tree.getByTestId('preview-map')).queryByTestId('preview-keep-button')
+      ).toBeNull();
+    }
+  );
 
-  it('keeps Keep and Discard in view while the sheet is collapsed', async () => {
+  vaultIt('keeps Keep and Discard in view while the sheet is collapsed', async () => {
     mockResult.value = RESULT_WITH_COUNTS;
     const tree = await render(<DetectionPreviewScreen />);
 
@@ -1103,17 +1117,20 @@ describe('preview screen layout', () => {
     expect(tree.queryByTestId('preview-param-panel')).toBeNull();
   });
 
-  it('adds the diff strip and the decision row without displacing the map or the sliders', async () => {
-    mockResult.value = RESULT_WITH_COUNTS;
-    const tree = await render(<DetectionPreviewScreen />);
-    await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
+  vaultIt(
+    'adds the diff strip and the decision row without displacing the map or the sliders',
+    async () => {
+      mockResult.value = RESULT_WITH_COUNTS;
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
 
-    expect(tree.getByTestId('preview-keep-button')).toBeTruthy();
-    expect(tree.getByTestId('preview-discard-button')).toBeTruthy();
-    expect(tree.getByTestId('preview-map')).toBeTruthy();
-    expect(tree.getByTestId('preview-param-panel')).toBeTruthy();
-    expect(onlyVerticalScrollView(tree)).toEqual(['preview-param-panel']);
-  });
+      expect(tree.getByTestId('preview-keep-button')).toBeTruthy();
+      expect(tree.getByTestId('preview-discard-button')).toBeTruthy();
+      expect(tree.getByTestId('preview-map')).toBeTruthy();
+      expect(tree.getByTestId('preview-param-panel')).toBeTruthy();
+      expect(onlyVerticalScrollView(tree)).toEqual(['preview-param-panel']);
+    }
+  );
 });
 
 /**
@@ -1284,7 +1301,7 @@ describe('detection preview sensitivity controls', () => {
     expect(router.back).not.toHaveBeenCalled();
   });
 
-  it('states why the re-cut did not start', async () => {
+  vaultIt('states why the re-cut did not start', async () => {
     mockEnv.realI18n = true;
     await initialiseI18n('en-GB');
     mockForceRedetect.mockReturnValue(StartOutcome.Held);
@@ -1303,7 +1320,7 @@ describe('detection preview sensitivity controls', () => {
     expect(message).toContain(i18n.t('sections.rescanRefusedHeld'));
   });
 
-  it.each([
+  vaultIt.each([
     [StartOutcome.Busy, 'sections.rescanRefusedBusy'],
     [StartOutcome.Held, 'sections.rescanRefusedHeld'],
     [StartOutcome.NotReady, 'sections.rescanRefusedNotReady'],
@@ -1366,7 +1383,7 @@ describe('detection preview sensitivity controls', () => {
       expect(mockBackHold.active).toBe(false);
     });
 
-    it('offers Save, Discard and Keep editing', async () => {
+    vaultIt('offers Save, Discard and Keep editing', async () => {
       const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
       const tree = await render(<DetectionPreviewScreen />);
       await fireEvent(sliders(tree)[0], 'valueChange', 150);
@@ -1468,7 +1485,7 @@ describe('detection preview sensitivity controls', () => {
     });
   });
 
-  it('offers no Keep until a run has produced a result', async () => {
+  vaultIt('offers no Keep until a run has produced a result', async () => {
     mockResult = null;
     const tree = await render(<DetectionPreviewScreen />);
     await fireEvent.press(tree.getByTestId('preview-control-panel-handle'));
@@ -1616,7 +1633,7 @@ describe('preview run progress', () => {
     mockLapsed.value = false;
   });
 
-  it('draws a bar at the reported percentage', async () => {
+  vaultIt('draws a bar at the reported percentage', async () => {
     mockStatus.value = 'running';
     mockProgress.value = {
       phase: 'analyzing',
@@ -1629,7 +1646,7 @@ describe('preview run progress', () => {
     expect(barWidth(await render(<DetectionPreviewScreen />))).toBe('40%');
   });
 
-  it('exposes the run as a progress bar valued in per cent', async () => {
+  vaultIt('exposes the run as a progress bar valued in per cent', async () => {
     mockStatus.value = 'running';
     mockProgress.value = {
       phase: 'analyzing',
@@ -1645,7 +1662,7 @@ describe('preview run progress', () => {
     expect(bar.props.accessibilityValue).toEqual({ min: 0, max: 100, now: 40 });
   });
 
-  it('clamps a percentage outside 0 to 100', async () => {
+  vaultIt('clamps a percentage outside 0 to 100', async () => {
     mockStatus.value = 'running';
     mockProgress.value = {
       phase: 'analyzing',
@@ -1658,14 +1675,14 @@ describe('preview run progress', () => {
     expect(barWidth(await render(<DetectionPreviewScreen />))).toBe('100%');
   });
 
-  it('starts the bar at zero before any percentage arrives', async () => {
+  vaultIt('starts the bar at zero before any percentage arrives', async () => {
     mockStatus.value = 'running';
     mockProgress.value = null;
 
     expect(barWidth(await render(<DetectionPreviewScreen />))).toBe('0%');
   });
 
-  it('says nothing about a slow run until the run has lapsed', async () => {
+  vaultIt('says nothing about a slow run until the run has lapsed', async () => {
     mockStatus.value = 'running';
 
     expect(
@@ -1673,7 +1690,7 @@ describe('preview run progress', () => {
     ).toBeNull();
   });
 
-  it('tells the athlete a lapsed run is still going', async () => {
+  vaultIt('tells the athlete a lapsed run is still going', async () => {
     mockStatus.value = 'running';
     mockLapsed.value = true;
 
@@ -1682,7 +1699,7 @@ describe('preview run progress', () => {
     ).toBeTruthy();
   });
 
-  it('draws no bar when no run is in flight', async () => {
+  vaultIt('draws no bar when no run is in flight', async () => {
     mockStatus.value = 'idle';
 
     expect(barWidth(await render(<DetectionPreviewScreen />))).toBeNull();
@@ -1744,7 +1761,7 @@ describe('the preview against a catalogue that has not caught up', () => {
     mockAwaiting.mockReturnValue(0);
   });
 
-  it('says the catalogue is behind when the config change cleared the whole set', async () => {
+  vaultIt('says the catalogue is behind when the config change cleared the whole set', async () => {
     mockAwaiting.mockReturnValue(118);
     const { getByTestId } = await render(<DetectionPreviewScreen />);
 
@@ -1764,7 +1781,7 @@ describe('the preview against a catalogue that has not caught up', () => {
     );
   });
 
-  it('says nothing when the catalogue has seen every activity', async () => {
+  vaultIt('says nothing when the catalogue has seen every activity', async () => {
     const { queryByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(queryByTestId('preview-stale-catalogue')).toBeNull();
@@ -1949,26 +1966,32 @@ describe('the retired layer on the detection preview', () => {
     expect(tree.getByTestId('retired-pair-old-1')).toBeTruthy();
   });
 
-  it('gives the map the screen and seats the comparison card below it, not over it', async () => {
-    mockEnv.params = { layer: 'retired' };
-    const tree = await render(<DetectionPreviewScreen />);
-    await act(async () => layerOf().onSelect('old-1'));
+  vaultIt(
+    'gives the map the screen and seats the comparison card below it, not over it',
+    async () => {
+      mockEnv.params = { layer: 'retired' };
+      const tree = await render(<DetectionPreviewScreen />);
+      await act(async () => layerOf().onSelect('old-1'));
 
-    const map = tree.getByTestId('preview-map');
-    const style = StyleSheet.flatten(map.props.style);
-    expect(style.height).toBeUndefined();
-    expect(style.flex).toBe(1);
-    expect(within(map).queryByTestId('retired-pair-card')).toBeNull();
-    expect(tree.getByTestId('retired-pair-card')).toBeTruthy();
-  });
+      const map = tree.getByTestId('preview-map');
+      const style = StyleSheet.flatten(map.props.style);
+      expect(style.height).toBeUndefined();
+      expect(style.flex).toBe(1);
+      expect(within(map).queryByTestId('retired-pair-card')).toBeNull();
+      expect(tree.getByTestId('retired-pair-card')).toBeTruthy();
+    }
+  );
 
-  it('fills the screen with the settings preview map, behind the sheet, when opened without the layer', async () => {
-    const tree = await render(<DetectionPreviewScreen />);
+  vaultIt(
+    'fills the screen with the settings preview map, behind the sheet, when opened without the layer',
+    async () => {
+      const tree = await render(<DetectionPreviewScreen />);
 
-    const style = StyleSheet.flatten(tree.getByTestId('preview-map').props.style);
-    expect(style).toMatchObject({ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 });
-    expect(tree.getByTestId('preview-control-panel')).toBeTruthy();
-  });
+      const style = StyleSheet.flatten(tree.getByTestId('preview-map').props.style);
+      expect(style).toMatchObject({ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 });
+      expect(tree.getByTestId('preview-control-panel')).toBeTruthy();
+    }
+  );
 
   it('says so when a tapped retired line shares its ground with nothing', async () => {
     mockEnv.params = { layer: 'retired' };
@@ -1979,20 +2002,23 @@ describe('the retired layer on the detection preview', () => {
     expect(tree.getByTestId('retired-pair-none')).toBeTruthy();
   });
 
-  it('opened from the re-cut card shows the retired layer only, with what retired means', async () => {
-    mockEnv.params = { layer: 'retired' };
-    const tree = await render(<DetectionPreviewScreen />);
+  vaultIt(
+    'opened from the re-cut card shows the retired layer only, with what retired means',
+    async () => {
+      mockEnv.params = { layer: 'retired' };
+      const tree = await render(<DetectionPreviewScreen />);
 
-    expect((mapProps as { retiredOnly?: boolean }).retiredOnly).toBe(true);
-    expect(tree.getByTestId('preview-retired-explainer').props.children).toBe(
-      'sectionHistory.retiredIntro'
-    );
-    expect(tree.queryByTestId('preview-run-button')).toBeNull();
-    expect(tree.queryByTestId('preview-keep-button')).toBeNull();
-    expect(tree.queryByTestId('preview-param-panel')).toBeNull();
-  });
+      expect((mapProps as { retiredOnly?: boolean }).retiredOnly).toBe(true);
+      expect(tree.getByTestId('preview-retired-explainer').props.children).toBe(
+        'sectionHistory.retiredIntro'
+      );
+      expect(tree.queryByTestId('preview-run-button')).toBeNull();
+      expect(tree.queryByTestId('preview-keep-button')).toBeNull();
+      expect(tree.queryByTestId('preview-param-panel')).toBeNull();
+    }
+  );
 
-  it('keeps the settings preview whole when opened without the layer', async () => {
+  vaultIt('keeps the settings preview whole when opened without the layer', async () => {
     const tree = await render(<DetectionPreviewScreen />);
 
     expect((mapProps as { retiredOnly?: boolean }).retiredOnly).toBeFalsy();
@@ -2011,7 +2037,7 @@ describe('the retired layer on the detection preview', () => {
     expect(tree.getByTestId('retired-pair-card')).toBeTruthy();
   });
 
-  it('keeps the list reachable from the layer', async () => {
+  vaultIt('keeps the list reachable from the layer', async () => {
     mockEnv.params = { layer: 'retired' };
     const tree = await render(<DetectionPreviewScreen />);
 

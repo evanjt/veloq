@@ -91,7 +91,7 @@ function makeDatabaseSection(overrides: Record<string, unknown> = {}): NativeSec
 // ---------------------------------------------------------------------------
 
 describe('convertNativeSectionToApp', () => {
-  it('converts a full catalogue section with all fields', () => {
+  vaultIt('converts a full catalogue section with all fields', () => {
     const native = makeCatalogueSection();
     const result = convertNativeSectionToApp(native);
 
@@ -123,7 +123,7 @@ describe('convertNativeSectionToApp', () => {
     expect(result.elevationLossM).toBe(640);
   });
 
-  it('leaves elevationLossM undefined when the engine has none', () => {
+  vaultIt('leaves elevationLossM undefined when the engine has none', () => {
     const result = convertNativeSectionToApp(makeDatabaseSection());
 
     expect(result.elevationLossM).toBeUndefined();
@@ -143,68 +143,68 @@ describe('convertNativeSectionToApp', () => {
     expect(result.activityPortions![1].direction).toBe('reverse');
   });
 
-  it('gives a database section an empty portion list, never a missing one', () => {
+  vaultIt('gives a database section an empty portion list, never a missing one', () => {
     const result = convertNativeSectionToApp(makeDatabaseSection());
 
     expect(result.activityPortions).toEqual([]);
   });
 
-  it('defaults routeIds to an empty array when the producer has none', () => {
+  vaultIt('defaults routeIds to an empty array when the producer has none', () => {
     const result = convertNativeSectionToApp(makeDatabaseSection());
 
     expect(result.routeIds).toEqual([]);
   });
 
-  it('converts a database section with sectionType "custom"', () => {
+  vaultIt('converts a database section with sectionType "custom"', () => {
     const native = makeDatabaseSection({ sectionType: 'custom' });
     const result = convertNativeSectionToApp(native);
 
     expect(result.sectionType).toBe('custom');
   });
 
-  it('defaults sectionType to "auto" for any non-"custom" value', () => {
+  vaultIt('defaults sectionType to "auto" for any non-"custom" value', () => {
     const native = makeDatabaseSection({ sectionType: 'something_else' });
     const result = convertNativeSectionToApp(native);
 
     expect(result.sectionType).toBe('auto');
   });
 
-  it('uses empty string for representativeActivityId when null', () => {
+  vaultIt('uses empty string for representativeActivityId when null', () => {
     const native = makeCatalogueSection({ representativeActivityId: null });
     const result = convertNativeSectionToApp(native);
 
     expect(result.representativeActivityId).toBe('');
   });
 
-  it('defaults confidence to 0 when null', () => {
+  vaultIt('defaults confidence to 0 when null', () => {
     const native = makeDatabaseSection();
     const result = convertNativeSectionToApp(native);
 
     expect(result.confidence).toBe(0);
   });
 
-  it('defaults pointDensity to empty array when null', () => {
+  vaultIt('defaults pointDensity to empty array when null', () => {
     const native = makeDatabaseSection();
     const result = convertNativeSectionToApp(native);
 
     expect(result.pointDensity).toEqual([]);
   });
 
-  it('returns empty string for createdAt when input has no createdAt (bug fix)', () => {
+  vaultIt('returns empty string for createdAt when input has no createdAt (bug fix)', () => {
     const native = makeDatabaseSection();
     const result = convertNativeSectionToApp(native);
 
     expect(result.createdAt).toBe('');
   });
 
-  it('preserves name as undefined when null', () => {
+  vaultIt('preserves name as undefined when null', () => {
     const native = makeCatalogueSection({ name: null });
     const result = convertNativeSectionToApp(native);
 
     expect(result.name).toBeUndefined();
   });
 
-  it('decodes encodedPolyline to RoutePoint array', () => {
+  vaultIt('decodes encodedPolyline to RoutePoint array', () => {
     const native = makeCatalogueSection({
       encodedPolyline: encodeTrack([
         { latitude: 1.0, longitude: 2.0 },
@@ -220,7 +220,7 @@ describe('convertNativeSectionToApp', () => {
     expect(result.polyline[2]).toEqual({ lat: 5.0, lng: 6.0 });
   });
 
-  it('decodes a polyline carrying elevations to the same coordinates', () => {
+  vaultIt('decodes a polyline carrying elevations to the same coordinates', () => {
     const native = makeCatalogueSection({
       encodedPolyline: encodeTrack([
         { latitude: 1.0, longitude: 2.0, elevation: 100.0 },
@@ -307,19 +307,19 @@ describe('the list builder', () => {
     });
   });
 
-  it('takes custom type from the engine even when the id has no custom prefix', () => {
+  vaultIt('takes custom type from the engine even when the id has no custom prefix', () => {
     expect(build({ id: 'foreign-id', sectionType: 'custom' }).sectionType).toBe('custom');
   });
 
-  it('takes auto type from the engine even when the id has a custom prefix', () => {
+  vaultIt('takes auto type from the engine even when the id has a custom prefix', () => {
     expect(build({ id: 'custom_legacy', sectionType: 'auto' }).sectionType).toBe('auto');
   });
 
-  it('reports no superseding section as null, not as absent', () => {
+  vaultIt('reports no superseding section as null, not as absent', () => {
     expect(build({ supersededBy: undefined }).supersededBy).toBeNull();
   });
 
-  it('decodes the polyline the row draws', () => {
+  vaultIt('decodes the polyline the row draws', () => {
     expect(build().polyline).toEqual([{ lat: 46.0, lng: 7.0 }]);
   });
 });

@@ -136,7 +136,7 @@ describe('scopeGroupingDiff', () => {
     ]);
   });
 
-  it('counts no split when the engine reported no spreads', () => {
+  vaultIt('counts no split when the engine reported no spreads', () => {
     const diff = paintPreview(routes, [{ key: 'p1', activityIds: ['a1'] }]);
     expect(diff.splitCount).toBe(0);
   });

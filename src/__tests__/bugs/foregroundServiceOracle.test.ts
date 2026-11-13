@@ -68,7 +68,7 @@ describe('what counts as proof that the foreground service started', () => {
     await expect(backgroundLocationRunning()).resolves.toBe(true);
   });
 
-  it('falls back to the registry where the module is absent, which is iOS', async () => {
+  vaultIt('falls back to the registry where the module is absent, which is iOS', async () => {
     mockLocationServiceRunning.mockResolvedValue(null);
     registrySays.mockResolvedValue(true);
     await expect(backgroundLocationRunning()).resolves.toBe(true);

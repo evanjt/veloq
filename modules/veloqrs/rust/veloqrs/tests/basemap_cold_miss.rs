@@ -37,6 +37,7 @@ fn spawn_and_wait(lookup: TileLookup) -> Result<Vec<u8>, u16> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_miss_is_answered_before_the_host_is_asked_and_kept_once_fetched() {
     let _serial = super::serial_state();
     let host = MockServer::start();
@@ -63,6 +64,7 @@ fn a_miss_is_answered_before_the_host_is_asked_and_kept_once_fetched() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_host_that_answered_429_is_not_asked_again_inside_the_hold() {
     let _serial = super::serial_state();
     let host = MockServer::start();
@@ -83,6 +85,7 @@ fn a_host_that_answered_429_is_not_asked_again_inside_the_hold() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_spawned_miss_refused_with_503_holds_the_next_miss_with_503() {
     let _serial = super::serial_state();
     let host = MockServer::start();
@@ -106,6 +109,7 @@ fn a_spawned_miss_refused_with_503_holds_the_next_miss_with_503() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_host_that_failed_otherwise_is_asked_again() {
     let _serial = super::serial_state();
     let host = MockServer::start();
@@ -165,6 +169,7 @@ fn spawn_all(lookups: Vec<TileLookup>) -> Vec<Result<Vec<u8>, u16>> {
 /// never held. The misses resolve the TileJSON once between them on the
 /// engine's runtime, and every one of them is then filled.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pan_with_no_template_held_resolves_the_tilejson_once_off_the_lookup() {
     let _serial = super::serial_state();
     let host = MockServer::start();
@@ -201,6 +206,7 @@ fn a_pan_with_no_template_held_resolves_the_tilejson_once_off_the_lookup() {
 /// Expected behaviour: the TileJSON is asked for once, and every miss is
 /// answered 502 without another request.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pan_with_no_template_held_and_the_tilejson_down_asks_once() {
     let _serial = super::serial_state();
     let host = MockServer::start();

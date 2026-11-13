@@ -67,7 +67,7 @@ async function openAllRender(ui: React.ReactElement) {
 describe('SectionLapList', () => {
   const records = [record('a', [40, 10]), record('b', [5])];
 
-  it('titles the card as a heading', async () => {
+  vaultIt('titles the card as a heading', async () => {
     const { getByRole } = await render(
       <SectionLapList
         isDark={false}
@@ -79,7 +79,7 @@ describe('SectionLapList', () => {
     expect(getByRole('header', { name: 'sections.laps' })).toBeTruthy();
   });
 
-  it('leaves the title off when the screen around it already carries it', async () => {
+  vaultIt('leaves the title off when the screen around it already carries it', async () => {
     const { queryByRole, queryByText, getByTestId } = await render(
       <SectionLapList
         isDark={false}
@@ -112,7 +112,7 @@ describe('SectionLapList', () => {
     expect(onExcludeLap).toHaveBeenCalledWith('a', 40);
   });
 
-  it('shows an excluded lap as excluded with an undo', async () => {
+  vaultIt('shows an excluded lap as excluded with an undo', async () => {
     const onIncludeLap = jest.fn();
     const { getByTestId, queryByTestId } = await openAllRender(
       <SectionLapList
@@ -128,22 +128,25 @@ describe('SectionLapList', () => {
     expect(onIncludeLap).toHaveBeenCalledWith('a', 10);
   });
 
-  it('draws an excluded lap out of play at the dimmed step, and a counted lap at full strength', async () => {
-    const { getByTestId } = await openAllRender(
-      <SectionLapList
-        isDark={false}
-        records={[record('a', [40, 10], [10])]}
-        onExcludeLap={jest.fn()}
-        onIncludeLap={jest.fn()}
-      />
-    );
-    expect(StyleSheet.flatten(getByTestId('section-lap-row-a-10').props.style).opacity).toBe(
-      opacity.dim
-    );
-    expect(
-      StyleSheet.flatten(getByTestId('section-lap-row-a-40').props.style).opacity
-    ).toBeUndefined();
-  });
+  vaultIt(
+    'draws an excluded lap out of play at the dimmed step, and a counted lap at full strength',
+    async () => {
+      const { getByTestId } = await openAllRender(
+        <SectionLapList
+          isDark={false}
+          records={[record('a', [40, 10], [10])]}
+          onExcludeLap={jest.fn()}
+          onIncludeLap={jest.fn()}
+        />
+      );
+      expect(StyleSheet.flatten(getByTestId('section-lap-row-a-10').props.style).opacity).toBe(
+        opacity.dim
+      );
+      expect(
+        StyleSheet.flatten(getByTestId('section-lap-row-a-40').props.style).opacity
+      ).toBeUndefined();
+    }
+  );
 
   it('keeps a two-lap activity listed after one lap is excluded, so it can be undone', async () => {
     const onIncludeLap = jest.fn();
@@ -160,21 +163,24 @@ describe('SectionLapList', () => {
     expect(onIncludeLap).toHaveBeenCalledWith('a', 40);
   });
 
-  it('draws lap rows below the tap-target height and lifts the controls with hit slop', async () => {
-    const { getByTestId } = await openAllRender(
-      <SectionLapList
-        isDark={false}
-        records={records}
-        onExcludeLap={jest.fn()}
-        onIncludeLap={jest.fn()}
-      />
-    );
-    const row = StyleSheet.flatten(getByTestId('section-lap-row-a-40').props.style);
-    expect(row.minHeight ?? 0).toBeLessThan(layout.minTapTarget);
-    expect(getByTestId('section-lap-exclude-a-40').props.hitSlop).toEqual(
-      expect.objectContaining({ top: expect.any(Number), bottom: expect.any(Number) })
-    );
-  });
+  vaultIt(
+    'draws lap rows below the tap-target height and lifts the controls with hit slop',
+    async () => {
+      const { getByTestId } = await openAllRender(
+        <SectionLapList
+          isDark={false}
+          records={records}
+          onExcludeLap={jest.fn()}
+          onIncludeLap={jest.fn()}
+        />
+      );
+      const row = StyleSheet.flatten(getByTestId('section-lap-row-a-40').props.style);
+      expect(row.minHeight ?? 0).toBeLessThan(layout.minTapTarget);
+      expect(getByTestId('section-lap-exclude-a-40').props.hitSlop).toEqual(
+        expect.objectContaining({ top: expect.any(Number), bottom: expect.any(Number) })
+      );
+    }
+  );
 
   it('marks the lap the engine names as the record, and not a quicker partial lap', async () => {
     const withFragment = {
@@ -198,7 +204,7 @@ describe('SectionLapList', () => {
     expect(queryByTestId('section-lap-record-b-20')).toBeNull();
   });
 
-  it('renders nothing when no activity lapped the section', async () => {
+  vaultIt('renders nothing when no activity lapped the section', async () => {
     const { queryByTestId } = await render(
       <SectionLapList
         isDark={false}
@@ -210,7 +216,7 @@ describe('SectionLapList', () => {
     expect(queryByTestId('section-lap-list')).toBeNull();
   });
 
-  it('opens every lap on a dedicated page', async () => {
+  vaultIt('opens every lap on a dedicated page', async () => {
     const { getByTestId } = await render(
       <SectionLapList
         isDark={false}
@@ -299,7 +305,7 @@ describe('SectionLapList', () => {
       record('f', [10, 40]),
     ].map((r, i) => ({ ...r, activityDate: new Date(Date.UTC(2026, 0, 1 + i)) }));
 
-    it('shows one row per activity with no exclude pill, and caps the rows', async () => {
+    vaultIt('shows one row per activity with no exclude pill, and caps the rows', async () => {
       const { getByTestId, queryByTestId, queryAllByTestId } = await render(
         <SectionLapList
           isDark={false}
@@ -350,7 +356,7 @@ describe('SectionLapList', () => {
       expect(queryByTestId(/^section-lap-record-/)).toBeNull();
     });
 
-    it('opens every lap with Show all and folds back', async () => {
+    vaultIt('opens every lap with Show all and folds back', async () => {
       const { getByTestId, queryByTestId } = await render(
         <SectionLapList
           isDark={false}
@@ -365,20 +371,23 @@ describe('SectionLapList', () => {
       expect(queryByTestId('section-lap-exclude-b-10')).toBeNull();
     });
 
-    it('still offers Show all for a single activity, since exclude lives in the full list', async () => {
-      const { queryByTestId } = await render(
-        <SectionLapList
-          isDark={false}
-          records={[record('a', [10, 40])]}
-          onExcludeLap={jest.fn()}
-          onIncludeLap={jest.fn()}
-        />
-      );
-      expect(queryByTestId('section-lap-summary-a')).toBeTruthy();
-      expect(queryByTestId('section-lap-show-all')).toBeTruthy();
-    });
+    vaultIt(
+      'still offers Show all for a single activity, since exclude lives in the full list',
+      async () => {
+        const { queryByTestId } = await render(
+          <SectionLapList
+            isDark={false}
+            records={[record('a', [10, 40])]}
+            onExcludeLap={jest.fn()}
+            onIncludeLap={jest.fn()}
+          />
+        );
+        expect(queryByTestId('section-lap-summary-a')).toBeTruthy();
+        expect(queryByTestId('section-lap-show-all')).toBeTruthy();
+      }
+    );
 
-    it('speaks the best lap with its time, not the bare words', () => {
+    vaultIt('speaks the best lap with its time, not the bare words', () => {
       const { getByLabelText } = render(
         <SectionLapList
           isDark={false}
@@ -390,7 +399,7 @@ describe('SectionLapList', () => {
       expect(getByLabelText('sections.bestLapValue:2:00')).toBeTruthy();
     });
 
-    it('names the record on the trophy and on the row holding it', () => {
+    vaultIt('names the record on the trophy and on the row holding it', () => {
       const holder = {
         ...record('a', [10, 40]),
       };
@@ -412,7 +421,7 @@ describe('SectionLapList', () => {
       );
     });
 
-    it('speaks a row without the record without the record word', () => {
+    vaultIt('speaks a row without the record without the record word', () => {
       const { getByTestId } = render(
         <SectionLapList
           isDark={false}
@@ -426,7 +435,7 @@ describe('SectionLapList', () => {
       expect(label).not.toMatch(/recordLap/);
     });
 
-    it('opens the activity from its summary row', () => {
+    vaultIt('opens the activity from its summary row', () => {
       mockNavigateTo.mockClear();
       const { getByTestId } = render(
         <SectionLapList
@@ -450,7 +459,7 @@ describe('SectionLapList', () => {
  * Expected behaviour: each is the shared small Button, named for the lap it acts on.
  */
 describe('SectionLapList lap actions', () => {
-  it('draws exclude and undo as Buttons with their labels', async () => {
+  vaultIt('draws exclude and undo as Buttons with their labels', async () => {
     const { getByTestId, getByRole, getByText } = await openAllRender(
       <SectionLapList
         isDark={false}
@@ -486,7 +495,7 @@ describe('SectionLapList lap actions', () => {
       expect(queryByTestId('section-lap-estimated-a-40')).toBeNull();
     });
 
-    it('speaks the estimate in the time of the lap that carries it', async () => {
+    vaultIt('speaks the estimate in the time of the lap that carries it', async () => {
       const { getByTestId } = await openAllRender(
         <SectionLapList
           isDark={false}

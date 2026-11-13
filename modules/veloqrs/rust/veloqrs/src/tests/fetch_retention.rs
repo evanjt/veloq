@@ -13,6 +13,7 @@ use crate::test_globals::read_while_writer_holds;
 /// the caller's thread. A sync page holding the engine write lock must not
 /// hold the start with it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_start_fetch_and_store_retention_read_writer_held() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("fetch_retention_under_writer.db");

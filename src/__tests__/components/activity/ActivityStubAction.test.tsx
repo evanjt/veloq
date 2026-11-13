@@ -59,26 +59,26 @@ it('offers the update for a Garmin stub, asks first, and reads no state to draw 
   expect(garminState).not.toHaveBeenCalled();
 });
 
-it('points a stub with no key at the connector', async () => {
+vaultIt('points a stub with no key at the connector', async () => {
   await draw(StubVerdict.NoKey);
   fireEvent.press(screen.getByText('activity.stubCard.noKey'));
   expect(navigateTo).toHaveBeenCalledWith('/garmin-connector');
   expect(screen.queryByText('activity.stubCard.update')).toBeNull();
 });
 
-it('draws a plain line with no action for a stub from another source', async () => {
+vaultIt('draws a plain line with no action for a stub from another source', async () => {
   await draw(StubVerdict.OtherSource);
   expect(screen.getByText('activity.stubCard.otherSource')).toBeTruthy();
   expect(screen.queryByText('activity.stubCard.update')).toBeNull();
   expect(screen.queryByTestId('activity-card-a1-stub-connect')).toBeNull();
 });
 
-it('draws nothing for a served card', async () => {
+vaultIt('draws nothing for a served card', async () => {
   await draw(StubVerdict.NotStub);
   expect(screen.toJSON()).toBeNull();
 });
 
-it('draws nothing while the experimental switch is off', async () => {
+vaultIt('draws nothing while the experimental switch is off', async () => {
   useDebugStore.setState({ experimentalFeatures: {} });
   await draw(StubVerdict.GarminUpdatable);
   expect(screen.toJSON()).toBeNull();

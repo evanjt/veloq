@@ -33,6 +33,7 @@ const BAND: Band = Band {
 };
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn attaching_one_activity_stays_inside_its_band() {
     let (tracks, starts, _) = corpus::load_tracks(CORPUS, 1000);
     let points: usize = tracks.iter().map(|(_, t)| t.len()).sum();

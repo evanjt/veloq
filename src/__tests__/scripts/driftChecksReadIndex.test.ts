@@ -44,14 +44,14 @@ describe('a drift check', () => {
   let root = '';
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-  it('passes a clean pair while the disk holds a half-written output', () => {
+  vaultIt('passes a clean pair while the disk holds a half-written output', () => {
     root = checkout('const ACTIVITY_DAYS: i64 = 90;\n', rendered(90));
     put(root, OUTPUT, 'export const DEFAULT_ACTIVITY_DAYS = 0; // half saved\n');
 
     expect(check(root).status).toBe(0);
   });
 
-  it('passes a clean pair while the disk holds a half-edited source', () => {
+  vaultIt('passes a clean pair while the disk holds a half-edited source', () => {
     root = checkout('const ACTIVITY_DAYS: i64 = 90;\n', rendered(90));
     put(root, SOURCE, 'const ACTIVITY_DAYS: i64 = 30;\n');
 

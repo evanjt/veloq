@@ -172,7 +172,7 @@ describe('BaseMapView', () => {
     const attributionColour = () =>
       StyleSheet.flatten(screen.getByTestId('map-attribution-text').props.style).color;
 
-    it('draws the dark chrome in a dark theme over the light map', async () => {
+    vaultIt('draws the dark chrome in a dark theme over the light map', async () => {
       mockTheme.isDark = true;
       await renderMap({ routeCoordinates: ROUTE, initialStyle: 'light' });
 
@@ -180,7 +180,7 @@ describe('BaseMapView', () => {
       expect(attributionColour()).toBe(darkColors.textSecondary);
     });
 
-    it('draws the light chrome in a light theme over the satellite map', async () => {
+    vaultIt('draws the light chrome in a light theme over the satellite map', async () => {
       await renderMap({ routeCoordinates: ROUTE, initialStyle: 'satellite' });
 
       expect(groundOf('map-style-toggle')).not.toBe(darkColors.surfaceRaised);
@@ -188,7 +188,7 @@ describe('BaseMapView', () => {
     });
   });
 
-  it('draws the shared map credit once, held above the safe-area bottom inset', async () => {
+  vaultIt('draws the shared map credit once, held above the safe-area bottom inset', async () => {
     await renderMap({ routeCoordinates: ROUTE, initialStyle: 'light' });
 
     const credits = screen.getAllByTestId('map-attribution');
@@ -197,7 +197,7 @@ describe('BaseMapView', () => {
     expect(StyleSheet.flatten(credits[0]!.props.style).bottom).toBe(METRICS.insets.bottom);
   });
 
-  it('rewrites the credit when the drawn base changes', async () => {
+  vaultIt('rewrites the credit when the drawn base changes', async () => {
     await renderMap({ routeCoordinates: ROUTE, initialStyle: 'satellite' });
     const creditText = () => screen.getByTestId('map-attribution-text').props.children;
     const before = creditText();
@@ -207,7 +207,7 @@ describe('BaseMapView', () => {
     expect(creditText()).not.toBe(before);
   });
 
-  it('mounts a map with a route and bounds', async () => {
+  vaultIt('mounts a map with a route and bounds', async () => {
     await renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
 
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
@@ -231,7 +231,7 @@ describe('BaseMapView', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the style toggle pressable', async () => {
+  vaultIt('keeps the style toggle pressable', async () => {
     await renderMap({ routeCoordinates: ROUTE });
 
     const toggle = screen.getByTestId('map-style-toggle');
@@ -245,7 +245,7 @@ describe('BaseMapView', () => {
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
-  it('hides the toggles when the caller turns them off', async () => {
+  vaultIt('hides the toggles when the caller turns them off', async () => {
     await renderMap({ routeCoordinates: ROUTE, showStyleToggle: false, show3DToggle: false });
 
     expect(screen.queryByTestId('map-style-toggle')).toBeNull();
@@ -297,7 +297,7 @@ describe('BaseMapView', () => {
     expect(onPress.mock.calls[0][0].coordinate).toEqual([7.447, 46.948]);
   });
 
-  it('accepts overlay sources and layers alongside the route', async () => {
+  vaultIt('accepts overlay sources and layers alongside the route', async () => {
     await expect(
       (async () =>
         renderMap({
@@ -376,7 +376,7 @@ describe('BaseMapView', () => {
       });
     }
 
-    it('keeps the location source mounted and empty before any fix', async () => {
+    vaultIt('keeps the location source mounted and empty before any fix', async () => {
       await renderMap({ routeCoordinates: ROUTE });
 
       expect(mockSurfaceProbe.sources['user-location']?.data?.features).toEqual([]);
@@ -426,7 +426,7 @@ describe('BaseMapView', () => {
       ).toBe(false);
     });
 
-    it('eases onto the fix at the shared locate zoom and reuses a fresh fix', async () => {
+    vaultIt('eases onto the fix at the shared locate zoom and reuses a fresh fix', async () => {
       await renderMap({ routeCoordinates: ROUTE });
       const locate = screen.getByRole('button', { name: 'maps.goToLocation' });
 

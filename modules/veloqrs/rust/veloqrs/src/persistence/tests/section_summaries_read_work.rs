@@ -92,6 +92,7 @@ fn seeded(sections: usize, activities_per_section: usize) -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_summaries_read_costs_the_same_however_many_activities_a_section_holds() {
     let mut few = seeded(SECTIONS, FEW_ACTIVITIES_PER_SECTION);
     let mut many = seeded(SECTIONS, MANY_ACTIVITIES_PER_SECTION);
@@ -119,6 +120,7 @@ fn the_summaries_read_costs_the_same_however_many_activities_a_section_holds() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn get_sections_costs_no_more_for_the_extra_junction_rows() {
     let mut few = seeded(SECTIONS, FEW_ACTIVITIES_PER_SECTION);
     let mut many = seeded(SECTIONS, MANY_ACTIVITIES_PER_SECTION);

@@ -31,7 +31,7 @@ describe('axis dates under French', () => {
     await changeLanguage('fr');
   });
 
-  it('puts the day where French puts it, with no apostrophe year', () => {
+  vaultIt('puts the day where French puts it, with no apostrophe year', () => {
     const label = formatAxisDate(MID_JANUARY, true);
     expect(label).toBe(
       new Intl.DateTimeFormat('fr', { month: 'short', day: 'numeric', year: '2-digit' }).format(
@@ -42,7 +42,7 @@ describe('axis dates under French', () => {
     expect(label.indexOf('15')).toBeLessThan(label.indexOf('janv'));
   });
 
-  it('reads month and year alone when the axis does not need the day', () => {
+  vaultIt('reads month and year alone when the axis does not need the day', () => {
     const label = formatAxisDate(MID_JANUARY, false);
     expect(label).toBe(
       new Intl.DateTimeFormat('fr', { month: 'short', year: 'numeric' }).format(MID_JANUARY)
@@ -51,18 +51,18 @@ describe('axis dates under French', () => {
     expect(label).not.toContain("'");
   });
 
-  it('reads a tooltip day in the same order as the axis beside it', () => {
+  vaultIt('reads a tooltip day in the same order as the axis beside it', () => {
     expect(formatShortDateWithYear(MID_JANUARY)).toBe(formatAxisDate(MID_JANUARY, true));
   });
 });
 
 describe('a year tick', () => {
-  it('reads two digits with no apostrophe in English', () => {
+  vaultIt('reads two digits with no apostrophe in English', () => {
     expect(formatYear(MID_JANUARY, true)).toBe('24');
     expect(formatYear(MID_JANUARY)).toBe('2024');
   });
 
-  it('takes the year form of the app language', async () => {
+  vaultIt('takes the year form of the app language', async () => {
     await changeLanguage('ja');
     const label = formatYear(MID_JANUARY, true);
     expect(label).toBe(new Intl.DateTimeFormat('ja', { year: '2-digit' }).format(MID_JANUARY));
@@ -88,7 +88,7 @@ describe('formatRelativeDateTime', () => {
     jest.setSystemTime(new Date(2024, 5, 15, 18, 0));
   });
 
-  it('reads today with the start time', () => {
+  vaultIt('reads today with the start time', () => {
     expect(formatRelativeDateTime('2024-06-15T07:12:00')).toBe('Today, 07:12');
   });
 
@@ -98,32 +98,32 @@ describe('formatRelativeDateTime', () => {
     );
   });
 
-  it('reads yesterday with the start time', () => {
+  vaultIt('reads yesterday with the start time', () => {
     expect(formatRelativeDateTime('2024-06-14T21:05:00')).toBe('Yesterday, 21:05');
   });
 
-  it('carries the time on a weekday within the week', () => {
+  vaultIt('carries the time on a weekday within the week', () => {
     expect(formatRelativeDateTime('2024-06-12T09:30:00')).toBe('Wednesday, 09:30');
   });
 
-  it('carries the year and the time on an earlier year', () => {
+  vaultIt('carries the year and the time on an earlier year', () => {
     const label = formatRelativeDateTime('2023-03-04T06:45:00');
     expect(label).toContain('2023');
     expect(label).toContain('06:45');
   });
 
-  it('follows the app language', async () => {
+  vaultIt('follows the app language', async () => {
     await changeLanguage('fr');
     expect(formatRelativeDateTime('2024-06-15T07:12:00')).toBe("Aujourd'hui, 07:12");
   });
 
-  it('reads a day string with no time as the day alone', () => {
+  vaultIt('reads a day string with no time as the day alone', () => {
     expect(formatRelativeDateTime('2024-06-15')).toBe('Today');
   });
 });
 
 describe('formatDateTime', () => {
-  it('leaves the seconds out', () => {
+  vaultIt('leaves the seconds out', () => {
     const label = formatDateTime('2024-06-15T07:12:34');
     expect(label).toContain('07:12');
     expect(label).not.toContain('34');

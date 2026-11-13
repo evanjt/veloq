@@ -187,6 +187,7 @@ fn best_efforts_read_the_same_from_one_answer_as_from_seven() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_the_answer_leaves_out_is_stored_as_a_single_request_returns_it() {
     let (single, split) = stored_both_ways();
     let empty: serde_json::Value = serde_json::from_str(EMPTY_WINDOW).expect("json");

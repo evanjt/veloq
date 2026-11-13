@@ -173,7 +173,7 @@ describe('map surface registry', () => {
     off();
   });
 
-  it('has nothing to rebuild when the hold lifts on a page never released', () => {
+  vaultIt('has nothing to rebuild when the hold lifts on a page never released', () => {
     const a = surface();
     const off = registerReleasableSurface(a);
 

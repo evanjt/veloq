@@ -106,6 +106,7 @@ fn library() -> (PersistentEngine, Vec<GpsPoint>) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_attach_cuts_only_the_sections_the_ride_can_reach() {
     let (mut engine, _) = library();
     let before = attach_cuts();
@@ -122,6 +123,7 @@ fn an_attach_cuts_only_the_sections_the_ride_can_reach() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_attach_writes_the_rows_cutting_every_section_would() {
     let (mut engine, ride) = library();
     let config = engine.section_config.clone();
@@ -152,6 +154,7 @@ fn an_attach_writes_the_rows_cutting_every_section_would() {
 /// cut finds a pass the reach test admits the ride, and a ride well past the
 /// reach is refused.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_reach_test_admits_every_ride_a_cut_finds_a_pass_on() {
     let config = tracematch::SectionConfig::default();
     for lat in [-62.0, -33.9, 0.5, 46.2, 69.6] {

@@ -83,14 +83,17 @@ it('re-runs the read when a subscribed event fires', async () => {
   expect(screen.getByTestId('shown')).toHaveTextContent('second:a');
 });
 
-it('keeps the reader identity stable, so a render nothing announced re-reads nothing', async () => {
-  const screen = await render(<Probe events={['activities']} other="a" />);
-  const before = reads;
+vaultIt(
+  'keeps the reader identity stable, so a render nothing announced re-reads nothing',
+  async () => {
+    const screen = await render(<Probe events={['activities']} other="a" />);
+    const before = reads;
 
-  await screen.rerender(<Probe events={['activities']} other="b" />);
+    await screen.rerender(<Probe events={['activities']} other="b" />);
 
-  expect(reads).toBe(before);
-});
+    expect(reads).toBe(before);
+  }
+);
 
 it('hands the read undefined rather than throwing when the engine is not there', async () => {
   mockGetEngine.mockReturnValue(null);
@@ -129,7 +132,7 @@ it('re-runs the read when a caller key moves, with no event announced', async ()
   expect(screen.getByTestId('shown')).toHaveTextContent('second:a');
 });
 
-it('keeps the reader stable while the keys are equal, though the array is new', async () => {
+vaultIt('keeps the reader stable while the keys are equal, though the array is new', async () => {
   const screen = await render(<KeyedProbe refreshKey={3} other="a" />);
   const before = reads;
 

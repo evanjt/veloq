@@ -112,7 +112,7 @@ function labelContrast(swipe: ReturnType<typeof render>, label: string): number 
 }
 
 describe('activity section swipe actions', () => {
-  it.each([
+  vaultIt.each([
     ['custom', 'common.delete'],
     ['auto', 'common.remove'],
   ])('draws the %s section action label at 4.5:1 on its fill', async (sectionType, label) => {
@@ -121,7 +121,7 @@ describe('activity section swipe actions', () => {
     expect(labelContrast(swipe, label)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('draws removing a detected section as the sections list draws it', async () => {
+  vaultIt('draws removing a detected section as the sections list draws it', async () => {
     const swipe = await swipeActions('s1', 'auto', jest.fn());
     const text = swipe.getByText('common.remove');
     let fill: unknown;
@@ -134,7 +134,7 @@ describe('activity section swipe actions', () => {
     expect(swipe.UNSAFE_getByType(MaterialCommunityIcons).props.name).toBe('minus-circle-outline');
   });
 
-  it.each([
+  vaultIt.each([
     ['custom', 'delete'],
     ['auto', 'remove'],
   ])(
@@ -241,27 +241,30 @@ describe('activity section swipe actions', () => {
     expect(removeSection).not.toHaveBeenCalled();
   });
 
-  it('offers a screen reader the action the swipe shows, running the same handler', async () => {
-    const removeSection = jest.fn();
-    const hide = await plotProps('auto-1', 'auto', removeSection);
-    const [hideAction, ...noMore] = hide.actionsFor(hide.group);
+  vaultIt(
+    'offers a screen reader the action the swipe shows, running the same handler',
+    async () => {
+      const removeSection = jest.fn();
+      const hide = await plotProps('auto-1', 'auto', removeSection);
+      const [hideAction, ...noMore] = hide.actionsFor(hide.group);
 
-    expect(noMore).toEqual([]);
-    expect(hideAction).toMatchObject({ name: 'remove', label: 'common.remove' });
-    hideAction.run();
-    expect(mockDisableSection).toHaveBeenCalledWith('auto-1');
+      expect(noMore).toEqual([]);
+      expect(hideAction).toMatchObject({ name: 'remove', label: 'common.remove' });
+      hideAction.run();
+      expect(mockDisableSection).toHaveBeenCalledWith('auto-1');
 
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const custom = await plotProps('custom-1', 'custom', removeSection);
-    const [deleteAction] = custom.actionsFor(custom.group);
-    expect(deleteAction).toMatchObject({ name: 'delete', label: 'common.delete' });
-    deleteAction.run();
-    expect(alert).toHaveBeenCalledWith(
-      'sections.deleteSection',
-      expect.any(String),
-      expect.any(Array),
-      expect.objectContaining({ cancelable: true })
-    );
-    alert.mockRestore();
-  });
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+      const custom = await plotProps('custom-1', 'custom', removeSection);
+      const [deleteAction] = custom.actionsFor(custom.group);
+      expect(deleteAction).toMatchObject({ name: 'delete', label: 'common.delete' });
+      deleteAction.run();
+      expect(alert).toHaveBeenCalledWith(
+        'sections.deleteSection',
+        expect.any(String),
+        expect.any(Array),
+        expect.objectContaining({ cancelable: true })
+      );
+      alert.mockRestore();
+    }
+  );
 });

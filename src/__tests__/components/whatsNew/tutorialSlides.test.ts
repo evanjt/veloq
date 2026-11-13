@@ -60,11 +60,11 @@ describe('the first-run tour', () => {
     );
   });
 
-  it('is its own list rather than every release slide in ship order', () => {
+  vaultIt('is its own list rather than every release slide in ship order', () => {
     expect(tutorial.map((s) => s.titleKey)).not.toEqual(getAllSlides().map((s) => s.titleKey));
   });
 
-  it('opens on the map styles and the notifications setup, and ends on backup', () => {
+  vaultIt('opens on the map styles and the notifications setup, and ends on backup', () => {
     expect(tutorial.map((s) => s.titleKey)).toEqual([
       'whatsNew.v022.mapStylesTitle',
       'whatsNew.tutorial.notificationsTitle',
@@ -79,20 +79,20 @@ describe('the first-run tour', () => {
     expect(tutorial[1].setup).toBe('notifications');
   });
 
-  it('holds no page about the first load, the feed or an activity', () => {
+  vaultIt('holds no page about the first load, the feed or an activity', () => {
     const titles = tutorial.map((s) => s.titleKey);
     expect(titles).not.toContain('whatsNew.tutorial.firstLoadTitle');
     expect(titles).not.toContain('whatsNew.tutorial.feedTitle');
     expect(titles).not.toContain('whatsNew.tutorial.activityTitle');
   });
 
-  it('draws a picture under every slide, so none shows an empty field under its text', () => {
+  vaultIt('draws a picture under every slide, so none shows an empty field under its text', () => {
     // Reads the lazy getter's presence without loading the picture's module.
     const bare = tutorial.filter((s) => !Object.prototype.hasOwnProperty.call(s, 'Component'));
     expect(bare.map((s) => s.titleKey)).toEqual([]);
   });
 
-  it('holds no slide that opens the section preview', () => {
+  vaultIt('holds no slide that opens the section preview', () => {
     expect(tutorial.map((s) => s.showMeRoute)).not.toContain('/detection-preview');
   });
 });
@@ -102,25 +102,28 @@ describe("What's New 0.4.0", () => {
   const LOOK = 'whatsNew.v040.lookTitle';
   const CHANGES = 'whatsNew.v040.changesTitle';
 
-  it('sells the release in six slides, opening on the notifications, then names the other changes', () => {
-    expect(release.map((s) => s.titleKey)).toEqual([
-      'whatsNew.tutorial.notificationsTitle',
-      'whatsNew.tutorial.garminTitle',
-      'whatsNew.v040.recordingTitle',
-      LOOK,
-      'whatsNew.v040.mapsWidgetsTitle',
-      'whatsNew.v040.rebuiltTitle',
-      CHANGES,
-    ]);
-    expect(release[0].setup).toBe('notifications');
-  });
+  vaultIt(
+    'sells the release in six slides, opening on the notifications, then names the other changes',
+    () => {
+      expect(release.map((s) => s.titleKey)).toEqual([
+        'whatsNew.tutorial.notificationsTitle',
+        'whatsNew.tutorial.garminTitle',
+        'whatsNew.v040.recordingTitle',
+        LOOK,
+        'whatsNew.v040.mapsWidgetsTitle',
+        'whatsNew.v040.rebuiltTitle',
+        CHANGES,
+      ]);
+      expect(release[0].setup).toBe('notifications');
+    }
+  );
 
   it('draws a picture under every slide', () => {
     const bare = release.filter((s) => !Object.prototype.hasOwnProperty.call(s, 'Component'));
     expect(bare.map((s) => s.titleKey)).toEqual([]);
   });
 
-  it('shares every slide but the look and the changes with the tour', () => {
+  vaultIt('shares every slide but the look and the changes with the tour', () => {
     const inTour = new Set(getTutorialSlides().map((s) => s.titleKey));
     const releaseOnly = [LOOK, CHANGES];
     const missing = release.filter(
@@ -130,11 +133,11 @@ describe("What's New 0.4.0", () => {
     for (const titleKey of releaseOnly) expect(inTour.has(titleKey)).toBe(false);
   });
 
-  it('holds no slide that opens the section preview', () => {
+  vaultIt('holds no slide that opens the section preview', () => {
     expect(release.map((s) => s.showMeRoute)).not.toContain('/detection-preview');
   });
 
-  it('renders a picture for each new slide', async () => {
+  vaultIt('renders a picture for each new slide', async () => {
     const ids: Record<string, string> = {
       'whatsNew.v040.recordingTitle': 'tour-recording-picture',
       [LOOK]: 'tour-look-picture',
@@ -203,7 +206,7 @@ describe('the first-run tour copy', () => {
     )
     .flatMap((s) => [s.titleKey, s.bodyKey, ...(s.showMeTip ? [s.showMeTip] : [])]);
 
-  it.each(fs.readdirSync(LOCALES_DIR).map((file) => file.replace('.json', '')))(
+  vaultIt.each(fs.readdirSync(LOCALES_DIR).map((file) => file.replace('.json', '')))(
     'is translated in %s',
     (locale) => {
       const bundle = resolvedLocale(locale);

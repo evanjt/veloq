@@ -120,7 +120,7 @@ describe('a run refused while another is in flight', () => {
     expect(mockFetchApiGps).toHaveBeenCalledTimes(1);
   });
 
-  it('hands nothing to the engine when no run was refused', async () => {
+  vaultIt('hands nothing to the engine when no run was refused', async () => {
     const only = deferred();
     mockFetchApiGps.mockReturnValueOnce(only.promise);
 

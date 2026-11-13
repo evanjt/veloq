@@ -74,6 +74,7 @@ fn sparklines_end_with_the_most_recent_day() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_series_shares_one_ordering() {
     let (_tmp, engine) = engine_with_five_days();
     let sp = engine
@@ -93,6 +94,7 @@ fn every_series_shares_one_ordering() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_window_takes_the_newest_days_when_it_is_shorter_than_the_history() {
     let (_tmp, engine) = engine_with_five_days();
     let sp = engine

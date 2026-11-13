@@ -96,13 +96,13 @@ describe('the Garmin connector duplicate warning', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('shows neither while uploading is off, with the import on', async () => {
+  vaultIt('shows neither while uploading is off, with the import on', async () => {
     const screen = await connectedScreen(true);
     expect(screen.queryByTestId('garmin-duplicate-warning')).toBeNull();
     expect(screen.queryByTestId('garmin-open-connections')).toBeNull();
   });
 
-  it('shows neither when the import is off', async () => {
+  vaultIt('shows neither when the import is off', async () => {
     const screen = await connectedScreen(false);
     fireEvent(screen.getByTestId('garmin-upload-switch'), 'valueChange', true);
     await waitFor(() => expect(mockSettings.get('veloq-garmin-upload')).toBe('true'));
@@ -142,7 +142,7 @@ describe('the Garmin connector duplicate warning', () => {
     expect(mockKeychain.has(GARMIN_KEY_STORAGE_KEY)).toBe(true);
   });
 
-  it('shows the stored feed choice again when saving the switch fails', async () => {
+  vaultIt('shows the stored feed choice again when saving the switch fails', async () => {
     const screen = await connectedScreen(true);
     (setSetting as jest.Mock).mockRejectedValueOnce(new Error('invented storage failure'));
     fireEvent(screen.getByTestId('garmin-feed-switch'), 'valueChange', false);
@@ -168,7 +168,7 @@ describe('the Garmin connector after a restore', () => {
     expect(screen.queryByTestId('garmin-disconnect')).toBeNull();
   });
 
-  it('shows no request once a key is kept', async () => {
+  vaultIt('shows no request once a key is kept', async () => {
     mockSettings.set('__garmin_connector_enabled', 'true');
     mockKeychain.set(GARMIN_KEY_STORAGE_KEY, 'kept-key');
     const screen = await render(<GarminConnector />);
@@ -185,7 +185,7 @@ describe('the Garmin connector upload switch', () => {
     mockUpgrade.mockResolvedValue({ granted: true, error: null });
   });
 
-  it('turns on at once for an API-key athlete, which carries every permission', async () => {
+  vaultIt('turns on at once for an API-key athlete, which carries every permission', async () => {
     useAuthStore.setState({ authMethod: 'apiKey' });
     useUploadPermissionStore.setState({ isLoaded: true, hasWritePermission: null });
     const screen = await connectedScreen(false);
@@ -203,7 +203,7 @@ describe('the Garmin connector upload switch', () => {
     expect(mockUpgrade).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the upload switch off again when saving it fails', async () => {
+  vaultIt('shows the upload switch off again when saving it fails', async () => {
     useAuthStore.setState({ authMethod: 'apiKey' });
     useUploadPermissionStore.setState({ isLoaded: true, hasWritePermission: null });
     const screen = await connectedScreen(false);
@@ -227,14 +227,17 @@ describe('the Garmin connector upload switch', () => {
     expect(mockSettings.has('veloq-garmin-upload')).toBe(false);
   });
 
-  it('turns on without the upgrade for an OAuth athlete who already holds the grant', async () => {
-    useAuthStore.setState({ authMethod: 'oauth' });
-    useUploadPermissionStore.setState({ isLoaded: true, hasWritePermission: true });
-    const screen = await connectedScreen(false);
-    fireEvent(screen.getByTestId('garmin-upload-switch'), 'valueChange', true);
-    await waitFor(() => expect(mockSettings.get('veloq-garmin-upload')).toBe('true'));
-    expect(mockUpgrade).not.toHaveBeenCalled();
-  });
+  vaultIt(
+    'turns on without the upgrade for an OAuth athlete who already holds the grant',
+    async () => {
+      useAuthStore.setState({ authMethod: 'oauth' });
+      useUploadPermissionStore.setState({ isLoaded: true, hasWritePermission: true });
+      const screen = await connectedScreen(false);
+      fireEvent(screen.getByTestId('garmin-upload-switch'), 'valueChange', true);
+      await waitFor(() => expect(mockSettings.get('veloq-garmin-upload')).toBe('true'));
+      expect(mockUpgrade).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe('the Garmin connector automatic swap switch', () => {
@@ -255,20 +258,20 @@ describe('the Garmin connector automatic swap switch', () => {
     });
   });
 
-  it('is absent while the experimental switch is off', async () => {
+  vaultIt('is absent while the experimental switch is off', async () => {
     useDebugStore.setState({ experimentalFeatures: {} });
     const screen = await connectedScreen(false);
     expect(screen.queryByTestId('garmin-auto-swap-switch')).toBeNull();
     expect(screen.getByTestId('garmin-upload-switch')).toBeTruthy();
   });
 
-  it('is absent when the Garmin entry is off under the experimental switch', async () => {
+  vaultIt('is absent when the Garmin entry is off under the experimental switch', async () => {
     useDebugStore.setState({ experimentalFeatures: { garminUpdate: false } });
     const screen = await connectedScreen(false);
     expect(screen.queryByTestId('garmin-auto-swap-switch')).toBeNull();
   });
 
-  it('is off and labelled Experimental until the athlete turns it on', async () => {
+  vaultIt('is off and labelled Experimental until the athlete turns it on', async () => {
     const screen = await connectedScreen(false);
     expect(screen.getByTestId('garmin-auto-swap-experimental')).toBeTruthy();
     expect(screen.getByTestId('garmin-auto-swap-switch').props.accessibilityState.checked).toBe(
@@ -277,7 +280,7 @@ describe('the Garmin connector automatic swap switch', () => {
     expect(mockSettings.has('veloq-garmin-auto-swap')).toBe(false);
   });
 
-  it('stores the moment it was turned on, and false when turned off', async () => {
+  vaultIt('stores the moment it was turned on, and false when turned off', async () => {
     const screen = await connectedScreen(false);
     const before = Date.now();
     fireEvent(screen.getByTestId('garmin-auto-swap-switch'), 'valueChange', true);
@@ -288,17 +291,20 @@ describe('the Garmin connector automatic swap switch', () => {
     await waitFor(() => expect(mockSettings.get('veloq-garmin-auto-swap')).toBe('false'));
   });
 
-  it('shows why the engine switched it off, and clears that reason when it is turned on again', async () => {
-    mockSettings.set('veloq-garmin-auto-swap', 'false');
-    mockSettings.set('veloq-garmin-auto-swap-stopped', 'intervals.icu holds a different file');
-    const screen = await connectedScreen(false);
-    expect(screen.getByTestId('garmin-auto-swap-stopped')).toBeTruthy();
-    fireEvent(screen.getByTestId('garmin-auto-swap-switch'), 'valueChange', true);
-    await waitFor(() => expect(screen.queryByTestId('garmin-auto-swap-stopped')).toBeNull());
-    expect(mockSettings.has('veloq-garmin-auto-swap-stopped')).toBe(false);
-  });
+  vaultIt(
+    'shows why the engine switched it off, and clears that reason when it is turned on again',
+    async () => {
+      mockSettings.set('veloq-garmin-auto-swap', 'false');
+      mockSettings.set('veloq-garmin-auto-swap-stopped', 'intervals.icu holds a different file');
+      const screen = await connectedScreen(false);
+      expect(screen.getByTestId('garmin-auto-swap-stopped')).toBeTruthy();
+      fireEvent(screen.getByTestId('garmin-auto-swap-switch'), 'valueChange', true);
+      await waitFor(() => expect(screen.queryByTestId('garmin-auto-swap-stopped')).toBeNull());
+      expect(mockSettings.has('veloq-garmin-auto-swap-stopped')).toBe(false);
+    }
+  );
 
-  it('shows the switch off again when saving it fails', async () => {
+  vaultIt('shows the switch off again when saving it fails', async () => {
     const screen = await connectedScreen(false);
     (setSetting as jest.Mock).mockRejectedValueOnce(new Error('invented storage failure'));
     fireEvent(screen.getByTestId('garmin-auto-swap-switch'), 'valueChange', true);
@@ -348,28 +354,34 @@ describe('the Garmin connector account line after a paste', () => {
     return screen;
   }
 
-  it('names the account and never renders a match count or a wrong-account warning', async () => {
-    const screen = await pasteAndConnect({ displayName: 'Invented Athlete' });
-    expect(screen.getByText('garmin.statusConnectedAs')).toBeTruthy();
-    expect(screen.queryByText('garmin.statusMatched')).toBeNull();
-    expect(screen.queryByText('garmin.statusMatchedOf')).toBeNull();
-    expect(screen.queryByTestId('garmin-account-warning')).toBeNull();
-  });
+  vaultIt(
+    'names the account and never renders a match count or a wrong-account warning',
+    async () => {
+      const screen = await pasteAndConnect({ displayName: 'Invented Athlete' });
+      expect(screen.getByText('garmin.statusConnectedAs')).toBeTruthy();
+      expect(screen.queryByText('garmin.statusMatched')).toBeNull();
+      expect(screen.queryByText('garmin.statusMatchedOf')).toBeNull();
+      expect(screen.queryByTestId('garmin-account-warning')).toBeNull();
+    }
+  );
 
-  it('shows the plain connected line when the engine gives no account', async () => {
+  vaultIt('shows the plain connected line when the engine gives no account', async () => {
     const screen = await pasteAndConnect(undefined);
     expect(screen.getByText('garmin.statusConnected')).toBeTruthy();
   });
 
-  it('says the key cannot read the activities, and keeps nothing, when Garmin refuses them', async () => {
-    (engineKey.connectGarmin as jest.Mock).mockResolvedValue(GarminKeyStatus.NoActivityAccess);
-    const screen = await render(<GarminConnector />);
-    fireEvent.changeText(screen.getByTestId('garmin-key-input'), 'invented-key');
-    fireEvent.press(screen.getByTestId('garmin-connect'));
-    await waitFor(() => expect(screen.getByText('garmin.statusNoActivityAccess')).toBeTruthy());
-    expect(screen.queryByTestId('garmin-disconnect')).toBeNull();
-    expect(mockKeychain.size).toBe(0);
-  });
+  vaultIt(
+    'says the key cannot read the activities, and keeps nothing, when Garmin refuses them',
+    async () => {
+      (engineKey.connectGarmin as jest.Mock).mockResolvedValue(GarminKeyStatus.NoActivityAccess);
+      const screen = await render(<GarminConnector />);
+      fireEvent.changeText(screen.getByTestId('garmin-key-input'), 'invented-key');
+      fireEvent.press(screen.getByTestId('garmin-connect'));
+      await waitFor(() => expect(screen.getByText('garmin.statusNoActivityAccess')).toBeTruthy());
+      expect(screen.queryByTestId('garmin-disconnect')).toBeNull();
+      expect(mockKeychain.size).toBe(0);
+    }
+  );
 
   it('says the key was not kept and clears the engine copy when the keychain write fails after Garmin accepted it', async () => {
     (secureStoreIo.write as jest.Mock).mockRejectedValueOnce(

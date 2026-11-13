@@ -306,7 +306,7 @@ beforeEach(() => {
 });
 
 describe('the insight row', () => {
-  it.each([
+  vaultIt.each([
     ['an HRV trend', hrvCard],
     ['a strength balance', strengthBalanceCard],
     ['a stale record', stalePrCard],
@@ -328,7 +328,7 @@ describe('the insight row', () => {
     if (insight.subtitle) expect(tree.queryByText(insight.subtitle)).toBeNull();
   });
 
-  it('is one height whatever the card holds', async () => {
+  vaultIt('is one height whatever the card holds', async () => {
     const heights = await Promise.all(
       [hrvCard, strengthBalanceCard, sectionChangedCard, periodCard].map(async (make) => {
         const tree = await render(<InsightListCard insight={make()} onPress={jest.fn()} />);
@@ -340,7 +340,7 @@ describe('the insight row', () => {
     expect(new Set(heights).size).toBe(1);
   });
 
-  it.each([
+  vaultIt.each([
     ['an HRV trend', hrvCard, true],
     ['a section record', sectionPrCard, true],
     ['a weekly load', periodCard, true],
@@ -356,13 +356,16 @@ describe('the insight row', () => {
     expect(tree.queryByTestId('insight-row-trend') != null).toBe(draws);
   });
 
-  it('keeps the history the stale record and the changed sections carry for their sheets', () => {
-    expect(stalePrCard().supportingData?.history?.kind).toBe('timeline');
-    expect(sectionTrendCard().supportingData?.history?.kind).toBe('changes');
-    expect(sectionChangedCard().supportingData?.history?.kind).toBe('line');
-  });
+  vaultIt(
+    'keeps the history the stale record and the changed sections carry for their sheets',
+    () => {
+      expect(stalePrCard().supportingData?.history?.kind).toBe('timeline');
+      expect(sectionTrendCard().supportingData?.history?.kind).toBe('changes');
+      expect(sectionChangedCard().supportingData?.history?.kind).toBe('line');
+    }
+  );
 
-  it('draws a weekly load too short to picture with no trend and no figure', async () => {
+  vaultIt('draws a weekly load too short to picture with no trend and no figure', async () => {
     const insight = periodCard(5);
     const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
 
@@ -372,7 +375,7 @@ describe('the insight row', () => {
     expect(tree.getByText(insight.line)).toBeTruthy();
   });
 
-  it('draws the trend in a fixed strip that never stretches', async () => {
+  vaultIt('draws the trend in a fixed strip that never stretches', async () => {
     const tree = await render(<InsightListCard insight={hrvCard()} onPress={jest.fn()} />);
 
     const strip = StyleSheet.flatten(tree.getByTestId('insight-row-trend').props.style);
@@ -382,7 +385,7 @@ describe('the insight row', () => {
     expect(strip.flexShrink).toBe(0);
   });
 
-  it('prints no scale, no dates and no value inside the trend', async () => {
+  vaultIt('prints no scale, no dates and no value inside the trend', async () => {
     for (const make of [sectionPrCard, periodCard, hrvCard]) {
       const tree = await render(<InsightListCard insight={make()} onPress={jest.fn()} />);
       expect(within(tree.getByTestId('insight-row-trend')).queryAllByText(/./)).toEqual([]);
@@ -391,13 +394,13 @@ describe('the insight row', () => {
     }
   });
 
-  it('marks the best effort on the section timeline in the category colour', async () => {
+  vaultIt('marks the best effort on the section timeline in the category colour', async () => {
     const tree = await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
 
     expect(markedDots(tree, insightGraphicColour('section_pr', false))).toHaveLength(1);
   });
 
-  it('marks the best effort in the dark step on the dark theme', async () => {
+  vaultIt('marks the best effort in the dark step on the dark theme', async () => {
     mockIsDark = true;
     const tree = await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
 
@@ -405,7 +408,7 @@ describe('the insight row', () => {
     expect(markedDots(tree, insightGraphicColour('section_pr', false))).toHaveLength(0);
   });
 
-  it('draws the section timeline with the fastest effort at the top', async () => {
+  vaultIt('draws the section timeline with the fastest effort at the top', async () => {
     const tree = await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
 
     const [best] = markedDots(tree, insightGraphicColour('section_pr', false));
@@ -417,7 +420,7 @@ describe('the insight row', () => {
     expect(best!.props.cy).toBeLessThan(Math.max(...ys));
   });
 
-  it('dots the latest HRV reading in the category colour', async () => {
+  vaultIt('dots the latest HRV reading in the category colour', async () => {
     const tree = await render(<InsightListCard insight={hrvCard()} onPress={jest.fn()} />);
 
     const dots = markedDots(tree, insightGraphicColour('hrv_trend', false));
@@ -428,7 +431,7 @@ describe('the insight row', () => {
     expect(dots[0]!.props.cx).toBe(Math.max(...xs));
   });
 
-  it('draws the weekly bars with only the compared week marked', async () => {
+  vaultIt('draws the weekly bars with only the compared week marked', async () => {
     const tree = await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />);
 
     const bars = within(tree.getByTestId('insight-row-trend'))
@@ -442,7 +445,7 @@ describe('the insight row', () => {
     expect(bars.filter((color) => color === colourTokens.light['chart-muted'])).toHaveLength(5);
   });
 
-  it('draws the running week as an outline beside the whole weeks', async () => {
+  vaultIt('draws the running week as an outline beside the whole weeks', async () => {
     const tree = await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />);
 
     const styles = within(tree.getByTestId('insight-row-trend'))
@@ -452,17 +455,20 @@ describe('the insight row', () => {
     expect(styles).toEqual(['fill', 'fill', 'fill', 'fill', 'fill', 'stroke']);
   });
 
-  it('opens the sheet from the trend and pushes nothing, since the trend is no link', async () => {
-    const insight = sectionPrCard();
-    const onPress = jest.fn();
-    const tree = await render(<InsightListCard insight={insight} onPress={onPress} />);
+  vaultIt(
+    'opens the sheet from the trend and pushes nothing, since the trend is no link',
+    async () => {
+      const insight = sectionPrCard();
+      const onPress = jest.fn();
+      const tree = await render(<InsightListCard insight={insight} onPress={onPress} />);
 
-    expect(tree.queryByRole('link')).toBeNull();
-    await fireEvent.press(tree.getByTestId('insight-row-trend'));
+      expect(tree.queryByRole('link')).toBeNull();
+      await fireEvent.press(tree.getByTestId('insight-row-trend'));
 
-    expect(onPress).toHaveBeenCalledWith(insight);
-    expect(navigateTo).not.toHaveBeenCalled();
-  });
+      expect(onPress).toHaveBeenCalledWith(insight);
+      expect(navigateTo).not.toHaveBeenCalled();
+    }
+  );
 
   it('opens the sheet from the sentence and pushes nothing', async () => {
     const insight = sectionTrendCard();
@@ -475,16 +481,19 @@ describe('the insight row', () => {
     expect(navigateTo).not.toHaveBeenCalled();
   });
 
-  it('offers no screen-reader action to open the data, which the sheet chart carries', async () => {
-    const insight = sectionPrCard();
-    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
+  vaultIt(
+    'offers no screen-reader action to open the data, which the sheet chart carries',
+    async () => {
+      const insight = sectionPrCard();
+      const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
 
-    expect(tree.getByTestId(`insight-card-${insight.id}`).props.accessibilityActions).toBeFalsy();
-  });
+      expect(tree.getByTestId(`insight-card-${insight.id}`).props.accessibilityActions).toBeFalsy();
+    }
+  );
 });
 
 describe('which types draw a trend on their row', () => {
-  it('names HRV, the fitness estimates, a section record, a route and the weekly load', () => {
+  vaultIt('names HRV, the fitness estimates, a section record, a route and the weekly load', () => {
     const drawn = (Object.keys(insightCategories) as InsightCategory[]).filter(drawsRowTrend);
 
     expect(drawn.sort()).toEqual(
@@ -494,7 +503,7 @@ describe('which types draw a trend on their row', () => {
 });
 
 describe('the insight list card category', () => {
-  it.each([false, true])(
+  vaultIt.each([false, true])(
     'draws the category icon in the neutral icon colour (dark %s)',
     async (isDark) => {
       mockIsDark = isDark;
@@ -506,7 +515,7 @@ describe('the insight list card category', () => {
     }
   );
 
-  it.each([false, true])('draws no coloured edge down the card (dark %s)', async (isDark) => {
+  vaultIt.each([false, true])('draws no coloured edge down the card (dark %s)', async (isDark) => {
     mockIsDark = isDark;
     const tree = await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
 
@@ -518,7 +527,7 @@ describe('the insight list card category', () => {
     expect(edges).toEqual([]);
   });
 
-  it("keeps the insight's own glyph in its verdict tone beside the sentence", async () => {
+  vaultIt("keeps the insight's own glyph in its verdict tone beside the sentence", async () => {
     const insight = periodCard();
     const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
 
@@ -529,7 +538,7 @@ describe('the insight list card category', () => {
 });
 
 describe('the insight list card label', () => {
-  it('speaks the sentence, then the new mark and the experimental mark', () => {
+  vaultIt('speaks the sentence, then the new mark and the experimental mark', () => {
     const insight = { ...sectionPrCard(), isNew: true, experimental: true };
     const tree = render(<InsightListCard insight={insight} onPress={jest.fn()} />);
 
@@ -538,7 +547,7 @@ describe('the insight list card label', () => {
     );
   });
 
-  it('speaks the sentence alone, never the title or the caption', () => {
+  vaultIt('speaks the sentence alone, never the title or the caption', () => {
     const insight: Insight = {
       ...sectionPrCard(),
       isNew: false,

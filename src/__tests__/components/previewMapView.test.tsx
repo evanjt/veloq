@@ -93,7 +93,7 @@ describe('PreviewMapView', () => {
     expect(sources['gone-sections'].data.features).toEqual([]);
   });
 
-  it('draws nothing when the area has no sections yet', async () => {
+  vaultIt('draws nothing when the area has no sections yet', async () => {
     await render(
       <PreviewMapView
         result={null}
@@ -113,7 +113,7 @@ describe('PreviewMapView', () => {
     expect(sources['proposed-sections'].data.features).toEqual([]);
   });
 
-  it('hides the live catalogue when the current chip is off', async () => {
+  vaultIt('hides the live catalogue when the current chip is off', async () => {
     await render(
       <PreviewMapView
         result={null}
@@ -194,7 +194,7 @@ describe('PreviewMapView', () => {
     expect(featureIds(latestSources()['selected-section'].data)).toEqual(['live-a']);
   });
 
-  it('credits the tile source, which the licence requires on every map surface', async () => {
+  vaultIt('credits the tile source, which the licence requires on every map surface', async () => {
     const { getByTestId } = await render(
       <PreviewMapView
         result={null}

@@ -886,6 +886,7 @@ mod tests {
     /// loop breaks on, so it has to be cleared on every way out of the fetch
     /// thread. An unwind used to skip the clear at the tail and strand it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_panicking_fetch_thread_still_clears_the_download_flag() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 3, DownloadPriority::Bulk);
@@ -905,6 +906,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_guard_clears_the_flag_on_a_clean_return_too() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 1, DownloadPriority::Bulk);
@@ -923,6 +925,7 @@ mod tests {
     /// second start joins the queue behind it instead of resetting them, so the
     /// first caller's poll still reads its own run.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_run_queues_rather_than_resetting_the_one_in_flight() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 4, DownloadPriority::Bulk);
@@ -951,6 +954,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn cancelling_all_downloads_releases_every_queued_run() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 4, DownloadPriority::Bulk);
@@ -978,6 +982,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn cancellation_stops_dispatching_the_rest_of_a_bulk_download() {
         let _serial = crate::test_globals::serial_global_state();
         let server = MockServer::start();
@@ -1030,6 +1035,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stalled_store_bounds_bulk_dispatch_until_results_are_released() {
         let _serial = crate::test_globals::serial_global_state();
         let server = MockServer::start();
@@ -1096,6 +1102,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn cancelling_a_bulk_run_held_at_the_store_bound_ends_dispatch() {
         let _serial = crate::test_globals::serial_global_state();
         let server = MockServer::start();
@@ -1157,6 +1164,7 @@ mod tests {
     /// Expected behaviour: that one fetch goes out beside the pass rather than
     /// behind it, and the pass holds its next request back while it is out.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_tap_during_the_bulk_pass_does_not_wait_for_it() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 400, DownloadPriority::Bulk);
@@ -1189,6 +1197,7 @@ mod tests {
     /// The counters follow the run that fetched, not the one admitted first,
     /// now that two runs can be fetching at once.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn each_run_counts_its_own_activities() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 4, DownloadPriority::Bulk);
@@ -1228,6 +1237,7 @@ mod tests {
     /// same test passed alone, which reads as a break in whatever branch was
     /// merging.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_bulk_run_waits_for_an_interactive_one() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 1, DownloadPriority::Interactive);
@@ -1262,6 +1272,7 @@ mod tests {
     /// A poll for a run that has left the queue reads inactive whatever else is
     /// downloading, which is what stops one caller settling on another's end.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_finished_run_reads_inactive_while_the_next_one_downloads() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 2, DownloadPriority::Bulk);
@@ -1275,6 +1286,7 @@ mod tests {
 
     /// A fetcher pointed at a mock server rather than the live base URL.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn bulk_track_runs_take_the_backfill_lane() {
         let _serial = crate::test_globals::serial_global_state();
         assert_eq!(track_lane(DownloadPriority::Bulk), Lane::Backfill);
@@ -1342,6 +1354,7 @@ mod tests {
     /// Expected behaviour: each result is handed over the moment it lands, so
     /// storage runs alongside the download rather than behind it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn each_track_reaches_the_caller_as_it_lands_not_after_the_last_one() {
         let server = MockServer::start();
         for id in ["a1", "a2", "a3"] {
@@ -1385,6 +1398,7 @@ mod tests {
     /// the two cannot drift: one fetch, one set of results, one order of
     /// arrival.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_collecting_fetch_returns_what_the_streaming_one_hands_over() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1409,6 +1423,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn track_fetch_reduces_coordinates_and_derives_bounds() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1462,6 +1477,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn fixed_altitude_wins_over_altitude() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1495,6 +1511,7 @@ mod tests {
     /// Expected behaviour: the corrected series is named as corrected in
     /// either wire order, and the device series as not corrected.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_decoded_track_names_the_series_its_elevation_came_from() {
         let device = json!({"type": "altitude", "data": [100.0, 101.0]});
         let corrected = json!({"type": "fixed_altitude", "data": [900.0, 901.0]});
@@ -1516,6 +1533,7 @@ mod tests {
     /// A corrected series with no usable sample loses to the device series,
     /// and the track says so rather than claiming the series it did not use.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unusable_corrected_series_leaves_the_device_series_named() {
         for order in [
             vec![
@@ -1536,6 +1554,7 @@ mod tests {
     /// A corrected series that cannot be placed on the track costs the
     /// elevation, and with it any claim about its series.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_misaligned_corrected_series_names_no_series() {
         let r = decoded(vec![json!({"type": "fixed_altitude", "data": [900.0]})]);
         assert_eq!(r.elevations, None);
@@ -1562,6 +1581,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_gap_in_the_altitude_series_is_none_at_that_point_alone() {
         // A null altitude sample parses to NaN, which would poison every
         // comparison the detector makes on it.
@@ -1616,6 +1636,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_altitude_series_of_the_wrong_length_costs_the_elevation_not_the_track() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1635,6 +1656,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn track_fetch_names_unauthorized_rather_than_a_bare_http_code() {
         // 401 classification is what the sync service turns into a re-login,
         // and this path could not see it before it went through Transport.
@@ -1687,6 +1709,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn track_fetch_reports_progress_per_activity() {
         // The fetch loop bumps the process-wide download counters as it goes.
         let _serial = crate::test_globals::serial_global_state();
@@ -1718,6 +1741,7 @@ mod tests {
     /// and the extra ones come back on the result so the storing loop can put
     /// them away. The track is unchanged by the widening.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_wide_fetch_asks_for_every_series_and_carries_them_back() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1757,6 +1781,7 @@ mod tests {
     /// An activity outside the window still costs the narrow body, because the
     /// prune would delete the extra series the same second they landed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_outside_the_window_still_costs_the_narrow_body() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
@@ -1818,6 +1843,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_clock_out_of_step_with_the_coordinates_is_not_kept() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1836,6 +1862,7 @@ mod tests {
     /// The track, its elevation and its time are answered from `gps_tracks`
     /// and `time_streams`, so storing them again would pay twice.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_wide_fetch_carries_no_series_the_track_already_answers() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1892,6 +1919,7 @@ mod tests {
     /// An empty series is not stored: a row of nothing reads downstream as
     /// "the ride had no power", which stops the fetch that would fill it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_wide_fetch_stores_no_empty_series() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1923,6 +1951,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn fit_download_surfaces_a_missing_file_as_an_error() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1941,6 +1970,7 @@ mod tests {
     /// Expected behaviour: the lane is the caller's, so the batch can yield and
     /// the single fetch a card is waiting on does not.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_fit_download_runs_on_the_lane_its_caller_names() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -1962,6 +1992,7 @@ mod tests {
     /// which is why the flag is a field on the run holding the slot: the next
     /// run starts with its own clear flag.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_run_can_be_cancelled_and_the_next_one_starts_clean() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 4, DownloadPriority::Bulk);
@@ -1996,6 +2027,7 @@ mod tests {
     /// Expected behaviour: the cancel flags the bulk run wherever it sits and
     /// leaves the interactive run the athlete is waiting on alone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cancel_reaches_a_queued_run_and_not_the_one_ahead_of_it() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 1, DownloadPriority::Interactive);
@@ -2015,6 +2047,7 @@ mod tests {
     /// Cancelling when nothing is downloading says so, rather than arming a
     /// flag that the next run would read.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn cancelling_an_idle_download_flags_nothing() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 1, DownloadPriority::Bulk);

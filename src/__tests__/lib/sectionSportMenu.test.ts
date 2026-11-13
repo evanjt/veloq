@@ -8,7 +8,7 @@
 import { sportMenuOptions, sportCountFor } from '@/features/routes/lib/sectionSport';
 
 describe('sportMenuOptions', () => {
-  it('lists the sports by count, the most traversed first', () => {
+  vaultIt('lists the sports by count, the most traversed first', () => {
     expect(
       sportMenuOptions([
         { sportType: 'Walk', count: 2 },
@@ -22,7 +22,7 @@ describe('sportMenuOptions', () => {
     ]);
   });
 
-  it('keeps the engine order between sports with the same count', () => {
+  vaultIt('keeps the engine order between sports with the same count', () => {
     expect(
       sportMenuOptions([
         { sportType: 'Run', count: 3 },
@@ -32,7 +32,7 @@ describe('sportMenuOptions', () => {
     ).toEqual(['Run', 'Hike', 'Walk']);
   });
 
-  it('offers none when the screen read offers no sport', () => {
+  vaultIt('offers none when the screen read offers no sport', () => {
     expect(sportMenuOptions([])).toEqual([]);
   });
 });
@@ -48,7 +48,7 @@ describe('sportCountFor', () => {
     expect(sportCountFor(counts, 'Ride')).toBe(3);
   });
 
-  it('is absent for a sport the page does not offer, and with no sport', () => {
+  vaultIt('is absent for a sport the page does not offer, and with no sport', () => {
     expect(sportCountFor(counts, 'Walk')).toBeUndefined();
     expect(sportCountFor(counts, undefined)).toBeUndefined();
     expect(sportCountFor([], 'Run')).toBeUndefined();

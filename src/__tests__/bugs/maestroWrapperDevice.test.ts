@@ -115,25 +115,25 @@ describe('the Maestro wrapper and the handset it reaches', () => {
     expect(result.calls[0]).not.toContain(OTHER);
   });
 
-  it('names the development build to the flows when the caller names no app id', () => {
+  vaultIt('names the development build to the flows when the caller names no app id', () => {
     const result = run([LOCKED], LOCKED);
 
     expect(result.calls[0]).toBe(`--device ${LOCKED} test -e APP_ID=com.veloq.app.dev flow.yaml`);
   });
 
-  it('leaves an app id the caller passed as it was', () => {
+  vaultIt('leaves an app id the caller passed as it was', () => {
     const result = run([LOCKED], LOCKED, ['test', '-e', 'APP_ID=com.veloq.app', 'flow.yaml']);
 
     expect(result.calls[0]).toBe(`--device ${LOCKED} test -e APP_ID=com.veloq.app flow.yaml`);
   });
 
-  it('names the app id the environment holds to the flows', () => {
+  vaultIt('names the app id the environment holds to the flows', () => {
     const result = run([LOCKED], LOCKED, ['test', 'flow.yaml'], '', 0, { APP_ID: 'com.veloq.app' });
 
     expect(result.calls[0]).toBe(`--device ${LOCKED} test -e APP_ID=com.veloq.app flow.yaml`);
   });
 
-  it('pins the only handset attached when none is named', () => {
+  vaultIt('pins the only handset attached when none is named', () => {
     const result = run([LOCKED]);
 
     expect(result.status).toBe(0);
@@ -150,7 +150,7 @@ describe('the Maestro wrapper and the handset it reaches', () => {
     expect(result.stderr).toContain('ANDROID_SERIAL');
   });
 
-  it('refuses before taking any lock when the caller holds none and two are attached', () => {
+  vaultIt('refuses before taking any lock when the caller holds none and two are attached', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'with-maestro-'));
     fakeBins(dir, [OTHER, LOCKED]);
     const env: NodeJS.ProcessEnv = {
@@ -180,14 +180,14 @@ describe('the Maestro wrapper and the handset it reaches', () => {
     expect(result.stderr).toContain(LOCKED);
   });
 
-  it('keeps a device the caller named when it is the locked serial', () => {
+  vaultIt('keeps a device the caller named when it is the locked serial', () => {
     const result = run([OTHER, LOCKED], LOCKED, ['--device', LOCKED, 'test', 'flow.yaml']);
 
     expect(result.status).toBe(0);
     expect(result.calls[0]).toBe(`--device ${LOCKED} test -e APP_ID=com.veloq.app.dev flow.yaml`);
   });
 
-  it('keeps a matching device in the joined and udid forms', () => {
+  vaultIt('keeps a matching device in the joined and udid forms', () => {
     const joined = run([OTHER, LOCKED], LOCKED, [`--device=${LOCKED}`, 'test', 'flow.yaml']);
     const udid = run([OTHER, LOCKED], LOCKED, ['--udid', LOCKED, 'test', 'flow.yaml']);
     const udidJoined = run([OTHER, LOCKED], LOCKED, [`--udid=${LOCKED}`, 'test', 'flow.yaml']);
@@ -220,7 +220,7 @@ describe('the Maestro wrapper refuses a selector other than the locked serial', 
     ['a mismatch among aliases', [`--device=${LOCKED}`, '--udid', OTHER, 'test', 'flow.yaml']],
   ];
 
-  it.each(conflicting)('refuses %s without launching Maestro', (_name, args) => {
+  vaultIt.each(conflicting)('refuses %s without launching Maestro', (_name, args) => {
     const result = run([OTHER, LOCKED], LOCKED, args, `Running on ${OTHER}`);
 
     expect(result.status).not.toBe(0);
@@ -230,7 +230,7 @@ describe('the Maestro wrapper refuses a selector other than the locked serial', 
     expect(result.stderr).toContain(LOCKED);
   });
 
-  it.each([
+  vaultIt.each([
     ['an empty --device value', ['--device', '', 'test', 'flow.yaml']],
     ['an empty joined value', ['--device=', 'test', 'flow.yaml']],
     ['a --device with no value', ['test', 'flow.yaml', '--device']],
@@ -264,14 +264,14 @@ describe('the Maestro wrapper checks where the run landed', () => {
     expect(result.stderr).toContain(LOCKED);
   });
 
-  it('stops a sharded run that selected another handset', () => {
+  vaultIt('stops a sharded run that selected another handset', () => {
     const result = run([OTHER, LOCKED], LOCKED, undefined, `[shard 1] Selected device ${OTHER}`);
 
     expect(result.status).not.toBe(0);
     expect(result.ran).toBe(false);
   });
 
-  it('lets a run on the pinned handset finish, with its output and exit code', () => {
+  vaultIt('lets a run on the pinned handset finish, with its output and exit code', () => {
     const result = run([OTHER, LOCKED], LOCKED, undefined, `Running on ${LOCKED}`, 3);
 
     expect(result.status).toBe(3);
@@ -279,7 +279,7 @@ describe('the Maestro wrapper checks where the run landed', () => {
     expect(result.stdout).toContain(`Running on ${LOCKED}`);
   });
 
-  it('does not take a device line that names no attached serial as a mismatch', () => {
+  vaultIt('does not take a device line that names no attached serial as a mismatch', () => {
     const result = run([OTHER, LOCKED], LOCKED, undefined, 'Running on Pixel 6 - Android 14');
 
     expect(result.status).toBe(0);
@@ -355,7 +355,7 @@ describe('the Maestro wrapper and the other runs on the host', () => {
     );
   }
 
-  it('runs Maestro on one device of the host at a time', async () => {
+  vaultIt('runs Maestro on one device of the host at a time', async () => {
     const { dir, env } = hostRig();
 
     const results = await Promise.all([start(dir, env, LOCKED), start(dir, env, OTHER)]);
@@ -369,7 +369,7 @@ describe('the Maestro wrapper and the other runs on the host', () => {
     expect(runs[3]).toBe(runs[2].replace('start', 'end'));
   });
 
-  it('names the run that holds the host while another waits', async () => {
+  vaultIt('names the run that holds the host while another waits', async () => {
     const { dir, env } = hostRig();
 
     const first = start(dir, env, LOCKED);
@@ -384,7 +384,7 @@ describe('the Maestro wrapper and the other runs on the host', () => {
     expect(second.stderr).toContain(`serial=${LOCKED}`);
   });
 
-  it('serialises a run that already holds its device lock', async () => {
+  vaultIt('serialises a run that already holds its device lock', async () => {
     const { dir, env } = hostRig();
     const held = { ...env, VELOQ_DEVICE_LOCK_HELD: '1' };
 
@@ -404,7 +404,7 @@ describe('the Maestro wrapper and the other runs on the host', () => {
  * under the home directory, rather than failing with "maestro: not found".
  */
 describe('the Maestro wrapper on a shell without Maestro on its path', () => {
-  it('runs the Maestro under the home directory', () => {
+  vaultIt('runs the Maestro under the home directory', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'with-maestro-home-'));
     const bin = path.join(dir, 'bin');
     const installed = path.join(dir, '.maestro', 'bin');

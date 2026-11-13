@@ -43,7 +43,7 @@ describe('formatSignedPercent', () => {
 });
 
 describe('rankingFactors', () => {
-  it('lists the four factors and never the composite', () => {
+  vaultIt('lists the four factors and never the composite', () => {
     expect(rankingFactors(ranking()).map((f) => f.kind)).toEqual([
       'recency',
       'improvement',
@@ -52,7 +52,7 @@ describe('rankingFactors', () => {
     ]);
   });
 
-  it('gives the three bounded factors a two-decimal score and no percentage', () => {
+  vaultIt('gives the three bounded factors a two-decimal score and no percentage', () => {
     expect(factor(ranking(), 'recency')?.score).toBe('0.80');
     expect(factor(ranking(), 'anomaly')?.score).toBe('0.26');
     expect(factor(ranking(), 'engagement')?.score).toBe('0.30');

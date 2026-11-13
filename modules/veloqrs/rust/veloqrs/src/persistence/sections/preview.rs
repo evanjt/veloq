@@ -940,6 +940,7 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn preview_and_cutover_configs_are_the_settings_record() {
         let config = tracematch::SectionConfig {
             min_activities: 7,
@@ -969,6 +970,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_area_is_named_by_the_locality_most_of_its_sections_share() {
         let members = [
             member(46.500, 6.770, Some("Mont Pèlerin climb")),
@@ -981,6 +983,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_area_whose_sections_share_no_locality_has_no_name() {
         let members = [
             member(46.500, 6.770, Some("Mont Pèlerin climb")),
@@ -992,6 +995,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_area_reports_its_sections_and_its_routes() {
         let members = [
             member(46.500, 6.770, None),
@@ -1110,6 +1114,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_superseded_section_is_not_in_the_live_catalogue() {
         let kept = section("kept", line(5.0, 10.0));
         let hidden = section("hidden", line(5.0, 10.001));
@@ -1131,6 +1136,7 @@ mod tests {
     /// This is the same property at the scale the device reported, where the
     /// greedy pairing has hundreds of ground-sharing pairs to choose among.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_catalogue_diffed_against_itself_is_entirely_unchanged() {
         for count in [3usize, 30, 118] {
             let catalogue = dense_catalogue(count);
@@ -1149,6 +1155,7 @@ mod tests {
 
     /// A row that really did go is reported once, not as a gone and a new.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_removed_section_is_one_gone_and_nothing_else() {
         let live = dense_catalogue(30);
         let kept: Vec<&FrequentSection> = live.iter().skip(1).collect();
@@ -1163,6 +1170,7 @@ mod tests {
 
     /// A line far from every live section is new, and takes nothing with it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_added_section_is_one_new_and_nothing_else() {
         let live = dense_catalogue(30);
         let mut proposed = live.clone();
@@ -1178,6 +1186,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn another_sport_does_not_chain_two_components_of_this_one() {
         let (boxes, sports) = bridged();
         let (ids, _) = cluster_for(&boxes, 0.0, 0.0, &sports, 50_000.0).expect("seeded");
@@ -1187,6 +1196,7 @@ mod tests {
     /// The pool is still an area rather than a sport: a preview diffs every
     /// live section on that ground, so a run over the point comes with it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_sport_over_the_point_joins_the_pool() {
         let boxes = vec![
             ("ride".to_string(), bounds(-0.01, 0.01, -0.01, 0.01)),
@@ -1203,6 +1213,7 @@ mod tests {
     /// The far ride's own ground leaves the padded box with it, or the diff
     /// would report sections out there as gone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_padded_box_shrinks_to_what_the_pool_covers() {
         let (boxes, sports) = bridged();
         let (_, bbox) = cluster_for(&boxes, 0.0, 0.0, &sports, 50_000.0).expect("seeded");
@@ -1210,6 +1221,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_point_no_padded_box_holds_has_no_component() {
         let (boxes, sports) = bridged();
         assert!(cluster_for(&boxes, 40.0, 40.0, &sports, 50_000.0).is_none());
@@ -1218,6 +1230,7 @@ mod tests {
     /// An activity with no stored bounds is skipped rather than seeding a
     /// component at the origin.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_zero_bounds_activity_is_not_a_member() {
         let boxes = vec![
             ("ride".to_string(), bounds(-0.01, 0.01, -0.01, 0.01)),

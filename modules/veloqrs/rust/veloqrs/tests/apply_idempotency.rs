@@ -63,6 +63,7 @@ fn storage_fingerprint(engine: &mut PersistentEngine) -> String {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn reapplying_the_same_catalogue_writes_nothing() {
     let corpus = cold_corpus(COLD_N);
     let (mut engine, _dir) = fresh_engine();

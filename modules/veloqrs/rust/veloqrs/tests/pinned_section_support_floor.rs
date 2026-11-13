@@ -92,6 +92,7 @@ fn a_pinned_section_with_no_traversals_survives_the_support_floor() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unpinned_section_with_no_traversals_is_still_dropped() {
     let (engine, _tmp) = reopened_with_two_unsupported_sections();
 
@@ -108,6 +109,7 @@ fn an_unpinned_section_with_no_traversals_is_still_dropped() {
 /// exempts the floor once a sport filter narrows the list to the sport that
 /// took the ground.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_exemption_survives_a_sport_filter_on_a_sport_that_took_the_section() {
     let (engine, tmp) = reopened_with_two_unsupported_sections();
     let raw = Connection::open(tmp.path().join("test.db")).expect("raw open");
@@ -130,6 +132,7 @@ fn the_exemption_survives_a_sport_filter_on_a_sport_that_took_the_section() {
 /// A section no outing has taken has no sport, whatever detection labelled
 /// it, so a sport filter lists it under none, pinned or not.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_no_outing_took_is_under_no_sport_filter() {
     let (engine, _tmp) = reopened_with_two_unsupported_sections();
 
@@ -141,6 +144,7 @@ fn a_section_no_outing_took_is_under_no_sport_filter() {
 /// A pin is not a claim that another sport travelled the ground. The sport
 /// filter is a relevance question, not a support floor, so it still applies.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pin_does_not_put_a_ride_in_the_run_list() {
     let (engine, _tmp) = reopened_with_two_unsupported_sections();
 
@@ -152,6 +156,7 @@ fn a_pin_does_not_put_a_ride_in_the_run_list() {
 /// With no floor asked for there is nothing to exempt, and the answer must be
 /// the same as it always was: both sections list.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_floor_lists_both_pinned_and_unpinned() {
     let (engine, _tmp) = reopened_with_two_unsupported_sections();
 

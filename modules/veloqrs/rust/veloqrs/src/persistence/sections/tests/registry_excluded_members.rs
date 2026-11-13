@@ -119,6 +119,7 @@ fn an_admit_keeps_an_excluded_member_in_the_registry() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_reseed_with_nothing_excluded_changes_no_member() {
     let mut engine = engine_with_two_members_one_excluded();
     engine

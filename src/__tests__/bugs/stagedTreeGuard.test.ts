@@ -113,13 +113,13 @@ describe('the staged-tree guard', () => {
     expect(run(root, ['verify', before, head]).status).toBe(1);
   });
 
-  it('says nothing and passes when it is given no tree to compare', () => {
+  vaultIt('says nothing and passes when it is given no tree to compare', () => {
     const root = repoWith({ 'a.ts': 'export const a = 1;\n' });
 
     expect(run(root, ['verify']).status).toBe(0);
   });
 
-  it('rejects an unknown mode rather than passing silently', () => {
+  vaultIt('rejects an unknown mode rather than passing silently', () => {
     const root = repoWith({ 'a.ts': 'export const a = 1;\n' });
 
     expect(run(root, ['nonsense']).status).toBe(2);

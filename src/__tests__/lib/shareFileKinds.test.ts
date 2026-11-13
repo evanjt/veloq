@@ -54,7 +54,7 @@ afterEach(() => {
   Platform.OS = originalOS;
 });
 
-it.each<[ShareKind, string]>([
+vaultIt.each<[ShareKind, string]>([
   ['gpx', 'application/gpx+xml'],
   ['zip', 'application/zip'],
   ['geojson', 'application/geo+json'],
@@ -68,12 +68,12 @@ it.each<[ShareKind, string]>([
   expect(options.dialogTitle).toBe('Lake loop.bin');
 });
 
-it('titles the sheet with the name the caller gives', async () => {
+vaultIt('titles the sheet with the name the caller gives', async () => {
   await shareExistingFile('file:///cache/exports/x.zip', 'zip', { name: 'Records.zip' });
   expect(sharedOptions().dialogTitle).toBe('Records.zip');
 });
 
-it('passes the measured control as the iPad anchor', async () => {
+vaultIt('passes the measured control as the iPad anchor', async () => {
   await shareExistingFile('file:///cache/exports/x.zip', 'zip', {
     anchor: anchorAt(12, 340, 88, 44),
   });
@@ -86,7 +86,7 @@ it('shares without an anchor when the control has gone', async () => {
   expect(Sharing.shareAsync).toHaveBeenCalledTimes(1);
 });
 
-it('writes text content under the kind extension', async () => {
+vaultIt('writes text content under the kind extension', async () => {
   await shareFile({ content: 'log', name: 'veloq-crash-log', kind: 'text' });
   expect(FileSystem.writeAsStringAsync).toHaveBeenCalledWith(
     'file:///cache/exports/veloq-crash-log.txt',
@@ -96,7 +96,7 @@ it('writes text content under the kind extension', async () => {
   expect(sharedOptions().dialogTitle).toBe('veloq-crash-log.txt');
 });
 
-it('keeps an extension the name already carries', async () => {
+vaultIt('keeps an extension the name already carries', async () => {
   await shareFile({ content: '<gpx/>', name: 'Lake_loop.gpx', kind: 'gpx' });
   expect(Sharing.shareAsync).toHaveBeenCalledWith(
     'file:///cache/exports/Lake_loop.gpx',
@@ -104,7 +104,7 @@ it('keeps an extension the name already carries', async () => {
   );
 });
 
-it('shares a copy under a readable name and deletes the copy afterwards', async () => {
+vaultIt('shares a copy under a readable name and deletes the copy afterwards', async () => {
   await shareCopyAs('file:///docs/recordings/1728540000000-k3j9qa.fit', 'fit', 'Lake: loop/2');
   const copied = 'file:///cache/exports/Lake_ loop_2.fit';
   expect(FileSystem.copyAsync).toHaveBeenCalledWith({
@@ -136,7 +136,7 @@ it('opens without an anchor when the control never answers its measurement', asy
   expect(sharedOptions()).not.toHaveProperty('anchor');
 });
 
-it('shares a link through the text sheet anchored to the control', async () => {
+vaultIt('shares a link through the text sheet anchored to the control', async () => {
   const share = jest
     .spyOn(Share, 'share')
     .mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
@@ -154,7 +154,7 @@ it('shares a link through the text sheet anchored to the control', async () => {
   share.mockRestore();
 });
 
-it('shares a link with no anchor when the control cannot be found', async () => {
+vaultIt('shares a link with no anchor when the control cannot be found', async () => {
   const share = jest
     .spyOn(Share, 'share')
     .mockResolvedValue({ action: Share.sharedAction, activityType: undefined });

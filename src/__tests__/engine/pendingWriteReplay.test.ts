@@ -104,7 +104,7 @@ describe('writes made before the engine opens', () => {
     expect(mockSettings.setSettings).toHaveBeenCalledWith(pairs);
   });
 
-  it('writes a settings batch straight away once the engine is open', () => {
+  vaultIt('writes a settings batch straight away once the engine is open', () => {
     const client = closedClient();
     client.initWithPath(DB);
 
@@ -176,7 +176,7 @@ describe('writes made before the engine opens', () => {
     ]);
   });
 
-  it('replays activity bodies written before init and skips empty batches', () => {
+  vaultIt('replays activity bodies written before init and skips empty batches', () => {
     const client = closedClient();
     const first = { activityId: 'a1', date: 1, raw: '{"name":"first"}' };
     const second = { activityId: 'a2', date: 2, raw: '{"name":"second"}' };
@@ -191,7 +191,7 @@ describe('writes made before the engine opens', () => {
     expect(mockActivities.upsertActivityBodies.mock.calls).toEqual([[[first]], [[second]]]);
   });
 
-  it('replays wellness written before init and skips empty batches', () => {
+  vaultIt('replays wellness written before init and skips empty batches', () => {
     const client = closedClient();
     const first = { date: '2026-01-01', ctl: 12 };
     const second = { date: '2026-01-02', hrv: 45 };
@@ -206,7 +206,7 @@ describe('writes made before the engine opens', () => {
     expect(mockFitness.upsertWellness.mock.calls).toEqual([[[first]], [[second]]]);
   });
 
-  it('writes straight through and holds nothing once the engine is open', () => {
+  vaultIt('writes straight through and holds nothing once the engine is open', () => {
     const client = closedClient();
     client.initWithPath(DB);
 
@@ -285,7 +285,7 @@ describe('writes made before the engine opens', () => {
   // The bound is right. Losing writes without a word is not: a cold start that
   // never opens the engine drops the athlete's oldest writes, and nothing said
   // so.
-  it('says so when it drops a write, naming it', () => {
+  vaultIt('says so when it drops a write, naming it', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const client = closedClient();
 
@@ -310,7 +310,7 @@ describe('writes made before the engine opens', () => {
     expect(client.droppedPendingWrites).toBe(44);
   });
 
-  it('reports the total once at replay, where the loss finally matters', () => {
+  vaultIt('reports the total once at replay, where the loss finally matters', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const client = closedClient();
     for (let i = 0; i < 300; i += 1) {
@@ -325,7 +325,7 @@ describe('writes made before the engine opens', () => {
     warn.mockRestore();
   });
 
-  it('says nothing when the queue never filled', () => {
+  vaultIt('says nothing when the queue never filled', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const client = closedClient();
 

@@ -57,7 +57,7 @@ beforeEach(() => {
 });
 
 describe('the examples', () => {
-  it('are drawn from the sentences a posted notification is built from', async () => {
+  vaultIt('are drawn from the sentences a posted notification is built from', async () => {
     await render(<NotificationsSlide />);
     const examples = screen.getAllByTestId('tour-notification-example');
     expect(examples.length).toBeGreaterThanOrEqual(2);
@@ -70,17 +70,20 @@ describe('the examples', () => {
     }
   });
 
-  it('show on an account that cannot receive pushes, with no buttons and a line saying why', async () => {
-    useAuthStore.setState({ authMethod: 'apiKey' });
-    await render(<NotificationsSlide />);
+  vaultIt(
+    'show on an account that cannot receive pushes, with no buttons and a line saying why',
+    async () => {
+      useAuthStore.setState({ authMethod: 'apiKey' });
+      await render(<NotificationsSlide />);
 
-    expect(screen.getAllByTestId('tour-notification-example').length).toBeGreaterThan(0);
-    expect(screen.getByText('whatsNew.tutorial.notificationsNeedSignIn')).toBeTruthy();
-    expect(screen.queryByTestId('tour-notifications-turn-on')).toBeNull();
-    expect(screen.queryByTestId('tour-notifications-never')).toBeNull();
-  });
+      expect(screen.getAllByTestId('tour-notification-example').length).toBeGreaterThan(0);
+      expect(screen.getByText('whatsNew.tutorial.notificationsNeedSignIn')).toBeTruthy();
+      expect(screen.queryByTestId('tour-notifications-turn-on')).toBeNull();
+      expect(screen.queryByTestId('tour-notifications-never')).toBeNull();
+    }
+  );
 
-  it('show in demo with no buttons', async () => {
+  vaultIt('show in demo with no buttons', async () => {
     useAuthStore.setState({ authMethod: 'demo', isDemoMode: true });
     await render(<NotificationsSlide />);
 
@@ -115,7 +118,7 @@ describe('Turn on', () => {
     expect(prefs().enabled).toBe(true);
   });
 
-  it('says notifications are off once the system stops asking', async () => {
+  vaultIt('says notifications are off once the system stops asking', async () => {
     request.mockResolvedValueOnce('blocked');
     await render(<NotificationsSlide />);
     await press('tour-notifications-turn-on');
@@ -125,7 +128,7 @@ describe('Turn on', () => {
     expect(answer()).toBeUndefined();
   });
 
-  it('keeps the disclosure of what is stored one tap away, recording nothing', async () => {
+  vaultIt('keeps the disclosure of what is stored one tap away, recording nothing', async () => {
     await render(<NotificationsSlide />);
     expect(screen.queryByText('notifications.privacy.brief')).toBeNull();
 
@@ -148,7 +151,7 @@ describe('Never remind me again', () => {
     expect(screen.getByText('notifications.prompt.settingsHint')).toBeTruthy();
   });
 
-  it('holds when the tour is opened again', async () => {
+  vaultIt('holds when the tour is opened again', async () => {
     useWhatsNewStore.setState({
       tourOffer: { ...NO_TOUR_OFFER, answers: { notifications: 'never' } },
     });
@@ -159,7 +162,7 @@ describe('Never remind me again', () => {
   });
 });
 
-it('offers no buttons when notifications are already on', async () => {
+vaultIt('offers no buttons when notifications are already on', async () => {
   useNotificationPreferences.setState({ enabled: true, privacyAccepted: true });
   await render(<NotificationsSlide />);
 

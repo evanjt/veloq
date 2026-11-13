@@ -96,7 +96,7 @@ describe('a day string resolves to its own local day', () => {
     );
   });
 
-  it('takes a Date through untouched', () => {
+  vaultIt('takes a Date through untouched', () => {
     const d = new Date(2026, 2, 14, 9, 30);
     expect(dateHandedToIntl(formatShortDate as never, d as never).getTime()).toBe(d.getTime());
   });

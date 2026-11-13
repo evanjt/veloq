@@ -88,7 +88,7 @@ describe('restoring from iCloud Drive', () => {
     expect(mockRestore.mock.calls[0][1].id).toBe(OLDER);
   });
 
-  it('says so when the folder holds no backup', async () => {
+  vaultIt('says so when the folder holds no backup', async () => {
     onPlatform('ios');
     mockList.mockResolvedValue([]);
 
@@ -112,7 +112,7 @@ describe('restoring from iCloud Drive', () => {
     expect(screen.queryByTestId('restore-chooser-icloud-none')).toBeNull();
   });
 
-  it('names no device backup beside iCloud Drive on iPhone', async () => {
+  vaultIt('names no device backup beside iCloud Drive on iPhone', async () => {
     onPlatform('ios');
     await render(<RestoreChooser />);
 
@@ -120,7 +120,7 @@ describe('restoring from iCloud Drive', () => {
     expect(screen.queryByTestId('restore-chooser-device-backup')).toBeNull();
   });
 
-  it('offers no iCloud choice on Android', async () => {
+  vaultIt('offers no iCloud choice on Android', async () => {
     onPlatform('android');
     await render(<RestoreChooser />);
     expect(screen.queryByTestId('restore-chooser-icloud')).toBeNull();

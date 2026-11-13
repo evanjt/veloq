@@ -1,6 +1,7 @@
 use super::*;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_poll_status_reports_track_read_failure() {
     let (sender, receiver) = mpsc::channel();
     sender.send(PreviewOutcome::ReadFailed).unwrap();

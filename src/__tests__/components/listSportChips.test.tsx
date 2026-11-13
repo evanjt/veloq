@@ -99,7 +99,7 @@ async function sections(sportType: string | undefined) {
 const chip = (sport: string) => screen.getByTestId(`sport-filter-chip-${sport}`);
 
 describe('the routes list sport filter', () => {
-  it('draws one chip per sport and no dialog', async () => {
+  vaultIt('draws one chip per sport and no dialog', async () => {
     await routes(undefined);
     expect(chip('Ride')).toHaveTextContent('activityTypes.Ride');
     expect(chip('Run')).toBeTruthy();
@@ -126,14 +126,14 @@ describe('the routes list sport filter', () => {
     expect(onSportChange).toHaveBeenCalledWith(undefined);
   });
 
-  it('draws no chips for an athlete with one sport', async () => {
+  vaultIt('draws no chips for an athlete with one sport', async () => {
     await routes(undefined, ['Ride']);
     expect(screen.queryByTestId('sport-filter-chip-Ride')).toBeNull();
   });
 });
 
 describe('the sections list sport filter', () => {
-  it('draws the same chips with no dialog, and narrows to the sport pressed', async () => {
+  vaultIt('draws the same chips with no dialog, and narrows to the sport pressed', async () => {
     const onSportChange = await sections(undefined);
     expect(screen.UNSAFE_queryAllByType(Modal)).toHaveLength(0);
     await fireEvent.press(chip('Ride'));
@@ -176,12 +176,12 @@ describe('the sections list removed chip', () => {
     );
   }
 
-  it('offers the chip when the removed count is above zero', async () => {
+  vaultIt('offers the chip when the removed count is above zero', async () => {
     await renderWithRemoved(3);
     expect(removedChip()).toBeTruthy();
   });
 
-  it('offers no chip when the removed count is zero', async () => {
+  vaultIt('offers no chip when the removed count is zero', async () => {
     await renderWithRemoved(0);
     expect(removedChip()).toBeNull();
   });

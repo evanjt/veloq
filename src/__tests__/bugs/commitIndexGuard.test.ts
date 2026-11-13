@@ -72,7 +72,7 @@ describe('the pre-commit guard', () => {
     expect(output).toContain('core.hooksPath');
   });
 
-  it('names both trees so the mismatch is readable', () => {
+  vaultIt('names both trees so the mismatch is readable', () => {
     const worktree = checkout();
     const main = checkout();
 
@@ -103,7 +103,7 @@ describe('the pre-commit guard', () => {
     expect(output).toContain('git add');
   });
 
-  it('refuses git commit -a, and does not describe it as a pathspec commit', () => {
+  vaultIt('refuses git commit -a, and does not describe it as a pathspec commit', () => {
     const root = checkout();
 
     const { status, output } = runGuard(root, join(root, '.husky', 'pre-commit'), {

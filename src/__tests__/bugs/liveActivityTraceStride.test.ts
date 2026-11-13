@@ -113,7 +113,7 @@ describe('the live activity card samples the track', () => {
     expect(composeRouteOutline(padded, 10)).toEqual(composeRouteOutline(placed, 10));
   });
 
-  it('has nothing to draw from a single pair', () => {
+  vaultIt('has nothing to draw from a single pair', () => {
     expect(composeRouteOutline([[46.0, 7.0]])).toBeNull();
   });
 });

@@ -114,7 +114,7 @@ describe('SeasonComparison', () => {
     }
   );
 
-  it('reads no activity bodies', async () => {
+  vaultIt('reads no activity bodies', async () => {
     await render(
       <WithScreenRead>{(training) => <SeasonComparison training={training} />}</WithScreenRead>,
       { wrapper }

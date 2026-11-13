@@ -38,6 +38,7 @@ fn seed_groups() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_representative_route_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("route_representative_under_writer.db");
@@ -49,6 +50,7 @@ fn test_get_representative_route_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_route_names_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("route_names_under_writer.db");
@@ -61,6 +63,7 @@ fn test_route_names_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_route_exclusions_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("route_excluded_under_writer.db");
@@ -76,6 +79,7 @@ fn test_route_exclusions_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_route_side_reads_match_the_engine() {
     let _guard = serial_global_state();
     let _tmp = seeded_global_engine();

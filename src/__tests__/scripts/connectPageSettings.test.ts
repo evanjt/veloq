@@ -21,7 +21,7 @@ import {
 import { km, kmh, setUnitSystem } from '../../../web/connect/format';
 
 describe('settings pane', () => {
-  it('opens a screen the page reads as its readable form', () => {
+  vaultIt('opens a screen the page reads as its readable form', () => {
     expect(pane('display-settings')).toEqual({
       kind: 'readable',
       title: 'connectPage.settings.rows.display',
@@ -29,7 +29,7 @@ describe('settings pane', () => {
     });
   });
 
-  it('answers a screen the phone keeps to itself with the reason and no controls', () => {
+  vaultIt('answers a screen the phone keeps to itself with the reason and no controls', () => {
     const result = pane('sensor-settings');
 
     expect(result.kind).toBe('phone');
@@ -37,13 +37,13 @@ describe('settings pane', () => {
     if (result.kind === 'phone') expect(result.why.length).toBeGreaterThan(0);
   });
 
-  it('shows the hub when no screen is named and the not-yet state for an unknown one', () => {
+  vaultIt('shows the hub when no screen is named and the not-yet state for an unknown one', () => {
     expect(pane(null)).toEqual({ kind: 'hub' });
     expect(pane('')).toEqual({ kind: 'hub' });
     expect(pane('no-such-screen')).toEqual({ kind: 'unknown' });
   });
 
-  it('opens every row the left list shows as a readable pane', () => {
+  vaultIt('opens every row the left list shows as a readable pane', () => {
     for (const group of SETTINGS_GROUPS) {
       for (const row of group.rows) {
         expect(pane(row.screen).kind).toBe('readable');
@@ -51,13 +51,13 @@ describe('settings pane', () => {
     }
   });
 
-  it('gives every phone-only entry that names a screen a phone pane', () => {
+  vaultIt('gives every phone-only entry that names a screen a phone pane', () => {
     for (const entry of ON_THE_PHONE) {
       if (entry.screen) expect(pane(entry.screen).kind).toBe('phone');
     }
   });
 
-  it('lists each screen under one place only', () => {
+  vaultIt('lists each screen under one place only', () => {
     const screens = [
       ...SETTINGS_GROUPS.flatMap((group) => group.rows.map((row) => row.screen)),
       ...ON_THE_PHONE.flatMap((entry) => (entry.screen ? [entry.screen] : [])),
@@ -73,7 +73,7 @@ describe('settings pane controls', () => {
     refused: [],
   });
 
-  it('draws a readable pane from the read as disabled controls with the value shown', () => {
+  vaultIt('draws a readable pane from the read as disabled controls with the value shown', () => {
     const controls = paneControls(
       'display-settings',
       read({ 'veloq-theme-preference': 'dark', 'veloq-wellness-smoothing': null })
@@ -90,14 +90,14 @@ describe('settings pane controls', () => {
     expect(controls.every((control) => control.disabled)).toBe(true);
   });
 
-  it('shows a setting the phone has not set as unset, not as a made-up value', () => {
+  vaultIt('shows a setting the phone has not set as unset, not as a made-up value', () => {
     const [control] = paneControls('map-settings', read({ 'veloq-map-preferences': null }));
 
     expect(control.value).toBeNull();
     expect(control.disabled).toBe(true);
   });
 
-  it('has no controls for a screen the page does not draw from settings', () => {
+  vaultIt('has no controls for a screen the page does not draw from settings', () => {
     expect(paneControls('linked-devices', read({}))).toEqual([]);
     expect(paneControls('sensor-settings', read({}))).toEqual([]);
     expect(paneControls('display-settings', undefined)).toEqual([]);
@@ -111,7 +111,7 @@ describe('settings pane controls', () => {
     expect(unitSystem(null, undefined)).toBe('metric');
   });
 
-  it('reads every readable row, so no pane says it is not read', () => {
+  vaultIt('reads every readable row, so no pane says it is not read', () => {
     for (const group of SETTINGS_GROUPS) {
       for (const row of group.rows) expect(readsScreen(row.screen)).toBe(true);
     }

@@ -2101,6 +2101,7 @@ mod tests {
     /// points dropped before the next is read, and every track is placed as
     /// its stored points place it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_load_holds_one_chunk_of_decoded_points_at_a_time() {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute(
@@ -2174,6 +2175,7 @@ mod tests {
     /// holds no swept tile, and every swept tile gets the tracks a cold pass
     /// gives it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pass_after_one_sweep_plans_only_the_swept_ground() {
         let (mut activities, mut tracks) = two_towns();
         let added: Vec<GpsPoint> = (0..30)
@@ -2225,6 +2227,7 @@ mod tests {
     /// Expected behaviour: the plan covers every tile in the box and sweeps no
     /// track whose reach misses it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_removed_box_is_planned_as_its_whole_range() {
         let (activities, tracks) = two_towns();
         let config = tiles::HeatmapConfig::default();
@@ -2264,6 +2267,7 @@ mod tests {
     /// Expected behaviour: no record is kept, so the pass plans in full, and a
     /// complete pass clears whatever record there is.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_swept_record_only_stands_while_every_mark_was_a_sweep() {
         let dir = tempfile::tempdir().unwrap();
         let base = dir.path();
@@ -2305,6 +2309,7 @@ mod tests {
     /// showing, sorts first; the same ground at other zooms next; everything
     /// else last, in the order it had.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_viewport_is_drawn_before_the_rest_of_the_sweep() {
         // Sion, where the demo library rides.
         let (lat, lon, zoom) = (46.233, 7.36, 14u8);
@@ -2334,6 +2339,7 @@ mod tests {
     /// Expected behaviour: a tile two columns from the centre at the zoom on
     /// screen sorts before any lower-zoom tile outside the window.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_rest_of_the_screen_is_drawn_before_lower_zooms_elsewhere() {
         let (lat, lon, zoom) = (46.233, 7.36, 14u8);
         let centre = (
@@ -2375,6 +2381,7 @@ mod tests {
     /// announce nothing; a band that is empty or the whole pass leaves the
     /// announcement to the end of the pass.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_first_band_announces_once_when_its_last_tile_lands() {
         let band = FirstBandDrawn::new(3, 10);
         assert!(!band.tile_done(true));
@@ -2392,6 +2399,7 @@ mod tests {
     ///
     /// Expected behaviour: the temp file is not served.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_leftover_temp_file_is_not_served() {
         let _serial = crate::test_globals::serial_global_state();
         let tmp = tempfile::tempdir().expect("tempdir");
@@ -2418,6 +2426,7 @@ mod tests {
     /// Expected behaviour: the z14 ground under the camera, and the zoom
     /// either side of it, sort into the first band.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_camera_deeper_than_the_pass_puts_the_deepest_drawn_zoom_first() {
         let (lat, lon) = (46.233, 7.36);
         let here = |z: u8| {
@@ -2439,6 +2448,7 @@ mod tests {
     /// With no camera set nothing is preferred, which is the pass a sync runs
     /// with no map open: every tile ranks the same and the zoom order stands.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn no_camera_leaves_the_order_alone() {
         assert_eq!(priority_rank((17, 1, 1), None), 0);
         assert_eq!(priority_rank((1, 0, 0), None), 0);
@@ -2446,6 +2456,7 @@ mod tests {
 
     /// The whole point, on the list the pass actually sorts.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_sort_puts_the_viewports_tiles_at_the_front() {
         let (lat, lon) = (46.233, 7.36);
         let tile = |z: u8| {
@@ -2493,6 +2504,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn clear_dirty_marker_removes_the_mark_the_run_started_with() {
         let dir = tempfile::tempdir().unwrap();
         let base = dir.path();
@@ -2506,6 +2518,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn each_mark_carries_its_own_token() {
         let dir = tempfile::tempdir().unwrap();
         let base = dir.path();
@@ -2522,6 +2535,7 @@ mod tests {
     /// A run that started on a clean set must not clear a mark that arrived
     /// after it began.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_run_that_saw_no_mark_clears_nothing() {
         let dir = tempfile::tempdir().unwrap();
         let base = dir.path();
@@ -2600,6 +2614,7 @@ mod tests {
         use crate::test_globals::serial_global_state;
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn test_serial_guard_stops_a_pass_before_releasing_the_global_state() {
             let serial = serial_global_state();
             let _tmp = crate::test_globals::init_global_engine("tiles-serial.db");
@@ -2639,6 +2654,7 @@ mod tests {
         /// forgets it when it ends normally, and backs the key off when the
         /// pass panicked.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_attempt_store_sees_the_pass_and_backs_off_a_panicked_one() {
             use crate::persistence::attempts::{Claim, attempt_backoff_ms, now_ms};
             let _serial = serial_global_state();
@@ -2674,6 +2690,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_pass_on_another_engine_releases_its_lease() {
             let _serial = serial_global_state();
             let _installed = crate::test_globals::init_global_engine("installed.db");
@@ -2879,6 +2896,7 @@ mod tests {
 
         /// The stop answers when the worker ends, not at the end of its wait.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_stop_returns_when_the_pass_ends() {
             let _serial = serial_global_state();
             let _tmp = crate::test_globals::init_global_engine("tiles.db");

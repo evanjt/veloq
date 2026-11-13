@@ -13,6 +13,7 @@ fn empty_engine(name: &str) -> (tempfile::TempDir, Arc<SectionManager>) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_map_sections_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, sections) = empty_engine("map_sections_under_writer.db");
@@ -22,6 +23,7 @@ fn test_get_map_sections_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_reference_info_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, sections) = empty_engine("section_reference_under_writer.db");
@@ -31,6 +33,7 @@ fn test_get_reference_info_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_named_corridors_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, sections) = empty_engine("named_corridors_under_writer.db");
@@ -38,6 +41,7 @@ fn test_get_named_corridors_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_excluded_activities_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, sections) = empty_engine("section_excluded_under_writer.db");
@@ -48,6 +52,7 @@ fn test_get_excluded_activities_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_history_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, sections) = empty_engine("section_history_under_writer.db");
@@ -55,6 +60,7 @@ fn test_get_history_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_detail_geometry_versions_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, sections) = empty_engine("section_versions_under_writer.db");
@@ -66,6 +72,7 @@ fn test_detail_geometry_versions_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_geometry_version_coords_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, sections) = empty_engine("section_version_coords_under_writer.db");
@@ -78,6 +85,7 @@ fn test_get_geometry_version_coords_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_pinned_version_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, sections) = empty_engine("section_pin_under_writer.db");
@@ -87,6 +95,7 @@ fn test_get_pinned_version_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_retired_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, sections) = empty_engine("sections_retired_under_writer.db");
@@ -94,6 +103,7 @@ fn test_get_retired_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_find_superseded_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, _sections) = empty_engine("sections_superseded_under_writer.db");
@@ -107,6 +117,7 @@ fn test_find_superseded_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_workout_sections_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, sections) = empty_engine("workout_sections_under_writer.db");
@@ -162,6 +173,7 @@ fn seeded_catalogue() -> (tempfile::TempDir, Arc<SectionManager>, String) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_ledger_reads_match_the_engine() {
     let _guard = serial_global_state();
     let (_tmp, sections, id) = seeded_catalogue();
@@ -229,6 +241,7 @@ fn test_ledger_reads_match_the_engine() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_map_and_superseded_reads_match_the_engine() {
     let _guard = serial_global_state();
     let (_tmp, sections, id) = seeded_catalogue();
@@ -292,6 +305,7 @@ fn test_performance_derivations_match_the_engine() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_exclusions_read_through_the_pool() {
     let _guard = serial_global_state();
     let (_tmp, sections, id) = seeded_catalogue();
@@ -317,6 +331,7 @@ fn test_exclusions_read_through_the_pool() {
 /// Expected behaviour: the overlay is resolved once for the two reads and
 /// again after the commit; a library with no named intent resolves nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn named_corridors_resolve_the_overlay_once_per_database_state() {
     use crate::persistence::sections::named::compute::OVERLAY_COMPUTES;
     use std::sync::atomic::Ordering;
@@ -357,6 +372,7 @@ fn named_corridors_resolve_the_overlay_once_per_database_state() {
 /// selection change on the map re-reads nothing, and again after the commit;
 /// every read answers with the lines and the pair the first one built.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_retired_map_is_built_once_per_database_state() {
     use crate::persistence::sections::retired_map::RETIRED_MAP_BUILDS;
 
@@ -403,6 +419,7 @@ fn the_retired_map_is_built_once_per_database_state() {
 /// only the ledger link, a worker measures them off the read, and the next
 /// read lists the ground pair with nothing owed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_owed_retired_map_read_starts_the_worker_and_the_next_read_is_level() {
     use crate::persistence::sections::retired_map::wait_for_level;
 

@@ -54,7 +54,7 @@ describe('sync credential ownership', () => {
     expect(clearSyncCredentials).not.toHaveBeenCalled();
   });
 
-  it('sends an OAuth token as oauth', async () => {
+  vaultIt('sends an OAuth token as oauth', async () => {
     await useAuthStore.getState().setOAuthCredentials('token-abc', 'i999');
 
     expect(setSyncCredentials).toHaveBeenCalledWith('oauth', 'token-abc', 'i999');

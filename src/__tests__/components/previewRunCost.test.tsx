@@ -31,12 +31,12 @@ describe('the preview run cost', () => {
     expect(text).toContain('"duration":"3.2 s"');
   });
 
-  it('says the run is not bounded by the picked area', async () => {
+  vaultIt('says the run is not bounded by the picked area', async () => {
     const { getByTestId } = await renderCost(POOL, 100);
     expect(getByTestId('preview-run-scope')).toBeTruthy();
   });
 
-  it('holds an unreadable count back until there is one', async () => {
+  vaultIt('holds an unreadable count back until there is one', async () => {
     const { queryByTestId } = await renderCost(POOL, 100);
     expect(queryByTestId('preview-run-unreadable')).toBeNull();
   });
@@ -46,7 +46,7 @@ describe('the preview run cost', () => {
     expect(getByTestId('preview-run-unreadable').props.children).toContain('"count":3');
   });
 
-  it('reads a single-activity pool as ordinary rather than as an error', async () => {
+  vaultIt('reads a single-activity pool as ordinary rather than as an error', async () => {
     const { getByTestId, queryByTestId } = await renderCost(
       { activities: 1, empty: 0, unreadable: 0 },
       40
@@ -55,7 +55,7 @@ describe('the preview run cost', () => {
     expect(queryByTestId('preview-run-unreadable')).toBeNull();
   });
 
-  it('reads a sub-second run in milliseconds rather than as 0.0 s', async () => {
+  vaultIt('reads a sub-second run in milliseconds rather than as 0.0 s', async () => {
     const { getByTestId } = await renderCost(POOL, 40);
     expect(getByTestId('preview-run-cost').props.children).toContain('"duration":"40 ms"');
   });

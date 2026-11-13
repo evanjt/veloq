@@ -54,7 +54,7 @@ jest.mock('@/shared/debug/crashLog', () => ({
 
 /**
  * The stub's enum is a separate declaration from the generated one the store
- * is typed against, and `ffiEnumStub.test.ts` is what holds the two together.
+ * is typed against, and `ffiEnumStub.vault.test.ts` is what holds the two together.
  */
 function failedWith(reason: InitOutcome | null) {
   useEngineStatus.setState({
@@ -75,7 +75,7 @@ describe('EngineInitBanner', () => {
     });
   });
 
-  it('stays hidden while the engine is open', async () => {
+  vaultIt('stays hidden while the engine is open', async () => {
     const { queryByTestId } = await render(<EngineInitBanner />);
     expect(queryByTestId('engine-init-banner')).toBeNull();
   });
@@ -136,7 +136,7 @@ describe('EngineInitBanner', () => {
   });
 
   /** A centre cut-out or status bar covers the top inset, so the text starts below it. */
-  it('pads its top edge by the safe-area inset', async () => {
+  vaultIt('pads its top edge by the safe-area inset', async () => {
     mockInsets.top = 44;
     failedWith(InitOutcome.Busy);
     const { getByTestId } = await render(<EngineInitBanner />);
@@ -144,14 +144,14 @@ describe('EngineInitBanner', () => {
   });
 
   /** The retry is the only way out of a failed open, so a screen reader has to name it. */
-  it('names its retry control for a screen reader', async () => {
+  vaultIt('names its retry control for a screen reader', async () => {
     failedWith(InitOutcome.Busy);
     const { getByRole } = await render(<EngineInitBanner />);
     expect(getByRole('button', { name: 'common.retry' })).toBeTruthy();
   });
 
   /** With no inset to clear, the text keeps the room its own content gives it, and nothing more. */
-  it('keeps its own padding when there is no inset', async () => {
+  vaultIt('keeps its own padding when there is no inset', async () => {
     failedWith(InitOutcome.Busy);
     const { getByTestId } = await render(<EngineInitBanner />);
     expect(StyleSheet.flatten(getByTestId('engine-init-banner').props.style).paddingTop).toBe(0);
@@ -224,7 +224,7 @@ describe('EngineInitBanner', () => {
   });
 
   describe('palette', () => {
-    it.each([
+    vaultIt.each([
       [false, noticePalette('error', false)],
       [true, noticePalette('error', true)],
     ])('draws the banner for dark mode %s from the error tone', async (isDark, palette) => {

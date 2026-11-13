@@ -79,7 +79,7 @@ beforeEach(() => {
   useWhatsNewStore.setState({ tourOffer: NO_TOUR_OFFER });
 });
 
-it('says where a backup goes, and has no panel of its own for what it holds', async () => {
+vaultIt('says where a backup goes, and has no panel of its own for what it holds', async () => {
   await render(<BackupSlide />);
 
   expect(screen.queryByTestId('tour-backup-holds')).toBeNull();
@@ -88,7 +88,7 @@ it('says where a backup goes, and has no panel of its own for what it holds', as
   );
 });
 
-it('names the places set up in Settings on Android', async () => {
+vaultIt('names the places set up in Settings on Android', async () => {
   const originalOS = Platform.OS;
   Platform.OS = 'android';
   try {
@@ -128,7 +128,7 @@ describe('Never remind me again', () => {
     expect(screen.getByText('whatsNew.tutorial.backupLater')).toBeTruthy();
   });
 
-  it('keeps the leftover card from offering backup', async () => {
+  vaultIt('keeps the leftover card from offering backup', async () => {
     await render(<BackupSlide />);
     await press('tour-backup-never');
 
@@ -143,7 +143,7 @@ describe('Never remind me again', () => {
     expect(offer).toBeNull();
   });
 
-  it('holds when the tour is opened again', async () => {
+  vaultIt('holds when the tour is opened again', async () => {
     useWhatsNewStore.setState({ tourOffer: { ...NO_TOUR_OFFER, answers: { backup: 'never' } } });
     await render(<BackupSlide />);
 
@@ -152,14 +152,14 @@ describe('Never remind me again', () => {
   });
 });
 
-it('swiped past, records no answer and turns nothing on', async () => {
+vaultIt('swiped past, records no answer and turns nothing on', async () => {
   await render(<BackupSlide />);
 
   expect(answer()).toBeUndefined();
   expect(isAutoBackupEnabled()).toBe(false);
 });
 
-it('offers no buttons when automatic backup is already on', async () => {
+vaultIt('offers no buttons when automatic backup is already on', async () => {
   setAutoBackupEnabled(true);
   await render(<BackupSlide />);
 

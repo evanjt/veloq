@@ -8,7 +8,7 @@ describe('projectRouteToBox', () => {
     { latitude: 46.5, longitude: 6.6 },
   ];
 
-  it('fits all points inside the padded box', () => {
+  vaultIt('fits all points inside the padded box', () => {
     const pad = 8;
     const pts = projectRouteToBox(coords, 300, 160, pad);
     expect(pts).toHaveLength(coords.length);
@@ -20,13 +20,13 @@ describe('projectRouteToBox', () => {
     }
   });
 
-  it('puts north up (smaller latitude → larger y)', () => {
+  vaultIt('puts north up (smaller latitude → larger y)', () => {
     const pts = projectRouteToBox(coords, 300, 160);
     // point[1] is the northern-most (lat 46.52), point[0]/[3] southern (46.5)
     expect(pts[1].y).toBeLessThan(pts[0].y);
   });
 
-  it('preserves aspect ratio (no axis-independent stretch)', () => {
+  vaultIt('preserves aspect ratio (no axis-independent stretch)', () => {
     // A square geographic loop should map to a square pixel extent, centered -
     // not stretched to fill a wide box.
     const square = [

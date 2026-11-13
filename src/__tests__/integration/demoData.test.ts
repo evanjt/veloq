@@ -18,7 +18,7 @@ import { DEMO_REFERENCE_DATE } from '@/data/demo/random';
 const demoActivities = fixtures.activities;
 
 describe('Demo data integrity', () => {
-  it('keeps ride power in the generated interval rows', () => {
+  vaultIt('keeps ride power in the generated interval rows', () => {
     const intervals = getActivityIntervals('demo-test-0').icu_intervals;
     expect(intervals.length).toBeGreaterThan(0);
     expect(intervals[0].average_watts).toBeGreaterThan(0);
@@ -46,38 +46,44 @@ describe('Demo data integrity', () => {
     });
   });
 
-  it('activity fixtures have valid types, unique IDs, and the expected stress-test count', () => {
-    const validTypes = new Set([
-      'Ride',
-      'Run',
-      'Swim',
-      'Walk',
-      'Hike',
-      'VirtualRide',
-      'VirtualRun',
-      'Workout',
-      'WeightTraining',
-      'Yoga',
-      'Other',
-    ]);
+  vaultIt(
+    'activity fixtures have valid types, unique IDs, and the expected stress-test count',
+    () => {
+      const validTypes = new Set([
+        'Ride',
+        'Run',
+        'Swim',
+        'Walk',
+        'Hike',
+        'VirtualRide',
+        'VirtualRun',
+        'Workout',
+        'WeightTraining',
+        'Yoga',
+        'Other',
+      ]);
 
-    demoActivities.forEach((a: ApiActivity) => {
-      expect(validTypes.has(a.type)).toBe(true);
-    });
+      demoActivities.forEach((a: ApiActivity) => {
+        expect(validTypes.has(a.type)).toBe(true);
+      });
 
-    const ids = demoActivities.map((a) => a.id);
-    expect(new Set(ids).size).toBe(ids.length);
+      const ids = demoActivities.map((a) => a.id);
+      expect(new Set(ids).size).toBe(ids.length);
 
-    const stress = demoActivities.filter((a) => a.id.startsWith('demo-stress-'));
-    expect(stress.length).toBe(20);
+      const stress = demoActivities.filter((a) => a.id.startsWith('demo-stress-'));
+      expect(stress.length).toBe(20);
 
-    const dateBased = demoActivities.filter(
-      (a) => !a.id.startsWith('demo-test-') && !a.id.startsWith('demo-stress-')
-    );
-    dateBased.forEach((a) => {
-      expect(a.id).toMatch(/^demo-\d{4}-\d{2}-\d{2}-\d+$/);
-    });
-  });
+      const dateBased = demoActivities.filter(
+        (a) =>
+          !a.id.startsWith('demo-test-') &&
+          !a.id.startsWith('demo-stress-') &&
+          !a.id.startsWith('demo-strength-')
+      );
+      dateBased.forEach((a) => {
+        expect(a.id).toMatch(/^demo-\d{4}-\d{2}-\d{2}-\d+$/);
+      });
+    }
+  );
 
   it('streams are deterministic, monotonic, and have realistic HR ranges', () => {
     const samples = demoActivities.filter((a) => a.distance && a.distance > 0).slice(0, 3);
@@ -114,12 +120,12 @@ describe('Demo data integrity', () => {
 });
 
 describe('Demo data realism (periodization model)', () => {
-  it('FTP varies across activities - not all 250W', () => {
+  vaultIt('FTP varies across activities - not all 250W', () => {
     const ftpValues = new Set(demoActivities.map((a) => a.icu_ftp));
     expect(ftpValues.size).toBeGreaterThan(3);
   });
 
-  it('CTL has a visible dip from illness block - not monotonically increasing', () => {
+  vaultIt('CTL has a visible dip from illness block - not monotonically increasing', () => {
     const wellness = fixtures.wellness;
     const ctlValues = wellness.map((w) => w.ctl);
     let hasDecline = false;
@@ -132,7 +138,7 @@ describe('Demo data realism (periodization model)', () => {
     expect(hasDecline).toBe(true);
   });
 
-  it('activity count per week varies - irregular cadence', () => {
+  vaultIt('activity count per week varies - irregular cadence', () => {
     const weekCounts = new Map<string, number>();
     const dateBased = demoActivities.filter(
       (a) => !a.id.startsWith('demo-test-') && !a.id.startsWith('demo-stress-')
@@ -148,7 +154,7 @@ describe('Demo data realism (periodization model)', () => {
     expect(max - min).toBeGreaterThanOrEqual(3);
   });
 
-  it('GPS coordinates vary between activities on the same route', () => {
+  vaultIt('GPS coordinates vary between activities on the same route', () => {
     const rioRuns = demoActivities.filter(
       (a: ApiActivity & { _routeId?: string }) =>
         (a as { _routeId?: string })._routeId === 'route-rio-run-1' &&
@@ -165,7 +171,7 @@ describe('Demo data realism (periodization model)', () => {
     expect(coordsDiffer).toBe(true);
   });
 
-  it('zone distributions differ between session types', () => {
+  vaultIt('zone distributions differ between session types', () => {
     const rides = demoActivities.filter(
       (a) => (a.type === 'Ride' || a.type === 'VirtualRide') && a.icu_zone_times
     );
@@ -180,14 +186,14 @@ describe('Demo data realism (periodization model)', () => {
     expect(max - min).toBeGreaterThan(0.1);
   });
 
-  it('weight trends downward during training season - not periodic sine wave', () => {
+  vaultIt('weight trends downward during training season - not periodic sine wave', () => {
     const wellness = fixtures.wellness;
     const firstQuarterAvg = wellness.slice(0, 90).reduce((s, w) => s + (w.weight ?? 75), 0) / 90;
     const thirdQuarterAvg = wellness.slice(180, 270).reduce((s, w) => s + (w.weight ?? 75), 0) / 90;
     expect(firstQuarterAvg).toBeGreaterThan(thirdQuarterAvg);
   });
 
-  it('stress test demo-stress-0 has the fastest time', () => {
+  vaultIt('stress test demo-stress-0 has the fastest time', () => {
     const stressActivities = demoActivities
       .filter((a) => a.id.startsWith('demo-stress-'))
       .sort((a, b) => {
@@ -202,7 +208,7 @@ describe('Demo data realism (periodization model)', () => {
     });
   });
 
-  it('stable test activities exist with correct IDs and types', () => {
+  vaultIt('stable test activities exist with correct IDs and types', () => {
     const expected = [
       { id: 'demo-test-0', type: 'Ride' },
       { id: 'demo-test-1', type: 'Run' },
@@ -219,5 +225,19 @@ describe('Demo data realism (periodization model)', () => {
       expect(found).toBeDefined();
       expect(found!.type).toBe(type);
     });
+  });
+
+  /**
+   * The engine settles a weekly strength session from the id alone, so a name the
+   * fixture gives it outside this shape leaves the Strength tab empty in demo.
+   */
+  it('every weekly strength session carries an id the engine settles', () => {
+    const strength = demoActivities.filter((a) => a.type === 'WeightTraining');
+    const weekly = strength.filter((a) => a.id.startsWith('demo-strength-'));
+    expect(weekly.length).toBeGreaterThan(0);
+    for (const a of weekly) {
+      expect(a.id).toMatch(/^demo-strength-(push|pull|legs)-[0-7]$/);
+    }
+    expect(new Set(weekly.map((a) => a.id)).size).toBe(weekly.length);
   });
 });

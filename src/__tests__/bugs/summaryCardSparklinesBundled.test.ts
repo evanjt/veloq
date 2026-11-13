@@ -69,7 +69,7 @@ describe('the feed card sparklines', () => {
     expect(result.current.rhrRead).toEqual(SPARKLINES.rhrRead);
   });
 
-  it('are absent rather than re-read when the bundle carries none', async () => {
+  vaultIt('are absent rather than re-read when the bundle carries none', async () => {
     const { result } = await renderHook(() =>
       useSummaryCardData(CARD, { awaitPrecomputed: true, precomputedSparklines: null })
     );
@@ -78,7 +78,7 @@ describe('the feed card sparklines', () => {
     expect(result.current.fitnessData).toBeUndefined();
   });
 
-  it('are not read while the feed waits for the bundle', async () => {
+  vaultIt('are not read while the feed waits for the bundle', async () => {
     const { result } = await renderHook(() =>
       useSummaryCardData(undefined, { awaitPrecomputed: true })
     );
@@ -94,20 +94,23 @@ describe('the feed card sparklines', () => {
     expect(result.current.fitnessData).toEqual(SPARKLINES.fitness);
   });
 
-  it('are read again after a wellness sync and a pull-to-refresh, and not on a bare render', async () => {
-    const { result, rerender } = await renderHook(() => useSummaryCardData());
-    expect(engine.getWellnessSparklines).toHaveBeenCalledTimes(1);
+  vaultIt(
+    'are read again after a wellness sync and a pull-to-refresh, and not on a bare render',
+    async () => {
+      const { result, rerender } = await renderHook(() => useSummaryCardData());
+      expect(engine.getWellnessSparklines).toHaveBeenCalledTimes(1);
 
-    await rerender({});
-    expect(engine.getWellnessSparklines).toHaveBeenCalledTimes(1);
+      await rerender({});
+      expect(engine.getWellnessSparklines).toHaveBeenCalledTimes(1);
 
-    mockWellnessGeneration = 1;
-    await rerender({});
-    expect(engine.getWellnessSparklines).toHaveBeenCalledTimes(2);
+      mockWellnessGeneration = 1;
+      await rerender({});
+      expect(engine.getWellnessSparklines).toHaveBeenCalledTimes(2);
 
-    await act(async () => {
-      await result.current.refetch();
-    });
-    expect(engine.getWellnessSparklines).toHaveBeenCalledTimes(3);
-  });
+      await act(async () => {
+        await result.current.refetch();
+      });
+      expect(engine.getWellnessSparklines).toHaveBeenCalledTimes(3);
+    }
+  );
 });

@@ -27,10 +27,8 @@ jest.mock('@/shared/app/NetworkContext', () => ({
 }));
 
 const mockFetch = jest.fn();
-const mockSeed = jest.fn();
 const mockEngine = {
   fetchAndParseExerciseSets: (...args: unknown[]) => mockFetch(...args),
-  bulkInsertExerciseSets: (...args: unknown[]) => mockSeed(...args),
   subscribe: () => () => {},
 };
 jest.mock('@/shared/native/engine', () => ({
@@ -84,7 +82,7 @@ describe('useStrengthCardData', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('holds nothing for a feed with no strength activity', async () => {
+  vaultIt('holds nothing for a feed with no strength activity', async () => {
     const { result } = await render([]);
 
     expect(result.current.size).toBe(0);
@@ -121,7 +119,7 @@ describe('useStrengthCardData', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps a settled card as the same object when another activity parses', async () => {
+  vaultIt('keeps a settled card as the same object when another activity parses', async () => {
     const { result, rerender } = await render([row('s1'), owed('s2')]);
     const before = result.current.get('s1');
 
@@ -141,12 +139,11 @@ describe('useStrengthCardData', () => {
     expect(result.current.get('s1')?.setCount).toBe(5);
   });
 
-  it('seeds a demo activity instead of downloading it', async () => {
+  it('asks the engine for a demo activity, which settles it from the demo corpus', async () => {
     useAuthStore.setState({ isDemoMode: true });
     await render([owed('demo-test-6')]);
 
-    expect(mockSeed).toHaveBeenCalledTimes(1);
-    expect(mockSeed.mock.calls[0][0]).toBe('demo-test-6');
-    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch.mock.calls[0][0]).toBe('demo-test-6');
   });
 });

@@ -499,6 +499,7 @@ fn test_cutover_adopt_takes_a_commit_nobody_adopted() {
 /// holds what the database does, so the groups are not read again. A row
 /// changed behind the generation shows whether they were.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_cutover_adopt_leaves_groups_alone_when_nothing_committed() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -563,6 +564,7 @@ fn test_representative_choice_reaches_a_route_committed_behind_the_engine() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_route_name_reaches_a_route_committed_behind_the_engine() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -599,6 +601,7 @@ fn test_clean_group_read_follows_a_commit_behind_the_engine() {
 /// `t` rides `m`'s track, so the commit puts it in `r_1`, which the engine had
 /// already cached with `m` alone.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_group_by_id_follows_a_commit_behind_the_engine() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -709,6 +712,7 @@ fn commit_before_each_representative_write(path: std::path::PathBuf, install: u6
 /// Commits keep landing before the write, so the choice gives up rather than
 /// writing over any of them, and the next read follows the last.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_representative_choice_refuses_when_commits_keep_landing() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -778,6 +782,7 @@ fn timed_commit_nobody_adopts(dir: &tempfile::TempDir) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_route_name_read_follows_a_commit_behind_the_engine() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -817,6 +822,7 @@ fn test_excluded_performances_follow_a_commit_behind_the_engine() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_route_highlights_follow_a_commit_behind_the_engine() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -878,6 +884,7 @@ fn test_engine_stats_follow_a_commit_behind_the_engine() {
 /// A run spawned over the groups the commit replaced is refused as superseded,
 /// so `k` would wait for a later regroup to be grouped at all.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_detection_spawn_follows_a_commit_behind_the_engine() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");
@@ -905,6 +912,7 @@ fn test_detection_spawn_follows_a_commit_behind_the_engine() {
 /// A worker-applied run that regroups with nothing stored while it ran leaves
 /// no regroup owed, so the next read does not regroup the whole library again.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_worker_applied_run_that_regrouped_leaves_nothing_owed() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");

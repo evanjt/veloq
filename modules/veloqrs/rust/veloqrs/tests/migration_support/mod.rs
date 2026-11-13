@@ -365,6 +365,7 @@ pub fn rows_of(conn: &Connection, table: &str, columns: &[String]) -> Vec<Vec<St
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn seeds_land_on_the_requested_version_with_a_growing_table_set() {
     let dir = tempfile::TempDir::new().expect("tempdir");
 
@@ -397,6 +398,7 @@ fn seeds_land_on_the_requested_version_with_a_growing_table_set() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn seeding_short_of_the_latest_leaves_later_migrations_unapplied() {
     let dir = tempfile::TempDir::new().expect("tempdir");
     let conn = seed_at_version(&dir.path().join("v12.db"), 12);

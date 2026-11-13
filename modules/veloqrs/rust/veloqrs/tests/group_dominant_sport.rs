@@ -46,6 +46,7 @@ fn only_group_sport(engine: &mut PersistentEngine) -> String {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_route_scalar_empty_for_mixed_sports() {
     for members in [
         [
@@ -69,6 +70,7 @@ fn test_route_scalar_empty_for_mixed_sports() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_route_scalar_empty_for_tied_sports() {
     let (mut engine, _dir) = engine_over(&[("a", "Walk"), ("b", "Ride")]);
     assert_eq!(only_group_sport(&mut engine), "");

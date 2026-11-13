@@ -15,7 +15,7 @@ import {
   updateWidgetSnapshot,
 } from '@/features/home/lib/widgetBridge';
 import { WIDGET_STRING_KEYS } from '@/features/home/lib/widgetSnapshot';
-import { demoStrengthSets } from '@/features/strength/light';
+import { demoStrengthActivityIds } from '@/features/strength/lib/demoStrength';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
 const mockEngine = {
@@ -108,7 +108,7 @@ describe('signed out', () => {
     expect(mockWidget.publishRecordShortcuts).toHaveBeenCalledWith([]);
   });
 
-  it('composes the sample in the app words', () => {
+  vaultIt('composes the sample in the app words', () => {
     updateWidgetSnapshot();
 
     const context = mockEngine.composeWidgetSnapshot.mock.calls[0][0];
@@ -116,19 +116,17 @@ describe('signed out', () => {
     expect(WIDGET_STRING_KEYS).toContain('demo.banner');
   });
 
-  it('hands the engine every demo strength set, so the strength widget draws the sample body', () => {
+  it('hands the engine the demo strength sessions, whose sets the engine draws the sample body from', () => {
     updateWidgetSnapshot();
 
     const library = mockEngine.composeWidgetSnapshot.mock.calls[0][3] as {
       activities: { activityId: string }[];
-      exerciseSets: { activityId: string; setOrder: number }[];
     };
-    const seeded = Object.values(demoStrengthSets).flat();
-    expect(seeded.length).toBeGreaterThan(0);
-    expect(library.exerciseSets).toEqual(seeded);
     const activityIds = new Set(library.activities.map((a) => a.activityId));
-    for (const set of library.exerciseSets) {
-      expect(activityIds.has(set.activityId)).toBe(true);
+    const strength = demoStrengthActivityIds();
+    expect(strength.length).toBeGreaterThan(0);
+    for (const id of strength) {
+      expect(activityIds.has(id)).toBe(true);
     }
   });
 

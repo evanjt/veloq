@@ -65,6 +65,7 @@ fn week(start: i64) -> FfiTimestampRange {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_exercise_sets_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_sets_under_writer.db");
@@ -74,6 +75,7 @@ fn test_get_exercise_sets_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_is_fit_processed_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_processed_under_writer.db");
@@ -84,6 +86,7 @@ fn test_is_fit_processed_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_unprocessed_strength_ids_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_unprocessed_under_writer.db");
@@ -93,6 +96,7 @@ fn test_get_unprocessed_strength_ids_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_screen_data_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_screen_under_writer.db");
@@ -107,6 +111,7 @@ fn test_get_screen_data_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_activities_for_exercise_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_exercise_under_writer.db");
@@ -125,6 +130,7 @@ fn test_get_activities_for_exercise_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_has_strength_data_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_has_data_under_writer.db");
@@ -135,6 +141,7 @@ fn test_has_strength_data_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_muscle_groups_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_muscles_under_writer.db");
@@ -144,6 +151,7 @@ fn test_get_muscle_groups_writer_held() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_get_muscle_detail_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_detail_under_writer.db");
@@ -160,6 +168,7 @@ fn test_get_muscle_detail_writer_held() {
 /// library that holds sets, a strength activity still owed its file, and a
 /// ride.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_pooled_reads_match_the_engine_on_a_seeded_library() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_pooled_parity.db");
@@ -212,6 +221,7 @@ fn test_pooled_reads_match_the_engine_on_a_seeded_library() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_pooled_screen_data_reads_the_period_and_each_week() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_pooled_screen.db");
@@ -266,6 +276,7 @@ fn test_screen_data_counts_the_strength_activities_owed_in_the_window() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_pooled_activities_for_exercise_carry_names_newest_first() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_pooled_exercise.db");
@@ -352,6 +363,7 @@ fn test_card_summary_counts_active_sets_only_and_aggregates_muscles_once() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_card_summary_without_sets_is_settled_only_by_the_fit_outcome() {
     let owed = strength_card_summary("s3", &[], false);
     assert!(!owed.settled);
@@ -364,6 +376,7 @@ fn test_card_summary_without_sets_is_settled_only_by_the_fit_outcome() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_strength_cards_carry_a_card_per_strength_activity_in_request_order() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_bundle_cards.db");
@@ -400,6 +413,7 @@ fn test_strength_cards_carry_a_card_per_strength_activity_in_request_order() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_strength_cards_mark_a_strength_activity_owed_its_file_unsettled() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_bundle_owed.db");
@@ -413,6 +427,7 @@ fn test_strength_cards_mark_a_strength_activity_owed_its_file_unsettled() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_strength_cards_are_empty_for_an_empty_request() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_bundle_empty.db");

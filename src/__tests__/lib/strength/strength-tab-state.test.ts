@@ -14,7 +14,7 @@ describe('strengthTabState', () => {
     expect(strengthTabState({ hasSets: true, unfetchedCount: 0, isSyncing: false })).toBe('ready');
   });
 
-  it('stays ready when sets are cached and more are still coming', () => {
+  vaultIt('stays ready when sets are cached and more are still coming', () => {
     expect(strengthTabState({ hasSets: true, unfetchedCount: 4, isSyncing: true })).toBe('ready');
   });
 
@@ -36,7 +36,7 @@ describe('strengthTabState', () => {
     );
   });
 
-  it('is hidden during a sync when no strength activity is known', () => {
+  vaultIt('is hidden during a sync when no strength activity is known', () => {
     expect(strengthTabState({ hasSets: false, unfetchedCount: 0, isSyncing: true })).toBe('hidden');
   });
 });

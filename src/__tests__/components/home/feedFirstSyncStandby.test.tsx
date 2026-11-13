@@ -52,20 +52,20 @@ describe('the first-sync standby', () => {
     mockStatus = { state: 1, completed: 0, total: 0 };
   });
 
-  it('says what is happening rather than that there is nothing', async () => {
+  vaultIt('says what is happening rather than that there is nothing', async () => {
     await render(<FeedFirstSyncStandby />);
 
     expect(screen.getByTestId('feed-first-sync-title')).toBeTruthy();
     expect(screen.getByTestId('feed-first-sync-body')).toBeTruthy();
   });
 
-  it('titles itself as a heading, so a screen reader can skim to it', async () => {
+  vaultIt('titles itself as a heading, so a screen reader can skim to it', async () => {
     await render(<FeedFirstSyncStandby />);
 
     expect(screen.getByRole('header', { name: 'feed.firstSyncTitle' })).toBeTruthy();
   });
 
-  it('draws no step line before the engine reports a step', async () => {
+  vaultIt('draws no step line before the engine reports a step', async () => {
     await render(<FeedFirstSyncStandby />);
 
     expect(screen.queryByTestId('feed-first-sync-step')).toBeNull();
@@ -93,7 +93,7 @@ describe('the first-sync standby', () => {
     expect(screen.getByTestId('feed-first-sync-counts').props.children).toBe('4/8');
   });
 
-  it('sets the counts on a quieter line below the step', async () => {
+  vaultIt('sets the counts on a quieter line below the step', async () => {
     mockStatus = {
       state: 1,
       completed: 4,
@@ -110,7 +110,7 @@ describe('the first-sync standby', () => {
     expect(counts.fontSize).toBeLessThan(step.fontSize);
   });
 
-  it('draws no count line for a step with nothing to count', async () => {
+  vaultIt('draws no count line for a step with nothing to count', async () => {
     mockStatus = { state: 1, completed: 0, total: 1, step: SyncStep.Activities };
     await render(<FeedFirstSyncStandby />);
 
@@ -139,7 +139,7 @@ describe('the first-sync standby', () => {
     });
     const counts = () => screen.getByTestId('feed-first-sync-counts').props.children;
 
-    it('changes no faster than once a second and settles on the latest count', async () => {
+    vaultIt('changes no faster than once a second and settles on the latest count', async () => {
       mockStatus = itemsAt(10);
       const { rerender } = await render(<FeedFirstSyncStandby />);
       expect(counts()).toBe('4/8 · 10/480');
@@ -170,7 +170,7 @@ describe('the first-sync standby', () => {
       expect(counts()).toBe('4/8 · 14/480');
     });
 
-    it('holds the progress value to the same pace', async () => {
+    vaultIt('holds the progress value to the same pace', async () => {
       mockStatus = itemsAt(10);
       const { rerender } = await render(<FeedFirstSyncStandby />);
       mockStatus = itemsAt(11);
@@ -183,7 +183,7 @@ describe('the first-sync standby', () => {
       expect(screen.getByRole('progressbar').props.accessibilityValue.now).toBe(11);
     });
 
-    it('names a new step at once, without waiting on the count', async () => {
+    vaultIt('names a new step at once, without waiting on the count', async () => {
       mockStatus = itemsAt(10);
       const { rerender } = await render(<FeedFirstSyncStandby />);
       mockStatus = { state: 1, completed: 5, total: 8, step: SyncStep.Curves };
@@ -195,7 +195,7 @@ describe('the first-sync standby', () => {
     });
   });
 
-  it('values its progress from the counts inside the step', async () => {
+  vaultIt('values its progress from the counts inside the step', async () => {
     mockStatus = {
       state: 1,
       completed: 4,
@@ -211,7 +211,7 @@ describe('the first-sync standby', () => {
     expect(progress.props.accessibilityState).toEqual({ busy: true });
   });
 
-  it('is busy with no value while the step has no count of its own', async () => {
+  vaultIt('is busy with no value while the step has no count of its own', async () => {
     mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
     await render(<FeedFirstSyncStandby />);
 
@@ -243,7 +243,7 @@ describe('the first-sync standby', () => {
       announce.mockRestore();
     });
 
-    it('marks the step line as a polite live region for Android', async () => {
+    vaultIt('marks the step line as a polite live region for Android', async () => {
       mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
       await render(<FeedFirstSyncStandby />);
 
@@ -252,7 +252,7 @@ describe('the first-sync standby', () => {
       );
     });
 
-    it('announces each new step on iOS, which has no live region', async () => {
+    vaultIt('announces each new step on iOS, which has no live region', async () => {
       Platform.OS = 'ios';
       mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
       const { rerender } = await render(<FeedFirstSyncStandby />);
@@ -265,7 +265,7 @@ describe('the first-sync standby', () => {
       expect(announce).toHaveBeenCalledTimes(2);
     });
 
-    it('says nothing new on iOS while only the counts inside one step move', async () => {
+    vaultIt('says nothing new on iOS while only the counts inside one step move', async () => {
       Platform.OS = 'ios';
       mockStatus = {
         state: 1,
@@ -285,7 +285,7 @@ describe('the first-sync standby', () => {
       expect(announce).toHaveBeenCalledWith('settings.syncStep.activities');
     });
 
-    it('announces nothing before the engine reports a step', async () => {
+    vaultIt('announces nothing before the engine reports a step', async () => {
       Platform.OS = 'ios';
       await render(<FeedFirstSyncStandby />);
 
@@ -293,13 +293,13 @@ describe('the first-sync standby', () => {
     });
   });
 
-  it.each(KEYS)('%s is in en-AU', (key) => {
+  vaultIt.each(KEYS)('%s is in en-AU', (key) => {
     expect(typeof lookup(en as Record<string, unknown>, key)).toBe('string');
   });
 
   // Every other locale is held to the reference one in translations.test.ts,
   // so no one reads English here alone.
-  it('carries both lines in the reference locale', () => {
+  vaultIt('carries both lines in the reference locale', () => {
     const bundle = JSON.parse(fs.readFileSync(path.join(LOCALES, 'en-GB.json'), 'utf8'));
     expect(KEYS.filter((key) => typeof lookup(bundle, key) !== 'string')).toEqual([]);
   });

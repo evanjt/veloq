@@ -237,57 +237,69 @@ describe('route page on a route ridden and run', () => {
     ];
   });
 
-  it('counts the attempts at Peek and names the sport on screen in the date line', async () => {
-    const screen = await render(<RouteDetailScreen />);
+  vaultIt(
+    'counts the attempts at Peek and names the sport on screen in the date line',
+    async () => {
+      const screen = await render(<RouteDetailScreen />);
 
-    expect(screen.getByTestId('route-detail-stats')).toHaveTextContent('maps.activitiesCount', {
-      exact: false,
-    });
-    expect(screen.getByTestId('route-card-date-line')).toHaveTextContent(/^activityTypes\.Ride/);
+      expect(screen.getByTestId('route-detail-stats')).toHaveTextContent('maps.activitiesCount', {
+        exact: false,
+      });
+      expect(screen.getByTestId('route-card-date-line')).toHaveTextContent(/^activityTypes\.Ride/);
 
-    await chooseSport(screen, 'Run');
+      await chooseSport(screen, 'Run');
 
-    expect(screen.getByTestId('route-card-date-line')).toHaveTextContent(/^activityTypes\.Run/);
-  });
+      expect(screen.getByTestId('route-card-date-line')).toHaveTextContent(/^activityTypes\.Run/);
+    }
+  );
 
-  it('reads the route performance read once over every date and the default sport', async () => {
-    await render(<RouteDetailScreen />);
+  vaultIt(
+    'reads the route performance read once over every date and the default sport',
+    async () => {
+      await render(<RouteDetailScreen />);
 
-    expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledTimes(1);
-    expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledWith(
-      'grp-heath',
-      0,
-      undefined,
-      undefined
-    );
-  });
+      expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledTimes(1);
+      expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledWith(
+        'grp-heath',
+        0,
+        undefined,
+        undefined
+      );
+    }
+  );
 
-  it('asks the read to keep the activity the page was opened from on the scatter', async () => {
-    mockParams = { id: 'grp-heath', activityId: 'act-moor' };
-    await render(<RouteDetailScreen />);
+  vaultIt(
+    'asks the read to keep the activity the page was opened from on the scatter',
+    async () => {
+      mockParams = { id: 'grp-heath', activityId: 'act-moor' };
+      await render(<RouteDetailScreen />);
 
-    expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledWith(
-      'grp-heath',
-      0,
-      undefined,
-      'act-moor'
-    );
-  });
+      expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledWith(
+        'grp-heath',
+        0,
+        undefined,
+        'act-moor'
+      );
+    }
+  );
 
-  it('offers the range menu and one sport menu listing each sport the read counts', async () => {
-    const screen = await render(<RouteDetailScreen />);
+  vaultIt(
+    'offers the range menu and one sport menu listing each sport the read counts',
+    async () => {
+      const screen = await render(<RouteDetailScreen />);
 
-    expect(
-      menuOf(screen, 'section-time-range').props.options.map((o: { value: string }) => o.value)
-    ).toEqual(['1m', '3m', '6m', '1y', 'all']);
-    expect(
-      menuOf(screen, 'section-sport').props.options.map((o: { label: string }) => o.label)
-    ).toEqual([
-      'activityTypes.Ride · sections.traversalsCount',
-      'activityTypes.Run · sections.traversalsCount',
-    ]);
-    expect(screen.getByTestId('attempt-chart').props.accessibilityValue.text).toBe('2');
-  });
+      expect(
+        menuOf(screen, 'section-time-range').props.options.map((o: { value: string }) => o.value)
+      ).toEqual(['1m', '3m', '6m', '1y', 'all']);
+      expect(
+        menuOf(screen, 'section-sport').props.options.map((o: { label: string }) => o.label)
+      ).toEqual([
+        'activityTypes.Ride · sections.traversalsCount',
+        'activityTypes.Run · sections.traversalsCount',
+      ]);
+      expect(screen.getByTestId('attempt-chart').props.accessibilityValue.text).toBe('2');
+    }
+  );
 
   it('re-reads at ninety days when three months is chosen', async () => {
     const screen = await render(<RouteDetailScreen />);
@@ -315,7 +327,7 @@ describe('route page on a route ridden and run', () => {
     );
   });
 
-  it('draws the efficiency card from the read, for the sport on screen', async () => {
+  vaultIt('draws the efficiency card from the read, for the sport on screen', async () => {
     // The card is experimental, drawn only with the developer switch on.
     useDebugStore.setState({
       experimentalFeatures: {
@@ -336,7 +348,7 @@ describe('route page on a route ridden and run', () => {
     expect(screen.queryByTestId('section-efficiency-card')).toBeNull();
   });
 
-  it('never makes the per-sport read, showing excluded attempts included', async () => {
+  vaultIt('never makes the per-sport read, showing excluded attempts included', async () => {
     const screen = await render(<RouteDetailScreen />);
 
     await chooseSport(screen, 'Run');
@@ -369,7 +381,7 @@ describe('route page on a route of one sport', () => {
     expect(screen.getByTestId('route-card-date-line')).toHaveTextContent(/^period\.long\.3m/);
   });
 
-  it('names the one sport as text with no menu', async () => {
+  vaultIt('names the one sport as text with no menu', async () => {
     const screen = await render(<RouteDetailScreen />);
 
     expect(screen.getByTestId('section-sport')).toHaveTextContent(
@@ -503,7 +515,7 @@ describe('route page below the chart', () => {
     expect(screen.getByTestId('section-last')).toHaveTextContent(/2026/);
   });
 
-  it('shows the calendar with both years and the wellness card', async () => {
+  vaultIt('shows the calendar with both years and the wellness card', async () => {
     // The wellness card is experimental, drawn only with the developer switch on.
     useDebugStore.setState({
       experimentalFeatures: {
@@ -541,7 +553,7 @@ describe('route page below the chart', () => {
     alert.mockRestore();
   });
 
-  it('leaves out the banners a section carries', async () => {
+  vaultIt('leaves out the banners a section carries', async () => {
     const screen = await render(<RouteDetailScreen />);
 
     expect(screen.queryByRole('button', { name: 'sections.restoreSection' })).toBeNull();

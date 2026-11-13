@@ -80,7 +80,7 @@ describe('section creation', () => {
     expect(hook.result.current.startIndex).toBeNull();
   });
 
-  it('leaves back alone outside creation', async () => {
+  vaultIt('leaves back alone outside creation', async () => {
     const { onCreationCancelled } = await renderCreation(false);
 
     expect(back.press()).toBe(false);
@@ -167,7 +167,7 @@ describe('hero rename', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves back alone while the name is not being edited', async () => {
+  vaultIt('leaves back alone while the name is not being edited', async () => {
     const onCancel = await renderName(false);
 
     expect(back.press()).toBe(false);

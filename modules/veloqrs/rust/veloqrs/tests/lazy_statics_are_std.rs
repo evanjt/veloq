@@ -26,6 +26,7 @@ fn rust_sources(dir: &Path, found: &mut Vec<PathBuf>) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_source_file_reaches_for_once_cell() {
     let mut sources = Vec::new();
     rust_sources(&crate_root().join("src"), &mut sources);
@@ -48,6 +49,7 @@ fn no_source_file_reaches_for_once_cell() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_manifest_does_not_declare_once_cell() {
     let manifest = fs::read_to_string(crate_root().join("Cargo.toml")).expect("Cargo.toml");
     let declared = manifest

@@ -96,6 +96,7 @@ fn answer_with(stun: Option<Stun>) -> String {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_answer_offers_the_address_the_server_reports() {
     let mapped: SocketAddr = MAPPED.parse().unwrap();
     let (server, handle) = server(Some(mapped));
@@ -112,6 +113,7 @@ fn the_answer_offers_the_address_the_server_reports() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_silent_server_leaves_the_host_candidate_alone() {
     let (server, handle) = server(None);
     let answer = answer_with(Some(Stun {
@@ -124,6 +126,7 @@ fn a_silent_server_leaves_the_host_candidate_alone() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_server_answers_with_the_host_candidate_alone() {
     let answer = answer_with(None);
     assert!(answer.contains("typ host"));
@@ -131,6 +134,7 @@ fn no_server_answers_with_the_host_candidate_alone() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_reply_for_another_transaction_is_ignored() {
     let id = [7u8; 12];
     let other = [8u8; 12];

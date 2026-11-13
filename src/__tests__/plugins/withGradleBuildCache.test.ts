@@ -73,17 +73,17 @@ function valuesOf(properties: Property[], key: string): (string | undefined)[] {
 }
 
 describe('the generated gradle.properties', () => {
-  it('turns the Gradle build cache on', () => {
+  vaultIt('turns the Gradle build cache on', () => {
     expect(valuesOf(generatedGradleProperties(), 'org.gradle.caching')).toEqual(['true']);
   });
 
-  it('turns it on once however often generation runs', () => {
+  vaultIt('turns it on once however often generation runs', () => {
     const { withBuildCacheProperty } = require('../../plugins/with-gradle-build-cache');
     const once = withBuildCacheProperty([]);
     expect(valuesOf(withBuildCacheProperty(once), 'org.gradle.caching')).toEqual(['true']);
   });
 
-  it('replaces a property that turns it off', () => {
+  vaultIt('replaces a property that turns it off', () => {
     const { withBuildCacheProperty } = require('../../plugins/with-gradle-build-cache');
     const off = [{ type: 'property', key: 'org.gradle.caching', value: 'false' }];
     expect(valuesOf(withBuildCacheProperty(off), 'org.gradle.caching')).toEqual(['true']);

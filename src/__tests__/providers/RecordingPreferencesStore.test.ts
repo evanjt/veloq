@@ -48,7 +48,7 @@ describe('RecordingPreferencesStore', () => {
   // ============================================================
 
   describe('defaults', () => {
-    it('initialises with valid default auto-pause thresholds', () => {
+    vaultIt('initialises with valid default auto-pause thresholds', () => {
       const state = useRecordingPreferences.getState();
       expect(state.autoPauseEnabled).toBe(true);
       expect(state.autoPauseThresholds).toEqual(DEFAULT_AUTO_PAUSE_THRESHOLDS);
@@ -56,11 +56,11 @@ describe('RecordingPreferencesStore', () => {
       expect(state.recentActivityTypes).toEqual([]);
     });
 
-    it('isLoaded starts as false before initialisation', () => {
+    vaultIt('isLoaded starts as false before initialisation', () => {
       expect(useRecordingPreferences.getState().isLoaded).toBe(false);
     });
 
-    it('isLoaded becomes true after initialisation with no stored data', async () => {
+    vaultIt('isLoaded becomes true after initialisation with no stored data', async () => {
       await initialiseRecordingPreferences();
       expect(useRecordingPreferences.getState().isLoaded).toBe(true);
     });
@@ -149,7 +149,7 @@ describe('RecordingPreferencesStore', () => {
       }
     });
 
-    it('valid threshold is stored correctly', () => {
+    vaultIt('valid threshold is stored correctly', () => {
       useRecordingPreferences.getState().setAutoPauseThreshold('cycling', 3.5);
       expect(useRecordingPreferences.getState().autoPauseThresholds['cycling']).toBe(3.5);
     });
@@ -160,7 +160,7 @@ describe('RecordingPreferencesStore', () => {
   // ============================================================
 
   describe('addRecentType', () => {
-    it('adds type to front of list', () => {
+    vaultIt('adds type to front of list', () => {
       useRecordingPreferences.getState().addRecentType('Ride');
       expect(useRecordingPreferences.getState().recentActivityTypes[0]).toBe('Ride');
     });
@@ -200,7 +200,7 @@ describe('RecordingPreferencesStore', () => {
       expect(fields.indoor).toEqual(DEFAULT_DATA_FIELDS.indoor);
     });
 
-    it('allows setting empty fields array', () => {
+    vaultIt('allows setting empty fields array', () => {
       useRecordingPreferences.getState().setDataFields('gps', []);
       expect(useRecordingPreferences.getState().dataFields.gps).toEqual([]);
     });
@@ -227,7 +227,7 @@ describe('RecordingPreferencesStore', () => {
       ]);
     });
 
-    it('changes nothing when the slot already shows the field', () => {
+    vaultIt('changes nothing when the slot already shows the field', () => {
       const before = useRecordingPreferences.getState().dataFields;
       useRecordingPreferences.getState().setSlotField('gps', 0, 'speed');
       expect(useRecordingPreferences.getState().dataFields).toBe(before);

@@ -23,20 +23,23 @@ function proposedColourFor(status: string): string {
 }
 
 describe('the preview key', () => {
-  it('lists all four categories after a run, each in the colour its lines are drawn in', () => {
-    const key = buildPreviewKey(FULL, palette, true);
+  vaultIt(
+    'lists all four categories after a run, each in the colour its lines are drawn in',
+    () => {
+      const key = buildPreviewKey(FULL, palette, true);
 
-    for (const status of ['unchanged', 'changed', 'new'] as const) {
-      expect(key.find((e) => e.id === status)?.swatch).toBe(proposedColourFor(status));
+      for (const status of ['unchanged', 'changed', 'new'] as const) {
+        expect(key.find((e) => e.id === status)?.swatch).toBe(proposedColourFor(status));
+      }
+      expect(key.find((e) => e.id === 'gone')?.swatch).toBe(
+        buildPreviewLayers(palette, false, true).find((l) => l.id === 'gone-line')?.paint?.[
+          'line-color'
+        ]
+      );
     }
-    expect(key.find((e) => e.id === 'gone')?.swatch).toBe(
-      buildPreviewLayers(palette, false, true).find((l) => l.id === 'gone-line')?.paint?.[
-        'line-color'
-      ]
-    );
-  });
+  );
 
-  it('draws unchanged sections apart from changed ones', () => {
+  vaultIt('draws unchanged sections apart from changed ones', () => {
     expect(proposedColourFor('unchanged')).not.toBe(proposedColourFor('changed'));
   });
 
@@ -60,13 +63,13 @@ describe('the preview key', () => {
     expect(buildPreviewKey(null, palette, false).map((e) => e.id)).toEqual(['current']);
   });
 
-  it('draws the area entry as a dashed outline', () => {
+  vaultIt('draws the area entry as a dashed outline', () => {
     expect(buildPreviewKey(null, palette, true).find((e) => e.id === 'area')?.dashed).toBe(true);
   });
 });
 
 describe('the current catalogue before a run', () => {
-  it('takes each section its own palette colour rather than one grey', () => {
+  vaultIt('takes each section its own palette colour rather than one grey', () => {
     const line = buildPreviewLayers(palette, false, false).find((l) => l.id === 'current-line');
     const colour = line?.paint?.['line-color'];
 

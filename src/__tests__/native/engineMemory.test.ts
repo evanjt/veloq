@@ -18,7 +18,7 @@ describe('releaseEngineMemory', () => {
     mockEngine = { releaseMemory: mockReleaseMemory };
   });
 
-  it('asks the engine once, at the level it was given', async () => {
+  vaultIt('asks the engine once, at the level it was given', async () => {
     mockReleaseMemory.mockResolvedValue(undefined);
     await releaseEngineMemory(true);
     expect(mockReleaseMemory.mock.calls).toEqual([[true]]);

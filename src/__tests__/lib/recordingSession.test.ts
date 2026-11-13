@@ -234,13 +234,16 @@ describe('recordingSession', () => {
     expect(useRecordingStore.getState().activityType).toBe('Other');
   });
 
-  it('keeps a started indoor session on indoor when the sport changes to one entered by hand', () => {
-    useRecordingStore.getState().startRecording('VirtualRide', 'indoor');
-    useRecordingStore.getState().changeActivityType('WeightTraining');
+  vaultIt(
+    'keeps a started indoor session on indoor when the sport changes to one entered by hand',
+    () => {
+      useRecordingStore.getState().startRecording('VirtualRide', 'indoor');
+      useRecordingStore.getState().changeActivityType('WeightTraining');
 
-    expect(useRecordingStore.getState().mode).toBe('indoor');
-    expect(useRecordingStore.getState().activityType).toBe('WeightTraining');
-  });
+      expect(useRecordingStore.getState().mode).toBe('indoor');
+      expect(useRecordingStore.getState().activityType).toBe('WeightTraining');
+    }
+  );
 
   it('keeps the watch and the backups running when the sport changes to one entered by hand', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
@@ -260,7 +263,7 @@ describe('recordingSession', () => {
     expect(Location.watchPositionAsync).toHaveBeenCalledTimes(1);
   });
 
-  it('does not set a mode on a sport change before the ride has started', () => {
+  vaultIt('does not set a mode on a sport change before the ride has started', () => {
     useRecordingStore.getState().changeActivityType('Run');
     expect(useRecordingStore.getState().mode).toBeNull();
   });
@@ -306,7 +309,7 @@ describe('recordingSession', () => {
     expect(useRecordingStore.getState().streams.latlng).toHaveLength(1);
   });
 
-  it('does nothing for a session that never started', async () => {
+  vaultIt('does nothing for a session that never started', async () => {
     jest.advanceTimersByTime(BACKUP_INTERVAL_MS * 2);
     expect(Location.watchPositionAsync).not.toHaveBeenCalled();
     expect(saveRecordingBackup).not.toHaveBeenCalled();

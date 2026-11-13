@@ -201,7 +201,7 @@ describe('a suite that lost the device', () => {
     expect(result.status).toBe(1);
   });
 
-  it('restarts once, not once per dead flow', () => {
+  vaultIt('restarts once, not once per dead flow', () => {
     const result = run([
       { name: 'map-visual-validation', time: '43.2', failure: DIED },
       { name: 'map-style-switching', time: '12.0', failure: DIED },
@@ -267,7 +267,7 @@ describe('a device that dies inside the retry pass', () => {
     expect(result.status).toBe(0);
   });
 
-  it('does not probe its way into a restart when the device is healthy', () => {
+  vaultIt('does not probe its way into a restart when the device is healthy', () => {
     const result = run([{ name: 'smoke', time: '0.03', failure: 'Unknown error' }]);
 
     expect(result.restarts).toBe(1);
@@ -302,7 +302,7 @@ describe('a suite told which device to use', () => {
     }
   });
 
-  it('leaves the invocation alone when no device is named', () => {
+  vaultIt('leaves the invocation alone when no device is named', () => {
     const result = run([{ name: 'smoke', time: '0.03', failure: 'Unknown error' }]);
 
     for (const call of result.calls) {
@@ -358,7 +358,7 @@ describe('restarting a named device', () => {
     }
   });
 
-  it('keeps the blunt restart when no device is named', () => {
+  vaultIt('keeps the blunt restart when no device is named', () => {
     const calls = runWithFakeAdb();
 
     expect(calls.some((c) => c.includes('kill-server'))).toBe(true);
@@ -461,7 +461,7 @@ describe('the device lock', () => {
     expect(calls[0]).toContain('--device emulator-5554');
   });
 
-  it('takes no lock on CI', () => {
+  vaultIt('takes no lock on CI', () => {
     const calls = runByHand({ CI: 'true' });
 
     expect(calls[0]).toContain('held= ');

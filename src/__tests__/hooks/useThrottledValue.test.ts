@@ -25,17 +25,20 @@ const advance = async (ms: number) => {
 };
 
 describe('useThrottledValue', () => {
-  it('applies a value on the same render when the interval has passed since the last apply', async () => {
-    const hook = await mount('start');
-    await advance(INTERVAL * 3);
+  vaultIt(
+    'applies a value on the same render when the interval has passed since the last apply',
+    async () => {
+      const hook = await mount('start');
+      await advance(INTERVAL * 3);
 
-    await hook.rerender({ value: 'next' });
+      await hook.rerender({ value: 'next' });
 
-    expect(hook.result.current).toBe('next');
-    expect(jest.getTimerCount()).toBe(0);
-  });
+      expect(hook.result.current).toBe('next');
+      expect(jest.getTimerCount()).toBe(0);
+    }
+  );
 
-  it('holds the first applied value while more arrive inside one window', async () => {
+  vaultIt('holds the first applied value while more arrive inside one window', async () => {
     const hook = await mount('start');
     await advance(INTERVAL * 3);
 
@@ -76,7 +79,7 @@ describe('useThrottledValue', () => {
     expect(seen).toEqual(['A', 'A', 'A', 'C', 'C']);
   });
 
-  it('fires no update after unmounting mid-window', async () => {
+  vaultIt('fires no update after unmounting mid-window', async () => {
     const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
     const hook = await mount('start');
     await advance(INTERVAL * 3);

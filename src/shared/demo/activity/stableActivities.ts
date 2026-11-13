@@ -303,8 +303,8 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
       _routeId: 'route-rio-run-1-outback',
     },
     // demo-test-6: 7 days ago strength session. No GPS - WeightTraining
-    // activities don't have a track. Its exercise sets are seeded from
-    // src/features/strength/demo.ts the first time the Strength tab is viewed.
+    // activities don't have a track. The engine settles its exercise sets from
+    // the demo corpus (src/strength/demo.rs) the first time the Strength tab is viewed.
     {
       id: 'demo-test-6',
       start_date_local: (() => {
@@ -491,5 +491,86 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
     },
   ];
 
-  return stableActivities;
+  return [...stableActivities, ...weeklyStrengthSessions(referenceDate)];
+}
+
+/**
+ * Three strength templates, each done once a week for the last eight weeks. The
+ * engine holds their sets under the same ids (`src/strength/demo.rs`), which is
+ * `demo-strength-<template>-<weeks ago>`, so the two lists have to name the same
+ * sessions. A session carries heart rate here and its sets there.
+ */
+const STRENGTH_TEMPLATES = [
+  {
+    name: 'push',
+    title: 'Push Session',
+    description: 'Bench / shoulder press / plank.',
+    dayOfWeek: 2,
+    averageHeartrate: 118,
+  },
+  {
+    name: 'pull',
+    title: 'Pull Session',
+    description: 'Row / pulldown / Romanian deadlift.',
+    dayOfWeek: 4,
+    averageHeartrate: 112,
+  },
+  {
+    name: 'legs',
+    title: 'Leg Session',
+    description: 'Overhead squat / step-up.',
+    dayOfWeek: 6,
+    averageHeartrate: 124,
+  },
+] as const;
+const STRENGTH_WEEKS = 8;
+
+function weeklyStrengthSessions(
+  referenceDate: Date
+): (ApiActivity & { _routeId: string | null })[] {
+  const sessions: (ApiActivity & { _routeId: string | null })[] = [];
+  for (let weeksAgo = 0; weeksAgo < STRENGTH_WEEKS; weeksAgo++) {
+    for (const template of STRENGTH_TEMPLATES) {
+      const d = new Date(referenceDate);
+      d.setDate(d.getDate() - weeksAgo * 7 - template.dayOfWeek);
+      d.setHours(18, 0, 0, 0);
+      // Heart rate drifts over the weeks rather than repeating one value.
+      const drift = (weeksAgo % 3) * 2 - 2;
+      sessions.push({
+        id: `demo-strength-${template.name}-${weeksAgo}`,
+        start_date_local: formatLocalISOString(d),
+        type: 'WeightTraining',
+        name: template.title,
+        description: template.description,
+        distance: 0,
+        moving_time: 3600,
+        elapsed_time: 4200,
+        total_elevation_gain: 0,
+        total_elevation_loss: 0,
+        average_speed: 0,
+        max_speed: 0,
+        average_heartrate: template.averageHeartrate + drift,
+        max_heartrate: template.averageHeartrate + drift + 30,
+        average_cadence: null,
+        average_temp: 20,
+        calories: 320,
+        device_name: 'Demo Device',
+        trainer: false,
+        commute: false,
+        icu_average_watts: null,
+        icu_weighted_avg_watts: null,
+        icu_training_load: 55,
+        icu_intensity: null,
+        icu_ftp: 250,
+        icu_atl: 40,
+        icu_ctl: 38,
+        icu_hr_zones: [130, 145, 160, 170, 180, 190],
+        icu_power_zones: [55, 75, 90, 105, 120, 150, 999],
+        icu_zone_times: null,
+        stream_types: ['time', 'heartrate'],
+        _routeId: null,
+      });
+    }
+  }
+  return sessions;
 }

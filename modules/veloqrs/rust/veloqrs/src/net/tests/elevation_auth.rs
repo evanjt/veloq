@@ -2,6 +2,7 @@ use super::*;
 use std::cell::Cell;
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_elevation_walk_sign_out_stops_before_next_batch() {
     let _serial = crate::test_globals::serial_global_state();
     crate::net::connectivity::reset();

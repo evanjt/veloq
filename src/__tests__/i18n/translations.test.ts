@@ -195,7 +195,7 @@ function referenceLocale(): Record<string, unknown> {
 
 const ENGLISH_LOCALES = ['en-AU', 'en-GB', 'en-US'];
 
-test('reference locale exists', () => {
+vaultTest('reference locale exists', () => {
   expect(loadLocale(REFERENCE_LOCALE)).not.toBeNull();
 });
 
@@ -223,7 +223,7 @@ describe('Translation Completeness', () => {
   // A key deleted from the reference bundle stays in a locale's own file unless something names it.
   // A plural form a language selects (`_few`, `_many`) counts as its base key, which the reference
   // bundle holds under the forms English uses.
-  test.each(availableLocales.filter((l) => l !== REFERENCE_LOCALE))(
+  vaultTest.each(availableLocales.filter((l) => l !== REFERENCE_LOCALE))(
     '%s has no key the reference locale lacks',
     (locale) => {
       const stripPlural = (key: string) => key.replace(PLURAL_SUFFIX, '');
@@ -246,7 +246,7 @@ describe('Translation Completeness', () => {
   // Placeholders and plural forms per locale belong to the locale bundle guard, which reads each
   // bundle without the English fallback filling a missing form in.
 
-  test.each(availableLocales.filter((l) => !ENGLISH_LOCALES.includes(l)))(
+  vaultTest.each(availableLocales.filter((l) => !ENGLISH_LOCALES.includes(l)))(
     '%s translates every leaf or records why its en-US value is accepted',
     (locale) => {
       const reference = loadLocale('en-US') as Record<string, unknown>;
@@ -260,7 +260,7 @@ describe('Translation Completeness', () => {
     }
   );
 
-  test.each(availableLocales.filter((l) => !ENGLISH_LOCALES.includes(l)))(
+  vaultTest.each(availableLocales.filter((l) => !ENGLISH_LOCALES.includes(l)))(
     '%s accepts only live leaves identical to en-US',
     (locale) => {
       const reference = loadLocale('en-US') as Record<string, unknown>;
@@ -288,50 +288,59 @@ const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
 
 describe('Count strings carry plural forms', () => {
   const availableLocales = getAvailableLocales();
-  test.each(availableLocales)('%s has no {{count}} string without a plural suffix', (locale) => {
-    const data = loadLocale(locale) as Record<string, unknown>;
-    const bare = getAllKeys(data).filter((key) => {
-      const value = getValueAtPath(data, key);
-      return (
-        typeof value === 'string' &&
-        value.includes('{{count}}') &&
-        !PLURAL_SUFFIX.test(key) &&
-        !BARE_COUNT_ALLOWLIST[key]
-      );
-    });
-    expect(bare).toEqual([]);
-  });
+  vaultTest.each(availableLocales)(
+    '%s has no {{count}} string without a plural suffix',
+    (locale) => {
+      const data = loadLocale(locale) as Record<string, unknown>;
+      const bare = getAllKeys(data).filter((key) => {
+        const value = getValueAtPath(data, key);
+        return (
+          typeof value === 'string' &&
+          value.includes('{{count}}') &&
+          !PLURAL_SUFFIX.test(key) &&
+          !BARE_COUNT_ALLOWLIST[key]
+        );
+      });
+      expect(bare).toEqual([]);
+    }
+  );
 });
 
 describe('Translation Key Usage', () => {
   const referenceKeys = new Set(getAllKeys(referenceLocale()));
 
-  test('All translation keys used in source code should be defined in locale files', async () => {
-    const keyUsages = await extractAllTranslationKeys();
-    const undefinedKeys: {
-      key: string;
-      usages: { file: string; line: number }[];
-    }[] = [];
+  vaultTest(
+    'All translation keys used in source code should be defined in locale files',
+    async () => {
+      const keyUsages = await extractAllTranslationKeys();
+      const undefinedKeys: {
+        key: string;
+        usages: { file: string; line: number }[];
+      }[] = [];
 
-    for (const [key, usages] of keyUsages) {
-      // i18next plural keys: t('key', { count }) resolves to key_one / key_other
-      const isPluralKey = referenceKeys.has(`${key}_one`) || referenceKeys.has(`${key}_other`);
-      if (!referenceKeys.has(key) && !isPluralKey) {
-        undefinedKeys.push({ key, usages });
+      for (const [key, usages] of keyUsages) {
+        // i18next plural keys: t('key', { count }) resolves to key_one / key_other
+        const isPluralKey = referenceKeys.has(`${key}_one`) || referenceKeys.has(`${key}_other`);
+        if (!referenceKeys.has(key) && !isPluralKey) {
+          undefinedKeys.push({ key, usages });
+        }
       }
-    }
 
-    // Assert on the key names so a failure lists exactly which keys are undefined.
-    expect(undefinedKeys.map((u) => u.key)).toEqual([]);
-  });
+      // Assert on the key names so a failure lists exactly which keys are undefined.
+      expect(undefinedKeys.map((u) => u.key)).toEqual([]);
+    }
+  );
 });
 
 // The Linked devices switch's description is read before the feature is turned on, so it names the reach the link has.
 describe('Linked devices reach', () => {
-  test('en-GB says the linked browser works on the same Wi-Fi and on most other networks', () => {
-    const blurb = getValueAtPath(referenceLocale(), 'experimental.remoteLink.blurb');
-    expect(blurb).toEqual(expect.stringContaining('most other networks'));
-  });
+  vaultTest(
+    'en-GB says the linked browser works on the same Wi-Fi and on most other networks',
+    () => {
+      const blurb = getValueAtPath(referenceLocale(), 'experimental.remoteLink.blurb');
+      expect(blurb).toEqual(expect.stringContaining('most other networks'));
+    }
+  );
 });
 
 // Export for use in other scripts

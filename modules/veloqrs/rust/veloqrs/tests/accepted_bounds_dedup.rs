@@ -207,6 +207,7 @@ fn coarse_redraw_of_accepted_ground_leaves_no_orphan_row_and_burns_no_name() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn road_inside_accepted_loop_bounds_is_kept() {
     let accepted_ground = ring();
     let interior = diagonal(400.0, 400.0);

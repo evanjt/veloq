@@ -74,7 +74,7 @@ describe('unifySections', () => {
     expect(ids).toEqual(['auto_41']);
   });
 
-  it('renders nothing for an empty engine page, whatever the custom store holds', () => {
+  vaultIt('renders nothing for an empty engine page, whatever the custom store holds', () => {
     expect(unify([], [storeRow()])).toEqual([]);
   });
 
@@ -101,7 +101,7 @@ describe('unifySections', () => {
     expect(result.map((s) => s.id)).toEqual(['auto_1', 'custom_1', 'auto_2', 'custom_2']);
   });
 
-  it('keeps the engine order, which is every sort and not just nearby', () => {
+  vaultIt('keeps the engine order, which is every sort and not just nearby', () => {
     const result = unify([
       engineRow({ id: 'auto_2', sectionType: 'auto' }),
       engineRow({ id: 'auto_1', sectionType: 'auto' }),
@@ -119,7 +119,7 @@ describe('unifySections', () => {
 });
 
 describe('a section the engine sends without a name', () => {
-  it('stays unnamed rather than being described from its terrain', () => {
+  vaultIt('stays unnamed rather than being described from its terrain', () => {
     const [section] = unify([
       engineRow({ id: 'auto_1', sectionType: 'auto', name: undefined, klass: 'climb' }),
     ]);

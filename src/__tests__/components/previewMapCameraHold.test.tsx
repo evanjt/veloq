@@ -125,7 +125,7 @@ describe('the preview camera', () => {
     expect(mockFitBounds).not.toHaveBeenCalled();
   });
 
-  it('holds the viewport when a run comes back with nothing', async () => {
+  vaultIt('holds the viewport when a run comes back with nothing', async () => {
     const tree = await render(
       view({ centre: ZURICH, currentSections: [section('a')], result: null })
     );

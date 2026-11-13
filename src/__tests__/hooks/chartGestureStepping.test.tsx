@@ -53,7 +53,7 @@ async function act_(result: Result, actionName: string, times = 1) {
 beforeEach(() => jest.clearAllMocks());
 
 describe('stepping a chart from a screen reader or keyboard', () => {
-  it('declares one adjustable element with the step and page actions', async () => {
+  vaultIt('declares one adjustable element with the step and page actions', async () => {
     const { result } = await renderChart({ data: days(10) });
     const props = result.current.accessibilityProps;
 
@@ -164,7 +164,7 @@ describe('stepping a chart from a screen reader or keyboard', () => {
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ day: 'day 6' }), 5);
   });
 
-  it('fires no haptic on any step', async () => {
+  vaultIt('fires no haptic on any step', async () => {
     const { result } = await renderChart({ data: days(8) });
 
     await act_(result, 'increment', 5);
@@ -194,7 +194,7 @@ describe('stepping a chart from a screen reader or keyboard', () => {
     expect(shared.value).toBe(2);
   });
 
-  it('carries the position as a range on Android and only the reading on iOS', async () => {
+  vaultIt('carries the position as a range on Android and only the reading on iOS', async () => {
     const originalOS = Platform.OS;
     try {
       Platform.OS = 'android';
@@ -217,33 +217,36 @@ describe('stepping a chart from a screen reader or keyboard', () => {
     }
   });
 
-  it('speaks the stepped reading on Android, where the delegate sends no event for a value with text', async () => {
-    const originalOS = Platform.OS;
-    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
-    try {
-      Platform.OS = 'android';
-      const android = await renderChart({ data: days(8) });
-      await act_(android.result, 'increment', 2);
-      await act_(android.result, 'decrement');
-      expect(announce.mock.calls.map(([text]) => text)).toEqual(['day 1', 'day 2', 'day 1']);
+  vaultIt(
+    'speaks the stepped reading on Android, where the delegate sends no event for a value with text',
+    async () => {
+      const originalOS = Platform.OS;
+      const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+      try {
+        Platform.OS = 'android';
+        const android = await renderChart({ data: days(8) });
+        await act_(android.result, 'increment', 2);
+        await act_(android.result, 'decrement');
+        expect(announce.mock.calls.map(([text]) => text)).toEqual(['day 1', 'day 2', 'day 1']);
 
-      announce.mockClear();
-      await act_(android.result, 'decrement', 3);
-      // Already at the first sample, so the clamp changes nothing to speak.
-      expect(announce).not.toHaveBeenCalled();
+        announce.mockClear();
+        await act_(android.result, 'decrement', 3);
+        // Already at the first sample, so the clamp changes nothing to speak.
+        expect(announce).not.toHaveBeenCalled();
 
-      Platform.OS = 'ios';
-      const ios = await renderChart({ data: days(8) });
-      announce.mockClear();
-      await act_(ios.result, 'increment');
-      expect(announce).not.toHaveBeenCalled();
-    } finally {
-      Platform.OS = originalOS;
-      announce.mockRestore();
+        Platform.OS = 'ios';
+        const ios = await renderChart({ data: days(8) });
+        announce.mockClear();
+        await act_(ios.result, 'increment');
+        expect(announce).not.toHaveBeenCalled();
+      } finally {
+        Platform.OS = originalOS;
+        announce.mockRestore();
+      }
     }
-  });
+  );
 
-  it('declares nothing for an empty chart or one whose scrub is off', async () => {
+  vaultIt('declares nothing for an empty chart or one whose scrub is off', async () => {
     const empty = await renderChart({ data: [] });
     const compact = await renderChart({ data: days(5), scrubEnabled: false });
 

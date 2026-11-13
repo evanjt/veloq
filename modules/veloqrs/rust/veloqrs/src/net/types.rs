@@ -525,6 +525,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stored_point_and_a_recorded_fix_share_the_range_rule_and_only_a_fix_drops_the_origin() {
         let cases = [
             ((0.0, 0.0), true, false),
@@ -542,6 +543,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_series_the_stream_pass_does_not_ask_for_is_not_one_it_would_store() {
         let types = |kinds: &[&str]| kinds.iter().map(|k| k.to_string()).collect::<Vec<_>>();
 
@@ -558,6 +560,7 @@ mod tests {
     /// The writer drops every kind the reader rebuilds from the track, so a
     /// kind added to the shared list is never stored and then never read.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn storable_series_drops_every_kind_the_reader_rebuilds() {
         let series = |kind: &str| StreamDto {
             kind: kind.to_string(),
@@ -664,6 +667,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn parse_streams_prefers_corrected_altitude_with_one_usable_sample_in_either_order() {
         for fixed_first in [true, false] {
             let s = altitude_pair(
@@ -678,6 +682,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn parse_streams_with_both_altitude_series_unusable_has_no_finite_sample() {
         for fixed_first in [true, false] {
             let s = altitude_pair(
@@ -691,6 +696,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn parse_streams_drops_altitude_at_a_null_coordinate() {
         // Distinct altitude per index, so a series that compacted independently
         // of latlng would land on the wrong samples rather than the right ones.
@@ -707,6 +713,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn parse_streams_leaves_altitude_empty_when_the_series_is_absent() {
         let raw: Vec<StreamDto> = serde_json::from_value(json!([
             {"type": "latlng", "data": [42.5, 42.6], "data2": [1.1, 1.2]}
@@ -719,6 +726,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn parse_streams_altitude_used_when_no_fixed() {
         let raw: Vec<StreamDto> =
             serde_json::from_value(json!([{"type": "altitude", "data": [10.0, 11.0]}])).unwrap();
@@ -733,6 +741,7 @@ mod tests {
     // match the live shapes so the parse stays pinned to the server contract.
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn parse_streams_ignores_server_envelope() {
         // Each live stream carries an envelope (allNull, anomalies, custom, name,
         // valueType, valueTypeIsArray) and a `data2` that is JSON null on every

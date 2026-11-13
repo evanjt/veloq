@@ -195,7 +195,7 @@ describe('saving a manual entry', () => {
     expect(saveRecording).toHaveBeenCalledWith(expect.objectContaining({ rpe: 7 }));
   });
 
-  it('saves no effort when none was chosen', async () => {
+  vaultIt('saves no effort when none was chosen', async () => {
     const { result } = await renderHook(() => useReviewSave({ ...args(), rpe: null }));
     await act(() => result.current.handleSave());
 

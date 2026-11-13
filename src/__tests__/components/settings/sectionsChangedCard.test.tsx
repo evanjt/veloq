@@ -68,7 +68,7 @@ beforeEach(() => {
 });
 
 describe('SectionsChangedCard', () => {
-  it('is absent when the engine counts no archived retirements', async () => {
+  vaultIt('is absent when the engine counts no archived retirements', async () => {
     const tree = await render(<SectionsChangedCard />);
     expect(tree.queryByTestId('sections-changed-card')).toBeNull();
   });
@@ -79,7 +79,7 @@ describe('SectionsChangedCard', () => {
     expect(tree.getByTestId('sections-changed-body').props.children).toContain('3');
   });
 
-  it('waits while a cutover runs', async () => {
+  vaultIt('waits while a cutover runs', async () => {
     mockArchived = 3;
     mockRunning = true;
     const tree = await render(<SectionsChangedCard />);
@@ -111,7 +111,7 @@ describe('SectionsChangedCard', () => {
     expect(relaunched.queryByTestId('sections-changed-card')).toBeNull();
   });
 
-  it('asks inside the quiet period', async () => {
+  vaultIt('asks inside the quiet period', async () => {
     mockArchived = 3;
     openLaunchSession(true);
     const tree = await render(<SectionsChangedCard />);
@@ -123,7 +123,7 @@ describe('SectionsChangedCard', () => {
       mockCounts = { current: 12, proposed: 14, new: 3, changed: 2, gone: 0, unchanged: 9 };
     });
 
-    it('shows the summary counts and no See them', async () => {
+    vaultIt('shows the summary counts and no See them', async () => {
       const tree = await render(<SectionsChangedCard />);
       expect(tree.getByTestId('sections-changed-card')).toBeTruthy();
       expect(tree.getByTestId('sections-changed-counts')).toBeTruthy();
@@ -131,19 +131,19 @@ describe('SectionsChangedCard', () => {
       expect(tree.getByTestId('sections-changed-dismiss')).toBeTruthy();
     });
 
-    it('is absent once dismissed', async () => {
+    vaultIt('is absent once dismissed', async () => {
       const tree = await render(<SectionsChangedCard />);
       await act(async () => fireEvent.press(tree.getByTestId('sections-changed-dismiss')));
       expect(tree.queryByTestId('sections-changed-card')).toBeNull();
     });
 
-    it('is absent when the cutover failed', async () => {
+    vaultIt('is absent when the cutover failed', async () => {
       mockPhase = 'failed';
       const tree = await render(<SectionsChangedCard />);
       expect(tree.queryByTestId('sections-changed-card')).toBeNull();
     });
 
-    it('is absent while the cutover runs', async () => {
+    vaultIt('is absent while the cutover runs', async () => {
       mockRunning = true;
       const tree = await render(<SectionsChangedCard />);
       expect(tree.queryByTestId('sections-changed-card')).toBeNull();
@@ -155,16 +155,19 @@ describe('SectionsChangedCard', () => {
       mockCountsOwed = true;
     });
 
-    it('says the sections are being upgraded and older activities join, with no counts', async () => {
-      const tree = await render(<SectionsChangedCard />);
-      expect(tree.getByTestId('sections-changed-card')).toBeTruthy();
-      expect(tree.getByTestId('sections-changed-body').props.children).toBe(
-        'feed.sectionsChangedBodyOwed'
-      );
-      expect(tree.queryByTestId('sections-changed-counts')).toBeNull();
-    });
+    vaultIt(
+      'says the sections are being upgraded and older activities join, with no counts',
+      async () => {
+        const tree = await render(<SectionsChangedCard />);
+        expect(tree.getByTestId('sections-changed-card')).toBeTruthy();
+        expect(tree.getByTestId('sections-changed-body').props.children).toBe(
+          'feed.sectionsChangedBodyOwed'
+        );
+        expect(tree.queryByTestId('sections-changed-counts')).toBeNull();
+      }
+    );
 
-    it('offers no See them while the retired list is still settling', async () => {
+    vaultIt('offers no See them while the retired list is still settling', async () => {
       mockArchived = 3;
       const tree = await render(<SectionsChangedCard />);
       expect(tree.getByTestId('sections-changed-body').props.children).toBe(
@@ -173,20 +176,20 @@ describe('SectionsChangedCard', () => {
       expect(tree.queryByTestId('sections-changed-see')).toBeNull();
     });
 
-    it('waits while the cut runs again', async () => {
+    vaultIt('waits while the cut runs again', async () => {
       mockRunning = true;
       const tree = await render(<SectionsChangedCard />);
       expect(tree.queryByTestId('sections-changed-card')).toBeNull();
     });
   });
 
-  it('is absent when no cutover has produced a summary and nothing is archived', async () => {
+  vaultIt('is absent when no cutover has produced a summary and nothing is archived', async () => {
     mockPhase = 'idle';
     const tree = await render(<SectionsChangedCard />);
     expect(tree.queryByTestId('sections-changed-card')).toBeNull();
   });
 
-  it('offers See them beside the summary when sections were retired', async () => {
+  vaultIt('offers See them beside the summary when sections were retired', async () => {
     mockArchived = 3;
     mockCounts = { current: 12, proposed: 14, new: 3, changed: 2, gone: 3, unchanged: 7 };
     const tree = await render(<SectionsChangedCard />);
@@ -194,7 +197,7 @@ describe('SectionsChangedCard', () => {
     expect(tree.getByTestId('sections-changed-see')).toBeTruthy();
   });
 
-  it('hides a failed cutover even when archived sections remain', async () => {
+  vaultIt('hides a failed cutover even when archived sections remain', async () => {
     mockArchived = 3;
     mockPhase = 'failed_after_apply';
     const tree = await render(<SectionsChangedCard />);
@@ -218,7 +221,7 @@ describe('SectionsChangedCard', () => {
       expect(tree.getByTestId('sections-changed-progress')).toBeTruthy();
     });
 
-    it('names no days when the rest fit in one day', async () => {
+    vaultIt('names no days when the rest fit in one day', async () => {
       mockCountsOwed = true;
       mockStaged = { done: 480, total: 900 };
       const tree = await render(<SectionsChangedCard />);

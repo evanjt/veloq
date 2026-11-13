@@ -38,7 +38,7 @@ const slot = (name: string, sizeGb: number, idleHours: number, busy = false) => 
 });
 
 describe('planPreflight', () => {
-  it('selects nothing while free space is at or above the floor', () => {
+  vaultIt('selects nothing while free space is at or above the floor', () => {
     const slots = [slot('orchard-slot7', 20, 100), slot('orchard-slot8', 15, 200)];
     expect(planPreflight({ ...LIMITS, free: 30 * GB, slots })).toEqual({
       prune: [],
@@ -109,14 +109,14 @@ describe('planPreflight', () => {
     expect(plan.refuse).toMatch(/orchard-slot4/);
   });
 
-  it('refuses with an empty listing below the floor', () => {
+  vaultIt('refuses with an empty listing below the floor', () => {
     const plan = planPreflight({ ...LIMITS, free: 1 * GB, slots: [] });
     expect(plan).toEqual({ prune: [], refuse: expect.stringMatching(/1\.0 GB free/) });
   });
 });
 
 describe('parseListing', () => {
-  it('reads one tab-separated cache per line in kilobytes and seconds', () => {
+  vaultIt('reads one tab-separated cache per line in kilobytes and seconds', () => {
     expect(
       parseListing('orchard-slot3\t1048576\t1700000000\t0\norchard-slot4\t2\t5\t1\n\n')
     ).toEqual([
@@ -125,7 +125,7 @@ describe('parseListing', () => {
     ]);
   });
 
-  it('refuses a malformed line rather than reading it as an idle cache', () => {
+  vaultIt('refuses a malformed line rather than reading it as an idle cache', () => {
     expect(() => parseListing('orchard-slot3\t\t1700000000\t0\n')).toThrow(/orchard-slot3/);
   });
 });
@@ -181,15 +181,18 @@ describe('remote-build.sh', () => {
   const old = 1;
   const fresh = 4_000_000_000;
 
-  it('starts the container without listing the caches when free space is above the floor', () => {
-    const { status, calls } = run(200 * KB_PER_GB, '');
-    expect(status).toBe(0);
-    expect(calls.some((c) => c.includes('du -sk'))).toBe(false);
-    expect(calls.some((c) => c.includes('rm -rf'))).toBe(false);
-    expect(calls.filter((c) => c.includes('docker run'))).toHaveLength(1);
-  });
+  vaultIt(
+    'starts the container without listing the caches when free space is above the floor',
+    () => {
+      const { status, calls } = run(200 * KB_PER_GB, '');
+      expect(status).toBe(0);
+      expect(calls.some((c) => c.includes('du -sk'))).toBe(false);
+      expect(calls.some((c) => c.includes('rm -rf'))).toBe(false);
+      expect(calls.filter((c) => c.includes('docker run'))).toHaveLength(1);
+    }
+  );
 
-  it('keys the build directory and cache on the sending machine and the tree', () => {
+  vaultIt('keys the build directory and cache on the sending machine and the tree', () => {
     const { calls } = run(200 * KB_PER_GB, '');
     const name = `${host}-orchard-slot2`;
     expect(calls.find((c) => c.startsWith('rsync'))).toContain(`buildbox:builds/${name}/`);
@@ -198,7 +201,7 @@ describe('remote-build.sh', () => {
     );
   });
 
-  it('refuses before the container when nothing is prunable below the floor', () => {
+  vaultIt('refuses before the container when nothing is prunable below the floor', () => {
     const listing = `${host}-orchard-slot9\t${19 * KB_PER_GB}\t${fresh}\t0\n`;
     const { status, stderr, calls } = run(2 * KB_PER_GB, listing);
     expect(status).not.toBe(0);
@@ -209,7 +212,7 @@ describe('remote-build.sh', () => {
     expect(calls.some((c) => c.includes('rm -rf'))).toBe(false);
   });
 
-  it('removes the selected idle caches and their build directories, then runs', () => {
+  vaultIt('removes the selected idle caches and their build directories, then runs', () => {
     const listing = [
       `stale-slot4\t${60 * KB_PER_GB}\t${old}\t0`,
       `stale-slot5\t${60 * KB_PER_GB}\t${old}\t1`,

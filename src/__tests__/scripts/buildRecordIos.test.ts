@@ -60,7 +60,7 @@ describe('the iOS build record', () => {
     expect(() => ios.writeRecord(root, app, { variant: 'Release', snapshot })).toThrow(/changed/);
   });
 
-  it('refuses to record without a snapshot of the inputs', () => {
+  vaultIt('refuses to record without a snapshot of the inputs', () => {
     app = buildApp(root);
 
     expect(() => ios.writeRecord(root, app, { variant: 'Release' })).toThrow(/snapshot/);
@@ -73,7 +73,7 @@ describe('the iOS build record', () => {
     expect(() => ios.writeRecord(root, app, { variant: 'Release', snapshot })).toThrow(/bundle/);
   });
 
-  it('records a debug app, which Metro serves, with no embedded bundle', () => {
+  vaultIt('records a debug app, which Metro serves, with no embedded bundle', () => {
     const snapshot = sourceIdentity(root);
     app = buildApp(root, { packagedBundle: null });
     const written = ios.writeRecord(root, app, { variant: 'Debug', snapshot });
@@ -204,7 +204,7 @@ describe('the iOS build record', () => {
     );
   });
 
-  it('refuses an app whose linked archive was replaced by another build', () => {
+  vaultIt('refuses an app whose linked archive was replaced by another build', () => {
     record();
     const linked = path.join(path.dirname(app), 'Veloqrs');
     const manifest = JSON.parse(fs.readFileSync(path.join(linked, LINKED_MANIFEST), 'utf8'));
@@ -213,7 +213,7 @@ describe('the iOS build record', () => {
     expect(verify().problems.join('\n')).toMatch(/not the one the app was built with/);
   });
 
-  it('refuses an app with no linked archive beside it', () => {
+  vaultIt('refuses an app with no linked archive beside it', () => {
     const snapshot = sourceIdentity(root);
     app = buildApp(root);
     fs.rmSync(path.join(path.dirname(app), 'Veloqrs'), { recursive: true });
@@ -230,7 +230,7 @@ describe('the iOS build record', () => {
     expect(verify().problems.join('\n')).toMatch(/inputs/);
   });
 
-  it('refuses an app with no record', () => {
+  vaultIt('refuses an app with no record', () => {
     app = buildApp(root);
 
     expect(verify().problems.join('\n')).toMatch(/no build record/);

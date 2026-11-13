@@ -94,7 +94,7 @@ describe('install-apk.sh', () => {
     expect(result.stdout).toMatch(/com\.veloq\.app\.dev debug, Rust release-dev arm64-v8a/);
   });
 
-  it('refuses a build whose dirty source changed since, and reaches no handset', () => {
+  vaultIt('refuses a build whose dirty source changed since, and reaches no handset', () => {
     write(root, 'src/app.ts', 'export const greeting = "edited";\n');
     record.writeRecord(root, debugBuild(root), { variant: 'debug' });
     write(root, 'src/app.ts', 'export const greeting = "edited again";\n');
@@ -106,7 +106,7 @@ describe('install-apk.sh', () => {
     expect(result.stderr).toContain('--stale');
   });
 
-  it('installs an unverified build once when --stale is passed', () => {
+  vaultIt('installs an unverified build once when --stale is passed', () => {
     record.writeRecord(root, debugBuild(root), { variant: 'debug' });
     write(root, 'src/app.ts', 'export const greeting = "edited";\n');
 
@@ -116,7 +116,7 @@ describe('install-apk.sh', () => {
     expect(result.installs).toEqual([`install -r ${APK}`]);
   });
 
-  it('refuses an APK with no build record', () => {
+  vaultIt('refuses an APK with no build record', () => {
     debugBuild(root);
 
     const result = install(root);
@@ -136,7 +136,7 @@ describe('install-apk.sh', () => {
     expect(result.stderr).toContain('the handset runs arm64-v8a, armeabi-v7a');
   });
 
-  it('installs a build with the features it is asked for, and refuses it without them', () => {
+  vaultIt('installs a build with the features it is asked for, and refuses it without them', () => {
     record.writeRecord(root, debugBuild(root, { features: ['lock-trace'] }), { variant: 'debug' });
 
     expect(install(root).status).toBe(1);
@@ -176,30 +176,36 @@ describe('install-apk.sh', () => {
       return file;
     }
 
-    it('installs it when it is the build of the tree, reading a relative path from where the caller stood', () => {
-      record.writeRecord(root, debugBuild(root), { variant: 'debug' });
-      named();
+    vaultIt(
+      'installs it when it is the build of the tree, reading a relative path from where the caller stood',
+      () => {
+        record.writeRecord(root, debugBuild(root), { variant: 'debug' });
+        named();
 
-      const result = install(root, [], undefined, 'before.apk', path.join(root, 'old'));
+        const result = install(root, [], undefined, 'before.apk', path.join(root, 'old'));
 
-      expect(result.status).toBe(0);
-      expect(result.installs).toEqual([`install -r ${path.join(root, 'old/before.apk')}`]);
-    });
+        expect(result.status).toBe(0);
+        expect(result.installs).toEqual([`install -r ${path.join(root, 'old/before.apk')}`]);
+      }
+    );
 
-    it('refuses one cut from other inputs, prints its stamp beside the tree, and reaches no handset', () => {
-      record.writeRecord(root, debugBuild(root), { variant: 'debug' });
-      const file = named();
-      write(root, 'src/app.ts', 'export const greeting = "later";\n');
+    vaultIt(
+      'refuses one cut from other inputs, prints its stamp beside the tree, and reaches no handset',
+      () => {
+        record.writeRecord(root, debugBuild(root), { variant: 'debug' });
+        const file = named();
+        write(root, 'src/app.ts', 'export const greeting = "later";\n');
 
-      const result = install(root, [], undefined, file);
+        const result = install(root, [], undefined, file);
 
-      expect(result.status).toBe(1);
-      expect(result.installs).toEqual([]);
-      expect(result.stdout).toMatch(/stamped .*, the tree is /);
-      expect(result.stderr).toContain('--stale');
-    });
+        expect(result.status).toBe(1);
+        expect(result.installs).toEqual([]);
+        expect(result.stdout).toMatch(/stamped .*, the tree is /);
+        expect(result.stderr).toContain('--stale');
+      }
+    );
 
-    it('installs a stale one under --stale', () => {
+    vaultIt('installs a stale one under --stale', () => {
       record.writeRecord(root, debugBuild(root), { variant: 'debug' });
       const file = named();
       write(root, 'src/app.ts', 'export const greeting = "later";\n');
@@ -211,7 +217,7 @@ describe('install-apk.sh', () => {
       expect(result.stdout).toMatch(/stamped .*, the tree is /);
     });
 
-    it('refuses a missing file naming the path', () => {
+    vaultIt('refuses a missing file naming the path', () => {
       const result = install(root, [], undefined, path.join(root, 'nope.apk'));
 
       expect(result.status).toBe(1);
@@ -227,7 +233,7 @@ describe('install-apk.sh', () => {
       record.writeRecord(root, apk, { variant: 'release', snapshot });
     };
 
-    it.each([
+    vaultIt.each([
       ['dev', 'com.veloq.app.dev', 'com.veloq.app'],
       ['production', 'com.veloq.app', 'com.veloq.app.dev'],
     ])(
@@ -247,18 +253,21 @@ describe('install-apk.sh', () => {
       }
     );
 
-    it('installs the recorded identity when none is asked for, whatever APP_VARIANT holds', () => {
-      release('com.veloq.app.dev');
+    vaultIt(
+      'installs the recorded identity when none is asked for, whatever APP_VARIANT holds',
+      () => {
+        release('com.veloq.app.dev');
 
-      const result = install(root, [], undefined, 'release', undefined, {
-        APP_VARIANT: 'production',
-      });
+        const result = install(root, [], undefined, 'release', undefined, {
+          APP_VARIANT: 'production',
+        });
 
-      expect(result.status).toBe(0);
-      expect(result.installs).toEqual([`install -r ${RELEASE_APK}`]);
-    });
+        expect(result.status).toBe(0);
+        expect(result.installs).toEqual([`install -r ${RELEASE_APK}`]);
+      }
+    );
 
-    it('refuses an identity it does not know, and reaches no handset', () => {
+    vaultIt('refuses an identity it does not know, and reaches no handset', () => {
       release('com.veloq.app.dev');
 
       for (const args of [
@@ -273,7 +282,7 @@ describe('install-apk.sh', () => {
       }
     });
 
-    it('names the standalone build when it refuses a release APK', () => {
+    vaultIt('names the standalone build when it refuses a release APK', () => {
       release('com.veloq.app.dev');
       write(root, 'src/app.ts', 'export const greeting = "later";\n');
 
@@ -285,7 +294,7 @@ describe('install-apk.sh', () => {
     });
   });
 
-  it('refuses an unknown argument before anything else', () => {
+  vaultIt('refuses an unknown argument before anything else', () => {
     record.writeRecord(root, debugBuild(root), { variant: 'debug' });
 
     const result = install(root, ['--force']);

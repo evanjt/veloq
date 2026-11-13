@@ -78,6 +78,7 @@ fn test_direction_best_laps_selects_shortest_complete_lap_time() {
 /// best named and the record order read back must be the same for every order
 /// the records were collected in.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_summarise_names_the_same_best_whatever_order_equal_dates_arrive_in() {
     let base = [
         named("upload_c", 7, 1558.0, 870.0),
@@ -130,6 +131,7 @@ fn test_summarise_names_the_same_best_whatever_order_equal_dates_arrive_in() {
 /// are read in record order, so the step list must not depend on the order the
 /// records were collected in.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_record_progression_reads_equal_dates_in_one_order() {
     let slower = named("upload_a", 7, 1558.0, 900.0);
     let faster = named("upload_b", 7, 1558.0, 870.0);

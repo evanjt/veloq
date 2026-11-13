@@ -65,7 +65,7 @@ describe('nextStop', () => {
     expect(nextStop(MAP_SHEET_FULL_STOP, 'next')).toBe(MAP_SHEET_PEEK_STOP);
   });
 
-  it('clamps an increment at Full and a decrement at Peek', () => {
+  vaultIt('clamps an increment at Full and a decrement at Peek', () => {
     expect(nextStop(MAP_SHEET_HALF_STOP, 'up')).toBe(MAP_SHEET_FULL_STOP);
     expect(nextStop(MAP_SHEET_FULL_STOP, 'up')).toBe(MAP_SHEET_FULL_STOP);
     expect(nextStop(MAP_SHEET_HALF_STOP, 'down')).toBe(MAP_SHEET_PEEK_STOP);
@@ -83,7 +83,7 @@ describe('mapSheetStopReducer', () => {
     expect(settled.stop).toBe(MAP_SHEET_FULL_STOP);
   });
 
-  it('ignores a detent index outside the three stops', () => {
+  vaultIt('ignores a detent index outside the three stops', () => {
     expect(mapSheetStopReducer(opened, { type: 'detent', index: 3, isStable: true })).toBe(opened);
     expect(mapSheetStopReducer(opened, { type: 'detent', index: -1, isStable: true })).toBe(opened);
   });
@@ -98,7 +98,7 @@ describe('mapSheetStopReducer', () => {
     expect(left).toEqual({ stop: MAP_SHEET_FULL_STOP, toolReturn: null });
   });
 
-  it('keeps the first recorded stop when a tool is entered twice', () => {
+  vaultIt('keeps the first recorded stop when a tool is entered twice', () => {
     const entered = mapSheetStopReducer(
       { stop: MAP_SHEET_PEEK_STOP, toolReturn: null },
       { type: 'toolEntered' }
@@ -108,7 +108,7 @@ describe('mapSheetStopReducer', () => {
     expect(mapSheetStopReducer(again, { type: 'toolLeft' }).stop).toBe(MAP_SHEET_PEEK_STOP);
   });
 
-  it('leaves the stop alone when a tool is left without having been entered', () => {
+  vaultIt('leaves the stop alone when a tool is left without having been entered', () => {
     expect(mapSheetStopReducer(opened, { type: 'toolLeft' })).toBe(opened);
   });
 });
@@ -119,18 +119,18 @@ describe.each([
 ] as const)('mapSheetCoveredHeight on %s', (os, version, window) => {
   const covered = (stop: number) => mapSheetCoveredHeight(os, version, window, stop);
 
-  it('covers what the sheet takes at Peek and at Half', () => {
+  vaultIt('covers what the sheet takes at Peek and at Half', () => {
     const { visibleMap } = sheetStops(os, version, window);
     expect(covered(MAP_SHEET_PEEK_STOP)).toBeCloseTo(window.height - visibleMap[0]!);
     expect(covered(MAP_SHEET_HALF_STOP)).toBeCloseTo(window.height - visibleMap[1]!);
     expect(covered(MAP_SHEET_PEEK_STOP)).toBeLessThan(covered(MAP_SHEET_HALF_STOP));
   });
 
-  it('holds the Half fit at Full', () => {
+  vaultIt('holds the Half fit at Full', () => {
     expect(covered(MAP_SHEET_FULL_STOP)).toBe(covered(MAP_SHEET_HALF_STOP));
   });
 
-  it('covers nothing before the window has a height', () => {
+  vaultIt('covers nothing before the window has a height', () => {
     expect(mapSheetCoveredHeight(os, version, { ...window, height: 0 }, MAP_SHEET_HALF_STOP)).toBe(
       0
     );
@@ -140,7 +140,7 @@ describe.each([
 describe('mapSheetCoveredCorner', () => {
   const phone = { width: 390, height: 844, topInset: 24, bottomInset: 48 };
 
-  it("is the sheet's own corner radius wherever the sheet covers the map's foot", () => {
+  vaultIt("is the sheet's own corner radius wherever the sheet covers the map's foot", () => {
     const covered = mapSheetCoveredHeight('android', 35, phone, MAP_SHEET_HALF_STOP);
     expect(covered).toBeGreaterThan(0);
     expect(mapSheetCoveredCorner(covered)).toBe(
@@ -149,7 +149,7 @@ describe('mapSheetCoveredCorner', () => {
     expect(mapSheetCoveredCorner(covered)).toBeGreaterThan(0);
   });
 
-  it('is none where nothing covers the foot', () => {
+  vaultIt('is none where nothing covers the foot', () => {
     expect(mapSheetCoveredCorner(0)).toBe(0);
   });
 });
@@ -173,7 +173,7 @@ describe('useMapSheetStop', () => {
     expect(result.current.stop).toBe(MAP_SHEET_PEEK_STOP);
   });
 
-  it('asks for nothing when the sheet already rests at the stop requested', () => {
+  vaultIt('asks for nothing when the sheet already rests at the stop requested', () => {
     const present = jest.fn();
     const { result } = renderHook(() => useMapSheetStop(KEY, present));
     act(() => result.current.request(MAP_SHEET_HALF_STOP));
@@ -210,18 +210,21 @@ describe('useMapSheetStop', () => {
     expect(result.current.stop).toBe(MAP_SHEET_FULL_STOP);
   });
 
-  it('puts the sheet away for a tool at Half and presents it at Half when the tool ends', () => {
-    const present = jest.fn();
-    const { result } = renderHook(() => useMapSheetStop(KEY, present));
-    act(() => result.current.enterTool());
-    expect(present.mock.calls).toEqual([[null]]);
-    expect(result.current.toolActive).toBe(true);
-    act(() => result.current.leaveTool());
-    expect(present.mock.calls).toEqual([[null], [MAP_SHEET_HALF_STOP]]);
-    expect(result.current.toolActive).toBe(false);
-  });
+  vaultIt(
+    'puts the sheet away for a tool at Half and presents it at Half when the tool ends',
+    () => {
+      const present = jest.fn();
+      const { result } = renderHook(() => useMapSheetStop(KEY, present));
+      act(() => result.current.enterTool());
+      expect(present.mock.calls).toEqual([[null]]);
+      expect(result.current.toolActive).toBe(true);
+      act(() => result.current.leaveTool());
+      expect(present.mock.calls).toEqual([[null], [MAP_SHEET_HALF_STOP]]);
+      expect(result.current.toolActive).toBe(false);
+    }
+  );
 
-  it('returns a tool to Peek after the athlete dragged the sheet there', () => {
+  vaultIt('returns a tool to Peek after the athlete dragged the sheet there', () => {
     const present = jest.fn();
     const { result } = renderHook(() => useMapSheetStop(KEY, present));
     act(() => result.current.onDetentChanged({ index: 0, isStable: true }));
@@ -231,7 +234,7 @@ describe('useMapSheetStop', () => {
     expect(result.current.stop).toBe(MAP_SHEET_PEEK_STOP);
   });
 
-  it('puts the sheet away once when a tool is entered twice', () => {
+  vaultIt('puts the sheet away once when a tool is entered twice', () => {
     const present = jest.fn();
     const { result } = renderHook(() => useMapSheetStop(KEY, present));
     act(() => result.current.enterTool());
@@ -239,7 +242,7 @@ describe('useMapSheetStop', () => {
     expect(present).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves the sheet where it is when a tool that never started is left', () => {
+  vaultIt('leaves the sheet where it is when a tool that never started is left', () => {
     const present = jest.fn();
     const { result } = renderHook(() => useMapSheetStop(KEY, present));
     act(() => result.current.leaveTool());
@@ -261,7 +264,7 @@ describe('useMapSheetStop', () => {
     expect(below).toHaveBeenCalledWith(null);
   });
 
-  it('keeps one sheet’s stop apart from another’s', () => {
+  vaultIt('keeps one sheet’s stop apart from another’s', () => {
     const pear = renderHook(() => useMapSheetStop(KEY));
     const plum = renderHook(() => useMapSheetStop('orchard:plum'));
     act(() => pear.result.current.onDetentChanged({ index: 2, isStable: true }));
@@ -274,7 +277,7 @@ describe('MapSheetHandle', () => {
     return screen.getByTestId('map-sheet-handle');
   }
 
-  it('reads the stop as an adjustable value named for what it sizes', async () => {
+  vaultIt('reads the stop as an adjustable value named for what it sizes', async () => {
     await render(<MapSheetHandle sheetKey={KEY} drawn />);
     expect(element().props.accessibilityRole).toBe('adjustable');
     expect(element().props.accessibilityLabel).toBe('Map and details size');
@@ -294,7 +297,7 @@ describe('MapSheetHandle', () => {
     expect(present).toHaveBeenLastCalledWith(MAP_SHEET_HALF_STOP);
   });
 
-  it('asks for nothing on an increment at Full', async () => {
+  vaultIt('asks for nothing on an increment at Full', async () => {
     const present = jest.fn();
     const screenHook = renderHook(() => useMapSheetStop(KEY, present));
     act(() => screenHook.result.current.onDetentChanged({ index: 2, isStable: true }));
@@ -303,7 +306,7 @@ describe('MapSheetHandle', () => {
     expect(present).not.toHaveBeenCalled();
   });
 
-  it('steps up on a tap and wraps Full to Peek', async () => {
+  vaultIt('steps up on a tap and wraps Full to Peek', async () => {
     const present = jest.fn();
     const screenHook = renderHook(() => useMapSheetStop(KEY, present));
     act(() => screenHook.result.current.onDetentChanged({ index: 2, isStable: true }));
@@ -312,7 +315,7 @@ describe('MapSheetHandle', () => {
     expect(present).toHaveBeenCalledWith(MAP_SHEET_PEEK_STOP);
   });
 
-  it('draws the bar only where the platform draws no grabber of its own', async () => {
+  vaultIt('draws the bar only where the platform draws no grabber of its own', async () => {
     await render(<MapSheetHandle sheetKey={KEY} drawn={false} />);
     expect(screen.queryByTestId('map-sheet-handle-bar')).toBeNull();
     expect(element().props.accessibilityRole).toBe('adjustable');
@@ -322,7 +325,7 @@ describe('MapSheetHandle', () => {
 describe('the map covered at tablet width', () => {
   const tablet = { width: 1024, height: 1366, topInset: 24, bottomInset: 20 };
 
-  it('covers no height, since the data is a side panel and not a sheet', () => {
+  vaultIt('covers no height, since the data is a side panel and not a sheet', () => {
     for (const [os, version] of [
       ['ios', '26.2'],
       ['android', 35],
@@ -331,12 +334,12 @@ describe('the map covered at tablet width', () => {
     }
   });
 
-  it('covers the panel at the leading edge, the left or the right by layout direction', () => {
+  vaultIt('covers the panel at the leading edge, the left or the right by layout direction', () => {
     expect(mapSheetCoveredSides(tablet, false)).toEqual({ left: 400, right: 0 });
     expect(mapSheetCoveredSides(tablet, true)).toEqual({ left: 0, right: 400 });
   });
 
-  it('covers neither side on a phone, upright or on its side', () => {
+  vaultIt('covers neither side on a phone, upright or on its side', () => {
     expect(mapSheetCoveredSides({ width: 430, height: 932 }, false)).toEqual({ left: 0, right: 0 });
     expect(mapSheetCoveredSides({ width: 956, height: 440 }, false)).toEqual({ left: 0, right: 0 });
   });

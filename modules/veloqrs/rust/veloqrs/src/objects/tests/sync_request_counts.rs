@@ -157,6 +157,7 @@ fn upstream() -> Hits {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_first_sync_asks_each_endpoint_as_often_as_it_always_has() {
     let _serial = crate::test_globals::serial_global_state();
     let _engine = crate::test_globals::init_global_engine("sync_request_counts.db");

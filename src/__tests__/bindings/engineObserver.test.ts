@@ -76,7 +76,7 @@ it('routes every observer method onto its channel', async () => {
   offs.forEach((off) => off());
 });
 
-it('fans the settle out on the coarse sync channel too', async () => {
+vaultIt('fans the settle out on the coarse sync channel too', async () => {
   const { client, observer } = clientWithFakeEngine();
   const seen: string[] = [];
   const off = client.subscribe('sync', () => seen.push('sync'));
@@ -115,7 +115,7 @@ it('delivers nothing to a listener that unsubscribed before the microtask', asyn
   expect(ran).toBe(false);
 });
 
-it('refreshes the sections channel when a detection run ends', async () => {
+vaultIt('refreshes the sections channel when a detection run ends', async () => {
   const { client, observer } = clientWithFakeEngine();
   const seen: string[] = [];
   const off = client.subscribe('sections', () => seen.push('sections'));
@@ -127,7 +127,7 @@ it('refreshes the sections channel when a detection run ends', async () => {
   off();
 });
 
-it('announces a moved request count on its own channel', async () => {
+vaultIt('announces a moved request count on its own channel', async () => {
   const { client, observer } = clientWithFakeEngine();
   const seen: string[] = [];
   const off = client.subscribe('requestBudgetChanged', () => seen.push('requestBudgetChanged'));
@@ -139,7 +139,7 @@ it('announces a moved request count on its own channel', async () => {
   off();
 });
 
-it('refreshes the groups channel when a regroup is swapped in', async () => {
+vaultIt('refreshes the groups channel when a regroup is swapped in', async () => {
   const { client, observer } = clientWithFakeEngine();
   const seen: string[] = [];
   const off = client.subscribe('groups', () => seen.push('groups'));
@@ -155,7 +155,7 @@ it('refreshes the groups channel when a regroup is swapped in', async () => {
   offEvent();
 });
 
-it('refreshes activity reads when stored rows are announced', async () => {
+vaultIt('refreshes activity reads when stored rows are announced', async () => {
   const { client, observer } = clientWithFakeEngine();
   const read = jest.fn();
   const off = client.subscribe('activities', read);
@@ -229,7 +229,7 @@ it('routes a browser write onto the channel of the fact it moved', async () => {
   offs.forEach((off) => off());
 });
 
-it('announces a browser write on remoteWrote only for a fact this build knows', async () => {
+vaultIt('announces a browser write on remoteWrote only for a fact this build knows', async () => {
   const { client, observer } = clientWithFakeEngine();
   const seen: string[] = [];
   const off = client.subscribe('remoteWrote', () => seen.push('remoteWrote'));

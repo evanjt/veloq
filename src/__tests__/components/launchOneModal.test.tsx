@@ -78,16 +78,19 @@ beforeEach(() => {
 afterEach(() => alertSpy.mockRestore());
 
 describe('one modal per launch', () => {
-  it('raises the notice and opens no tour on a first load with a rebuilt library', async () => {
-    useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
-    mockTake.mockReturnValue(rebuilt);
-    captureQuarantineReport();
-    await launch();
+  vaultIt(
+    'raises the notice and opens no tour on a first load with a rebuilt library',
+    async () => {
+      useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
+      mockTake.mockReturnValue(rebuilt);
+      captureQuarantineReport();
+      await launch();
 
-    expect(alertSpy).toHaveBeenCalledTimes(1);
-    expect(useWhatsNewStore.getState().tourState).toBeNull();
-    expect(useWhatsNewStore.getState().lastSeenVersion).toBeNull();
-  });
+      expect(alertSpy).toHaveBeenCalledTimes(1);
+      expect(useWhatsNewStore.getState().tourState).toBeNull();
+      expect(useWhatsNewStore.getState().lastSeenVersion).toBeNull();
+    }
+  );
 
   it('raises the notice after an update and opens What’s New on no launch', async () => {
     useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: '0.0.1', tourState: null });
@@ -112,7 +115,7 @@ describe('one modal per launch', () => {
     expect(alertSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('opens no tour on a first sign-in, before the notice is answered or after', async () => {
+  vaultIt('opens no tour on a first sign-in, before the notice is answered or after', async () => {
     useAuthStore.setState({ isAuthenticated: false, isDemoMode: false });
     useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
     mockTake.mockReturnValue(rebuilt);

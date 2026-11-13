@@ -19,6 +19,7 @@ fn run(job: impl std::future::Future<Output = Result<(), NetError>>) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_power_curve_asks_the_curves_once_on_the_tap_lane() {
     let _serial = serial_global_state();
     let _engine = init_global_engine("verbs_power.db");
@@ -42,6 +43,7 @@ fn a_power_curve_asks_the_curves_once_on_the_tap_lane() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pace_curve_asks_the_curves_once_with_its_gap() {
     let _serial = serial_global_state();
     let _engine = init_global_engine("verbs_pace.db");
@@ -66,6 +68,7 @@ fn a_pace_curve_asks_the_curves_once_with_its_gap() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_body_verb_asks_once_by_its_upstream_id() {
     let _serial = serial_global_state();
     let _engine = init_global_engine("verbs_bodies.db");
@@ -101,6 +104,7 @@ fn an_activity_body_verb_asks_once_by_its_upstream_id() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_with_no_upstream_id_asks_nothing() {
     let _serial = serial_global_state();
     let _engine = init_global_engine("verbs_unnamed.db");
@@ -120,6 +124,7 @@ fn an_activity_with_no_upstream_id_asks_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_time_streams_ask_each_missing_clock_once_on_the_sweep_lane() {
     let _serial = serial_global_state();
     let _engine = init_global_engine("verbs_time.db");

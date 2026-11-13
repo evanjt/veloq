@@ -130,7 +130,7 @@ describe('the Power card', () => {
 });
 
 describe('activity stat card marks', () => {
-  it('keys heart rate and power to their streams at every value', async () => {
+  vaultIt('keys heart rate and power to their streams at every value', async () => {
     for (const avgHr of [135, 153, 171]) {
       const activity = activityRecord({ ...ride, avgHr, avgPower: 220 });
       const { result } = await renderHook(() =>

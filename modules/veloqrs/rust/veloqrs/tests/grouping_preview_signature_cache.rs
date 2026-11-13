@@ -54,6 +54,7 @@ fn seed_engine() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_preview_start_leaves_the_signature_cache_alone() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().expect("tempdir");

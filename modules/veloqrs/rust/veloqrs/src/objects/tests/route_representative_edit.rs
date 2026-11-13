@@ -69,6 +69,7 @@ fn each_choice_resolves_with_the_representative_it_named() {
 /// Expected behaviour: it resolves as an error, the representative is
 /// unchanged, and the slot is free for the next choice.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refused_choice_resolves_as_an_error_and_frees_the_slot() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("routes.db");
@@ -91,6 +92,7 @@ fn a_refused_choice_resolves_as_an_error_and_frees_the_slot() {
 /// Expected behaviour: the second is refused as busy without waiting, and the
 /// first still completes once the engine is free.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_choice_while_one_runs_is_refused() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("routes.db");

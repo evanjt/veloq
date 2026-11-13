@@ -103,7 +103,7 @@ it('passes when the bundle is newer than every source file', () => {
  * Metro. Refusing there would fail every checkout that has not run a release
  * build, which is most of them.
  */
-it('says nothing when there is no embedded bundle', () => {
+vaultIt('says nothing when there is no embedded bundle', () => {
   const { status, output } = runGuard(fixture({}));
 
   expect(status).toBe(0);
@@ -114,7 +114,7 @@ it('says nothing when there is no embedded bundle', () => {
  * The guard is about staleness, so a source tree that does not exist cannot
  * make it fail: that is a fixture or a partial checkout, not a stale build.
  */
-it('says nothing when there is no source tree to compare against', () => {
+vaultIt('says nothing when there is no source tree to compare against', () => {
   const root = mkdtempSync(join(tmpdir(), 'android-bundle-'));
   roots.push(root);
   const bundle = join(root, BUNDLE);
@@ -158,13 +158,13 @@ it('passes a fresh bundle that carries the app', () => {
 });
 
 /** A tree with no locale file has nothing to probe for, and is not a stub. */
-it('says nothing when there is no locale file to probe with', () => {
+vaultIt('says nothing when there is no locale file to probe with', () => {
   const { status } = runGuard(fixture({ bundleAgeSeconds: -60, bundleBody: 'var __BUNDLE__;' }));
 
   expect(status).toBe(0);
 });
 
-it('names which phrases the bundle is missing', () => {
+vaultIt('names which phrases the bundle is missing', () => {
   const { output } = runGuard(
     fixture({
       bundleAgeSeconds: -60,
@@ -224,7 +224,7 @@ describe('--apk', () => {
   describe('commit mark', () => {
     const app = `var x = ${JSON.stringify(PHRASES.join(' '))};`;
 
-    it('refuses a dev-variant APK whose bundle lost the commit-mark line', () => {
+    vaultIt('refuses a dev-variant APK whose bundle lost the commit-mark line', () => {
       const root = fixture({ phrases: PHRASES });
       const { status, output } = runGuard(root, ['--apk', apk(root, app, undefined, 'dev')]);
 
@@ -232,7 +232,7 @@ describe('--apk', () => {
       expect(output).toContain('[COMMIT]');
     });
 
-    it('passes a dev-variant APK whose bundle carries the commit-mark line', () => {
+    vaultIt('passes a dev-variant APK whose bundle carries the commit-mark line', () => {
       const root = fixture({ phrases: PHRASES });
       const body = `${app}\nconsole.error("⏱ [COMMIT] x");`;
 
@@ -243,7 +243,7 @@ describe('--apk', () => {
      * Hermes keeps a string holding a non-ASCII character as UTF-16, so the mark
      * in a release bytecode bundle is never the bytes of `[COMMIT]` in UTF-8.
      */
-    it('passes a dev-variant APK whose Hermes bundle stores the mark as UTF-16', () => {
+    vaultIt('passes a dev-variant APK whose Hermes bundle stores the mark as UTF-16', () => {
       const root = fixture({ phrases: PHRASES });
       const mark = Buffer.from('⏱ [COMMIT] x', 'utf16le');
       const body = Buffer.concat([Buffer.from(app), mark]);
@@ -251,13 +251,13 @@ describe('--apk', () => {
       expect(runGuard(root, ['--apk', apk(root, body, undefined, 'dev')]).status).toBe(0);
     });
 
-    it('passes a production-variant APK, which prints nothing at runtime', () => {
+    vaultIt('passes a production-variant APK, which prints nothing at runtime', () => {
       const root = fixture({ phrases: PHRASES });
 
       expect(runGuard(root, ['--apk', apk(root, app, undefined, 'production')]).status).toBe(0);
     });
 
-    it('refuses an APK stamped with a variant that gates nothing', () => {
+    vaultIt('refuses an APK stamped with a variant that gates nothing', () => {
       const root = fixture({ phrases: PHRASES });
       const body = `${app}\n"[COMMIT]"`;
       const { status, output } = runGuard(root, ['--apk', apk(root, body, undefined, 'staging')]);
@@ -323,7 +323,7 @@ describe('--apk', () => {
       expect(runGuard(root, ['--apk', apk(root, older, before)]).status).toBe(0);
     });
 
-    it('reads the commit out of a dirty tree’s stamp', () => {
+    vaultIt('reads the commit out of a dirty tree’s stamp', () => {
       const { root, before } = history();
 
       expect(runGuard(root, ['--apk', apk(root, older, `${before}+0123abcd`)]).status).toBe(0);
@@ -356,7 +356,7 @@ describe('--apk', () => {
       expect(output).toContain('working tree');
     });
 
-    it('falls back to the working tree for an APK with no stamp', () => {
+    vaultIt('falls back to the working tree for an APK with no stamp', () => {
       const { root } = history();
       const { status, output } = runGuard(root, ['--apk', apk(root, older)]);
 

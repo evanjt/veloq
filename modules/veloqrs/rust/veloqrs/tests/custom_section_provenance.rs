@@ -121,6 +121,7 @@ fn a_cut_section_rebuilds_its_line_after_the_blob_is_cleared() {
 /// A whole-ride cut is the boundary case: the first and last index of the
 /// stream, and the triple must survive it unclamped.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_whole_ride_cut_keeps_its_end_index() {
     let mut s = setup();
     let last = (ride().len() - 1) as u32;
@@ -135,6 +136,7 @@ fn a_whole_ride_cut_keeps_its_end_index() {
 /// A hand-drawn line has no stream behind it. It is not rebuildable, and the
 /// stamp must say so rather than claim a slice that does not exist.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_hand_drawn_section_is_stamped_consensus() {
     let mut s = setup();
     let drawn = ride()[0..6].to_vec();
@@ -161,6 +163,7 @@ fn a_hand_drawn_section_is_stamped_consensus() {
 /// A half triple indexes nothing. A source activity with no range is the same
 /// as no source at all.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_source_activity_without_a_range_is_not_exact() {
     let mut s = setup();
     let ride = ride();
@@ -249,6 +252,7 @@ fn a_backfilled_section_rebuilds_its_line() {
 /// A second open must not move a triple that is already right, and must leave
 /// a row with no source range alone rather than inventing one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_backfill_is_idempotent_and_skips_what_it_cannot_rebuild() {
     let mut s = setup();
     let cut = cut_from_a_ride(&mut s, "act_twice", 4, 12);
@@ -286,6 +290,7 @@ fn the_backfill_is_idempotent_and_skips_what_it_cannot_rebuild() {
 /// a row that reads as empty into a plausible single point, so neither the
 /// create path nor the backfill claims it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_single_point_range_earns_no_triple() {
     let mut s = setup();
     let id = cut_from_a_ride(&mut s, "act_degenerate", 3, 3);

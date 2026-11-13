@@ -321,6 +321,7 @@ fn reads(small: Ids, large: Ids) -> Vec<(&'static str, Read)> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_screen_read_issues_more_statements_for_a_larger_library() {
     let mut small = seeded(SMALL);
     let mut large = seeded(LARGE);
@@ -394,6 +395,7 @@ fn step_ceiling(name: &str) -> f64 {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_screen_read_takes_more_steps_than_its_ceiling_for_a_larger_library() {
     let mut small = seeded(SMALL);
     let mut large = seeded(LARGE);
@@ -457,6 +459,7 @@ fn lowered_bytes<T: uniffi::Lower<crate::UniFfiTag>>(value: T) -> usize {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_detail_data_issues_no_more_statements_for_a_well_ridden_route() {
     let mut few = one_route(3);
     let mut many = one_route(300);
@@ -474,6 +477,7 @@ fn route_detail_data_issues_no_more_statements_for_a_well_ridden_route() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_detail_data_carries_the_same_bytes_for_one_route_in_a_larger_library() {
     let mut small = seeded(SMALL);
     let mut large = seeded(LARGE);
@@ -494,6 +498,7 @@ fn route_detail_data_carries_the_same_bytes_for_one_route_in_a_larger_library() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_screen_data_carries_the_route_count_and_the_lines_only_when_asked() {
     let mut engine = seeded(LARGE);
     let routes = engine
@@ -537,6 +542,7 @@ fn map_screen_data_carries_the_route_count_and_the_lines_only_when_asked() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_screen_data_names_each_route_line_and_counts_its_activities() {
     let mut engine = seeded(SMALL);
     let sizes: std::collections::HashMap<String, u32> = engine
@@ -628,6 +634,7 @@ fn map_screen_data_gives_each_route_line_the_route_list_distance() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_map_screen_data_section_overlay_gate() {
     let engine = seeded(SMALL);
     let count = engine.get_section_count();

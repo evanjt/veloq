@@ -28,7 +28,7 @@ const source = (
 ): SensorSource => ({ sensorId, origin, lastSampleAt });
 
 describe('chooseSensorSource', () => {
-  it('has no source when nothing has sent', () => {
+  vaultIt('has no source when nothing has sent', () => {
     expect(chooseSensorSource('cadence', [], context([METER, POD]))).toBeNull();
   });
 
@@ -103,7 +103,7 @@ describe('chooseSensorSource', () => {
 });
 
 describe('displayedSensorSource', () => {
-  it('names the live source when there is one', () => {
+  vaultIt('names the live source when there is one', () => {
     expect(displayedSensorSource('heartRate', [STRAP_A, STRAP_B], 'strap-b')).toBe('strap-b');
   });
 

@@ -34,7 +34,7 @@ describe('where a map marker sits', () => {
     expect(startCenterFor(activity({ startPoint: [46.2, 7.35] }))).toEqual([7.35, 46.2]);
   });
 
-  it('is not the bounding box centre when a start point is known', () => {
+  vaultIt('is not the bounding box centre when a start point is known', () => {
     const withStart = activity({ startPoint: [46.2, 7.35] });
     expect(startCenterFor(withStart)).not.toEqual(startCenterFor(activity()));
   });

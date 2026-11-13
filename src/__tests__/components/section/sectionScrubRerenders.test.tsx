@@ -77,7 +77,7 @@ beforeEach(() => mockMapProps.mockClear());
 afterEach(() => closeHost(KEY));
 
 describe('a chart scrub on the section card', () => {
-  it('renders the map per index and never the root above it', async () => {
+  vaultIt('renders the map per index and never the root above it', async () => {
     const { store, rootRenders } = await setup();
     expect(rootRenders).toHaveBeenCalledTimes(1);
     mockMapProps.mockClear();
@@ -117,7 +117,7 @@ describe('a chart scrub on the section card', () => {
     expect(lastMapProps().highlightedLapPoints).toBe(LAP);
   });
 
-  it('does not render the map again for the value it already holds', async () => {
+  vaultIt('does not render the map again for the value it already holds', async () => {
     const { store } = await setup();
     await act(() => store.set('a', LAP));
     mockMapProps.mockClear();
@@ -137,7 +137,7 @@ describe('a chart scrub on the section card', () => {
     expect(lastMapProps().highlightedActivityDate).toBeUndefined();
   });
 
-  it('does not render the map again for the same date read into a new object', async () => {
+  vaultIt('does not render the map again for the same date read into a new object', async () => {
     const { store } = await setup();
     await act(() => store.set('a', LAP, new Date(2023, 2, 12)));
     mockMapProps.mockClear();

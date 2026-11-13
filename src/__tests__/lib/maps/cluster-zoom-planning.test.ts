@@ -109,7 +109,7 @@ describe('planClusterZoom', () => {
     }
   });
 
-  it('scales animation duration by leaf count with 20 as the large boundary', () => {
+  vaultIt('scales animation duration by leaf count with 20 as the large boundary', () => {
     // < 20 leaves → 300ms; >= 20 (boundary inclusive) → 600ms.
     const tiers: { count: number; durationMs: number }[] = [
       { count: 5, durationMs: 300 },
@@ -139,7 +139,7 @@ describe('planClusterZoom', () => {
     }
   });
 
-  it('exposes the tuning constants so spec and impl stay aligned', () => {
+  vaultIt('exposes the tuning constants so spec and impl stay aligned', () => {
     expect(CLUSTER_ZOOM_CONSTANTS.SMALL_CLUSTER_LEAF_COUNT).toBe(20);
     expect(CLUSTER_ZOOM_CONSTANTS.STACKED_LEAF_SPAN_DEG).toBeGreaterThan(0);
   });

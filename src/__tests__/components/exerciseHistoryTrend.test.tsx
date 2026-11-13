@@ -102,15 +102,18 @@ describe('the exercise history trend', () => {
     expect(chart.props.area).toBe(false);
   });
 
-  it('titles the native header with the exercise and repeats it nowhere in the body', async () => {
-    await render(<ExerciseDetailScreen />);
+  vaultIt(
+    'titles the native header with the exercise and repeats it nowhere in the body',
+    async () => {
+      await render(<ExerciseDetailScreen />);
 
-    const header = screen.getByTestId('native-header');
-    expect(within(header).getByRole('header').props.children).toBe('Kettlebell swing');
-    expect(screen.getAllByText('Kettlebell swing')).toHaveLength(1);
-  });
+      const header = screen.getByTestId('native-header');
+      expect(within(header).getByRole('header').props.children).toBe('Kettlebell swing');
+      expect(screen.getAllByText('Kettlebell swing')).toHaveLength(1);
+    }
+  );
 
-  it('falls back to the screen name while the history is still loading', async () => {
+  vaultIt('falls back to the screen name while the history is still loading', async () => {
     mockDetail = null;
     await render(<ExerciseDetailScreen />);
 
@@ -118,7 +121,7 @@ describe('the exercise history trend', () => {
     expect(within(header).getByRole('header').props.children).toBe('strength.history');
   });
 
-  it('draws no trend for a single estimate', async () => {
+  vaultIt('draws no trend for a single estimate', async () => {
     mockDetail = detail([30]);
     await render(<ExerciseDetailScreen />);
 

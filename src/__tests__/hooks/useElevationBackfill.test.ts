@@ -173,7 +173,7 @@ describe('useElevationBackfill', () => {
     expect(result.current.phase).toBe('idle');
   });
 
-  it('stops polling once unmounted', async () => {
+  vaultIt('stops polling once unmounted', async () => {
     const read = jest.fn(() => progress('fetching', { completed: 1, total: 2 }));
     mockGetEngine.mockReturnValue(engineReporting(read));
 
@@ -187,7 +187,7 @@ describe('useElevationBackfill', () => {
     expect(read).toHaveBeenCalledTimes(callsAtUnmount);
   });
 
-  it('makes no engine calls while nothing is running', async () => {
+  vaultIt('makes no engine calls while nothing is running', async () => {
     const read = jest.fn(() => progress('idle'));
     mockGetEngine.mockReturnValue(engineReporting(read));
 
@@ -216,7 +216,7 @@ describe('useElevationBackfill', () => {
     expect(result.current).toMatchObject({ phase: 'fetching', total: 12, isRunning: true });
   });
 
-  it('stops reading once the run reaches a terminal phase', async () => {
+  vaultIt('stops reading once the run reaches a terminal phase', async () => {
     let phase = 'fetching';
     const read = jest.fn(() => progress(phase, { completed: 3, total: 12 }));
     mockGetEngine.mockReturnValue(engineReporting(read));
@@ -234,7 +234,7 @@ describe('useElevationBackfill', () => {
     expect(read).toHaveBeenCalledTimes(callsAtSettle);
   });
 
-  it('hears nothing more once unmounted', async () => {
+  vaultIt('hears nothing more once unmounted', async () => {
     const read = jest.fn(() => progress('idle'));
     mockGetEngine.mockReturnValue(engineReporting(read));
 

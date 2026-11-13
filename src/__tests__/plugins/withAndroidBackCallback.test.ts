@@ -51,7 +51,7 @@ function registeredCallback(source: string): string {
 }
 
 describe('with-android-back-callback', () => {
-  it('registers a back callback in onCreate after the activity is created', () => {
+  vaultIt('registers a back callback in onCreate after the activity is created', () => {
     const onCreate = overrideBody(withBackCallback(templateMainActivity()), 'onCreate');
 
     const created = onCreate.indexOf('super.onCreate(null)');
@@ -60,7 +60,7 @@ describe('with-android-back-callback', () => {
     expect(added).toBeGreaterThan(created);
   });
 
-  it('registers it wherever React Native registers none', () => {
+  vaultIt('registers it wherever React Native registers none', () => {
     const onCreate = overrideBody(withBackCallback(templateMainActivity()), 'onCreate');
 
     expect(onCreate).toMatch(

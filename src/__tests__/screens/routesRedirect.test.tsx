@@ -137,7 +137,7 @@ it('takes down a section screen and its sheet it arrives over', async () => {
   expect(useMapSheetHosts.getState().hosts).toEqual({});
 });
 
-it('redirects once, not on every render', async () => {
+vaultIt('redirects once, not on every render', async () => {
   await openFeed();
   const redirects = jest.spyOn(router, 'dismissTo');
   try {

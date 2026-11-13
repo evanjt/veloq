@@ -35,6 +35,7 @@ fn engine_with(dir: &TempDir, activities: usize) -> PersistentEngine {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fresh_library_owes_a_detect_for_every_activity() {
     let dir = TempDir::new().unwrap();
     let engine = engine_with(&dir, 5);
@@ -43,6 +44,7 @@ fn a_fresh_library_owes_a_detect_for_every_activity() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_library_owes_nothing() {
     let dir = TempDir::new().unwrap();
     let engine = engine_with(&dir, 0);
@@ -53,6 +55,7 @@ fn an_empty_library_owes_nothing() {
 /// The count is the point of the item: it has to survive the relaunch that
 /// resets every phase to idle.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_count_survives_a_reopen() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("owed.db");

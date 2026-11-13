@@ -4637,6 +4637,7 @@ mod tests {
     /// Expected behaviour: a change that rounds below the floor is dropped in
     /// either direction, and raising the floor drops what the old one kept.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn hr_change_floor_follows_the_parameter() {
         assert!(!hr_change_clears_floor(0.4, 1));
         assert!(!hr_change_clears_floor(-0.4, 1));
@@ -4678,12 +4679,14 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn at_or_above_the_top_bound_is_the_top_zone() {
             assert_eq!(hr_zone_number(Some(RIDE_ZONES), "Ride", 200.0), Some(5));
             assert_eq!(hr_zone_number(Some(RIDE_ZONES), "Ride", 230.0), Some(5));
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn no_reading_has_no_zone() {
             assert_eq!(hr_zone_number(Some(RIDE_ZONES), "Ride", 0.0), None);
             assert_eq!(hr_zone_number(Some(RIDE_ZONES), "Ride", -3.0), None);
@@ -4698,6 +4701,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn falls_back_to_the_default_max_hr_for_a_sport_with_no_setting() {
             assert_eq!(hr_zone_number(Some(RIDE_ZONES), "Run", 150.0), Some(3));
             assert_eq!(hr_zone_number(None, "Ride", 150.0), Some(3));
@@ -4705,6 +4709,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn zones_that_are_not_bpm_numbers_are_skipped() {
             let objects = r#"[{"types":["Ride"],"max_hr":175,"hr_zones":[{"max":140}]}]"#;
             assert_eq!(hr_zone_number(Some(objects), "Ride", 165.0), Some(5));
@@ -4724,6 +4729,7 @@ mod tests {
         const RIDE: &str = r#"{"type":"Ride"}"#;
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn test_activity_hr_zones_from_undecodable_times_logs_and_returns_empty() {
             crate::test_log::capturing();
             let mut engine = crate::persistence::PersistentEngine::in_memory().unwrap();
@@ -4800,6 +4806,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_activitys_own_zones_come_before_the_sport_settings() {
             let body = r#"{"type":"Ride","icu_hr_zones":[120,140,160,180,196]}"#;
             let bands =
@@ -4809,6 +4816,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn percentage_bands_of_the_resolved_max_hr_when_no_zones_are_listed() {
             let settings = r#"[{"types":["Ride"],"max_hr":175}]"#;
             let bands =
@@ -4848,6 +4856,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn nothing_to_show_is_none() {
             assert!(zones(RIDE, Some(SETTINGS), &[Some(150.0)], &[0]).is_none());
             assert!(zones(RIDE, Some(SETTINGS), &[None, None], &[0, 1]).is_none());
@@ -4895,6 +4904,7 @@ mod tests {
         /// ride shown; the list names each hidden ride the library holds, the
         /// newest first, and leaves out a hidden id it holds no ride for.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_detail_read_and_the_hidden_list_report_a_hidden_activity() {
             let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
             engine
@@ -4935,6 +4945,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_detail_read_carries_the_stored_zones() {
             let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
             engine
@@ -5003,6 +5014,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn bounds_without_the_sentinel_still_end_in_an_open_zone() {
             let body = r#"{"type":"Ride","icu_ftp":200,"icu_power_zones":[55,75,90,105,120,150],
                 "icu_zone_times":[{"id":"Z1","secs":10},{"id":"Z7","secs":10}]}"#;
@@ -5013,6 +5025,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn nothing_to_show_is_none() {
             let no_time = r#"{"icu_ftp":155,"icu_power_zones":[55,75,999],
                 "icu_zone_times":[{"id":"Z1","secs":0}]}"#;
@@ -5030,6 +5043,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_detail_read_carries_the_power_zones() {
             let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
             engine
@@ -5054,6 +5068,7 @@ mod tests {
         use super::*;
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_detail_read_carries_the_stored_summary() {
             let body = r#"{"type":"Ride","moving_time":3600,"elapsed_time":3720,
                 "average_speed":8.2,"max_speed":15.4,"average_cadence":88.5}"#;
@@ -5072,6 +5087,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_run_carries_its_strides_as_steps() {
             let body = r#"{"type":"Run","moving_time":5800,"average_cadence":66}"#;
             let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
@@ -5085,6 +5101,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_zero_or_missing_field_is_no_value() {
             let body = r#"{"type":"WeightTraining","moving_time":1800,"elapsed_time":0,
                 "average_speed":0,"max_speed":null}"#;
@@ -5127,6 +5144,7 @@ mod tests {
             r#"{"maxHR":180,"zones":[{"id":1,"name":"Recovery","min":0.5,"max":0.6,"color":"x"}]}"#;
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn takes_the_top_of_the_activitys_own_zones_first() {
             assert_eq!(
                 resolve_max_hr(Some(ZONED_RIDE), Some(RIDE_185)),
@@ -5166,6 +5184,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn takes_the_default_with_nothing_else() {
             assert_eq!(
                 resolve_max_hr(Some(RIDE), None),
@@ -5179,6 +5198,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn garbage_sources_fall_through_rather_than_fail() {
             assert_eq!(
                 resolve_max_hr(Some("{"), Some("{")),
@@ -5193,6 +5213,7 @@ mod tests {
 
         /// The screen read carries the stored maximum heart rate and its source.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_detail_read_carries_the_maximum_heart_rate_and_its_source() {
             let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
             engine
@@ -5248,6 +5269,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn takes_the_newest_points_and_keeps_them_oldest_first() {
             let got = series_tail(
                 [(1.0, 10.0), (2.0, 20.0), (3.0, 30.0), (4.0, 40.0)],
@@ -5260,6 +5282,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn keeps_everything_when_there_is_less_than_the_cap() {
             let got = series_tail([(1.0, 10.0), (2.0, 20.0)], 10, |p| p);
 
@@ -5267,6 +5290,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn leaves_out_a_point_that_cannot_be_drawn() {
             let got = series_tail(
                 [
@@ -5285,6 +5309,7 @@ mod tests {
         /// The cap is applied after the undrawable ones are dropped, so a
         /// series holding a NaN still fills the strip.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn caps_what_is_left_rather_than_what_arrived() {
             let got = series_tail(
                 [(1.0, 10.0), (f64::NAN, 20.0), (3.0, 30.0), (4.0, 40.0)],
@@ -5296,11 +5321,13 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_cap_of_nothing_carries_nothing() {
             assert!(series_tail([(1.0, 10.0)], 0, |p| p).is_empty());
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_empty_series_is_empty_rather_than_a_point_of_zeroes() {
             let none: [(f64, f64); 0] = [];
             assert!(series_tail(none, 5, |p| p).is_empty());
@@ -5467,6 +5494,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_insights_recent_section_record_keeps_one_row_per_sport() {
         let _serial = crate::test_globals::serial_global_state();
         crate::persistence::read_cache::clear();
@@ -5582,6 +5610,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_insights_ranks_sports_without_pattern_detection() {
         // Ranked sections carry every eligible sport without pattern detection.
         let _serial = crate::test_globals::serial_global_state();
@@ -5816,6 +5845,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_insights_preserve_confirmed_empty_windows() {
         let _serial = crate::test_globals::serial_global_state();
         for empty in 0..3 {
@@ -5906,6 +5936,7 @@ mod tests {
     /// the part of last week it reads is complete, and the chronic comparison
     /// is withheld, since the whole of last week is not.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_insights_in_progress_week_withholds_chronic_while_last_week_is_partial() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("directory");
@@ -5947,6 +5978,7 @@ mod tests {
     /// running week is the last bar, flagged partial and dated where the
     /// comparison says it starts.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_insights_weekly_bars_draw_last_week_whole_and_this_week_so_far() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("directory");
@@ -6000,6 +6032,7 @@ mod tests {
     /// add up to the activities there are, and the chronic baseline holds none
     /// of last week.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_insights_boundary_second_activities_count_in_one_week() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("directory");
@@ -6049,6 +6082,7 @@ mod tests {
     /// Expected behaviour: the second read is served from the section
     /// performances the first one computed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_second_pooled_insights_read_reuses_the_section_performances() {
         use tempfile::TempDir;
 
@@ -6193,12 +6227,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn nothing_to_divide_is_no_comparison() {
         assert!(period_comparison(&period(5, 7_200.0, 320.0), &period(0, 0.0, 0.0), 0.0).is_none());
         assert!(period_comparison(&period(0, 0.0, 0.0), &period(4, 5_000.0, 250.0), 0.0).is_none());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn each_comparison_names_the_start_of_the_week_it_judges() {
         let (week_over_week, week_against_chronic) = period_comparisons(
             &period(5, 7_200.0, 320.0),
@@ -6219,6 +6255,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_week_with_no_activity_gets_no_comparison_but_the_one_before_it_still_does() {
         let (week_over_week, week_against_chronic) = period_comparisons(
             &period(0, 0.0, 0.0),
@@ -6329,6 +6366,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_section_detail_read_skips_nearby_geometry() {
         use tempfile::TempDir;
 
@@ -6466,6 +6504,7 @@ mod tests {
     /// Expected behaviour: the list row's count, the sum of the page's
     /// per-sport counts and the page's sports all agree on the full passes.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_list_count_and_the_page_counts_agree_on_full_traversals() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -6523,6 +6562,7 @@ mod tests {
     /// time: the ride, the hike under its new type, and the walk whose lap can
     /// still be restored.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_list_row_names_the_sports_the_page_offers() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -6659,6 +6699,7 @@ mod tests {
     /// Expected behaviour: the screen read carries an hrv correlation over
     /// twelve pairs, while a variable no row records is absent.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_section_performance_read_carries_wellness_correlations() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -6747,6 +6788,7 @@ mod tests {
     /// Expected behaviour: both examples name the quieter section, because the
     /// busier one shows neither feature. A library of two bare rides names none.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_experimental_examples_name_sections_where_each_feature_shows() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -6881,6 +6923,7 @@ mod tests {
     /// Expected behaviour: neither feature can show on any of them, so no
     /// section is read in full.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_experimental_examples_read_no_section_when_no_feature_can_show() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -6900,6 +6943,7 @@ mod tests {
     /// Expected behaviour: only that section is read in full, the trend names
     /// it, and no correlation is named because no wellness row exists.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_experimental_examples_read_only_the_section_with_heart_rate() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -6932,6 +6976,7 @@ mod tests {
     /// reports a too-few row for it, which the page shows, so the scan's gate
     /// must not ask for the minimum number of pairs.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_correlation_with_too_few_pairs_still_names_its_section() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -6967,6 +7012,7 @@ mod tests {
     /// range and the sport, so the axis does not stretch back to 2024 and a
     /// run is not drawn as a ride. Picking all time brings the old one back.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_excluded_attempts_follow_the_range_and_the_sport() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7007,6 +7053,7 @@ mod tests {
     /// record read only the timed pass. The sport's count is both passes, as
     /// the list shows them.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_untimed_pass_is_listed_as_a_partial_lap() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7065,6 +7112,7 @@ mod tests {
     /// Expected behaviour: the walk keeps a pill, at no laps, so its excluded
     /// lap can be found under it and restored.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sport_with_every_lap_excluded_keeps_its_pill() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7266,6 +7314,7 @@ mod tests {
     /// header counts, with the exclusions the chart applies, so on one month
     /// they read Ride 2 and Run 3, and the header under the Run chip reads 3.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_sport_counts_are_laps_over_the_range() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7331,6 +7380,7 @@ mod tests {
     /// the range, so the sport menu lists all three. A hike older than the
     /// range is not offered.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sport_with_only_untimed_passes_in_range_is_offered() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7385,6 +7435,7 @@ mod tests {
     /// excluded lap, so it is not offered, and with no chip asked the answer is
     /// for the run even when the ride has the most outings.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sport_with_no_lap_in_range_is_not_offered() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7415,6 +7466,7 @@ mod tests {
     /// answers for the sport with the most outings and says so, rather than
     /// ranking the ride against the runs.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn with_no_sport_asked_a_mixed_section_answers_for_its_most_ridden_sport() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7444,6 +7496,7 @@ mod tests {
     /// in the range, so the run (3) opens ahead of the ride (2) and its chip
     /// is the first offered.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn with_no_sport_asked_the_default_is_the_sport_with_most_traversals() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7470,6 +7523,7 @@ mod tests {
     /// A section only one sport has taken answers for that sport, so the
     /// screen formats it in that sport's units without a label to fall back on.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_single_sport_section_names_its_sport() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7504,6 +7558,7 @@ mod tests {
     /// flagged excluded so it keeps its undo, while the records, the stats
     /// and the chart count the other two.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_excluded_lap_stays_in_the_lap_list_flagged() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7560,6 +7615,7 @@ mod tests {
     /// Expected behaviour: the stride happens before the crossing, and produces
     /// the same points the projection would have kept.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_long_track_crosses_at_the_cap_not_at_its_length() {
         let strided = stride_track(track(5_000), 150);
 
@@ -7579,6 +7635,7 @@ mod tests {
     /// A track already under the cap is handed over whole. Striding it would
     /// throw away detail for nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_short_track_is_not_strided() {
         assert_eq!(stride_track(track(100), 150).len(), 100);
         assert_eq!(stride_track(track(150), 150).len(), 150);
@@ -7586,6 +7643,7 @@ mod tests {
 
     /// Zero is a caller asking for no cap, not for no points.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn no_cap_means_the_whole_track() {
         assert_eq!(stride_track(track(5_000), 0).len(), 5_000);
     }
@@ -7593,6 +7651,7 @@ mod tests {
     /// An empty track strides to nothing rather than panicking on its last
     /// index.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_track_strides_to_nothing() {
         assert!(stride_track(Vec::new(), 150).is_empty());
     }
@@ -7603,6 +7662,7 @@ mod tests {
     /// Expected behaviour: the bundle carries them. An athlete with no
     /// wellness gets `None` rather than an empty chart.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_startup_bundle_carries_the_card_sparklines() {
         use tempfile::TempDir;
 
@@ -7646,6 +7706,7 @@ mod tests {
     /// its download until wellness is stored, and says it is loaded once a day
     /// inside the window is, whether or not that day carries an estimate.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_fitness_screen_read_says_whether_the_eftp_window_was_downloaded() {
         use tempfile::TempDir;
 
@@ -7810,6 +7871,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_widget_read_leaves_out_attempts_the_athlete_excluded_from_the_route() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7838,6 +7900,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_widget_read_gives_a_lone_route_member_no_standing_and_falls_back_to_load() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7910,6 +7973,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_widget_read_has_no_typical_load_when_nothing_of_that_sport_came_before() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7928,6 +7992,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_widget_read_counts_the_sections_the_latest_activity_set_a_record_on() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7996,6 +8061,7 @@ mod tests {
     /// carry the intervals.icu id a web link may name, and none for the demo
     /// ride or the unanswered recording.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_screen_reads_carry_the_id_a_web_link_may_name() {
         let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
         let points = vec![
@@ -8111,6 +8177,7 @@ mod tests {
     /// lengths, says owed and none for the other two, carries nothing for the
     /// ride, and the engine's path and the pooled reader answer the same.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activity_detail_carries_a_pool_swims_lengths_on_both_paths() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -8173,6 +8240,7 @@ mod tests {
     /// set does not, and the map screen reports the library count rather than
     /// a count of its own.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn library_count_includes_activities_without_gps_and_the_map_reads_it() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -8204,6 +8272,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn engine_stats_library_count_includes_activities_without_gps() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -8224,6 +8293,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_map_screen_counts_demo_metrics_before_gps_arrives() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -8250,6 +8320,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_map_sport_filter_uses_current_metrics_sport() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -8280,6 +8351,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_map_screen_filters_distance_edges_and_counts_unfiltered_window() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -8431,6 +8503,7 @@ mod tests {
     /// Expected behaviour: the activity, route and section detail reads count
     /// the metrics rows, including the activity without GPS.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_detail_reads_count_metrics_rows_without_gps() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -8461,6 +8534,7 @@ mod tests {
     ///
     /// Expected behaviour: its best is still there.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_route_detail_opened_from_the_list_has_a_best() {
         use tempfile::TempDir;
 
@@ -8503,6 +8577,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_route_detail_draws_stored_representative_after_reference_change() {
         use tempfile::TempDir;
 
@@ -8542,6 +8617,7 @@ mod tests {
 
     /// A route id nobody has returns an empty detail bundle.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_pooled_route_detail_is_empty_for_a_route_that_is_not_there() {
         use tempfile::TempDir;
 
@@ -8571,6 +8647,7 @@ mod tests {
     /// Expected behaviour: the activity read carries the representative's
     /// stored signature, and nothing for an activity in no route.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_activity_detail_carries_its_routes_representative_signature() {
         use tempfile::TempDir;
 
@@ -8615,6 +8692,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_activity_encounters_carry_the_corridor_name() {
         use tempfile::TempDir;
 
@@ -8645,6 +8723,7 @@ mod tests {
     /// Expected behaviour: each change row carries the name the athlete is
     /// shown for its section, so the feed needs no catalogue read to label it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_insights_section_changes_carry_the_name_shown_for_the_section() {
         let _serial = crate::test_globals::serial_global_state();
         let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
@@ -8725,6 +8804,7 @@ mod tests {
     /// Expected behaviour: the activity screen read carries the change with its
     /// section.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_activity_screen_carries_the_changes_that_name_it() {
         use tempfile::TempDir;
 
@@ -8760,6 +8840,7 @@ mod tests {
     /// Expected behaviour: the record says `custom` on the routes page and on
     /// the activity screen.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_drawn_section_reads_as_custom_on_the_routes_and_activity_screens() {
         use tempfile::TempDir;
 
@@ -8920,6 +9001,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn launch_data_reports_the_held_window_not_the_oldest_stored_ride() {
         let _serial = crate::test_globals::serial_global_state();
         let default = (chrono::Local::now().date_naive() - chrono::Duration::days(90)).to_string();
@@ -8960,6 +9042,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn launch_data_window_is_the_default_without_an_athlete_or_a_library() {
         let _serial = crate::test_globals::serial_global_state();
         let default = (chrono::Local::now().date_naive() - chrono::Duration::days(90)).to_string();
@@ -8988,6 +9071,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_holds_a_record_by_a_section_pr_or_a_route_highlight_only() {
         use super::pooled::holds_a_record;
 

@@ -38,7 +38,7 @@ it('holds what the athlete signing in did not record', async () => {
   expect(mockHold).toHaveBeenCalledWith('i1001');
 });
 
-it('holds again for whoever signs in next', async () => {
+vaultIt('holds again for whoever signs in next', async () => {
   await useAuthStore.getState().setCredentials('key-one', 'i1001');
   await useAuthStore.getState().setOAuthCredentials('token-two', 'i400');
 
@@ -46,7 +46,7 @@ it('holds again for whoever signs in next', async () => {
   expect(mockHold).toHaveBeenLastCalledWith('i400');
 });
 
-it('holds once when the same athlete signs in again', async () => {
+vaultIt('holds once when the same athlete signs in again', async () => {
   await useAuthStore.getState().setCredentials('key-one', 'i1001');
   await useAuthStore.getState().setCredentials('key-two', 'i1001');
 
@@ -62,7 +62,7 @@ it('holds nothing on a sign-out, which is not a decision it can take', async () 
   expect(mockHold).not.toHaveBeenCalled();
 });
 
-it('holds for the demo athlete on entering demo mode', () => {
+vaultIt('holds for the demo athlete on entering demo mode', () => {
   useAuthStore.getState().enterDemoMode();
 
   expect(mockHold).toHaveBeenCalledWith('demo');

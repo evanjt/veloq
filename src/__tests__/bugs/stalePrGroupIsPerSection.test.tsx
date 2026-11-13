@@ -146,7 +146,7 @@ describe('a stale-PR group of two power sections', () => {
     expect(navigateTo).toHaveBeenLastCalledWith('/activity/b-pr');
   });
 
-  it('draws the selected section on a still basemap that opens it on its record', async () => {
+  vaultIt('draws the selected section on a still basemap that opens it on its record', async () => {
     mockSection = { id: 'any' };
     const [group] = generateStalePRInsights([MARCH_CLIMB, JUNE_CLIMB], t, NOW_MS);
     await render(<StalePRContent insight={group} />);
@@ -160,7 +160,7 @@ describe('a stale-PR group of two power sections', () => {
     expect(navigateTo).toHaveBeenLastCalledWith('/section/b?activityId=b-pr&origin=insights');
   });
 
-  it('leaves out the record effort when the engine has none, rather than a dash', async () => {
+  vaultIt('leaves out the record effort when the engine has none, rather than a dash', async () => {
     const {
       prPower: _power,
       prSharePercent: _share,

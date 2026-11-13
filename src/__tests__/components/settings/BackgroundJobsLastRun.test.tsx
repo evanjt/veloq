@@ -105,7 +105,7 @@ describe('background jobs last run', () => {
     expect(tree.queryByTestId('background-job-cutover')).toBeNull();
   });
 
-  it('tells a screen reader whether the list is open', async () => {
+  vaultIt('tells a screen reader whether the list is open', async () => {
     runs = [run('detection', { handled: 4 })];
     const tree = await render(<BackgroundJobsActivityBar />);
     const toggle = () => tree.getByTestId('background-jobs-activity-toggle');
@@ -117,7 +117,7 @@ describe('background jobs last run', () => {
     expect(toggle().props.accessibilityState).toMatchObject({ expanded: false });
   });
 
-  it('opens past runs from a disclosure header carrying the count, not a button', async () => {
+  vaultIt('opens past runs from a disclosure header carrying the count, not a button', async () => {
     runs = [run('detection', { handled: 4 })];
     const tree = await render(<BackgroundJobsActivityBar />);
     const toggle = tree.getByTestId('background-jobs-activity-toggle');
@@ -126,7 +126,7 @@ describe('background jobs last run', () => {
     expect(toggle.props.accessibilityLabel).toBe('Past runs, 1');
   });
 
-  it('says no change when a complete run changed nothing', async () => {
+  vaultIt('says no change when a complete run changed nothing', async () => {
     runs = [run('streamBackfill', { handled: 12 })];
     const tree = await render(<BackgroundJobsActivityBar />);
 
@@ -149,13 +149,13 @@ describe('background jobs last run', () => {
     expect(line).not.toContain('No change');
   });
 
-  it('says all jobs are done when no job has run and nothing is owed', async () => {
+  vaultIt('says all jobs are done when no job has run and nothing is owed', async () => {
     const tree = await render(<BackgroundJobsActivityBar />);
     expect(tree.getByTestId('background-jobs-empty')).toBeTruthy();
     expect(tree.queryByTestId('background-jobs-activity-toggle')).toBeNull();
   });
 
-  it('reads the screen read again when detection applies, and never on the tick', async () => {
+  vaultIt('reads the screen read again when detection applies, and never on the tick', async () => {
     const tree = await render(<BackgroundJobsActivityBar />);
     expect(tree.queryByTestId('background-jobs-activity-toggle')).toBeNull();
     const afterMount = screenReads;
@@ -173,7 +173,7 @@ describe('background jobs last run', () => {
     expect(tree.getByTestId('background-job-detection-last-run').props.children).toContain('2 new');
   });
 
-  it.each(['activities', 'backfillPhase', 'streamBackfillPhase', 'cutoverSettled'])(
+  vaultIt.each(['activities', 'backfillPhase', 'streamBackfillPhase', 'cutoverSettled'])(
     'reads the screen read again on %s',
     async (channel) => {
       await render(<BackgroundJobsActivityBar />);

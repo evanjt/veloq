@@ -8,7 +8,7 @@ describe('taskRunLog', () => {
     jest.restoreAllMocks();
   });
 
-  it('appends and reads entries with timestamps', async () => {
+  vaultIt('appends and reads entries with timestamps', async () => {
     await appendTaskRun({ stage: 'fired' });
     await appendTaskRun({ stage: 'parsed', eventType: 'ACTIVITY_UPLOADED', activityId: 'a1' });
 
@@ -19,7 +19,7 @@ describe('taskRunLog', () => {
     expect(typeof runs[0].ts).toBe('number');
   });
 
-  it('trims to the 20 most recent entries', async () => {
+  vaultIt('trims to the 20 most recent entries', async () => {
     for (let i = 0; i < 25; i++) {
       await appendTaskRun({ stage: 'fired', detail: `run ${i}` });
     }
@@ -29,7 +29,7 @@ describe('taskRunLog', () => {
     expect(runs[19].detail).toBe('run 24');
   });
 
-  it('clears the log', async () => {
+  vaultIt('clears the log', async () => {
     await appendTaskRun({ stage: 'fired' });
     await clearTaskRuns();
     expect(await readTaskRuns()).toEqual([]);
@@ -40,7 +40,7 @@ describe('taskRunLog', () => {
     expect(await readTaskRuns()).toEqual([]);
   });
 
-  it('filters malformed entries on read', async () => {
+  vaultIt('filters malformed entries on read', async () => {
     await AsyncStorage.setItem(
       'veloq-insight-task-runs',
       JSON.stringify([{ ts: 1, stage: 'fired' }, { bad: true }, null, 'junk'])

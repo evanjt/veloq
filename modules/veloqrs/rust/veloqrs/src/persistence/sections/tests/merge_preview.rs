@@ -62,6 +62,7 @@ fn pair() -> (PersistentEngine, Connection, tempfile::TempDir) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pooled_read_names_the_donor_rides_the_engine_method_names() {
     let (engine, reader, _tmp) = pair();
 

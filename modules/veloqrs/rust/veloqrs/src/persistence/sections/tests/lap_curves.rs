@@ -448,6 +448,7 @@ fn a_reference_with_no_full_lap_falls_back_to_the_record() {
 /// Expected behaviour: there is nothing to compare, so that direction is
 /// `None`, and with neither direction holding a comparison so is the whole.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_direction_holding_only_its_reference_has_no_deltas() {
     let alone = [Lap::new(
         "steady",
@@ -546,6 +547,7 @@ fn long_route_curves(attempts: usize) -> crate::FfiSectionLapCurves {
 /// copying them, so the filter allocates under a tenth of the bytes the
 /// curves lower to.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_range_over_held_curves_shares_them_rather_than_copying() {
     let held = long_route_curves(50);
     let lowered: usize = held
@@ -689,6 +691,7 @@ fn a_direction_carries_the_typical_lap_per_split_without_the_record() {
 /// Expected behaviour: the split under five laps has no median while the two
 /// covered by five do.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_split_under_five_laps_has_no_typical_lap() {
     let mut laps = record_and_laps(6);
     laps.remove(1);
@@ -702,6 +705,7 @@ fn a_split_under_five_laps_has_no_typical_lap() {
 /// Expected behaviour: no split reaches five laps, so neither carries a
 /// summary.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_direction_under_five_laps_carries_no_summary() {
     assert!(summary_of(record_and_laps(4)).is_none());
     let computed = curves_of(&reference_and_fading(), None).expect("curves");
@@ -726,6 +730,7 @@ fn eight_laps_give_a_split_its_quartiles() {
 /// Expected behaviour: the summary follows the range, so the kept laps are
 /// too few for one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_range_carries_the_summary_of_the_laps_it_keeps() {
     let held = crate::FfiSectionLapCurves {
         grid_step_m: SPLIT_STEP_M,
@@ -901,6 +906,7 @@ fn long_out_and_back(d: f64) -> GpsPoint {
 /// The computation allocates a bounded number of times per attempt, and no
 /// more bytes than a small multiple of the tracks and streams it is handed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn projecting_a_long_route_allocates_per_attempt_not_per_sample() {
     const ATTEMPTS: usize = 50;
     let line: Vec<GpsPoint> = (0..=4_000)
@@ -1140,6 +1146,7 @@ mod stored {
     /// attempt leads while the set row is newest and the record after the
     /// reset.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_newest_reference_row_in_the_ledger_names_the_reference() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -1189,6 +1196,7 @@ mod stored {
     /// Expected behaviour: the curves are computed once, decoding each
     /// activity's track and stream once, and each range filters that set.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn three_ranges_compute_the_curves_once() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -1404,6 +1412,7 @@ mod stored {
     /// nothing owed and computes nothing more; after the write they are owed
     /// again. The section read never leaves its curves owed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_route_screen_read_serves_its_curves_only_once_loaded() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -1456,6 +1465,7 @@ mod stored {
     /// screen's read then serves them with nothing owed and decodes nothing
     /// more; after the write they are owed again.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_section_screen_read_serves_its_curves_only_once_loaded() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -1520,6 +1530,7 @@ mod stored {
     /// Expected behaviour: the detail read names that attempt, so the screen
     /// fetches its stream before the curves can draw it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_route_detail_read_names_the_attempts_missing_a_stream() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -1733,6 +1744,7 @@ fn a_direction_carries_the_typical_lap_at_every_point() {
 ///
 /// Expected behaviour: that point has no typical lap and the others do.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_point_under_five_laps_has_no_typical_lap() {
     let mut laps = record_and_laps(6);
     laps.remove(1);

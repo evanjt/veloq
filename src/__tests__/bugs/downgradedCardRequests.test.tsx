@@ -114,7 +114,7 @@ describe('a card holding a stand-in serves it and still asks for the real one', 
     );
   });
 
-  it('keeps the stand-in on screen while it asks', async () => {
+  vaultIt('keeps the stand-in on screen while it asks', async () => {
     const { tree } = await renderCard();
 
     expect(tree.getByTestId('activity-map-preview-ready-demo-1')).toBeTruthy();

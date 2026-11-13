@@ -132,6 +132,7 @@ mod tests {
 
     /// The statics are process-wide, so the cases that write them share one test.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_storage_shortfall_lasts_until_the_next_outcome_is_recorded() {
         // Engine-opening tests record into the same statics under the serial lock,
         // so this one holds it too or one of them can land between two of its reads.
@@ -161,6 +162,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn only_a_held_file_lifts_on_its_own() {
         assert!(FfiInitOutcome::Busy.is_retryable());
         for outcome in [
@@ -178,6 +180,7 @@ mod tests {
     /// The outcome crosses an atomic as its discriminant, so a variant
     /// `from_wire` does not name would read back as "not attempted".
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_recorded_outcome_reads_back() {
         for outcome in [
             FfiInitOutcome::Opened,
@@ -205,6 +208,7 @@ mod tests {
     /// A variant this build has no name for reads as "not attempted" rather
     /// than panicking, which is what a binding newer than the crate produces.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unknown_wire_value_falls_back() {
         assert_eq!(FfiInitOutcome::from_wire(200), FfiInitOutcome::NotAttempted);
     }

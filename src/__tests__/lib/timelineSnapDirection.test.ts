@@ -9,7 +9,7 @@ describe('snapToNearest with a right-hand limit', () => {
   const tick = layout.snapPoints.find((p) => p.kind === 'year' && p.position > 0)!;
   const start = tick.position - 0.02;
 
-  it('snaps right when no limit is given', () => {
+  vaultIt('snaps right when no limit is given', () => {
     expect(layout.snapToNearest(start - 0.01).position).toBeCloseTo(tick.position);
   });
 

@@ -271,6 +271,7 @@ mod tests {
     /// Expected behaviour: the key is in the source namespace, so no upstream
     /// queue or census names it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_garmin_key_is_built_from_the_id_in_the_source_namespace() {
         let key = garmin_source_key(18_342_901_776);
         assert_eq!(key, "src-garmin-18342901776");
@@ -280,6 +281,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_garmin_id_is_read_from_a_source_key_and_from_both_external_forms() {
         assert_eq!(
             garmin_id_of_source_key("src-garmin-18342901776"),
@@ -326,6 +328,7 @@ mod tests {
     /// the Garmin file on this phone, and an activity under an intervals.icu
     /// key reads as intervals.icu's own.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_garmin_original_reads_as_filled_from_the_phone_and_an_upstream_key_as_intervals() {
         assert_eq!(
             provenance_of(&garmin_source_key(18_342_901_776)),

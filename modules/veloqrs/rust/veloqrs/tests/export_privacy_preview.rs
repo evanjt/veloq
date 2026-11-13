@@ -74,6 +74,7 @@ fn the_preview_counts_only_the_rides_the_radius_reaches() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn widening_the_radius_reaches_more_rides() {
     let dir = TempDir::new().unwrap();
     let engine = three_rides(&dir);
@@ -126,6 +127,7 @@ fn a_ride_that_never_leaves_the_radius_is_counted_as_dropped() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_with_no_signature_counts_in_the_denominator_only() {
     let dir = TempDir::new().unwrap();
     let mut engine = three_rides(&dir);
@@ -142,6 +144,7 @@ fn a_track_with_no_signature_counts_in_the_denominator_only() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_library_previews_zeroes_rather_than_failing() {
     let dir = TempDir::new().unwrap();
     let engine = engine(&dir);

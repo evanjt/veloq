@@ -88,6 +88,7 @@ mod tests {
     use crate::test_globals::serial_global_state;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn nothing_pushed_reads_as_idle() {
         let _serial = serial_global_state();
         reset();
@@ -97,6 +98,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_interacting_push_lengthens_the_gap_and_an_idle_push_ends_it() {
         let _serial = serial_global_state();
         reset();
@@ -114,6 +116,7 @@ mod tests {
     /// The last push wins. Two interacting pushes in a row must not outlive
     /// the idle that follows them.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_last_push_is_the_one_that_counts() {
         let _serial = serial_global_state();
         reset();
@@ -129,6 +132,7 @@ mod tests {
     /// Expiry can only shorten the gap. A lost idle must not hold a pass at
     /// the slow rate for ever.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_interacting_nobody_refreshed_expires_back_to_idle() {
         let _serial = serial_global_state();
         reset();
@@ -146,6 +150,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pause_while_interacting_waits_at_least_the_gap() {
         let _serial = serial_global_state();
         reset();

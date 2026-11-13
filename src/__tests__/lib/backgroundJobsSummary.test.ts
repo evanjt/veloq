@@ -30,14 +30,14 @@ const failedRun = {
 };
 
 describe('summariseBackgroundJobs', () => {
-  it('is idle with no jobs and with only resting ones', () => {
+  vaultIt('is idle with no jobs and with only resting ones', () => {
     expect(summariseBackgroundJobs([])).toEqual({ kind: 'idle', count: 0 });
     expect(
       summariseBackgroundJobs([job('detection'), job('streamBackfill', { state: 'complete' })])
     ).toEqual({ kind: 'idle', count: 0 });
   });
 
-  it('counts the running jobs', () => {
+  vaultIt('counts the running jobs', () => {
     expect(
       summariseBackgroundJobs([
         job('detection', { state: 'running' }),
@@ -68,7 +68,7 @@ describe('summariseBackgroundJobs', () => {
     ).toEqual({ kind: 'idle', count: 0 });
   });
 
-  it('reports the earliest resume time of the waiting jobs', () => {
+  vaultIt('reports the earliest resume time of the waiting jobs', () => {
     expect(
       summariseBackgroundJobs([
         job('elevationBackfill', { state: 'waiting', resumesAt: 9000 }),
@@ -82,7 +82,7 @@ describe('summariseBackgroundJobs', () => {
     });
   });
 
-  it('ranks running above failed above waiting above idle', () => {
+  vaultIt('ranks running above failed above waiting above idle', () => {
     const failed = job('detection', { lastRun: failedRun });
     const waiting = job('streamBackfill', { state: 'waiting' });
     const running = job('cutover', { state: 'running' });

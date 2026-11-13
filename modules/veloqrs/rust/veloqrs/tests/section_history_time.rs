@@ -16,6 +16,7 @@ fn open() -> (TempDir, PersistentEngine) {
 
 /// A backdated row lands at the time it was given, not at the clock.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn backdated_event_keeps_its_time() {
     let (_dir, mut engine) = open();
 
@@ -31,6 +32,7 @@ fn backdated_event_keeps_its_time() {
 
 /// A live event still stamps the clock, so the backdating path is additive.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn live_event_stamps_now() {
     let (_dir, mut engine) = open();
 

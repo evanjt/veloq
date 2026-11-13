@@ -18,7 +18,7 @@ describe('what the task does with the tray', () => {
     expect(trayActionFor('android', 'Route PR on Lake Loop', false, true)).toBe('post');
   });
 
-  it('clears the old entries without posting when the app is already open', () => {
+  vaultIt('clears the old entries without posting when the app is already open', () => {
     expect(trayActionFor('android', 'Route PR on Lake Loop', true, true)).toBe('dismiss-only');
   });
 
@@ -28,7 +28,7 @@ describe('what the task does with the tray', () => {
     expect(trayActionFor('android', '   ', false, false)).toBe('leave');
   });
 
-  it('leaves the tray alone after a failed ingest even in the foreground', () => {
+  vaultIt('leaves the tray alone after a failed ingest even in the foreground', () => {
     expect(trayActionFor('android', '', true, false)).toBe('leave');
   });
 

@@ -117,7 +117,7 @@ describe('concluding a conflicted merge with git commit', () => {
     expect(runGit(['log', '-1', '--format=%P'], root).trim().split(' ')).toHaveLength(2);
   });
 
-  it('leaves an ordinary commit on the pre-commit battery alone', () => {
+  vaultIt('leaves an ordinary commit on the pre-commit battery alone', () => {
     const { root, ran, bin } = repoWithRealHook();
     write(root, 'shared.txt', 'edited\n');
     runGit(['add', 'shared.txt'], root);

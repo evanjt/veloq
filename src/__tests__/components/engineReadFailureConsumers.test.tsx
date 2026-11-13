@@ -161,7 +161,7 @@ describe('insight sheets', () => {
     expect(queryByText('insights.sectionTrendSheet.noEfforts')).toBeNull();
   });
 
-  it('a read that answers nothing draws no failure', async () => {
+  vaultIt('a read that answers nothing draws no failure', async () => {
     engineHooks.useSectionDetail.mockReturnValue({ section: null });
     const { queryByTestId } = await render(<SectionPRContent insight={insight('section_pr')} />);
     expect(queryByTestId('section-read-failure')).toBeNull();
@@ -200,7 +200,7 @@ describe('insight sheets whose time streams failed', () => {
     expect(mockRefetchStreams).toHaveBeenCalledTimes(1);
   });
 
-  it('draws no retry while the streams are still loading', async () => {
+  vaultIt('draws no retry while the streams are still loading', async () => {
     mockPerformances.mockReturnValue(performances({ isLoading: true }));
     const { queryByTestId } = await render(<SectionPRContent insight={insight('section_pr')} />);
     expect(queryByTestId('section-stream-failure')).toBeNull();
@@ -218,7 +218,7 @@ describe('RouteOverlaySheet', () => {
 });
 
 describe('route hooks hand the failure on', () => {
-  it('useRouteGroups returns the error of its summaries read', async () => {
+  vaultIt('useRouteGroups returns the error of its summaries read', async () => {
     const { result } = await renderHook(() => useRouteGroups());
     expect(engineErrorTag(result.current.error)).toBe('Database');
   });

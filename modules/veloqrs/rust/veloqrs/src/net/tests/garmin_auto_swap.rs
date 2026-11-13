@@ -100,6 +100,7 @@ fn run_with(store: &Store, answers: &[(&str, FfiSwapOutcome)]) -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_switch_that_is_off_swaps_nothing() {
     for value in [None, Some("false"), Some("true"), Some("")] {
         let store = Store::new(value, vec![("i1", "2026-10-26T10:00:00Z")]);
@@ -145,6 +146,7 @@ fn a_ride_imported_over_forty_eight_hours_ago_is_left_alone() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_with_no_readable_import_time_is_left_alone() {
     let store = Store::new(
         Some("2026-10-20T00:00:00Z"),
@@ -170,6 +172,7 @@ fn a_mismatch_turns_the_switch_off_and_stops_the_pass() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refusal_turns_the_switch_off() {
     for outcome in [
         FfiSwapOutcome::Refused,
@@ -190,6 +193,7 @@ fn a_refusal_turns_the_switch_off() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_that_could_not_be_tried_is_tried_again_by_the_next_pass() {
     for outcome in [FfiSwapOutcome::Failed, FfiSwapOutcome::GarminUnavailable] {
         let store = Store::new(
@@ -209,6 +213,7 @@ fn a_ride_that_could_not_be_tried_is_tried_again_by_the_next_pass() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_that_is_not_an_exact_import_or_holds_nothing_more_is_not_asked_again() {
     for outcome in [FfiSwapOutcome::NotEligible, FfiSwapOutcome::Unchanged] {
         let store = Store::new(
@@ -221,6 +226,7 @@ fn a_ride_that_is_not_an_exact_import_or_holds_nothing_more_is_not_asked_again()
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn rides_that_left_the_window_are_forgotten() {
     let mut store = Store::new(
         Some("2026-10-20T00:00:00Z"),
@@ -234,6 +240,7 @@ fn rides_that_left_the_window_are_forgotten() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_switch_value_is_the_moment_it_was_turned_on_and_false_is_off() {
     assert_eq!(
         switched_on_since("2026-10-26T09:00:00Z"),
@@ -243,6 +250,7 @@ fn the_switch_value_is_the_moment_it_was_turned_on_and_false_is_off() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stub_with_no_created_time_is_swapped_by_its_start_within_the_window() {
     let conn = census(&[
         ("stub", None, Some("2026-10-26T10:00:00"), GARMIN_BODY),
@@ -259,6 +267,7 @@ fn a_stub_with_no_created_time_is_swapped_by_its_start_within_the_window() {
 /// Expected behaviour: a setting written reads back, and an empty library
 /// has no imports to swap.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_install_store_keeps_settings_and_lists_no_imports_from_an_empty_library() {
     let _serial = crate::test_globals::serial_global_state();
     let _dir = crate::test_globals::init_global_engine("auto_swap_store.db");
@@ -277,6 +286,7 @@ fn the_install_store_keeps_settings_and_lists_no_imports_from_an_empty_library()
 /// Expected behaviour: a pass whose switch is off starts nothing and leaves
 /// the pass free to start later.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_with_the_switch_off_does_not_start() {
     let _serial = crate::test_globals::serial_global_state();
     let _dir = crate::test_globals::init_global_engine("auto_swap_off.db");
@@ -325,6 +335,7 @@ fn a_garmin_import_is_found_behind_two_hundred_newer_rows_of_another_source() {
 /// Expected behaviour: every Garmin import in the window is returned, so the
 /// older one is not dropped by a row limit.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_garmin_import_is_found_behind_two_hundred_newer_garmin_imports() {
     let conn = census(&[(
         "garmin-ride",
@@ -360,6 +371,7 @@ fn a_garmin_import_is_found_behind_two_hundred_newer_garmin_imports() {
 /// Expected behaviour: the window is judged on the instant, so only the ride at
 /// or after its start is returned, and the text of the two stamps is not compared.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_window_is_judged_on_the_instant_across_offset_and_utc_stamps() {
     let conn = census(&[
         (
@@ -387,6 +399,7 @@ fn the_window_is_judged_on_the_instant_across_offset_and_utc_stamps() {
 /// latch, and once the panicking pass has unwound the latch is free for the
 /// next start.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_that_panics_frees_the_latch_for_the_next_start() {
     static LATCH: AtomicBool = AtomicBool::new(false);
     let (release, held) = std::sync::mpsc::channel::<()>();

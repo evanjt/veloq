@@ -22,7 +22,7 @@ describe('createPendingRequests', () => {
     expect(pending.size()).toBe(0);
   });
 
-  it('gives every request a distinct id', () => {
+  vaultIt('gives every request a distinct id', () => {
     const pending = createPendingRequests();
     const sent: string[] = [];
     pending.open<number[]>([], (id) => sent.push(id));
@@ -56,7 +56,7 @@ describe('createPendingRequests', () => {
     await expect(answer).resolves.toEqual([]);
   });
 
-  it('ignores an answer to an id it never issued', () => {
+  vaultIt('ignores an answer to an id it never issued', () => {
     const pending = createPendingRequests();
     expect(() => pending.settle('req_never', [1])).not.toThrow();
   });

@@ -63,6 +63,7 @@ fn an_auto_section_the_custom_one_covers_is_returned() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_auto_section_far_away_is_not_returned() {
     let mut s = setup();
     create(&mut s.engine, line(47.5, 9.0, 20), false);
@@ -80,6 +81,7 @@ fn an_auto_section_far_away_is_not_returned() {
 /// little of it and must supersede nothing, while the same pair read the other
 /// way round would be fully covered and pass.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_short_custom_cut_does_not_supersede_the_long_auto_section() {
     let mut s = setup();
     create(&mut s.engine, line(46.0, 7.0, 40), false);
@@ -93,6 +95,7 @@ fn a_short_custom_cut_does_not_supersede_the_long_auto_section() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_id_that_resolves_to_no_line_returns_nothing() {
     let mut s = setup();
     create(&mut s.engine, line(46.0, 7.0, 20), false);
@@ -120,6 +123,7 @@ fn an_already_superseded_auto_section_is_not_returned_again() {
 
 /// Every auto section in range is answered by the one call, not just the first.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn each_covered_auto_section_comes_back_from_the_one_call() {
     let mut s = setup();
     let a = create(&mut s.engine, line(46.0, 7.0, 20), false);
@@ -140,6 +144,7 @@ fn each_covered_auto_section_comes_back_from_the_one_call() {
 /// inside the threshold. ~33 m east of the custom line, under the 50 m
 /// tolerance, so every point still matches.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_auto_section_offset_within_the_threshold_is_still_superseded() {
     let mut s = setup();
     let auto = create(&mut s.engine, line(46.0, 7.000_43, 20), false);

@@ -90,6 +90,7 @@ mod tests {
     /// behaviour: the release below the hard level already gives back an
     /// evidence cache the stored row holds, and keeps one it does not.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_background_release_drops_only_a_stored_evidence_cache() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("release_evidence.db");

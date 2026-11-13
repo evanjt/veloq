@@ -149,7 +149,7 @@ it('says a rate-limited sync is waiting, with nothing to press', async () => {
   expect(screen.queryByText('common.retry')).toBeNull();
 });
 
-it('says a paused sync resumes', async () => {
+vaultIt('says a paused sync resumes', async () => {
   await renderFeedAfterSync(SyncState.Paused, null);
 
   expect(screen.getByText('feed.emptyLibrary.pausedTitle')).toBeTruthy();
@@ -166,7 +166,7 @@ it('tells an account with no activities where they come from and offers to recor
   expect(navigateTo).toHaveBeenCalledWith('/record');
 });
 
-it('names Garmin, not intervals.icu, as where a Garmin library comes from', async () => {
+vaultIt('names Garmin, not intervals.icu, as where a Garmin library comes from', async () => {
   useAuthStore.setState({ authMethod: 'garmin' });
   await renderFeedAfterSync(SyncState.Idle, null);
 

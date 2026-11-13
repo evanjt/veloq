@@ -40,20 +40,20 @@ describe('RemoteLinkHeaderItem', () => {
     setStatus(0, 0, 0);
   });
 
-  it('shows nothing while the remote link is switched off', () => {
+  vaultIt('shows nothing while the remote link is switched off', () => {
     useDebugStore.setState({ experimentalFeatures: {} });
     setStatus(1, 1, 1);
     const tree = render(<RemoteLinkHeaderItem />);
     expect(tree.queryByTestId('remote-link-header-item')).toBeNull();
   });
 
-  it('shows nothing while no browser is linked', () => {
+  vaultIt('shows nothing while no browser is linked', () => {
     setStatus(0, 0, 0);
     const tree = render(<RemoteLinkHeaderItem />);
     expect(tree.queryByTestId('remote-link-header-item')).toBeNull();
   });
 
-  it('shows a connected dot while a linked browser is connected', () => {
+  vaultIt('shows a connected dot while a linked browser is connected', () => {
     setStatus(1, 1, 1);
     const tree = render(<RemoteLinkHeaderItem />);
     expect(tree.getByLabelText('A linked browser is connected')).toBeTruthy();
@@ -62,14 +62,14 @@ describe('RemoteLinkHeaderItem', () => {
     expect(tree.queryByTestId('remote-link-header-unreachable')).toBeNull();
   });
 
-  it('shows a waiting dot while the phone is in a room and no browser has connected', () => {
+  vaultIt('shows a waiting dot while the phone is in a room and no browser has connected', () => {
     setStatus(0, 2, 2);
     const tree = render(<RemoteLinkHeaderItem />);
     expect(tree.getByLabelText('Waiting for a linked browser to connect')).toBeTruthy();
     expect(tree.getByTestId('remote-link-header-waiting')).toBeTruthy();
   });
 
-  it('shows an unreachable dot when no room is open on the relay', () => {
+  vaultIt('shows an unreachable dot when no room is open on the relay', () => {
     setStatus(0, 1, 0);
     const tree = render(<RemoteLinkHeaderItem />);
     expect(tree.getByLabelText('A linked browser cannot be reached')).toBeTruthy();

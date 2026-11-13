@@ -72,7 +72,7 @@ beforeEach(() => {
 });
 
 describe('getAppStorageSize', () => {
-  it('sums the four buckets that know their own size', async () => {
+  vaultIt('sums the four buckets that know their own size', async () => {
     mockHeatmapSize.mockResolvedValue(100);
     mockBasemapSize.mockResolvedValue(200);
     mockTerrainSize.mockResolvedValue(10);
@@ -138,7 +138,7 @@ describe('getAppStorageSize', () => {
     );
   });
 
-  it('never walks the tile trees', async () => {
+  vaultIt('never walks the tile trees', async () => {
     // Both trees exist and hold a tile, which is what the walk used to
     // recurse into one getInfoAsync at a time.
     const tree: Record<string, string[]> = {
@@ -175,7 +175,7 @@ describe('getAppStorageSize against the platform figure', () => {
     Platform.OS = originalOS;
   });
 
-  it('reports the platform data plus cache on Android, not the bucket sum', async () => {
+  vaultIt('reports the platform data plus cache on Android, not the bucket sum', async () => {
     Platform.OS = 'android';
     mockHeatmapSize.mockResolvedValue(41_700_000);
     mockBasemapSize.mockResolvedValue(52_400_000);
@@ -194,7 +194,7 @@ describe('getAppStorageSize against the platform figure', () => {
     expect(await getAppStorageSize()).toBe(300);
   });
 
-  it('falls back to the bucket sum when the module is missing', async () => {
+  vaultIt('falls back to the bucket sum when the module is missing', async () => {
     Platform.OS = 'android';
     mockHeatmapSize.mockResolvedValue(100);
     mockPlatformStats.mockResolvedValue(null);
@@ -202,7 +202,7 @@ describe('getAppStorageSize against the platform figure', () => {
     expect(await getAppStorageSize()).toBe(100);
   });
 
-  it('does not ask the platform on iOS', async () => {
+  vaultIt('does not ask the platform on iOS', async () => {
     Platform.OS = 'ios';
     mockHeatmapSize.mockResolvedValue(100);
     mockPlatformStats.mockResolvedValue({ dataBytes: 9_000, cacheBytes: 9_000 });

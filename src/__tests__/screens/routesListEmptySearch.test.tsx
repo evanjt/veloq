@@ -43,15 +43,18 @@ function renderList(props: {
 }
 
 describe('RoutesList with an empty page', () => {
-  it('keeps the search box and says nothing matched when a search finds no routes', async () => {
-    await renderList({ searchQuery: 'zzz', totalGroupCount: 42 });
-    expect(screen.getByPlaceholderText('routes.searchRoutes')).toBeTruthy();
-    expect(screen.getByTestId('empty-state-title').props.children).toMatch(
-      /^routes\.noRoutesFor:.*common\.quoted.*zzz/
-    );
-    expect(screen.queryByText('routes.routesWithTwoPlus')).toBeNull();
-    expect(screen.queryByText('routes.noRoutesYet')).toBeNull();
-  });
+  vaultIt(
+    'keeps the search box and says nothing matched when a search finds no routes',
+    async () => {
+      await renderList({ searchQuery: 'zzz', totalGroupCount: 42 });
+      expect(screen.getByPlaceholderText('routes.searchRoutes')).toBeTruthy();
+      expect(screen.getByTestId('empty-state-title').props.children).toMatch(
+        /^routes\.noRoutesFor:.*common\.quoted.*zzz/
+      );
+      expect(screen.queryByText('routes.routesWithTwoPlus')).toBeNull();
+      expect(screen.queryByText('routes.noRoutesYet')).toBeNull();
+    }
+  );
 
   it('names the sport that emptied the list and clears every filter in one tap', async () => {
     const onClearFilters = jest.fn();
@@ -62,7 +65,7 @@ describe('RoutesList with an empty page', () => {
     expect(onClearFilters).toHaveBeenCalledTimes(1);
   });
 
-  it('clears the search from the empty result', async () => {
+  vaultIt('clears the search from the empty result', async () => {
     const onSearchChange = jest.fn();
     await render(
       <RoutesList
@@ -80,7 +83,7 @@ describe('RoutesList with an empty page', () => {
     expect(onSearchChange).toHaveBeenCalledWith('');
   });
 
-  it('reads No routes yet and shows no search box when the library has none', async () => {
+  vaultIt('reads No routes yet and shows no search box when the library has none', async () => {
     await renderList({ searchQuery: '', totalGroupCount: 0, emptyReason: noneFound });
     expect(screen.getByText('routes.noRoutesYet')).toBeTruthy();
     expect(screen.getByTestId('empty-state-title')).toBeTruthy();

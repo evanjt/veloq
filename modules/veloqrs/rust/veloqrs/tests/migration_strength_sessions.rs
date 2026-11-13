@@ -64,6 +64,9 @@ fn session() -> StrengthSession {
         }],
         groups: Vec::new(),
         rests: Vec::new(),
+        current_exercise: None,
+        current_set: None,
+        rest_started_at: None,
     }
 }
 
@@ -143,12 +146,15 @@ fn an_upgrade_from_the_newest_release_keeps_every_row_and_takes_a_recorded_sessi
     upgrade_and_record(&path);
 }
 
+/// The schema the migration that adds the session tables follows.
+const SCHEMA_BEFORE_TABLES: u32 = 91;
+
 #[test]
 fn an_upgrade_from_the_schema_before_the_tables_keeps_every_row() {
     let _serial = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("library.db");
-    drop(seed_at_version(&path, latest_version() - 1));
+    drop(seed_at_version(&path, SCHEMA_BEFORE_TABLES));
 
     upgrade_and_record(&path);
 }

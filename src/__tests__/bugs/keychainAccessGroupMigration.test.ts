@@ -76,7 +76,7 @@ function fakeKeychain(initial: {
 }
 
 describe('the credential keychain attributes', () => {
-  it('writes into the shared group and after first unlock', () => {
+  vaultIt('writes into the shared group and after first unlock', () => {
     expect(CREDENTIAL_KEYCHAIN_OPTIONS.accessGroup).toBe(KEYCHAIN_ACCESS_GROUP);
     expect(CREDENTIAL_KEYCHAIN_OPTIONS.keychainAccessible).not.toBe(
       LEGACY_CREDENTIAL_KEYCHAIN_OPTIONS.keychainAccessible

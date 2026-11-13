@@ -271,7 +271,7 @@ describe('generateFitFile', () => {
   });
 
   describe('CRC-16', () => {
-    it('appends non-zero trailing CRC to file', async () => {
+    vaultIt('appends non-zero trailing CRC to file', async () => {
       const buffer = await generateFitFile({
         activityType: 'Ride',
         startTime,
@@ -284,7 +284,7 @@ describe('generateFitFile', () => {
       expect(trailingCrc).not.toBe(0);
     });
 
-    it('produces different CRCs for different data', async () => {
+    vaultIt('produces different CRCs for different data', async () => {
       const buffer1 = await generateFitFile({
         activityType: 'Ride',
         startTime,
@@ -494,7 +494,7 @@ describe('generateFitFile', () => {
   });
 
   describe('single-point stream', () => {
-    it('produces valid file larger than empty', async () => {
+    vaultIt('produces valid file larger than empty', async () => {
       const singlePointStreams = makeStreams({
         time: [0],
         latlng: [[45.0, 10.0]],

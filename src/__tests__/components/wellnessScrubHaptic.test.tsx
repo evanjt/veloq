@@ -56,7 +56,7 @@ describe('wellness trends scrub', () => {
     jest.restoreAllMocks();
   });
 
-  it('fires one light impact when the scrub starts', async () => {
+  vaultIt('fires one light impact when the scrub starts', async () => {
     const built = capturePans();
     const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
     await layout(tree);
@@ -67,7 +67,7 @@ describe('wellness trends scrub', () => {
     expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
   });
 
-  it('fires no impact for a touch lifted without moving', async () => {
+  vaultIt('fires no impact for a touch lifted without moving', async () => {
     const built = capturePans();
     const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
     await layout(tree);

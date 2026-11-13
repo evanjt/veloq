@@ -78,7 +78,7 @@ function expectNoFixedWidth(row: ReactTestInstance) {
 }
 
 describe('BestEffortRow', () => {
-  it('sizes its columns from content and keeps the value whole', async () => {
+  vaultIt('sizes its columns from content and keeps the value whole', async () => {
     await render(
       <BestEffortRow
         testID="row"
@@ -120,14 +120,14 @@ describe('BestEffortRow', () => {
 });
 
 describe('the surfaces that draw a best', () => {
-  it('draw Best Efforts rows with no fixed column', async () => {
+  vaultIt('draw Best Efforts rows with no fixed column', async () => {
     await render(<BestEffortsScreen />);
 
     expectNoFixedWidth(screen.getByTestId('best-efforts-row-Swimming-3800'));
     expectNoFixedWidth(screen.getByTestId('best-efforts-row-Swimming-400'));
   });
 
-  it('draw climbing rows with no fixed column', async () => {
+  vaultIt('draw climbing rows with no fixed column', async () => {
     const bests = [
       { label: '60m', windowS: 3600, vam: 1250, wattsPerKg: 3.4, activityId: 'long-swim' },
     ] as ClimbBest[];

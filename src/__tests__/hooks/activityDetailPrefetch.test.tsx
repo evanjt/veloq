@@ -67,7 +67,7 @@ function Probe({ id }: { id: string }) {
 describe('activity detail prefetch', () => {
   afterEach(() => mockGetEngine.mockReset());
 
-  it('paints the prefetched bundle on the first render without reading again', async () => {
+  vaultIt('paints the prefetched bundle on the first render without reading again', async () => {
     const stub = stubEngine({ a: 1 });
     mockGetEngine.mockReturnValue(stub.engine);
 
@@ -104,7 +104,7 @@ describe('activity detail prefetch', () => {
     expect(stub.reads).toEqual(['a', 'a']);
   });
 
-  it('uses a prefetch once, so a second screen reads for itself', async () => {
+  vaultIt('uses a prefetch once, so a second screen reads for itself', async () => {
     const stub = stubEngine({ a: 1 });
     mockGetEngine.mockReturnValue(stub.engine);
 

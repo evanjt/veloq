@@ -25,11 +25,11 @@ describe('mapToolTitle', () => {
     expect(mapToolTitle('New section', 7600, false)).toBe('New section · 4.7 mi');
   });
 
-  it('shows the label alone before there is a length', () => {
+  vaultIt('shows the label alone before there is a length', () => {
     expect(mapToolTitle('New section', null, true)).toBe('New section');
   });
 
-  it('shows a zero length rather than dropping it', () => {
+  vaultIt('shows a zero length rather than dropping it', () => {
     expect(mapToolTitle('Edit bounds', 0, true)).toBe('Edit bounds · 0 m');
   });
 });
@@ -46,7 +46,7 @@ function bar(over: Partial<React.ComponentProps<typeof MapToolBar>> = {}) {
 }
 
 describe('MapToolBar', () => {
-  it('shows the title, the hint, and Cancel and Save with visible text', async () => {
+  vaultIt('shows the title, the hint, and Cancel and Save with visible text', async () => {
     await render(bar().element);
     expect(screen.getByText('New section · 7.6 km')).toBeTruthy();
     expect(screen.getByText('Tap to select end point')).toBeTruthy();
@@ -82,7 +82,7 @@ describe('MapToolBar', () => {
     expect(screen.getByRole('button', { name: 'common.cancel' })).toBeDisabled();
   });
 
-  it('draws Reset as a labelled secondary only when one is offered', async () => {
+  vaultIt('draws Reset as a labelled secondary only when one is offered', async () => {
     const onReset = jest.fn();
     const view = await render(bar({ reset: { onPress: onReset } }).element);
     await fireEvent.press(screen.getByRole('button', { name: 'common.reset' }));
@@ -93,7 +93,7 @@ describe('MapToolBar', () => {
     expect(screen.queryByRole('button', { name: 'common.reset' })).toBeNull();
   });
 
-  it('takes another word for Save, such as Retry after a failure', async () => {
+  vaultIt('takes another word for Save, such as Retry after a failure', async () => {
     await render(bar({ doneLabel: 'common.retry' }).element);
     expect(screen.getByRole('button', { name: 'common.retry' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'common.save' })).toBeNull();

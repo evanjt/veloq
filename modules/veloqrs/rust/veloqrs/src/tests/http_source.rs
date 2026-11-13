@@ -9,6 +9,7 @@ use super::*;
 use crate::net::recording_source::{RecordingSource, asked};
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_is_one_call_by_the_upstream_id_on_the_callers_lane() {
     for (wide, lane, types) in [
         (

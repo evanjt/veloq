@@ -56,7 +56,7 @@ describe('the pager and the accessibility tree', () => {
     expect(screen.getByText('catching drips', { includeHiddenElements: true })).toBeTruthy();
   });
 
-  it('moves the exposed page with the active tab', () => {
+  vaultIt('moves the exposed page with the active tab', () => {
     render(pager('teapot'));
     screen.rerender(pager('saucer'));
 
@@ -81,7 +81,7 @@ describe('the pager and the accessibility tree', () => {
     expect(screen.queryByText('steeping leaves', { includeHiddenElements: true })).toBeNull();
   });
 
-  it('leaves the tab strip itself in the tree', () => {
+  vaultIt('leaves the tab strip itself in the tree', () => {
     render(pager('teapot'));
 
     expect(screen.getAllByRole('tab', visible)).toHaveLength(3);

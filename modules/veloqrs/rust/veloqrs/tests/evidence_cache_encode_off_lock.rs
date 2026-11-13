@@ -70,6 +70,7 @@ fn stored_row(dir: &TempDir) -> Option<(String, Vec<u8>, Vec<u8>)> {
 /// section ids are minted off the clock, so two engines cutting the same ground
 /// at different moments agree on membership and not on bytes.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_worker_encode_and_the_under_lock_encode_write_the_same_row() {
     let dir = TempDir::new().unwrap();
     let mut engine = open(&dir);
@@ -124,6 +125,7 @@ fn the_worker_encode_and_the_under_lock_encode_write_the_same_row() {
 /// The apply still has to leave a cache the next launch can adopt. A byte
 /// comparison alone would pass on a row nothing can read back.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_restart_resumes_warm_on_a_row_the_worker_encoded() {
     let dir = TempDir::new().unwrap();
     let mut engine = open(&dir);
@@ -165,6 +167,7 @@ fn a_restart_resumes_warm_on_a_row_the_worker_encoded() {
 /// `objects/detection.rs` is gone, so an apply that comes back there is a
 /// second site and has to be read too.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_apply_site_encodes_before_it_takes_the_lock() {
     let poll = "src/objects/detection.rs";
     assert!(

@@ -1485,11 +1485,13 @@ mod upstream_resolution_tests {
     use super::resolve_upstream;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_local_key_with_no_stored_server_id_names_nothing_upstream() {
         assert_eq!(resolve_upstream("local-ab12", None), None);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_local_key_resolves_to_the_server_id_recorded_for_it() {
         assert_eq!(
             resolve_upstream("local-ab12", Some("i77".to_string())),
@@ -1498,11 +1500,13 @@ mod upstream_resolution_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_server_key_with_no_row_falls_back_to_itself() {
         assert_eq!(resolve_upstream("i5", None), Some("i5".to_string()));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_imported_key_with_no_stored_server_id_names_nothing_upstream() {
         assert_eq!(resolve_upstream("src-file-a", None), None);
     }
@@ -5436,6 +5440,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_detail_body_is_dated_by_its_start_and_nothing_else() {
         let expected = start_date_to_timestamp(Some("2026-05-01T07:00:00"));
         assert!(expected.is_some());
@@ -5456,6 +5461,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn clearing_the_sync_credential_leaves_the_garmin_key_held() {
         let _serial = crate::test_globals::serial_global_state();
         super::super::garmin_key::hold_garmin_key("kept-key");
@@ -5507,6 +5513,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_chunk_is_in_flight_together_and_never_more_than_a_chunk() {
             let in_flight = std::cell::Cell::new(0usize);
             let peak = std::cell::Cell::new(0usize);
@@ -5564,6 +5571,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn stops_at_the_chunk_after_the_sign_out() {
             let (fetched, stored, _) = walk_signing_out_after(2);
 
@@ -5573,6 +5581,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn calls_a_sign_out_done_rather_than_failed() {
             // A failure backs the job key off, which would hold it against
             // whoever signs in next.
@@ -5580,6 +5589,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn fetches_nothing_at_all_when_the_sign_out_beat_the_first_read() {
             let (fetched, stored, outcome) = walk_signing_out_after(0);
 
@@ -5589,6 +5599,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn walks_the_whole_list_while_the_athlete_stays_signed_in() {
             let (fetched, stored, outcome) = walk_signing_out_after(usize::MAX);
 
@@ -5598,6 +5609,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn reads_the_flag_once_per_chunk_and_not_once_per_pass() {
             // Five chunks, five reads. A pass that read once could not
             // notice a sign-out at all.
@@ -5617,6 +5629,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_rejected_credential_stops_the_walk_and_says_so() {
             let fetched = RefCell::new(0usize);
             let outcome = crate::runtime::block_on(drain_time_streams_with(
@@ -5638,6 +5651,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn one_activity_without_a_stream_does_not_stop_the_rest() {
             let stored = RefCell::new(Vec::new());
             let outcome = crate::runtime::block_on(drain_time_streams_with(
@@ -5670,6 +5684,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_empty_answer_is_still_stored() {
             // The row records that the question was put, or the activity comes
             // back on every pass for the life of the install.
@@ -5689,6 +5704,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_refusal_stops_the_walk_after_its_chunk_and_is_returned() {
             let fetched = RefCell::new(Vec::new());
             let outcome = crate::runtime::block_on(drain_time_streams_with(
@@ -5743,6 +5759,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_server_error_on_every_id_is_returned_and_stores_nothing() {
             let stored = RefCell::new(Vec::new());
             let outcome = crate::runtime::block_on(drain_time_streams_with(
@@ -5768,6 +5785,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_not_found_on_one_id_is_skipped_and_the_pass_is_ok() {
             let stored = RefCell::new(Vec::new());
             let outcome = crate::runtime::block_on(drain_time_streams_with(
@@ -5798,6 +5816,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn fresh_service_is_idle() {
         let svc = SyncService::new();
         let s = svc.snapshot();
@@ -5856,6 +5875,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_key_this_generation_holds_is_busy_and_a_missing_credential_is_not() {
             let _serial = serial_global_state();
             let _tmp = init_global_engine("leases.db");
@@ -5894,6 +5914,7 @@ mod tests {
         /// launch has to see it as free. A `HashSet` a restart empties cannot
         /// tell that from a key nobody ever asked for.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_key_a_dead_process_left_claimed_is_free_after_a_restart() {
             let _serial = serial_global_state();
             let _tmp = init_global_engine("leases.db");
@@ -5926,6 +5947,7 @@ mod tests {
         /// The backoff is the store's, a pure function of the attempt count,
         /// so the ladder is read rather than spent. No `Instant` here.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_key_that_keeps_failing_waits_longer_each_time() {
             let _serial = serial_global_state();
             let _tmp = init_global_engine("leases.db");
@@ -5985,6 +6007,7 @@ mod tests {
         /// refusing, so it spends no backoff and the reconnect re-ask is
         /// admitted however many offline asks came before it.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_key_that_fails_for_want_of_a_network_is_admitted_again_at_once() {
             let _serial = serial_global_state();
             let _tmp = init_global_engine("leases.db");
@@ -6023,6 +6046,7 @@ mod tests {
         /// and the time it last failed stay as they were, so the budget holding
         /// work back never grows the key's backoff toward the hour it caps at.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn deferred_release_leaves_job_attempts_unchanged() {
             let _serial = serial_global_state();
             let _tmp = init_global_engine("leases.db");
@@ -6078,6 +6102,7 @@ mod tests {
         /// and has to keep holding it, or the resource could never be asked
         /// for again.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_job_that_panics_gives_the_lease_back() {
             let _serial = serial_global_state();
             let _tmp = init_global_engine("leases.db");
@@ -6111,6 +6136,7 @@ mod tests {
         /// Work that lands is forgotten, so the next ask is admitted rather
         /// than waiting behind a row nobody needs.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn work_that_lands_leaves_the_key_free() {
             let _serial = serial_global_state();
             let _tmp = init_global_engine("leases.db");
@@ -6144,6 +6170,7 @@ mod tests {
         /// The engine is where the lease lives, so a start before it opens is
         /// early rather than refused for a reason that will not lift.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_start_before_the_engine_opens_is_not_ready() {
             let _serial = serial_global_state();
             crate::persistence::clear_persistent_engine();
@@ -6162,6 +6189,7 @@ mod tests {
         /// wrote every id into a `TEXT PRIMARY KEY`. Two lists that differ
         /// still have to differ as keys.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn two_time_stream_lists_take_two_keys() {
             let one: Vec<String> = (0..500).map(|i| format!("a{i}")).collect();
             let mut other = one.clone();
@@ -6196,12 +6224,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn interrupting_an_idle_service_hands_back_nothing() {
         let svc = signed_in_service();
         assert_eq!(svc.interrupt(), None);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_full_sync_interrupted_and_finished_is_started_again() {
         let svc = signed_in_service();
         svc.claim_slot_for(SyncRequest::Full { force: false })
@@ -6215,6 +6245,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_resume_asked_while_the_run_winds_down_waits_for_its_finish() {
         let svc = signed_in_service();
         svc.claim_slot_for(SyncRequest::Full { force: false })
@@ -6234,6 +6265,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_window_sync_resumes_with_the_same_window() {
         let svc = signed_in_service();
         let window = SyncRequest::Window {
@@ -6246,6 +6278,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sign_out_or_another_athlete_between_interrupt_and_resume_starts_nothing() {
         for second_athlete in [None, Some("i2")] {
             let svc = signed_in_service();
@@ -6264,6 +6297,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sign_out_while_a_resume_waits_cancels_it() {
         let svc = signed_in_service();
         svc.claim_slot_for(SyncRequest::Full { force: false })
@@ -6277,6 +6311,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_auth_park_between_interrupt_and_resume_starts_nothing() {
         let svc = signed_in_service();
         svc.claim_slot_for(SyncRequest::Full { force: false })
@@ -6301,6 +6336,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn try_begin_is_exclusive() {
         let svc = SyncService::new();
         assert!(svc.try_begin());
@@ -6310,6 +6346,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_try_start_names_held_and_parked_slots() {
         let svc = SyncService::new();
         // No credential: refusing is correct and will stay correct.
@@ -6345,6 +6382,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_park_landing_during_a_start_never_answers_busy() {
         // Nothing here ever holds the slot past its own start: with no
         // credential every begun start ends at once. So the only honest
@@ -6370,6 +6408,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn build_session_requires_credentials() {
         let svc = SyncService::new();
         assert!(svc.build_session().is_err());
@@ -6379,6 +6418,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn signed_in_transport_draws_on_the_process_governor() {
         for kind in [AuthKind::OAuth, AuthKind::ApiKey] {
             let svc = SyncService::new();
@@ -6419,6 +6459,7 @@ mod tests {
     /// `total` count steps, so this is the only field that can say what the
     /// sync is actually fetching.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_status_names_the_step_in_flight() {
         let svc = SyncService::new();
         svc.begin_steps(SYNC_STEPS);
@@ -6552,6 +6593,7 @@ mod tests {
     /// with a count rather than a date boundary, so the feed has cards after
     /// one round trip. The span behind it runs unchanged.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_newest_few_are_asked_for_before_the_span_they_sit_in() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_first_use.db");
@@ -6728,16 +6770,19 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn first_use_readies_five_across_rest_days() {
         assert_first_use_across_windows(&[0, 1, 3, 4, 6, 9]);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn first_use_readies_five_with_a_single_day_head() {
         assert_first_use_across_windows(&[0, 2, 3, 5, 7, 9]);
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn first_use_readies_five_with_a_collapsed_head() {
         let offsets: Vec<i64> = (0..31).map(|i| i * 2).collect();
         assert_first_use_across_windows(&offsets);
@@ -6746,6 +6791,7 @@ mod tests {
     /// The five's bodies come before the window behind them and survive its
     /// list rows when the run completes.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_first_launch_readies_the_five_before_any_bulk_request() {
         let _guard = crate::test_globals::serial_global_state();
         let _dir = crate::test_globals::init_global_engine("sync_first_use_bodies.db");
@@ -6892,6 +6938,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_census_write_failure_falls_back_to_fixed_window_in_perform_sync() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("census-write-failure.db");
@@ -7086,6 +7133,7 @@ mod tests {
     /// Expected behaviour: the field set is not recorded, so the next sync asks
     /// again rather than leaving that body on the old set for good.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refetch_that_did_not_land_is_not_recorded() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("fields-refetch-fails.db");
@@ -7110,6 +7158,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_no_store_sync_resumes_durable_detection_debt() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::seeded_global_engine();
@@ -7171,6 +7220,7 @@ mod tests {
     /// Expected behaviour: the first-use step asks for nothing, and the window
     /// runs as it always did.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_single_owed_day_costs_no_extra_request() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_first_use_warm.db");
@@ -7223,6 +7273,7 @@ mod tests {
     /// the library. The census stays ahead of the windows because it is what
     /// says which days are owed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_profile_slice_is_asked_for_before_any_activity() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_order.db");
@@ -7287,6 +7338,7 @@ mod tests {
     /// so this is the label an athlete would have been shown rather than a
     /// sample taken somewhere near it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_running_sync_names_the_step_it_is_fetching() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_step_order.db");
@@ -7368,6 +7420,7 @@ mod tests {
     /// the head's cards and their previews start on that rather than on the
     /// settle. A step that stored nothing announces nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn each_activity_step_announces_its_rows_before_the_sync_settles() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_announce.db");
@@ -7442,6 +7495,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn step_items_are_reported_for_the_running_step_and_cleared_between_steps() {
         let svc = SyncService::new();
         svc.begin_steps(3);
@@ -7469,6 +7523,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn successful_sync_returns_to_idle_completed() {
         // `perform_sync` reads the library for its curve sweep, so these
         // drive global engine state even with a local service.
@@ -7501,6 +7556,7 @@ mod tests {
     /// count as complete, so the run reported success and every reader kept
     /// the previous athlete's profile, FTP and zones with nothing to say so.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failed_profile_write_fails_its_step() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
@@ -7554,6 +7610,7 @@ mod tests {
     /// names with a way to free space, rather than a file that could not be
     /// read.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_profile_write_on_a_full_disk_reports_storage_full() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
@@ -7613,6 +7670,7 @@ mod tests {
     /// An empty list used to mean both "nothing to fetch" and "the read
     /// failed", so a sweep fetched nothing and the run still reported success.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failed_library_read_fails_the_sweep_that_needed_it() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
@@ -7666,6 +7724,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn unauthorized_sync_moves_to_auth_expired() {
         // `perform_sync` reads the library for its curve sweep, so these
         // drive global engine state even with a local service.
@@ -7696,6 +7755,7 @@ mod tests {
     /// run ends there, sends nothing further, the interval sweep included,
     /// and its status says when the work resumes.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refused_step_ends_the_run_and_sends_nothing_further() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
@@ -7761,6 +7821,7 @@ mod tests {
     /// Expected behaviour: a run whose first request the budget defers ends
     /// there, its status carrying the deferral's own time.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_deferred_step_ends_the_run_at_the_deferral() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
@@ -7809,6 +7870,7 @@ mod tests {
     /// about intervals.icu pausing it, and a restart is held until the
     /// allowance frees rather than starting into the same deferral.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_deferral_by_the_install_allowance_ends_the_run_quietly_and_holds_the_restart() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
@@ -7870,6 +7932,7 @@ mod tests {
     /// deferral. A pull to refresh still goes, since the newest activities are
     /// the sync's own requests, and once the share frees nothing holds.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_restart_inside_the_last_runs_deferral_is_held_but_a_pull_goes() {
         let gov = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
             crate::governor::Budget::new(0),
@@ -7897,6 +7960,7 @@ mod tests {
     /// ends and sends nothing, so the one probe a user request may spend in
     /// the cooldown is still there for a tapped screen.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sync_inside_a_cooldown_is_held_and_spends_no_probe() {
         let gov = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
             crate::governor::Budget::new(0),
@@ -7936,6 +8000,7 @@ mod tests {
     /// profile answers 200 and the session stands. The step reports its own
     /// error, which is what a caller sees for any other failed step.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unconfirmed_401_leaves_the_session_standing() {
         // `perform_sync` reads the library for its curve sweep, so these
         // drive global engine state even with a local service.
@@ -7974,6 +8039,7 @@ mod tests {
 
     /// A credential the server rejects twice is dead, and only then.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_profile_confirms_a_rejected_credential() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -7988,6 +8054,7 @@ mod tests {
 
     /// A credential the profile answers is alive, whatever else refused it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_profile_that_answers_is_not_a_rejection() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -8003,6 +8070,7 @@ mod tests {
     /// A server that is broken says nothing about the credential, so it is not
     /// a confirmation either. Nor is a transport that never connects.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn only_a_second_401_confirms_a_rejection() {
         let server = MockServer::start();
         server.mock(|when, then| {
@@ -8022,6 +8090,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn server_error_records_error_but_returns_idle() {
         // `perform_sync` reads the library for its curve sweep, so these
         // drive global engine state even with a local service.
@@ -8062,6 +8131,7 @@ mod tests {
     /// Expected behaviour: every terminal failure carries a reason from the
     /// closed set beside its message, and a clean settle carries none.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rejected_credential_settles_with_the_unauthorized_reason() {
         // `perform_sync` reads the library for its curve sweep, so these
         // drive global engine state even with a local service.
@@ -8086,6 +8156,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_server_error_settles_with_the_server_reason() {
         // `perform_sync` reads the library for its curve sweep, so these
         // drive global engine state even with a local service.
@@ -8110,6 +8181,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unreachable_host_settles_with_the_network_reason() {
         // `perform_sync` reads the library for its curve sweep, so these
         // drive global engine state even with a local service.
@@ -8132,6 +8204,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn parking_on_a_rejected_credential_carries_the_reason() {
         let svc = SyncService::new();
         svc.finish(
@@ -8145,6 +8218,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn missing_credentials_settle_with_the_not_configured_reason() {
         let svc = SyncService::new();
         let reason = match svc.build_session() {
@@ -8155,6 +8229,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_clean_settle_carries_no_reason() {
         let svc = SyncService::new();
         svc.finish(SyncState::Idle, None, true);
@@ -8164,6 +8239,7 @@ mod tests {
     /// A reason that survives the second failure of a different kind: the
     /// status holds the last one, not the first.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_reason_moves_with_the_message() {
         let svc = SyncService::new();
         svc.finish(
@@ -8190,6 +8266,7 @@ mod tests {
     /// fetching on a credential nobody holds any more and it does not write
     /// the signed-out athlete's data into the new athlete's database.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sync_stops_when_the_credential_is_cleared_under_it() {
         // `perform_sync` reads the library for its curve sweep, so these
         // drive global engine state even with a local service.
@@ -8248,6 +8325,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sync_for_the_athlete_who_is_still_signed_in_runs() {
         // `perform_sync` reads the library for its curve sweep, so these
         // drive global engine state even with a local service.
@@ -8276,6 +8354,7 @@ mod tests {
     /// Signing out has to stop the dispatch as well as fail the check, so a
     /// step already in flight is not followed by another one.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn clearing_the_credential_cancels_a_running_sync() {
         let svc = SyncService::new();
         svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
@@ -8290,6 +8369,7 @@ mod tests {
     /// The check is on the athlete, not on whether any credential exists, so a
     /// service that never had one does not read as still authorised.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_service_with_no_credential_authorises_nobody() {
         let svc = SyncService::new();
         assert!(!svc.still_signed_in("i1"));
@@ -8299,6 +8379,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn one_failing_endpoint_does_not_cost_the_others() {
         // `perform_sync` reads the library for its curve sweep, so these
         // drive global engine state even with a local service.
@@ -8342,6 +8423,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn cancel_before_run_skips_work() {
         // `perform_sync` reads the library for its curve sweep, so these
         // drive global engine state even with a local service.
@@ -8367,6 +8449,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn set_and_clear_credentials_round_trip() {
         let svc = SyncService::new();
         svc.set_credentials(AuthKind::OAuth, "tok".into(), "i9".into());
@@ -8376,6 +8459,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn default_activity_sync_covers_ninety_days() {
         let _serial = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("default_activity_window.db");
@@ -8417,6 +8501,7 @@ mod tests {
     ///
     /// Expected behaviour: one announcement, after the write, naming wellness.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_wellness_sync_announces_itself_once() {
         let _guard = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -8455,6 +8540,7 @@ mod tests {
     /// nothing to wake a reader for. An announcement on an empty page would
     /// re-read every range for no change, which is the cost being removed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_wellness_page_announces_nothing() {
         let _guard = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -8487,6 +8573,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn default_wellness_sync_still_covers_a_year() {
         let _serial = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("default_wellness_window.db");
@@ -8516,6 +8603,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_window_older_than_the_default_still_reaches_the_api() {
         let _serial = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("older_activity_window.db");
@@ -8548,6 +8636,7 @@ mod tests {
     /// alone cannot stand in: two rides on one day report 168 and 93 W
     /// against a rolling 155.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_window_sync_asks_for_the_rolling_eftp_pair() {
         let _serial = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("rolling_eftp_window.db");
@@ -8620,6 +8709,7 @@ mod tests {
     /// Expected behaviour: the page is not written at all, and the step fails
     /// so the next sync fetches it again.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_window_whose_id_reconcile_fails_stores_nothing() {
         let _guard = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("reconcile-fail.db");
@@ -8740,6 +8830,7 @@ mod tests {
     /// nothing. The mark is the server's id, because the row it is stored under
     /// may be a local key for an activity this device uploaded.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stored_window_marks_what_it_fetched_so_the_next_ask_owes_nothing() {
         let _guard = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("window-coverage.db");
@@ -8898,6 +8989,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_library_the_census_agrees_with_asks_for_nothing() {
             let _guard = crate::test_globals::serial_global_state();
             let _tmp = crate::test_globals::init_global_engine("owed-none.db");
@@ -8917,6 +9009,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_activity_the_device_does_not_hold_is_asked_for_by_its_own_day() {
             let _guard = crate::test_globals::serial_global_state();
             let _tmp = crate::test_globals::init_global_engine("owed-one.db");
@@ -8948,6 +9041,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_version_that_moved_upstream_is_asked_for_again() {
             let _guard = crate::test_globals::serial_global_state();
             let _tmp = crate::test_globals::init_global_engine("owed-moved.db");
@@ -8976,6 +9070,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_census_that_cannot_answer_leaves_the_fixed_window_running() {
             let _guard = crate::test_globals::serial_global_state();
             let _tmp = crate::test_globals::init_global_engine("owed-no-census.db");
@@ -8995,6 +9090,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn consecutive_days_are_one_window_and_a_gap_starts_another() {
             let windows = owed_windows(&[
                 "2025-03-01".to_string(),
@@ -9017,6 +9113,7 @@ mod tests {
         /// because the feed reads newest first and that is the end of the
         /// library the athlete watches fill.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_newest_run_is_asked_for_first() {
             let windows = owed_windows(&[
                 "2025-03-01".to_string(),
@@ -9034,11 +9131,13 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn nothing_owed_is_no_window_at_all() {
             assert!(owed_windows(&[]).is_empty());
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_month_boundary_is_still_one_run() {
             let windows = owed_windows(&["2025-01-31".to_string(), "2025-02-01".to_string()]);
 
@@ -9052,6 +9151,7 @@ mod tests {
         /// the windows that replace them are capped rather than unbounded. The
         /// head comes first so the feed has cards before the rest lands.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_library_holed_everywhere_collapses_to_a_head_and_a_remainder() {
             let scattered: Vec<String> = (0..MAX_OWED_WINDOWS + 1)
                 .map(|i| {
@@ -9074,6 +9174,7 @@ mod tests {
         /// happen to cover: an athlete who rides daily gets ten days of it and
         /// one who rides monthly gets most of a year, and both get cards.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_head_is_counted_in_owed_days_and_not_in_calendar_days() {
             let sparse: Vec<String> = (0..MAX_OWED_WINDOWS + 1)
                 .map(|i| {
@@ -9094,6 +9195,7 @@ mod tests {
         /// A library with fewer owed runs than the cap is already answered one
         /// run at a time, newest first, so it needs no head of its own.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_library_under_the_cap_is_left_run_by_run() {
             let few: Vec<String> = (0..5)
                 .map(|i| {
@@ -9113,6 +9215,7 @@ mod tests {
         /// is smaller than the cap. The compile-time assertion beside the
         /// constants is what holds that; this is the behaviour it buys.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_smallest_collapsing_library_still_gets_a_head() {
             let just_over: Vec<String> = (0..MAX_OWED_WINDOWS + 1)
                 .map(|i| {
@@ -9134,6 +9237,7 @@ mod tests {
     /// then, so a request that still goes out spends the athlete's data on a
     /// sync they stopped.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_window_cancelled_before_it_starts_never_asks_the_api() {
         let _serial = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("cancelled_before_window.db");
@@ -9163,6 +9267,7 @@ mod tests {
     /// allowed to finish, but what it carried is not written. Writing it is
     /// what let the library keep filling after the UI said cancelled.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_window_cancelled_in_flight_stores_nothing_it_fetched() {
         let _serial = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("cancelled_in_flight_window.db");
@@ -9202,6 +9307,7 @@ mod tests {
     /// status does not claim the window landed while the state machine was
     /// moved to `Paused` by the cancel.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cancelled_window_job_does_not_settle_as_a_success() {
         let _serial = crate::test_globals::serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("cancelled_job_window.db");
@@ -9228,6 +9334,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activity_without_a_start_time_is_skipped() {
         // A row with no start time cannot be windowed or ordered, and a
         // fabricated timestamp would sort it into the wrong week.
@@ -9252,6 +9359,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn start_date_parsing_handles_the_intervals_shapes() {
         assert_eq!(
             start_date_to_timestamp(Some("2025-01-15T08:30:00")),
@@ -9267,6 +9375,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn auth_header_matches_the_held_scheme() {
         let svc = SyncService::new();
         assert!(svc.auth_header().is_none());
@@ -9287,6 +9396,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn auth_kind_parsing() {
         assert_eq!(AuthKind::parse("oauth"), Some(AuthKind::OAuth));
         assert_eq!(AuthKind::parse("API_KEY"), Some(AuthKind::ApiKey));
@@ -9294,6 +9404,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn auth_kind_names_the_scheme_its_secret_is_sent_under() {
         use governor::format_auth_header;
         assert_eq!(
@@ -9322,6 +9433,7 @@ mod tests {
     /// same scheme and secret, and a mock that wants the other scheme refuses
     /// either door.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn both_credential_doors_send_the_same_header() {
         let _serial = crate::test_globals::serial_global_state();
         let cases = [
@@ -9391,6 +9503,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn try_begin_is_exclusive_under_contention() {
         // Race many threads on one service. The running slot is the lock that
         // stops two concurrent syncs, so exactly one caller may claim it.
@@ -9416,6 +9529,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn begin_after_cancel_clears_cancel_flag() {
         // A soft-cancel must not persist into the next sync, or every future run
         // would bail immediately at the is_cancelled() gate.
@@ -9435,6 +9549,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn write_failures_carry_the_status_the_caller_branches_on() {
         // These five mappings decide whether a recording is retried, parked or
         // sent back for a permission upgrade.
@@ -9466,6 +9581,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_successful_write_reports_the_created_id() {
         let ok = FfiCallOutcome::ok(Some("i999".to_string()));
         assert_eq!(ok.kind, FfiCallKind::Ok);
@@ -9474,6 +9590,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn server_detail_prefers_the_message_the_server_wrote() {
         assert_eq!(
             server_detail(r#"{"message":"Bad request"}"#).as_deref(),
@@ -9527,6 +9644,7 @@ mod tests {
     /// Expected behaviour: a confirmed rejection parks the service however it
     /// was found, and only a credential change releases it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_confirmed_401_from_the_sync_itself_latches_the_park() {
         let _serial = crate::test_globals::serial_global_state();
         let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
@@ -9553,6 +9671,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn auth_expired_recovers_on_next_begin() {
         // `perform_sync` reads the library for its curve sweep, so these
         // drive global engine state even with a local service.
@@ -9596,6 +9715,7 @@ mod start_date_parity_tests {
     ];
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn matches_the_typescript_parser() {
         for (input, expected) in FIXTURES {
             assert_eq!(
@@ -9607,6 +9727,7 @@ mod start_date_parity_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn rejects_missing_or_unparseable_input() {
         assert_eq!(start_date_to_timestamp(None), None);
         assert_eq!(start_date_to_timestamp(Some("")), None);
@@ -9738,6 +9859,7 @@ mod body_count_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_intervals_body_that_lands_moves_the_count() {
         let _guard = serial_global_state();
         let _dir = init_global_engine();
@@ -9764,6 +9886,7 @@ mod body_count_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_fetch_that_never_lands_leaves_the_count_alone() {
         let _guard = serial_global_state();
         let _dir = init_global_engine();
@@ -9788,6 +9911,7 @@ mod body_count_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_calendar_window_still_counts_as_a_landing() {
         // Replacing a window with no events is a change: an event cancelled
         // upstream disappears here, and the screen showing it has to be told.
@@ -9814,6 +9938,7 @@ mod body_count_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_body_moves_the_count_again() {
         // One wake per landing. A count that only ever moves once leaves the
         // second screen on an empty chart.
@@ -9847,6 +9972,7 @@ mod body_count_tests {
     /// rather than wait out a request that cannot land. The same start asked
     /// again once the connection is back runs.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_on_demand_fetch_while_offline_answers_offline_and_asks_nothing() {
         let _guard = serial_global_state();
         let _dir = init_global_engine();
@@ -9895,6 +10021,7 @@ mod body_count_tests {
     /// to refresh as well, and the refusal carries no time to try again: the
     /// connection returning is what restarts it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sync_while_offline_is_refused_offline_before_the_governor() {
         let gov = crate::governor::Governor::new(1000, Box::new(crate::governor::NoopPolicy))
             .with_budget(crate::governor::Budget::new(0), None, || 0.0);
@@ -9914,6 +10041,7 @@ mod body_count_tests {
     /// request. The default sync stays owed, and the connection returning
     /// starts it once.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_default_sync_asked_while_offline_asks_nothing_and_starts_on_reconnect() {
         let _guard = serial_global_state();
         let _dir = init_global_engine();
@@ -9956,6 +10084,7 @@ mod body_count_tests {
     /// online would not make it run, signing in would, so that is the reason
     /// the screen is given.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_signed_out_start_while_offline_answers_not_configured() {
         let _guard = serial_global_state();
         let _dir = init_global_engine();
@@ -10013,6 +10142,7 @@ mod body_count_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_write_that_fails_does_not_count() {
         let _guard = serial_global_state();
         let _dir = init_global_engine();
@@ -10044,6 +10174,7 @@ mod body_count_tests {
     /// Expected behaviour: a step whose write found no engine fails the run,
     /// with a reason that names what happened rather than the catch-all.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_step_that_found_no_engine_fails_the_run() {
         let _guard = serial_global_state();
         *crate::persistence::PERSISTENT_ENGINE
@@ -10066,6 +10197,7 @@ mod body_count_tests {
     /// The same for a step that writes through the engine directly rather
     /// than through `store_body`.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_direct_step_write_with_no_engine_fails_the_run_too() {
         let _guard = serial_global_state();
         *crate::persistence::PERSISTENT_ENGINE
@@ -10085,6 +10217,7 @@ mod body_count_tests {
     /// A run that never lost its engine still reports success, or the fix
     /// would have turned every sync into a failure.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_step_with_an_engine_still_succeeds() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("engine-closed.db");
@@ -10103,6 +10236,7 @@ mod body_count_tests {
     /// not a closed engine, and not a success either. Counting it as one
     /// stamped `lastSuccessAt` on a run whose page never landed.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_sql_failure_fails_the_step_as_storage_and_not_as_a_closed_engine() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("engine-closed-sql.db");
@@ -10125,6 +10259,7 @@ mod body_count_tests {
 
     /// The step reports it, so the run that carried it is not a success.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failed_store_is_not_counted_as_a_body_stored() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("store-fail-count.db");
@@ -10143,6 +10278,7 @@ mod body_count_tests {
     /// still is what made a dropped body and a body nobody asked for look the
     /// same in a log.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_with_no_engine_is_counted_and_named() {
         let _guard = serial_global_state();
         crate::test_log::capturing();
@@ -10181,6 +10317,7 @@ mod body_count_tests {
     /// A time stream is the same loss on a second path, and the scrubber it
     /// feeds is what goes missing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_time_stream_with_no_engine_is_counted_and_named() {
         let _guard = serial_global_state();
         crate::test_log::capturing();
@@ -10210,6 +10347,7 @@ mod body_count_tests {
     /// A failed write is not a discard: the engine was there and answered, and
     /// the SQL error is already logged where it happened.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failed_write_is_not_counted_as_a_discard() {
         let _guard = serial_global_state();
         let _dir = init_global_engine();
@@ -10229,6 +10367,7 @@ mod body_count_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_landed_body_announces_its_kind_and_activity() {
         let _guard = serial_global_state();
         let _dir = init_global_engine();
@@ -10257,6 +10396,7 @@ mod body_count_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_with_no_activity_announces_an_empty_id() {
         // A curve is keyed by sport and window, not by activity, so the
         // reader gets the kind and nothing to scope it to.
@@ -10291,6 +10431,7 @@ mod body_count_tests {
     /// Expected behaviour: the key is released as a failed attempt carrying the
     /// storage reason, not forgotten as a success.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_curve_whose_write_is_refused_releases_as_a_failed_attempt() {
         use crate::persistence::attempts::JobKey;
         let _guard = serial_global_state();
@@ -10445,6 +10586,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_activity_that_already_has_its_body_is_not_asked_for_again() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -10488,6 +10630,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_server_that_refuses_every_activity_is_an_answer_not_a_failed_sweep() {
             let single_path = r"^/activity/a\d/intervals$";
             for status in [404u16, 410, 422] {
@@ -10556,6 +10699,7 @@ mod body_count_tests {
         /// so the sweep stops there and reports it, and no other activity is
         /// asked for.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_refusal_stops_the_sweep_at_the_activity_it_refused() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -10589,6 +10733,7 @@ mod body_count_tests {
         /// Expected behaviour: a deferral from the budget stops the sweep the
         /// same way, after the one request that drew the cooldown.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_cooldown_stops_the_sweep_after_one_request() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -10626,6 +10771,7 @@ mod body_count_tests {
         /// so with no cooldown every other activity is still asked for and one
         /// bad activity never wedges the queue.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_404_on_the_first_activity_still_asks_for_every_other() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -10793,6 +10939,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_newest_five_are_made_ready_and_older_ones_are_left() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -10847,6 +10994,7 @@ mod body_count_tests {
         /// request made, and the tracks survive the raw body cache being
         /// overrun.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_newest_five_have_durable_tracks_when_the_step_completes() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -10928,6 +11076,7 @@ mod body_count_tests {
         /// time series and route signature exist and survive the raw body
         /// cache being overrun.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_cached_stream_body_without_a_track_is_ingested_offline() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -10968,6 +11117,7 @@ mod body_count_tests {
         ///
         /// Expected behaviour: nothing is owed for it and no track is made.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_cached_stream_body_without_gps_owes_no_track() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -10985,6 +11135,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_second_pass_asks_for_nothing() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -11004,6 +11155,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_unavailable_stream_ends_its_wait_and_the_rest_still_land() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -11028,6 +11180,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_transient_failure_fails_the_step_without_skipping_the_others() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -11077,6 +11230,7 @@ mod body_count_tests {
         /// Expected behaviour: the first-use step still brings the missing body
         /// in, whether the plan has no window or only a single day.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_body_owed_after_a_failure_is_fetched_when_no_window_is_owed() {
             for windows in [Vec::new(), vec![one_day_window()]] {
                 let _guard = serial_global_state();
@@ -11102,6 +11256,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_unavailable_body_is_not_asked_for_again() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -11121,6 +11276,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_rejected_credential_stops_the_step() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -11351,6 +11507,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_activity_leaving_a_bounded_window_owes_that_window_only() {
             let engine = engine_fetched_on(
                 vec![
@@ -11367,18 +11524,21 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_day_with_an_activity_does_not_reowe_the_all_time_window_the_next_day() {
             let engine = engine_fetched_on(vec![on_day("a", "Ride", "2026-10-01")], "2026-10-01");
             assert_eq!(due(&engine, "2026-10-02"), vec![]);
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_rollover_that_moves_no_activity_across_an_edge_owes_nothing() {
             let engine = engine_fetched_on(vec![on_day("a", "Ride", "2026-09-30")], "2026-10-01");
             assert_eq!(due(&engine, "2026-10-05"), vec![]);
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_last_in_window_activity_leaving_owes_the_window() {
             let engine = engine_fetched_on(vec![on_day("a", "Ride", "2026-09-28")], "2026-10-01");
             assert_eq!(due(&engine, "2026-10-05"), vec![]);
@@ -11386,6 +11546,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn several_crossings_over_an_offline_gap_owe_each_window_crossed() {
             let engine = engine_fetched_on(
                 vec![
@@ -11403,12 +11564,14 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_family_with_no_activity_in_either_window_owes_nothing() {
             let engine = engine_fetched_on(vec![on_day("a", "Ride", "2020-01-01")], "2026-10-01");
             assert_eq!(due(&engine, "2026-12-31"), vec![]);
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn run_and_swim_variants_cross_on_their_own_keys() {
             let engine = engine_fetched_on(
                 vec![
@@ -11424,6 +11587,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn the_body_window_end_decides_the_fetched_day_not_the_utc_fetch_stamp() {
             // The fetch stamp reads as 2026-10-01 in UTC, but the window the
             // server drew ended on the 30th local.
@@ -11441,6 +11605,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_listed_contributor_outside_the_local_slice_counts_as_an_edge_crossing() {
             let mut engine = PersistentEngine::in_memory().expect("engine");
             engine
@@ -11543,6 +11708,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn plain_and_variant_sports_plan_one_canonical_pace_curve_each() {
             let mut engine = PersistentEngine::in_memory().expect("engine");
             engine
@@ -11721,6 +11887,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn test_sync_curves_waits_for_newer_family_activity() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -11797,18 +11964,21 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_activity_retyped_out_of_its_family_refetches_the_old_family() {
             let _guard = serial_global_state();
             assert_eq!(ride_power_sweep_hits("Run"), 2);
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_activity_retyped_within_its_family_adds_no_extra_sweep() {
             let _guard = serial_global_state();
             assert_eq!(ride_power_sweep_hits("VirtualRide"), 2);
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_upload_dated_before_the_last_sweep_refetches_its_family() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -11886,6 +12056,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn opening_a_held_activity_online_refetches_no_curve() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -12011,6 +12182,7 @@ mod body_count_tests {
         /// draws its efforts, so the sweep asks the server once more, though
         /// the library now holds nothing of that sport.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn removing_a_familys_last_activity_refetches_its_curves() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -12051,6 +12223,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_census_that_removes_nothing_refetches_no_curve() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -12090,6 +12263,7 @@ mod body_count_tests {
         /// Expected behaviour: the census removes it and the sweep refetches
         /// its family once.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_trackless_activity_removed_upstream_refetches_its_family() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -12129,6 +12303,7 @@ mod body_count_tests {
         /// for the section, and the family's curves are refetched once all the
         /// same, not on every census that finds it gone again.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_departure_kept_for_its_section_refetches_its_family_once() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -12196,6 +12371,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_empty_library_asks_for_nothing() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -12218,6 +12394,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_cancelled_sweep_stops_rather_than_finishing_the_sports() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -12241,6 +12418,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_refused_credential_ends_the_sweep_rather_than_being_carried() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -12316,6 +12494,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_key_owing_every_window_asks_them_in_one_request_and_stores_each() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -12378,6 +12557,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_failed_request_for_a_key_stores_none_of_its_windows_and_owes_them_all() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -12419,6 +12599,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn an_answer_that_is_not_a_window_list_stores_nothing() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -12444,6 +12625,7 @@ mod body_count_tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn one_key_that_fails_does_not_cost_the_others_their_bodies() {
             let _guard = serial_global_state();
             let _dir = init_global_engine();
@@ -12477,6 +12659,7 @@ mod body_count_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_write_that_fails_announces_nothing() {
         let _guard = serial_global_state();
         let _dir = init_global_engine();
@@ -12499,6 +12682,7 @@ mod body_count_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_landing_announces_once() {
         let _guard = serial_global_state();
         let _dir = init_global_engine();
@@ -12613,6 +12797,7 @@ mod write_auth_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_post_for_the_held_athlete_or_an_unstamped_ride_is_not_refused() {
         assert!(athlete_mismatch("i1", Some("i1")).is_none());
         assert!(athlete_mismatch("i1", None).is_none());
@@ -12620,6 +12805,7 @@ mod write_auth_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_confirmed_refusal_parks_the_session_when_polled_off_the_runtime() {
         let _guard = serial_global_state();
         let server = MockServer::start();
@@ -12652,6 +12838,7 @@ mod write_auth_tests {
     /// sync's own terminal transition, and nothing new begins behind it until
     /// a credential is set or cleared.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_park_survives_the_running_syncs_own_finish() {
         let svc = SyncService::new();
         svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
@@ -12679,6 +12866,7 @@ mod write_auth_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_re_auth_releases_the_park_and_a_sign_out_does_too() {
         for sign_out in [false, true] {
             let svc = SyncService::new();
@@ -12702,6 +12890,7 @@ mod write_auth_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unconfirmed_refusal_leaves_the_session_standing() {
         let _guard = serial_global_state();
         let server = MockServer::start();
@@ -12827,6 +13016,7 @@ mod metrics_repair_tests {
     /// runs on every sync, so a pass that rewrote the whole library would pay
     /// a full `activity_metrics` transaction each time.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_repair_leaves_a_body_that_already_has_its_metrics_alone() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("metrics_repair_noop.db");
@@ -12867,6 +13057,7 @@ mod metrics_repair_tests {
     /// of the sweep still lands. Failing the sweep on one unreadable payload
     /// would leave every other activity absent from the Health tab.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unreadable_body_does_not_cost_the_sweep_the_rest() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("metrics_repair_junk.db");
@@ -12899,6 +13090,7 @@ mod metrics_repair_tests {
     /// A page writes its bodies and metrics in one transaction, so a metrics
     /// failure fails the window and leaves no body without its row.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_page_whose_metrics_write_fails_stores_no_body() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("metrics_write_failure.db");
@@ -12937,6 +13129,7 @@ mod metrics_repair_tests {
     /// The repair writes the metrics rows on their own, so a failure there
     /// has no transaction to roll back and only the counter says it happened.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failed_repair_metrics_write_is_counted_and_fills_nothing() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::init_global_engine("metrics_repair_write_failure.db");
@@ -12977,6 +13170,7 @@ mod metrics_repair_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_clean_finish_stamps_the_time_and_the_status_carries_it() {
         let _guard = crate::test_globals::serial_global_state();
         let _dir = crate::test_globals::init_global_engine("sync_last_success.db");
@@ -12999,6 +13193,7 @@ mod metrics_repair_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_finish_that_is_not_clean_leaves_the_row_as_it_was() {
         let _guard = crate::test_globals::serial_global_state();
         let _dir = crate::test_globals::init_global_engine("sync_last_success_unclean.db");

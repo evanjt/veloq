@@ -272,6 +272,7 @@ fn outstanding() -> u64 {
 
 /// The queue is the not-yet-fetched set, and completed work leaves it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_queue_is_the_not_yet_fetched_set_and_shrinks_as_work_lands() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "a2", "a3"]);
@@ -503,6 +504,7 @@ fn exactly_one_detect_fires_and_it_fires_at_the_end() {
 /// An activity upstream cannot answer for leaves the queue permanently, so a
 /// library containing one still terminates.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn upstream_without_altitude_records_unavailable_and_is_not_retried() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "bare"]);
@@ -594,6 +596,7 @@ fn a_single_network_failure_does_not_sink_the_pass() {
 /// the activity, so the first ask settles it rather than leaving the row to be
 /// asked again on a later pass.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_empty_response_is_recorded_unavailable_on_the_first_ask() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
@@ -705,6 +708,7 @@ fn a_standing_detection_run_does_not_cancel_the_recut() {
 /// Two starts do not run concurrently and the second does not queue behind the
 /// first: it is refused outright and touches nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_start_while_one_runs_is_refused() {
     let _serial_state = super::serial_state();
     let ids: Vec<String> = (0..6).map(|i| format!("a{}", i)).collect();
@@ -741,6 +745,7 @@ fn a_second_start_while_one_runs_is_refused() {
 /// The end state the release is aiming at: a library where upstream had
 /// altitude for everything reads as uniformly elevated.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_finished_pass_leaves_nothing_not_fetched() {
     let _serial_state = super::serial_state();
     let ids: Vec<String> = (0..12).map(|i| format!("a{}", i)).collect();
@@ -1242,6 +1247,7 @@ fn answer_all(server: &MockServer, ids: &[String], status: u16) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_connection_that_is_gone_stops_the_pass_at_the_threshold_not_at_the_queue() {
     let _serial_state = super::serial_state();
     let (_dir, ids) = seeded_long_queue();
@@ -1278,6 +1284,7 @@ fn a_connection_that_is_gone_stops_the_pass_at_the_threshold_not_at_the_queue() 
 /// stops after the batch it met it in, counts no track as failed, and waits
 /// for the refusal to lift rather than walking on to the threshold.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_refusal_stops_the_pass_at_the_first_batch_and_counts_nothing() {
     let _serial_state = super::serial_state();
     let (_dir, ids) = seeded_long_queue();
@@ -1322,6 +1329,7 @@ fn a_refusal_stops_the_pass_at_the_first_batch_and_counts_nothing() {
 /// permanently 404-ing prefix would otherwise wedge the queue: every run
 /// re-derives the same order and would stop at the same place forever.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_answer_about_one_activity_does_not_stop_the_pass() {
     let _serial_state = super::serial_state();
     let (_dir, ids) = seeded_long_queue();
@@ -1344,6 +1352,7 @@ fn an_answer_about_one_activity_does_not_stop_the_pass() {
 /// The threshold counts consecutive failures, not the pass's total. A flaky
 /// connection landing work between the failures must run the queue out.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn work_landing_between_the_failures_keeps_the_pass_going() {
     let _serial_state = super::serial_state();
     let (_dir, ids) = seeded_long_queue();
@@ -1414,6 +1423,7 @@ fn failed_once_then_elevated(server: &MockServer, id: &str, seed: f64) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_transient_failure_is_re_asked_inside_the_pass_rather_than_next_launch() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a", "b"]);
@@ -1447,6 +1457,7 @@ fn a_transient_failure_is_re_asked_inside_the_pass_rather_than_next_launch() {
 /// than spending it. A pass that asks and is refused on every rung is the one
 /// shape that costs the whole ladder in real time, so it is not asserted here.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_answer_about_one_activity_is_asked_once_and_not_re_asked() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a"]);
@@ -1471,6 +1482,7 @@ fn an_answer_about_one_activity_is_asked_once_and_not_re_asked() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_connection_that_is_gone_is_not_re_asked_at_all() {
     let _serial_state = super::serial_state();
     let (_dir, ids) = seeded_long_queue();
@@ -1510,6 +1522,7 @@ fn a_connection_that_is_gone_is_not_re_asked_at_all() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn re_asking_never_reports_more_progress_than_the_queue_held() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a", "b"]);
@@ -1697,6 +1710,7 @@ fn a_clean_pass_leaves_the_session_alone() {
 /// Expected behaviour: once `live_session` returns nothing the engine started
 /// is still running and the run slot is free.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn live_session_leaves_no_background_work_running() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a", "b"]);
@@ -1726,6 +1740,7 @@ fn live_session_leaves_no_background_work_running() {
 /// last test left, because a credential is what a live session is and setting
 /// one is the only thing that releases a park.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn live_session_clears_a_park_the_last_test_left() {
     let _serial_state = super::serial_state();
     SYNC_SERVICE.park_auth_expired_now();
@@ -1743,6 +1758,7 @@ fn live_session_clears_a_park_the_last_test_left() {
 /// runs while the token is still dead reports it again rather than falling
 /// silent.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_second_rejected_pass_parks_again() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
@@ -1905,6 +1921,7 @@ fn a_track_whose_sample_count_moved_upstream_is_fetched_whole() {
 /// Upstream answering with an altitude series it cannot fill is a final
 /// answer, not a transient one. The track is left exactly as it is.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_altitude_series_upstream_cannot_fill_leaves_the_track_alone() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
@@ -1951,6 +1968,7 @@ fn an_altitude_series_upstream_cannot_fill_leaves_the_track_alone() {
 /// The whole track settles it, and only for those activities. Either answer
 /// leaves the queue on that one ask.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["bare", "gone"]);
@@ -1997,6 +2015,7 @@ fn an_answer_with_no_altitude_series_is_settled_by_the_whole_track() {
 /// owed cutover then refuses every detect for the rest of the
 /// session.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_whose_library_has_no_altitude_upstream_still_cuts() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1", "a2"]);
@@ -2156,6 +2175,7 @@ fn a_paused_pass_ends_paused_without_the_final_recut_and_releases_detection() {
 /// pass, the track reads `UNAVAILABLE`, and it still counts as not elevated,
 /// because nothing was ever fetched for it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_upstream_answers_for_with_no_stream_leaves_the_queue_on_the_first_ask() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a1"]);
@@ -2276,6 +2296,7 @@ fn an_upgraded_library_under_the_threshold_drains_both_queues_in_one_pass() {
 /// every rung after a pass that drained follows at once; the ladder ends with
 /// the queue empty and no wait climbed past the bottom.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_drop_partway_through_the_upgrade_drain_is_followed_without_waiting() {
     use std::cell::{Cell, RefCell};
     use veloqrs::net::elevation_backfill::{RESUME_WAITS, resume_ladder};
@@ -2401,6 +2422,7 @@ fn answer_with(server: &MockServer, id: &str, status: u16) {
 /// final "no elevation". It leaves the queue, so it holds neither detection
 /// nor the cutover, and a pass that ends on it drains.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_403_is_withheld_rather_than_settled_flat() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a"]);
@@ -2429,6 +2451,7 @@ fn a_403_is_withheld_rather_than_settled_flat() {
 ///
 /// Expected behaviour: settled flat on the first ask and not asked again.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_404_or_another_4xx_settles_the_track() {
     for status in [404, 410, 422] {
         let _serial_state = super::serial_state();
@@ -2448,6 +2471,7 @@ fn a_404_or_another_4xx_settles_the_track() {
 ///
 /// Expected behaviour: the track stays owed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn pushback_leaves_the_track_owed() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a"]);
@@ -2478,6 +2502,7 @@ fn pushback_leaves_the_track_owed() {
 ///
 /// Expected behaviour: the track stays owed.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn outage_leaves_the_track_owed() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a"]);
@@ -2494,6 +2519,7 @@ fn outage_leaves_the_track_owed() {
 /// Expected behaviour: only the track whose version moved is asked again. The
 /// one whose version stands stays settled.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_new_upstream_version_asks_a_settled_or_withheld_track_again() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["gone", "blocked", "steady"]);
@@ -2523,6 +2549,7 @@ fn a_new_upstream_version_asks_a_settled_or_withheld_track_again() {
 ///
 /// Expected behaviour: nothing is re-asked on a guess.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_settled_with_no_recorded_version_is_not_re_asked() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["a"]);
@@ -2542,6 +2569,7 @@ fn a_track_settled_with_no_recorded_version_is_not_re_asked() {
 /// start, the settled one stays settled, and a hold sends nothing and
 /// releases nothing.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn retry_now_releases_the_withheld_and_only_those() {
     let _serial_state = super::serial_state();
     let (_dir, _path) = seeded_engine(&["blocked", "gone"]);

@@ -122,6 +122,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_fetch_one_record_activity_404_keeps_record_dormant() {
         let server = MockServer::start();
         let detail = server.mock(|when, then| {

@@ -99,6 +99,9 @@ const collectCoverageFrom = [
 
 const { toolingDirectories, toolingSuites } = require('./jest.tooling.js');
 
+// A vault suite is named `*.vault.test.ts(x)` in place, so its imports stay as they are.
+const vaultSuites = '\\.vault\\.test\\.tsx?$';
+
 const ignored = [
   '/node_modules/',
   '/__tests__/e2e/',
@@ -162,10 +165,12 @@ module.exports = {
   // which will never settle fails inside it.
   testTimeout: 30000,
   collectCoverageFrom,
-  // Two projects, split in config/jest.tooling.js. `npm test` selects `app`
-  // and `npm run test:tooling` selects `tooling`. Anything that selects no
-  // project runs both: `test:changed` in the pre-commit hook and the merge
-  // gate's `--findRelatedTests`, so neither loses a related suite to the split.
+  // Three projects. `npm test` selects `app` and `npm run test:tooling` selects
+  // `tooling`, split in config/jest.tooling.js. `vault` holds the suites that
+  // guard nothing an athlete would lose: edge cases, copy, layout and tooling
+  // checks. They run on demand and before a release (`npm run test:vault`),
+  // never on every change, which ran about 19,000 tests per landing.
+  // `test:changed` selects app and tooling, so a commit never runs the vault.
   projects: [
     {
       ...project,
@@ -173,6 +178,7 @@ module.exports = {
       testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
       testPathIgnorePatterns: [
         ...ignored,
+        vaultSuites,
         ...toolingDirectories.map((dir) => `/${escape(dir)}`),
         ...toolingSuites.map((suite) => `/${escape(suite)}$`),
       ],
@@ -184,6 +190,12 @@ module.exports = {
         ...toolingDirectories.map((dir) => `<rootDir>/${dir}**/*.test.{ts,tsx}`),
         ...toolingSuites.map((suite) => `<rootDir>/${suite}`),
       ],
+      testPathIgnorePatterns: [...ignored, vaultSuites],
+    },
+    {
+      ...project,
+      displayName: 'vault',
+      testMatch: ['**/__tests__/**/*.vault.test.ts', '**/__tests__/**/*.vault.test.tsx'],
       testPathIgnorePatterns: ignored,
     },
   ],

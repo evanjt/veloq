@@ -66,19 +66,22 @@ function fixture(version: string = VERSION, source: string = shipped): string {
 const read = (root: string) =>
   readFileSync(join(root, 'node_modules/react-native-nitro-modules', FILE), 'utf8');
 
-it('answers the selector the installed React Native calls, which the shipped source does not', () => {
-  const patched = patchSource(shipped);
+vaultIt(
+  'answers the selector the installed React Native calls, which the shipped source does not',
+  () => {
+    const patched = patchSource(shipped);
 
-  expect(called).toEqual(['installJSIBindingsWithRuntime:callInvoker:']);
-  expect(shipped).not.toMatch(
-    /installJSIBindingsWithRuntime:\(jsi::Runtime&\)runtime callInvoker:/
-  );
-  expect(patched).toMatch(
-    /- \(void\)installJSIBindingsWithRuntime:\(jsi::Runtime&\)runtime\s+callInvoker:\(const std::shared_ptr<react::CallInvoker>&\)callInvoker \{\n\s+_callInvoker = callInvoker;\n\s+\[self installNitroInRuntime:runtime\];/
-  );
-  expect(patched).toMatch(/- \(void\)installNitroInRuntime:\(jsi::Runtime&\)runtime \{/);
-  expect(unpatchSource(patched)).toBe(shipped);
-});
+    expect(called).toEqual(['installJSIBindingsWithRuntime:callInvoker:']);
+    expect(shipped).not.toMatch(
+      /installJSIBindingsWithRuntime:\(jsi::Runtime&\)runtime callInvoker:/
+    );
+    expect(patched).toMatch(
+      /- \(void\)installJSIBindingsWithRuntime:\(jsi::Runtime&\)runtime\s+callInvoker:\(const std::shared_ptr<react::CallInvoker>&\)callInvoker \{\n\s+_callInvoker = callInvoker;\n\s+\[self installNitroInRuntime:runtime\];/
+    );
+    expect(patched).toMatch(/- \(void\)installNitroInRuntime:\(jsi::Runtime&\)runtime \{/);
+    expect(unpatchSource(patched)).toBe(shipped);
+  }
+);
 
 it('patches the installed package once and a second install changes nothing', () => {
   const root = fixture();

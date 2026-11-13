@@ -951,6 +951,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_moved_point_is_still_a_mutation() {
         let points = vec![pt(46.123456, 7.654321, Some(1234.5))];
         let moved = vec![pt(46.123556, 7.654321, Some(1234.5))];
@@ -967,6 +968,7 @@ mod tests {
     /// Movement below the quantisation step stops being visible, which is the
     /// price of one codec. 1e-7 degrees is ~11 mm.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn movement_below_the_quantisation_step_is_not_a_mutation() {
         let stored = serialize_track_points(&[pt(46.123456, 7.654321, Some(1234.5))]);
         assert!(track_matches(
@@ -976,6 +978,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_corrupt_stored_blob_counts_as_a_mutation() {
         assert!(!track_matches(&[0x07, 0x07, 0x07], &[pt(46.1, 7.2, None)]));
         assert!(!track_matches(&[], &[pt(46.1, 7.2, None)]));
@@ -1008,6 +1011,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn polyline_without_elevation_round_trips() {
         let points = vec![pt(46.2, 7.36, None), pt(46.200_51, 7.360_72, None)];
         assert_eq!(decode_polyline(&encode_polyline(&points)).unwrap(), points);
@@ -1015,6 +1019,7 @@ mod tests {
 
     /// Mixed elevation presence: None points must come back as None, not 0.0.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn mixed_elevation_presence_survives() {
         let points = vec![
             pt(46.2, 7.36, Some(512.3)),
@@ -1028,6 +1033,7 @@ mod tests {
     /// The stored header says whether a track carries elevation without a
     /// point being decoded; a container with no such header says nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stored_track_header_says_whether_it_carries_elevation() {
         let with = vec![pt(46.2, 7.36, Some(512.3)), pt(46.2005, 7.3607, None)];
         let without = vec![pt(46.2, 7.36, None), pt(46.2005, 7.3607, None)];
@@ -1051,6 +1057,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn empty_and_single_point_round_trip() {
         assert_eq!(decode_polyline(&encode_polyline(&[])).unwrap(), vec![]);
         let one = vec![pt(-37.813_6, 144.963_1, Some(31.0))];
@@ -1118,6 +1125,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn framed_round_trip() {
         let original: Vec<u32> = vec![0, 1, 127, 128, 300, u32::MAX];
         let blob = serialize(&original).unwrap();
@@ -1127,6 +1135,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn framed_points_round_trip() {
         let original = framing_points();
         let blob = serialize_points(&original).unwrap();
@@ -1187,6 +1196,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn trailing_bytes_rejected() {
         let mut framed = serialize(&vec![1u32, 2, 3]).unwrap();
         framed.extend_from_slice(&[0xFF, 0xFF]);
@@ -1204,6 +1214,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn tampered_frame_length_errors_instead_of_garbage() {
         let mut blob = serialize(&vec![1u32, 2, 3]).unwrap();
         blob[1] = blob[1].wrapping_add(1);
@@ -1213,6 +1224,7 @@ mod tests {
     /// The struct-version tag and the postcard frame are independent layers:
     /// framing a body must not disturb `tag_blob`/`untag_blob`.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn version_tag_and_postcard_frame_compose() {
         let body = serialize(&vec![7u32, 8, 9]).unwrap();
         let tagged = tag_blob(3, body);
@@ -1225,6 +1237,7 @@ mod tests {
     /// The quantised polyline codec is its own format with its own framing and
     /// must stay readable alongside the postcard tag.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn quantised_polyline_is_untouched_by_framing() {
         let points = framing_points();
         let quantised = encode_polyline(&points);
@@ -1277,6 +1290,7 @@ mod tests {
     /// with no elevation writes a short array and `version` reads whatever
     /// came next. `GpsPoint` skips `elevation` last, which is why it survives.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_section_without_elevation_needs_the_named_encoding() {
         let section = crate::FrequentSection {
             elevation_gain_m: None,
@@ -1299,6 +1313,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_trailing_skipped_field_survives_either_encoding() {
         let points = vec![crate::GpsPoint::new(45.0, 8.0); 3];
         let positional = serialize_gps_composite(&points).expect("encode");
@@ -1363,6 +1378,7 @@ mod tests {
     ///
     /// Expected behaviour: an all-gap series round-trips at any realistic length.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_all_gap_series_round_trips_past_sixteen_samples() {
         for len in [17usize, 20, 10_000] {
             let values = vec![None; len];
@@ -1442,6 +1458,7 @@ mod tests {
     /// An elevation that is not a number is unknown, and sea level is a value,
     /// so a NaN must not come back as 0 m.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_non_finite_elevation_is_written_as_absent() {
         let points = [
             pt(46.5, 6.6, Some(f64::NAN)),
@@ -1518,6 +1535,7 @@ mod tests {
     /// Expected behaviour: the named encoding is written compressed, decodes
     /// to the same bits, and takes at most a third of the plain bytes.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_named_composite_round_trips_compressed_at_a_third_of_the_plain_bytes() {
         let value = shaped_cache();
         let plain = rmp_serde::to_vec_named(&value).expect("encode");

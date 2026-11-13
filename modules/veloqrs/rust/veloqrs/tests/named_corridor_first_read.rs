@@ -196,6 +196,7 @@ fn renaming_a_corridor_replaces_the_name_the_list_shows() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn removing_a_corridor_updates_the_next_unfiltered_list_read() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -216,6 +217,7 @@ fn removing_a_corridor_updates_the_next_unfiltered_list_read() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn renaming_a_smaller_split_piece_keeps_the_live_trunk_name() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -229,6 +231,7 @@ fn renaming_a_smaller_split_piece_keeps_the_live_trunk_name() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn renaming_a_nested_short_section_keeps_the_long_name() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -242,6 +245,7 @@ fn renaming_a_nested_short_section_keeps_the_long_name() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clearing_the_name_returns_the_generated_one() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -300,6 +304,7 @@ fn dormant_corridors() -> usize {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn removing_a_corridor_updates_the_next_cached_names_read() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -335,6 +340,7 @@ fn trimming_a_named_corridor_keeps_its_name() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn resetting_a_trimmed_named_corridor_hands_the_name_back_to_an_intent() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -365,6 +371,7 @@ fn resetting_a_trimmed_named_corridor_hands_the_name_back_to_an_intent() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn expanding_a_named_corridor_keeps_its_name() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -390,6 +397,7 @@ fn try_name(section_id: &str, name: &str) -> Result<(), String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rename_to_the_name_a_drawn_section_holds_is_refused() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -402,6 +410,7 @@ fn a_rename_to_the_name_a_drawn_section_holds_is_refused() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rename_to_a_corridor_name_another_section_shows_is_refused() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -415,6 +424,7 @@ fn a_rename_to_a_corridor_name_another_section_shows_is_refused() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_rename_to_a_free_name_or_its_own_name_is_accepted() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -430,6 +440,7 @@ fn a_rename_to_a_free_name_or_its_own_name_is_accepted() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_name_freed_by_a_rename_can_be_taken() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -442,6 +453,7 @@ fn a_name_freed_by_a_rename_can_be_taken() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_activity_encounters_carry_the_corridor_name() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -467,6 +479,7 @@ fn the_activity_encounters_carry_the_corridor_name() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_scan_match_carries_the_corridor_name() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();

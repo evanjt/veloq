@@ -39,14 +39,14 @@ const centroid = (r: number[][]) => {
 };
 
 describe('muscle hit polygons', () => {
-  it('covers every tappable muscle on both sides', () => {
+  vaultIt('covers every tappable muscle on both sides', () => {
     for (const slug of TAPPABLE) {
       const present = slug in FRONT_MALE || slug in BACK_MALE;
       expect([slug, present]).toEqual([slug, true]);
     }
   });
 
-  it('stays inside the normalised viewBox', () => {
+  vaultIt('stays inside the normalised viewBox', () => {
     for (const rings of Object.values(FRONT_MALE)) {
       for (const r of rings) {
         for (const [x, y] of r) {
@@ -59,7 +59,7 @@ describe('muscle hit polygons', () => {
     }
   });
 
-  it('gives male and female distinct geometry', () => {
+  vaultIt('gives male and female distinct geometry', () => {
     // Same slugs, different bodies. Identical polygons would mean the female body is
     // being hit-tested against male regions.
     expect(Object.keys(FRONT_FEMALE).sort()).toEqual(Object.keys(FRONT_MALE).sort());
@@ -82,7 +82,7 @@ describe('muscle hit polygons', () => {
     }
   });
 
-  it('returns null well outside the body', () => {
+  vaultIt('returns null well outside the body', () => {
     expect(findMuscleAtPoint(-0.5, -0.5, 'front', TAPPABLE, 'male')).toBeNull();
   });
 });

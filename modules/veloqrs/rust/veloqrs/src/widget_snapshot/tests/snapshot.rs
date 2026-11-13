@@ -411,6 +411,7 @@ fn gps(latitude: f64, longitude: f64) -> GpsPoint {
 // ---------------------------------------------------------------------------
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn emits_the_versioned_shape_with_the_light_and_dark_theme_carried_through() {
     let s = snapshot();
     assert_eq!(s.schema_version, SCHEMA_VERSION);
@@ -471,6 +472,7 @@ fn assigns_the_form_zone_from_the_intervals_icu_tsb_boundaries() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn reads_flat_when_the_change_is_within_the_deadband() {
     let mut raw = make_raw();
     raw.sparklines = Some(series(
@@ -486,6 +488,7 @@ fn reads_flat_when_the_change_is_within_the_deadband() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn derives_the_latest_activity_with_formatted_labels() {
     let s = snapshot();
     let latest = s.latest.expect("a latest activity");
@@ -497,6 +500,7 @@ fn derives_the_latest_activity_with_formatted_labels() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_with_no_recorded_load_carries_no_load() {
     for recorded in [None, Some(0.0)] {
         let mut raw = make_raw();
@@ -569,6 +573,7 @@ fn zones_the_impact_before_and_after_values_independently() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn names_the_impact_zones_in_the_athletes_language() {
     let mut raw = make_raw();
     sparklines_mut(&mut raw).form = vec![-2, 0, 2, 4, 6, 0, 10];
@@ -582,6 +587,7 @@ fn names_the_impact_zones_in_the_athletes_language() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn names_no_impact_zone_when_the_day_has_no_fitness_under_the_percentage_setting() {
     let mut raw = make_raw();
     raw.form_as_percent = true;
@@ -593,6 +599,7 @@ fn names_no_impact_zone_when_the_day_has_no_fitness_under_the_percentage_setting
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn defaults_the_latest_record_flag_to_false_and_passes_an_engine_record_through() {
     assert!(!snapshot().latest.unwrap().is_pr);
     let mut raw = make_raw();
@@ -601,6 +608,7 @@ fn defaults_the_latest_record_flag_to_false_and_passes_an_engine_record_through(
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn carries_localised_labels_and_a_composed_impact_line() {
     let s = snapshot();
     assert_eq!(
@@ -635,6 +643,7 @@ fn suppresses_the_impact_and_its_line_for_a_stale_latest_activity() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn keeps_sparklines_oldest_first_for_left_to_right_drawing() {
     let s = snapshot();
     assert_eq!(s.sparklines.form.last(), Some(&-8));
@@ -644,6 +653,7 @@ fn keeps_sparklines_oldest_first_for_left_to_right_drawing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn writes_no_per_day_zone_beside_the_form_sparkline() {
     let json = serde_json::to_value(snapshot()).unwrap();
     assert!(json["sparklines"].get("formZones").is_none());
@@ -690,6 +700,7 @@ fn is_null_safe_with_no_engine_data_and_never_emits_a_non_finite_number() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn mirrors_the_in_app_summary_card_settings_as_a_ready_to_render_block() {
     let card = snapshot().summary_card.expect("a summary card");
     assert_eq!(
@@ -729,6 +740,7 @@ fn mirrors_the_in_app_summary_card_settings_as_a_ready_to_render_block() {
 /// Expected behaviour: the week is written from the duration units the app
 /// passes in the context, as hours and minutes.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn writes_the_week_in_the_duration_units_the_context_carries() {
     let raw = make_raw();
     let mut ctx = context(&raw);
@@ -744,6 +756,7 @@ fn writes_the_week_in_the_duration_units_the_context_carries() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn selects_the_hrv_sparkline_for_an_hrv_hero_and_none_when_disabled() {
     let mut hrv_hero = make_raw();
     hrv_hero.summary_prefs.as_mut().unwrap().hero_metric = "hrv".to_string();
@@ -760,6 +773,7 @@ fn selects_the_hrv_sparkline_for_an_hrv_hero_and_none_when_disabled() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn omits_the_summary_block_when_disabled_or_the_settings_are_missing() {
     let mut disabled = make_raw();
     disabled.summary_prefs.as_mut().unwrap().enabled = false;
@@ -773,6 +787,7 @@ fn omits_the_summary_block_when_disabled_or_the_settings_are_missing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn renders_a_dash_for_summary_metrics_with_no_backing_data() {
     let mut raw = make_raw();
     raw.sparklines = None;
@@ -788,6 +803,7 @@ fn renders_a_dash_for_summary_metrics_with_no_backing_data() {
 // The app once received these as big integers; the engine now hands over plain
 // numbers, and they must come out unchanged.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn carries_the_activity_date_and_week_duration_through_as_numbers() {
     let mut raw = with_latest_date(NOW - 3600);
     raw.summary.as_mut().unwrap().current_week.total_duration = 23_400.0;
@@ -802,6 +818,7 @@ fn carries_the_activity_date_and_week_duration_through_as_numbers() {
 // ---------------------------------------------------------------------------
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn normalises_points_into_the_unit_box_with_a_bounded_aspect() {
     let preview = route_outline(&gps_line(50), ROUTE_OUTLINE_MAX_POINTS).expect("an outline");
     for [x, y] in &preview.points {
@@ -814,6 +831,7 @@ fn normalises_points_into_the_unit_box_with_a_bounded_aspect() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn downsamples_long_tracks_and_keeps_the_final_point() {
     let preview = route_outline(&gps_line(5000), ROUTE_OUTLINE_MAX_POINTS).expect("an outline");
     assert!(preview.points.len() <= ROUTE_OUTLINE_MAX_POINTS + 1);
@@ -845,6 +863,7 @@ fn reports_the_newest_day_matching_what_the_fitness_tab_shows() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn has_no_outline_for_a_missing_short_or_degenerate_track() {
     assert_eq!(route_outline(&[], ROUTE_OUTLINE_MAX_POINTS), None);
     assert_eq!(route_outline(&gps_line(1), ROUTE_OUTLINE_MAX_POINTS), None);
@@ -921,6 +940,7 @@ fn carries_a_negative_ramp_through() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn rounds_the_ramp_to_the_one_decimal_the_widget_has_always_shown() {
     assert_eq!(snapshot_of_ramp(Some(2.34567)).metrics.ramp_rate.value, 2.3);
 }
@@ -1002,6 +1022,7 @@ fn restores_the_absolute_readouts_with_the_setting_off() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn signs_a_positive_form() {
     let mut raw = make_raw();
     sparklines_mut(&mut raw).form = vec![1, 3];
@@ -1020,6 +1041,7 @@ fn no_series() -> FfiWellnessSparklines {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn flags_an_empty_library_with_no_activity_no_series_and_no_wellness() {
     let mut nothing = make_raw();
     nothing.sparklines = None;
@@ -1035,6 +1057,7 @@ fn flags_an_empty_library_with_no_activity_no_series_and_no_wellness() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clears_the_empty_library_flag_when_an_activity_exists_without_wellness() {
     let mut raw = make_raw();
     raw.sparklines = Some(no_series());
@@ -1042,6 +1065,7 @@ fn clears_the_empty_library_flag_when_an_activity_exists_without_wellness() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clears_the_empty_library_flag_when_wellness_exists_without_an_activity() {
     let mut raw = make_raw();
     raw.latest = None;
@@ -1066,6 +1090,7 @@ fn card_of(raw: &Raw) -> SummaryCard {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn composes_exactly_the_chosen_supporting_metrics_in_the_chosen_order() {
     let mut raw = make_raw();
     raw.summary_prefs = Some(prefs("hrv", &["rhr", "weekHours", "ftp", "weight"]));
@@ -1083,6 +1108,7 @@ fn composes_exactly_the_chosen_supporting_metrics_in_the_chosen_order() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn prints_weight_in_pounds_for_an_imperial_athlete() {
     let mut raw = make_raw();
     raw.summary_prefs = Some(prefs("fitness", &["weight"]));
@@ -1103,6 +1129,7 @@ fn leaves_weight_out_with_no_reading_as_the_app_card_does_never_a_zero() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn takes_at_most_four_supporting_metrics_after_skipping_the_absent_ones() {
     let mut raw = make_raw();
     raw.summary_prefs = Some(prefs(
@@ -1115,6 +1142,7 @@ fn takes_at_most_four_supporting_metrics_after_skipping_the_absent_ones() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_form_hero_leads_with_its_zone_colour_and_draws_the_form_series() {
     let mut raw = make_raw();
     raw.summary_prefs = Some(prefs("form", &["fitness"]));
@@ -1126,6 +1154,7 @@ fn a_form_hero_leads_with_its_zone_colour_and_draws_the_form_series() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn carries_the_series_of_whichever_metric_is_the_hero() {
     let series_of = |hero: &str| {
         let mut raw = make_raw();
@@ -1138,6 +1167,7 @@ fn carries_the_series_of_whichever_metric_is_the_hero() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_hero_with_no_daily_series_carries_no_sparkline() {
     for hero in ["ftp", "weekHours", "weight", "thresholdPace"] {
         let mut raw = make_raw();
@@ -1148,6 +1178,7 @@ fn a_hero_with_no_daily_series_carries_no_sparkline() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn carries_no_hero_sparkline_when_the_card_hides_it() {
     let mut raw = make_raw();
     raw.summary_prefs.as_mut().unwrap().show_sparkline = false;
@@ -1157,6 +1188,7 @@ fn carries_no_hero_sparkline_when_the_card_hides_it() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unknown_hero_falls_back_to_fitness_and_its_series() {
     let mut raw = make_raw();
     raw.summary_prefs = Some(prefs("bogus", &[]));
@@ -1166,6 +1198,7 @@ fn an_unknown_hero_falls_back_to_fitness_and_its_series() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_placement_override_composes_its_own_card_and_the_default_stays_the_cards() {
     let raw = make_raw();
     let data = data_of(&raw);
@@ -1181,6 +1214,7 @@ fn a_placement_override_composes_its_own_card_and_the_default_stays_the_cards() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn carries_six_weeks_of_form_with_the_zone_bounds_and_leaves_the_other_series_at_thirty_days() {
     let mut raw = make_raw();
     let form: Vec<i32> = (0..42).map(|d| d - 30).collect();
@@ -1217,6 +1251,7 @@ fn writes_form_history_in_percent_of_that_days_fitness_with_a_gap_where_there_is
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn has_no_form_history_without_a_form_series() {
     let mut raw = make_raw();
     raw.sparklines = None;
@@ -1225,6 +1260,7 @@ fn has_no_form_history_without_a_form_series() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn serialises_the_hero_sparkline_and_the_form_history_for_the_natives() {
     let value = json(&snapshot());
     assert_eq!(
@@ -1239,6 +1275,7 @@ fn serialises_the_hero_sparkline_and_the_form_history_for_the_natives() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_weight_hero_with_no_reading_prints_a_dash_rather_than_changing_hero() {
     let mut raw = make_raw();
     raw.summary_prefs = Some(prefs("weight", &[]));
@@ -1294,6 +1331,7 @@ fn an_activity_second_fastest_of_fourteen_attempts_composes_rank_two_and_the_gap
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_matched_route_carries_at_most_the_twenty_latest_prior_attempts_in_date_order() {
     let mut raw = make_raw();
     let mut standing = standing_second_of_fourteen();
@@ -1377,6 +1415,7 @@ fn no_fallback_without_a_typical_load_or_without_a_load_of_its_own() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_section_pr_count_passes_through() {
     let mut raw = make_raw();
     assert_eq!(latest_of(&raw).section_prs, 0);
@@ -1394,6 +1433,7 @@ fn headline_of(raw: &Raw) -> Headline {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_matched_activity_leads_with_its_rank_and_the_gap_to_the_route_record() {
     let mut raw = make_raw();
     raw.comparison.route = Some(standing_second_of_fourteen());
@@ -1406,6 +1446,7 @@ fn a_matched_activity_leads_with_its_rank_and_the_gap_to_the_route_record() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_route_record_leads_with_its_rank_and_says_it_is_the_fastest() {
     let mut raw = make_raw();
     raw.comparison.route = Some(WidgetRouteStanding {
@@ -1419,6 +1460,7 @@ fn a_route_record_leads_with_its_rank_and_says_it_is_the_fastest() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_attempt_is_a_dot_in_date_order_with_the_latest_last_and_the_fastest_marked() {
     let mut raw = make_raw();
     raw.comparison.route = Some(standing_second_of_fourteen());
@@ -1436,6 +1478,7 @@ fn every_attempt_is_a_dot_in_date_order_with_the_latest_last_and_the_fastest_mar
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_latest_that_is_the_fastest_attempt_marks_its_own_dot_as_the_record() {
     let mut raw = make_raw();
     raw.comparison.route = Some(WidgetRouteStanding {
@@ -1451,6 +1494,7 @@ fn a_latest_that_is_the_fastest_attempt_marks_its_own_dot_as_the_record() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unmatched_activity_leads_with_its_load_against_the_typical_load_and_no_rank() {
     let mut raw = make_raw();
     raw.comparison.typical_load = Some(50.0);
@@ -1467,6 +1511,7 @@ fn an_unmatched_activity_leads_with_its_load_against_the_typical_load_and_no_ran
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_load_below_the_typical_one_carries_a_minus_sign_in_the_detail() {
     let mut raw = make_raw();
     raw.comparison.typical_load = Some(124.0);
@@ -1477,6 +1522,7 @@ fn a_load_below_the_typical_one_carries_a_minus_sign_in_the_detail() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_load_with_no_typical_load_leads_with_the_load_alone() {
     let raw = make_raw();
     let headline = headline_of(&raw);
@@ -1486,6 +1532,7 @@ fn a_load_with_no_typical_load_leads_with_the_load_alone() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn no_route_standing_and_no_load_leads_with_nothing() {
     let mut raw = make_raw();
     raw.latest.as_mut().unwrap().training_load = None;
@@ -1493,6 +1540,7 @@ fn no_route_standing_and_no_load_leads_with_nothing() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_unranked_attempt_on_a_route_falls_back_to_its_load() {
     let mut raw = make_raw();
     raw.comparison.typical_load = Some(50.0);
@@ -1507,6 +1555,7 @@ fn an_unranked_attempt_on_a_route_falls_back_to_its_load() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_context_without_the_words_leads_with_nothing_rather_than_a_key() {
     let mut raw = make_raw();
     raw.comparison.route = Some(standing_second_of_fourteen());
@@ -1523,6 +1572,7 @@ fn a_context_without_the_words_leads_with_nothing_rather_than_a_key() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_load_and_the_section_prs_are_worded_for_the_widget_and_absent_when_there_are_none() {
     let mut raw = make_raw();
     let latest = latest_of(&raw);
@@ -1539,6 +1589,7 @@ fn the_load_and_the_section_prs_are_worded_for_the_widget_and_absent_when_there_
 /// Android's `org.json` reads a JSON null through `optString` as the text "null",
 /// so an absent line must leave its key out rather than write a null.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_absent_load_or_section_prs_line_leaves_its_key_out_of_the_file() {
     let mut raw = make_raw();
     raw.latest.as_mut().unwrap().training_load = None;
@@ -1602,6 +1653,7 @@ fn a_ride_without_power_or_climbing_leaves_those_stats_out_rather_than_printing_
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn imperial_athletes_read_elevation_in_feet() {
     let mut raw = with_sport("Ride", |a| a.elevation_gain = 300.0);
     raw.is_metric = false;
@@ -1629,6 +1681,7 @@ fn a_run_carries_distance_moving_time_and_pace_per_kilometre() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_reads_its_pace_per_mile_for_an_imperial_athlete() {
     let mut raw = with_sport("TrailRun", |a| {
         a.distance = 10_000.0;
@@ -1657,6 +1710,7 @@ fn a_swim_carries_distance_moving_time_and_pace_per_hundred_metres() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_swim_reads_its_pace_per_hundred_yards_for_an_imperial_athlete() {
     let mut raw = with_sport("OpenWaterSwim", |a| {
         a.distance = 1500.0;
@@ -1678,6 +1732,7 @@ fn a_run_with_no_distance_or_time_has_no_pace_to_print() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn any_other_sport_carries_distance_and_moving_time_only() {
     let raw = with_sport("Kayaking", |a| {
         a.elevation_gain = 40.0;
@@ -1690,6 +1745,7 @@ fn any_other_sport_carries_distance_and_moving_time_only() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn lists_the_insights_the_context_carries_in_order_and_an_empty_list_without() {
     let raw = make_raw();
     assert_eq!(json(&compose_raw(&raw))["insights"], serde_json::json!([]));
@@ -1717,6 +1773,7 @@ fn lists_the_insights_the_context_carries_in_order_and_an_empty_list_without() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn carries_an_entry_for_every_metric_a_placement_may_pick_whatever_the_card_shows() {
     let mut raw = make_raw();
     raw.summary_prefs = Some(prefs("hrv", &["rhr"]));
@@ -1746,6 +1803,7 @@ fn carries_an_entry_for_every_metric_a_placement_may_pick_whatever_the_card_show
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_metric_list_is_carried_with_the_card_disabled_and_leaves_out_a_weight_with_no_reading() {
     let mut raw = make_raw();
     let mut off = prefs("fitness", &[]);
@@ -1759,6 +1817,7 @@ fn the_metric_list_is_carried_with_the_card_disabled_and_leaves_out_a_weight_wit
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn carries_the_cards_hero_list_whatever_the_card_leads_with_or_whether_it_is_enabled() {
     let mut raw = make_raw();
     raw.summary_prefs = Some(prefs("hrv", &["rhr"]));
@@ -1778,6 +1837,7 @@ fn carries_the_cards_hero_list_whatever_the_card_leads_with_or_whether_it_is_ena
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_hero_the_card_offers_has_an_entry_a_placement_can_draw() {
     let s = compose_raw(&make_raw());
     for hero in &s.summary_heroes {
@@ -1791,6 +1851,7 @@ fn every_hero_the_card_offers_has_an_entry_a_placement_can_draw() {
 /// Expected behaviour: the week is written to whole minutes, weight with a
 /// space before its unit, and eFTP with the watt symbol the context carries.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn writes_the_week_to_whole_minutes_and_weight_and_eftp_with_their_units() {
     let mut raw = make_raw();
     raw.summary_prefs = Some(prefs("fitness", &["weekHours", "weight", "ftp"]));
@@ -1815,6 +1876,7 @@ fn writes_the_week_to_whole_minutes_and_weight_and_eftp_with_their_units() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn drops_the_seconds_from_the_week_at_every_length() {
     let mut raw = make_raw();
     raw.summary_prefs = Some(prefs("fitness", &["weekHours"]));

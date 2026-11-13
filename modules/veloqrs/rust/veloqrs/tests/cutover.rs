@@ -155,6 +155,7 @@ fn cutover_archives_switches_and_detects() {
 /// Expected behaviour: no ranking reads tracks under the lock, and the
 /// catalogue still ends up scored.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn cutover_ranks_the_catalogue_off_the_engine_lock() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -250,6 +251,7 @@ fn diff_payload_is_retrievable_after_restart() {
 /// the lines. Left in, the install held both catalogues' geometry a second
 /// time for the life of the install.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_stored_diff_carries_no_section_rows() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -335,6 +337,7 @@ fn a_fresh_install_is_not_owed_a_cutover() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn elevation_owed_holds_the_native_cutover_start() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -357,6 +360,7 @@ fn elevation_owed_holds_the_native_cutover_start() {
 /// Expected behaviour: the native start goes ahead, since the rides the app
 /// shows first are decided.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_decided_newest_slice_lets_the_native_cutover_start() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -409,6 +413,7 @@ fn a_decided_newest_slice_lets_the_native_cutover_start() {
 /// slot, with nothing else standing in the way.
 /// Expected behaviour: busy, and the run in flight completes on its own.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_start_while_a_run_holds_the_slot_is_busy() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -442,6 +447,7 @@ fn a_start_while_a_run_holds_the_slot_is_busy() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn unreadable_elevation_count_keeps_cutover_not_ready() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -504,6 +510,7 @@ fn stored_group_generation(path: &std::path::Path) -> u64 {
 /// Expected behaviour: the run answers the regroup it made, so the routes read
 /// reports nothing owed once the cutover returns, without a relaunch.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cutover_whose_detect_regrouped_leaves_no_regroup_owed() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -576,6 +583,7 @@ fn seed_with_current_groups(path: &std::path::Path) {
 /// Expected behaviour: the run schedules the regroup it leaves owed, so the
 /// new activity joins a route without another sync or a relaunch.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_store_during_the_cutover_detect_is_regrouped_once_the_run_ends() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -610,6 +618,7 @@ fn a_store_during_the_cutover_detect_is_regrouped_once_the_run_ends() {
 /// Expected behaviour: a stopped run leaves the regroup to nobody either, so
 /// it schedules it as a completed one does.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cutover_stopped_in_its_detect_regroups_a_store_made_during_it() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -645,6 +654,7 @@ fn a_cutover_stopped_in_its_detect_regroups_a_store_made_during_it() {
 /// athlete wants no grouping work, and the regroup stays owed for when it
 /// comes back.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cutover_schedules_no_regroup_once_route_matching_is_off() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -674,6 +684,7 @@ fn a_cutover_schedules_no_regroup_once_route_matching_is_off() {
 /// Expected behaviour: a run that is not owed rebuilt nothing and schedules
 /// nothing, leaving the regroup to the store's own scheduler.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cutover_that_is_not_owed_schedules_no_regroup() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -745,6 +756,7 @@ fn a_resumed_run_reuses_its_archive_snapshot() {
 
 /// Not-owed is a distinct outcome, not a failure and not a completed run.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn not_owed_is_a_distinct_outcome() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -765,6 +777,7 @@ fn not_owed_is_a_distinct_outcome() {
 /// describe it. Otherwise the next athlete inherits a spent cutover and a
 /// detector they cannot change.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn clear_drops_the_cutover_token_and_config() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1002,6 +1015,7 @@ fn a_named_corridor_keeps_its_name_across_the_cutover() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn disabled_corridor_stays_hidden_during_cutover() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1063,6 +1077,7 @@ fn disabled_corridor_stays_hidden_during_cutover() {
 /// registry, so a filter keyed on any id prefix silently empties the live side
 /// and reports the entire catalogue as lost.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_diff_sees_the_catalogue_the_cut_produced() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1289,6 +1304,7 @@ impl EngineObserver for SettleRecorder {
 /// (the binding blocks this thread until JavaScript returns), and with
 /// everything the card then reads already durable.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_completed_cutover_announces_the_settle_once_the_write_is_committed() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1314,6 +1330,7 @@ fn a_completed_cutover_announces_the_settle_once_the_write_is_committed() {
 /// A run with nothing to migrate is not news. Announcing it would have the
 /// card report a rebuild that never happened.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_that_is_not_owed_announces_nothing() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1335,6 +1352,7 @@ fn a_run_that_is_not_owed_announces_nothing() {
 /// the failed line is all a user who never saw the run gets. The guard clears
 /// the flag and announces on every exit, not only the successful one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_failed_cutover_announces_the_settle() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1380,6 +1398,7 @@ fn refuse_the_archive(path: &std::path::Path) {
 /// could re-cut the pre-0.4.0 catalogue and stamp it Unified before anything
 /// had captured it, losing the migration and its change card with it.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn detection_is_refused_while_a_cutover_is_owed() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1409,6 +1428,7 @@ fn detection_is_refused_while_a_cutover_is_owed() {
 /// The conditioning arm is the one a cutover left owed runs down: a sync adds
 /// activities, the backfill defers, and nothing else holds a detect back.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn conditioning_will_not_start_while_a_cutover_is_owed() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1422,6 +1442,7 @@ fn conditioning_will_not_start_while_a_cutover_is_owed() {
 /// Once the cutover has run the gate lifts, or the install would never detect
 /// again.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn detection_resumes_once_the_cutover_is_done() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1438,6 +1459,7 @@ fn detection_resumes_once_the_cutover_is_done() {
 
 /// A fresh install is owed nothing, so the gate must never close on one.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_fresh_install_detects_normally() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1455,6 +1477,7 @@ fn a_fresh_install_detects_normally() {
 /// so the row is only honest while the config is the one the build was
 /// validated at.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn identical_sections_is_claimed_only_at_the_validated_configuration() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1507,6 +1530,7 @@ fn identical_sections_is_claimed_only_at_the_validated_configuration() {
 /// step it died inside. The change card reads that string as "not failed" and
 /// shows the previous run's counts as this run's result.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_that_dies_partway_settles_on_failed() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1528,6 +1552,7 @@ fn a_run_that_dies_partway_settles_on_failed() {
 
 /// The failure marker must not fire on the two paths that are not failures.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_completed_run_settles_on_complete() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1541,6 +1566,7 @@ fn a_completed_run_settles_on_complete() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_run_with_nothing_owed_settles_on_idle() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1625,6 +1651,7 @@ fn the_cutover_resets_a_strict_config_to_the_validated_defaults() {
 /// A library already at the validated values has no settings change to
 /// report, or every upgrade would be told about a reset it did not have.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cutover_already_at_the_defaults_reports_no_settings_change() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1706,6 +1733,7 @@ mod a_cancelled_cutover {
     /// Before the archive: nothing has been written, so the athlete keeps the
     /// catalogue they had and the migration is owed exactly as it was.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn stopped_in_the_drain_changes_nothing() {
         let _serial_state = crate::serial_state();
         let (_dir, before) = seeded();
@@ -1760,6 +1788,7 @@ mod a_cancelled_cutover {
     /// Every stopping point is one the next run recovers from, so the run
     /// after a cancel finishes the job rather than inheriting a broken half.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn is_finished_by_the_run_that_follows_it() {
         let _serial_state = crate::serial_state();
         let (_dir, _before) = seeded();
@@ -1785,6 +1814,7 @@ mod a_cancelled_cutover {
     /// Expected behaviour: only that id stops it, the run ends cancelled at its
     /// next boundary, and the id stops nothing once the run has ended.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn is_stopped_by_its_own_run_id_and_no_other() {
         let _serial_state = crate::serial_state();
         let (_dir, _before) = seeded();
@@ -1825,6 +1855,7 @@ mod a_cancelled_cutover {
     /// refuse the next launch's run before it started, which is the "not ever"
     /// this is not.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn does_not_carry_into_the_next_run() {
         let _serial_state = crate::serial_state();
         let (_dir, _before) = seeded();
@@ -1870,6 +1901,7 @@ fn route_of(groups: &[tracematch::RouteGroup], member: &str) -> String {
 /// Expected behaviour: the foreground regroup keeps the committed route on its
 /// ground and its name with it, and mints a fresh id for the newcomer.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_cutover_that_stops_after_its_detect_leaves_the_engine_on_the_committed_groups() {
     let _serial_state = crate::serial_state();
     let dir = TempDir::new().unwrap();
@@ -1978,6 +2010,7 @@ fn cutover_run() -> Option<veloqrs::persistence::job_runs::JobRun> {
 /// the same after the reopen, and the rebuild is not also recorded as a
 /// detection run.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_completed_rebuild_records_its_last_run_with_the_diffs_counts() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();
@@ -2019,6 +2052,7 @@ fn a_completed_rebuild_records_its_last_run_with_the_diffs_counts() {
 ///
 /// Expected behaviour: the last run reads stopped.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_stopped_rebuild_records_stopped() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();

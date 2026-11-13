@@ -64,7 +64,7 @@ describe('awaitTimeStreams', () => {
     expect(Object.keys(engine)).toEqual(['subscribe']);
   });
 
-  it('ignores an activity it never asked about', async () => {
+  vaultIt('ignores an activity it never asked about', async () => {
     const settled = jest.fn();
     awaitTimeStreams(['a1'], { timeoutMs: 30_000 }).then(settled);
 
@@ -83,7 +83,7 @@ describe('awaitTimeStreams', () => {
     await expect(wait).resolves.toBe(1);
   });
 
-  it('never subscribes for an empty batch', async () => {
+  vaultIt('never subscribes for an empty batch', async () => {
     await expect(awaitTimeStreams([], { timeoutMs: 30_000 })).resolves.toBe(0);
 
     expect(mockSubscribe).not.toHaveBeenCalled();
@@ -111,7 +111,7 @@ describe('awaitTimeStreams', () => {
     expect(subscriberCount()).toBe(0);
   });
 
-  it('does not subscribe when the caller has already gone away', async () => {
+  vaultIt('does not subscribe when the caller has already gone away', async () => {
     const controller = new AbortController();
     controller.abort();
 
@@ -130,7 +130,7 @@ describe('awaitTimeStreams', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('hears a second batch without restarting the wait', async () => {
+  vaultIt('hears a second batch without restarting the wait', async () => {
     const first = awaitTimeStreams(['a1'], { timeoutMs: 30_000 });
     announce(['a1']);
     await first;

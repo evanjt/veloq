@@ -162,7 +162,7 @@ beforeEach(() => {
 });
 
 describe('useZoneDistribution', () => {
-  it('re-reads the zone totals when activities change', async () => {
+  vaultIt('re-reads the zone totals when activities change', async () => {
     await renderHook(() => useZoneDistribution({ type: 'power', sport: 'Cycling', days: 7 }));
     const afterMount = getZoneDistribution.mock.calls.length;
     expect(afterMount).toBeGreaterThan(0);
@@ -190,7 +190,7 @@ describe('useZoneDistribution', () => {
     expect(year[3]).toBe(week[3]);
   });
 
-  it('reads nothing without a sport, however many events fire', async () => {
+  vaultIt('reads nothing without a sport, however many events fire', async () => {
     await renderHook(() => useZoneDistribution({ type: 'hr', days: 7 }));
 
     await emit('activities');
@@ -214,7 +214,7 @@ describe('useSectionDetail', () => {
     expect(result.current.section?.name).toBe('Church Hill Climb');
   });
 
-  it('ignores an event it does not depend on', async () => {
+  vaultIt('ignores an event it does not depend on', async () => {
     await renderHook(() => useSectionDetail('sec-1'));
     const afterMount = getSectionById.mock.calls.length;
 
@@ -222,7 +222,7 @@ describe('useSectionDetail', () => {
     expect(getSectionById.mock.calls.length).toBe(afterMount);
   });
 
-  it('reads nothing without a section id', async () => {
+  vaultIt('reads nothing without a section id', async () => {
     await renderHook(() => useSectionDetail(null));
 
     await emit('sections');
@@ -231,7 +231,7 @@ describe('useSectionDetail', () => {
 });
 
 describe('useCacheDays', () => {
-  it('re-reads the activity count when activities change', async () => {
+  vaultIt('re-reads the activity count when activities change', async () => {
     await renderHook(() => useCacheDays());
     const afterMount = getStats.mock.calls.length;
     expect(afterMount).toBeGreaterThan(0);
@@ -250,12 +250,12 @@ describe('useCacheDays', () => {
 });
 
 describe('useEngineSubscription', () => {
-  it('leaves the trigger alone when the engine is there on the first attempt', async () => {
+  vaultIt('leaves the trigger alone when the engine is there on the first attempt', async () => {
     const { result } = await renderHook(() => useEngineSubscription(['activities']));
     expect(result.current).toBe(0);
   });
 
-  it('reads once at mount when the engine is available', async () => {
+  vaultIt('reads once at mount when the engine is available', async () => {
     await renderHook(() => useZoneDistribution({ type: 'power', sport: 'Cycling', days: 7 }));
     expect(getZoneDistribution).toHaveBeenCalledTimes(1);
   });
@@ -287,7 +287,7 @@ describe('useEngineSubscription', () => {
     expect(getZoneDistribution).toHaveBeenCalledTimes(1);
   });
 
-  it('still bumps on every event after the first subscribe', async () => {
+  vaultIt('still bumps on every event after the first subscribe', async () => {
     const { result } = await renderHook(() => useEngineSubscription(['activities']));
 
     await emit('activities');
@@ -297,14 +297,14 @@ describe('useEngineSubscription', () => {
     expect(result.current).toBe(2);
   });
 
-  it('subscribes to nothing and never bumps when given no events', async () => {
+  vaultIt('subscribes to nothing and never bumps when given no events', async () => {
     const { result } = await renderHook(() => useEngineSubscription([]));
 
     await emit('activities');
     expect(result.current).toBe(0);
   });
 
-  it('drops its listeners on unmount', async () => {
+  vaultIt('drops its listeners on unmount', async () => {
     const { unmount } = await renderHook(() => useEngineSubscription(['activities']));
     expect(listeners.get('activities')?.size).toBe(1);
 
@@ -326,7 +326,7 @@ describe('useActivityCount', () => {
     expect(result.current).toBe(13);
   });
 
-  it('reads zero from an engine that is not there', async () => {
+  vaultIt('reads zero from an engine that is not there', async () => {
     (getEngine as jest.Mock).mockReturnValue(null);
     const { result } = await renderHook(() => useActivityCount());
     expect(result.current).toBe(0);
@@ -334,7 +334,7 @@ describe('useActivityCount', () => {
 });
 
 describe('useLibraryCoverage', () => {
-  it('re-reads the coverage when activities change', async () => {
+  vaultIt('re-reads the coverage when activities change', async () => {
     const { result } = await renderHook(() => useLibraryCoverage());
     const afterMount = libraryCoverage.mock.calls.length;
     expect(result.current).toEqual({ upstream: 400, local: 120 });
@@ -354,7 +354,7 @@ describe('useLibraryCoverage', () => {
 });
 
 describe('useRangeCoverage', () => {
-  it('re-reads the window when activities change', async () => {
+  vaultIt('re-reads the window when activities change', async () => {
     const { result } = await renderHook(() => useRangeCoverage(30));
     const afterMount = rangeCoverage.mock.calls.length;
     expect(result.current).toBe(RangeCoverage.NotFetched);
@@ -366,7 +366,7 @@ describe('useRangeCoverage', () => {
     expect(result.current).toBe(RangeCoverage.Loaded);
   });
 
-  it('answers ignorance from an engine that is not there', async () => {
+  vaultIt('answers ignorance from an engine that is not there', async () => {
     (getEngine as jest.Mock).mockReturnValue(null);
     const { result } = await renderHook(() => useRangeCoverage(30));
     expect(result.current).toBe(RangeCoverage.NotFetched);
@@ -374,7 +374,7 @@ describe('useRangeCoverage', () => {
 });
 
 describe('useMuscleDetail', () => {
-  it('re-reads the breakdown when activities change', async () => {
+  vaultIt('re-reads the breakdown when activities change', async () => {
     await renderHook(() => useMuscleDetail('act-1', 'quads'));
     const afterMount = getMuscleDetail.mock.calls.length;
     expect(afterMount).toBeGreaterThan(0);
@@ -383,7 +383,7 @@ describe('useMuscleDetail', () => {
     expect(getMuscleDetail.mock.calls.length).toBe(afterMount + 1);
   });
 
-  it('reads nothing without an activity', async () => {
+  vaultIt('reads nothing without an activity', async () => {
     await renderHook(() => useMuscleDetail(null, 'quads'));
 
     await emit('activities');
@@ -404,7 +404,7 @@ describe('useDetailCoordinates', () => {
     expect(result.current).toEqual([{ latitude: 9, longitude: 10 }]);
   });
 
-  it('leaves the stored track unread while the stream body is to hand', async () => {
+  vaultIt('leaves the stored track unread while the stream body is to hand', async () => {
     const streamLatLng = new Float64Array([1, 2]);
     await renderHook(() => useDetailCoordinates('act-1', streamLatLng));
 
@@ -412,7 +412,7 @@ describe('useDetailCoordinates', () => {
     expect(getGpsTrack).not.toHaveBeenCalled();
   });
 
-  it('reads nothing without an activity id', async () => {
+  vaultIt('reads nothing without an activity id', async () => {
     await renderHook(() => useDetailCoordinates('', undefined));
 
     await emit('activities');
@@ -435,14 +435,14 @@ describe('useWorkoutSections', () => {
     expect(result.current.sections[0].name).toBe('Canal Path');
   });
 
-  it('asks the engine for nothing without a sport', async () => {
+  vaultIt('asks the engine for nothing without a sport', async () => {
     await renderHook(() => useWorkoutSections(undefined));
     await emit('sections');
 
     expect(getWorkoutSections).not.toHaveBeenCalled();
   });
 
-  it('reads an empty list when the engine is not open', async () => {
+  vaultIt('reads an empty list when the engine is not open', async () => {
     (getEngine as jest.Mock).mockReturnValue(undefined);
     const { result } = await renderHook(() => useWorkoutSections('Ride'));
 
@@ -467,7 +467,7 @@ describe('useLedgerActivityNames', () => {
     expect(result.current['act-1']).toBe('Evening ride');
   });
 
-  it('reads nothing when the history names no chip', async () => {
+  vaultIt('reads nothing when the history names no chip', async () => {
     await renderHook(() => useLedgerActivityNames([]));
     await emit('activities');
 
@@ -498,7 +498,7 @@ describe('useStrengthTabState', () => {
     expect(result.current).toBe('awaiting');
   });
 
-  it('re-reads on the activities channel as well', async () => {
+  vaultIt('re-reads on the activities channel as well', async () => {
     await renderHook(() => useStrengthTabState());
     const afterMount = hasStrengthData.mock.calls.length;
 
@@ -507,7 +507,7 @@ describe('useStrengthTabState', () => {
     expect(hasStrengthData.mock.calls.length).toBe(afterMount + 1);
   });
 
-  it('is hidden when the engine is not open', async () => {
+  vaultIt('is hidden when the engine is not open', async () => {
     (getEngine as jest.Mock).mockReturnValue(undefined);
     const { result } = await renderHook(() => useStrengthTabState());
 
@@ -524,7 +524,7 @@ describe('useEngineMapActivities', () => {
     isMetric: true,
   };
 
-  it('re-reads the map window when activities change', async () => {
+  vaultIt('re-reads the map window when activities change', async () => {
     const { result } = await renderHook(() => useEngineMapActivities(range));
     const afterMount = getMapScreenData.mock.calls.length;
     expect(afterMount).toBeGreaterThan(0);
@@ -594,74 +594,80 @@ describe('useEngineMapActivities', () => {
     expect(result.current.activities).toHaveLength(1);
   });
 
-  it('reads nothing while it is disabled, however many events fire', async () => {
+  vaultIt('reads nothing while it is disabled, however many events fire', async () => {
     await renderHook(() => useEngineMapActivities({ ...range, enabled: false }));
 
     await emit('activities');
     expect(getMapScreenData).not.toHaveBeenCalled();
   });
 
-  it('asks for the route lines only when the routes switch is on and returns the count and layer', async () => {
-    const layer = { generation: 3, routes: [] };
-    const read = {
-      activityCount: 1,
-      availableSportTypes: ['Ride'],
-      categoryCounts: [],
-      activities: [],
-      routeCount: 5,
-      routeLines: layer,
-    } as never;
-    getMapScreenData.mockReturnValueOnce(read).mockReturnValueOnce(read);
-    const { result, rerender } = await renderHook(
-      (props: { showRoutes: boolean }) => useEngineMapActivities({ ...range, ...props }),
-      { initialProps: { showRoutes: false } }
-    );
-    expect((getMapScreenData.mock.calls.at(-1) as unknown[])?.[5]).toBe(false);
-    expect(result.current.routeCount).toBe(5);
+  vaultIt(
+    'asks for the route lines only when the routes switch is on and returns the count and layer',
+    async () => {
+      const layer = { generation: 3, routes: [] };
+      const read = {
+        activityCount: 1,
+        availableSportTypes: ['Ride'],
+        categoryCounts: [],
+        activities: [],
+        routeCount: 5,
+        routeLines: layer,
+      } as never;
+      getMapScreenData.mockReturnValueOnce(read).mockReturnValueOnce(read);
+      const { result, rerender } = await renderHook(
+        (props: { showRoutes: boolean }) => useEngineMapActivities({ ...range, ...props }),
+        { initialProps: { showRoutes: false } }
+      );
+      expect((getMapScreenData.mock.calls.at(-1) as unknown[])?.[5]).toBe(false);
+      expect(result.current.routeCount).toBe(5);
 
-    await rerender({ showRoutes: true });
-    expect((getMapScreenData.mock.calls.at(-1) as unknown[])?.[5]).toBe(true);
-    expect(result.current.routeLines).toBe(layer);
-  });
+      await rerender({ showRoutes: true });
+      expect((getMapScreenData.mock.calls.at(-1) as unknown[])?.[5]).toBe(true);
+      expect(result.current.routeLines).toBe(layer);
+    }
+  );
 
-  it('reports no sections and asks Rust for no overlay while sections are switched off', async () => {
-    getMapScreenData.mockReturnValue({
-      activityCount: 0,
-      availableSportTypes: [],
-      categoryCounts: [],
-      activities: [],
-      routeCount: 0,
-      routeLines: undefined,
-      sectionCount: 4,
-      sections: {
-        stamp: 1,
-        sections: [
-          {
-            id: 's1',
-            name: 'Church Hill',
-            visitCount: 2,
-            distanceMeters: 100,
-            encodedPolyline: new ArrayBuffer(0),
-          },
-        ],
-      },
-    } as never);
-    const { result } = await renderHook(() =>
-      useEngineMapActivities({ ...range, showSections: true, sectionsEnabled: false })
-    );
-    expect(result.current.sectionCount).toBe(0);
-    expect(result.current.sections).toEqual([]);
-    expect((getMapScreenData.mock.calls.at(-1) as unknown[])?.[6]).toBe(false);
-  });
+  vaultIt(
+    'reports no sections and asks Rust for no overlay while sections are switched off',
+    async () => {
+      getMapScreenData.mockReturnValue({
+        activityCount: 0,
+        availableSportTypes: [],
+        categoryCounts: [],
+        activities: [],
+        routeCount: 0,
+        routeLines: undefined,
+        sectionCount: 4,
+        sections: {
+          stamp: 1,
+          sections: [
+            {
+              id: 's1',
+              name: 'Church Hill',
+              visitCount: 2,
+              distanceMeters: 100,
+              encodedPolyline: new ArrayBuffer(0),
+            },
+          ],
+        },
+      } as never);
+      const { result } = await renderHook(() =>
+        useEngineMapActivities({ ...range, showSections: true, sectionsEnabled: false })
+      );
+      expect(result.current.sectionCount).toBe(0);
+      expect(result.current.sections).toEqual([]);
+      expect((getMapScreenData.mock.calls.at(-1) as unknown[])?.[6]).toBe(false);
+    }
+  );
 
-  it('re-reads the map when route groups change', async () => {
+  vaultIt('re-reads the map when route groups change', async () => {
     await renderHook(() => useEngineMapActivities(range));
     const afterMount = getMapScreenData.mock.calls.length;
     await emit('groups');
     expect(getMapScreenData.mock.calls.length).toBe(afterMount + 1);
   });
 
-  it('reads the section count and gated overlay with the map screen data', async () => {
+  vaultIt('reads the section count and gated overlay with the map screen data', async () => {
     getMapScreenData.mockReturnValue({
       activityCount: 0,
       availableSportTypes: [],
@@ -686,66 +692,69 @@ describe('useEngineMapActivities', () => {
     expect(getMapScreenData.mock.calls.length).toBe(afterToggle + 1);
   });
 
-  it('passes each layer stamp back and keeps both layers through a filter change', async () => {
-    const encoded = encodeTrack([
-      { latitude: 46.5, longitude: 6.6 },
-      { latitude: 46.6, longitude: 6.7 },
-    ]);
-    const read = (shipped: boolean) =>
-      ({
-        activityCount: 1,
-        availableSportTypes: ['Ride'],
-        categoryCounts: [],
-        activities: [],
-        routeCount: 1,
-        routeLines: {
-          generation: 3,
-          stamp: 7,
-          routes: shipped
-            ? [{ routeId: 'r1', name: 'Loop', activityCount: 2, polyline: encoded }]
-            : undefined,
-        },
-        sectionCount: 1,
-        sections: {
-          stamp: 7,
-          sections: shipped
-            ? [
-                {
-                  id: 's1',
-                  name: 'Weir lane',
-                  sportTypes: ['Ride'],
-                  visitCount: 2,
-                  distanceMeters: 100,
-                  encodedPolyline: encoded,
-                },
-              ]
-            : undefined,
-        },
-      }) as never;
-    getMapScreenData.mockReturnValueOnce(read(true)).mockReturnValueOnce(read(false));
-    const { result, rerender } = await renderHook(
-      (props: { nameNeedle: string }) =>
-        useEngineMapActivities({ ...range, ...props, showRoutes: true, showSections: true }),
-      { initialProps: { nameNeedle: '' } }
-    );
-    const first = result.current;
-    expect((getMapScreenData.mock.calls.at(-1) as unknown[]).slice(8)).toEqual([
-      undefined,
-      undefined,
-    ]);
-    expect(first.routeLines?.routes).toHaveLength(1);
-    expect(first.sections).toEqual([
-      { id: 's1', name: 'Weir lane', visitCount: 2, distanceMeters: 100 },
-    ]);
+  vaultIt(
+    'passes each layer stamp back and keeps both layers through a filter change',
+    async () => {
+      const encoded = encodeTrack([
+        { latitude: 46.5, longitude: 6.6 },
+        { latitude: 46.6, longitude: 6.7 },
+      ]);
+      const read = (shipped: boolean) =>
+        ({
+          activityCount: 1,
+          availableSportTypes: ['Ride'],
+          categoryCounts: [],
+          activities: [],
+          routeCount: 1,
+          routeLines: {
+            generation: 3,
+            stamp: 7,
+            routes: shipped
+              ? [{ routeId: 'r1', name: 'Loop', activityCount: 2, polyline: encoded }]
+              : undefined,
+          },
+          sectionCount: 1,
+          sections: {
+            stamp: 7,
+            sections: shipped
+              ? [
+                  {
+                    id: 's1',
+                    name: 'Weir lane',
+                    sportTypes: ['Ride'],
+                    visitCount: 2,
+                    distanceMeters: 100,
+                    encodedPolyline: encoded,
+                  },
+                ]
+              : undefined,
+          },
+        }) as never;
+      getMapScreenData.mockReturnValueOnce(read(true)).mockReturnValueOnce(read(false));
+      const { result, rerender } = await renderHook(
+        (props: { nameNeedle: string }) =>
+          useEngineMapActivities({ ...range, ...props, showRoutes: true, showSections: true }),
+        { initialProps: { nameNeedle: '' } }
+      );
+      const first = result.current;
+      expect((getMapScreenData.mock.calls.at(-1) as unknown[]).slice(8)).toEqual([
+        undefined,
+        undefined,
+      ]);
+      expect(first.routeLines?.routes).toHaveLength(1);
+      expect(first.sections).toEqual([
+        { id: 's1', name: 'Weir lane', visitCount: 2, distanceMeters: 100 },
+      ]);
 
-    await rerender({ nameNeedle: 'w' });
-    expect((getMapScreenData.mock.calls.at(-1) as unknown[]).slice(8)).toEqual([7, 7]);
-    expect(result.current.routeLines).toBe(first.routeLines);
-    expect(result.current.sections).toBe(first.sections);
-    expect(result.current.sectionsGeoJSON).toBe(first.sectionsGeoJSON);
-  });
+      await rerender({ nameNeedle: 'w' });
+      expect((getMapScreenData.mock.calls.at(-1) as unknown[]).slice(8)).toEqual([7, 7]);
+      expect(result.current.routeLines).toBe(first.routeLines);
+      expect(result.current.sections).toBe(first.sections);
+      expect(result.current.sectionsGeoJSON).toBe(first.sectionsGeoJSON);
+    }
+  );
 
-  it('is empty when the engine is not open', async () => {
+  vaultIt('is empty when the engine is not open', async () => {
     (getEngine as jest.Mock).mockReturnValue(undefined);
     const { result } = await renderHook(() => useEngineMapActivities(range));
 
@@ -755,7 +764,7 @@ describe('useEngineMapActivities', () => {
 });
 
 describe('useActivityDetailData', () => {
-  it('re-reads the bundle when sections change', async () => {
+  vaultIt('re-reads the bundle when sections change', async () => {
     const { result } = await renderHook(() => useActivityDetailData('act-1'));
     const afterMount = getActivityDetailData.mock.calls.length;
     expect(afterMount).toBeGreaterThan(0);
@@ -765,14 +774,14 @@ describe('useActivityDetailData', () => {
     expect(getActivityDetailData.mock.calls.length).toBe(afterMount + 1);
   });
 
-  it('reads nothing while it is disabled', async () => {
+  vaultIt('reads nothing while it is disabled', async () => {
     await renderHook(() => useActivityDetailData('act-1', false));
 
     await emit('activities');
     expect(getActivityDetailData).not.toHaveBeenCalled();
   });
 
-  it('holds no bundle when the engine is not open', async () => {
+  vaultIt('holds no bundle when the engine is not open', async () => {
     (getEngine as jest.Mock).mockReturnValue(undefined);
     const { result } = await renderHook(() => useActivityDetailData('act-1'));
 
@@ -781,7 +790,7 @@ describe('useActivityDetailData', () => {
 });
 
 describe('useSectionDetailPerformance', () => {
-  it('re-reads the records when sections change', async () => {
+  vaultIt('re-reads the records when sections change', async () => {
     await renderHook(() => useSectionDetailPerformance('sec-1', 90, undefined, true));
     const afterMount = getSectionDetailPerformance.mock.calls.length;
     expect(afterMount).toBeGreaterThan(0);
@@ -790,7 +799,7 @@ describe('useSectionDetailPerformance', () => {
     expect(getSectionDetailPerformance.mock.calls.length).toBe(afterMount + 1);
   });
 
-  it('reads nothing while the time streams are still being fetched', async () => {
+  vaultIt('reads nothing while the time streams are still being fetched', async () => {
     await renderHook(() => useSectionDetailPerformance('sec-1', 90, undefined, false));
 
     await emit('sections');
@@ -815,7 +824,7 @@ describe('useSectionDetailPerformance', () => {
 });
 
 describe('useRouteDetailPerformance', () => {
-  it('re-reads the attempts when the route groups change', async () => {
+  vaultIt('re-reads the attempts when the route groups change', async () => {
     await renderHook(() => useRouteDetailPerformance('route-1', 0, undefined));
     const afterMount = getRouteDetailPerformance.mock.calls.length;
     expect(afterMount).toBeGreaterThan(0);
@@ -824,7 +833,7 @@ describe('useRouteDetailPerformance', () => {
     expect(getRouteDetailPerformance.mock.calls.length).toBe(afterMount + 1);
   });
 
-  it('re-reads the attempts when a detection run lands', async () => {
+  vaultIt('re-reads the attempts when a detection run lands', async () => {
     await renderHook(() => useRouteDetailPerformance('route-1', 0, undefined));
     const afterMount = getRouteDetailPerformance.mock.calls.length;
 
@@ -832,7 +841,7 @@ describe('useRouteDetailPerformance', () => {
     expect(getRouteDetailPerformance.mock.calls.length).toBe(afterMount + 1);
   });
 
-  it('reads nothing without a route', async () => {
+  vaultIt('reads nothing without a route', async () => {
     await renderHook(() => useRouteDetailPerformance(undefined, 0, undefined));
 
     await emit('groups');

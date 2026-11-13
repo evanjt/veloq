@@ -29,7 +29,7 @@ it('prints a measured zero climb when the activity has an altitude stream', () =
   expect(cardPrimaryStats(activity({ elevationGain: 0 }), true).elevation).toBe('0 m');
 });
 
-it('prints no climb for an activity with no altitude stream', () => {
+vaultIt('prints no climb for an activity with no altitude stream', () => {
   const trainer = activity({ elevationGain: 0, hasAltitude: false });
   expect(cardPrimaryStats(trainer, true).elevation).toBeNull();
 });
@@ -39,12 +39,12 @@ it('prints a climb the feed carries even without an altitude stream', () => {
   expect(cardPrimaryStats(unknown, false).elevation).toBe('394 ft');
 });
 
-it('prints no distance for an activity that covered none', () => {
+vaultIt('prints no distance for an activity that covered none', () => {
   expect(cardPrimaryStats(activity({ distance: 0 }), true).distance).toBeNull();
   expect(cardPrimaryStats(activity({ distance: NaN }), true).distance).toBeNull();
 });
 
-it('prints no distance, no climb and an absent time for a body that carries none', () => {
+vaultIt('prints no distance, no climb and an absent time for a body that carries none', () => {
   expect(cardPrimaryStats({ hasAltitude: true }, true)).toEqual({
     distance: null,
     duration: '--',

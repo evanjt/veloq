@@ -140,12 +140,12 @@ describe('swim pace per 100 yd', () => {
     }
   });
 
-  it('shares one yards constant with formatSwimPace', () => {
+  vaultIt('shares one yards constant with formatSwimPace', () => {
     expect(YARDS_100_IN_METRES).toBe(91.44);
     expect(formatSwimPace(YARDS_100_IN_METRES / 110, false)).toBe('1:50');
   });
 
-  it('labels the swim pace per 100 and leaves other sports on per km', () => {
+  vaultIt('labels the swim pace per 100 and leaves other sports on per km', () => {
     expect(swim.unit).toBe('/100m');
     expect(swim.unitImperial).toBe('/100yd');
     expect(chartConfigsFor('Run').pace.unit).toBe(CHART_CONFIGS.pace.unit);
@@ -298,7 +298,7 @@ describe('the idle readouts drop stops by the sport the activity was', () => {
     expect(chip('Swim', 'pace', [0.5, 0.5, 0, 0])).toBe('3:20');
   });
 
-  it('gives each sport family its recorder default and every other sport the lowest', () => {
+  vaultIt('gives each sport family its recorder default and every other sport the lowest', () => {
     expect(stoppedSpeedMs('Ride')).toBeCloseTo(2 / 3.6, 9);
     expect(stoppedSpeedMs('Run')).toBeCloseTo(1 / 3.6, 9);
     expect(stoppedSpeedMs('Walk')).toBeCloseTo(0.5 / 3.6, 9);
@@ -307,7 +307,7 @@ describe('the idle readouts drop stops by the sport the activity was', () => {
     }
   });
 
-  it('keeps the config identity stable per sport', () => {
+  vaultIt('keeps the config identity stable per sport', () => {
     expect(chartConfigsFor('Ride')).toBe(chartConfigsFor('Ride'));
   });
 });

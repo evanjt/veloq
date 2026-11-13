@@ -56,6 +56,7 @@ mod tests {
     /// Each test names its own source, because the table is process-wide and
     /// the suite runs its tests on threads of one process.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refused_tile_is_refused_again() {
         remember_refused("same", 10, 512, 340);
 
@@ -63,6 +64,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn every_tile_under_a_refused_one_is_refused_with_it() {
         remember_refused("under", 10, 512, 340);
 
@@ -72,6 +74,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_neighbour_and_a_parent_are_not() {
         remember_refused("nearby", 10, 512, 340);
 
@@ -81,6 +84,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_refusal_belongs_to_the_source_that_gave_it() {
         remember_refused("mine", 10, 512, 340);
 
@@ -89,12 +93,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn nothing_is_refused_before_a_host_has_said_so() {
         assert!(!is_refused("fresh", 0, 0, 0));
         assert!(!is_refused("fresh", 14, 8563, 5789));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_source_stops_growing_at_the_cap() {
         for x in 0..(PER_SOURCE_CAP as u32 + 16) {
             remember_refused("capped", 14, x, 0);

@@ -45,7 +45,7 @@ describe('WhatsNewModal auto-open', () => {
     expect(useWhatsNewStore.getState().lastSeenVersion).toBeNull();
   });
 
-  it('keeps the tour navigation discoverable by role and text', async () => {
+  vaultIt('keeps the tour navigation discoverable by role and text', async () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
     useWhatsNewStore.getState().startTour('tutorial');
     await render(

@@ -396,6 +396,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn batch_fires_at_threshold_and_resets() {
         let mut c = Conditioner::new();
         c.note_stored(CONDITIONING_BATCH_ADDS - 1);
@@ -406,6 +407,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn adds_during_a_run_count_toward_the_next_batch() {
         let mut c = Conditioner::new();
         c.note_stored(CONDITIONING_BATCH_ADDS);
@@ -418,12 +420,14 @@ mod tests {
     /// Expected behaviour: a process that has never suspended detects. A
     /// suspension is process-lifetime only, so a fresh process starts here.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_fresh_process_is_not_suspended() {
         let _serial = serial();
         assert!(!detection_suspended());
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_guard_releases_on_drop() {
         let _serial = serial();
         {
@@ -436,6 +440,7 @@ mod tests {
     /// Expected behaviour: an early return out of a suspended scope still
     /// releases, because release is the guard's drop and not a matched call.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_guard_releases_on_an_early_return() {
         let _serial = serial();
         fn bails_out() -> Option<()> {
@@ -449,6 +454,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_guard_releases_on_a_panic() {
         let _serial = serial();
         let outcome = std::panic::catch_unwind(|| {
@@ -460,6 +466,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn nested_guards_hold_until_the_last_one_drops() {
         let _serial = serial();
         let outer = suspend_detection();
@@ -473,6 +480,7 @@ mod tests {
     /// The conditioning arm: a due batch is refused while suspended, and the
     /// adds it was going to cover still fire once detection resumes.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn conditioning_refuses_while_suspended() {
         let _serial = serial();
         let guard = suspend_detection();
@@ -492,6 +500,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_batch_end_flushes_whatever_is_pending_and_nothing_else() {
         let _serial = serial();
         let _tmp = seeded_global_engine();
@@ -549,6 +558,7 @@ mod tests {
     /// whole run cannot find the slot free again and win a second, legitimate,
     /// start.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn concurrent_conditioning_starts_spawn_exactly_one_worker() {
         let _serial = serial();
         let _tmp = seeded_global_engine();
@@ -570,6 +580,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_conditioning_install_clears_the_previous_runs_outcome() {
         let _serial = serial();
         let _tmp = seeded_global_engine();
@@ -616,6 +627,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_condition_pending_failed_run_backs_off_claim() {
         let _serial = serial();
         let tmp = seeded_global_engine();
@@ -653,6 +665,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_due_backfill_batch_survives_a_busy_slot() {
         let _serial = serial();
         let _tmp = seeded_global_engine();
@@ -893,6 +906,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn undue_batch_is_a_cheap_no_op() {
         let mut c = Conditioner::new();
         c.note_stored(1);
@@ -939,6 +953,7 @@ mod tests {
         /// the Conditioner's existing rule and this does not change it: the
         /// point is that the batch is due at all, not how many are owed.
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn owes_a_run_however_many_times_it_is_put_back() {
             let _serial = serial();
             let _tmp = seeded_global_engine();

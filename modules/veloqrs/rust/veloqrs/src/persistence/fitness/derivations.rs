@@ -34,12 +34,14 @@ mod cycling_eftp_rule {
     use super::cycling_eftp;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_first_cycling_entry_with_an_estimate_is_read() {
         let raw = r#"{"sportInfo":[{"type":"MountainBikeRide"},{"type":"Ride","eftp":240}]}"#;
         assert_eq!(cycling_eftp(raw), Some(240));
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_cycling_entry_without_a_positive_estimate_is_passed_over() {
         let zero = r#"{"sportInfo":[{"type":"Ride","eftp":0},{"type":"Ride","eftp":240}]}"#;
         let negative = r#"{"sportInfo":[{"type":"Ride","eftp":-5},{"type":"Ride","eftp":240}]}"#;
@@ -48,6 +50,7 @@ mod cycling_eftp_rule {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_day_with_no_positive_cycling_estimate_has_none() {
         let no_estimate = r#"{"sportInfo":[{"type":"MountainBikeRide"},{"type":"Ride"}]}"#;
         let zero = r#"{"sportInfo":[{"type":"Ride","eftp":0}]}"#;
@@ -61,6 +64,7 @@ mod cycling_eftp_rule {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_run_entry_ahead_of_the_cycling_one_is_not_read_as_cycling() {
         let raw = r#"{"sportInfo":[{"type":"Run","eftp":300},{"type":"Ride","eftp":240}]}"#;
         assert_eq!(cycling_eftp(raw), Some(240));
@@ -2339,6 +2343,7 @@ mod eftp_change_markers {
     ///
     /// Expected behaviour: the engine answers with the markers, oldest first.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_markers_come_back_oldest_first() {
         let engine = PersistentEngine::in_memory().unwrap();
         seed(&engine, "b", 1_700_100_000, 372.0, 5.0);
@@ -2361,6 +2366,7 @@ mod eftp_change_markers {
     /// The fitness plot draws the markers beside the trend it reads, so the
     /// trend carries them in every window, estimates or none.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_ftp_trend_carries_the_markers_in_any_window() {
         let engine = PersistentEngine::in_memory().unwrap();
         seed(&engine, "b", 1_700_100_000, 372.0, 5.0);
@@ -2382,6 +2388,7 @@ mod eftp_change_markers {
 
     /// A resync reports the same activity again, and the marker is one row.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn re_reporting_an_activity_leaves_one_marker() {
         let engine = PersistentEngine::in_memory().unwrap();
         seed(&engine, "a", 1_700_000_000, 367.0, 20.0);
@@ -2395,6 +2402,7 @@ mod eftp_change_markers {
 
     /// A library that has never moved its eFTP has no markers, not an error.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_library_with_no_changes_answers_with_nothing() {
         let engine = PersistentEngine::in_memory().unwrap();
 
@@ -2865,6 +2873,7 @@ mod tests {
     ]"#;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn zone_names_come_from_the_settings_entry_covering_the_sport_family() {
         use super::pooled::zone_names;
 
@@ -2882,6 +2891,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn zone_names_are_empty_when_the_settings_cannot_name_the_zones() {
         use super::pooled::zone_names;
 
@@ -2934,6 +2944,7 @@ mod tests {
     ///
     /// Expected behaviour: it counts in the week it starts and in no other.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_on_a_monday_anchor_counts_in_one_week() {
         let mut on_anchor = metric("midnight", "Ride", None);
         on_anchor.date = MONDAY_21_SEPTEMBER;
@@ -2955,6 +2966,7 @@ mod tests {
 
     /// The last second of a week is still that week's.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_in_a_weeks_last_second_counts_in_that_week() {
         let mut last_second = metric("late", "Run", None);
         last_second.date = MONDAY_21_SEPTEMBER - 1;
@@ -3064,6 +3076,7 @@ mod tests {
 
     /// An out-and-back is one traversal each way from one activity.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_out_and_back_is_one_traversal_each_way_from_one_activity() {
         let summary = calendar(vec![record(
             "oab",
@@ -3089,6 +3102,7 @@ mod tests {
     /// so neither moves the month best, the year best or the calendar's PR,
     /// and a record holding only such laps adds no entry.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_fragment_or_partial_lap_moves_no_calendar_best() {
         let mut records: Vec<_> = (0..6)
             .map(|i| {
@@ -3136,6 +3150,7 @@ mod tests {
 
     /// A section holding only fragments has no calendar at all.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_section_of_fragments_has_no_calendar() {
         assert!(
             calendar(vec![record(
@@ -3206,6 +3221,7 @@ mod tests {
     /// Expected behaviour: the estimate is the calendar's best in its own
     /// direction, since the timed-first tier ranks laps within one direction.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_estimated_only_direction_keeps_its_calendar_best() {
         let summary = calendar(vec![record(
             "oab",
@@ -3370,6 +3386,7 @@ mod tests {
     /// plots for the range, so under six months both read three and over all
     /// time both read seven.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_section_efficiency_trend_follows_the_range() {
         let engine = section_ridden_days_ago(&[500, 480, 460, 440, 20, 10, 5]);
 
@@ -3392,6 +3409,7 @@ mod tests {
     /// Expected behaviour: the range holds no traversal, so the efficiency
     /// card has no efforts to count either.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_range_with_no_traversal_has_no_efficiency_trend() {
         let engine = section_ridden_days_ago(&(400..412).collect::<Vec<_>>());
 
@@ -3485,6 +3503,7 @@ mod tests {
     /// traversal's direction, so it is flat over the six same-way efforts;
     /// once the newest ride is the other way, it is taken over those alone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_efficiency_trend_is_taken_in_the_latest_direction() {
         let engine = engine_with(
             (0..10)
@@ -3698,6 +3717,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn monthly_stats_are_oldest_first_across_a_year_boundary() {
         let engine = engine_with(vec![
             on_day("a", "2025-12-20", 3_600, 40_000.0, 50.0),
@@ -3714,6 +3734,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn monthly_stats_exclude_what_falls_outside_the_window() {
         let engine = engine_with(vec![
             on_day("before", "2024-12-31", 3_600, 40_000.0, 50.0),
@@ -3730,6 +3751,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn monthly_stats_are_empty_rather_than_absent_for_a_window_with_nothing_in_it() {
         let engine = engine_with(vec![on_day("a", "2025-01-05", 3_600, 40_000.0, 50.0)]);
 
@@ -3744,6 +3766,7 @@ mod tests {
     // A null training load is no load, not a month with no total: the chart
     // plots every month of the year and a missing one reads as a gap.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn monthly_stats_count_an_activity_with_no_training_load() {
         let mut no_load = on_day("a", "2025-01-05", 3_600, 40_000.0, 0.0);
         no_load.training_load = None;
@@ -3791,6 +3814,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn zone_distribution_counts_only_activities_inside_the_window() {
         let mut inside = metric("in", "Ride", None);
         inside.date = MONDAY_21_SEPTEMBER + 3_600;
@@ -3816,6 +3840,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn zone_distribution_of_an_unknown_sport_is_its_own_rows() {
         let engine = engine_with(vec![
             metric("a1", "Ride", None),
@@ -3873,6 +3898,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn stops_at_the_day_it_compares_against() {
             let (days, read) = pulled(newest_first(1_100));
 
@@ -3883,6 +3909,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn reads_what_there_is_when_the_history_is_shorter_than_the_window() {
             let (days, read) = pulled(newest_first(5));
 
@@ -3891,6 +3918,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn skips_a_day_with_no_cycling_entry_without_counting_it_as_the_latest() {
             let mut rows = newest_first(40);
             rows[0].1 =
@@ -3902,6 +3930,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn keeps_reading_past_a_gap_to_find_a_day_old_enough() {
             // A month off the bike, then a season of riding before it.
             let mut rows = newest_first(200);
@@ -3919,6 +3948,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn reads_the_whole_stream_when_no_day_carries_an_estimate() {
             let rows: Vec<(String, String)> = newest_first(10)
                 .into_iter()
@@ -3966,6 +3996,7 @@ mod tests {
     /// An electric mountain bike's threshold is a cycling threshold: it moves
     /// the FTP trend and is the fitness a cycling record is measured against.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_electric_mountain_bike_threshold_is_a_cycling_threshold() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let day = |date: &str, sport: &str, eftp: f64| {
@@ -4106,6 +4137,7 @@ mod tests {
     /// A long history is thinned to what a chart draws, and the newest value,
     /// the one the card compares, is always kept.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn fitness_since_thins_a_long_history_and_keeps_the_newest() {
         let engine = PersistentEngine::in_memory().unwrap();
         for i in 0..400_i64 {
@@ -4134,6 +4166,7 @@ mod tests {
     /// The running and swimming side reads the critical-speed snapshot, on or
     /// before the same day.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn fitness_on_reads_the_pace_snapshot_for_a_run() {
         let engine = PersistentEngine::in_memory().unwrap();
         engine.save_pace_snapshot("Run", 3.0, None, None, 1_700_000_000, SYNC_PACE_WINDOW_DAYS);
@@ -4178,6 +4211,7 @@ mod tests {
     /// the read leaves it out rather than assuming it was the sync's. The card
     /// it feeds is quiet until the next sync writes one.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn fitness_on_leaves_out_a_row_from_before_the_window_column() {
         let engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4358,6 +4392,7 @@ mod tests {
     /// A day with no cycling entry is not a cycling estimate, and a running one
     /// is a different number entirely.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_ftp_trend_ignores_a_day_with_no_cycling_estimate() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4378,6 +4413,7 @@ mod tests {
     /// Expected behaviour: the query hands Rust none of them, and the trend is
     /// the default.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_ftp_trend_query_fetches_no_body_without_a_cycling_estimate() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4401,6 +4437,7 @@ mod tests {
 
     /// A day with a cycling estimate among days without is the only row read.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_ftp_trend_query_keeps_only_days_with_a_cycling_estimate() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4428,6 +4465,7 @@ mod tests {
     /// An account with no wellness body has nothing to report, rather than
     /// falling back to a setting that would read as a fitness change.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_ftp_trend_is_empty_without_a_daily_estimate() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let mut only = metric("a1", "Ride", Some(240));
@@ -4446,6 +4484,7 @@ mod tests {
     /// Expected behaviour: the trend says how many days carried an estimate
     /// between the two it compared, so the ranker has a population to weigh.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_ftp_trend_reports_the_days_it_compared_across() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4470,6 +4509,7 @@ mod tests {
 
     /// A trend with nothing to compare against stands on the one day it has.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_trend_with_no_earlier_estimate_counts_only_what_it_holds() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4484,6 +4524,7 @@ mod tests {
 
     /// An account with nothing stored counts nothing, rather than one.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_ftp_trend_counts_nothing() {
         let engine = PersistentEngine::in_memory().unwrap();
         assert_eq!(engine.get_ftp_trend_to("2026-09-05").sample_count, 0);
@@ -4496,6 +4537,7 @@ mod tests {
     /// the day 90 days back and the history carries every day of the window,
     /// where the default lookback still compares across 30.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_ftp_trend_reads_the_lookback_it_is_asked_for() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let mut days = vec![wellness_day("2026-06-07", Some(150.0))];
@@ -4525,6 +4567,7 @@ mod tests {
 
     /// A lookback longer than the stored history compares against nothing.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_lookback_longer_than_the_history_has_no_step() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4565,6 +4608,7 @@ mod tests {
 
     /// A fall is a step too, and the sign is the trend's to state.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_ftp_step_carries_its_sign() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4584,6 +4628,7 @@ mod tests {
     /// shared table: up for a gain, down for a loss, flat inside the deadband,
     /// and none with nothing to compare against.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_ftp_trend_carries_its_arrow() {
         let arrow = |earlier: f64, latest: f64| {
             let mut engine = PersistentEngine::in_memory().unwrap();
@@ -4610,6 +4655,7 @@ mod tests {
 
     /// Nothing to compare against is no step, not a step of zero.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_ftp_trend_with_no_earlier_estimate_carries_no_step() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4648,6 +4694,7 @@ mod tests {
 
     /// Swimming is paced over a hundred metres, not a kilometre.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_swim_pace_trend_paces_over_a_hundred_metres() {
         let engine = PersistentEngine::in_memory().unwrap();
         engine.save_pace_snapshot(
@@ -4684,6 +4731,7 @@ mod tests {
     /// Expected behaviour: a snapshot carries the window it was read over, and
     /// the trend compares only snapshots of one window.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn two_windows_on_adjacent_days_are_not_a_trend() {
         let engine = PersistentEngine::in_memory().unwrap();
         // The screen, on the year range: the athlete's best year.
@@ -4705,6 +4753,7 @@ mod tests {
     /// part of what makes a snapshot distinct, so a screen row and a sync row
     /// stamped the same day are two rows.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_screen_snapshot_does_not_replace_the_syncs_for_that_day() {
         let engine = PersistentEngine::in_memory().unwrap();
         engine.save_pace_snapshot("Run", 3.95, None, None, 1_700_000_000, 42);
@@ -4725,6 +4774,7 @@ mod tests {
     /// the way the FTP trend is bounded. Otherwise the card reaches back
     /// through twenty rows of whatever age and calls it a recent improvement.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_previous_snapshot_past_the_lookback_is_not_a_trend() {
         let engine = PersistentEngine::in_memory().unwrap();
         let today = 1_700_000_000;
@@ -4741,6 +4791,7 @@ mod tests {
     /// Expected behaviour: the lookback is bound by date, so a daily syncer
     /// with more than twenty recent rows still reaches the older reading.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_daily_syncer_reaches_the_lookback_past_twenty_rows() {
         let engine = PersistentEngine::in_memory().unwrap();
         let today = 1_700_000_000;
@@ -4757,6 +4808,7 @@ mod tests {
 
     /// Inside the lookback it is a trend, which is the other half of the bound.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_previous_snapshot_inside_the_lookback_is_a_trend() {
         let engine = PersistentEngine::in_memory().unwrap();
         let today = 1_700_000_000;
@@ -4774,6 +4826,7 @@ mod tests {
     /// out rather than assumed to be the sync's: assuming is how the card came
     /// to compare a year curve with a six-week one in the first place.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_row_from_before_the_window_column_is_not_compared() {
         let engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -4837,6 +4890,7 @@ mod tests {
     /// No earlier snapshot that differs is no move, which the card draws flat
     /// as it always has. No snapshot at all is nothing to draw.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pace_trend_with_no_different_snapshot_is_flat_and_an_empty_one_has_no_glyph() {
         let engine = PersistentEngine::in_memory().unwrap();
         engine.save_pace_snapshot("Run", 3.5, None, None, 1_700_000_000, SYNC_PACE_WINDOW_DAYS);
@@ -4848,6 +4902,7 @@ mod tests {
 
     /// One snapshot is no move, and an empty history is no move either.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_pace_trend_with_nothing_to_compare_carries_no_move() {
         let engine = PersistentEngine::in_memory().unwrap();
         engine.save_pace_snapshot("Run", 3.5, None, None, 1_700_000_000, SYNC_PACE_WINDOW_DAYS);
@@ -4863,6 +4918,7 @@ mod tests {
 
     /// The pace trend stands on its snapshots the same way.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_pace_trend_reports_the_snapshots_behind_it() {
         let engine = PersistentEngine::in_memory().unwrap();
         engine.save_pace_snapshot("Run", 3.0, None, None, 1_700_000_000, SYNC_PACE_WINDOW_DAYS);
@@ -4880,6 +4936,7 @@ mod tests {
     // The pace trend was keyed on `Run` alone, so a snapshot saved for a trail
     // run was invisible to the running trend.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn pace_trend_reads_every_sport_in_the_family() {
         let engine = PersistentEngine::in_memory().unwrap();
         engine.save_pace_snapshot(
@@ -4912,6 +4969,7 @@ mod tests {
     /// Expected behaviour: the fallible reader says so, because "no sports"
     /// and "the read failed" are the same empty list to everything above it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failed_sport_type_read_is_reported() {
         let engine = PersistentEngine::in_memory().unwrap();
         assert_eq!(
@@ -5001,6 +5059,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_partial_match_takes_no_highlight_and_is_nobody_s_rival() {
         let engine = engine_with_a_partial_shortcut();
         let ids: Vec<String> = ["fwd1", "fwd2", "rev1", "rev2", "cut", "cut2"]
@@ -5145,6 +5204,7 @@ mod tests {
     /// Expected behaviour: none of the three reads as a record or carries a
     /// gap against another sport's time, on either path.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_route_highlights_a_lone_first_outing_is_no_record_and_no_delta() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         let mut run = ride("run", 1_700_086_400, 1500);
@@ -5185,6 +5245,7 @@ mod tests {
     /// An activity in no group has no route to be measured against, on either
     /// path.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn pooled_route_highlights_are_empty_without_a_group() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -5199,6 +5260,7 @@ mod tests {
     /// The custom name an athlete gave a route is on the highlight, and it is
     /// read from the same table either way.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn pooled_route_highlights_carry_the_custom_route_name() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
@@ -5348,6 +5410,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_day_with_no_activities_is_rest() {
         use crate::FfiDayLoadStatus::Rest;
         let day = super::day_load("2026-03-14", &[]);
@@ -5355,6 +5418,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn daily_activity_load_leaves_out_days_outside_the_window() {
         let engine = engine_with(vec![
             loaded("a", local("2026-03-09", "23:59:59"), Some(10.0)),
@@ -5401,6 +5465,7 @@ mod efficiency_direction_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_week_of_scatter_whose_fit_leans_down_is_flat() {
         // The fit falls 0.45 % a day, more than twice the old fixed rate, and
         // its standard error is 0.65 % a day.
@@ -5415,6 +5480,7 @@ mod efficiency_direction_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_week_of_scatter_whose_fit_leans_up_is_flat() {
         let efforts = [
             effort(0, -0.03),
@@ -5443,6 +5509,7 @@ mod efficiency_direction_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_season_of_scatter_around_a_steady_fall_is_still_improving() {
         // Half a per cent either side of a 10 % fall: the interval is narrow
         // against a change that size.
@@ -5456,6 +5523,7 @@ mod efficiency_direction_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_change_the_interval_supports_but_too_small_to_matter_is_flat() {
         // A clean half per cent over a season clears any interval and is not
         // a change in fitness anyone could feel.
@@ -5466,6 +5534,7 @@ mod efficiency_direction_tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn four_clean_efforts_are_too_few_to_call() {
         let efforts: Vec<Effort> = (0..4)
             .map(|i| effort(i * 30, -0.10 * i as f64 / 3.0))

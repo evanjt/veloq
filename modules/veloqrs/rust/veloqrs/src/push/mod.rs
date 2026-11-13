@@ -1001,6 +1001,7 @@ mod tests {
     use crate::test_globals::serial_global_state;
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_summary_is_json_a_java_caller_can_read() {
         let json = index_summary_json(&crate::FfiIndexActivitySummary {
             matched_sections: 3,
@@ -1088,6 +1089,7 @@ mod tests {
     /// Expected behaviour: no notification, rather than a body of raw keys,
     /// and the outcome says which of the two silent ones it was.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_handler_with_no_string_bundle_has_no_sentence() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1109,6 +1111,7 @@ mod tests {
     /// Expected behaviour: the outcome says nothing was worth a sentence, and
     /// the caller answers with the plain entry.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ride_with_nothing_in_it_has_no_sentence() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1138,6 +1141,7 @@ mod tests {
     ///
     /// Expected behaviour: the answer is the stored title over the ride's name.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_quiet_ride_is_answered_with_the_stored_title_and_its_name() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1165,6 +1169,7 @@ mod tests {
     ///
     /// Expected behaviour: the English constant over the ride's name.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_quiet_ride_with_no_bundle_is_answered_with_the_constant_and_its_name() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1185,6 +1190,7 @@ mod tests {
     /// The titles and bodies are translated and carry whatever an athlete
     /// named a route, so a quote in one must not end the JSON string.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_name_with_a_quote_in_it_is_escaped_rather_than_ending_the_string() {
         assert_eq!(json_string(r#"The "big" hill"#), r#""The \"big\" hill""#);
         assert_eq!(json_string("a\nb"), r#""a\nb""#);
@@ -1239,6 +1245,7 @@ mod tests {
     /// is read before the transport is asked for, so neither reaches the
     /// network in a process with no credential.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_push_honours_the_switch_before_it_writes_a_sentence() {
         let _guard = serial_global_state();
         let _tmp = global_engine_with_a_section_pr();
@@ -1257,6 +1264,7 @@ mod tests {
     /// Expected behaviour: nothing. The flag reaches the ladder, which then
     /// has no rung left for this ride.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_sentence_honours_the_section_pr_flag() {
         let _guard = serial_global_state();
         let _tmp = global_engine_with_a_section_pr();
@@ -1275,6 +1283,7 @@ mod tests {
     ///
     /// Expected behaviour: the section PR is announced.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_sentence_announces_a_section_pr_when_the_flag_is_on() {
         let _guard = serial_global_state();
         let _tmp = global_engine_with_a_section_pr();
@@ -1334,6 +1343,7 @@ mod tests {
     /// Expected behaviour: the sentence names both, and the file is not
     /// downloaded again.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_strength_session_with_stored_sets_is_announced_by_its_muscles() {
         let _guard = serial_global_state();
         let _tmp = global_engine_with_a_strength_session();
@@ -1397,6 +1407,7 @@ mod tests {
     /// Expected behaviour: that is a settled verdict, not a failure, and the
     /// run falls back to the plain entry.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_session_upstream_holds_no_file_for_is_settled_without_an_error() {
         use crate::net::transport::NetError;
         let _guard = serial_global_state();
@@ -1424,6 +1435,7 @@ mod tests {
     /// Expected behaviour: the run is in `push_runs` with the reason, where
     /// the Developer Dashboard reads it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_push_records_why_it_posted_nothing() {
         let _guard = serial_global_state();
         let _tmp = global_engine_with_a_section_pr();
@@ -1445,6 +1457,7 @@ mod tests {
     /// the failure is told apart from the three silent outcomes rather than
     /// reading as "nothing worth posting".
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_failed_push_records_the_sentence_rather_than_a_silent_outcome() {
         let _guard = serial_global_state();
         let _tmp = global_engine_with_a_section_pr();
@@ -1472,6 +1485,7 @@ mod tests {
     /// Expected behaviour: an error the worker logs, not a silent `None` that
     /// reads as "nothing worth posting".
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_push_with_no_engine_is_told_so() {
         let _guard = serial_global_state();
         crate::persistence::clear_persistent_engine();
@@ -1652,6 +1666,7 @@ mod tests {
     /// Expected behaviour: neither is replaced. Re-opening the file would swap
     /// the connection out from under the screens reading through it.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_warm_process_keeps_the_engine_and_the_credential_it_has() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1734,6 +1749,7 @@ mod tests {
     /// the lap with. A row dated zero would put the ride before every other
     /// and make every lap on it a record.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_with_no_start_date_records_nothing() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1874,6 +1890,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_settings_read_error_posts_a_plain_entry_and_records_failure() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1895,6 +1912,7 @@ mod tests {
     /// Expected behaviour: the stored "Activity Recorded" title and the ride's
     /// name, not the English constant.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_fallback_entry_uses_the_stored_title_when_there_is_one() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1918,6 +1936,7 @@ mod tests {
     /// Expected behaviour: the entry is still posted, under the English
     /// constant, and it still names the ride.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_fallback_entry_with_no_string_bundle_still_names_the_ride() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1935,6 +1954,7 @@ mod tests {
     /// activity id, which the poster carries either way, so the athlete can
     /// still open the ride from the tray.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_fallback_entry_with_no_name_is_still_postable() {
         let _guard = serial_global_state();
         let _tmp = crate::test_globals::seeded_global_engine();
@@ -1950,6 +1970,7 @@ mod tests {
     /// The athlete's own choice is the one outcome that stays silent. A
     /// fallback here would post the entry they turned off.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn notifications_off_is_the_one_outcome_that_posts_nothing() {
         let _guard = serial_global_state();
         let _tmp = global_engine_with_a_section_pr();

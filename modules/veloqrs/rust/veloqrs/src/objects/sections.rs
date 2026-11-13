@@ -915,6 +915,7 @@ mod tests {
     /// Expected behaviour: the read goes through the pool, so it does not
     /// wait for the writer however long it holds.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_section_performance_does_not_wait_for_a_writer() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("section_perf_under_a_writer.db");
@@ -939,6 +940,7 @@ mod tests {
     /// Expected behaviour: the read goes through the pool, so it does not
     /// wait for the writer however long it holds.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_section_detail_does_not_wait_for_a_writer() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("section_detail_under_a_writer.db");
@@ -972,6 +974,7 @@ mod tests {
     /// the writer, because it reads through the pool and never asks for the
     /// engine lock the writer holds.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_sections_list_does_not_wait_for_a_writer() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("sections_under_a_writer.db");
@@ -996,6 +999,7 @@ mod tests {
     /// because it reads through the pool and never asks for the engine lock
     /// the writer holds.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_section_performance_read_does_not_wait_for_a_writer() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("section_perf_under_a_writer.db");
@@ -1011,6 +1015,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_empty_catalogue_answers_every_read_with_nothing() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("sections.db");
@@ -1054,6 +1059,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rename_to_a_name_another_section_shows_is_a_typed_refusal() {
         let _guard = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -1205,6 +1211,7 @@ mod tests {
     /// visibility and no source slice, so a custom section read back said it
     /// was auto and a disabled one said it was visible.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_section_read_by_id_carries_its_type_slice_and_visibility() {
         let _guard = serial_global_state();
         let _tmp = seeded_global_engine();
@@ -1284,6 +1291,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn exclusions_are_flags_on_a_membership() {
         let _guard = serial_global_state();
         let _tmp = seeded_global_engine();

@@ -116,7 +116,7 @@ describe('useDetectionHold', () => {
     expect(result.current).toBeNull();
   });
 
-  it('groups the three elevation holds and excludes the cutover', () => {
+  vaultIt('groups the three elevation holds and excludes the cutover', () => {
     expect(isElevationHold('elevation-running')).toBe(true);
     expect(isElevationHold('elevation-waiting')).toBe(true);
     expect(isElevationHold('elevation-paused')).toBe(true);
@@ -202,7 +202,7 @@ describe('useDetectionHold', () => {
     expect(result.current).toBe('cutover');
   });
 
-  it('stops re-reading the cutover once nothing holds', async () => {
+  vaultIt('stops re-reading the cutover once nothing holds', async () => {
     const engine = engineWith({ remaining: 0 });
     (getEngine as jest.Mock).mockReturnValue(engine);
 

@@ -2941,6 +2941,7 @@ mod tests {
     /// triple, so dropping its blob must not make every change look like a
     /// change and write a version per detect.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_milestone_of_an_unchanged_exact_version_writes_no_second_copy() {
         let (engine, _dir, stored) = engine_with_ride();
         let line = stored[20..60].to_vec();
@@ -2961,6 +2962,7 @@ mod tests {
     /// Expected behaviour: the version no longer rebuilds, so it is not the
     /// line being kept, and the current line lands as a new milestone.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_milestone_does_not_keep_an_exact_version_whose_stream_was_replaced() {
         let (engine, _dir, stored) = engine_with_ride();
         let line = stored[20..60].to_vec();
@@ -3049,6 +3051,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_child_after_the_retained_piece_is_part_two() {
         let engine = PersistentEngine::in_memory().expect("engine");
         seed_birth(&engine, "c", "p", Some(2), true);
@@ -3056,6 +3059,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn children_either_side_of_the_retained_piece_are_parts_one_and_three() {
         let engine = PersistentEngine::in_memory().expect("engine");
         seed_birth(&engine, "before", "p", Some(1), true);
@@ -3064,6 +3068,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_split_numbers_after_the_first_in_birth_order() {
         let engine = PersistentEngine::in_memory().expect("engine");
         seed_birth(&engine, "a", "p", Some(1), true);
@@ -3074,6 +3079,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_child_without_a_recorded_place_follows_the_highest_held() {
         let engine = PersistentEngine::in_memory().expect("engine");
         seed_birth(&engine, "a", "p", Some(4), true);
@@ -3082,6 +3088,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_child_with_no_place_and_no_siblings_is_part_one() {
         let engine = PersistentEngine::in_memory().expect("engine");
         seed_birth(&engine, "legacy", "p", None, true);
@@ -3089,6 +3096,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_dissolved_sibling_keeps_its_place_held() {
         let engine = PersistentEngine::in_memory().expect("engine");
         seed_birth(&engine, "gone", "p", Some(2), false);
@@ -3098,6 +3106,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn parents_number_their_children_independently() {
         let engine = PersistentEngine::in_memory().expect("engine");
         seed_birth(&engine, "a", "p", Some(2), true);
@@ -3106,6 +3115,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_rewritten_birth_row_keeps_the_first_place() {
         let engine = PersistentEngine::in_memory().expect("engine");
         seed_birth(&engine, "a", "p", Some(2), true);
@@ -3183,6 +3193,7 @@ mod tests {
     /// the line. The far ride's activity read lists no change, the near
     /// ride's lists one, and neither lists the fork key.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_stored_row_lists_only_the_rides_on_its_version_line() {
         let engine = stored_row_listing_far_rides();
         let names = std::collections::BTreeMap::new();
@@ -3204,6 +3215,7 @@ mod tests {
     /// Expected behaviour: the activity read carries the same summary the
     /// section's own ledger read gives that row, so both screens word it alike.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_change_carries_the_summary_its_section_ledger_reads() {
         let engine = stored_row_listing_far_rides();
         let names = std::collections::BTreeMap::new();
@@ -3230,6 +3242,7 @@ mod tests {
     /// folded onto it. The rebase row points at the re-cut and the first row
     /// of the version reads no part that moved.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_ledger_read_summarises_a_recut_against_the_version_before() {
         let mut engine = PersistentEngine::in_memory().expect("engine");
         section_row(&engine, "s1", "auto", "Climb");
@@ -3306,6 +3319,7 @@ mod tests {
     /// it names the activity (the fork list is not read), newest first, and a row naming only `a10` or
     /// `a1` as a substring of another id is not a match.
     #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ledger_row_naming_an_activity_is_found_from_the_activity() {
         let mut engine = PersistentEngine::in_memory().expect("engine");
         section_row(&engine, "s1", "auto", "Climb");

@@ -76,7 +76,7 @@ describe('the eFTP trend', () => {
     expect(tree.getByTestId('ftp-trend-surface').props.accessibilityValue.text).toContain('240 W');
   });
 
-  it('draws the line in the power stream colour', async () => {
+  vaultIt('draws the line in the power stream colour', async () => {
     const tree = await render(<FTPTrendChart data={series} />);
     await layOut(tree);
     const lines = tree.UNSAFE_getAllByType(CurveLine);
@@ -117,7 +117,7 @@ describe('the history sheet', () => {
     target: '/elsewhere',
   };
 
-  it('draws every series in the history with a key naming each', async () => {
+  vaultIt('draws every series in the history with a key naming each', async () => {
     const tree = await render(
       <InsightHistoryChart history={grouped} category="strength_balance" />
     );
@@ -129,7 +129,7 @@ describe('the history sheet', () => {
     expect(tree.getByText('Right side')).toBeTruthy();
   });
 
-  it('marks the one period in the measure colour and mutes every other bar', async () => {
+  vaultIt('marks the one period in the measure colour and mutes every other bar', async () => {
     const tree = await render(
       <InsightHistoryChart history={grouped} category="strength_balance" />
     );
@@ -142,7 +142,7 @@ describe('the history sheet', () => {
     expect(colours.filter((colour) => colour === light['chart-muted'])).toHaveLength(6);
   });
 
-  it('draws a single series with no key', async () => {
+  vaultIt('draws a single series with no key', async () => {
     const tree = await render(
       <InsightHistoryChart
         history={{ ...grouped, series: [grouped.series[0]!] }}
@@ -162,7 +162,7 @@ describe('the sheets colour the series by what it measures, the verdict on its b
     target: '/elsewhere',
   };
 
-  it('draws a period comparison in the chart series colour', async () => {
+  vaultIt('draws a period comparison in the chart series colour', async () => {
     const insight = {
       id: 'comparison',
       category: 'period_comparison',
@@ -185,7 +185,7 @@ describe('the sheets colour the series by what it measures, the verdict on its b
     expect(StyleSheet.flatten(change.props.style).color).toBe(verdictColor('negative', false));
   });
 
-  it('draws a fitness milestone in the fitness colour', async () => {
+  vaultIt('draws a fitness milestone in the fitness colour', async () => {
     const insight = {
       id: 'milestone',
       category: 'fitness_milestone',

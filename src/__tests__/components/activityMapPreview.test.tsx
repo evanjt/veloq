@@ -122,7 +122,7 @@ describe('ActivityMapPreview', () => {
     } as unknown as ReturnType<typeof getEngine>);
   });
 
-  it('does not render again for sync progress within the same state', async () => {
+  vaultIt('does not render again for sync progress within the same state', async () => {
     let renders = 0;
     await render(
       <React.Profiler
@@ -143,14 +143,14 @@ describe('ActivityMapPreview', () => {
     expect(renders).toBe(before);
   });
 
-  it('draws no credit over the cached snapshot', async () => {
+  vaultIt('draws no credit over the cached snapshot', async () => {
     const { queryByTestId } = await render(<ActivityMapPreview activity={activity} />);
 
     expect(queryByTestId('map-attribution')).toBeNull();
     expect(queryByTestId('map-attribution-text')).toBeNull();
   });
 
-  it('shows the cached image at full opacity on its first frame', async () => {
+  vaultIt('shows the cached image at full opacity on its first frame', async () => {
     const { getByTestId } = await render(<ActivityMapPreview activity={activity} />);
 
     const preview = getByTestId('activity-map-preview-ready-demo-1');
@@ -158,15 +158,18 @@ describe('ActivityMapPreview', () => {
     expect(preview.findByType(Image).props.fadeDuration).toBe(0);
   });
 
-  it('keeps the snapshot out of iOS Smart Invert, so the map is not drawn as a negative', async () => {
-    const { getByTestId } = await render(<ActivityMapPreview activity={activity} />);
+  vaultIt(
+    'keeps the snapshot out of iOS Smart Invert, so the map is not drawn as a negative',
+    async () => {
+      const { getByTestId } = await render(<ActivityMapPreview activity={activity} />);
 
-    const preview = getByTestId('activity-map-preview-ready-demo-1');
-    const { Image } = require('react-native');
-    expect(preview.findByType(Image).props.accessibilityIgnoresInvertColors).toBe(true);
-  });
+      const preview = getByTestId('activity-map-preview-ready-demo-1');
+      const { Image } = require('react-native');
+      expect(preview.findByType(Image).props.accessibilityIgnoresInvertColors).toBe(true);
+    }
+  );
 
-  it('draws the compass of a turned snapshot without an SVG surface', async () => {
+  vaultIt('draws the compass of a turned snapshot without an SVG surface', async () => {
     // An SVG surface re-renders and dispatches a layout event every time the
     // list reattaches the row, which held feed scroll frames past the budget.
     mockTerrain3DMode = 'always';
@@ -182,13 +185,13 @@ describe('ActivityMapPreview', () => {
     expect(svgHosts).toHaveLength(0);
   });
 
-  it('draws no compass over a snapshot facing north', async () => {
+  vaultIt('draws no compass over a snapshot facing north', async () => {
     const { queryByTestId } = await render(<ActivityMapPreview activity={activity} />);
 
     expect(queryByTestId('activity-map-preview-compass')).toBeNull();
   });
 
-  it('draws none over a satellite snapshot either, where the credit was longest', async () => {
+  vaultIt('draws none over a satellite snapshot either, where the credit was longest', async () => {
     mockMapStyle = 'satellite';
 
     const { queryByTestId } = await render(<ActivityMapPreview activity={activity} />);
@@ -196,7 +199,7 @@ describe('ActivityMapPreview', () => {
     expect(queryByTestId('map-attribution')).toBeNull();
   });
 
-  it('asks for a render fitted to the inset the card crops', async () => {
+  vaultIt('asks for a render fitted to the inset the card crops', async () => {
     mockTerrain3DMode = 'always';
     const requestSnapshot = jest.fn();
     const snapshotRef = {
@@ -212,32 +215,35 @@ describe('ActivityMapPreview', () => {
     );
   });
 
-  it('asks for a stand-in with the terrain camera when only the flat key is cached', async () => {
-    mockTerrain3DMode = 'always';
-    const requestSnapshot = jest.fn();
-    const snapshotRef = {
-      current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
-    };
+  vaultIt(
+    'asks for a stand-in with the terrain camera when only the flat key is cached',
+    async () => {
+      mockTerrain3DMode = 'always';
+      const requestSnapshot = jest.fn();
+      const snapshotRef = {
+        current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
+      };
 
-    await render(
-      <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
-    );
+      await render(
+        <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
+      );
 
-    expect(requestSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({
-        activityId: 'demo-1',
-        flat: true,
-        standIn: true,
-        firstPaint: true,
-        camera: calculateTerrainCamera(
-          SWISS_TRACK.map((p) => [p.longitude, p.latitude]),
-          []
-        ).camera,
-      })
-    );
-  });
+      expect(requestSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          activityId: 'demo-1',
+          flat: true,
+          standIn: true,
+          firstPaint: true,
+          camera: calculateTerrainCamera(
+            SWISS_TRACK.map((p) => [p.longitude, p.latitude]),
+            []
+          ).camera,
+        })
+      );
+    }
+  );
 
-  it('sends an overridden card to the head of the queue', async () => {
+  vaultIt('sends an overridden card to the head of the queue', async () => {
     mockHasOverride = true;
     mockTerrain3DMode = 'always';
     const requestSnapshot = jest.fn();
@@ -252,7 +258,7 @@ describe('ActivityMapPreview', () => {
     expect(requestSnapshot).toHaveBeenCalledWith(expect.objectContaining({ priority: true }));
   });
 
-  it('leaves an ordinary card in the queue it landed in', async () => {
+  vaultIt('leaves an ordinary card in the queue it landed in', async () => {
     mockTerrain3DMode = 'always';
     const requestSnapshot = jest.fn();
     const snapshotRef = {
@@ -284,7 +290,7 @@ describe('ActivityMapPreview', () => {
     expect(mockDeleteSuperseded).not.toHaveBeenCalled();
   });
 
-  it('serves the cached flat render without queuing anything', async () => {
+  vaultIt('serves the cached flat render without queuing anything', async () => {
     const requestSnapshot = jest.fn();
     const snapshotRef = {
       current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },

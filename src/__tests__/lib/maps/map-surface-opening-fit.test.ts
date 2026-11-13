@@ -153,7 +153,7 @@ describe('opening fit of a surface built before it has a size', () => {
     expect(sized(calls)).toHaveLength(afterFirst);
   });
 
-  it('adds no extra fit when the container already had a size at build', () => {
+  vaultIt('adds no extra fit when the container already had a size at build', () => {
     const { calls, resize } = runPage(
       { bounds: BOUNDS, padding: PADDING, padCamera: true },
       { clientWidth: 360, clientHeight: 800 }

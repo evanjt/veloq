@@ -49,7 +49,7 @@ afterEach(() => {
 });
 
 describe('the routes status poller', () => {
-  it('reads once a tick however many are following', () => {
+  vaultIt('reads once a tick however many are following', () => {
     const first = jest.fn();
     const second = jest.fn();
     const offFirst = followRoutesStatus(first);
@@ -67,7 +67,7 @@ describe('the routes status poller', () => {
     offSecond();
   });
 
-  it('arms with the first follower and disarms with the last', () => {
+  vaultIt('arms with the first follower and disarms with the last', () => {
     expect(routesStatusIsFollowed()).toBe(false);
 
     const offFirst = followRoutesStatus(jest.fn());

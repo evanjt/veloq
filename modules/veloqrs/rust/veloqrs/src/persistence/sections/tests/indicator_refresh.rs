@@ -201,6 +201,7 @@ fn assert_current(engine: &PersistentEngine, after: &str) {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_merge_moves_the_record_onto_the_kept_section_and_drops_the_donors_badges() {
     let mut engine = library(false);
     let kept = custom(&mut engine, "Long straight", 0, POINTS - 1);
@@ -217,6 +218,7 @@ fn a_merge_moves_the_record_onto_the_kept_section_and_drops_the_donors_badges() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_merge_gives_back_the_badges_of_a_section_the_donor_had_superseded() {
     let mut engine = library(true);
     let donor = custom(&mut engine, "Long straight", 0, POINTS - 1);
@@ -230,6 +232,7 @@ fn a_merge_gives_back_the_badges_of_a_section_the_donor_had_superseded() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn disabling_a_section_drops_its_badges_and_enabling_it_brings_them_back() {
     let mut engine = library(false);
     let sid = custom(&mut engine, "Long straight", 0, POINTS - 1);
@@ -248,6 +251,7 @@ fn disabling_a_section_drops_its_badges_and_enabling_it_brings_them_back() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_forced_rematch_of_a_faster_ride_takes_the_record() {
     let mut engine = library(false);
     let sid = custom(&mut engine, "Long straight", 0, POINTS - 1);
@@ -261,6 +265,7 @@ fn a_forced_rematch_of_a_faster_ride_takes_the_record() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_custom_section_that_supersedes_an_auto_one_takes_its_badges_until_deleted() {
     let mut engine = library(true);
     let earned = badges_on(&engine, "auto-line");

@@ -26,7 +26,7 @@ describe('splitAndPositionChartData', () => {
     expect(result.drawn).toEqual({ forward: true, reverse: true });
   });
 
-  it('has no reverse direction when only forward attempts exist', () => {
+  vaultIt('has no reverse direction when only forward attempts exist', () => {
     const result = splitAndPositionChartData([point({ speed: 4, sectionTime: 250 })]);
     expect(result.drawn).toEqual({ forward: true, reverse: false });
   });
@@ -39,7 +39,7 @@ describe('splitAndPositionChartData', () => {
     expect(result.reversePoints).toEqual([]);
   });
 
-  it('returns EMPTY_SPLIT for empty input', () => {
+  vaultIt('returns EMPTY_SPLIT for empty input', () => {
     const result = splitAndPositionChartData([]);
     expect(result.allPoints).toEqual([]);
     expect(result.forwardPoints).toEqual([]);
@@ -55,7 +55,7 @@ describe('splitAndPositionChartData', () => {
     expect(result.allPoints).toEqual([]);
   });
 
-  it('places a single point with normalised x ~0.02', () => {
+  vaultIt('places a single point with normalised x ~0.02', () => {
     const result = splitAndPositionChartData([point({ speed: 3, sectionTime: 300 })]);
     expect(result.allPoints).toHaveLength(1);
     expect(result.forwardPoints).toHaveLength(1);

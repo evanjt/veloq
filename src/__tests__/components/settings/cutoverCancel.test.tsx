@@ -76,7 +76,7 @@ describe('stopping the cutover from its status line', () => {
     await changeLanguage('en-AU');
   });
 
-  it('offers to stop a run that is going', async () => {
+  vaultIt('offers to stop a run that is going', async () => {
     mockUseCutoverSummary.mockReturnValue(running('detecting'));
     await render(<CutoverStatus />);
 
@@ -103,7 +103,7 @@ describe('stopping the cutover from its status line', () => {
     expect(mockCancel).not.toHaveBeenCalled();
   });
 
-  it('says what stopping buys, which is this run and not the migration', async () => {
+  vaultIt('says what stopping buys, which is this run and not the migration', async () => {
     mockUseCutoverSummary.mockReturnValue(running('detecting'));
     await render(<CutoverStatus />);
 
@@ -124,14 +124,14 @@ describe('stopping the cutover from its status line', () => {
     expect(mockCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('offers nothing to stop when nothing is running', async () => {
+  vaultIt('offers nothing to stop when nothing is running', async () => {
     mockUseCutoverSummary.mockReturnValue(settled('complete'));
     await render(<CutoverStatus />);
 
     expect(screen.queryByTestId(CUTOVER_CANCEL_TEST_ID)).toBeNull();
   });
 
-  it('offers nothing to stop on a failed run', async () => {
+  vaultIt('offers nothing to stop on a failed run', async () => {
     mockUseCutoverSummary.mockReturnValue(settled('failed', true));
     await render(<CutoverStatus />);
 

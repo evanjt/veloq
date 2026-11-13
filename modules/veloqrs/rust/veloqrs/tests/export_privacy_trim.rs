@@ -150,6 +150,7 @@ fn an_export_with_no_home_set_is_exactly_what_it_was() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_radius_of_zero_is_off_rather_than_a_trim_of_nothing() {
     let dir = TempDir::new().unwrap();
     let engine = engine_with_two_rides(&dir);
@@ -272,6 +273,7 @@ fn both_formats_redact_the_same_library_the_same_way() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_geojson_export_with_no_home_set_is_exactly_what_it_was() {
     let dir = TempDir::new().unwrap();
     let engine = engine_with_two_rides(&dir);
@@ -287,6 +289,7 @@ fn a_geojson_export_with_no_home_set_is_exactly_what_it_was() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_geojson_radius_of_zero_is_off_rather_than_a_trim_of_nothing() {
     let dir = TempDir::new().unwrap();
     let engine = engine_with_two_rides(&dir);

@@ -20,7 +20,7 @@ describe('buildZoneDistribution', () => {
     expect(rows[4].name).not.toBe('Max');
   });
 
-  it('keeps all seven power zones', () => {
+  vaultIt('keeps all seven power zones', () => {
     expect(
       buildZoneDistribution([1, 1, 1, 1, 1, 1, 1], undefined, 'power', [], defaultName) ?? []
     ).toHaveLength(7);
@@ -35,7 +35,7 @@ describe('buildZoneDistribution', () => {
     expect(rows[7].zone).toBe(8);
   });
 
-  it("names rows from the athlete's own zone names", () => {
+  vaultIt("names rows from the athlete's own zone names", () => {
     const rows =
       buildZoneDistribution([5, 5, 5], undefined, 'hr', ['Easy', 'Steady', 'Hard'], defaultName) ??
       [];
@@ -43,16 +43,24 @@ describe('buildZoneDistribution', () => {
     expect(rows.map((r) => r.name)).toEqual(['Easy', 'Steady', 'Hard']);
   });
 
-  it('falls back to the translated default by zone id, then Z<n>, where the names run out', () => {
-    const rows =
-      buildZoneDistribution([1, 1, 1, 1, 1, 1, 1, 1], undefined, 'hr', ['Easy', ''], defaultName) ??
-      [];
+  vaultIt(
+    'falls back to the translated default by zone id, then Z<n>, where the names run out',
+    () => {
+      const rows =
+        buildZoneDistribution(
+          [1, 1, 1, 1, 1, 1, 1, 1],
+          undefined,
+          'hr',
+          ['Easy', ''],
+          defaultName
+        ) ?? [];
 
-    expect(rows[0].name).toBe('Easy');
-    expect(rows[1].name).toBe('hr-2');
-    expect(rows[6].name).toBe('hr-7');
-    expect(rows[7].name).toBe('Z8');
-  });
+      expect(rows[0].name).toBe('Easy');
+      expect(rows[1].name).toBe('hr-2');
+      expect(rows[6].name).toBe('hr-7');
+      expect(rows[7].name).toBe('Z8');
+    }
+  );
 
   it('is undefined when there is no time in any zone', () => {
     expect(

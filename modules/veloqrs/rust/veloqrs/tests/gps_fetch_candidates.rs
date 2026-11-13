@@ -91,6 +91,7 @@ fn ids(engine: &PersistentEngine, oldest: &str, newest: &str) -> Vec<String> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_marked_stored_activity_without_a_track_is_a_candidate_newest_first() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
@@ -122,6 +123,7 @@ fn a_marked_stored_activity_without_a_track_is_a_candidate_newest_first() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_without_a_track_upstream_is_not_a_candidate() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(
@@ -136,6 +138,7 @@ fn an_activity_without_a_track_upstream_is_not_a_candidate() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_track_already_on_the_device_is_not_a_candidate() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(
@@ -195,6 +198,7 @@ fn a_track_given_up_on_is_not_a_candidate_until_the_activity_changes_upstream() 
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_activity_whose_body_has_not_landed_is_not_a_candidate() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = engine(&dir);
@@ -213,6 +217,7 @@ fn an_activity_whose_body_has_not_landed_is_not_a_candidate() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_range_bounds_both_ends_by_day_and_includes_its_edges() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(

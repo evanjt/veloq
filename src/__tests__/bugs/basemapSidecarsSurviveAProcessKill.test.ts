@@ -31,7 +31,7 @@ beforeEach(() => {
 });
 
 describe('flushing the basemap sidecars', () => {
-  it('writes every source back through the store', () => {
+  vaultIt('writes every source back through the store', () => {
     flushBasemapSidecars();
 
     expect(basemap.flush).toHaveBeenCalledTimes(1);
@@ -65,7 +65,7 @@ describe('the app lifecycle', () => {
     expect(basemap.flush).toHaveBeenCalledTimes(1);
   });
 
-  it('still backs up and refreshes the widget beside the flush', () => {
+  vaultIt('still backs up and refreshes the widget beside the flush', () => {
     handleAppBackground();
 
     expect(mockBackup).toHaveBeenCalledTimes(1);

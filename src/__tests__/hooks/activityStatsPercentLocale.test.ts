@@ -65,17 +65,17 @@ describe('the percentages on the stat cards under de-DE', () => {
     mockLocale = 'de-DE';
   });
 
-  it('writes the heart rate percentage of max through the locale formatter', async () => {
+  vaultIt('writes the heart rate percentage of max through the locale formatter', async () => {
     const stats = await statsOf(175);
     expect(rowValue(stats, 'activity.stats.percentOfMaxHRLabel')).toBe(formatPercent(86));
   });
 
-  it('writes the percentage of FTP through the locale formatter', async () => {
+  vaultIt('writes the percentage of FTP through the locale formatter', async () => {
     const stats = await statsOf();
     expect(rowValue(stats, 'activity.stats.percentOfFTP')).toBe(formatPercent(88));
   });
 
-  it('writes the intensity factor through the locale formatter', async () => {
+  vaultIt('writes the intensity factor through the locale formatter', async () => {
     const stats = await statsOf();
     expect(rowValue(stats, 'activity.stats.intensityFactor')).toBe(formatPercent(85));
   });
@@ -86,11 +86,14 @@ describe('the percentages on the stat cards under de-DE', () => {
     expect(card?.value).toBe(formatPercent(87));
   });
 
-  it('hands the max heart rate context a formatted percentage and the template adds no sign', async () => {
-    const stats = await statsOf(175);
-    const heartRate = stats.find((stat) => stat.title === 'activity.heartRate');
-    expect(heartRate?.context).toBe(
-      `activity.stats.percentOfMaxHR:${JSON.stringify({ percent: formatPercent(86, 0) })}`
-    );
-  });
+  vaultIt(
+    'hands the max heart rate context a formatted percentage and the template adds no sign',
+    async () => {
+      const stats = await statsOf(175);
+      const heartRate = stats.find((stat) => stat.title === 'activity.heartRate');
+      expect(heartRate?.context).toBe(
+        `activity.stats.percentOfMaxHR:${JSON.stringify({ percent: formatPercent(86, 0) })}`
+      );
+    }
+  );
 });

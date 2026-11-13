@@ -47,7 +47,7 @@ function ids(xml: string): Set<string> {
 }
 
 describe('the Strength widget in the Android gallery', () => {
-  it('is registered with its provider info and a label from the string resources', () => {
+  vaultIt('is registered with its provider info and a label from the string resources', () => {
     const app: { receiver: Entry[] } = { receiver: [] };
     androidPlugin.applyReceivers(app);
     const strength = app.receiver.find(
@@ -57,14 +57,14 @@ describe('the Strength widget in the Android gallery', () => {
     expect(JSON.stringify(strength)).toContain('@xml/widget_strength_info');
   });
 
-  it('registers no picker, and drops one an earlier prebuild left in the manifest', () => {
+  vaultIt('registers no picker, and drops one an earlier prebuild left in the manifest', () => {
     const stale = '.widget.StrengthWidgetConfigureActivity';
     const app: { activity: Entry[] } = { activity: [{ $: { 'android:name': stale } }] };
     androidPlugin.applyActivities(app);
     expect(app.activity.map((a) => a.$['android:name'])).not.toContain(stale);
   });
 
-  it('is placed with no configure step, and compiles no picker', () => {
+  vaultIt('is placed with no configure step, and compiles no picker', () => {
     const main = generate();
     const info = attributes(
       fs.readFileSync(path.join(main, 'res', 'xml', 'widget_strength_info.xml'), 'utf8')
@@ -110,7 +110,7 @@ describe('the Strength widget in the Android gallery', () => {
     expect([...shared, 'str_bodies', ...rows].filter((id) => !wide.has(id))).toEqual([]);
   });
 
-  it('defines the strings it points at in every locale', () => {
+  vaultIt('defines the strings it points at in every locale', () => {
     const main = generate();
     const files: Record<string, string> = strings.androidStringFiles(strings.loadLocaleBundles());
     const defined = (xml: string) =>

@@ -31,7 +31,7 @@ const unseen: TourOfferFacts = {
 };
 
 describe('the tour offer', () => {
-  it('offers the tour to a signed-in athlete who has never seen it', () => {
+  vaultIt('offers the tour to a signed-in athlete who has never seen it', () => {
     expect(tourOffer(unseen)).toEqual({ kind: 'tour', held: [] });
   });
 
@@ -39,11 +39,11 @@ describe('the tour offer', () => {
     expect(tourOffer({ ...unseen, tourEligible: false })).toBeNull();
   });
 
-  it('offers nothing once the tour has been seen and nothing was left', () => {
+  vaultIt('offers nothing once the tour has been seen and nothing was left', () => {
     expect(tourOffer({ ...unseen, lastSeenVersion: '0.4.0' })).toBeNull();
   });
 
-  it('waits for a later session after Not now, then offers once more', () => {
+  vaultIt('waits for a later session after Not now, then offers once more', () => {
     const record = afterOfferDeclined(NO_TOUR_OFFER);
     expect(offerEnded(record)).toBe(false);
     expect(tourOffer({ ...unseen, record, settledThisSession: true })).toBeNull();
@@ -60,7 +60,7 @@ describe('the tour offer', () => {
 describe('the setup slides a tour left unanswered', () => {
   const seen: TourOfferFacts = { ...unseen, lastSeenVersion: '0.4.0' };
 
-  it('brings the card back in a later session for the slides left unanswered', () => {
+  vaultIt('brings the card back in a later session for the slides left unanswered', () => {
     const record = afterTourClosed({ ...NO_TOUR_OFFER, answers: { backup: 'on' } });
     expect(tourOffer({ ...seen, record, settledThisSession: true })).toBeNull();
     expect(tourOffer({ ...seen, record })).toEqual({
@@ -69,7 +69,7 @@ describe('the setup slides a tour left unanswered', () => {
     });
   });
 
-  it('offers both when neither was answered, in the order the tour shows them', () => {
+  vaultIt('offers both when neither was answered, in the order the tour shows them', () => {
     const record = afterTourClosed(NO_TOUR_OFFER);
     expect(tourOffer({ ...seen, record })).toEqual({
       kind: 'leftover',
@@ -77,7 +77,7 @@ describe('the setup slides a tour left unanswered', () => {
     });
   });
 
-  it('owes nothing when the tour closed with every setup slide answered', () => {
+  vaultIt('owes nothing when the tour closed with every setup slide answered', () => {
     const record = afterTourClosed({
       ...NO_TOUR_OFFER,
       answers: { notifications: 'never', backup: 'on' },
@@ -85,26 +85,29 @@ describe('the setup slides a tour left unanswered', () => {
     expect(tourOffer({ ...seen, record })).toBeNull();
   });
 
-  it('leaves out a slide answered after the tour closed, or already on in Settings when it closed', () => {
-    const record = afterTourClosed(NO_TOUR_OFFER);
-    expect(tourOffer({ ...seen, record: { ...record, answers: { notifications: 'on' } } })).toEqual(
-      { kind: 'leftover', slides: ['backup'] }
-    );
-    expect(tourOffer({ ...seen, record: afterTourClosed(NO_TOUR_OFFER, ['backup']) })).toEqual({
-      kind: 'leftover',
-      slides: ['notifications'],
-    });
-    expect(
-      tourOffer({ ...seen, record: afterTourClosed(NO_TOUR_OFFER, ['backup', 'notifications']) })
-    ).toBeNull();
-  });
+  vaultIt(
+    'leaves out a slide answered after the tour closed, or already on in Settings when it closed',
+    () => {
+      const record = afterTourClosed(NO_TOUR_OFFER);
+      expect(
+        tourOffer({ ...seen, record: { ...record, answers: { notifications: 'on' } } })
+      ).toEqual({ kind: 'leftover', slides: ['backup'] });
+      expect(tourOffer({ ...seen, record: afterTourClosed(NO_TOUR_OFFER, ['backup']) })).toEqual({
+        kind: 'leftover',
+        slides: ['notifications'],
+      });
+      expect(
+        tourOffer({ ...seen, record: afterTourClosed(NO_TOUR_OFFER, ['backup', 'notifications']) })
+      ).toBeNull();
+    }
+  );
 
-  it('keeps an answer given in the tour over what Settings held at the close', () => {
+  vaultIt('keeps an answer given in the tour over what Settings held at the close', () => {
     const record = afterTourClosed({ ...NO_TOUR_OFFER, answers: { backup: 'never' } }, ['backup']);
     expect(record.answers.backup).toBe('never');
   });
 
-  it('offers only the setup slides the tour carries', () => {
+  vaultIt('offers only the setup slides the tour carries', () => {
     const record = afterTourClosed(NO_TOUR_OFFER);
     expect(tourOffer({ ...seen, record, tourSetupSlides: ['backup'] })).toEqual({
       kind: 'leftover',
@@ -122,11 +125,11 @@ describe('the setup slides a tour left unanswered', () => {
 describe('the tour offered in the quiet period', () => {
   const quiet: TourOfferFacts = { ...unseen, quietPeriod: true };
 
-  it('offers the tour without the notification slide, keeping the backup slide', () => {
+  vaultIt('offers the tour without the notification slide, keeping the backup slide', () => {
     expect(tourOffer(quiet)).toEqual({ kind: 'tour', held: ['notifications'] });
   });
 
-  it('holds nothing back where the tour carries no notification slide', () => {
+  vaultIt('holds nothing back where the tour carries no notification slide', () => {
     expect(tourOffer({ ...quiet, tourSetupSlides: ['backup'] })).toEqual({
       kind: 'tour',
       held: [],
@@ -145,25 +148,28 @@ describe('the tour offered in the quiet period', () => {
 });
 
 describe('the setup slides an account can answer', () => {
-  it('keeps the notification slide for an account that can receive pushes', () => {
+  vaultIt('keeps the notification slide for an account that can receive pushes', () => {
     expect(setupSlidesAnswerable(['notifications', 'backup'], { push: true })).toEqual([
       'notifications',
       'backup',
     ]);
   });
 
-  it('leaves out the notification slide where pushes cannot arrive, so it is never owed', () => {
-    const slides = setupSlidesAnswerable(['notifications', 'backup'], { push: false });
-    expect(slides).toEqual(['backup']);
-    const closed = afterTourClosed(NO_TOUR_OFFER);
-    expect(
-      tourOffer({ ...unseen, lastSeenVersion: '0.4.0', record: closed, tourSetupSlides: slides })
-    ).toEqual({ kind: 'leftover', slides: ['backup'] });
-  });
+  vaultIt(
+    'leaves out the notification slide where pushes cannot arrive, so it is never owed',
+    () => {
+      const slides = setupSlidesAnswerable(['notifications', 'backup'], { push: false });
+      expect(slides).toEqual(['backup']);
+      const closed = afterTourClosed(NO_TOUR_OFFER);
+      expect(
+        tourOffer({ ...unseen, lastSeenVersion: '0.4.0', record: closed, tourSetupSlides: slides })
+      ).toEqual({ kind: 'leftover', slides: ['backup'] });
+    }
+  );
 });
 
 describe('the Garmin setup slide', () => {
-  it('is answerable only for an athlete whose intervals.icu uses Garmin', () => {
+  vaultIt('is answerable only for an athlete whose intervals.icu uses Garmin', () => {
     const all = ['notifications', 'garmin', 'backup'] as const;
     expect(setupSlidesAnswerable(all, { push: true, garmin: true })).toEqual([...all]);
     expect(setupSlidesAnswerable(all, { push: true, garmin: false })).toEqual([
@@ -173,21 +179,24 @@ describe('the Garmin setup slide', () => {
     expect(setupSlidesAnswerable(all, { push: true })).toEqual(['notifications', 'backup']);
   });
 
-  it('is held out of the tour for an athlete who cannot answer it, and not owed afterwards', () => {
-    const slides = setupSlidesAnswerable(['notifications', 'garmin', 'backup'], {
-      push: true,
-      garmin: false,
-    });
-    expect(
-      tourOffer({ ...unseen, tourSetupSlides: slides, unavailableSlides: ['garmin'] })
-    ).toEqual({ kind: 'tour', held: ['garmin'] });
-    const closed = afterTourClosed(NO_TOUR_OFFER);
-    expect(
-      tourOffer({ ...unseen, lastSeenVersion: '0.4.0', record: closed, tourSetupSlides: slides })
-    ).toEqual({ kind: 'leftover', slides: ['notifications', 'backup'] });
-  });
+  vaultIt(
+    'is held out of the tour for an athlete who cannot answer it, and not owed afterwards',
+    () => {
+      const slides = setupSlidesAnswerable(['notifications', 'garmin', 'backup'], {
+        push: true,
+        garmin: false,
+      });
+      expect(
+        tourOffer({ ...unseen, tourSetupSlides: slides, unavailableSlides: ['garmin'] })
+      ).toEqual({ kind: 'tour', held: ['garmin'] });
+      const closed = afterTourClosed(NO_TOUR_OFFER);
+      expect(
+        tourOffer({ ...unseen, lastSeenVersion: '0.4.0', record: closed, tourSetupSlides: slides })
+      ).toEqual({ kind: 'leftover', slides: ['notifications', 'backup'] });
+    }
+  );
 
-  it('is owed after a tour that left it unanswered', () => {
+  vaultIt('is owed after a tour that left it unanswered', () => {
     const closed = afterTourClosed(NO_TOUR_OFFER);
     expect(
       tourOffer({

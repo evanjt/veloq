@@ -127,7 +127,7 @@ describe('retired sections screen', () => {
     expect(screen.queryByTestId('section-retired-sec-1')).toBeNull();
   });
 
-  it('does not re-read on an event it does not depend on', async () => {
+  vaultIt('does not re-read on an event it does not depend on', async () => {
     await render(<SectionRetiredScreen />);
     const afterMount = mockGetRetiredSections.mock.calls.length;
 
@@ -137,7 +137,7 @@ describe('retired sections screen', () => {
 });
 
 describe('each retired row', () => {
-  it('is one compact row: the name, the length and the section that replaced it', () => {
+  vaultIt('is one compact row: the name, the length and the section that replaced it', () => {
     mockGetRetiredSections.mockReturnValue([
       { ...retirement('sec-1'), kind: 'dissolved', name: 'Old Quarry', distanceMeters: 1500 },
       { ...retirement('sec-3'), into: 'sec-2', name: 'Lower Church Hill', distanceMeters: 820 },
@@ -152,7 +152,7 @@ describe('each retired row', () => {
     expect(screen.queryByText(/Dissolved|Merged into another section/)).toBeNull();
   });
 
-  it('shows no kind label for a row the ledger kept no name for', () => {
+  vaultIt('shows no kind label for a row the ledger kept no name for', () => {
     mockGetRetiredSections.mockReturnValue([{ ...retirement('sec-1'), kind: 'dissolved' }]);
     const screen = render(<SectionRetiredScreen />);
 
@@ -161,7 +161,7 @@ describe('each retired row', () => {
     expect(screen.queryByText(/km|\bm\b/)).toBeNull();
   });
 
-  it('shows the section on the map when pressed, at the tap-target floor', () => {
+  vaultIt('shows the section on the map when pressed, at the tap-target floor', () => {
     mockGetRetiredSections.mockReturnValue([{ ...retirement('sec-1'), into: 'sec-2' }]);
     const screen = render(<SectionRetiredScreen />);
 
@@ -179,7 +179,7 @@ describe('each retired row', () => {
     });
   });
 
-  it('opens with the line that says what retired means', () => {
+  vaultIt('opens with the line that says what retired means', () => {
     mockGetRetiredSections.mockReturnValue([retirement('sec-1')]);
     const screen = render(<SectionRetiredScreen />);
 

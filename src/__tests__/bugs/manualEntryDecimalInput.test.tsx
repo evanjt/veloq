@@ -67,7 +67,7 @@ it('reads the distance in miles for an imperial athlete and saves metres', () =>
   expect(reviewParams().distance).toBe('16898');
 });
 
-it('labels the distance in kilometres for a metric athlete', () => {
+vaultIt('labels the distance in kilometres for a metric athlete', () => {
   const view = render(<ManualEntryForm activityType="Run" bottomPadding={0} />);
 
   expect(view.getByTestId('manual-entry-distance').props.accessibilityLabel).toContain(
@@ -85,7 +85,7 @@ it('caps the distance in the unit the athlete reads', () => {
   expect(navigateTo).not.toHaveBeenCalled();
 });
 
-it('offers a decimal pad for decimals and a number pad for heart rate', () => {
+vaultIt('offers a decimal pad for decimals and a number pad for heart rate', () => {
   const view = render(<ManualEntryForm activityType="Run" bottomPadding={0} />);
 
   expect(view.getByTestId('manual-entry-duration').props.keyboardType).toBe('decimal-pad');

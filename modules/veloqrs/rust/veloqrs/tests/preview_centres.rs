@@ -46,6 +46,7 @@ fn add_section(s: &Setup, id: &str, sport: &str, lat: f64, lng: f64, visits: u32
 ///
 /// Expected behaviour: one area holding all four sections.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_region_straddling_a_grid_line_is_one_area() {
     let s = setup();
     add_section(&s, "w1", "Ride", 10.0349, 20.0, 5);
@@ -63,6 +64,7 @@ fn a_region_straddling_a_grid_line_is_one_area() {
 ///
 /// Expected behaviour: one area, since every link is within the gap.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn sections_chained_within_the_gap_are_one_area() {
     let s = setup();
     add_section(&s, "c1", "Ride", 10.0, 20.0, 1);
@@ -76,6 +78,7 @@ fn sections_chained_within_the_gap_are_one_area() {
 ///
 /// Expected behaviour: only the real region is an area.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn sections_on_virtual_sports_make_no_area() {
     let s = setup();
     add_section(&s, "real", "Ride", 10.0, 20.0, 5);
@@ -93,6 +96,7 @@ fn sections_on_virtual_sports_make_no_area() {
 /// Expected behaviour: three areas, busiest first, none within the gap of
 /// another.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn distinct_regions_come_back_ranked_and_apart() {
     let s = setup();
     add_section(&s, "a", "Ride", 10.0, 20.0, 3);
@@ -112,6 +116,7 @@ fn distinct_regions_come_back_ranked_and_apart() {
 ///
 /// Expected behaviour: the busiest regions fill the limit.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_limit_keeps_the_busiest_regions() {
     let s = setup();
     add_section(&s, "a", "Ride", 10.0, 20.0, 1);
@@ -131,6 +136,7 @@ fn the_limit_keeps_the_busiest_regions() {
 ///
 /// Expected behaviour: the fallback names the real activity's region only.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_activity_fallback_leaves_out_virtual_rides() {
     let s = setup();
     for (id, sport, lat) in [("r1", "Ride", 10.0), ("v1", "VirtualRide", -40.0)] {
@@ -154,6 +160,7 @@ fn the_activity_fallback_leaves_out_virtual_rides() {
 /// Expected behaviour: the area counts only the section the preview opens,
 /// and its visits alone.
 #[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn retired_and_accepted_sections_leave_the_area_count() {
     let s = setup();
     add_section(&s, "kept", "Ride", 10.0, 20.0, 5);

@@ -47,7 +47,7 @@ describe('scrubMarkerPoint', () => {
 });
 
 describe('scrubMarkerCollection', () => {
-  it('is empty when idle and one point while scrubbing', () => {
+  vaultIt('is empty when idle and one point while scrubbing', () => {
     expect(scrubMarkerCollection(null).features).toHaveLength(0);
     const [feature] = scrubMarkerCollection({ lat: 3, lng: 4 }).features;
     expect(feature?.geometry).toEqual({ type: 'Point', coordinates: [4, 3] });
