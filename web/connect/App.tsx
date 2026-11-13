@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { chartDataOf, factsOfDetail } from './activity';
 import { ActivityPage } from './ActivityPage';
 import { ConnectionChip } from './ConnectionChip';
+import { RailGlyph, type RailIcon } from './RailGlyph';
+import { waitingKey } from './connection';
 import { fitnessChoices, fitnessQuery } from './dashboard';
 import { FitnessPane } from './FitnessPane';
 import { INSIGHTS_PARTS_KEY, type InsightsParts } from './insights';
@@ -15,17 +17,25 @@ import { InsightsPane, parseOpened } from './InsightsPane';
 import { LanguageMenu } from './LanguageMenu';
 import { compareColour, compareRows, select, type Mode } from './compare';
 import { clock, km, kmh, setUnitSystem } from './format';
-import {
-  deviceLines,
-  strengthPeriodDays,
-  type Notice,
-  type SportFamily,
-  type State,
-} from './link';
+import { deviceLines, strengthPeriodDays, type Notice, type SportFamily, type State } from './link';
 import { MapScreen } from './map/MapScreen';
 import { sportMark, THUMB, trackShape } from './preview';
 import { toQR } from './qr';
+import { SportGlyph } from './SportGlyph';
+import {
+  Badge,
+  Button,
+  Card as Surface,
+  Chip,
+  ChipGroup,
+  DataTable,
+  EmptyState,
+  SearchField,
+  SegmentedControl,
+  type Column,
+} from './ui';
 import { RoutesPage } from './RoutesPage';
+import { Card as Panel, Select } from './ui';
 import {
   ON_THE_PHONE,
   PANE_NOTE,
@@ -89,13 +99,74 @@ const SCREEN_NAMES: Record<Tab, ParseKeys> = {
   settings: 'connectPage.screens.settings',
 };
 
-const RAIL: { tab: Tab; icon: string }[] = [
-  { tab: 'feed', icon: 'F' },
-  { tab: 'fitness', icon: 'Fi' },
-  { tab: 'insights', icon: 'I' },
-  { tab: 'map', icon: 'M' },
-  { tab: 'settings', icon: 'S' },
+type RailEntry = {
+  key: string;
+  /** The hash the entry opens. */
+  href: string;
+  /** The screen that marks it selected; a tab's entry is selected on any screen of the tab no sub-entry names. */
+  screen: string | null;
+  tab: Tab;
+  name: ParseKeys;
+  icon: RailIcon;
+  /** Set on an entry indented under the one before it. */
+  child?: true;
+};
+
+/** The five tabs in the phone's order, Routes and Sections indented under Map. */
+const RAIL: RailEntry[] = [
+  { key: 'feed', href: '#/feed', screen: null, tab: 'feed', name: SCREEN_NAMES.feed, icon: 'feed' },
+  {
+    key: 'fitness',
+    href: '#/fitness',
+    screen: null,
+    tab: 'fitness',
+    name: SCREEN_NAMES.fitness,
+    icon: 'fitness',
+  },
+  {
+    key: 'insights',
+    href: '#/insights',
+    screen: null,
+    tab: 'insights',
+    name: SCREEN_NAMES.insights,
+    icon: 'insights',
+  },
+  { key: 'map', href: '#/map', screen: null, tab: 'map', name: SCREEN_NAMES.map, icon: 'map' },
+  {
+    key: 'routes',
+    href: '#/routes',
+    screen: 'routes',
+    tab: 'map',
+    name: 'connectPage.activity.routes',
+    icon: 'routes',
+    child: true,
+  },
+  {
+    key: 'sections',
+    href: '#/sections',
+    screen: 'sections',
+    tab: 'map',
+    name: 'connectPage.activity.sections',
+    icon: 'sections',
+    child: true,
+  },
+  {
+    key: 'settings',
+    href: '#/settings',
+    screen: null,
+    tab: 'settings',
+    name: SCREEN_NAMES.settings,
+    icon: 'settings',
+  },
 ];
+
+const SUB_SCREENS = new Set(RAIL.flatMap((entry) => (entry.screen ? [entry.screen] : [])));
+
+/** Whether a rail entry is the one the route sits on. */
+function railSelected(entry: RailEntry, route: Route, tab: Tab): boolean {
+  if (entry.screen) return route.screen === entry.screen;
+  return entry.tab === tab && !SUB_SCREENS.has(route.screen);
+}
 
 const FAMILIES: [family: SportFamily, label: ParseKeys][] = [
   ['ride', 'connectPage.families.ride'],
@@ -166,6 +237,7 @@ export function App({
   const onStrength =
     connected && route.screen === 'insights' && queryValue(route, 'type') === 'strength';
   const onInsights = connected && route.screen === 'insights' && !onStrength;
+  const onDashboard = onFitness || onInsights;
   const onExercise = connected && route.screen === 'exercise' && route.id !== null;
   const onRecordings = connected && route.screen === 'recordings';
   const onRecording = connected && route.screen === 'recording' && route.id !== null;
@@ -218,8 +290,14 @@ export function App({
   );
 
   useEffect(() => {
-    if (onInsights) session.requestInsights();
-  }, [session, onInsights, state, changes]);
+    if (onDashboard) session.requestInsights();
+  }, [session, onDashboard, state, changes]);
+
+  useEffect(() => {
+    if (onInsights && snapshot.screens[INSIGHTS_PARTS_KEY] !== undefined) {
+      document.getElementById('insights-page')?.scrollIntoView();
+    }
+  }, [onInsights, snapshot.screens]);
 
   useEffect(() => {
     if (onStrength) session.requestStrength(strengthDays);
@@ -244,11 +322,11 @@ export function App({
 
   const choices = fitnessChoices(route);
   useEffect(() => {
-    if (!onFitness) return;
+    if (!onDashboard) return;
     session.requestFitness();
     session.setFitnessRange(choices.range);
     session.setFitnessSport(choices.sport);
-  }, [session, onFitness, state, changes, choices.range, choices.sport]);
+  }, [session, onDashboard, state, changes, choices.range, choices.sport]);
 
   const comparedKey = onFeed ? feedState.ids.join('\n') : '';
   useEffect(() => {
@@ -336,8 +414,8 @@ export function App({
 
   return (
     <>
-      <header>
-        <h1>Veloq</h1>
+      <header id="topbar">
+        <h1>{connected ? t(SCREEN_NAMES[tab]) : 'Veloq'}</h1>
         <ConnectionChip
           session={session}
           state={state}
@@ -349,28 +427,26 @@ export function App({
 
       {connected ? (
         <nav id="rail" aria-label={t('connectPage.railLabel')}>
+          <p className="brand" aria-hidden="true">
+            Veloq
+          </p>
           <ul>
-            {RAIL.map((entry) => (
-              <li key={entry.tab}>
-                <a href={`#/${entry.tab}`} data-tab={entry.tab} aria-current={entry.tab === tab}>
-                  <span className="icon" aria-hidden="true">
-                    {entry.icon}
-                  </span>
-                  <span className="label">{t(SCREEN_NAMES[entry.tab])}</span>
-                </a>
-              </li>
-            ))}
+            {RAIL.map((entry) => {
+              const selected = railSelected(entry, route, tab);
+              return (
+                <li key={entry.key} className={entry.child ? 'child' : undefined}>
+                  <a
+                    href={entry.href}
+                    data-tab={entry.key}
+                    aria-current={selected ? 'page' : undefined}
+                  >
+                    <RailGlyph icon={entry.icon} selected={selected} />
+                    <span className="label">{t(entry.name)}</span>
+                  </a>
+                </li>
+              );
+            })}
           </ul>
-          {libraryOpen ? (
-            <input
-              id="search"
-              type="search"
-              placeholder={t('connectPage.library.searchPlaceholder')}
-              aria-label={t('connectPage.library.searchLabel')}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          ) : null}
           <p className="phone">
             {state.name === 'connected' && state.device ? state.device : t('connectPage.yourPhone')}
           </p>
@@ -389,9 +465,7 @@ export function App({
             {t(snapshot.writeNotice)}
           </p>
         ) : null}
-        {(state.name === 'waiting' || state.name === 'connecting') && (
-          <WaitingPane unreachable={!!state.unreachable} />
-        )}
+        {(state.name === 'waiting' || state.name === 'connecting') && <WaitingPane state={state} />}
         {state.name === 'update' && <UpdatePane />}
         {onActivity && route.id ? (
           <ActivityPage
@@ -400,6 +474,8 @@ export function App({
             detail={snapshot.details[route.id]}
             data={chartDataOf(parts?.streams)}
             facts={factsOfDetail(parts?.laps, parts?.data, route.id)}
+            read={session.read}
+            revision={changes}
           />
         ) : null}
         {onFeed ? (
@@ -415,6 +491,8 @@ export function App({
             shownId={shownId}
             route={route}
             query={feedState}
+            search={search}
+            onSearch={setSearch}
             onPreview={setPreviewId}
             details={snapshot.details}
           />
@@ -459,7 +537,7 @@ export function App({
             }
           />
         ) : null}
-        {onFitness ? (
+        {onDashboard ? (
           <FitnessPane
             snapshot={snapshot}
             choices={choices}
@@ -467,7 +545,7 @@ export function App({
             onBestPeriod={session.setBestEffortDays}
           />
         ) : null}
-        {onInsights ? (
+        {onDashboard ? (
           <InsightsPane
             parts={snapshot.screens[INSIGHTS_PARTS_KEY] as InsightsParts | undefined}
             opened={parseOpened(queryValue(route, 'open'))}
@@ -532,9 +610,10 @@ function drawCode(canvas: HTMLCanvasElement, text: string) {
   const quiet = 4;
   const scale = Math.floor(canvas.width / (size + quiet * 2));
   const context = canvas.getContext('2d') as CanvasRenderingContext2D;
-  context.fillStyle = '#ffffff';
+  const palette = getComputedStyle(document.documentElement);
+  context.fillStyle = palette.getPropertyValue('--colour-neutral-0').trim();
   context.fillRect(0, 0, canvas.width, canvas.height);
-  context.fillStyle = '#000000';
+  context.fillStyle = palette.getPropertyValue('--colour-neutral-950').trim();
   const offset = Math.floor((canvas.width - size * scale) / 2);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -544,12 +623,12 @@ function drawCode(canvas: HTMLCanvasElement, text: string) {
   }
 }
 
-function WaitingPane({ unreachable }: { unreachable: boolean }) {
+function WaitingPane({ state }: { state: State }) {
   const { t } = useTranslation();
   return (
     <section id="waiting">
       <h2>{t('connectPage.waiting.heading')}</h2>
-      <p>{t(unreachable ? 'connectPage.waiting.unreachable' : 'connectPage.waiting.body')}</p>
+      <p>{t(waitingKey(state))}</p>
     </section>
   );
 }
@@ -585,27 +664,38 @@ function SettingControls({ screen, reads }: { screen: string; reads: Readonly<Se
   const { t } = useTranslation();
   const controls = paneControls(screen, reads['settings.get']);
   return (
-    <dl id="settings-rows" className="readonly">
-      {controls.map((control) => (
-        <Fragment key={control.key}>
-          <dt>{t(control.label)}</dt>
-          <dd>
+    <Panel label={t('connectPage.screens.settings')}>
+      <ul id="settings-rows" className="readonly settings-list">
+        {controls.map((control) => (
+          <li key={control.key} className="settings-row">
             {control.kind === 'choice' ? (
-              <select disabled value={control.value ?? ''} aria-label={t(control.label)}>
-                {control.value === null ? <option value="">{t('connectPage.settings.notSet')}</option> : null}
-                {control.options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {t(option.label)}
-                  </option>
-                ))}
-              </select>
+              <Select
+                label={t(control.label)}
+                value={control.value ?? ''}
+                disabled
+                onChange={() => undefined}
+                options={[
+                  ...(control.value === null
+                    ? [{ value: '', label: t('connectPage.settings.notSet') }]
+                    : []),
+                  ...control.options.map((option) => ({
+                    value: option.value,
+                    label: t(option.label),
+                  })),
+                ]}
+              />
             ) : (
-              <input disabled readOnly value={control.value ?? t('connectPage.settings.notSet')} aria-label={t(control.label)} />
+              <>
+                <span className="settings-label">{t(control.label)}</span>
+                <span className="settings-value">
+                  {control.value ?? t('connectPage.settings.notSet')}
+                </span>
+              </>
             )}
-          </dd>
-        </Fragment>
-      ))}
-    </dl>
+          </li>
+        ))}
+      </ul>
+    </Panel>
   );
 }
 
@@ -1108,6 +1198,8 @@ function Library(props: {
   shownId: string | null;
   route: Route;
   query: FeedQuery;
+  search: string;
+  onSearch: (value: string) => void;
   onPreview: (id: string | null) => void;
   details: Readonly<Record<string, Detail | undefined>>;
 }) {
@@ -1121,11 +1213,9 @@ function Library(props: {
   const rows = sortRows(props.cards, props.query.sort);
   return (
     <section id="library">
+      {props.summary ? <SummaryStrip card={props.summary} lines={props.sparklines} /> : null}
+      <FilterBar query={props.query} search={props.search} onSearch={props.onSearch} />
       <div id="list-pane">
-        {props.summary ? <SummaryCard card={props.summary} lines={props.sparklines} /> : null}
-        <h2>{t('connectPage.library.activities')}</h2>
-        <RangeChips query={props.query} />
-        <FamilyChips query={props.query} />
         {props.query.sort && props.more ? (
           <p id="sort-note" role="note">
             {t('connectPage.library.sortNote', { count: props.cards.length })}
@@ -1141,20 +1231,25 @@ function Library(props: {
         />
         {props.more ? <MoreButton onMore={props.onMore} /> : null}
       </div>
-      <div id="detail-pane">
+      <aside id="detail-pane" aria-label={t('connectPage.library.detailLabel')}>
         {comparing ? (
           <CompareTable
             cards={compared}
             details={props.details}
             dropped={props.cards.filter((row) => dropped.includes(row.id)).map((row) => row.name)}
           />
-        ) : (
+        ) : card ? (
           <>
-            <h2 id="detail-title">{card ? card.name : t('connectPage.library.pick')}</h2>
+            <h2 id="detail-title">{card.name}</h2>
             <DetailFacts card={card} detail={props.detail} />
+            <a className="open-activity" href={`#/activity/${encodeURIComponent(card.id)}`}>
+              {t('connectPage.library.open')}
+            </a>
           </>
+        ) : (
+          <EmptyState title={t('connectPage.library.pick')} />
         )}
-      </div>
+      </aside>
     </section>
   );
 }
@@ -1164,63 +1259,55 @@ function goFeed(query: FeedQuery) {
   go({ screen: 'feed', id: null, query: feedQuery(query) });
 }
 
-/** The week's totals, the wellness headlines and the fitness line above the list. */
-function SummaryCard({ card, lines }: { card: Summary; lines: Sparklines | null }) {
+/** The week's totals and the wellness headlines, as four tiles above the list. */
+function SummaryStrip({ card, lines }: { card: Summary; lines: Sparklines | null }) {
   const { t } = useTranslation();
   const { wellness } = card;
-  const facts: [label: string, value: string | null][] = [
-    [
-      t('connectPage.facts.thisWeek'),
-      t('connectPage.weekTotal', {
-        time: clock(card.currentWeek.totalDuration),
-        count: card.currentWeek.count,
-      }),
-    ],
-    [
-      t('connectPage.facts.lastWeek'),
-      t('connectPage.weekTotal', {
-        time: clock(card.prevWeek.totalDuration),
-        count: card.prevWeek.count,
-      }),
-    ],
-    [
-      t('connectPage.facts.fitness'),
-      wellness.fitness == null ? null : String(Math.round(wellness.fitness)),
-    ],
-    [t('connectPage.facts.form'), wellness.form == null ? null : String(Math.round(wellness.form))],
-    [t('connectPage.facts.hrv'), wellness.hrv == null ? null : String(Math.round(wellness.hrv))],
-    [
-      t('connectPage.facts.restingHr'),
-      wellness.rhr == null ? null : `${Math.round(wellness.rhr)} bpm`,
-    ],
+  const whole = (value: number | null | undefined) =>
+    value == null ? null : String(Math.round(value));
+  const week = (total: Summary['currentWeek']) =>
+    t('connectPage.weekTotal', { time: clock(total.totalDuration), count: total.count });
+  const readings = [
+    wellness.hrv == null ? null : `${t('connectPage.facts.hrv')} ${whole(wellness.hrv)}`,
+    wellness.rhr == null ? null : `${t('connectPage.facts.restingHr')} ${whole(wellness.rhr)} bpm`,
+  ].filter((reading): reading is string => reading !== null);
+  const tiles: { key: string; label: string; value: string | null; note?: string }[] = [
+    { key: 'thisWeek', label: t('connectPage.facts.thisWeek'), value: week(card.currentWeek) },
+    { key: 'lastWeek', label: t('connectPage.facts.lastWeek'), value: week(card.prevWeek) },
+    { key: 'fitness', label: t('connectPage.facts.fitness'), value: whole(wellness.fitness) },
+    {
+      key: 'form',
+      label: t('connectPage.facts.form'),
+      value: whole(wellness.form),
+      note: readings.join(' · '),
+    },
   ];
   return (
-    <section id="summary">
-      <h2>{t('connectPage.library.summary')}</h2>
-      <dl id="summary-facts">
-        {facts
-          .filter(([, value]) => value)
-          .map(([label, value]) => (
-            <Fragment key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </Fragment>
-          ))}
-      </dl>
-      <svg
-        id="summary-spark"
-        viewBox="0 0 120 32"
-        role="img"
-        aria-label={t('connectPage.library.fitnessTrend')}
-      >
-        <polyline
-          id="summary-line"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          points={sparkPoints(lines?.fitness ?? [])}
-        />
-      </svg>
+    <section id="summary" aria-label={t('connectPage.library.summary')}>
+      {tiles.map((tile) => (
+        <Surface key={tile.key} label={tile.label}>
+          <p className="tile-label">{tile.label}</p>
+          <p className="tile-value">{tile.value ?? '–'}</p>
+          {tile.key === 'fitness' ? (
+            <svg
+              id="summary-spark"
+              viewBox="0 0 120 32"
+              role="img"
+              aria-label={t('connectPage.library.fitnessTrend')}
+            >
+              <polyline
+                id="summary-line"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                points={sparkPoints(lines?.fitness ?? [])}
+              />
+            </svg>
+          ) : tile.note ? (
+            <p className="tile-note">{tile.note}</p>
+          ) : null}
+        </Surface>
+      ))}
     </section>
   );
 }
@@ -1238,53 +1325,61 @@ function sparkPoints(series: readonly number[]) {
     .join(' ');
 }
 
-/** The range presets; the chosen one is pressed, and pressing it again clears it. */
-function RangeChips({ query }: { query: FeedQuery }) {
+/** The one filter bar: the range, the sport families and the search. */
+function FilterBar({
+  query,
+  search,
+  onSearch,
+}: {
+  query: FeedQuery;
+  search: string;
+  onSearch: (value: string) => void;
+}) {
   const { t } = useTranslation();
+  const everything = 'all';
   return (
-    <div id="ranges" role="group" aria-label={t('connectPage.library.range')}>
-      {RANGES.map((preset: RangePreset) => {
-        const on = query.range === preset;
-        return (
-          <button
-            key={preset}
-            type="button"
-            aria-pressed={on}
-            onClick={() => goFeed({ ...query, range: on ? null : preset })}
-          >
-            {t(RANGE_LABELS[preset])}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** The sport chips under the heading; each narrows the feed to its family. */
-function FamilyChips({ query }: { query: FeedQuery }) {
-  const { t } = useTranslation();
-  return (
-    <div id="families" role="group" aria-label={t('connectPage.library.sportLabel')}>
-      {FAMILIES.map(([family, label]) => {
-        const on = query.families.includes(family);
-        return (
-          <button
-            key={family}
-            type="button"
-            aria-pressed={on}
-            onClick={() =>
-              goFeed({
-                ...query,
-                families: on
-                  ? query.families.filter((held) => held !== family)
-                  : [...query.families, family],
-              })
-            }
-          >
-            {t(label)}
-          </button>
-        );
-      })}
+    <div id="filters" role="search">
+      <SegmentedControl<RangePreset | typeof everything>
+        label={t('connectPage.library.range')}
+        value={query.range ?? everything}
+        options={[
+          { value: everything, label: t('connectPage.library.all') },
+          ...RANGES.map((preset: RangePreset) => ({
+            value: preset,
+            label: t(RANGE_LABELS[preset]),
+          })),
+        ]}
+        onChange={(value) => goFeed({ ...query, range: value === everything ? null : value })}
+      />
+      <ChipGroup label={t('connectPage.library.sportLabel')}>
+        {FAMILIES.map(([family, label]) => {
+          const on = query.families.includes(family);
+          return (
+            <Chip
+              key={family}
+              selected={on}
+              onToggle={() =>
+                goFeed({
+                  ...query,
+                  families: on
+                    ? query.families.filter((held) => held !== family)
+                    : [...query.families, family],
+                })
+              }
+            >
+              {t(label)}
+            </Chip>
+          );
+        })}
+      </ChipGroup>
+      <SearchField
+        id="search"
+        label={t('connectPage.library.searchLabel')}
+        clearLabel={t('connectPage.library.clearSearch')}
+        placeholder={t('connectPage.library.searchPlaceholder')}
+        value={search}
+        onChange={onSearch}
+      />
     </div>
   );
 }
@@ -1292,9 +1387,9 @@ function FamilyChips({ query }: { query: FeedQuery }) {
 /** Reads the next page when clicked or when it scrolls into view. */
 function MoreButton({ onMore }: { onMore: () => void }) {
   const { t } = useTranslation();
-  const button = useRef<HTMLButtonElement>(null);
+  const anchor = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const node = button.current;
+    const node = anchor.current;
     if (!node || typeof IntersectionObserver === 'undefined') return undefined;
     const observer = new IntersectionObserver((seen) => {
       if (seen.some((entry) => entry.isIntersecting)) onMore();
@@ -1303,9 +1398,11 @@ function MoreButton({ onMore }: { onMore: () => void }) {
     return () => observer.disconnect();
   }, [onMore]);
   return (
-    <button ref={button} id="feed-more" type="button" onClick={onMore}>
-      {t('connectPage.library.loadMore')}
-    </button>
+    <div ref={anchor} id="feed-more">
+      <Button variant="secondary" onClick={onMore}>
+        {t('connectPage.library.loadMore')}
+      </Button>
+    </div>
   );
 }
 
@@ -1325,18 +1422,15 @@ const cell = (card: Card, key: ColumnKey): string | null => {
       return km(card.distance);
     case 'time':
       return clock(card.movingTime);
-    case 'climb':
-      return card.elevationGain == null ? null : `${Math.round(card.elevationGain)} m`;
     case 'load':
       return card.trainingLoad == null ? null : String(Math.round(card.trainingLoad));
-    case 'hr':
-      return card.avgHr == null ? null : String(Math.round(card.avgHr));
-    case 'power':
-      return card.avgPower == null ? null : String(Math.round(card.avgPower));
     default:
       return card.name;
   }
 };
+
+/** The columns the table shows; the rest of the sort keys stay in the address. */
+const TABLE_COLUMNS: readonly ColumnKey[] = ['date', 'name', 'sport', 'distance', 'time', 'load'];
 
 function FeedTable({
   rows,
@@ -1362,101 +1456,81 @@ function FeedTable({
     },
     [onPreview]
   );
+  const columns: Column<Card>[] = COLUMNS.filter((column) =>
+    TABLE_COLUMNS.includes(column.key)
+  ).map((column) => ({
+    key: column.key,
+    header: t(column.label),
+    numeric: column.numeric,
+    sortable: true,
+    cell: (card: Card) => {
+      if (column.key === 'name') {
+        return (
+          <span className="feed-name">
+            <Thumbnail card={card} preview={previews[card.id]} />
+            <span className="feed-title">
+              <span className="name">{card.name}</span>
+              {highlights[card.id]?.length ? (
+                <span className="feed-badges">
+                  {(highlights[card.id] ?? []).map((label, at) => (
+                    <Badge key={at}>{label}</Badge>
+                  ))}
+                </span>
+              ) : null}
+            </span>
+          </span>
+        );
+      }
+      if (column.key === 'sport') {
+        const sport = sportMark(card.sportType);
+        return <SportGlyph family={sport.family} label={card.sportType ?? ''} />;
+      }
+      return cell(card, column.key);
+    },
+  }));
+  const selected = new Set([...(query.id ? [query.id] : []), ...query.ids]);
   return (
-    <div id="feed-scroll">
-      <table id="feed">
-        <thead>
-          <tr>
-            {COLUMNS.map((column) => {
-              const sorted = query.sort?.column === column.key ? query.sort.dir : null;
-              return (
-                <th
-                  key={column.key}
-                  className={column.numeric ? 'num' : undefined}
-                  aria-sort={
-                    sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : 'none'
-                  }
-                >
-                  <button
-                    type="button"
-                    onClick={() => goFeed({ ...query, sort: nextSort(query.sort, column.key) })}
-                  >
-                    {t(column.label)}
-                    {sorted ? (sorted === 'asc' ? ' ▲' : ' ▼') : ''}
-                  </button>
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((card) => (
-            <tr
-              key={card.id}
-              data-row={card.id}
-              aria-selected={card.id === query.id || query.ids.includes(card.id)}
-              onClick={(event) => {
-                clearTimeout(hover.current);
-                onPreview(null);
-                const mode: Mode = event.shiftKey
-                  ? 'range'
-                  : event.ctrlKey || event.metaKey
-                    ? 'toggle'
-                    : 'single';
-                if (mode === 'single') {
-                  onDropped([]);
-                  goFeed({ ...query, id: card.id, ids: [] });
-                  return;
-                }
-                const next = select(
-                  { ids: query.ids, anchor: query.id ?? query.ids[0] ?? null },
-                  rows.map((row) => row.id),
-                  card.id,
-                  mode
-                );
-                onDropped(next.dropped);
-                goFeed(
-                  next.ids.length >= 2
-                    ? { ...query, ids: next.ids, id: query.id ?? next.ids[0] ?? null }
-                    : { ...query, ids: [], id: next.ids[0] ?? query.id }
-                );
-              }}
-              onMouseEnter={() => {
-                clearTimeout(hover.current);
-                hover.current = setTimeout(() => onPreview(card.id), PREVIEW_DELAY_MS);
-              }}
-              onMouseLeave={() => {
-                clearTimeout(hover.current);
-                onPreview(null);
-              }}
-            >
-              {COLUMNS.map((column) =>
-                column.key === 'name' ? (
-                  <td key="name">
-                    <Thumbnail card={card} preview={previews[card.id]} />
-                    <button type="button" className="name">
-                      {card.name}
-                    </button>
-                    {highlights[card.id]?.length ? (
-                      <span className="chips">
-                        {(highlights[card.id] ?? []).map((label, at) => (
-                          <span key={at} className="chip">
-                            {label}
-                          </span>
-                        ))}
-                      </span>
-                    ) : null}
-                  </td>
-                ) : (
-                  <td key={column.key} className={column.numeric ? 'num' : undefined}>
-                    {cell(card, column.key)}
-                  </td>
-                )
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div id="feed-scroll" className="feed-table">
+      <DataTable
+        label={t('connectPage.library.activities')}
+        columns={columns}
+        rows={rows}
+        rowKey={(card) => card.id}
+        {...(query.sort ? { sort: { key: query.sort.column, direction: query.sort.dir } } : {})}
+        onSort={(key) => goFeed({ ...query, sort: nextSort(query.sort, key as ColumnKey) })}
+        onRowHover={(card) => {
+          clearTimeout(hover.current);
+          onPreview(null);
+          if (card) hover.current = setTimeout(() => onPreview(card.id), PREVIEW_DELAY_MS);
+        }}
+        onRowClick={(card, event) => {
+          clearTimeout(hover.current);
+          onPreview(null);
+          const mode: Mode = event.shiftKey
+            ? 'range'
+            : event.ctrlKey || event.metaKey
+              ? 'toggle'
+              : 'single';
+          if (mode === 'single') {
+            onDropped([]);
+            goFeed({ ...query, id: card.id, ids: [] });
+            return;
+          }
+          const next = select(
+            { ids: query.ids, anchor: query.id ?? query.ids[0] ?? null },
+            rows.map((row) => row.id),
+            card.id,
+            mode
+          );
+          onDropped(next.dropped);
+          goFeed(
+            next.ids.length >= 2
+              ? { ...query, ids: next.ids, id: query.id ?? next.ids[0] ?? null }
+              : { ...query, ids: [], id: next.ids[0] ?? query.id }
+          );
+        }}
+        isSelected={(card) => selected.has(card.id)}
+      />
     </div>
   );
 }

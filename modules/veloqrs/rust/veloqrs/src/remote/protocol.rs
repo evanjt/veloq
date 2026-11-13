@@ -283,6 +283,20 @@ pub struct FfiLinkGeoText {
     pub text: String,
 }
 
+/// What `geo.route` and `geo.routeLatest` are asked: one route group.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkGeoGroupAsk {
+    pub group_id: String,
+}
+
+/// What `geo.section` and `geo.sectionPasses` are asked: one section.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkGeoSectionAsk {
+    pub section_id: String,
+}
+
 /// What `heatmap.tile` is asked: one tile and the base map it is painted for.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -409,6 +423,85 @@ const LEDGER_CHIPS_PER_ROW: usize = 3;
 pub struct FfiLinkSectionRenameAsk {
     pub id: String,
     pub name: String,
+}
+
+/// What a method that edits one section is asked.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionAsk {
+    pub id: String,
+}
+
+/// What `section.setLift` is asked: the section and whether it is a lift.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionLiftAsk {
+    pub id: String,
+    pub is_lift: bool,
+}
+
+/// What the exclude and include methods are asked: the section or route and
+/// the activity.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkExcludeAsk {
+    pub id: String,
+    pub activity_id: String,
+}
+
+/// What `section.excludeLap` and `section.includeLap` are asked: the
+/// traversal, addressed by the activity and its start index.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkLapAsk {
+    pub id: String,
+    pub activity_id: String,
+    pub start_index: u32,
+}
+
+/// What `route.rename` is asked: the route and its new name, where an empty
+/// name clears it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkRouteRenameAsk {
+    pub id: String,
+    pub name: String,
+}
+
+/// What `heatmap.setHidden` is asked: the activity and whether the heatmap
+/// leaves it out.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkHeatmapHiddenAsk {
+    pub activity_id: String,
+    pub hidden: bool,
+}
+
+/// What `detection.setEnabled` is asked: whether route matching is on.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkDetectionEnabledAsk {
+    pub enabled: bool,
+}
+
+/// The two numbers route grouping is matched by, as the phone's grouping
+/// preview sets them: how much of a route has to match, in percent, and how
+/// far apart the two ends may be, in metres.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkStrictness {
+    pub min_match_pct: f64,
+    pub endpoint_threshold: f64,
+}
+
+/// What `detection.settings` answers: the switch, the match strictness and the
+/// section config, each as the engine reads it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkDetectionSettings {
+    pub enabled: bool,
+    pub strictness: FfiLinkStrictness,
+    pub section_config: crate::FfiSectionConfig,
 }
 
 /// What `strength.screen` is asked: the phone's wall clock in seconds and the span
@@ -611,6 +704,9 @@ struct Written {
     target_id: String,
     /// The write in words, naming its target and its new value.
     summary: String,
+    /// Whether the write owes the elevation backfill a start, as the phone's
+    /// switch gives it when route matching turns on.
+    starts_backfill: bool,
 }
 
 /// The answer to a write, and the announcement it owes. The announcement is
@@ -619,6 +715,7 @@ struct Written {
 pub struct Answered {
     reply: String,
     moved: Option<&'static str>,
+    starts_backfill: bool,
 }
 
 impl Answered {
@@ -629,7 +726,15 @@ impl Answered {
                 kind.to_owned(),
             ));
         }
+        if self.starts_backfill {
+            crate::net::elevation_backfill::start_elevation_backfill();
+        }
         self.reply
+    }
+
+    /// Whether [`Answered::announce`] starts the elevation backfill.
+    pub fn starts_backfill(&self) -> bool {
+        self.starts_backfill
     }
 }
 
@@ -887,10 +992,46 @@ pub const METHODS: &[Method] = &[
         run: Run::Read(geo_route_lines),
     },
     Method {
+        name: "geo.track",
+        params: "FfiLinkActivityAsk",
+        result: "FfiLinkGeoText",
+        run: Run::Read(geo_track),
+    },
+    Method {
+        name: "geo.activityOverlay",
+        params: "FfiLinkActivityAsk",
+        result: "FfiLinkGeoText",
+        run: Run::Read(geo_activity_overlay),
+    },
+    Method {
         name: "geo.sections",
         params: "FfiLinkNoAsk",
         result: "FfiLinkGeoText",
         run: Run::Read(geo_sections),
+    },
+    Method {
+        name: "geo.route",
+        params: "FfiLinkGeoGroupAsk",
+        result: "FfiLinkGeoText",
+        run: Run::Read(geo_route),
+    },
+    Method {
+        name: "geo.routeLatest",
+        params: "FfiLinkGeoGroupAsk",
+        result: "FfiLinkGeoText",
+        run: Run::Read(geo_route_latest),
+    },
+    Method {
+        name: "geo.section",
+        params: "FfiLinkGeoSectionAsk",
+        result: "FfiLinkGeoText",
+        run: Run::Read(geo_section),
+    },
+    Method {
+        name: "geo.sectionPasses",
+        params: "FfiLinkGeoSectionAsk",
+        result: "FfiLinkGeoText",
+        run: Run::Read(geo_section_passes),
     },
     Method {
         name: "heatmap.tile",
@@ -957,6 +1098,108 @@ pub const METHODS: &[Method] = &[
         params: "FfiLinkSectionRenameAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(section_rename),
+    },
+    Method {
+        name: "section.setLift",
+        params: "FfiLinkSectionLiftAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(section_set_lift),
+    },
+    Method {
+        name: "section.accept",
+        params: "FfiLinkSectionAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(section_accept),
+    },
+    Method {
+        name: "section.acceptAll",
+        params: "FfiLinkNoAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(section_accept_all),
+    },
+    Method {
+        name: "section.enable",
+        params: "FfiLinkSectionAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(section_enable),
+    },
+    Method {
+        name: "section.disable",
+        params: "FfiLinkSectionAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(section_disable),
+    },
+    Method {
+        name: "section.excludeActivity",
+        params: "FfiLinkExcludeAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(section_exclude_activity),
+    },
+    Method {
+        name: "section.includeActivity",
+        params: "FfiLinkExcludeAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(section_include_activity),
+    },
+    Method {
+        name: "section.excludeLap",
+        params: "FfiLinkLapAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(section_exclude_lap),
+    },
+    Method {
+        name: "section.includeLap",
+        params: "FfiLinkLapAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(section_include_lap),
+    },
+    Method {
+        name: "route.rename",
+        params: "FfiLinkRouteRenameAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(route_rename),
+    },
+    Method {
+        name: "route.excludeActivity",
+        params: "FfiLinkExcludeAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(route_exclude_activity),
+    },
+    Method {
+        name: "route.includeActivity",
+        params: "FfiLinkExcludeAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(route_include_activity),
+    },
+    Method {
+        name: "heatmap.setHidden",
+        params: "FfiLinkHeatmapHiddenAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(heatmap_set_hidden),
+    },
+    Method {
+        name: "detection.settings",
+        params: "FfiLinkNoAsk",
+        result: "FfiLinkDetectionSettings",
+        run: Run::Read(detection_settings),
+    },
+    Method {
+        name: "detection.setEnabled",
+        params: "FfiLinkDetectionEnabledAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(detection_set_enabled),
+    },
+    Method {
+        name: "detection.setStrictness",
+        params: "FfiLinkStrictness",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(detection_set_strictness),
+    },
+    Method {
+        name: "detection.setSectionConfig",
+        params: "FfiSectionConfig",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(detection_set_section_config),
     },
 ];
 
@@ -1210,10 +1453,84 @@ fn geo_route_lines(conn: &Connection, ask: Value) -> Result<Value, String> {
     to_result(&FfiLinkGeoText { text })
 }
 
+/// One activity's stored line as the phone's `veloq-geo` track URL answers it.
+fn geo_track(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkActivityAsk = params(ask)?;
+    to_result(&FfiLinkGeoText {
+        text: crate::basemap::track_collection(conn, &ask.id),
+    })
+}
+
+/// One activity's matched sections, its portions of them and its record
+/// holdings, from the detail read's own fields.
+fn geo_activity_overlay(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkActivityAsk = params(ask)?;
+    let detail = crate::persistence::screens::pooled::activity_detail_data(
+        conn,
+        &ask.id,
+        MIN_ROUTE_ACTIVITIES,
+    );
+    let sections: Vec<_> = detail
+        .matched_sections
+        .iter()
+        .map(|s| crate::basemap::OverlaySection {
+            id: &s.id,
+            name: s.name.as_deref(),
+            polyline: &s.encoded_polyline,
+        })
+        .collect();
+    let traces: Vec<(&str, &[u8])> = detail
+        .section_traces
+        .iter()
+        .map(|t| (t.section_id.as_str(), t.encoded_coords.as_slice()))
+        .collect();
+    let encounters: Vec<_> = detail
+        .encounters
+        .iter()
+        .map(|e| crate::basemap::OverlayEncounter {
+            section_id: &e.section_id,
+            direction: &e.direction,
+            is_pr: e.is_pr,
+        })
+        .collect();
+    let pr_ids: Vec<&str> = detail.pr_section_ids.iter().map(String::as_str).collect();
+    to_result(&FfiLinkGeoText {
+        text: crate::basemap::activity_overlay_features(&sections, &traces, &encounters, &pr_ids),
+    })
+}
+
 fn geo_sections(conn: &Connection, ask: Value) -> Result<Value, String> {
     let _: FfiLinkNoAsk = params(ask)?;
     to_result(&FfiLinkGeoText {
         text: crate::basemap::sections_collection(conn),
+    })
+}
+
+fn geo_route(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkGeoGroupAsk = params(ask)?;
+    to_result(&FfiLinkGeoText {
+        text: crate::basemap::route_feature(conn, &ask.group_id),
+    })
+}
+
+fn geo_route_latest(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkGeoGroupAsk = params(ask)?;
+    to_result(&FfiLinkGeoText {
+        text: crate::basemap::route_latest_feature(conn, &ask.group_id),
+    })
+}
+
+fn geo_section(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkGeoSectionAsk = params(ask)?;
+    to_result(&FfiLinkGeoText {
+        text: crate::basemap::section_feature(conn, &ask.section_id),
+    })
+}
+
+fn geo_section_passes(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkGeoSectionAsk = params(ask)?;
+    to_result(&FfiLinkGeoText {
+        text: crate::basemap::section_passes_collection(conn, &ask.section_id),
     })
 }
 
@@ -1762,7 +2079,352 @@ fn section_rename(
         moved: "sections",
         target_id: ask.id,
         summary,
+        starts_backfill: false,
     })
+}
+
+/// The answer every edit gives: it was made.
+fn done(moved: &'static str, target_id: String, summary: String) -> Result<Written, String> {
+    Ok(Written {
+        result: to_result(&FfiLinkWriteDone { ok: true })?,
+        moved,
+        target_id,
+        summary,
+        starts_backfill: false,
+    })
+}
+
+fn database_error(error: crate::objects::error::VeloqError) -> String {
+    error.to_string()
+}
+
+/// The name a route is shown under now, else its id.
+fn route_label(engine: &crate::persistence::PersistentEngine, id: &str) -> String {
+    crate::persistence::routes::pooled::all_route_names(&engine.db)
+        .remove(id)
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| id.to_owned())
+}
+
+/// The name an activity is shown under, else its id.
+fn activity_label(engine: &crate::persistence::PersistentEngine, id: &str) -> String {
+    engine
+        .db
+        .query_row(
+            "SELECT name FROM activity_metrics WHERE activity_id = ?1",
+            [id],
+            |row| row.get::<_, String>(0),
+        )
+        .ok()
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| id.to_owned())
+}
+
+fn section_set_lift(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSectionLiftAsk = params(ask)?;
+    let shown = section_label(engine, &ask.id);
+    engine.set_section_is_lift(&ask.id, ask.is_lift)?;
+    let summary = if ask.is_lift {
+        format!("Marked section {shown} as a lift")
+    } else {
+        format!("Unmarked section {shown} as a lift")
+    };
+    done("sections", ask.id, summary)
+}
+
+fn section_accept(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSectionAsk = params(ask)?;
+    let shown = section_label(engine, &ask.id);
+    engine.accept_section(&ask.id)?;
+    done("sections", ask.id, format!("Accepted section {shown}"))
+}
+
+fn section_accept_all(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let _: FfiLinkNoAsk = params(ask)?;
+    let count = engine.accept_all_sections()?;
+    let summary = match count {
+        1 => "Accepted 1 section".to_owned(),
+        count => format!("Accepted {count} sections"),
+    };
+    done("sections", String::new(), summary)
+}
+
+fn section_enable(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSectionAsk = params(ask)?;
+    let shown = section_label(engine, &ask.id);
+    engine.enable_section(&ask.id)?;
+    done("sections", ask.id, format!("Enabled section {shown}"))
+}
+
+fn section_disable(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSectionAsk = params(ask)?;
+    let shown = section_label(engine, &ask.id);
+    engine.disable_section(&ask.id)?;
+    done("sections", ask.id, format!("Disabled section {shown}"))
+}
+
+fn section_exclude_activity(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkExcludeAsk = params(ask)?;
+    let section = section_label(engine, &ask.id);
+    let activity = activity_label(engine, &ask.activity_id);
+    crate::objects::sections::exclude_activity_from(engine, &ask.id, &ask.activity_id)
+        .map_err(database_error)?;
+    done(
+        "sections",
+        ask.id,
+        format!("Excluded {activity} from section {section}"),
+    )
+}
+
+fn section_include_activity(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkExcludeAsk = params(ask)?;
+    let section = section_label(engine, &ask.id);
+    let activity = activity_label(engine, &ask.activity_id);
+    crate::objects::sections::include_activity_in(engine, &ask.id, &ask.activity_id)
+        .map_err(database_error)?;
+    done(
+        "sections",
+        ask.id,
+        format!("Included {activity} in section {section}"),
+    )
+}
+
+fn section_exclude_lap(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkLapAsk = params(ask)?;
+    let section = section_label(engine, &ask.id);
+    let activity = activity_label(engine, &ask.activity_id);
+    crate::objects::sections::exclude_lap_from(engine, &ask.id, &ask.activity_id, ask.start_index)
+        .map_err(database_error)?;
+    done(
+        "sections",
+        ask.id,
+        format!("Excluded a lap of {activity} from section {section}"),
+    )
+}
+
+fn section_include_lap(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkLapAsk = params(ask)?;
+    let section = section_label(engine, &ask.id);
+    let activity = activity_label(engine, &ask.activity_id);
+    crate::objects::sections::include_lap_in(engine, &ask.id, &ask.activity_id, ask.start_index)
+        .map_err(database_error)?;
+    done(
+        "sections",
+        ask.id,
+        format!("Included a lap of {activity} in section {section}"),
+    )
+}
+
+fn route_rename(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkRouteRenameAsk = params(ask)?;
+    let shown = route_label(engine, &ask.id);
+    crate::objects::routes::rename_route(engine, &ask.id, &ask.name).map_err(database_error)?;
+    let summary = if ask.name.is_empty() {
+        format!("Cleared the name of route {shown}")
+    } else {
+        format!("Renamed route {shown} to {}", ask.name)
+    };
+    done("groups", ask.id, summary)
+}
+
+fn route_exclude_activity(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkExcludeAsk = params(ask)?;
+    let route = route_label(engine, &ask.id);
+    let activity = activity_label(engine, &ask.activity_id);
+    engine.exclude_activity_from_route(&ask.id, &ask.activity_id)?;
+    done(
+        "groups",
+        ask.id,
+        format!("Excluded {activity} from route {route}"),
+    )
+}
+
+fn route_include_activity(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkExcludeAsk = params(ask)?;
+    let route = route_label(engine, &ask.id);
+    let activity = activity_label(engine, &ask.activity_id);
+    engine.include_activity_in_route(&ask.id, &ask.activity_id)?;
+    done(
+        "groups",
+        ask.id,
+        format!("Included {activity} in route {route}"),
+    )
+}
+
+fn heatmap_set_hidden(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkHeatmapHiddenAsk = params(ask)?;
+    let activity = activity_label(engine, &ask.activity_id);
+    engine
+        .set_heatmap_hidden(&ask.activity_id, ask.hidden)
+        .map_err(|error| error.to_string())?;
+    let summary = if ask.hidden {
+        format!("Hid {activity} from the heatmap")
+    } else {
+        format!("Showed {activity} on the heatmap")
+    };
+    done("activities", ask.activity_id, summary)
+}
+
+fn detection_settings(conn: &Connection, _ask: Value) -> Result<Value, String> {
+    let strictness =
+        crate::persistence::settings::match_config_from(conn).map_err(|error| error.to_string())?;
+    let section_config = crate::persistence::settings::section_config_from(conn)
+        .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkDetectionSettings {
+        enabled: crate::persistence::settings::detection_enabled_from(conn),
+        strictness: FfiLinkStrictness {
+            min_match_pct: strictness.min_match_percentage,
+            endpoint_threshold: strictness.endpoint_threshold,
+        },
+        section_config: crate::FfiSectionConfig::from(&section_config),
+    })
+}
+
+/// Whether a detection number is one the phone's numeric box accepts: a
+/// distance, a count or a divergence is positive or it is nothing. The
+/// sliders' ranges are where a slider reaches, not a limit: a value past them
+/// is allowed, so only what the phone's input refuses is refused here.
+fn positive(name: &str, value: f64) -> Result<(), String> {
+    if value.is_finite() && value > 0.0 {
+        Ok(())
+    } else {
+        Err(format!("{name} must be a positive number"))
+    }
+}
+
+/// The checks the phone's grouping input makes: a match percentage past 100
+/// can never be met.
+fn check_strictness(ask: &FfiLinkStrictness) -> Result<(), String> {
+    positive("minMatchPct", ask.min_match_pct)?;
+    positive("endpointThreshold", ask.endpoint_threshold)?;
+    if ask.min_match_pct > 100.0 {
+        return Err("minMatchPct must be at most 100".to_owned());
+    }
+    Ok(())
+}
+
+/// The checks the phone's detection input makes: every parameter positive, and
+/// a visit count of at least one.
+fn check_section_config(config: &crate::FfiSectionConfig) -> Result<(), String> {
+    positive("proximityThreshold", config.proximity_threshold)?;
+    positive("minSectionLength", config.min_section_length)?;
+    positive("maxSectionLength", config.max_section_length)?;
+    positive("divergenceThreshold", config.divergence_threshold)?;
+    if config.min_activities == 0 {
+        return Err("minActivities must be at least 1".to_owned());
+    }
+    Ok(())
+}
+
+fn on_off(on: bool) -> &'static str {
+    if on { "on" } else { "off" }
+}
+
+fn detection_set_enabled(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkDetectionEnabledAsk = params(ask)?;
+    let was = engine.detection_enabled();
+    engine
+        .set_detection_enabled(ask.enabled)
+        .map_err(|error| error.to_string())?;
+    let mut written = done(
+        "settings",
+        String::new(),
+        format!(
+            "Switched route matching from {} to {}",
+            on_off(was),
+            on_off(ask.enabled)
+        ),
+    )?;
+    written.starts_backfill = ask.enabled;
+    Ok(written)
+}
+
+fn detection_set_strictness(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkStrictness = params(ask)?;
+    check_strictness(&ask)?;
+    let (was_pct, was_metres) = engine.match_strictness();
+    engine.set_match_strictness(ask.min_match_pct, ask.endpoint_threshold);
+    done(
+        "settings",
+        String::new(),
+        format!(
+            "Changed route matching from {was_pct}% and {was_metres} m to {}% and {} m",
+            ask.min_match_pct, ask.endpoint_threshold
+        ),
+    )
+}
+
+fn detection_set_section_config(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: crate::FfiSectionConfig = params(ask)?;
+    check_section_config(&ask)?;
+    let was = engine.get_section_config();
+    let config: tracematch::SectionConfig = ask.into();
+    let summary = format!(
+        "Changed section detection: proximity {} to {} m, minimum length {} to {} m, \
+         maximum length {} to {} m, minimum activities {} to {}, divergence {} to {}",
+        was.proximity_threshold,
+        config.proximity_threshold,
+        was.min_section_length,
+        config.min_section_length,
+        was.max_section_length,
+        config.max_section_length,
+        was.min_activities,
+        config.min_activities,
+        was.divergence_threshold,
+        config.divergence_threshold,
+    );
+    engine
+        .set_section_config(config)
+        .map_err(|refusal| crate::objects::detection::refusal_reason(refusal).to_owned())?;
+    done("settings", String::new(), summary)
 }
 
 /// The name a section is shown under now: its own name, else the one
@@ -1861,6 +2523,7 @@ pub fn answer_write(
         return Answered {
             reply: malformed(),
             moved: None,
+            starts_backfill: false,
         };
     };
     let done = match method(&request.method).map(|method| &method.run) {
@@ -1883,11 +2546,13 @@ pub fn answer_write(
             Answered {
                 reply: reply(request.id, Ok(written.result)),
                 moved: Some(written.moved),
+                starts_backfill: written.starts_backfill,
             }
         }
         Err(error) => Answered {
             reply: reply(request.id, Err(error)),
             moved: None,
+            starts_backfill: false,
         },
     }
 }

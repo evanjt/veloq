@@ -3346,7 +3346,7 @@
   },
   "remoteLink": {
     "title": "Linked devices",
-    "intro": "A linked computer can browse this library in its web browser while Veloq is open on this phone. Your data goes straight from the phone to the browser.",
+    "intro": "A linked computer can browse this library in its web browser while Veloq is open on this phone. Your data goes straight from the phone to the browser. The screen stays on while it is connected.",
     "none": "None",
     "linkedCount_one": "{{count}} linked",
     "linkedCount_other": "{{count}} linked",
@@ -3362,7 +3362,7 @@
     "invalidCode": "Not a valid link code, or it has expired",
     "waiting": "Waiting for the browser…",
     "confirmTitle": "Link {{name}}?",
-    "confirmMessage": "It can browse your activities whenever Veloq is open on this phone. You can remove it in Settings at any time.",
+    "confirmMessage": "It can browse your activities whenever Veloq is open on this phone. You can remove it in Settings at any time. The screen stays on while it is connected.",
     "confirm": "Link",
     "decline": "Decline",
     "expired": "The browser didn't connect in time. Make a new code on the page and scan it again.",
@@ -3389,7 +3389,7 @@
       "confirming": "Confirm on your phone",
       "waiting": "Waiting for your phone",
       "connecting": "Connecting",
-      "connected": "Connected",
+      "connected": "Connected to your phone",
       "update": "Update Veloq on your phone",
       "unsupported": "Not supported"
     },
@@ -3397,7 +3397,7 @@
     "notice": {
       "refused": "The phone refused this browser. Link it again with a new code.",
       "declined": "Linking was declined on the phone.",
-      "removed": "This browser was removed on the phone. Link it again with a new code.",
+      "removed": "This browser was removed on the phone. Scan a new code to link it again.",
       "unreachable": "Could not reach your phone from here. Put both on the same Wi-Fi and scan the new code.",
       "phoneLocked": "Unlock your phone and open Veloq to make changes"
     },
@@ -3422,7 +3422,11 @@
     },
     "waiting": {
       "heading": "Waiting for your phone",
-      "body": "Open Veloq on your phone. This page connects on its own, on the same Wi-Fi and on most other networks.",
+      "body": "Open Veloq on your phone and keep it unlocked. This page connects on its own, on the same Wi-Fi and on most other networks.",
+      "long": "Still waiting. Veloq has to be open on the phone, not just in the background.",
+      "background": "Veloq went to the background on your phone. Open it and this page carries on.",
+      "disconnected": "Disconnected on the phone. Open Veloq to connect again.",
+      "switchedOff": "Linked devices is switched off on the phone. Turn it on under Settings, Linked devices.",
       "unreachable": "Could not reach your phone from here. Put both on the same Wi-Fi."
     },
     "update": {
@@ -3447,6 +3451,10 @@
       "summary": "Summary",
       "fitnessTrend": "Fitness over the last 30 days",
       "range": "Range",
+      "all": "All",
+      "open": "Open activity",
+      "detailLabel": "Activity detail",
+      "clearSearch": "Clear search",
       "sortNote_one": "Sorted over the {{count}} activity loaded so far; more load as you scroll.",
       "sortNote_other": "Sorted over the {{count}} activities loaded so far; more load as you scroll."
     },
@@ -3528,6 +3536,8 @@
       "thresholds": "Thresholds",
       "fitnessFatigue": "Fitness and fatigue",
       "fatigue": "Fatigue",
+      "ramp": "Ramp",
+      "hoursPerWeek": "Hours per week by sport",
       "dailyLoad": "Daily load",
       "powerZones": "Power zones",
       "powerCurve": "Power curve",
@@ -3760,7 +3770,14 @@
       "shown_one": "{{count}} shown",
       "shown_other": "{{count}} shown",
       "kept_one": "{{count}} kept for the actions",
-      "kept_other": "{{count}} kept for the actions"
+      "kept_other": "{{count}} kept for the actions",
+      "noAttempts": "No attempts yet",
+      "performanceChart": "Speed of each attempt against its date",
+      "performanceFailed": "The phone did not answer the performance reads.",
+      "historyFailed": "The phone did not answer this section's history.",
+      "speed": "Speed",
+      "version": "Version {{n}}",
+      "pinned": "Pinned"
     },
     "columns": {
       "date": "Date",

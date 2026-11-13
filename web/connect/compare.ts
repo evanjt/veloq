@@ -5,6 +5,7 @@
 import type { ParseKeys } from 'i18next';
 
 import type { ChartData } from './chart';
+import { fitLines, type Box, type LatLng } from './fit';
 import { clock, km, kmh } from './format';
 import type { Card, Detail } from './session';
 
@@ -107,12 +108,13 @@ export function compareSeries(
   return lines;
 }
 
-export type Track = { id: string; colour: string; points: readonly (readonly [number, number])[] };
+/** A compared track: its vertices as latitude and longitude, with the colour its row has. */
+export type Track = { id: string; colour: string; points: readonly LatLng[] };
 
 /** What the map slot is handed: each compared id's track with its colour; an empty track is left out. */
 export function compareTracks(
   set: readonly Compared[],
-  points: Readonly<Record<string, readonly (readonly [number, number])[] | undefined>>
+  points: Readonly<Record<string, readonly LatLng[] | undefined>>
 ): Track[] {
   const tracks: Track[] = [];
   for (const entry of set) {
@@ -120,6 +122,28 @@ export function compareTracks(
     if (own && own.length > 0) tracks.push({ ...entry, points: own });
   }
   return tracks;
+}
+
+/** One compared track as an SVG path in the box it was fitted to. */
+export type OverlayPath = { id: string; colour: string; d: string };
+
+/**
+ * The compared tracks drawn into one box, all fitted at one scale so they sit
+ * against each other as they do on the map. A track with fewer than two
+ * vertices, or none to fit against, draws nothing.
+ */
+export function compareOverlay(tracks: readonly Track[], box: Box): OverlayPath[] {
+  const drawn = tracks.filter((track) => track.points.length >= 2);
+  const fitted = fitLines(
+    drawn.map((track) => track.points),
+    box
+  );
+  if (!fitted) return [];
+  return drawn.map((track, at) => ({
+    id: track.id,
+    colour: track.colour,
+    d: (fitted[at] ?? []).map(([x, y], index) => `${index === 0 ? 'M' : 'L'}${x} ${y}`).join(''),
+  }));
 }
 
 /** What a pass or an attempt adds to a card: its elapsed seconds. */

@@ -17,6 +17,7 @@ import { trackedText } from './lib/indexedSources.mjs';
 import {
   checkColourRoles,
   renderAppColours,
+  renderCss,
   renderRustHeatPalettes,
   renderTypeScript,
   resolveColourTokens,
@@ -33,6 +34,14 @@ const ROLES = 'src/theme/colourRoles.json';
 const OUT_TS = 'src/theme/colourTokens.generated.ts';
 const OUT_RUST = 'modules/veloqrs/rust/veloqrs/src/heatmap_ramp.rs';
 const OUT_APP = 'src/theme/appColours.json';
+const OUT_CSS = 'web/connect/tokens.generated.css';
+
+// The page's faces are the app's own, reached from web/connect/ so the build names them by hash.
+const FONT_FACES = [
+  { family: 'Manrope', weight: 400, url: '../../assets/fonts/Manrope-Regular.ttf' },
+  { family: 'Manrope', weight: 600, url: '../../assets/fonts/Manrope-SemiBold.ttf' },
+  { family: 'Manrope', weight: 700, url: '../../assets/fonts/Manrope-Bold.ttf' },
+];
 
 // The engine stores one heatmap tile set and serves it to each base map in that
 // base's own heat steps, swapping only the tile's palette. Satellite imagery is
@@ -93,6 +102,7 @@ async function main() {
       [OUT_TS]: renderTypeScript(resolved, roleColours(resolved, map)),
       [OUT_RUST]: renderRustHeatPalettes(resolved, HEAT_PALETTES),
       [OUT_APP]: renderAppColours(resolved, APP_COLOURS),
+      [OUT_CSS]: renderCss(file, resolved, roleColours(resolved, map), FONT_FACES),
     };
   } catch (error) {
     console.error(`${TOKENS}: ${(error as Error).message}`);

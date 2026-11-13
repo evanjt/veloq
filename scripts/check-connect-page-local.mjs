@@ -61,6 +61,7 @@ const ALLOWED_SOURCES = {
   'default-src': [],
   'script-src': ["'self'"],
   'style-src': ["'self'"],
+  'font-src': ["'self'"],
   'worker-src': ['blob:'],
   'img-src': ["'self'", 'data:', 'blob:'],
   'connect-src': ["'self'", RELAY, BASEMAP],
@@ -87,7 +88,7 @@ function htmlProblems(path, text) {
     problems.push(`${path}: no Content-Security-Policy meta`);
     return problems;
   }
-  for (const name of ['script-src', 'style-src']) {
+  for (const name of ['script-src', 'style-src', 'font-src']) {
     const sources = directive(content, name) ?? directive(content, 'default-src');
     if (!sources || sources.some((source) => source !== "'self'")) {
       problems.push(`${path}: ${name} allows more than 'self'`);

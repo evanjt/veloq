@@ -36,6 +36,8 @@ export interface MapPaneProps {
   /** How the `veloq` sources reach the phone. */
   read: Ask;
   onHover?: (id: string | null) => void;
+  /** Every pointer move over the map: what is under it and where, as `[lng, lat]`. */
+  onMove?: (found: PickedFeature | null, at: [number, number]) => void;
   onClick?: (feature: PickedFeature) => void;
   /** The visible area, once the map has loaded and after every move. */
   onView?: (box: Box) => void;
@@ -302,6 +304,7 @@ export function MapPane(props: MapPaneProps) {
       const found = pick(event.point);
       map.getCanvas().style.cursor = found ? 'pointer' : '';
       const id = found?.id ?? null;
+      latest.current.onMove?.(found, [event.lngLat.lng, event.lngLat.lat]);
       if (id !== hovered) {
         hovered = id;
         latest.current.onHover?.(id);

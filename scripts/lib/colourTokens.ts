@@ -25,6 +25,32 @@ export interface TokenFile {
     themes: { id: string }[];
     tokens: { name: string; value: Partial<Record<string, string>> }[];
   };
+  type?: {
+    fonts?: { family: string; file: string; weight: string; style: string }[];
+    families?: Record<string, string>;
+    groups?: {
+      styles: {
+        name: string;
+        fontSize: string;
+        lineHeight: string;
+        fontWeight: number;
+        letterSpacing?: string;
+      }[];
+    }[];
+  };
+  spacing?: NamedValues;
+  radius?: NamedValues;
+  size?: NamedValues;
+  shadow?: NamedValues;
+  opacity?: NamedValues;
+  stroke?: NamedValues;
+  layer?: NamedValues;
+  duration?: NamedValues;
+}
+
+/** A token family that is one list of names and values. */
+export interface NamedValues {
+  tokens: { name: string; value: string }[];
 }
 
 /** Every colour token's final value in each theme, by name. */
@@ -367,4 +393,91 @@ export function staleOutputs(
   return Object.entries(expected)
     .filter(([path, text]) => committed(path) !== text)
     .map(([path]) => path);
+}
+
+/** The non-colour families, in the order the stylesheet carries them. */
+const PLAIN_FAMILIES = [
+  'spacing',
+  'radius',
+  'size',
+  'shadow',
+  'opacity',
+  'stroke',
+  'layer',
+  'duration',
+] as const;
+
+/** One face of the page's font: the family, the weight it is drawn at and its file. */
+export interface CssFontFace {
+  family: string;
+  weight: number;
+  /** Where the stylesheet reaches the file from, so the bundler can name it by hash. */
+  url: string;
+}
+
+/**
+ * `web/connect/tokens.generated.css`: the colour tokens and roles of the light
+ * theme under `:root`, the dark theme's where it differs under
+ * `prefers-color-scheme: dark`, then the spacing, radius, type, shadow and
+ * motion families under the token's own name. A colour is `--colour-<token>`
+ * and a role is `--role-<key>`. `faces` become `@font-face` rules.
+ */
+export function renderCss(
+  file: TokenFile,
+  resolved: ResolvedTokens,
+  roles: ResolvedTokens,
+  faces: readonly CssFontFace[]
+): string {
+  const declare = (name: string, value: string) => `  --${name}: ${value};`;
+  const colours = (theme: Theme, only?: (name: string, value: string) => boolean) => {
+    const rows: string[] = [];
+    for (const [name, value] of Object.entries(resolved[theme])) {
+      if (!only || only(`colour-${name}`, value)) rows.push(declare(`colour-${name}`, value));
+    }
+    for (const [key, value] of Object.entries(roles[theme])) {
+      if (!only || only(`role-${key}`, value)) rows.push(declare(`role-${key}`, value));
+    }
+    return rows;
+  };
+  const light = new Map<string, string>();
+  for (const theme of ['light'] as const) {
+    for (const [name, value] of Object.entries(resolved[theme])) light.set(`colour-${name}`, value);
+    for (const [key, value] of Object.entries(roles[theme])) light.set(`role-${key}`, value);
+  }
+  const dark = colours('dark', (name, value) => light.get(name) !== value);
+
+  const plain: string[] = [];
+  for (const family of PLAIN_FAMILIES) {
+    for (const token of file[family]?.tokens ?? []) plain.push(declare(token.name, token.value));
+  }
+  const type: string[] = [];
+  for (const [name, stack] of Object.entries(file.type?.families ?? {})) {
+    type.push(declare(`font-${name}`, stack));
+  }
+  for (const group of file.type?.groups ?? []) {
+    for (const style of group.styles) {
+      type.push(declare(`type-${style.name}-size`, style.fontSize));
+      type.push(declare(`type-${style.name}-line`, style.lineHeight));
+      type.push(declare(`type-${style.name}-weight`, String(style.fontWeight)));
+      if (style.letterSpacing)
+        type.push(declare(`type-${style.name}-tracking`, style.letterSpacing));
+    }
+  }
+  const fontFaces = faces.map(
+    (face) =>
+      `@font-face {\n  font-family: '${face.family}';\n  font-style: normal;\n  font-weight: ${face.weight};\n  font-display: swap;\n  src: url('${face.url}') format('truetype');\n}\n`
+  );
+  return `/* ${GEN} ${RUN} */
+
+${fontFaces.join('\n')}
+:root {
+${[...colours('light'), ...plain, ...type].join('\n')}
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+${dark.map((row) => `  ${row}`).join('\n')}
+  }
+}
+`;
 }

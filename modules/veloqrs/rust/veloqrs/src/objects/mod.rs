@@ -17,7 +17,7 @@ pub mod quarantine;
 mod record_dependency;
 mod recordings;
 mod remote;
-mod routes;
+pub(crate) mod routes;
 pub mod run;
 pub mod sections;
 mod settings;

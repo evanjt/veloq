@@ -3320,7 +3320,7 @@
   },
   "remoteLink": {
     "title": "已关联的设备",
-    "intro": "当这部手机上的 Veloq 处于打开状态时，已关联的电脑可以在浏览器中浏览此资料库。你的数据直接从手机发送到浏览器。",
+    "intro": "当这部手机上的 Veloq 处于打开状态时，已关联的电脑可以在浏览器中浏览此资料库。你的数据直接从手机发送到浏览器。连接期间屏幕会保持常亮。",
     "none": "无",
     "linkedCount_one": "已关联 {{count}} 台",
     "linkedCount_other": "已关联 {{count}} 台",
@@ -3336,7 +3336,7 @@
     "invalidCode": "关联码无效或已过期",
     "waiting": "正在等待浏览器…",
     "confirmTitle": "关联 {{name}}？",
-    "confirmMessage": "只要这部手机上的 Veloq 处于打开状态，它就能浏览你的活动。你可以随时在设置中将其移除。",
+    "confirmMessage": "只要这部手机上的 Veloq 处于打开状态，它就能浏览你的活动。你可以随时在设置中将其移除。连接期间屏幕会保持常亮。",
     "confirm": "关联",
     "decline": "拒绝",
     "expired": "浏览器未能及时连接。请在页面上生成新的二维码，然后重新扫描。",
@@ -3363,7 +3363,7 @@
       "confirming": "请在手机上确认",
       "waiting": "正在等待手机",
       "connecting": "正在连接",
-      "connected": "已连接",
+      "connected": "已连接到你的手机",
       "update": "请更新手机上的 Veloq",
       "unsupported": "不受支持"
     },
@@ -3371,7 +3371,7 @@
     "notice": {
       "refused": "手机拒绝了此浏览器。请用新的代码重新关联。",
       "declined": "手机上已拒绝关联。",
-      "removed": "此浏览器已在手机上移除。请用新的代码重新关联。",
+      "removed": "此浏览器已在手机上移除。请扫描新的代码重新关联。",
       "unreachable": "无法从此处连接到手机。请让两者使用同一 Wi-Fi，并扫描新的代码。",
       "phoneLocked": "请解锁手机并打开 Veloq，然后再进行更改"
     },
@@ -3396,8 +3396,12 @@
     },
     "waiting": {
       "heading": "正在等待手机",
-      "body": "请在手机上打开 Veloq。此页面会自动连接，无论在同一 Wi-Fi 还是大多数其他网络。",
-      "unreachable": "无法从此处连接到手机。请让两者使用同一 Wi-Fi。"
+      "body": "请在手机上打开 Veloq 并保持解锁。此页面会自动连接，无论在同一 Wi-Fi 还是大多数其他网络。",
+      "unreachable": "无法从此处连接到手机。请让两者使用同一 Wi-Fi。",
+      "long": "仍在等待。Veloq 必须在手机上打开，而不是只在后台运行。",
+      "background": "Veloq 在你的手机上进入了后台。打开它，此页面会继续连接。",
+      "disconnected": "已在手机上断开连接。打开 Veloq 即可重新连接。",
+      "switchedOff": "手机上已关闭“已关联的设备”。请在“设置”中的“已关联的设备”里打开它。"
     },
     "update": {
       "heading": "请更新手机上的 Veloq",

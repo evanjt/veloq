@@ -6,7 +6,7 @@
 import { upstreamStyle } from '@/features/maps/lib/htmlBuilders/upstreamStyle';
 import { BASE_MAP_ATTRIBUTION } from '@/features/maps/lib/mapSourceCredits';
 
-import { mapPalette } from './theme';
+import { mapPalette } from '../theme';
 
 /** The bases the page draws. Satellite is not one: each of its sources is another host. */
 export type PageBase = 'light' | 'dark';

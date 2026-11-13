@@ -1,19 +1,8 @@
 import { StyleSheet } from 'react-native';
+import { strokeWidths } from './strokeWidths';
 
-/**
- * The four widths a border, rule or ring is drawn at, and no others.
- *
- * `hairline` is the platform's own hairline, the thinnest line the screen
- * draws, and separates the rows of a group. `one` is the edge of a card, a
- * control, a chart's grid and axes and a map line's casing. `two` is a chart
- * line, a focus or selected ring, the ring of a selected picture option, a
- * focused field and a dot's ring. `three` is the tab indicator and the corners
- * of a scanner's frame. An edge that marks or separates is made quiet by its
- * thinness, never by a paler colour.
- */
+/** The four widths a border, rule or ring is drawn at: the platform's hairline and `strokeWidths`. */
 export const stroke = {
   hairline: StyleSheet.hairlineWidth,
-  one: 1,
-  two: 2,
-  three: 3,
+  ...strokeWidths,
 } as const;

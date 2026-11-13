@@ -137,3 +137,62 @@ export function calendarYears(days: readonly HeatDay[], firstDay: number): Calen
       return { year, weeks };
     });
 }
+
+/** The sport families the load scatter and the weekly hours colour, in legend order. */
+export const SPORT_FAMILIES = ['ride', 'run', 'swim', 'walk', 'other'] as const;
+export type SportFamily = (typeof SPORT_FAMILIES)[number];
+
+/** The family a sport type belongs to; the page's `--sport-*` variables are keyed by it. */
+export function sportFamily(sportType: string): SportFamily {
+  const sport = sportType.toLowerCase();
+  if (/ride|cycl|bike/.test(sport)) return 'ride';
+  if (/run/.test(sport)) return 'run';
+  if (/swim/.test(sport)) return 'swim';
+  if (/walk|hike/.test(sport)) return 'walk';
+  return 'other';
+}
+
+/** The family's colour variable. */
+export const sportColour = (family: SportFamily) => `var(--sport-${family})`;
+
+/** The Monday on or before a `YYYY-MM-DD` day, as `YYYY-MM-DD`. */
+export function weekStart(date: string): string {
+  const [y = 0, m = 1, d = 1] = date.split('-').map(Number);
+  const day = new Date(Date.UTC(y, m - 1, d));
+  day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
+  return day.toISOString().slice(0, 10);
+}
+
+type HoursDot = { sportType: string; startDateLocal: string; movingTime: number };
+
+/**
+ * Moving hours per week and sport family over the latest `weeks` weeks that hold
+ * an activity, oldest week first. A week with no activity between two that have
+ * one is kept as zero hours so the axis does not skip it.
+ */
+export function weeklyHours(dots: readonly HoursDot[], weeks: number) {
+  const byWeek = new Map<string, Record<SportFamily, number>>();
+  for (const dot of dots) {
+    const week = weekStart(dot.startDateLocal.slice(0, 10));
+    const row = byWeek.get(week) ?? { ride: 0, run: 0, swim: 0, walk: 0, other: 0 };
+    row[sportFamily(dot.sportType)] += dot.movingTime / 3600;
+    byWeek.set(week, row);
+  }
+  const keys = [...byWeek.keys()].sort();
+  const last = keys[keys.length - 1];
+  if (last === undefined) return [];
+  const rows: { week: string; hours: Record<SportFamily, number> }[] = [];
+  const empty = () => ({ ride: 0, run: 0, swim: 0, walk: 0, other: 0 });
+  for (let n = weeks - 1; n >= 0; n--) {
+    const [y = 0, m = 1, d = 1] = last.split('-').map(Number);
+    const at = new Date(Date.UTC(y, m - 1, d - 7 * n)).toISOString().slice(0, 10);
+    rows.push({ week: at, hours: byWeek.get(at) ?? empty() });
+  }
+  return rows;
+}
+
+type FormDay = { ctl: number | null; atl: number | null };
+
+/** Form: fitness less fatigue, null on a day missing either. */
+export const formOf = (day: FormDay): number | null =>
+  day.ctl === null || day.atl === null ? null : day.ctl - day.atl;

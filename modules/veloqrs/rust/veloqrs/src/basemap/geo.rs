@@ -147,6 +147,16 @@ fn under_point_traces(key: &str) -> Result<Vec<u8>, u16> {
     Ok(out.into_bytes())
 }
 
+/// One stored track as the text `track` answers, from a connection already
+/// in hand: an activity with no stored track, or under two points, is the
+/// empty collection.
+pub(crate) fn track_collection(conn: &Connection, activity_id: &str) -> String {
+    crate::persistence::activities::pooled::gps_track(conn, activity_id).map_or_else(
+        || EMPTY_COLLECTION.to_string(),
+        |points| line_feature(&points),
+    )
+}
+
 /// One activity's stored line, read off the engine lock.
 fn track(activity_id: &str) -> Result<Vec<u8>, u16> {
     crate::objects::error::with_reader(|conn| {
@@ -231,6 +241,269 @@ pub(crate) fn sections_features<'a>(
     }
     out.push_str("]}");
     out
+}
+
+/// The colours the page's section palette holds; a section's `colorIndex` is
+/// its palette key modulo this.
+const SECTION_PALETTE_LEN: u32 = 8;
+
+/// A section the activity matches, as the overlay draws it.
+pub(crate) struct OverlaySection<'a> {
+    pub id: &'a str,
+    pub name: Option<&'a str>,
+    pub polyline: &'a [u8],
+}
+
+/// One (section, direction) the activity encountered, in the engine's track order.
+pub(crate) struct OverlayEncounter<'a> {
+    pub section_id: &'a str,
+    pub direction: &'a str,
+    pub is_pr: bool,
+}
+
+/// One activity's section overlays as a `FeatureCollection`.
+///
+/// A `LineString` per matched section (`kind: "section"`), a `LineString` per
+/// section trace and direction encountered (`kind: "portion"`, with
+/// `sectionId`, `direction` and `order`, the place the encounter has in the
+/// engine's track order), and a `Point` at the start of each section the
+/// activity holds the record on (`kind: "pr"`). Sections and portions come
+/// out in that order. Every feature carries `id`, `overlayId`, `type` (the
+/// kind), `isPR`, `palette` and `colorIndex`, the properties the phone's
+/// overlay layers read. A line that does not decode, or is left under two
+/// finite points, is left out.
+pub(crate) fn activity_overlay_features(
+    sections: &[OverlaySection<'_>],
+    traces: &[(&str, &[u8])],
+    encounters: &[OverlayEncounter<'_>],
+    pr_section_ids: &[&str],
+) -> String {
+    let order_of = |section_id: &str| {
+        encounters
+            .iter()
+            .position(|e| e.section_id == section_id)
+            .unwrap_or(encounters.len())
+    };
+    let json = |text: &str| serde_json::to_string(text).unwrap_or_else(|_| "null".to_string());
+    let mut out = String::from(r#"{"type":"FeatureCollection","features":["#);
+    let mut written = 0usize;
+    let mut open = |out: &mut String| {
+        if written > 0 {
+            out.push(',');
+        }
+        written += 1;
+    };
+
+    let mut ordered: Vec<&OverlaySection<'_>> = sections.iter().collect();
+    ordered.sort_by_key(|section| order_of(section.id));
+    for section in &ordered {
+        let Some(points) = codec::decode_polyline(section.polyline) else {
+            continue;
+        };
+        if !has_line(&points) {
+            continue;
+        }
+        let id = json(section.id);
+        let name = section.name.map_or_else(|| "null".to_string(), json);
+        let palette = route_palette_key(section.id);
+        let is_pr = pr_section_ids.contains(&section.id);
+        open(&mut out);
+        let _ = write!(
+            out,
+            r#"{{"type":"Feature","id":{id},"properties":{{"kind":"section","type":"section","id":{id},"overlayId":{id},"name":{name},"palette":{palette},"colorIndex":{},"isPR":{is_pr},"isPr":{is_pr}}},"geometry":{{"type":"LineString","coordinates":["#,
+            palette % SECTION_PALETTE_LEN,
+        );
+        push_positions(&mut out, &points);
+        out.push_str("]}}");
+    }
+
+    let mut portions: Vec<(usize, &str, &str, bool, Vec<GpsPoint>)> = Vec::new();
+    for (section_id, bytes) in traces {
+        let Some(points) = codec::decode_polyline(bytes) else {
+            continue;
+        };
+        if !has_line(&points) {
+            continue;
+        }
+        let mut directions: Vec<&str> = Vec::new();
+        for (order, encounter) in encounters.iter().enumerate() {
+            if encounter.section_id == *section_id && !directions.contains(&encounter.direction) {
+                directions.push(encounter.direction);
+                let is_pr = encounters.iter().any(|e| {
+                    e.section_id == *section_id && e.direction == encounter.direction && e.is_pr
+                });
+                portions.push((
+                    order,
+                    section_id,
+                    encounter.direction,
+                    is_pr,
+                    points.clone(),
+                ));
+            }
+        }
+        if directions.is_empty() {
+            let is_pr = pr_section_ids.contains(section_id);
+            portions.push((encounters.len(), section_id, "", is_pr, points));
+        }
+    }
+    portions.sort_by_key(|portion| portion.0);
+    for (order, section_id, direction, is_pr, points) in &portions {
+        let id = json(section_id);
+        let overlay_id = if direction.is_empty() {
+            id.clone()
+        } else {
+            json(&format!("{section_id}|{direction}"))
+        };
+        let direction = if direction.is_empty() {
+            "null".to_string()
+        } else {
+            json(direction)
+        };
+        let palette = route_palette_key(section_id);
+        open(&mut out);
+        let _ = write!(
+            out,
+            r#"{{"type":"Feature","properties":{{"kind":"portion","type":"portion","id":{id},"sectionId":{id},"overlayId":{overlay_id},"direction":{direction},"order":{order},"palette":{palette},"colorIndex":{},"isPR":{is_pr},"isPr":{is_pr}}},"geometry":{{"type":"LineString","coordinates":["#,
+            palette % SECTION_PALETTE_LEN,
+        );
+        push_positions(&mut out, points);
+        out.push_str("]}}");
+    }
+
+    for section in &ordered {
+        if !pr_section_ids.contains(&section.id) {
+            continue;
+        }
+        let Some(start) = codec::decode_polyline(section.polyline)
+            .filter(|points| has_line(points))
+            .and_then(|points| finite(&points).next().cloned())
+        else {
+            continue;
+        };
+        let id = json(section.id);
+        let palette = route_palette_key(section.id);
+        open(&mut out);
+        let _ = write!(
+            out,
+            r#"{{"type":"Feature","properties":{{"kind":"pr","type":"pr","id":{id},"overlayId":{id},"palette":{palette},"colorIndex":{},"isPR":true,"isPr":true}},"geometry":{{"type":"Point","coordinates":["#,
+            palette % SECTION_PALETTE_LEN,
+        );
+        // A point's coordinates are one position, not a list of them.
+        let mut position = String::new();
+        push_positions(&mut position, std::slice::from_ref(&start));
+        out.push_str(position.trim_start_matches('[').trim_end_matches(']'));
+        out.push_str("]}}");
+    }
+    out.push_str("]}");
+    out
+}
+
+/// A route group's representative as one line feature, the empty collection
+/// for a group that is unknown or has no stored representative track.
+pub(crate) fn route_feature(conn: &Connection, group_id: &str) -> String {
+    crate::persistence::routes::pooled::representative_route(conn, group_id).map_or_else(
+        || EMPTY_COLLECTION.to_string(),
+        |points| line_feature(&points),
+    )
+}
+
+/// The newest member of a route group by activity date, as one line feature
+/// of its stored track. A group with no member holding a track is the empty
+/// collection.
+pub(crate) fn route_latest_feature(conn: &Connection, group_id: &str) -> String {
+    use crate::persistence::activities::pooled as activities;
+    let Some(group) = crate::persistence::routes::pooled::group_by_id(conn, group_id) else {
+        return EMPTY_COLLECTION.to_string();
+    };
+    let mut dated: Vec<(i64, &String)> = group
+        .activity_ids
+        .iter()
+        .filter_map(|id| activities::metrics_of(conn, id).map(|m| (m.date, id)))
+        .collect();
+    dated.sort_by_key(|&(date, _)| std::cmp::Reverse(date));
+    dated
+        .into_iter()
+        .find_map(|(_, id)| activities::gps_track(conn, id))
+        .map_or_else(
+            || EMPTY_COLLECTION.to_string(),
+            |points| line_feature(&points),
+        )
+}
+
+/// One section's line as a one-feature collection carrying `id`, `name` or
+/// null and `palette`, the empty collection for an unknown section.
+pub(crate) fn section_feature(conn: &Connection, section_id: &str) -> String {
+    use crate::persistence::sections::named::pooled as named;
+    use crate::persistence::sections::queries::pooled as sections;
+    let names = named::overlay_names(conn);
+    let Some(section) = sections::section(conn, section_id, &names) else {
+        return EMPTY_COLLECTION.to_string();
+    };
+    let section = crate::FfiSection::from(section);
+    let Some(points) = codec::decode_polyline(&section.encoded_polyline) else {
+        return EMPTY_COLLECTION.to_string();
+    };
+    if !has_line(&points) {
+        return EMPTY_COLLECTION.to_string();
+    }
+    let id = serde_json::to_string(&section.id).unwrap_or_else(|_| "null".to_string());
+    let name = serde_json::to_string(&section.name).unwrap_or_else(|_| "null".to_string());
+    let mut out = String::from(r#"{"type":"FeatureCollection","features":["#);
+    let _ = write!(
+        out,
+        r#"{{"type":"Feature","id":{id},"properties":{{"id":{id},"name":{name},"palette":{}}},"geometry":{{"type":"LineString","coordinates":["#,
+        route_palette_key(&section.id),
+    );
+    push_positions(&mut out, &points);
+    out.push_str("]}}]}");
+    out
+}
+
+/// Every pass over a section as one `LineString` per pass, cut from the
+/// activity's stored track at the portion's `start_index` to `end_index`
+/// inclusive, in the portion order the section detail lists them.
+///
+/// Each carries `activityId`, `direction` and `distanceMeters`. A portion
+/// whose activity holds no track, or whose range does not lie in it, is left
+/// out and counted in the collection's `withoutTrack`. An unknown section is
+/// the empty collection.
+pub(crate) fn section_passes_collection(conn: &Connection, section_id: &str) -> String {
+    use crate::persistence::activities::pooled as activities;
+    let portions = crate::persistence::sections::pooled::section_portions(conn, section_id);
+    let mut features = String::new();
+    let mut written = 0usize;
+    let mut without_track = 0usize;
+    for portion in &portions {
+        let range = portion.start_index as usize..=portion.end_index as usize;
+        let pass = activities::gps_track(conn, &portion.activity_id)
+            .and_then(|track| track.get(range).map(<[GpsPoint]>::to_vec))
+            .filter(|pass| has_line(pass));
+        let Some(pass) = pass else {
+            without_track += 1;
+            continue;
+        };
+        if written > 0 {
+            features.push(',');
+        }
+        let activity =
+            serde_json::to_string(&portion.activity_id).unwrap_or_else(|_| "null".to_string());
+        let distance = if portion.distance_meters.is_finite() {
+            portion.distance_meters
+        } else {
+            0.0
+        };
+        let _ = write!(
+            features,
+            r#"{{"type":"Feature","properties":{{"activityId":{activity},"direction":"{}","distanceMeters":{distance}}},"geometry":{{"type":"LineString","coordinates":["#,
+            portion.direction,
+        );
+        push_positions(&mut features, &pass);
+        features.push_str("]}}");
+        written += 1;
+    }
+    format!(
+        r#"{{"type":"FeatureCollection","properties":{{"withoutTrack":{without_track}}},"features":[{features}]}}"#
+    )
 }
 
 /// One route's decoded line, as the collection writes it.

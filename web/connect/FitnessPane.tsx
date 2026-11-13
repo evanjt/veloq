@@ -1,20 +1,28 @@
 // The fitness page, drawn from the engine's numbers. Charts are SVG in the
 // page's colour variables, each with a readout that follows the pointer.
 
-import type { ParseKeys } from 'i18next';
+import type { ParseKeys, TFunction } from 'i18next';
 import { Fragment, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
   FITNESS_SPORTS,
+  SPORT_FAMILIES,
   calendarYears,
   dotsOnDay,
+  formOf,
+  sportColour,
+  sportFamily,
+  weeklyHours,
   monthRows,
   sortMonths,
   type FitnessChoices,
   type MonthColumn,
+  type SportFamily,
 } from './dashboard';
-import { BEST_EFFORT_PERIODS, RANGES, fraction, linePath } from './fitness';
+import { Chart } from './charts/Chart';
+import { Card, CardHeader } from './ui';
+import { BEST_EFFORT_PERIODS, RANGES } from './fitness';
 import type { Methods } from './schema';
 import type { Snapshot } from './session';
 
@@ -26,11 +34,13 @@ type PaceCurve = Methods['fitness.paceCurve']['result'];
 type Screen = Methods['fitness.screen']['result'];
 type BestEfforts = Methods['fitness.bestEfforts']['result'];
 
-const WIDTH = 640;
-const HEIGHT = 200;
-const PAD = 8;
-
 type Line = { className: string; values: (number | null)[] };
+
+const LINE_COLOURS: Record<string, string> = {
+  'line-a': 'var(--chart-a)',
+  'line-b': 'var(--chart-b)',
+  'line-c': 'var(--primary)',
+};
 
 /**
  * A line chart over shared categories with a hover readout. `labels` are the
@@ -41,61 +51,29 @@ export function LineChart({
   lines,
   names,
   format,
+  label,
 }: {
   labels: string[];
   lines: Line[];
   names: string[];
   format: (value: number) => string;
+  label?: string;
 }) {
   const { t } = useTranslation();
-  const [at, setAt] = useState<number | null>(null);
-  const present = lines.flatMap((line) => line.values.filter((v): v is number => v !== null));
-  if (labels.length === 0 || present.length === 0) {
-    return (
-      <figure>
-        <p className="empty">{t('connectPage.fitness.noData')}</p>
-      </figure>
-    );
-  }
-  const low = Math.min(...present);
-  const high = Math.max(...present);
-  const x = (i: number) => PAD + fraction(i, 0, Math.max(labels.length - 1, 1)) * (WIDTH - PAD * 2);
-  const y = (v: number) => HEIGHT - PAD - fraction(v, low, high) * (HEIGHT - PAD * 2);
-  const readout =
-    at === null
-      ? ' '
-      : [
-          labels[at],
-          ...lines.map((line, n) => {
-            const v = line.values[at];
-            return `${names[n]} ${v === null || v === undefined ? t('connectPage.fitness.none') : format(v)}`;
-          }),
-        ].join(' · ');
   return (
-    <figure>
-      <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        role="img"
-        onPointerMove={(event) => {
-          const box = event.currentTarget.getBoundingClientRect();
-          const near = Math.round(
-            fraction((event.clientX - box.left) / box.width, PAD / WIDTH, 1 - PAD / WIDTH) *
-              (labels.length - 1)
-          );
-          setAt(Math.min(Math.max(near, 0), labels.length - 1));
-        }}
-      >
-        {lines.map((line) => (
-          <path
-            key={line.className}
-            d={linePath(line.values.map((v, i) => (v === null ? null : ([x(i), y(v)] as const))))}
-            className={line.className}
-            fill="none"
-          />
-        ))}
-      </svg>
-      <p className="readout">{readout}</p>
-    </figure>
+    <Chart
+      kind="line"
+      categories={labels}
+      series={lines.map((line, n) => ({
+        name: names[n] ?? '',
+        colour: LINE_COLOURS[line.className] ?? 'var(--chart-a)',
+        values: line.values,
+      }))}
+      format={format}
+      label={label ?? names.join(', ')}
+      empty={t('connectPage.fitness.noData')}
+      none={t('connectPage.fitness.none')}
+    />
   );
 }
 
@@ -115,8 +93,13 @@ function WellnessPanel({ data }: { data: Wellness }) {
         lines={[
           { className: 'line-a', values: data.days.map((day) => day.ctl) },
           { className: 'line-b', values: data.days.map((day) => day.atl) },
+          { className: 'line-c', values: data.days.map(formOf) },
         ]}
-        names={[t('connectPage.facts.fitness'), t('connectPage.fitness.fatigue')]}
+        names={[
+          t('connectPage.facts.fitness'),
+          t('connectPage.fitness.fatigue'),
+          t('connectPage.facts.form'),
+        ]}
         format={(value) => value.toFixed(1)}
       />
       {note ? <p className="empty">{t(note)}</p> : null}
@@ -128,26 +111,23 @@ const sumOf = (values: (number | null)[]) => values.reduce<number>((a, v) => a +
 
 function LoadsPanel({ data }: { data: Loads }) {
   const { t } = useTranslation();
-  const max = Math.max(1, ...data.days.map((day) => day.total ?? 0));
   return (
     <>
-      {data.days.length ? (
-        <ol className="bars">
-          {data.days.map((day) => (
-            <li
-              key={day.date}
-              title={t('connectPage.fitness.loadReadout', {
-                date: day.date,
-                load: day.total === null ? t('connectPage.fitness.none') : Math.round(day.total),
-              })}
-            >
-              <span style={{ height: `${Math.round(fraction(day.total ?? 0, 0, max) * 100)}%` }} />
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="empty">{t('connectPage.fitness.noActivities')}</p>
-      )}
+      <Chart
+        kind="bar"
+        categories={data.days.map((day) => day.date)}
+        series={[
+          {
+            name: t('connectPage.fitness.colLoad'),
+            colour: 'var(--chart-a)',
+            values: data.days.map((day) => day.total),
+          },
+        ]}
+        format={(value) => String(Math.round(value))}
+        label={t('connectPage.fitness.dailyLoad')}
+        empty={t('connectPage.fitness.noActivities')}
+        none={t('connectPage.fitness.none')}
+      />
       <p className="readout">
         {t('connectPage.fitness.totalLoad', {
           load: Math.round(sumOf(data.days.map((day) => day.total))),
@@ -159,19 +139,25 @@ function LoadsPanel({ data }: { data: Loads }) {
 
 function ZonesPanel({ data }: { data: Zones }) {
   const { t } = useTranslation();
-  if (data.seconds.length === 0) return <p className="empty">{t('connectPage.fitness.noZones')}</p>;
+  const names = data.seconds.map(
+    (_, i) => data.names[i] ?? t('connectPage.fitness.zone', { n: i + 1 })
+  );
   return (
-    <ol className="zones">
-      {data.seconds.map((seconds, i) => (
-        <li key={i}>
-          <span className="name">
-            {data.names[i] ?? t('connectPage.fitness.zone', { n: i + 1 })}
-          </span>
-          <span style={{ width: `${data.shares[i] ?? 0}%` }} />
-          <span className="value">{`${data.shares[i] ?? 0}% · ${(seconds / 3600).toFixed(1)} h`}</span>
-        </li>
-      ))}
-    </ol>
+    <Chart
+      kind="bar"
+      categories={names}
+      series={[
+        {
+          name: t('connectPage.fitness.colLoad'),
+          colour: 'var(--chart-a)',
+          values: data.seconds.map((seconds) => seconds / 3600),
+        },
+      ]}
+      format={(hours) => `${hours.toFixed(1)} h`}
+      label={t('connectPage.fitness.powerZones')}
+      empty={t('connectPage.fitness.noZones')}
+      none={t('connectPage.fitness.none')}
+    />
   );
 }
 
@@ -303,6 +289,60 @@ function ThresholdsPanel({ data }: { data: Screen }) {
   );
 }
 
+/** The latest day's fitness, fatigue, form and ramp as a strip of tiles above the charts. */
+function Tiles({ data }: { data: Wellness }) {
+  const { t } = useTranslation();
+  const days = data.days.filter((day) => day.ctl !== null || day.atl !== null);
+  const latest = days[days.length - 1];
+  if (!latest) return null;
+  const one = (value: number | null) => (value === null ? '' : value.toFixed(1));
+  const tiles: [string, string][] = [
+    [t('connectPage.facts.fitness'), one(latest.ctl)],
+    [t('connectPage.fitness.fatigue'), one(latest.atl)],
+    [t('connectPage.facts.form'), one(formOf(latest))],
+    [t('connectPage.fitness.ramp'), one(latest.rampRate)],
+  ];
+  return (
+    <ul id="fitness-tiles" className="tiles">
+      {tiles
+        .filter(([, value]) => value !== '')
+        .map(([label, value]) => (
+          <li key={label}>
+            <span className="tile-label">{label}</span>
+            <span className="tile-value">{value}</span>
+          </li>
+        ))}
+    </ul>
+  );
+}
+
+const SPORT_NAMES = { ride: 'Ride', run: 'Run', swim: 'Swim', walk: 'Walk' } as const;
+
+/** The sport family's name: the activity type it is named for, or "Other". */
+const familyName = (t: TFunction, family: SportFamily) =>
+  family === 'other' ? t('connectPage.families.other') : t(`activityTypes.${SPORT_NAMES[family]}`);
+/** Moving hours per week, stacked by sport family over the latest twelve weeks. */
+function WeeklyHours({ dots }: { dots: Dot[] }) {
+  const { t } = useTranslation();
+  const rows = weeklyHours(dots, 12);
+  const used = SPORT_FAMILIES.filter((family) => rows.some((row) => row.hours[family] > 0));
+  return (
+    <Chart
+      kind="stacked"
+      categories={rows.map((row) => row.week)}
+      series={used.map((family) => ({
+        name: familyName(t, family),
+        colour: sportColour(family),
+        values: rows.map((row) => row.hours[family]),
+      }))}
+      format={(hours) => `${hours.toFixed(1)} h`}
+      label={t('connectPage.fitness.hoursPerWeek')}
+      empty={t('connectPage.fitness.noActivitiesSpan')}
+      none={t('connectPage.fitness.none')}
+    />
+  );
+}
+
 /** One panel's slot: its drawing once the phone answers, a notice if it could not. */
 function Slot<T>({
   slot,
@@ -345,7 +385,7 @@ function Choices({
   pick: (n: never) => void;
 }) {
   return (
-    <div id={id} role="group" aria-label={label}>
+    <div id={id} role="group" aria-label={label} className="ui-segmented">
       {values.map((value) => (
         <button
           key={value}
@@ -373,37 +413,31 @@ function LoadDots({
   onOpen: (id: string) => void;
 }) {
   const { t } = useTranslation();
-  const [at, setAt] = useState<Dot | null>(null);
-  if (dots.length === 0) return <p className="empty">{t('connectPage.fitness.noActivitiesSpan')}</p>;
-  const times = dots.map((dot) => Date.parse(dot.startDateLocal));
-  const first = Math.min(...times);
-  const last = Math.max(...times);
-  const top = Math.max(1, ...dots.map((dot) => dot.load));
+  const sorted = [...dots].sort(
+    (a, b) => Date.parse(a.startDateLocal) - Date.parse(b.startDateLocal)
+  );
+  const families = SPORT_FAMILIES.filter((family) =>
+    sorted.some((dot) => sportFamily(dot.sportType) === family)
+  );
   return (
-    <figure>
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={t('connectPage.fitness.activitiesByLoad')}>
-        {dots.map((dot, i) => (
-          <circle
-            key={dot.activityId}
-            className={dot.activityId === open ? 'dot open' : 'dot'}
-            cx={PAD + fraction(times[i] ?? 0, first, last) * (WIDTH - PAD * 2)}
-            cy={HEIGHT - PAD - fraction(dot.load, 0, top) * (HEIGHT - PAD * 2)}
-            r={5}
-            onPointerEnter={() => setAt(dot)}
-            onClick={() => onOpen(dot.activityId)}
-          />
-        ))}
-      </svg>
-      <p className="readout">
-        {at
-          ? t('connectPage.fitness.dotReadout', {
-              date: at.startDateLocal.slice(0, 10),
-              name: at.name,
-              load: Math.round(at.load),
-            })
-          : ' '}
-      </p>
-    </figure>
+    <Chart
+      kind="scatter"
+      categories={sorted.map((dot) => `${dot.startDateLocal.slice(0, 10)} ${dot.name}`)}
+      series={families.map((family) => ({
+        name: familyName(t, family),
+        colour: sportColour(family),
+        values: sorted.map((dot) => (sportFamily(dot.sportType) === family ? dot.load : null)),
+      }))}
+      format={(value) => String(Math.round(value))}
+      label={t('connectPage.fitness.activitiesByLoad')}
+      empty={t('connectPage.fitness.noActivitiesSpan')}
+      none={t('connectPage.fitness.none')}
+      picked={open === null ? null : sorted.findIndex((dot) => dot.activityId === open)}
+      onPick={(i) => {
+        const dot = sorted[i];
+        if (dot) onOpen(dot.activityId);
+      }}
+    />
   );
 }
 
@@ -563,7 +597,11 @@ function OpenedDetail({ dot, onClose }: { dot: Dot | undefined; onClose: () => v
   const { t } = useTranslation();
   if (!dot) return null;
   return (
-    <section id="detail-pane" className="panel" aria-label={t('connectPage.fitness.openedActivity')}>
+    <section
+      id="detail-pane"
+      className="panel"
+      aria-label={t('connectPage.fitness.openedActivity')}
+    >
       <h3>{dot.name}</h3>
       <dl>
         <dt>{t('connectPage.fitness.sport')}</dt>
@@ -605,6 +643,14 @@ export function FitnessPane({
   const open = held?.loadDots.find((dot) => dot.activityId === choices.open);
   const power = choices.sport === 'Ride';
   const openActivity = (id: string) => onChoose({ ...choices, open: id });
+  const card = (title: ReactNode, body: ReactNode, wide = false) => (
+    <div className={wide ? 'cell wide' : 'cell'}>
+      <Card>
+        <CardHeader title={String(title)} />
+        {body}
+      </Card>
+    </div>
+  );
   return (
     <section id="fitness-page">
       <div className="toolbar">
@@ -626,118 +672,131 @@ export function FitnessPane({
           pick={(n: string) => onChoose({ ...choices, sport: n as FitnessChoices['sport'] })}
         />
       </div>
-      <div className="columns">
-        <div className="column charts">
-          <section className="panel">
-            <h3>{t('connectPage.fitness.fitnessFatigue')}</h3>
-            <Slot<Wellness>
-              slot="wellness"
-              panels={panels}
-              draw={(data) => <WellnessPanel data={data} />}
-            />
-          </section>
-          <section className="panel">
-            <h3>{t('connectPage.fitness.activitiesByLoad')}</h3>
-            <Slot<Screen>
-              slot="screen"
-              part="dots"
-              panels={panels}
-              draw={(data) => (
-                <LoadDots dots={data.loadDots} open={choices.open} onOpen={openActivity} />
-              )}
-            />
-          </section>
-          <section className="panel">
-            <h3>{t('connectPage.fitness.dailyLoad')}</h3>
-            <Slot<Loads> slot="loads" panels={panels} draw={(data) => <LoadsPanel data={data} />} />
-          </section>
-          <section className="panel">
-            <h3>
-              {power
-                ? t('connectPage.fitness.powerZones')
-                : t('connectPage.fitness.heartRateZones')}
-            </h3>
-            <Slot<Zones> slot="zones" panels={panels} draw={(data) => <ZonesPanel data={data} />} />
-          </section>
-          {power ? (
-            <section className="panel">
-              <h3>{t('connectPage.fitness.powerCurve')}</h3>
+      <Slot<Wellness> slot="wellness" panels={panels} draw={(data) => <Tiles data={data} />} />
+      <div className="dashboard">
+        {card(
+          t('connectPage.fitness.fitnessFatigue'),
+          <Slot<Wellness>
+            slot="wellness"
+            part="chart"
+            panels={panels}
+            draw={(data) => <WellnessPanel data={data} />}
+          />,
+          true
+        )}
+        {card(
+          t('connectPage.fitness.weekAndSeason'),
+          <Slot<Screen>
+            slot="screen"
+            part="comparisons"
+            panels={panels}
+            draw={(data) => <Comparisons data={data} />}
+          />
+        )}
+        {card(
+          power ? t('connectPage.fitness.powerZones') : t('connectPage.fitness.heartRateZones'),
+          <Slot<Zones> slot="zones" panels={panels} draw={(data) => <ZonesPanel data={data} />} />
+        )}
+        {card(
+          t('connectPage.fitness.hoursPerWeek'),
+          <Slot<Screen>
+            slot="screen"
+            part="hours"
+            panels={panels}
+            draw={(data) => <WeeklyHours dots={data.loadDots} />}
+          />
+        )}
+        {card(
+          t('connectPage.fitness.dailyLoad'),
+          <Slot<Loads> slot="loads" panels={panels} draw={(data) => <LoadsPanel data={data} />} />
+        )}
+        {card(
+          t('connectPage.fitness.activitiesByLoad'),
+          <Slot<Screen>
+            slot="screen"
+            part="dots"
+            panels={panels}
+            draw={(data) => (
+              <LoadDots dots={data.loadDots} open={choices.open} onOpen={openActivity} />
+            )}
+          />,
+          true
+        )}
+        {power
+          ? card(
+              t('connectPage.fitness.powerCurve'),
               <Slot<PowerCurve>
                 slot="powerCurve"
                 panels={panels}
                 draw={(data) => <PowerCurvePanel data={data} />}
               />
-            </section>
-          ) : (
-            <section className="panel">
-              <h3>{t('connectPage.fitness.paceCurve')}</h3>
+            )
+          : card(
+              t('connectPage.fitness.paceCurve'),
               <Slot<PaceCurve>
                 slot="paceCurve"
                 panels={panels}
                 draw={(data) => <PaceCurvePanel data={data} />}
               />
-            </section>
-          )}
-          <section className="panel">
-            <h3>{t('connectPage.fitness.calendar')}</h3>
-            <Slot<Screen>
-              slot="screen"
-              part="calendar"
-              panels={panels}
-              draw={(data) => (
-                <Calendar days={data.heatmap} dots={data.loadDots} onOpen={openActivity} />
-              )}
+            )}
+        {card(
+          t('connectPage.fitness.thresholds'),
+          <Slot<Screen>
+            slot="screen"
+            panels={panels}
+            draw={(data) => <ThresholdsPanel data={data} />}
+          />
+        )}
+        {open ? (
+          <div className="cell">
+            <OpenedDetail dot={open} onClose={() => onChoose({ ...choices, open: null })} />
+          </div>
+        ) : null}
+        {card(
+          t('connectPage.fitness.months'),
+          <Slot<Screen>
+            slot="screen"
+            part="months"
+            panels={panels}
+            draw={(data) => <MonthsTable months={data.months} />}
+          />
+        )}
+        {card(
+          t('connectPage.fitness.calendar'),
+          <Slot<Screen>
+            slot="screen"
+            part="calendar"
+            panels={panels}
+            draw={(data) => (
+              <Calendar days={data.heatmap} dots={data.loadDots} onOpen={openActivity} />
+            )}
+          />
+        )}
+        <div className="cell wide">
+          <Card>
+            <CardHeader
+              title={t('connectPage.fitness.bestEfforts')}
+              actions={
+                <Choices
+                  id="best-period"
+                  label={t('connectPage.fitness.period')}
+                  values={BEST_EFFORT_PERIODS}
+                  current={snapshot.bestEffortDays}
+                  name={(n: number) =>
+                    n
+                      ? t('connectPage.fitness.days', { count: n })
+                      : t('connectPage.fitness.allTime')
+                  }
+                  pick={onBestPeriod}
+                />
+              }
             />
-          </section>
-        </div>
-        <div className="column tables">
-          <OpenedDetail dot={open} onClose={() => onChoose({ ...choices, open: null })} />
-          <section className="panel">
-            <h3>{t('connectPage.fitness.thresholds')}</h3>
-            <Slot<Screen>
-              slot="screen"
-              panels={panels}
-              draw={(data) => <ThresholdsPanel data={data} />}
-            />
-          </section>
-          <section className="panel">
-            <h3>{t('connectPage.fitness.weekAndSeason')}</h3>
-            <Slot<Screen>
-              slot="screen"
-              part="comparisons"
-              panels={panels}
-              draw={(data) => <Comparisons data={data} />}
-            />
-          </section>
-          <section className="panel">
-            <h3>{t('connectPage.fitness.months')}</h3>
-            <Slot<Screen>
-              slot="screen"
-              part="months"
-              panels={panels}
-              draw={(data) => <MonthsTable months={data.months} />}
-            />
-          </section>
-          <section className="panel">
-            <div className="toolbar">
-              <h3>{t('connectPage.fitness.bestEfforts')}</h3>
-              <Choices
-                id="best-period"
-                label={t('connectPage.fitness.period')}
-                values={BEST_EFFORT_PERIODS}
-                current={snapshot.bestEffortDays}
-                name={(n: number) =>
-                  n ? t('connectPage.fitness.days', { count: n }) : t('connectPage.fitness.allTime')
-                }
-                pick={onBestPeriod}
-              />
-            </div>
             <Slot<BestEfforts>
               slot="bestEfforts"
               panels={panels}
               draw={(data) => <BestEffortsPanel data={data} />}
             />
-          </section>
+          </Card>
         </div>
       </div>
     </section>

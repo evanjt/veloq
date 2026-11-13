@@ -3414,7 +3414,7 @@
   },
   "remoteLink": {
     "title": "Dispositivi collegati",
-    "intro": "Un computer collegato può sfogliare questa libreria nel browser mentre Veloq è aperta su questo telefono. I tuoi dati vanno direttamente dal telefono al browser.",
+    "intro": "Un computer collegato può sfogliare questa libreria nel browser mentre Veloq è aperta su questo telefono. I tuoi dati vanno direttamente dal telefono al browser. Lo schermo resta acceso finché è connesso.",
     "none": "Nessuno",
     "linkedCount_one": "{{count}} collegato",
     "linkedCount_other": "{{count}} collegati",
@@ -3430,7 +3430,7 @@
     "invalidCode": "Codice di collegamento non valido o scaduto",
     "waiting": "In attesa del browser…",
     "confirmTitle": "Collegare {{name}}?",
-    "confirmMessage": "Potrà sfogliare le tue attività ogni volta che Veloq è aperta su questo telefono. Puoi rimuoverlo in Impostazioni in qualsiasi momento.",
+    "confirmMessage": "Potrà sfogliare le tue attività ogni volta che Veloq è aperta su questo telefono. Puoi rimuoverlo in Impostazioni in qualsiasi momento. Lo schermo resta acceso finché è connesso.",
     "confirm": "Collega",
     "decline": "Rifiuta",
     "expired": "Il browser non si è connesso in tempo. Crea un nuovo codice nella pagina e scansionalo di nuovo.",
@@ -3457,7 +3457,7 @@
       "confirming": "Conferma sul telefono",
       "waiting": "In attesa del telefono",
       "connecting": "Connessione in corso",
-      "connected": "Connesso",
+      "connected": "Connesso al tuo telefono",
       "update": "Aggiorna Veloq sul telefono",
       "unsupported": "Non supportato"
     },
@@ -3465,7 +3465,7 @@
     "notice": {
       "refused": "Il telefono ha rifiutato questo browser. Collegalo di nuovo con un nuovo codice.",
       "declined": "Il collegamento è stato rifiutato sul telefono.",
-      "removed": "Questo browser è stato rimosso sul telefono. Collegalo di nuovo con un nuovo codice.",
+      "removed": "Questo browser è stato rimosso sul telefono. Scansiona un nuovo codice per collegarlo di nuovo.",
       "unreachable": "Impossibile raggiungere il telefono da qui. Collega entrambi alla stessa rete Wi-Fi e scansiona il nuovo codice.",
       "phoneLocked": "Sblocca il telefono e apri Veloq per fare modifiche"
     },
@@ -3490,8 +3490,12 @@
     },
     "waiting": {
       "heading": "In attesa del telefono",
-      "body": "Apri Veloq sul telefono. Questa pagina si collega da sola, sulla stessa rete Wi-Fi e sulla maggior parte delle altre reti.",
-      "unreachable": "Impossibile raggiungere il telefono da qui. Collega entrambi alla stessa rete Wi-Fi."
+      "body": "Apri Veloq sul telefono e tienilo sbloccato. Questa pagina si collega da sola, sulla stessa rete Wi-Fi e sulla maggior parte delle altre reti.",
+      "unreachable": "Impossibile raggiungere il telefono da qui. Collega entrambi alla stessa rete Wi-Fi.",
+      "long": "Ancora in attesa. Veloq deve essere aperta sul telefono, non solo in background.",
+      "background": "Veloq è passata in background sul tuo telefono. Aprila e questa pagina riprende.",
+      "disconnected": "Disconnesso sul telefono. Apri Veloq per collegarti di nuovo.",
+      "switchedOff": "Dispositivi collegati è disattivato sul telefono. Attivalo in Impostazioni, Dispositivi collegati."
     },
     "update": {
       "heading": "Aggiorna Veloq sul telefono",

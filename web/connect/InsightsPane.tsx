@@ -57,7 +57,7 @@ function Cards({ insights }: { insights: Insight[] }) {
     <ul id="insight-cards" className="insight-cards">
       {insights.map((insight) => (
         <li key={insight.id} data-category={insight.category} data-priority={insight.priority}>
-          <article className="panel card">
+          <article className="panel card ui-card">
             <h3>{insight.title}</h3>
             {insight.subtitle ? <p className="subtitle">{insight.subtitle}</p> : null}
             <p className="line">{insight.line}</p>

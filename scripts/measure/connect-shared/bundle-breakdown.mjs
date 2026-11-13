@@ -14,7 +14,7 @@ const r = await build({
       name: 'theme-subset',
       setup(b) {
         b.onResolve({ filter: /^@\/theme$/ }, () => ({
-          path: join(root, 'web/connect/map/theme.ts'),
+          path: join(root, 'web/connect/theme.ts'),
         }));
       },
     },

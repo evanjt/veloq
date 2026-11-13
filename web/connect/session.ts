@@ -9,6 +9,7 @@ import type { ParseKeys } from 'i18next';
 import { factsOf, type Facts, type StatRow } from './connection';
 import { DETAIL_SLOTS, DETAIL_STREAM_TYPES } from './activity';
 import { createClient, type Client } from './client';
+import { indicatorChip, routeChip } from './highlights';
 import {
   BEST_EFFORT_PERIODS,
   RANGES,
@@ -62,6 +63,8 @@ import { createStore } from './store';
 const RELAY = 'wss://auth.veloq.fit/link/';
 const STATUS_POLL_MS = 1000;
 const GATHER_LIMIT_MS = 3000;
+/** How long the page waits for the phone before it says the app has to be open, not in the background. */
+export const STILL_WAITING_MS = 30_000;
 /** A phone that refuses a browser stays silent, so an unanswered offer counts as a drop. */
 const ANSWER_LIMIT_MS = 15000;
 /** About a year. A browser whose certificate runs out links again. */
@@ -266,7 +269,7 @@ export interface Session {
    * Ask the phone a read by name, for the map's sources, which name methods the
    * schema does not list until the screens that use them land.
    */
-  read: (method: string, params: object) => Promise<unknown>;
+  read: (method: string, params: object, slot?: string) => Promise<unknown>;
   /**
    * Ask the phone a write. A phone that is locked refuses it, and the athlete is
    * told why; the page holds nothing from a write that was not made.
@@ -326,6 +329,7 @@ export function createSession(env: Environment): Session {
   let channel: RTCDataChannel | null = null;
   let client: Client | null = null;
   let timers: unknown[] = [];
+  let waitTimer: unknown = null;
   let certificate: RTCCertificate;
   let browserFingerprint = '';
   let secret: Uint8Array<ArrayBuffer> | null = null;
@@ -372,7 +376,25 @@ export function createSession(env: Environment): Session {
     });
   };
 
+  /**
+   * One timer for the whole wait: armed when the page enters waiting and
+   * cleared when it leaves, so a retry in between does not restart the count.
+   */
+  function watchWait(name: State['name']) {
+    if (name === 'waiting') {
+      if (waitTimer !== null) return;
+      waitTimer = env.setTimeout(() => {
+        waitTimer = null;
+        dispatch({ type: 'stillWaiting' });
+      }, STILL_WAITING_MS);
+    } else if (waitTimer !== null) {
+      env.clearTimeout(waitTimer);
+      waitTimer = null;
+    }
+  }
+
   function dispatch(event: Event) {
+    if (event.type === 'start') watchWait('unpaired');
     const result = step(snapshot.state, event);
     const { connectedSince } = snapshot;
     const since =
@@ -382,6 +404,7 @@ export function createSession(env: Environment): Session {
           ? connectedSince
           : env.now();
     change({ state: result.state, connectedSince: since });
+    watchWait(snapshot.state.name);
     for (const effect of result.effects) void run(effect);
   }
 
@@ -722,10 +745,9 @@ export function createSession(env: Environment): Session {
       const held = (screens.get('highlights', mine) as Record<string, string[]> | undefined) ?? {};
       const next = { ...held };
       for (const id of ids) next[id] = [];
-      for (const route of bundle.routeHighlights)
-        next[route.activityId]?.push(route.isPr ? `${route.routeName} PR` : route.routeName);
+      for (const route of bundle.routeHighlights) next[route.activityId]?.push(routeChip(route));
       for (const indicator of bundle.indicators)
-        next[indicator.activityId]?.push(`${indicator.targetName} ${indicator.indicatorType}`);
+        next[indicator.activityId]?.push(indicatorChip(indicator));
       if (screens.put('highlights', mine, next)) publishScreens();
     } catch {
       // The cards stay without chips.
@@ -1030,9 +1052,9 @@ export function createSession(env: Environment): Session {
           if (mine === generation) feedLoading = false;
         });
     },
-    async read(method, params) {
+    async read(method, params, slot) {
       if (!client) throw new Error('not connected');
-      return client.ask(method as keyof Methods, params as never);
+      return client.ask(method as keyof Methods, params as never, slot);
     },
     async write(method, params) {
       if (!client) throw new Error('not connected');

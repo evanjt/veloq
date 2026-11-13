@@ -4,15 +4,17 @@
 // side pane lists what the viewport holds, and a row and its line light each
 // other.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { ParseKeys } from 'i18next';
 
 import type { MapSurfaceSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import { routePaletteExpression, sectionPaletteExpression } from '@/theme/colors';
 
 import type { Methods } from '../schema';
 import { type Route, write } from '../router';
-import { RANGE_LABELS, RANGES, rangeBounds } from '../table';
+import { RANGE_LABELS, RANGES, rangeBounds, type RangePreset } from '../table';
+import { Badge, Button, Chip, ChipGroup, DataTable, SearchField, SegmentedControl, type Column } from '../ui';
 import { MapPane } from './MapPane';
 import type { PickedFeature } from './hit';
 import type { Ask } from './protocol';
@@ -201,7 +203,7 @@ export function MapScreen({
   methods: readonly string[];
   route: Route;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const state = useMemo(() => readMapQuery(route), [route]);
   const [base, setBase] = useState<PageBase>(() => baseForScheme(prefersDark()));
   const [hovered, setHovered] = useState<string | null>(null);
@@ -363,182 +365,157 @@ export function MapScreen({
     : undefined;
   const reason = screen?.screen.emptyReason ?? null;
 
+  const sportName = (sport: string) => (i18n.exists(`activityTypes.${sport}`) ? t(`activityTypes.${sport}` as ParseKeys) : sport);
+  const rangeOptions = RANGES.map((preset) => ({ value: preset, label: t(RANGE_LABELS[preset]) }));
+  const bandOptions = BANDS.map((band) => ({
+    value: band,
+    label: band === 'all' ? t('mapScreen.distanceAny') : bandLabel(band, metric),
+  }));
+  const nameColumn = { key: 'name', header: t('connectPage.columns.name') };
+  const activityColumns: Column<Row>[] = [{ ...nameColumn, cell: (row) => row.text }];
+  const rowsOf = (lines: readonly LineFeature[], kind: 'route' | 'section'): Row[] =>
+    lines.map((line) => ({ id: line.id, text: lineName(line, kind) }));
+
   return (
     <section id="map-screen">
-      <div id="map-bar">
-        <div role="group" aria-label={t('connectPage.library.range')}>
-          {RANGES.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              aria-pressed={state.range === preset}
-              onClick={() => change({ range: state.range === preset ? null : preset })}
-            >
-              {RANGE_LABELS[preset]}
-            </button>
-          ))}
+      <MapPane
+        base={base}
+        spec={spec}
+        camera={camera}
+        minZoom={MIN_ZOOM}
+        highlightedIds={highlighted}
+        read={read}
+        onHover={setHovered}
+        onClick={onClick}
+        onView={setView}
+        onBox={onBox}
+        onEscape={clearArea}
+      />
+      <div id="map-filters" className="map-float">
+        <SearchField
+          label={t('connectPage.library.searchLabel')}
+          clearLabel={t('connectPage.library.searchLabel')}
+          placeholder={t('connectPage.library.searchPlaceholder')}
+          value={needle}
+          onChange={setNeedle}
+        />
+        <div className="map-field">
+          <SegmentedControl
+            label={t('connectPage.library.range')}
+            value={state.range ?? ('' as RangePreset)}
+            options={rangeOptions}
+            onChange={(range) => change({ range: state.range === range ? null : range })}
+          />
         </div>
-        <div role="group" aria-label={t('connectPage.library.sportLabel')}>
+        <ChipGroup label={t('connectPage.library.sportLabel')}>
           {(screen?.screen.availableSportTypes ?? []).map((sport) => (
-            <button
+            <Chip
               key={sport}
-              type="button"
-              aria-pressed={state.sports.includes(sport)}
-              onClick={() => change({ sports: toggle(state.sports, sport) })}
+              selected={state.sports.includes(sport)}
+              onToggle={() => change({ sports: toggle(state.sports, sport) })}
             >
-              {sport}
-            </button>
+              {sportName(sport)}
+            </Chip>
           ))}
+        </ChipGroup>
+        <div className="map-field">
+          <SegmentedControl
+            label={t('mapScreen.distanceAny')}
+            value={state.band}
+            options={bandOptions}
+            onChange={(band) => change({ band })}
+          />
         </div>
-        <div role="group">
-          {BANDS.map((band) => (
-            <button
-              key={band}
-              type="button"
-              aria-pressed={state.band === band}
-              onClick={() => change({ band })}
-            >
-              {band === 'all' ? t('mapScreen.distanceAny') : bandLabel(band, metric)}
-            </button>
-          ))}
-        </div>
-        <div role="group" aria-label={t('maps.layers')}>
+        <ChipGroup label={t('maps.layers')}>
           {LAYERS.map((layer) => (
-            <button
+            <Chip
               key={layer}
-              type="button"
-              aria-pressed={state.layers.includes(layer)}
-              onClick={() => change({ layers: toggle(state.layers, layer) })}
+              selected={state.layers.includes(layer)}
+              onToggle={() => change({ layers: toggle(state.layers, layer) })}
             >
               {layerLabel(layer)}
-            </button>
+            </Chip>
           ))}
+        </ChipGroup>
+        <div className="map-actions">
+          <Button size="sm" onClick={fitAll}>
+            {t('maps.fitAll')}
+          </Button>
+          <Button size="sm" aria-pressed={base !== baseForScheme(prefersDark())} onClick={() => setBase(otherBase(base))}>
+            {t('maps.toggleStyle')}
+          </Button>
+          {box ? (
+            <Button size="sm" variant="ghost" onClick={() => setBox(null)}>
+              {t('mapScreen.emptyClearFilters')}
+            </Button>
+          ) : null}
         </div>
-        <input
-          type="search"
-          value={needle}
-          placeholder={t('connectPage.library.searchPlaceholder')}
-          aria-label={t('connectPage.library.searchLabel')}
-          onChange={(event) => setNeedle(event.target.value)}
-        />
-        <button id="map-fit" type="button" onClick={fitAll}>
-          {t('maps.fitAll')}
-        </button>
-        <button id="map-base" type="button" onClick={() => setBase(otherBase(base))}>
-          {t('maps.toggleStyle')}
-        </button>
-        {box ? (
-          <button id="map-clear-area" type="button" onClick={() => setBox(null)}>
-            {t('mapScreen.emptyClearFilters')}
-          </button>
-        ) : null}
         <output id="map-hover" aria-live="polite">
           {hoveredText}
         </output>
       </div>
-      <div id="map-body">
-        <MapPane
-          base={base}
-          spec={spec}
-          camera={camera}
-          minZoom={MIN_ZOOM}
-          highlightedIds={highlighted}
-          read={read}
-          onHover={setHovered}
-          onClick={onClick}
-          onView={setView}
-          onBox={onBox}
-          onEscape={clearArea}
-        />
-        <aside id="map-side">
-          {reason ? <EmptyReason reason={reason} /> : null}
-          {opened && openedLine ? (
-            <div id="map-open">
-              <h2>{lineName(openedLine, opened.kind)}</h2>
-              {opened.kind === 'section' ? (
-                <p>
-                  {t('maps.activitiesCount', { count: Number(openedLine.properties.visitCount ?? 0) })}
-                </p>
-              ) : null}
+      <aside id="map-side" className="map-float">
+        {reason ? <EmptyReason reason={reason} /> : null}
+        {opened && openedLine ? (
+          <div id="map-open">
+            <h2>{lineName(openedLine, opened.kind)}</h2>
+            {opened.kind === 'section' ? (
+              <p>{t('maps.activitiesCount', { count: Number(openedLine.properties.visitCount ?? 0) })}</p>
+            ) : null}
+            <div className="map-actions">
               <a href={write({ screen: opened.kind, id: opened.id, query: [] })}>{t('maps.viewDetails')}</a>
-              <button type="button" onClick={() => change({ open: null })}>
+              <Button size="sm" variant="ghost" onClick={() => change({ open: null })}>
                 {opened.kind === 'section' ? t('maps.closeSectionCard') : t('maps.closeRouteCard')}
-              </button>
+              </Button>
             </div>
-          ) : null}
-          <List
-            title={t('maps.layerActivities')}
-            count={held.activities.length}
-            rows={held.activities.map((a) => ({
-              id: a.activityId,
-              text: (a as unknown as Activity).name,
-              href: write({ screen: 'activity', id: a.activityId, query: [] }),
-            }))}
-            hovered={hovered}
-            onHover={setHovered}
+          </div>
+        ) : null}
+        <Results title={t('maps.layerActivities')} count={held.activities.length}>
+          <DataTable
+            label={t('maps.layerActivities')}
+            columns={activityColumns}
+            rows={held.activities.map((a) => ({ id: a.activityId, text: (a as unknown as Activity).name }))}
+            rowKey={(row) => row.id}
+            selectedKey={hovered}
+            onRowClick={(row) => {
+              location.hash = write({ screen: 'activity', id: row.id, query: [] });
+            }}
           />
-          <List
-            title={t('maps.layerRoutes')}
-            count={held.routes.length}
-            rows={held.routes.map((line) => ({ id: line.id, text: lineName(line, 'route') }))}
-            hovered={hovered}
-            onHover={setHovered}
-            onOpen={(id) => change({ open: `route:${id}` })}
+        </Results>
+        <Results title={t('maps.layerRoutes')} count={held.routes.length}>
+          <DataTable
+            label={t('maps.layerRoutes')}
+            columns={activityColumns}
+            rows={rowsOf(held.routes, 'route')}
+            rowKey={(row) => row.id}
+            selectedKey={hovered}
+            onRowClick={(row) => change({ open: `route:${row.id}` })}
           />
-          <List
-            title={t('maps.layerSections')}
-            count={held.sections.length}
-            rows={held.sections.map((line) => ({ id: line.id, text: lineName(line, 'section') }))}
-            hovered={hovered}
-            onHover={setHovered}
-            onOpen={(id) => change({ open: `section:${id}` })}
+        </Results>
+        <Results title={t('maps.layerSections')} count={held.sections.length}>
+          <DataTable
+            label={t('maps.layerSections')}
+            columns={activityColumns}
+            rows={rowsOf(held.sections, 'section')}
+            rowKey={(row) => row.id}
+            selectedKey={hovered}
+            onRowClick={(row) => change({ open: `section:${row.id}` })}
           />
-        </aside>
-      </div>
+        </Results>
+      </aside>
     </section>
   );
 }
 
-type Row = { id: string; text: string; href?: string };
+type Row = { id: string; text: string };
 
-function List({
-  title,
-  count,
-  rows,
-  hovered,
-  onHover,
-  onOpen,
-}: {
-  title: string;
-  count: number;
-  rows: Row[];
-  hovered: string | null;
-  onHover: (id: string | null) => void;
-  onOpen?: (id: string) => void;
-}) {
+function Results({ title, count, children }: { title: string; count: number; children: ReactNode }) {
   return (
     <div className="map-list">
       <h3>
-        {title} <span>{count}</span>
+        {title} <Badge>{String(count)}</Badge>
       </h3>
-      <ul>
-        {rows.map((row) => (
-          <li
-            key={row.id}
-            aria-current={hovered === row.id}
-            onMouseEnter={() => onHover(row.id)}
-            onMouseLeave={() => onHover(null)}
-          >
-            {row.href ? (
-              <a href={row.href}>{row.text}</a>
-            ) : (
-              <button type="button" onClick={() => onOpen?.(row.id)}>
-                {row.text}
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
+      {children}
     </div>
   );
 }

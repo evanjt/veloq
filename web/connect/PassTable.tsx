@@ -1,7 +1,9 @@
 // A section's pass table or a route's attempt table: one row per pass, the
 // same shift-click and ctrl-click selection as the feed, and a swatch in the
-// compare colour on every selected row.
+// compare colour on every selected row. The page fills the cells; this only
+// marks and selects.
 
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -12,26 +14,41 @@ import {
   type Mode,
   type PassRow,
 } from './compare';
-import { clock } from './format';
 
-export type PassTableRow = PassRow & { label: string };
+export type PassTableRow = PassRow & {
+  /** The row's own header cell: what the pass is called. */
+  label: ReactNode;
+  /** The cells after the label, one per column the page's head names. */
+  cells: ReactNode[];
+  /** Marks the row for the page's emphasis, such as the fastest pass. */
+  pr?: boolean;
+};
 
 export function PassTable(props: {
   rows: readonly PassTableRow[];
   set: readonly Compared[];
   anchor: string | null;
+  /** The header cells after the swatch column, one per column of `cells`. */
+  head: ReactNode;
   /** Told the new selection, and the ids a fifth selection dropped. */
   onSelect: (ids: string[], dropped: string[], anchor: string) => void;
 }) {
   const { t } = useTranslation();
   const order = props.rows.map((row) => row.id);
   return (
-    <table id="pass-table" aria-label={t('connectPage.compare.passTable', { max: MAX_COMPARED })}>
+    <table id="passes" aria-label={t('connectPage.compare.passTable', { max: MAX_COMPARED })}>
+      <thead>
+        <tr>
+          <th scope="col" />
+          {props.head}
+        </tr>
+      </thead>
       <tbody>
         {passTableRows(props.rows, props.set).map((row) => (
           <tr
             key={row.id}
             data-row={row.id}
+            data-pr={row.pr ?? false}
             aria-selected={row.colour !== null}
             onClick={(event) => {
               const mode: Mode = event.shiftKey
@@ -50,7 +67,9 @@ export function PassTable(props: {
           >
             <td>{row.colour ? <span className={`swatch ${row.colour}`} /> : null}</td>
             <th scope="row">{row.label}</th>
-            <td>{row.elapsed == null ? '' : clock(row.elapsed)}</td>
+            {row.cells.map((cell, at) => (
+              <td key={at}>{cell}</td>
+            ))}
           </tr>
         ))}
       </tbody>

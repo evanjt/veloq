@@ -3392,7 +3392,7 @@
   },
   "remoteLink": {
     "title": "Dispositivos associados",
-    "intro": "Um computador associado pode explorar esta biblioteca no navegador enquanto o Veloq estiver aberto neste telemóvel. Os seus dados vão diretamente do telemóvel para o navegador.",
+    "intro": "Um computador associado pode explorar esta biblioteca no navegador enquanto o Veloq estiver aberto neste telemóvel. Os seus dados vão diretamente do telemóvel para o navegador. O ecrã permanece ligado enquanto estiver ligado.",
     "none": "Nenhum",
     "linkedCount_one": "{{count}} associado",
     "linkedCount_other": "{{count}} associados",
@@ -3408,7 +3408,7 @@
     "invalidCode": "Código de associação inválido ou expirado",
     "waiting": "À espera do navegador…",
     "confirmTitle": "Associar {{name}}?",
-    "confirmMessage": "Poderá explorar as suas atividades sempre que o Veloq estiver aberto neste telemóvel. Pode removê-lo nas Definições a qualquer momento.",
+    "confirmMessage": "Poderá explorar as suas atividades sempre que o Veloq estiver aberto neste telemóvel. Pode removê-lo nas Definições a qualquer momento. O ecrã permanece ligado enquanto estiver ligado.",
     "confirm": "Associar",
     "decline": "Recusar",
     "expired": "O navegador não se ligou a tempo. Crie um novo código na página e leia-o novamente.",
@@ -3435,7 +3435,7 @@
       "confirming": "Confirme no telemóvel",
       "waiting": "A aguardar o telemóvel",
       "connecting": "A ligar",
-      "connected": "Ligado",
+      "connected": "Ligado ao seu telemóvel",
       "update": "Atualize o Veloq no telemóvel",
       "unsupported": "Não suportado"
     },
@@ -3443,7 +3443,7 @@
     "notice": {
       "refused": "O telemóvel recusou este navegador. Associe-o de novo com um código novo.",
       "declined": "A associação foi recusada no telemóvel.",
-      "removed": "Este navegador foi removido no telemóvel. Associe-o de novo com um código novo.",
+      "removed": "Este navegador foi removido no telemóvel. Leia um código novo para o associar de novo.",
       "unreachable": "Não foi possível alcançar o telemóvel a partir daqui. Coloque os dois na mesma rede Wi-Fi e leia o código novo.",
       "phoneLocked": "Desbloqueie o telemóvel e abra o Veloq para fazer alterações"
     },
@@ -3468,8 +3468,12 @@
     },
     "waiting": {
       "heading": "A aguardar o telemóvel",
-      "body": "Abra o Veloq no telemóvel. Esta página liga-se sozinha, na mesma rede Wi-Fi e na maioria das outras redes.",
-      "unreachable": "Não foi possível alcançar o telemóvel a partir daqui. Coloque os dois na mesma rede Wi-Fi."
+      "body": "Abra o Veloq no telemóvel e mantenha-o desbloqueado. Esta página liga-se sozinha, na mesma rede Wi-Fi e na maioria das outras redes.",
+      "unreachable": "Não foi possível alcançar o telemóvel a partir daqui. Coloque os dois na mesma rede Wi-Fi.",
+      "long": "Ainda a aguardar. O Veloq tem de estar aberto no telemóvel, não apenas em segundo plano.",
+      "background": "O Veloq passou para segundo plano no seu telemóvel. Abra-o e esta página continua.",
+      "disconnected": "Desligado no telemóvel. Abra o Veloq para ligar de novo.",
+      "switchedOff": "Dispositivos associados está desativado no telemóvel. Ative em Definições, Dispositivos associados."
     },
     "update": {
       "heading": "Atualize o Veloq no telemóvel",

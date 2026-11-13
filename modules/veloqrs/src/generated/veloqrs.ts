@@ -15725,6 +15725,155 @@ const FfiConverterTypeFfiLinkDayLoads = (() => {
 })();
 
 /**
+ * What `detection.setEnabled` is asked: whether route matching is on.
+ */
+export type FfiLinkDetectionEnabledAsk = {
+  enabled: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiLinkDetectionEnabledAsk} record objects.
+ */
+export const FfiLinkDetectionEnabledAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkDetectionEnabledAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkDetectionEnabledAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkDetectionEnabledAsk = (() => {
+  type TypeName = FfiLinkDetectionEnabledAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        enabled: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterBool.writeIntoCursor(value.enabled, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterBool.allocationSize(value.enabled);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The two numbers route grouping is matched by, as the phone's grouping
+ * preview sets them: how much of a route has to match, in percent, and how
+ * far apart the two ends may be, in metres.
+ */
+export type FfiLinkStrictness = {
+  minMatchPct: number;
+  endpointThreshold: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkStrictness} record objects.
+ */
+export const FfiLinkStrictness = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkStrictness, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkStrictness>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkStrictness = (() => {
+  type TypeName = FfiLinkStrictness;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        minMatchPct: FfiConverterFloat64.readFromCursor(c),
+        endpointThreshold: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterFloat64.writeIntoCursor(value.minMatchPct, c);
+      FfiConverterFloat64.writeIntoCursor(value.endpointThreshold, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.minMatchPct) +
+        FfiConverterFloat64.allocationSize(value.endpointThreshold)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `detection.settings` answers: the switch, the match strictness and the
+ * section config, each as the engine reads it.
+ */
+export type FfiLinkDetectionSettings = {
+  enabled: boolean;
+  strictness: FfiLinkStrictness;
+  sectionConfig: FfiSectionConfig;
+};
+
+/**
+ * Generated factory for {@link FfiLinkDetectionSettings} record objects.
+ */
+export const FfiLinkDetectionSettings = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkDetectionSettings,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkDetectionSettings>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkDetectionSettings = (() => {
+  type TypeName = FfiLinkDetectionSettings;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        enabled: FfiConverterBool.readFromCursor(c),
+        strictness: FfiConverterTypeFfiLinkStrictness.readFromCursor(c),
+        sectionConfig: FfiConverterTypeFfiSectionConfig.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterBool.writeIntoCursor(value.enabled, c);
+      FfiConverterTypeFfiLinkStrictness.writeIntoCursor(value.strictness, c);
+      FfiConverterTypeFfiSectionConfig.writeIntoCursor(value.sectionConfig, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterBool.allocationSize(value.enabled) +
+        FfiConverterTypeFfiLinkStrictness.allocationSize(value.strictness) +
+        FfiConverterTypeFfiSectionConfig.allocationSize(value.sectionConfig)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A browser linked to this phone.
  */
 export type FfiLinkedDevice = {
@@ -15841,6 +15990,55 @@ const FfiConverterTypeFfiLinkDevicesAnswer = (() => {
       return (
         FfiConverterSequenceTypeFfiLinkedDevice.allocationSize(value.devices) +
         FfiConverterOptionalString.allocationSize(value.thisBrowser)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What the exclude and include methods are asked: the section or route and
+ * the activity.
+ */
+export type FfiLinkExcludeAsk = {
+  id: string;
+  activityId: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkExcludeAsk} record objects.
+ */
+export const FfiLinkExcludeAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkExcludeAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkExcludeAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkExcludeAsk = (() => {
+  type TypeName = FfiLinkExcludeAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        activityId: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.activityId)
       );
     }
   }
@@ -16146,6 +16344,91 @@ const FfiConverterTypeFfiLinkFitnessScreenAsk = (() => {
 })();
 
 /**
+ * What `geo.route` and `geo.routeLatest` are asked: one route group.
+ */
+export type FfiLinkGeoGroupAsk = {
+  groupId: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkGeoGroupAsk} record objects.
+ */
+export const FfiLinkGeoGroupAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkGeoGroupAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkGeoGroupAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkGeoGroupAsk = (() => {
+  type TypeName = FfiLinkGeoGroupAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        groupId: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.groupId, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterString.allocationSize(value.groupId);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `geo.section` and `geo.sectionPasses` are asked: one section.
+ */
+export type FfiLinkGeoSectionAsk = {
+  sectionId: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkGeoSectionAsk} record objects.
+ */
+export const FfiLinkGeoSectionAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkGeoSectionAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkGeoSectionAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkGeoSectionAsk = (() => {
+  type TypeName = FfiLinkGeoSectionAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        sectionId: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.sectionId, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterString.allocationSize(value.sectionId);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A GeoJSON `FeatureCollection` as its text.
  */
 export type FfiLinkGeoText = {
@@ -16182,6 +16465,57 @@ const FfiConverterTypeFfiLinkGeoText = (() => {
     }
     allocationSize(value: TypeName): number {
       return FfiConverterString.allocationSize(value.text);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `heatmap.setHidden` is asked: the activity and whether the heatmap
+ * leaves it out.
+ */
+export type FfiLinkHeatmapHiddenAsk = {
+  activityId: string;
+  hidden: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiLinkHeatmapHiddenAsk} record objects.
+ */
+export const FfiLinkHeatmapHiddenAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkHeatmapHiddenAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkHeatmapHiddenAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkHeatmapHiddenAsk = (() => {
+  type TypeName = FfiLinkHeatmapHiddenAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityId: FfiConverterString.readFromCursor(c),
+        hidden: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterBool.writeIntoCursor(value.hidden, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterBool.allocationSize(value.hidden)
+      );
     }
   }
   return new FFIConverter();
@@ -16500,6 +16834,59 @@ const FfiConverterTypeFfiLinkHighlightsAsk = (() => {
     }
     allocationSize(value: TypeName): number {
       return FfiConverterSequenceString.allocationSize(value.ids);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `section.excludeLap` and `section.includeLap` are asked: the
+ * traversal, addressed by the activity and its start index.
+ */
+export type FfiLinkLapAsk = {
+  id: string;
+  activityId: string;
+  startIndex: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkLapAsk} record objects.
+ */
+export const FfiLinkLapAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkLapAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkLapAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkLapAsk = (() => {
+  type TypeName = FfiLinkLapAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        activityId: FfiConverterString.readFromCursor(c),
+        startIndex: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterUInt32.writeIntoCursor(value.startIndex, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterUInt32.allocationSize(value.startIndex)
+      );
     }
   }
   return new FFIConverter();
@@ -19265,6 +19652,98 @@ const FfiConverterTypeFfiLinkRouteAttemptsAsk = (() => {
 })();
 
 /**
+ * What `route.rename` is asked: the route and its new name, where an empty
+ * name clears it.
+ */
+export type FfiLinkRouteRenameAsk = {
+  id: string;
+  name: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkRouteRenameAsk} record objects.
+ */
+export const FfiLinkRouteRenameAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkRouteRenameAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkRouteRenameAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkRouteRenameAsk = (() => {
+  type TypeName = FfiLinkRouteRenameAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.name)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What a method that edits one section is asked.
+ */
+export type FfiLinkSectionAsk = {
+  id: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkSectionAsk} record objects.
+ */
+export const FfiLinkSectionAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkSectionAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkSectionAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkSectionAsk = (() => {
+  type TypeName = FfiLinkSectionAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterString.allocationSize(value.id);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What `section.excluded` answers: the activities whose every traversal of
  * the section is excluded.
  */
@@ -19737,6 +20216,55 @@ const FfiConverterTypeFfiLinkSectionHistory = (() => {
         ) +
         FfiConverterOptionalFloat64.allocationSize(value.pinnedVersion) +
         FfiConverterSequenceTypeFfiActivityName.allocationSize(value.names)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `section.setLift` is asked: the section and whether it is a lift.
+ */
+export type FfiLinkSectionLiftAsk = {
+  id: string;
+  isLift: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiLinkSectionLiftAsk} record objects.
+ */
+export const FfiLinkSectionLiftAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkSectionLiftAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkSectionLiftAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkSectionLiftAsk = (() => {
+  type TypeName = FfiLinkSectionLiftAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        isLift: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterBool.writeIntoCursor(value.isLift, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterBool.allocationSize(value.isLift)
       );
     }
   }
@@ -50208,18 +50736,25 @@ export default Object.freeze({
     FfiConverterTypeFfiLinkActivitySections,
     FfiConverterTypeFfiLinkBestEffortsAsk,
     FfiConverterTypeFfiLinkDayLoads,
+    FfiConverterTypeFfiLinkDetectionEnabledAsk,
+    FfiConverterTypeFfiLinkDetectionSettings,
     FfiConverterTypeFfiLinkDevicesAnswer,
+    FfiConverterTypeFfiLinkExcludeAsk,
     FfiConverterTypeFfiLinkExerciseAsk,
     FfiConverterTypeFfiLinkFeedPage,
     FfiConverterTypeFfiLinkFeedPageAsk,
     FfiConverterTypeFfiLinkFitnessScreenAsk,
+    FfiConverterTypeFfiLinkGeoGroupAsk,
+    FfiConverterTypeFfiLinkGeoSectionAsk,
     FfiConverterTypeFfiLinkGeoText,
+    FfiConverterTypeFfiLinkHeatmapHiddenAsk,
     FfiConverterTypeFfiLinkHeatmapProgress,
     FfiConverterTypeFfiLinkHeatmapTile,
     FfiConverterTypeFfiLinkHeatmapTileAsk,
     FfiConverterTypeFfiLinkHello,
     FfiConverterTypeFfiLinkHelloAnswer,
     FfiConverterTypeFfiLinkHighlightsAsk,
+    FfiConverterTypeFfiLinkLapAsk,
     FfiConverterTypeFfiLinkLoadsAsk,
     FfiConverterTypeFfiLinkMapAsk,
     FfiConverterTypeFfiLinkMapScreen,
@@ -50237,8 +50772,11 @@ export default Object.freeze({
     FfiConverterTypeFfiLinkRecordingsAnswer,
     FfiConverterTypeFfiLinkRecordingsAsk,
     FfiConverterTypeFfiLinkRouteAttemptsAsk,
+    FfiConverterTypeFfiLinkRouteRenameAsk,
+    FfiConverterTypeFfiLinkSectionAsk,
     FfiConverterTypeFfiLinkSectionExcluded,
     FfiConverterTypeFfiLinkSectionHistory,
+    FfiConverterTypeFfiLinkSectionLiftAsk,
     FfiConverterTypeFfiLinkSectionRenameAsk,
     FfiConverterTypeFfiLinkSettingValue,
     FfiConverterTypeFfiLinkSettingsAnswer,
@@ -50246,6 +50784,7 @@ export default Object.freeze({
     FfiConverterTypeFfiLinkSparklinesAsk,
     FfiConverterTypeFfiLinkStreamsAsk,
     FfiConverterTypeFfiLinkStrengthAsk,
+    FfiConverterTypeFfiLinkStrictness,
     FfiConverterTypeFfiLinkSummaryAsk,
     FfiConverterTypeFfiLinkWellnessAsk,
     FfiConverterTypeFfiLinkWorkoutSections,

@@ -3320,7 +3320,7 @@
   },
   "remoteLink": {
     "title": "Gekoppelde apparaten",
-    "intro": "Een gekoppelde computer kan deze bibliotheek in de browser bekijken zolang Veloq op deze telefoon open is. Je gegevens gaan rechtstreeks van de telefoon naar de browser.",
+    "intro": "Een gekoppelde computer kan deze bibliotheek in de browser bekijken zolang Veloq op deze telefoon open is. Je gegevens gaan rechtstreeks van de telefoon naar de browser. Het scherm blijft aan zolang er verbinding is.",
     "none": "Geen",
     "linkedCount_one": "{{count}} gekoppeld",
     "linkedCount_other": "{{count}} gekoppeld",
@@ -3336,7 +3336,7 @@
     "invalidCode": "Geen geldige koppelcode, of verlopen",
     "waiting": "Wachten op de browser…",
     "confirmTitle": "{{name}} koppelen?",
-    "confirmMessage": "Het kan je activiteiten bekijken wanneer Veloq op deze telefoon open is. Je kunt het altijd verwijderen in Instellingen.",
+    "confirmMessage": "Het kan je activiteiten bekijken wanneer Veloq op deze telefoon open is. Je kunt het altijd verwijderen in Instellingen. Het scherm blijft aan zolang er verbinding is.",
     "confirm": "Koppelen",
     "decline": "Weigeren",
     "expired": "De browser maakte niet op tijd verbinding. Maak een nieuwe code op de pagina en scan die opnieuw.",
@@ -3363,7 +3363,7 @@
       "confirming": "Bevestig op je telefoon",
       "waiting": "Wachten op je telefoon",
       "connecting": "Verbinden",
-      "connected": "Verbonden",
+      "connected": "Verbonden met je telefoon",
       "update": "Werk Veloq bij op je telefoon",
       "unsupported": "Niet ondersteund"
     },
@@ -3371,7 +3371,7 @@
     "notice": {
       "refused": "De telefoon heeft deze browser geweigerd. Koppel opnieuw met een nieuwe code.",
       "declined": "Het koppelen is op de telefoon geweigerd.",
-      "removed": "Deze browser is op de telefoon verwijderd. Koppel opnieuw met een nieuwe code.",
+      "removed": "Deze browser is op de telefoon verwijderd. Scan een nieuwe code om opnieuw te koppelen.",
       "unreachable": "Je telefoon is vanaf hier niet bereikbaar. Zet beide op hetzelfde wifi-netwerk en scan de nieuwe code.",
       "phoneLocked": "Ontgrendel je telefoon en open Veloq om wijzigingen te maken"
     },
@@ -3396,8 +3396,12 @@
     },
     "waiting": {
       "heading": "Wachten op je telefoon",
-      "body": "Open Veloq op je telefoon. Deze pagina maakt zelf verbinding, via hetzelfde wifi-netwerk en via de meeste andere netwerken.",
-      "unreachable": "Je telefoon is vanaf hier niet bereikbaar. Zet beide op hetzelfde wifi-netwerk."
+      "body": "Open Veloq op je telefoon en houd hem ontgrendeld. Deze pagina maakt zelf verbinding, via hetzelfde wifi-netwerk en via de meeste andere netwerken.",
+      "unreachable": "Je telefoon is vanaf hier niet bereikbaar. Zet beide op hetzelfde wifi-netwerk.",
+      "long": "Nog steeds aan het wachten. Veloq moet op de telefoon geopend zijn, niet alleen op de achtergrond.",
+      "background": "Veloq is op je telefoon naar de achtergrond gegaan. Open de app en deze pagina gaat verder.",
+      "disconnected": "Op de telefoon losgekoppeld. Open Veloq om opnieuw verbinding te maken.",
+      "switchedOff": "Gekoppelde apparaten staat uit op de telefoon. Zet het aan onder Instellingen, Gekoppelde apparaten."
     },
     "update": {
       "heading": "Werk Veloq bij op je telefoon",

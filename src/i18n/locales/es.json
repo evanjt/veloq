@@ -3415,7 +3415,7 @@
   },
   "remoteLink": {
     "title": "Dispositivos vinculados",
-    "intro": "Un ordenador vinculado puede explorar esta biblioteca en su navegador mientras Veloq esté abierto en este teléfono. Tus datos van directamente del teléfono al navegador.",
+    "intro": "Un ordenador vinculado puede explorar esta biblioteca en su navegador mientras Veloq esté abierto en este teléfono. Tus datos van directamente del teléfono al navegador. La pantalla permanece encendida mientras está conectado.",
     "none": "Ninguno",
     "linkedCount_one": "{{count}} vinculado",
     "linkedCount_other": "{{count}} vinculados",
@@ -3431,7 +3431,7 @@
     "invalidCode": "No es un código de vinculación válido o ha caducado",
     "waiting": "Esperando al navegador…",
     "confirmTitle": "¿Vincular {{name}}?",
-    "confirmMessage": "Podrá explorar tus actividades siempre que Veloq esté abierto en este teléfono. Puedes quitarlo en Ajustes cuando quieras.",
+    "confirmMessage": "Podrá explorar tus actividades siempre que Veloq esté abierto en este teléfono. Puedes quitarlo en Ajustes cuando quieras. La pantalla permanece encendida mientras está conectado.",
     "confirm": "Vincular",
     "decline": "Rechazar",
     "expired": "El navegador no se conectó a tiempo. Genera un código nuevo en la página y vuelve a escanearlo.",
@@ -3458,7 +3458,7 @@
       "confirming": "Confirma en tu teléfono",
       "waiting": "Esperando a tu teléfono",
       "connecting": "Conectando",
-      "connected": "Conectado",
+      "connected": "Conectado a tu teléfono",
       "update": "Actualiza Veloq en tu teléfono",
       "unsupported": "No compatible"
     },
@@ -3466,7 +3466,7 @@
     "notice": {
       "refused": "El teléfono rechazó este navegador. Vuélvelo a vincular con un código nuevo.",
       "declined": "La vinculación se rechazó en el teléfono.",
-      "removed": "Este navegador se eliminó en el teléfono. Vuélvelo a vincular con un código nuevo.",
+      "removed": "Este navegador se eliminó en el teléfono. Escanea un código nuevo para vincularlo de nuevo.",
       "unreachable": "No se pudo llegar a tu teléfono desde aquí. Conecta ambos a la misma red Wi-Fi y escanea el código nuevo.",
       "phoneLocked": "Desbloquea tu teléfono y abre Veloq para hacer cambios"
     },
@@ -3491,8 +3491,12 @@
     },
     "waiting": {
       "heading": "Esperando a tu teléfono",
-      "body": "Abre Veloq en tu teléfono. Esta página se conecta sola, en la misma red Wi-Fi y en la mayoría de las demás redes.",
-      "unreachable": "No se pudo llegar a tu teléfono desde aquí. Conecta ambos a la misma red Wi-Fi."
+      "body": "Abre Veloq en tu teléfono y mantenlo desbloqueado. Esta página se conecta sola, en la misma red Wi-Fi y en la mayoría de las demás redes.",
+      "unreachable": "No se pudo llegar a tu teléfono desde aquí. Conecta ambos a la misma red Wi-Fi.",
+      "long": "Seguimos esperando. Veloq tiene que estar abierto en el teléfono, no solo en segundo plano.",
+      "background": "Veloq pasó a segundo plano en tu teléfono. Ábrelo y esta página continúa.",
+      "disconnected": "Desconectado en el teléfono. Abre Veloq para conectar de nuevo.",
+      "switchedOff": "Dispositivos vinculados está desactivado en el teléfono. Actívalo en Ajustes, Dispositivos vinculados."
     },
     "update": {
       "heading": "Actualiza Veloq en tu teléfono",

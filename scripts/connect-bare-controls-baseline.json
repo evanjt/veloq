@@ -1,0 +1,10 @@
+{
+  "web/connect/ActivityPage.tsx": 2,
+  "web/connect/App.tsx": 3,
+  "web/connect/ConnectionChip.tsx": 1,
+  "web/connect/FitnessPane.tsx": 4,
+  "web/connect/InsightsPane.tsx": 1,
+  "web/connect/LanguageMenu.tsx": 1,
+  "web/connect/RoutesPage.tsx": 6,
+  "web/connect/map/MapScreen.tsx": 10
+}

@@ -229,8 +229,44 @@
       "write": false
     },
     {
+      "name": "geo.track",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiLinkGeoText",
+      "write": false
+    },
+    {
+      "name": "geo.activityOverlay",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiLinkGeoText",
+      "write": false
+    },
+    {
       "name": "geo.sections",
       "params": "FfiLinkNoAsk",
+      "result": "FfiLinkGeoText",
+      "write": false
+    },
+    {
+      "name": "geo.route",
+      "params": "FfiLinkGeoGroupAsk",
+      "result": "FfiLinkGeoText",
+      "write": false
+    },
+    {
+      "name": "geo.routeLatest",
+      "params": "FfiLinkGeoGroupAsk",
+      "result": "FfiLinkGeoText",
+      "write": false
+    },
+    {
+      "name": "geo.section",
+      "params": "FfiLinkGeoSectionAsk",
+      "result": "FfiLinkGeoText",
+      "write": false
+    },
+    {
+      "name": "geo.sectionPasses",
+      "params": "FfiLinkGeoSectionAsk",
       "result": "FfiLinkGeoText",
       "write": false
     },
@@ -297,6 +333,108 @@
     {
       "name": "section.rename",
       "params": "FfiLinkSectionRenameAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "section.setLift",
+      "params": "FfiLinkSectionLiftAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "section.accept",
+      "params": "FfiLinkSectionAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "section.acceptAll",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "section.enable",
+      "params": "FfiLinkSectionAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "section.disable",
+      "params": "FfiLinkSectionAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "section.excludeActivity",
+      "params": "FfiLinkExcludeAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "section.includeActivity",
+      "params": "FfiLinkExcludeAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "section.excludeLap",
+      "params": "FfiLinkLapAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "section.includeLap",
+      "params": "FfiLinkLapAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "route.rename",
+      "params": "FfiLinkRouteRenameAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "route.excludeActivity",
+      "params": "FfiLinkExcludeAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "route.includeActivity",
+      "params": "FfiLinkExcludeAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "heatmap.setHidden",
+      "params": "FfiLinkHeatmapHiddenAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "detection.settings",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiLinkDetectionSettings",
+      "write": false
+    },
+    {
+      "name": "detection.setEnabled",
+      "params": "FfiLinkDetectionEnabledAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "detection.setStrictness",
+      "params": "FfiLinkStrictness",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "detection.setSectionConfig",
+      "params": "FfiSectionConfig",
       "result": "FfiLinkWriteDone",
       "write": true
     }

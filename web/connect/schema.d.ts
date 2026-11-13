@@ -2340,12 +2340,38 @@ export type FfiLinkDayLoads = {
 };
 
 /**
+ * What `detection.setEnabled` is asked: whether route matching is on.
+ */
+export type FfiLinkDetectionEnabledAsk = {
+  enabled: boolean;
+};
+
+/**
+ * What `detection.settings` answers: the switch, the match strictness and the
+ * section config, each as the engine reads it.
+ */
+export type FfiLinkDetectionSettings = {
+  enabled: boolean;
+  strictness: FfiLinkStrictness;
+  sectionConfig: FfiSectionConfig;
+};
+
+/**
  * What `status.linkedDevices` answers: every linked device and the id of the
  * one that asked.
  */
 export type FfiLinkDevicesAnswer = {
   devices: FfiLinkedDevice[];
   thisBrowser: string | null;
+};
+
+/**
+ * What the exclude and include methods are asked: the section or route and
+ * the activity.
+ */
+export type FfiLinkExcludeAsk = {
+  id: string;
+  activityId: string;
 };
 
 /**
@@ -2413,10 +2439,33 @@ export type FfiLinkFitnessScreenAsk = {
 };
 
 /**
+ * What `geo.route` and `geo.routeLatest` are asked: one route group.
+ */
+export type FfiLinkGeoGroupAsk = {
+  groupId: string;
+};
+
+/**
+ * What `geo.section` and `geo.sectionPasses` are asked: one section.
+ */
+export type FfiLinkGeoSectionAsk = {
+  sectionId: string;
+};
+
+/**
  * A GeoJSON `FeatureCollection` as its text.
  */
 export type FfiLinkGeoText = {
   text: string;
+};
+
+/**
+ * What `heatmap.setHidden` is asked: the activity and whether the heatmap
+ * leaves it out.
+ */
+export type FfiLinkHeatmapHiddenAsk = {
+  activityId: string;
+  hidden: boolean;
 };
 
 /**
@@ -2480,6 +2529,16 @@ export type FfiLinkHelloAnswer = {
  */
 export type FfiLinkHighlightsAsk = {
   ids: string[];
+};
+
+/**
+ * What `section.excludeLap` and `section.includeLap` are asked: the
+ * traversal, addressed by the activity and its start index.
+ */
+export type FfiLinkLapAsk = {
+  id: string;
+  activityId: string;
+  startIndex: number;
 };
 
 /**
@@ -2641,6 +2700,22 @@ export type FfiLinkRouteAttemptsAsk = {
 };
 
 /**
+ * What `route.rename` is asked: the route and its new name, where an empty
+ * name clears it.
+ */
+export type FfiLinkRouteRenameAsk = {
+  id: string;
+  name: string;
+};
+
+/**
+ * What a method that edits one section is asked.
+ */
+export type FfiLinkSectionAsk = {
+  id: string;
+};
+
+/**
  * What `section.excluded` answers: the activities whose every traversal of
  * the section is excluded.
  */
@@ -2658,6 +2733,14 @@ export type FfiLinkSectionHistory = {
   geometryVersions: FfiSectionGeometryVersion[];
   pinnedVersion: number | null;
   names: FfiActivityName[];
+};
+
+/**
+ * What `section.setLift` is asked: the section and whether it is a lift.
+ */
+export type FfiLinkSectionLiftAsk = {
+  id: string;
+  isLift: boolean;
 };
 
 /**
@@ -2716,6 +2799,16 @@ export type FfiLinkStreamsAsk = {
 export type FfiLinkStrengthAsk = {
   nowWallSeconds: number;
   periodDays: number;
+};
+
+/**
+ * The two numbers route grouping is matched by, as the phone's grouping
+ * preview sets them: how much of a route has to match, in percent, and how
+ * far apart the two ends may be, in metres.
+ */
+export type FfiLinkStrictness = {
+  minMatchPct: number;
+  endpointThreshold: number;
 };
 
 /**
@@ -4487,6 +4580,17 @@ export type FfiSectionChartPoint = {
 };
 
 /**
+ * Section config for FFI
+ */
+export type FfiSectionConfig = {
+  proximityThreshold: number;
+  minSectionLength: number;
+  maxSectionLength: number;
+  minActivities: number;
+  divergenceThreshold: number;
+};
+
+/**
  * One wellness variable's relationship to attempt speed in one direction.
  */
 export type FfiSectionCorrelation = {
@@ -6165,7 +6269,13 @@ export type Methods = {
   'recordings.get': { params: FfiLinkRecordingAsk; result: FfiLinkRecordingAnswer };
   'map.screen': { params: FfiLinkMapAsk; result: FfiLinkMapScreen };
   'geo.routeLines': { params: FfiLinkNoAsk; result: FfiLinkGeoText };
+  'geo.track': { params: FfiLinkActivityAsk; result: FfiLinkGeoText };
+  'geo.activityOverlay': { params: FfiLinkActivityAsk; result: FfiLinkGeoText };
   'geo.sections': { params: FfiLinkNoAsk; result: FfiLinkGeoText };
+  'geo.route': { params: FfiLinkGeoGroupAsk; result: FfiLinkGeoText };
+  'geo.routeLatest': { params: FfiLinkGeoGroupAsk; result: FfiLinkGeoText };
+  'geo.section': { params: FfiLinkGeoSectionAsk; result: FfiLinkGeoText };
+  'geo.sectionPasses': { params: FfiLinkGeoSectionAsk; result: FfiLinkGeoText };
   'heatmap.tile': { params: FfiLinkHeatmapTileAsk; result: FfiLinkHeatmapTile };
   'heatmap.progress': { params: FfiLinkNoAsk; result: FfiLinkHeatmapProgress };
   'settings.get': { params: FfiLinkSettingsAsk; result: FfiLinkSettingsAnswer };
@@ -6177,4 +6287,21 @@ export type Methods = {
   'status.coverage': { params: FfiLinkNoAsk; result: LibraryCoverage };
   'status.sync': { params: FfiLinkNoAsk; result: FfiSyncStatus };
   'section.rename': { params: FfiLinkSectionRenameAsk; result: FfiLinkWriteDone };
+  'section.setLift': { params: FfiLinkSectionLiftAsk; result: FfiLinkWriteDone };
+  'section.accept': { params: FfiLinkSectionAsk; result: FfiLinkWriteDone };
+  'section.acceptAll': { params: FfiLinkNoAsk; result: FfiLinkWriteDone };
+  'section.enable': { params: FfiLinkSectionAsk; result: FfiLinkWriteDone };
+  'section.disable': { params: FfiLinkSectionAsk; result: FfiLinkWriteDone };
+  'section.excludeActivity': { params: FfiLinkExcludeAsk; result: FfiLinkWriteDone };
+  'section.includeActivity': { params: FfiLinkExcludeAsk; result: FfiLinkWriteDone };
+  'section.excludeLap': { params: FfiLinkLapAsk; result: FfiLinkWriteDone };
+  'section.includeLap': { params: FfiLinkLapAsk; result: FfiLinkWriteDone };
+  'route.rename': { params: FfiLinkRouteRenameAsk; result: FfiLinkWriteDone };
+  'route.excludeActivity': { params: FfiLinkExcludeAsk; result: FfiLinkWriteDone };
+  'route.includeActivity': { params: FfiLinkExcludeAsk; result: FfiLinkWriteDone };
+  'heatmap.setHidden': { params: FfiLinkHeatmapHiddenAsk; result: FfiLinkWriteDone };
+  'detection.settings': { params: FfiLinkNoAsk; result: FfiLinkDetectionSettings };
+  'detection.setEnabled': { params: FfiLinkDetectionEnabledAsk; result: FfiLinkWriteDone };
+  'detection.setStrictness': { params: FfiLinkStrictness; result: FfiLinkWriteDone };
+  'detection.setSectionConfig': { params: FfiSectionConfig; result: FfiLinkWriteDone };
 };

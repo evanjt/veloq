@@ -3628,7 +3628,7 @@
   },
   "remoteLink": {
     "title": "Połączone urządzenia",
-    "intro": "Połączony komputer może przeglądać tę bibliotekę w przeglądarce, gdy Veloq jest otwarty na tym telefonie. Twoje dane trafiają prosto z telefonu do przeglądarki.",
+    "intro": "Połączony komputer może przeglądać tę bibliotekę w przeglądarce, gdy Veloq jest otwarty na tym telefonie. Twoje dane trafiają prosto z telefonu do przeglądarki. Ekran pozostaje włączony, dopóki trwa połączenie.",
     "none": "Brak",
     "linkedCount_one": "{{count}} połączone",
     "linkedCount_few": "{{count}} połączone",
@@ -3646,7 +3646,7 @@
     "invalidCode": "Nieprawidłowy lub wygasły kod połączenia",
     "waiting": "Czekam na przeglądarkę…",
     "confirmTitle": "Połączyć {{name}}?",
-    "confirmMessage": "Będzie mogło przeglądać Twoje aktywności, gdy Veloq jest otwarty na tym telefonie. W każdej chwili możesz je usunąć w Ustawieniach.",
+    "confirmMessage": "Będzie mogło przeglądać Twoje aktywności, gdy Veloq jest otwarty na tym telefonie. W każdej chwili możesz je usunąć w Ustawieniach. Ekran pozostaje włączony, dopóki trwa połączenie.",
     "confirm": "Połącz",
     "decline": "Odrzuć",
     "expired": "Przeglądarka nie połączyła się na czas. Utwórz nowy kod na stronie i zeskanuj go ponownie.",
@@ -3675,7 +3675,7 @@
       "confirming": "Potwierdź na telefonie",
       "waiting": "Czekam na telefon",
       "connecting": "Łączenie",
-      "connected": "Połączono",
+      "connected": "Połączono z telefonem",
       "update": "Zaktualizuj Veloq na telefonie",
       "unsupported": "Brak obsługi"
     },
@@ -3683,7 +3683,7 @@
     "notice": {
       "refused": "Telefon odrzucił tę przeglądarkę. Połącz ją ponownie, używając nowego kodu.",
       "declined": "Połączenie zostało odrzucone na telefonie.",
-      "removed": "Ta przeglądarka została usunięta na telefonie. Połącz ją ponownie, używając nowego kodu.",
+      "removed": "Ta przeglądarka została usunięta na telefonie. Zeskanuj nowy kod, aby połączyć ją ponownie.",
       "unreachable": "Nie można połączyć się stąd z telefonem. Połącz oba urządzenia z tą samą siecią Wi-Fi i zeskanuj nowy kod.",
       "phoneLocked": "Odblokuj telefon i otwórz Veloq, aby wprowadzić zmiany"
     },
@@ -3708,8 +3708,12 @@
     },
     "waiting": {
       "heading": "Czekam na telefon",
-      "body": "Otwórz Veloq na telefonie. Ta strona łączy się sama, w tej samej sieci Wi-Fi i w większości innych sieci.",
-      "unreachable": "Nie można połączyć się stąd z telefonem. Połącz oba urządzenia z tą samą siecią Wi-Fi."
+      "body": "Otwórz Veloq na telefonie i nie blokuj ekranu. Ta strona łączy się sama, w tej samej sieci Wi-Fi i w większości innych sieci.",
+      "unreachable": "Nie można połączyć się stąd z telefonem. Połącz oba urządzenia z tą samą siecią Wi-Fi.",
+      "long": "Nadal czekam. Veloq musi być otwarty na telefonie, a nie tylko działać w tle.",
+      "background": "Veloq przeszedł w tło na Twoim telefonie. Otwórz go, a ta strona będzie kontynuować.",
+      "disconnected": "Rozłączono na telefonie. Otwórz Veloq, aby połączyć się ponownie.",
+      "switchedOff": "Funkcja Połączone urządzenia jest wyłączona na telefonie. Włącz ją w sekcji Ustawienia, Połączone urządzenia."
     },
     "update": {
       "heading": "Zaktualizuj Veloq na telefonie",

@@ -402,7 +402,28 @@ fn the_write_table_is_exactly_these_methods() {
         .filter(|method| method.is_write())
         .map(|method| method.name)
         .collect();
-    assert_eq!(writes, ["section.rename"]);
+    assert_eq!(
+        writes,
+        [
+            "section.rename",
+            "section.setLift",
+            "section.accept",
+            "section.acceptAll",
+            "section.enable",
+            "section.disable",
+            "section.excludeActivity",
+            "section.includeActivity",
+            "section.excludeLap",
+            "section.includeLap",
+            "route.rename",
+            "route.excludeActivity",
+            "route.includeActivity",
+            "heatmap.setHidden",
+            "detection.setEnabled",
+            "detection.setStrictness",
+            "detection.setSectionConfig",
+        ]
+    );
     for name in writes {
         assert!(is_write(name));
     }
@@ -438,10 +459,29 @@ fn sample_params(method: &str) -> &'static str {
         | "status.coverage"
         | "status.sync" => "{}",
         "section.rename" => r#"{"id":"s_a","name":"Col"}"#,
+        "section.setLift" => r#"{"id":"s1","isLift":true}"#,
+        "section.accept" | "section.enable" | "section.disable" => r#"{"id":"s1"}"#,
+        "section.acceptAll" => "{}",
+        "section.excludeActivity" | "section.includeActivity" => r#"{"id":"s1","activityId":"r1"}"#,
+        "section.excludeLap" | "section.includeLap" => {
+            r#"{"id":"s1","activityId":"r1","startIndex":0}"#
+        }
+        "route.rename" => r#"{"id":"g1","name":"Valley loop"}"#,
+        "route.excludeActivity" | "route.includeActivity" => r#"{"id":"g1","activityId":"r1"}"#,
+        "heatmap.setHidden" => r#"{"activityId":"r1","hidden":true}"#,
+        "detection.settings" => "{}",
+        "detection.setEnabled" => r#"{"enabled":false}"#,
+        "detection.setStrictness" => r#"{"minMatchPct":60.0,"endpointThreshold":200.0}"#,
+        "detection.setSectionConfig" => {
+            r#"{"proximityThreshold":200.0,"minSectionLength":150.0,"maxSectionLength":200000.0,"minActivities":2,"divergenceThreshold":0.15}"#
+        }
         "map.screen" => {
             r#"{"startDate":0,"endDate":2000000000,"sportTypes":["Ride"],"distanceBand":"all"}"#
         }
         "geo.routeLines" | "geo.sections" | "heatmap.progress" => "{}",
+        "geo.track" | "geo.activityOverlay" => r#"{"id":"i1"}"#,
+        "geo.route" | "geo.routeLatest" => r#"{"groupId":"g1"}"#,
+        "geo.section" | "geo.sectionPasses" => r#"{"sectionId":"s1"}"#,
         "heatmap.tile" => r#"{"z":3,"x":1,"y":2,"base":"dark"}"#,
         "fitness.screen" => {
             r#"{"spanDays":[42],"windows":{"heatmapFirstDay":"2025-01-01","heatmapLastDay":"2025-12-31","months":{"startTs":0,"endTs":86400},"yearCurrent":{"startTs":0,"endTs":86400},"yearPrevious":{"startTs":0,"endTs":86400},"monthCurrent":{"startTs":0,"endTs":86400},"monthPrevious":{"startTs":0,"endTs":86400},"nowWallSeconds":86400}}"#
@@ -596,7 +636,9 @@ fn the_current_version_gets_binary_frames() {
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_listed_method_answers_a_well_formed_ask() {
     let engine = engine_with_a_route_and_a_section();
-    let mut sections = engine_with_a_section();
+    let mut sections = engine_with_a_route_and_a_section();
+    crate::persistence::linked_devices::add(&sections.db, "Laptop", BROWSER, 1_700_000_000)
+        .expect("link the browser");
     for method in METHODS {
         let request = format!(
             r#"{{"id":5,"method":"{}","params":{}}}"#,
@@ -2416,4 +2458,747 @@ fn a_catalogue_reason_that_carries_data_is_written_as_the_page_reads_it() {
     );
     assert_eq!(as_json(&Hold::ElevationPaused), json!("elevationPaused"));
     assert_eq!(as_json(&Hold::ElevationRunning), json!("elevationRunning"));
+}
+
+fn overlay_line(points: &[(f64, f64)]) -> Vec<u8> {
+    let points: Vec<crate::GpsPoint> = points
+        .iter()
+        .map(|&(lat, lng)| crate::GpsPoint::new(lat, lng))
+        .collect();
+    crate::persistence::codec::encode_polyline(&points)
+}
+
+/// Scenario: two matched sections, one traced in two directions, the first
+/// holding the record.
+///
+/// Expected behaviour: both section lines, a portion per direction in the
+/// order of the encounters, and a record point at the first section's start.
+#[test]
+fn the_overlay_writes_sections_portions_and_the_record_point() {
+    let s_a = overlay_line(&[(46.2, 7.3), (46.21, 7.31)]);
+    let s_b = overlay_line(&[(46.3, 7.3), (46.31, 7.31)]);
+    let trace = overlay_line(&[(46.2, 7.3), (46.205, 7.305)]);
+    let sections = [
+        crate::basemap::OverlaySection {
+            id: "s_a",
+            name: Some("Col"),
+            polyline: &s_a,
+        },
+        crate::basemap::OverlaySection {
+            id: "s_b",
+            name: None,
+            polyline: &s_b,
+        },
+    ];
+    let encounters = [
+        crate::basemap::OverlayEncounter {
+            section_id: "s_b",
+            direction: "reverse",
+            is_pr: false,
+        },
+        crate::basemap::OverlayEncounter {
+            section_id: "s_a",
+            direction: "forward",
+            is_pr: true,
+        },
+        crate::basemap::OverlayEncounter {
+            section_id: "s_a",
+            direction: "reverse",
+            is_pr: false,
+        },
+    ];
+
+    let text = crate::basemap::activity_overlay_features(
+        &sections,
+        &[("s_a", trace.as_slice())],
+        &encounters,
+        &["s_a"],
+    );
+
+    let layer: Value = serde_json::from_str(&text).expect("GeoJSON");
+    let features = layer["features"].as_array().unwrap();
+    let kinds: Vec<_> = features
+        .iter()
+        .map(|f| f["properties"]["kind"].as_str().unwrap())
+        .collect();
+    assert_eq!(kinds, ["section", "section", "portion", "portion", "pr"]);
+    assert_eq!(features[0]["properties"]["id"], "s_b");
+    assert_eq!(features[1]["properties"]["id"], "s_a");
+    assert_eq!(features[1]["properties"]["name"], "Col");
+    assert_eq!(features[1]["properties"]["isPR"], true);
+    assert_eq!(features[0]["properties"]["isPR"], false);
+    assert_eq!(features[2]["properties"]["direction"], "forward");
+    assert_eq!(features[2]["properties"]["isPR"], true);
+    assert_eq!(features[3]["properties"]["direction"], "reverse");
+    assert_eq!(features[3]["properties"]["isPR"], false);
+    assert_eq!(features[2]["properties"]["sectionId"], "s_a");
+    assert_eq!(
+        features[4]["geometry"],
+        json!({"type":"Point","coordinates":[7.3, 46.2]})
+    );
+    assert!(features[1]["properties"]["colorIndex"].as_u64().unwrap() < 8);
+}
+
+#[test]
+fn the_overlay_leaves_out_a_line_under_two_points() {
+    let one = overlay_line(&[(46.2, 7.3)]);
+    let sections = [crate::basemap::OverlaySection {
+        id: "s_a",
+        name: None,
+        polyline: &one,
+    }];
+    let text = crate::basemap::activity_overlay_features(
+        &sections,
+        &[("s_a", one.as_slice())],
+        &[],
+        &["s_a"],
+    );
+    let layer: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(layer, json!({"type":"FeatureCollection","features":[]}));
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn an_activity_without_a_track_or_sections_answers_empty_collections() {
+    let engine = engine_with_rides();
+    let empty = json!({"type":"FeatureCollection","features":[]});
+    for method in ["geo.track", "geo.activityOverlay"] {
+        let got = reply(
+            &engine,
+            &format!(r#"{{"id":1,"method":"{method}","params":{{"id":"i1"}}}}"#),
+        );
+        let layer: Value = serde_json::from_str(got["result"]["text"].as_str().unwrap()).unwrap();
+        assert_eq!(layer, empty, "{method}");
+    }
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_track_is_the_line_the_phone_fetches() {
+    let mut engine = engine_with_rides();
+    let points = vec![
+        crate::GpsPoint::new(46.2, 7.3),
+        crate::GpsPoint::new(46.21, 7.31),
+        crate::GpsPoint::new(46.22, 7.32),
+    ];
+    engine
+        .add_activity("i1".into(), points.clone(), "Ride".into())
+        .expect("track");
+    let got = reply(
+        &engine,
+        r#"{"id":1,"method":"geo.track","params":{"id":"i1"}}"#,
+    );
+    assert_eq!(got["result"]["text"], crate::basemap::line_feature(&points));
+}
+
+fn geo_text(engine: &PersistentEngine, method: &str, params: &str) -> String {
+    let got = reply(
+        engine,
+        &format!(r#"{{"id":1,"method":"{method}","params":{params}}}"#),
+    );
+    got["result"]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{method} answered {got}"))
+        .to_string()
+}
+
+/// Expected behaviour: the route's line is the stored representative's
+/// track written as a line feature, byte for byte; an unknown group is the
+/// empty collection.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_route_line_is_the_stored_representative() {
+    let engine = engine_with_a_route_and_a_section();
+    let representative = engine
+        .get_representative_route("g1")
+        .expect("representative");
+    assert_eq!(
+        geo_text(&engine, "geo.route", r#"{"groupId":"g1"}"#),
+        crate::basemap::line_feature(&representative)
+    );
+    let empty = r#"{"type":"FeatureCollection","features":[]}"#;
+    assert_eq!(
+        geo_text(&engine, "geo.route", r#"{"groupId":"nope"}"#),
+        empty
+    );
+    assert_eq!(
+        geo_text(&engine, "geo.routeLatest", r#"{"groupId":"nope"}"#),
+        empty
+    );
+}
+
+/// Expected behaviour: the latest ride is the group's newest member by date,
+/// written as its stored track.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_latest_ride_is_the_newest_member_of_the_group() {
+    let engine = engine_with_a_route_and_a_section();
+    // r2 is a day newer than r1; give it a distinct track.
+    let shifted: Vec<crate::GpsPoint> = (0..60)
+        .map(|i| crate::GpsPoint {
+            latitude: 46.0 + f64::from(i) * 0.001,
+            longitude: 7.5,
+            elevation: None,
+        })
+        .collect();
+    let mut engine = engine;
+    engine
+        .add_activity("r2".into(), shifted, "Ride".into())
+        .expect("retrack r2");
+    let latest = engine.get_gps_track("r2").expect("r2 track");
+    assert_eq!(
+        geo_text(&engine, "geo.routeLatest", r#"{"groupId":"g1"}"#),
+        crate::basemap::line_feature(&latest)
+    );
+}
+
+/// Scenario: a section with passes by two activities, and one by an activity
+/// that holds no track.
+///
+/// Expected behaviour: one `LineString` per pass with a track, sliced at the
+/// stored track's positions `start_index` to `end_index` inclusive, with the
+/// activity id, direction and distance; the pass with no track is left out
+/// and counted in the collection's `withoutTrack`.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn section_passes_are_sliced_from_each_stored_track() {
+    let mut engine = engine_with_a_route_and_a_section();
+    engine
+        .add_activity(
+            "gone".into(),
+            vec![crate::GpsPoint::new(46.0, 7.0); 6],
+            "Ride".into(),
+        )
+        .expect("an activity");
+    engine
+        .db
+        .execute("DELETE FROM gps_tracks WHERE activity_id = 'gone'", [])
+        .expect("an activity with no track");
+    engine
+        .db
+        .execute("UPDATE section_activities SET excluded = 0, start_index = 10, end_index = 20 WHERE activity_id = 'r2'", [])
+        .expect("r2 pass");
+    engine
+        .db
+        .execute(
+            "INSERT INTO section_activities (section_id, activity_id, direction,
+                 start_index, end_index, distance_meters, lap_time, lap_pace, excluded)
+             VALUES ('s1', 'gone', 'reverse', 0, 5, 100.0, 20.0, 5.0, 0)",
+            [],
+        )
+        .expect("a pass with no track");
+
+    let text = geo_text(&engine, "geo.sectionPasses", r#"{"sectionId":"s1"}"#);
+
+    let layer: Value = serde_json::from_str(&text).expect("GeoJSON");
+    assert_eq!(layer["properties"]["withoutTrack"], 1);
+    let features = layer["features"].as_array().unwrap();
+    assert_eq!(features.len(), 2);
+    for (feature, (activity, from, to)) in features
+        .iter()
+        .zip([("r1", 0usize, 40usize), ("r2", 10, 20)])
+    {
+        let track = engine.get_gps_track(activity).unwrap();
+        let slice = crate::basemap::line_feature(&track[from..=to]);
+        let want: Value = serde_json::from_str(&slice).unwrap();
+        assert_eq!(feature["geometry"], want["geometry"]);
+        assert_eq!(feature["properties"]["activityId"], activity);
+        assert_eq!(feature["properties"]["direction"], "same");
+        assert!(feature["properties"]["distanceMeters"].is_number());
+    }
+}
+
+/// Expected behaviour: the section's line carries its id, name and palette;
+/// an unknown section is the empty collection for both reads.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_section_line_carries_its_identity() {
+    let engine = engine_with_a_route_and_a_section();
+    let layer: Value =
+        serde_json::from_str(&geo_text(&engine, "geo.section", r#"{"sectionId":"s1"}"#)).unwrap();
+    let features = layer["features"].as_array().unwrap();
+    assert_eq!(features.len(), 1);
+    assert_eq!(features[0]["properties"]["id"], "s1");
+    assert_eq!(features[0]["properties"]["name"], "Lake climb");
+    assert_eq!(
+        features[0]["properties"]["palette"],
+        crate::basemap::palette_key("s1")
+    );
+    let empty = json!({"type":"FeatureCollection","features":[]});
+    for method in ["geo.section", "geo.sectionPasses"] {
+        let got: Value =
+            serde_json::from_str(&geo_text(&engine, method, r#"{"sectionId":"nope"}"#)).unwrap();
+        assert_eq!(got["features"], empty["features"], "{method}");
+    }
+}
+
+/// The route-and-section engine with a browser linked, a second section and a
+/// second named route, and one route attempt under the first route.
+fn engine_for_edits() -> PersistentEngine {
+    let engine = engine_with_a_route_and_a_section();
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, 1_700_000_000)
+        .expect("link the browser");
+    engine
+        .db
+        .execute(
+            "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                distance_meters, disabled, version, source_activity_id)
+             VALUES ('s2', 'auto', 'Ridge', 'Ride', '[[46.0,7.0],[46.001,7.0]]', 800.0, 0, 1, NULL)",
+            [],
+        )
+        .expect("second section");
+    engine
+        .db
+        .execute(
+            "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type, activity_count)
+             VALUES ('g2', 'r2', '[\"r2\"]', 'Ride', 1)",
+            [],
+        )
+        .expect("second group");
+    for activity in ["r1", "r2"] {
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_matches (route_id, activity_id, match_percentage, direction)
+                 VALUES ('g1', ?1, 100.0, 'same')",
+                [activity],
+            )
+            .expect("match");
+    }
+    engine
+}
+
+fn send(engine: &mut PersistentEngine, method: &str, params: &str) -> Value {
+    written(
+        engine,
+        &format!(r#"{{"id":1,"method":"{method}","params":{params}}}"#),
+    )
+}
+
+fn section_of(engine: &PersistentEngine, id: &str) -> crate::FfiSection {
+    crate::persistence::screens::pooled::section_detail_data(&engine.db, id)
+        .section
+        .expect("the section")
+}
+
+fn excluded_in_section(engine: &PersistentEngine, id: &str) -> Vec<String> {
+    crate::persistence::screens::pooled::section_detail_data(&engine.db, id).excluded_activity_ids
+}
+
+fn excluded_in_route(engine: &PersistentEngine, id: &str) -> Vec<String> {
+    crate::persistence::screens::pooled::route_detail_data(&engine.db, id).excluded_activity_ids
+}
+
+#[test]
+fn a_lift_mark_is_the_one_the_phone_makes_and_unmarking_takes_it_back() {
+    let mut engine = engine_for_edits();
+    let got = send(
+        &mut engine,
+        "section.setLift",
+        r#"{"id":"s1","isLift":true}"#,
+    );
+    assert_eq!(got["result"], json!({ "ok": true }));
+    assert!(section_of(&engine, "s1").is_lift);
+    send(
+        &mut engine,
+        "section.setLift",
+        r#"{"id":"s1","isLift":false}"#,
+    );
+    assert!(!section_of(&engine, "s1").is_lift);
+}
+
+#[test]
+fn accepting_a_section_pins_it_and_accepting_all_pins_the_rest() {
+    let mut engine = engine_for_edits();
+    assert!(!section_of(&engine, "s1").is_user_defined);
+    send(&mut engine, "section.accept", r#"{"id":"s1"}"#);
+    assert!(section_of(&engine, "s1").is_user_defined);
+    assert!(!section_of(&engine, "s2").is_user_defined);
+    let got = send(&mut engine, "section.acceptAll", "{}");
+    assert_eq!(got["result"], json!({ "ok": true }));
+    assert!(section_of(&engine, "s2").is_user_defined);
+}
+
+#[test]
+fn accepting_a_section_that_is_not_there_is_refused() {
+    let mut engine = engine_for_edits();
+    let got = send(&mut engine, "section.accept", r#"{"id":"nope"}"#);
+    assert_eq!(got["error"], "Section not found: nope");
+    assert_eq!(logged(&engine).len(), 0);
+}
+
+#[test]
+fn disabling_a_section_then_enabling_it_leaves_it_as_it_began() {
+    let mut engine = engine_for_edits();
+    send(&mut engine, "section.disable", r#"{"id":"s1"}"#);
+    assert!(section_of(&engine, "s1").disabled);
+    send(&mut engine, "section.enable", r#"{"id":"s1"}"#);
+    assert!(!section_of(&engine, "s1").disabled);
+}
+
+#[test]
+fn excluding_an_activity_then_including_it_leaves_the_section_as_it_began() {
+    let mut engine = engine_for_edits();
+    let began = excluded_in_section(&engine, "s1");
+    let ask = r#"{"id":"s1","activityId":"r1"}"#;
+    send(&mut engine, "section.excludeActivity", ask);
+    let mut excluded = excluded_in_section(&engine, "s1");
+    excluded.sort();
+    assert_eq!(excluded, ["r1", "r2"]);
+    send(&mut engine, "section.includeActivity", ask);
+    send(
+        &mut engine,
+        "section.includeActivity",
+        r#"{"id":"s1","activityId":"r2"}"#,
+    );
+    send(
+        &mut engine,
+        "section.excludeActivity",
+        r#"{"id":"s1","activityId":"r2"}"#,
+    );
+    assert_eq!(excluded_in_section(&engine, "s1"), ["r2"]);
+    assert_eq!(began, ["r2"]);
+}
+
+#[test]
+fn excluding_a_lap_counts_one_traversal_out_and_including_it_counts_it_back() {
+    let mut engine = engine_for_edits();
+    let counted = |engine: &PersistentEngine| -> i64 {
+        engine
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM section_activities
+                 WHERE section_id = 's1' AND activity_id = 'r1' AND excluded = 0",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count")
+    };
+    assert_eq!(counted(&engine), 1);
+    let ask = r#"{"id":"s1","activityId":"r1","startIndex":0}"#;
+    send(&mut engine, "section.excludeLap", ask);
+    assert_eq!(counted(&engine), 0);
+    send(&mut engine, "section.includeLap", ask);
+    assert_eq!(counted(&engine), 1);
+}
+
+#[test]
+fn a_route_rename_is_the_phones_and_a_taken_name_is_refused_as_the_phone_refuses_it() {
+    let mut engine = engine_for_edits();
+    let got = send(
+        &mut engine,
+        "route.rename",
+        r#"{"id":"g2","name":"Valley loop"}"#,
+    );
+    assert_eq!(got["result"], json!({ "ok": true }));
+    let shown = |engine: &PersistentEngine, id: &str| {
+        crate::persistence::screens::pooled::route_detail_data(&engine.db, id)
+            .group
+            .and_then(|group| group.custom_name)
+    };
+    assert_eq!(shown(&engine, "g2").as_deref(), Some("Valley loop"));
+    let got = send(
+        &mut engine,
+        "route.rename",
+        r#"{"id":"g1","name":"Valley loop"}"#,
+    );
+    assert_eq!(got["error"], "Another route is already named Valley loop");
+    assert_ne!(shown(&engine, "g1").as_deref(), Some("Valley loop"));
+}
+
+#[test]
+fn a_route_exclusion_round_trips() {
+    let mut engine = engine_for_edits();
+    assert!(excluded_in_route(&engine, "g1").is_empty());
+    let ask = r#"{"id":"g1","activityId":"r1"}"#;
+    send(&mut engine, "route.excludeActivity", ask);
+    assert_eq!(excluded_in_route(&engine, "g1"), ["r1"]);
+    send(&mut engine, "route.includeActivity", ask);
+    assert!(excluded_in_route(&engine, "g1").is_empty());
+}
+
+#[test]
+fn hiding_an_activity_from_the_heatmap_lists_it_and_showing_it_takes_it_off() {
+    let mut engine = engine_for_edits();
+    let listed = |engine: &PersistentEngine| -> Vec<String> {
+        crate::persistence::tiles::heatmap_hidden_listing(&engine.db)
+            .into_iter()
+            .map(|row| row.activity_id)
+            .collect()
+    };
+    send(
+        &mut engine,
+        "heatmap.setHidden",
+        r#"{"activityId":"r1","hidden":true}"#,
+    );
+    assert_eq!(listed(&engine), ["r1"]);
+    send(
+        &mut engine,
+        "heatmap.setHidden",
+        r#"{"activityId":"r1","hidden":false}"#,
+    );
+    assert!(listed(&engine).is_empty());
+}
+
+#[test]
+fn every_edit_leaves_one_row_naming_its_target() {
+    let mut engine = engine_for_edits();
+    let edits = [
+        (
+            "section.setLift",
+            r#"{"id":"s1","isLift":true}"#,
+            "Marked section Lake climb as a lift",
+        ),
+        (
+            "section.accept",
+            r#"{"id":"s1"}"#,
+            "Accepted section Lake climb",
+        ),
+        (
+            "section.disable",
+            r#"{"id":"s1"}"#,
+            "Disabled section Lake climb",
+        ),
+        (
+            "section.enable",
+            r#"{"id":"s1"}"#,
+            "Enabled section Lake climb",
+        ),
+        (
+            "section.excludeActivity",
+            r#"{"id":"s1","activityId":"r1"}"#,
+            "Excluded Loop r1 from section Lake climb",
+        ),
+        (
+            "route.excludeActivity",
+            r#"{"id":"g1","activityId":"r1"}"#,
+            "Excluded Loop r1 from route g1",
+        ),
+        (
+            "heatmap.setHidden",
+            r#"{"activityId":"r1","hidden":true}"#,
+            "Hid Loop r1 from the heatmap",
+        ),
+    ];
+    for (method, params, _) in edits {
+        send(&mut engine, method, params);
+    }
+    let rows = logged(&engine);
+    assert_eq!(rows.len(), edits.len());
+    for (method, _, summary) in edits {
+        let row = rows.iter().find(|row| row.method == method).expect(method);
+        assert_eq!(row.summary, summary);
+    }
+}
+
+#[test]
+fn each_edit_announces_the_channel_a_screen_re_reads() {
+    use crate::objects::observer::{recorder::Recorder, set_observer};
+    let _serial = crate::test_globals::serial_global_state();
+    let recorder = Recorder::new();
+    set_observer(Some(recorder.clone()));
+    let mut engine = engine_for_edits();
+    for (method, params) in [
+        ("section.setLift", r#"{"id":"s1","isLift":true}"#),
+        (
+            "section.excludeActivity",
+            r#"{"id":"s1","activityId":"r1"}"#,
+        ),
+        ("route.excludeActivity", r#"{"id":"g1","activityId":"r1"}"#),
+        ("route.rename", r#"{"id":"g1","name":"Valley loop"}"#),
+        ("heatmap.setHidden", r#"{"activityId":"r1","hidden":true}"#),
+    ] {
+        let request = format!(r#"{{"id":1,"method":"{method}","params":{params}}}"#);
+        answer_write(&mut engine, BROWSER, &request).announce();
+    }
+    let events = recorder.events();
+    set_observer(None);
+    assert_eq!(
+        events,
+        [
+            "remote_wrote:sections",
+            "remote_wrote:sections",
+            "remote_wrote:groups",
+            "remote_wrote:groups",
+            "remote_wrote:activities",
+        ]
+    );
+}
+
+/// A linked browser and a library with no catalogue, so no detector cutover is
+/// owed and a section config can change.
+fn engine_with_no_catalogue() -> PersistentEngine {
+    let engine = PersistentEngine::in_memory().expect("engine");
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, 1_700_000_000)
+        .expect("link the browser");
+    engine
+}
+
+const STRICTNESS: &str = r#"{"minMatchPct":61.0,"endpointThreshold":150.0}"#;
+const SECTION_CONFIG: &str = r#"{"proximityThreshold":150.0,"minSectionLength":300.0,"maxSectionLength":100000.0,"minActivities":3,"divergenceThreshold":0.2}"#;
+
+fn write_request(method: &str, params: &str) -> String {
+    format!(r#"{{"id":1,"method":"{method}","params":{params}}}"#)
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_strictness_write_is_the_one_the_phone_reads_back() {
+    let mut engine = engine_with_no_catalogue();
+    let got = written(
+        &mut engine,
+        &write_request("detection.setStrictness", STRICTNESS),
+    );
+    assert_eq!(got["result"]["ok"], true);
+    assert_eq!(engine.match_strictness(), (61.0, 150.0));
+    let stored = crate::persistence::settings::match_config_from(&engine.db).unwrap();
+    assert_eq!(
+        (stored.min_match_percentage, stored.endpoint_threshold),
+        (61.0, 150.0)
+    );
+    let row = &logged(&engine)[0];
+    assert_eq!(row.method, "detection.setStrictness");
+    assert!(row.summary.contains("61") && row.summary.contains("150"));
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_strictness_the_phones_numeric_box_refuses_is_refused_and_changes_nothing() {
+    let mut engine = engine_with_no_catalogue();
+    let before = engine.match_strictness();
+    for params in [
+        r#"{"minMatchPct":101.0,"endpointThreshold":150.0}"#,
+        r#"{"minMatchPct":0.0,"endpointThreshold":150.0}"#,
+        r#"{"minMatchPct":60.0,"endpointThreshold":-5.0}"#,
+        r#"{"minMatchPct":60.0}"#,
+    ] {
+        let got = written(
+            &mut engine,
+            &write_request("detection.setStrictness", params),
+        );
+        assert!(got.get("error").is_some(), "{params} answered {got}");
+    }
+    assert_eq!(engine.match_strictness(), before);
+    assert!(logged(&engine).is_empty());
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_section_config_write_is_the_config_the_phone_reads_back() {
+    let mut engine = engine_with_no_catalogue();
+    let got = written(
+        &mut engine,
+        &write_request("detection.setSectionConfig", SECTION_CONFIG),
+    );
+    assert_eq!(got["result"]["ok"], true);
+    let stored = crate::persistence::settings::section_config_from(&engine.db).unwrap();
+    assert_eq!(stored.proximity_threshold, 150.0);
+    assert_eq!(stored.min_section_length, 300.0);
+    assert_eq!(stored.max_section_length, 100000.0);
+    assert_eq!(stored.min_activities, 3);
+    assert_eq!(stored.divergence_threshold, 0.2);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_section_config_the_phone_refuses_is_refused_and_changes_nothing() {
+    let mut engine = engine_with_no_catalogue();
+    let before = engine.get_section_config();
+    for params in [
+        SECTION_CONFIG.replace("\"minActivities\":3", "\"minActivities\":0"),
+        SECTION_CONFIG.replace(
+            "\"proximityThreshold\":150.0",
+            "\"proximityThreshold\":-1.0",
+        ),
+        SECTION_CONFIG.replace("\"divergenceThreshold\":0.2", "\"divergenceThreshold\":0.0"),
+    ] {
+        let got = written(
+            &mut engine,
+            &write_request("detection.setSectionConfig", &params),
+        );
+        assert!(got.get("error").is_some(), "{params} answered {got}");
+    }
+    assert_eq!(engine.get_section_config(), before);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn switching_detection_on_stores_one_and_asks_for_one_backfill_start() {
+    let mut engine = engine_with_no_catalogue();
+    engine.set_detection_enabled(false).unwrap();
+
+    let off = answer_write(
+        &mut engine,
+        BROWSER,
+        &write_request("detection.setEnabled", r#"{"enabled":false}"#),
+    );
+    assert!(!off.starts_backfill());
+
+    let on = answer_write(
+        &mut engine,
+        BROWSER,
+        &write_request("detection.setEnabled", r#"{"enabled":true}"#),
+    );
+    assert!(on.starts_backfill());
+    assert_eq!(
+        crate::persistence::settings::setting_from(&engine.db, "__detection_enabled")
+            .unwrap()
+            .as_deref(),
+        Some("1")
+    );
+    assert_eq!(
+        logged(&engine)[0].summary,
+        "Switched route matching from off to on"
+    );
+
+    let refused = answer_write(
+        &mut engine,
+        BROWSER,
+        &write_request("detection.setEnabled", "{}"),
+    );
+    assert!(!refused.starts_backfill());
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_detection_read_answers_what_the_three_engine_reads_answer() {
+    let mut engine = engine_with_no_catalogue();
+    written(
+        &mut engine,
+        &write_request("detection.setStrictness", STRICTNESS),
+    );
+    written(
+        &mut engine,
+        &write_request("detection.setSectionConfig", SECTION_CONFIG),
+    );
+    written(
+        &mut engine,
+        &write_request("detection.setEnabled", r#"{"enabled":false}"#),
+    );
+
+    let got = result_of(&engine, "detection.settings", "{}");
+    assert_eq!(got["enabled"], false);
+    assert_eq!(got["strictness"]["minMatchPct"], 61.0);
+    assert_eq!(got["strictness"]["endpointThreshold"], 150.0);
+    assert_eq!(got["sectionConfig"]["proximityThreshold"], 150.0);
+    assert_eq!(got["sectionConfig"]["minActivities"], 3);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_detection_write_announces_the_settings_channel() {
+    use crate::objects::observer::{recorder::Recorder, set_observer};
+    let _serial = crate::test_globals::serial_global_state();
+    let recorder = Recorder::new();
+    set_observer(Some(recorder.clone()));
+    let mut engine = engine_with_no_catalogue();
+    answer_write(
+        &mut engine,
+        BROWSER,
+        &write_request("detection.setStrictness", STRICTNESS),
+    )
+    .announce();
+    let events = recorder.events();
+    set_observer(None);
+    assert_eq!(events, ["remote_wrote:settings"]);
 }

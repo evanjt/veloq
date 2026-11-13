@@ -25,6 +25,10 @@ const GEO_KINDS: Record<string, { method: string; params: (key: string) => objec
   'activity-overlay': { method: 'geo.activityOverlay', params: (key) => ({ activityId: key }) },
   'route-lines': { method: 'geo.routeLines', params: () => ({}) },
   sections: { method: 'geo.sections', params: () => ({}) },
+  route: { method: 'geo.route', params: (key) => ({ groupId: key }) },
+  'route-latest': { method: 'geo.routeLatest', params: (key) => ({ groupId: key }) },
+  section: { method: 'geo.section', params: (key) => ({ sectionId: key }) },
+  'section-passes': { method: 'geo.sectionPasses', params: (key) => ({ sectionId: key }) },
 };
 
 const BASES = ['light', 'dark', 'satellite'] as const;

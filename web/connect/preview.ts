@@ -4,6 +4,7 @@
 import { decodeCoordsFlat } from '../../modules/veloqrs/src/coords';
 
 import { bytesOf } from './link';
+import { fitLines, type LatLng } from './fit';
 
 /** The thumbnail's box in SVG units. The row sizes it with CSS. */
 export const THUMB = 48;
@@ -17,54 +18,37 @@ export type TrackShape = {
 };
 
 /**
- * The line fit to its own bounds, centred, with north up. Longitude is
- * squeezed by the cosine of the middle latitude so the shape keeps its
- * proportions. Null when fewer than two vertices remain.
+ * The vertices of an engine track, as the base64 text the engine sends it in
+ * (a preview line or a stream's `latlng`). Pairs with a non-finite value are
+ * left out.
  */
-export function trackShape(preview: string): TrackShape | null {
-  const bytes = bytesOf(preview);
-  const flat = decodeCoordsFlat(bytes.buffer);
-  const points: [lat: number, lng: number][] = [];
+export function pointsOf(track: string): LatLng[] {
+  const flat = decodeCoordsFlat(bytesOf(track).buffer);
+  const points: LatLng[] = [];
   for (let at = 0; at + 1 < flat.length; at += 2) {
     const lat = flat[at] as number;
     const lng = flat[at + 1] as number;
     if (Number.isFinite(lat) && Number.isFinite(lng)) points.push([lat, lng]);
   }
+  return points;
+}
+
+/**
+ * The line fit to its own bounds, centred, with north up. Null when fewer than
+ * two vertices remain or the line has no extent.
+ */
+export function trackShape(preview: string): TrackShape | null {
+  const points = pointsOf(preview);
   if (points.length < 2) return null;
-
-  let south = Infinity;
-  let north = -Infinity;
-  let west = Infinity;
-  let east = -Infinity;
-  for (const [lat, lng] of points) {
-    south = Math.min(south, lat);
-    north = Math.max(north, lat);
-    west = Math.min(west, lng);
-    east = Math.max(east, lng);
-  }
-  const squeeze = Math.cos((((south + north) / 2) * Math.PI) / 180);
-  const width = (east - west) * squeeze;
-  const height = north - south;
-  const span = Math.max(width, height);
-  if (span === 0) return null;
-
-  const room = THUMB - 2 * MARGIN;
-  const scale = room / span;
-  const left = MARGIN + (room - width * scale) / 2;
-  const top = MARGIN + (room - height * scale) / 2;
-  const place = ([lat, lng]: [number, number]): [number, number] => [
-    round(left + (lng - west) * squeeze * scale),
-    round(top + (north - lat) * scale),
-  ];
-  const placed = points.map(place);
+  const fitted = fitLines([points], { width: THUMB, height: THUMB, margin: MARGIN });
+  const placed = fitted?.[0];
+  if (!placed) return null;
   return {
     path: placed.map(([x, y], at) => `${at === 0 ? 'M' : 'L'}${x} ${y}`).join(''),
     start: placed[0] as [number, number],
     end: placed[placed.length - 1] as [number, number],
   };
 }
-
-const round = (value: number) => Math.round(value * 10) / 10;
 
 export type SportMark = { family: 'ride' | 'run' | 'swim' | 'walk' | 'other'; mark: string };
 

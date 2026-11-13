@@ -20,6 +20,11 @@ jest.mock('@/shared/storage', () => ({
   setSetting: jest.fn(async () => {}),
 }));
 
+let mockEngineSwitch: string | undefined;
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => ({ getSetting: () => mockEngineSwitch }),
+}));
+
 const listeners: Record<string, (() => void)[]> = {};
 jest.mock('@/shared/native/useEngineReady', () => ({
   useEngineReady: () => ({
@@ -43,6 +48,7 @@ beforeEach(() => {
   for (const key of Object.keys(listeners)) delete listeners[key];
   mockedGet.mockReset();
   mockedGet.mockResolvedValue(null);
+  mockEngineSwitch = undefined;
   useRouteSettings.setState({ settings: { enabled: true }, isLoaded: true });
 });
 
@@ -71,5 +77,30 @@ vaultIt('does not re-read on a sections announcement', async () => {
 vaultIt('reload falls back to the default when nothing is stored', async () => {
   useRouteSettings.setState({ settings: { enabled: false }, isLoaded: true });
   await useRouteSettings.getState().reload();
+  expect(useRouteSettings.getState().settings.enabled).toBe(true);
+});
+
+it('follows the engine switch when a browser turned detection off', async () => {
+  await render(<Probe />);
+  mockedGet.mockResolvedValue(JSON.stringify({ enabled: true }));
+  mockEngineSwitch = '0';
+
+  await act(async () => {
+    listeners.settings.forEach((cb) => cb());
+  });
+
+  expect(useRouteSettings.getState().settings.enabled).toBe(false);
+});
+
+it('follows the engine switch when a browser turned detection on', async () => {
+  useRouteSettings.setState({ settings: { enabled: false }, isLoaded: true });
+  await render(<Probe />);
+  mockedGet.mockResolvedValue(JSON.stringify({ enabled: false }));
+  mockEngineSwitch = '1';
+
+  await act(async () => {
+    listeners.settings.forEach((cb) => cb());
+  });
+
   expect(useRouteSettings.getState().settings.enabled).toBe(true);
 });

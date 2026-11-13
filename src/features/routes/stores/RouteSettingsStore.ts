@@ -92,7 +92,13 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
       const parsed = stored
         ? safeJsonParseWithSchema(stored, isRouteSettings, DEFAULT_SETTINGS)
         : DEFAULT_SETTINGS;
-      set({ settings: pickSettings(parsed), isLoaded: true });
+      const settings = pickSettings(parsed);
+      // The engine owns the switch, and a linked browser writes it there
+      // alone, so the engine's value wins over the stored copy.
+      const { getEngine } = require('@/shared/native/engine');
+      const held = getEngine()?.getSetting?.(DETECTION_ENABLED_KEY);
+      if (held === '0' || held === '1') settings.enabled = held === '1';
+      set({ settings, isLoaded: true });
     } catch (error) {
       log.error('Failed to reload settings:', error);
     }

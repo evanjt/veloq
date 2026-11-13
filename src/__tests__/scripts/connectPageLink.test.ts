@@ -1334,3 +1334,29 @@ describe('the page acts on the phone saying why it is leaving', () => {
     expect(farewellOf({ id: 1, result: 5 })).toBeUndefined();
   });
 });
+
+describe('the page tells the athlete how long the phone has been waited for', () => {
+  const waiting: State = { name: 'waiting', phone: PHONE, attempt: 0 };
+
+  it('marks a waiting page long once the runner says the wait has run on', () => {
+    expect(step(waiting, { type: 'stillWaiting' }).state).toEqual({ ...waiting, long: true });
+  });
+
+  it('keeps the mark through a failed retry and a closed relay', () => {
+    const long: State = { ...waiting, long: true };
+    expect(step(long, { type: 'drop' }).state).toMatchObject({ long: true });
+    expect(step(long, { type: 'relayClosed' }).state).toMatchObject({ long: true });
+  });
+
+  it('clears the mark when the page starts again', () => {
+    expect(step({ ...waiting, long: true }, { type: 'start', phone: PHONE }).state).toEqual(
+      waiting
+    );
+  });
+
+  it('ignores the timer once the page is no longer waiting', () => {
+    const state: State = { name: 'update', phone: PHONE };
+    expect(step(state, { type: 'stillWaiting' }).state).toEqual(state);
+    expect(step(connected(), { type: 'stillWaiting' }).state.name).toBe('connected');
+  });
+});

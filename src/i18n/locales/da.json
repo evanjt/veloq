@@ -3320,7 +3320,7 @@
   },
   "remoteLink": {
     "title": "Tilknyttede enheder",
-    "intro": "En tilknyttet computer kan gennemse dette bibliotek i sin browser, mens Veloq er åben på denne telefon. Dine data går direkte fra telefonen til browseren.",
+    "intro": "En tilknyttet computer kan gennemse dette bibliotek i sin browser, mens Veloq er åben på denne telefon. Dine data går direkte fra telefonen til browseren. Skærmen forbliver tændt, mens den er forbundet.",
     "none": "Ingen",
     "linkedCount_one": "{{count}} tilknyttet",
     "linkedCount_other": "{{count}} tilknyttet",
@@ -3336,7 +3336,7 @@
     "invalidCode": "Ikke en gyldig tilknytningskode, eller den er udløbet",
     "waiting": "Venter på browseren…",
     "confirmTitle": "Tilknyt {{name}}?",
-    "confirmMessage": "Den kan gennemse dine aktiviteter, når Veloq er åben på denne telefon. Du kan altid fjerne den under Indstillinger.",
+    "confirmMessage": "Den kan gennemse dine aktiviteter, når Veloq er åben på denne telefon. Du kan altid fjerne den under Indstillinger. Skærmen forbliver tændt, mens den er forbundet.",
     "confirm": "Tilknyt",
     "decline": "Afvis",
     "expired": "Browseren forbandt ikke i tide. Lav en ny kode på siden, og scan den igen.",
@@ -3363,7 +3363,7 @@
       "confirming": "Bekræft på din telefon",
       "waiting": "Venter på din telefon",
       "connecting": "Forbinder",
-      "connected": "Forbundet",
+      "connected": "Forbundet til din telefon",
       "update": "Opdater Veloq på din telefon",
       "unsupported": "Ikke understøttet"
     },
@@ -3371,7 +3371,7 @@
     "notice": {
       "refused": "Telefonen afviste denne browser. Tilknyt den igen med en ny kode.",
       "declined": "Tilknytningen blev afvist på telefonen.",
-      "removed": "Denne browser blev fjernet på telefonen. Tilknyt den igen med en ny kode.",
+      "removed": "Denne browser blev fjernet på telefonen. Scan en ny kode for at tilknytte den igen.",
       "unreachable": "Kunne ikke nå din telefon herfra. Sæt begge på samme Wi-Fi, og scan den nye kode.",
       "phoneLocked": "Lås telefonen op og åbn Veloq for at foretage ændringer"
     },
@@ -3396,8 +3396,12 @@
     },
     "waiting": {
       "heading": "Venter på din telefon",
-      "body": "Åbn Veloq på din telefon. Denne side forbinder af sig selv, på samme Wi-Fi og på de fleste andre netværk.",
-      "unreachable": "Kunne ikke nå din telefon herfra. Sæt begge på samme Wi-Fi."
+      "body": "Åbn Veloq på din telefon, og lad den være låst op. Denne side forbinder af sig selv, på samme Wi-Fi og på de fleste andre netværk.",
+      "unreachable": "Kunne ikke nå din telefon herfra. Sæt begge på samme Wi-Fi.",
+      "long": "Venter stadig. Veloq skal være åben på telefonen, ikke kun i baggrunden.",
+      "background": "Veloq gik i baggrunden på din telefon. Åbn den, så fortsætter denne side.",
+      "disconnected": "Afbrudt på telefonen. Åbn Veloq for at forbinde igen.",
+      "switchedOff": "Tilknyttede enheder er slået fra på telefonen. Slå det til under Indstillinger, Tilknyttede enheder."
     },
     "update": {
       "heading": "Opdater Veloq på din telefon",

@@ -813,7 +813,7 @@ fn refusal_result(refusal: DetectionRefusal) -> FfiStartResult {
 
 /// The refusal as one line of log, so the reason is in the log as well as in
 /// the return.
-fn refusal_reason(refusal: DetectionRefusal) -> &'static str {
+pub(crate) fn refusal_reason(refusal: DetectionRefusal) -> &'static str {
     match refusal {
         DetectionRefusal::SwitchedOff => "route matching is switched off",
         DetectionRefusal::Suspended => "an elevation backfill holds the engine",

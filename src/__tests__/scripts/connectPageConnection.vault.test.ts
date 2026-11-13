@@ -14,6 +14,7 @@ import { createInstance } from 'i18next';
 import enGB from '../../i18n/locales/en-GB.json';
 import {
   chipOf,
+  waitingKey,
   endpointText,
   factsOf,
   ratePlot,
@@ -81,7 +82,7 @@ describe('the chip', () => {
       [{ name: 'connecting', phone: PHONE, attempt: 0 }, 'Connecting', 'waiting'],
       [
         { name: 'connected', phone: PHONE, attempt: 0, methods: null, version: null },
-        'Connected',
+        'Connected to your phone',
         'live',
       ],
       [{ name: 'update', phone: PHONE }, 'Update Veloq on your phone', 'warning'],
@@ -98,7 +99,7 @@ describe('the chip', () => {
     state = step(state, { type: 'peer' }).state;
     expect(shown(state).label).toBe('Connecting');
     state = step(state, { type: 'open' }).state;
-    expect(shown(state)).toEqual({ tone: 'live', label: 'Connected' });
+    expect(shown(state)).toEqual({ tone: 'live', label: 'Connected to your phone' });
     state = step(state, { type: 'drop' }).state;
     expect(shown(state).label).toBe('Waiting for your phone');
   });
@@ -230,5 +231,33 @@ describe('the figures the popover writes', () => {
     expect(rate(0)).toBe('0 B/s');
     expect(rate(999)).toBe('999 B/s');
     expect(rate(1500)).toBe('1.5 kB/s');
+  });
+});
+
+describe('the waiting pane says what to do for the state the page is in', () => {
+  const waiting: State = { name: 'waiting', phone: PHONE, attempt: 0 };
+  const said = (state: State) => strings.t(waitingKey(state));
+
+  it('asks for an open, unlocked phone and claims no network the page cannot reach', () => {
+    expect(said(waiting)).toContain('keep it unlocked');
+    expect(said(waiting)).not.toMatch(/any network|as this computer/);
+  });
+
+  it('says the app has to be open, not in the background, once the wait runs long', () => {
+    expect(said({ ...waiting, long: true })).toContain('not just in the background');
+  });
+
+  it('names what the phone did when it said why it left', () => {
+    expect(said({ ...waiting, reason: 'background' })).toContain('went to the background');
+    expect(said({ ...waiting, reason: 'disconnected' })).toContain('Disconnected on the phone');
+    expect(said({ ...waiting, reason: 'switchedOff' })).toContain('switched off');
+    expect(said({ ...waiting, reason: 'background', long: true })).toContain(
+      'went to the background'
+    );
+  });
+
+  it('says no path formed above everything else', () => {
+    const state: State = { ...waiting, reason: 'background', long: true, unreachable: true };
+    expect(said(state)).toContain('Put both on the same Wi-Fi');
   });
 });

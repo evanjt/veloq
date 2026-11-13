@@ -18,6 +18,21 @@ export const STATUS: Record<State['name'], ParseKeys> = {
   update: 'connectPage.status.update',
 };
 
+/**
+ * The sentence the waiting pane reads. Not reaching the phone from here comes
+ * first, since only a change of network mends it; then why the phone left, since
+ * it names what to do; then the long wait; then the standing line.
+ */
+export function waitingKey(state: State): ParseKeys {
+  if (state.name !== 'waiting' && state.name !== 'connecting') return 'connectPage.waiting.body';
+  if (state.unreachable) return 'connectPage.waiting.unreachable';
+  if (state.name === 'connecting') return 'connectPage.waiting.body';
+  if (state.reason === 'background') return 'connectPage.waiting.background';
+  if (state.reason === 'disconnected') return 'connectPage.waiting.disconnected';
+  if (state.reason === 'switchedOff') return 'connectPage.waiting.switchedOff';
+  return state.long ? 'connectPage.waiting.long' : 'connectPage.waiting.body';
+}
+
 export type Tone = 'live' | 'waiting' | 'idle' | 'warning';
 
 const TONE: Record<State['name'], Tone> = {

@@ -40,6 +40,73 @@ pub(crate) fn rename_section(
         })
 }
 
+/// What a traversal edit leaves to do once the exclusion flag moves: the
+/// indicators the PR and trend figures read are worked out again. The
+/// phone's edit and the linked browser's both end here.
+fn refresh_indicators(
+    engine: &mut crate::persistence::PersistentEngine,
+    section_id: &str,
+    edit: &str,
+) {
+    if let Err(err) = engine.recompute_indicators_for_section(section_id) {
+        log::warn!("veloqrs: [{edit}] Indicator recomputation failed: {err}");
+    }
+}
+
+/// Leave an activity out of a section's figures.
+pub(crate) fn exclude_activity_from(
+    engine: &mut crate::persistence::PersistentEngine,
+    section_id: &str,
+    activity_id: &str,
+) -> Result<(), VeloqError> {
+    engine
+        .exclude_activity_from_section(section_id, activity_id)
+        .map_err(|msg| VeloqError::Database { msg })?;
+    refresh_indicators(engine, section_id, "exclude_activity");
+    Ok(())
+}
+
+/// Count an excluded activity in a section's figures again.
+pub(crate) fn include_activity_in(
+    engine: &mut crate::persistence::PersistentEngine,
+    section_id: &str,
+    activity_id: &str,
+) -> Result<(), VeloqError> {
+    engine
+        .include_activity_in_section(section_id, activity_id)
+        .map_err(|msg| VeloqError::Database { msg })?;
+    refresh_indicators(engine, section_id, "include_activity");
+    Ok(())
+}
+
+/// Leave one traversal out of a section's figures.
+pub(crate) fn exclude_lap_from(
+    engine: &mut crate::persistence::PersistentEngine,
+    section_id: &str,
+    activity_id: &str,
+    start_index: u32,
+) -> Result<(), VeloqError> {
+    engine
+        .exclude_section_lap(section_id, activity_id, start_index)
+        .map_err(|msg| VeloqError::Database { msg })?;
+    refresh_indicators(engine, section_id, "exclude_lap");
+    Ok(())
+}
+
+/// Count an excluded traversal in a section's figures again.
+pub(crate) fn include_lap_in(
+    engine: &mut crate::persistence::PersistentEngine,
+    section_id: &str,
+    activity_id: &str,
+    start_index: u32,
+) -> Result<(), VeloqError> {
+    engine
+        .include_section_lap(section_id, activity_id, start_index)
+        .map_err(|msg| VeloqError::Database { msg })?;
+    refresh_indicators(engine, section_id, "include_lap");
+    Ok(())
+}
+
 /// One edit to a section's line, each re-matching the section's rides.
 #[derive(Debug, Clone, serde::Serialize, uniffi::Enum)]
 #[serde(rename_all = "camelCase")]
@@ -453,33 +520,11 @@ impl SectionManager {
     }
 
     fn exclude_activity(&self, section_id: String, activity_id: String) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.exclude_activity_from_section(&section_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })?;
-            // Recompute indicators since exclusion changes PR/trend calculations
-            if let Err(err) = e.recompute_indicators_for_section(&section_id) {
-                log::warn!(
-                    "veloqrs: [exclude_activity] Indicator recomputation failed: {}",
-                    err
-                );
-            }
-            Ok(())
-        })?
+        with_engine(|e| exclude_activity_from(e, &section_id, &activity_id))?
     }
 
     fn include_activity(&self, section_id: String, activity_id: String) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.include_activity_in_section(&section_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })?;
-            // Recompute indicators since inclusion changes PR/trend calculations
-            if let Err(err) = e.recompute_indicators_for_section(&section_id) {
-                log::warn!(
-                    "veloqrs: [include_activity] Indicator recomputation failed: {}",
-                    err
-                );
-            }
-            Ok(())
-        })?
+        with_engine(|e| include_activity_in(e, &section_id, &activity_id))?
     }
 
     fn get_excluded_activities(&self, section_id: String) -> Result<Vec<String>, VeloqError> {
@@ -492,17 +537,7 @@ impl SectionManager {
         activity_id: String,
         start_index: u32,
     ) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.exclude_section_lap(&section_id, &activity_id, start_index)
-                .map_err(|e| VeloqError::Database { msg: e })?;
-            if let Err(err) = e.recompute_indicators_for_section(&section_id) {
-                log::warn!(
-                    "veloqrs: [exclude_lap] Indicator recomputation failed: {}",
-                    err
-                );
-            }
-            Ok(())
-        })?
+        with_engine(|e| exclude_lap_from(e, &section_id, &activity_id, start_index))?
     }
 
     fn include_lap(
@@ -511,17 +546,7 @@ impl SectionManager {
         activity_id: String,
         start_index: u32,
     ) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.include_section_lap(&section_id, &activity_id, start_index)
-                .map_err(|e| VeloqError::Database { msg: e })?;
-            if let Err(err) = e.recompute_indicators_for_section(&section_id) {
-                log::warn!(
-                    "veloqrs: [include_lap] Indicator recomputation failed: {}",
-                    err
-                );
-            }
-            Ok(())
-        })?
+        with_engine(|e| include_lap_in(e, &section_id, &activity_id, start_index))?
     }
 
     /// A stored version's line, coordinate-encoded like a section polyline.

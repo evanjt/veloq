@@ -4,6 +4,23 @@ use super::engine::InFlight;
 use super::error::{VeloqError, with_engine, with_reader};
 use crate::persistence::sections::lap_curves::pooled::CurveRead;
 
+/// Give a route a name, or clear it with an empty one. The phone's rename and
+/// the linked browser's both end here, so a taken name is refused the same way
+/// on each.
+pub(crate) fn rename_route(
+    engine: &mut crate::persistence::PersistentEngine,
+    route_id: &str,
+    name: &str,
+) -> Result<(), VeloqError> {
+    let name = (!name.is_empty()).then_some(name);
+    engine
+        .set_route_name(route_id, name)
+        .map_err(|error| match error {
+            crate::persistence::RouteNameError::Taken(name) => VeloqError::RouteNameTaken { name },
+            crate::persistence::RouteNameError::Failed(msg) => VeloqError::Database { msg },
+        })
+}
+
 /// One representative choice at a time. Cleared by the choice itself rather
 /// than by the caller's future, so a caller that stops waiting does not free
 /// the slot while the choice still holds the engine.
@@ -248,20 +265,7 @@ impl RouteManager {
     }
 
     fn set_name(&self, route_id: String, name: String) -> Result<(), VeloqError> {
-        let name_opt = if name.is_empty() {
-            None
-        } else {
-            Some(name.as_str())
-        };
-        with_engine(|e| {
-            e.set_route_name(&route_id, name_opt)
-                .map_err(|error| match error {
-                    crate::persistence::RouteNameError::Taken(name) => {
-                        VeloqError::RouteNameTaken { name }
-                    }
-                    crate::persistence::RouteNameError::Failed(msg) => VeloqError::Database { msg },
-                })
-        })?
+        with_engine(|e| rename_route(e, &route_id, &name))?
     }
 
     fn exclude_activity(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {

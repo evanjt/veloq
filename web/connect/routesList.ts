@@ -3,6 +3,7 @@
 // Pure, so a test drives it without a browser. The engine orders and filters
 // the list; this only says which question to ask it.
 
+import { readIds, writeIds } from './compare';
 import type { Route } from './router';
 import type { Methods } from './schema';
 
@@ -33,6 +34,8 @@ export type ListState = {
   search: string;
   chips: Chip[];
   selected: string | null;
+  /** The passes the athlete selected to compare, in selection order; fewer than two is none. */
+  ids: string[];
 };
 
 /** Rows asked of each list at a time. */
@@ -42,7 +45,7 @@ const defaultSort = (kind: Kind) => (kind === 'routes' ? ROUTE_SORTS[0] : SECTIO
 
 /** The list as it opens: the phone's first order, nothing searched, no chip on. */
 export function opening(kind: Kind, selected: string | null = null): ListState {
-  return { kind, sort: defaultSort(kind), search: '', chips: [], selected };
+  return { kind, sort: defaultSort(kind), search: '', chips: [], selected, ids: [] };
 }
 
 const isSort = (kind: Kind, sort: string) =>
@@ -97,6 +100,8 @@ export function toRoute(state: ListState): Route {
   if (state.kind === 'sections' && state.chips.length > 0) {
     query.push(['chips', CHIPS.filter((chip) => state.chips.includes(chip)).join(',')]);
   }
+  const ids = writeIds(state.ids);
+  if (ids) query.push(['ids', ids]);
   if (state.selected) {
     return { screen: state.kind === 'routes' ? 'route' : 'section', id: state.selected, query };
   }
@@ -121,6 +126,10 @@ export function fromRoute(route: Route): ListState | null {
     search: value('q') ?? '',
     chips: kind === 'sections' ? CHIPS.filter((chip) => named.includes(chip)) : [],
     selected: route.id,
+    ids: (() => {
+      const ids = readIds(value('ids'));
+      return ids.length >= 2 ? ids : [];
+    })(),
   };
 }
 

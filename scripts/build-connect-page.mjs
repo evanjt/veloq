@@ -70,6 +70,8 @@ const ICON = 'href="../icon.png"';
 const TEMPLATE = 'index.html';
 /** Copied beside the output unchanged: the vendored encoder's licence. */
 const NOTICES = ['qr.LICENSE.txt'];
+/** The app's font licence, copied beside the faces the stylesheet names. */
+const FONT_LICENCE = { source: 'assets/fonts/Manrope-OFL.txt', name: 'Manrope.LICENSE.txt' };
 /** The template's own names for what it loads, replaced by the built names. */
 const ENTRIES = ['boot.ts', 'connect.css'];
 /** Where the app keeps the renderer, and the module that pins its version and hashes. */
@@ -179,7 +181,7 @@ function themeSubset(root) {
     name: 'theme-subset',
     setup(build) {
       build.onResolve({ filter: /^@\/theme$/ }, () => ({
-        path: join(root, SOURCE, 'map/theme.ts'),
+        path: join(root, SOURCE, 'theme.ts'),
       }));
     },
   };
@@ -288,6 +290,7 @@ export async function buildConnectPage({ root, out, plain = false }) {
     splitting: true,
     format: 'esm',
     jsx: 'automatic',
+    loader: { '.ttf': 'file' },
     define: { 'process.env.NODE_ENV': '"production"' },
     target: 'es2022',
     minify: true,
@@ -320,6 +323,7 @@ export async function buildConnectPage({ root, out, plain = false }) {
   for (const [name, bytes] of locales.files) writeFileSync(join(out, 'locales', name), bytes);
   writeFileSync(join(out, TEMPLATE), page);
   for (const notice of NOTICES) cpSync(join(source, notice), join(out, notice));
+  cpSync(join(root, FONT_LICENCE.source), join(out, FONT_LICENCE.name));
   for (const file of renderer) writeFileSync(join(out, file.name), file.bytes);
   const built = [...names.values(), ...renderer.map((file) => file.name)];
   if (plain) return built;

@@ -263,6 +263,13 @@ const GUARDS = [
       'a client member that only hands itself to a delegate, a second door to a function the bound namespace already exports',
   },
   {
+    name: 'lint:connect-css',
+    kind: 'style',
+    cmd: node('lint-connect-css.mjs'),
+    catches:
+      'a colour or a spacing, radius, border or font-size length written into the connect page past the generated token file, so the page drifts from the app',
+  },
+  {
     name: 'crash:guard',
     kind: 'correctness',
     cmd: node('crash-guard-sweep.mjs'),
@@ -447,6 +454,13 @@ const GUARDS = [
     cmd: node('lint-bare-thread-spawn.mjs'),
     catches:
       'a long engine pass spawned unnamed, so a per-thread sampler reads it as the JavaScript thread',
+  },
+  {
+    name: 'lint:connect-theme-subset',
+    kind: 'style',
+    cmd: node('lint-connect-theme-subset.mjs'),
+    catches:
+      'a native import reaching the connect page theme subset, which a browser bundle cannot load',
   },
   {
     name: 'lint:intervals-paths',
@@ -1142,6 +1156,13 @@ const GUARDS = [
     cmd: node('lint-unchecked-index.mjs'),
     catches:
       'a new index read that can be undefined, in a directory whose count under noUncheckedIndexedAccess only falls',
+  },
+  {
+    name: 'lint:connect-bare-controls',
+    kind: 'style',
+    cmd: node('lint-connect-bare-controls.mjs'),
+    catches:
+      'a bare button, select or input in a connect page file instead of the kit in web/connect/ui, so controls differ page to page',
   },
   {
     name: 'lint:hand-rolled-buttons',

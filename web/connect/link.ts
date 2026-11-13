@@ -226,6 +226,8 @@ export type State =
       reason?: Farewell;
       /** The phone answered an offer and no path formed; kept until a channel opens. */
       unreachable?: true;
+      /** The wait has run past the point where the page says the phone is not just slow. */
+      long?: true;
     }
   | { name: 'connecting'; phone: string; attempt: number; unreachable?: true }
   | {
@@ -253,6 +255,7 @@ export type Event =
   | { type: 'screen'; method: string; params?: object }
   | { type: 'drop'; cause?: 'unreachable' }
   | { type: 'farewell'; reason: Farewell }
+  | { type: 'stillWaiting' }
   | { type: 'bye' }
   | { type: 'relayOpened' }
   | { type: 'relayClosed' }
@@ -377,6 +380,7 @@ export function step(state: State, event: Event): Step {
       return to(state);
 
     case 'waiting':
+      if (event.type === 'stillWaiting') return to({ ...state, long: true });
       if (event.type === 'peer') {
         return to(
           {

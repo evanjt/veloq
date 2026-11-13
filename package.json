@@ -132,6 +132,7 @@
     "lint:generated-typechecked": "node scripts/lint-generated-typechecked.mjs",
     "lint:engine-client-casts": "node scripts/lint-engine-client-casts.mjs",
     "lint:map-chrome-theme": "node scripts/lint-map-chrome-theme.mjs",
+    "lint:connect-css": "node scripts/lint-connect-css.mjs",
     "lint:map-layer-colours": "node scripts/lint-map-layer-colours.mjs",
     "lint:em-dashes": "node scripts/lint-em-dashes.mjs",
     "lint:jsdoc-tags": "node scripts/lint-jsdoc-tags.mjs",

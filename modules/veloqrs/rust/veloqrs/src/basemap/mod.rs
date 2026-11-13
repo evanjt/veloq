@@ -38,12 +38,18 @@ mod throttle;
 pub use composite::{CompositeMember, GeoBox};
 pub use fetch::{FILL_PACE, TileFetchError, TileFetcher};
 pub use geo::geo_answer;
+#[cfg(test)]
+pub(crate) use geo::line_feature;
 pub(crate) use geo::route_lines_collection;
 #[cfg(test)]
 pub(crate) use geo::route_palette_key as palette_key;
 pub(crate) use geo::sections_collection;
 #[cfg(test)]
 pub(crate) use geo::sections_features;
+pub(crate) use geo::{
+    OverlayEncounter, OverlaySection, activity_overlay_features, route_feature,
+    route_latest_feature, section_feature, section_passes_collection, track_collection,
+};
 pub use preseed::{
     GROUND_BUDGET_BYTES, GROUND_ZOOMS, PlannedTile, PreseedSource, SeedOutcome, TERRAIN_ZOOMS,
     plan_area_preseed, plan_preseed, seed_preseed, seed_ranked_preseed, seed_terrain_background,

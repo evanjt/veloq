@@ -91,8 +91,10 @@ describe('the address', () => {
       search: 'col',
       chips: ['custom', 'accepted'],
       selected: null,
+      ids: [],
     },
     { ...opening('sections', 's/1'), chips: ['removed'] },
+    { ...opening('sections', 's1'), ids: ['p1', 'x,y'] },
     opening('routes', 'g 7'),
   ];
 
